@@ -1,0 +1,10 @@
+title: '`fatxpool`: buckets for event-timings metrics adjusted'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR adjusts the buckets for transactions' event-timings metrics  as requested in #9158 for reliability dashboard.
+
+    fixes: #9158
+crates:
+- name: sc-transaction-pool
+  bump: minor

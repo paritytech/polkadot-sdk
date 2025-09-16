@@ -38,8 +38,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
 use polkadot_primitives::{
-	vstaging::{BackedCandidate, CandidateEvent, CoreState},
-	CandidateHash, CoreIndex, Hash, Id as ParaId, SignedAvailabilityBitfield, ValidatorIndex,
+	BackedCandidate, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
+	SignedAvailabilityBitfield, ValidatorIndex,
 };
 use sc_consensus_slots::time_until_next_slot;
 use schnellru::{ByLength, LruMap};

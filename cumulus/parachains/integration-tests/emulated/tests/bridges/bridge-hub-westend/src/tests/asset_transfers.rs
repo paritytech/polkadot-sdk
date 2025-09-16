@@ -16,7 +16,7 @@
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
 use emulated_integration_tests_common::{
 	macros::Dmp,
-	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
+	xcm_helpers::{find_all_mq_processed_ids, find_mq_processed_id, find_xcm_sent_message_id},
 	xcm_simulator::helpers::TopicIdTracker,
 };
 use xcm::latest::AssetTransferFilter;
@@ -157,7 +157,8 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 		let destination = asset_hub_rococo_location();
 		let assets: Assets = (wnd_at_asset_hub_westend, amount).into();
 		let fee_idx = 0;
-		assert_ok!(send_assets_from_asset_hub_westend(destination, assets, fee_idx));
+		let transfer_type = TransferType::LocalReserve;
+		assert_ok!(send_assets_from_asset_hub_westend(destination, assets, fee_idx, transfer_type));
 	});
 
 	// verify expected events on final destination
@@ -302,7 +303,8 @@ fn send_back_rocs_from_asset_hub_westend_to_asset_hub_rococo() {
 		let destination = asset_hub_rococo_location();
 		let assets: Assets = (bridged_roc_at_asset_hub_westend.clone(), amount_to_send).into();
 		let fee_idx = 0;
-		assert_ok!(send_assets_from_asset_hub_westend(destination, assets, fee_idx));
+		let transfer_type = TransferType::DestinationReserve;
+		assert_ok!(send_assets_from_asset_hub_westend(destination, assets, fee_idx, transfer_type));
 	});
 
 	AssetHubRococo::execute_with(|| {
@@ -1145,7 +1147,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 				);
 
 				let msg_sent_id =
-					find_xcm_sent_message_id::<PenpalB>().expect("Missing Sent Event");
+					find_xcm_sent_message_id::<PenpalB>().expect("Missing Sent Event on PenpalB");
 				topic_id_tracker.insert("PenpalB", msg_sent_id.into());
 
 				result
@@ -1171,9 +1173,9 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 						) => {},
 					]
 				);
-				let mq_prc_id =
-					find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
-				topic_id_tracker.insert("AssetHubWestend", mq_prc_id);
+				let mq_prc_ids = find_all_mq_processed_ids::<AssetHubWestend>();
+				assert!(!mq_prc_ids.is_empty(), "Missing Processed Event on AssetHubWestend");
+				topic_id_tracker.insert_all("AssetHubWestend", &mq_prc_ids);
 			});
 		});
 	}
@@ -1200,10 +1202,11 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 				) => {},
 			]
 		);
-		let mq_prc_id = find_mq_processed_id::<AssetHubRococo>().expect("Missing Processed Event");
-		topic_id_tracker.insert("AssetHubRococo", mq_prc_id);
+		let mq_prc_ids = find_all_mq_processed_ids::<AssetHubRococo>();
+		assert!(!mq_prc_ids.is_empty(), "Missing Processed Event on AssetHubRococo");
+		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
 	});
-	topic_id_tracker.assert_unique();
+	topic_id_tracker.assert_only_id_seen_on_all_chains("PenpalB");
 
 	let sender_rocs_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
@@ -1482,8 +1485,9 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	let wnd = Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		let mq_prc_id = find_mq_processed_id::<AssetHubRococo>().expect("Missing Processed Event");
-		topic_id_tracker.insert_and_assert_unique("AssetHubRococo", mq_prc_id);
+		let mq_prc_ids = find_all_mq_processed_ids::<AssetHubRococo>();
+		assert!(!mq_prc_ids.is_empty(), "Missing Processed Event on AssetHubRococo");
+		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
@@ -1500,8 +1504,8 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		);
 	});
 
-	// assert unique topic across all chains
-	topic_id_tracker.assert_unique();
+	// assert that the only topic ID on 'PenpalB' exists on all chains
+	topic_id_tracker.assert_only_id_seen_on_all_chains("PenpalB");
 
 	// account balances after
 	let sender_wnds_after = PenpalB::execute_with(|| {

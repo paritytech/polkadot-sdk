@@ -48,13 +48,11 @@ use crate::{
 		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
 		Tracer, TracerType, TYPE_EIP1559,
 	},
-	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
-	storage::{
-		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
-	},
+	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -81,7 +79,7 @@ use frame_system::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
+	traits::{Bounded, Convert, Dispatchable, Saturating},
 	AccountId32, DispatchError,
 };
 
@@ -89,8 +87,9 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
-	exec::{MomentOf, Origin},
-	pallet::*,
+	exec::{Key, MomentOf, Origin},
+	pallet::{genesis, *},
+	storage::{AccountInfo, ContractInfo},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -102,12 +101,11 @@ pub use sp_runtime;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
-pub use crate::vm::SyscallDoc;
+pub use crate::vm::pvm::SyscallDoc;
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
-type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
@@ -226,6 +224,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnsafeUnstableInterface: Get<bool>;
 
+		/// Allow EVM bytecode to be uploaded and instantiated.
+		#[pallet::constant]
+		type AllowEVMBytecode: Get<bool>;
+
 		/// Origin allowed to upload code.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
@@ -337,6 +339,7 @@ pub mod pallet {
 			type DepositPerItem = DepositPerItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
+			type AllowEVMBytecode = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
@@ -395,7 +398,7 @@ pub mod pallet {
 		DecodingFailed = 0x0A,
 		/// Contract trapped during execution.
 		ContractTrapped = 0x0B,
-		/// The size defined in `T::MaxValueSize` was exceeded.
+		/// Event body or storage item exceeds [`limits::PAYLOAD_BYTES`].
 		ValueTooLarge = 0x0C,
 		/// Termination of a contract is not allowed while the contract is already
 		/// on the call stack. Can be triggered by `seal_terminate`.
@@ -434,8 +437,7 @@ pub mod pallet {
 		CodeRejected = 0x1B,
 		/// The code blob supplied is larger than [`limits::code::BLOB_BYTES`].
 		BlobTooLarge = 0x1C,
-		/// The static memory consumption of the blob will be larger than
-		/// [`limits::code::STATIC_MEMORY_BYTES`].
+		/// The contract declares too much memory (ro + rw + stack).
 		StaticMemoryTooLarge = 0x1D,
 		/// The program contains a basic block that is larger than allowed.
 		BasicBlockTooLarge = 0x1E,
@@ -472,11 +474,15 @@ pub mod pallet {
 		InvalidGenericTransaction = 0x2D,
 		/// The refcount of a code either over or underflowed.
 		RefcountOverOrUnderflow = 0x2E,
-		/// Unsupported precompile address
+		/// Unsupported precompile address.
 		UnsupportedPrecompileAddress = 0x2F,
+		/// The calldata exceeds [`limits::CALLDATA_BYTES`].
+		CallDataTooLarge = 0x30,
+		/// The return data exceeds [`limits::CALLDATA_BYTES`].
+		ReturnDataTooLarge = 0x31,
 	}
 
-	/// A reason for the pallet contracts placing a hold on funds.
+	/// A reason for the pallet revive placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// The Pallet has reserved it for storing code on-chain.
@@ -488,8 +494,11 @@ pub mod pallet {
 	}
 
 	/// A mapping from a contract's code hash to its code.
+	/// The code's size is bounded by [`crate::limits::BLOB_BYTES`] for PVM and
+	/// [`revm::primitives::eip170::MAX_CODE_SIZE`] for EVM bytecode.
 	#[pallet::storage]
-	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec>;
+	#[pallet::unbounded]
+	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, Vec<u8>>;
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
@@ -525,26 +534,142 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
+	pub mod genesis {
+		use super::*;
+		use crate::evm::Bytes32;
+
+		/// Genesis configuration for contract-specific data.
+		#[derive(Clone, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
+		pub struct ContractData {
+			/// Contract code.
+			pub code: Vec<u8>,
+			/// Initial storage entries as 32-byte key/value pairs.
+			pub storage: alloc::collections::BTreeMap<Bytes32, Bytes32>,
+		}
+
+		/// Genesis configuration for a contract account.
+		#[derive(PartialEq, Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
+		pub struct Account<T: Config> {
+			/// Contract address.
+			pub address: H160,
+			/// Contract balance.
+			#[serde(default)]
+			pub balance: U256,
+			/// Account nonce
+			#[serde(default)]
+			pub nonce: T::Nonce,
+			/// Contract-specific data (code and storage). None for EOAs.
+			#[serde(flatten, skip_serializing_if = "Option::is_none")]
+			pub contract_data: Option<ContractData>,
+		}
+	}
+
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(Debug, PartialEq, frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		/// Genesis mapped accounts
+		/// List of native Substrate accounts (typically `AccountId32`) to be mapped at genesis
+		/// block, enabling them to interact with smart contracts.
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub mapped_accounts: Vec<T::AccountId>,
+
+		/// Account entries (both EOAs and contracts)
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
+		pub accounts: Vec<genesis::Account<T>>,
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
+	where
+		BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
+		MomentOf<T>: Into<U256>,
+		T::Hash: frame_support::traits::IsType<H256>,
+	{
 		fn build(&self) {
+			use crate::{exec::Key, vm::ContractBlob};
+			use frame_support::traits::fungible::Mutate;
+
+			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
+				let _ = T::Currency::mint_into(
+					&Pallet::<T>::account_id(),
+					T::Currency::minimum_balance(),
+				);
+			}
+
 			for id in &self.mapped_accounts {
-				if let Err(err) = T::AddressMapper::map(id) {
+				if let Err(err) = T::AddressMapper::map_no_deposit(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
+			}
+
+			let owner = Pallet::<T>::account_id();
+
+			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
+				let account_id = T::AddressMapper::to_account_id(address);
+
+				frame_system::Account::<T>::mutate(&account_id, |info| {
+					info.nonce = (*nonce).into();
+				});
+
+				match contract_data {
+					None => {
+						AccountInfoOf::<T>::insert(
+							address,
+							AccountInfo { account_type: AccountType::EOA, dust: 0 },
+						);
+					},
+					Some(genesis::ContractData { code, storage }) => {
+						let blob = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+							ContractBlob::<T>::from_pvm_code(   code.clone(), owner.clone()).inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create PVM ContractBlob for {address:?}: {err:?}");
+							})
+						} else {
+							ContractBlob::<T>::from_evm_runtime_code(code.clone(), account_id).inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create EVM ContractBlob for {address:?}: {err:?}");
+							})
+						};
+
+						let Ok(blob) = blob else {
+							continue;
+						};
+
+						let code_hash = *blob.code_hash();
+						let Ok(info) = <ContractInfo<T>>::new(&address, 0u32.into(), code_hash)
+							.inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create ContractInfo for {address:?}: {err:?}");
+							})
+						else {
+							continue;
+						};
+
+						AccountInfoOf::<T>::insert(
+							address,
+							AccountInfo { account_type: info.clone().into(), dust: 0 },
+						);
+
+						<PristineCode<T>>::insert(blob.code_hash(), code);
+						<CodeInfoOf<T>>::insert(blob.code_hash(), blob.code_info().clone());
+						for (k, v) in storage {
+							let _ = info.write(&Key::from_fixed(k.0), Some(v.0.to_vec()), None, false).inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to write genesis storage for {address:?} at key {k:?}: {err:?}");
+							});
+						}
+					},
+				}
+
+				let _ = Pallet::<T>::set_evm_balance(address, *balance).inspect_err(|err| {
+					log::error!(target: LOG_TARGET, "Failed to set EVM balance for {address:?}: {err:?}");
+				});
 			}
 		}
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_block: BlockNumberFor<T>) -> Weight {
+			// Warm up the pallet account.
+			System::<T>::account_exists(&Pallet::<T>::account_id());
+			return T::DbWeight::get().reads(1)
+		}
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
@@ -552,51 +677,29 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			use limits::code::STATIC_MEMORY_BYTES;
-
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u32 = T::RuntimeMemory::get();
-			// The root frame is not accounted in CALL_STACK_DEPTH
-			let max_call_depth =
-				limits::CALL_STACK_DEPTH.checked_add(1).expect("CallStack size is too big");
-			// Transient storage uses a BTreeMap, which has overhead compared to the raw size of
-			// key-value data. To ensure safety, a margin of 2x the raw key-value size is used.
-			let max_transient_storage_size = limits::TRANSIENT_STORAGE_BYTES
-				.checked_mul(2)
-				.expect("MaxTransientStorageSize is too large");
 
 			// We only allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
 			const TOTAL_MEMORY_DEVIDER: u32 = 2;
 
-			// The inefficiencies of the freeing-bump allocator
-			// being used in the client for the runtime memory allocations, could lead to possible
-			// memory allocations grow up to `x4` times in some extreme cases.
-			const MEMORY_ALLOCATOR_INEFFICENCY_DEVIDER: u32 = 4;
+			// Check that the configured memory limits fit into runtime memory.
+			//
+			// Dynamic allocations are not available, yet. Hence they are not taken into
+			// consideration here.
+			let memory_left = i64::from(max_runtime_mem)
+				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
+				.saturating_sub(limits::MEMORY_REQUIRED.into());
 
-			// Check that the configured `STATIC_MEMORY_BYTES` fits into runtime memory.
-			//
-			// `STATIC_MEMORY_BYTES` is the amount of memory that a contract can consume
-			// in memory and is enforced at upload time.
-			//
-			// Dynamic allocations are not available, yet. Hence are not taken into consideration
-			// here.
-			let static_memory_limit = max_runtime_mem
-				.saturating_div(TOTAL_MEMORY_DEVIDER)
-				.saturating_sub(max_transient_storage_size)
-				.saturating_div(max_call_depth)
-				.saturating_sub(STATIC_MEMORY_BYTES)
-				.saturating_div(MEMORY_ALLOCATOR_INEFFICENCY_DEVIDER);
+			log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
 
 			assert!(
-				STATIC_MEMORY_BYTES < static_memory_limit,
-				"Given `CallStack` height {:?}, `STATIC_MEMORY_LIMIT` should be set less than {:?} \
-				 (current value is {:?}), to avoid possible runtime oom issues.",
-				max_call_depth,
-				static_memory_limit,
-				STATIC_MEMORY_BYTES,
+				memory_left >= 0,
+				"Runtime does not have enough memory for current limits. Additional runtime memory required: {} KB",
+				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
 			);
 
 			// Validators are configured to be able to use more memory than block builders. This is
@@ -935,8 +1038,7 @@ pub mod pallet {
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller
-		/// and unreserved only when [`Self::remove_code`] is called. The size of the reserve
-		/// depends on the size of the supplied `code`.
+		/// The size of the reserve depends on the size of the supplied `code`.
 		///
 		/// # Note
 		///
@@ -944,6 +1046,9 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
+		///
+		/// If the refcount of the code reaches zero after terminating the last contract that
+		/// references this code, the code will be removed automatically.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
 		pub fn upload_code(
@@ -998,7 +1103,7 @@ pub mod pallet {
 				};
 
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
-				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
+				let _ = <CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
 
 				Ok(())
@@ -1093,11 +1198,7 @@ where
 
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
-			let mut storage_meter = match storage_deposit_limit {
-				DepositLimit::Balance(limit) => StorageMeter::new(limit),
-				DepositLimit::UnsafeOnlyForDryRun =>
-					StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
-			};
+			let mut storage_meter = StorageMeter::new(storage_deposit_limit.limit());
 			let result = ExecStack::<T, ContractBlob<T>>::run_call(
 				origin.clone(),
 				dest,
@@ -1152,19 +1253,15 @@ where
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let unchecked_deposit_limit = storage_deposit_limit.is_unchecked();
-		let mut storage_deposit_limit = match storage_deposit_limit {
-			DepositLimit::Balance(limit) => limit,
-			DepositLimit::UnsafeOnlyForDryRun => BalanceOf::<T>::max_value(),
-		};
-
+		let mut storage_deposit_limit = storage_deposit_limit.limit();
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
 
 			if_tracing(|t| t.instantiate_code(&code, salt.as_ref()));
 			let (executable, upload_deposit) = match code {
-				Code::Upload(code) => {
+				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, upload_deposit) = Self::try_upload_code(
+					let (executable, upload_deposit) = Self::try_upload_pvm_code(
 						upload_account,
 						code,
 						storage_deposit_limit,
@@ -1173,16 +1270,19 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
+				Code::Upload(code) =>
+					if T::AllowEVMBytecode::get() {
+						let origin = T::UploadOrigin::ensure_origin(origin)?;
+						let executable = ContractBlob::from_evm_init_code(code, origin)?;
+						(executable, Default::default())
+					} else {
+						return Err(<Error<T>>::CodeRejected.into())
+					},
 				Code::Existing(code_hash) =>
 					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
 			let instantiate_origin = Origin::from_account_id(instantiate_account.clone());
-			let mut storage_meter = if unchecked_deposit_limit {
-				StorageMeter::new_unchecked(storage_deposit_limit)
-			} else {
-				StorageMeter::new(storage_deposit_limit)
-			};
-
+			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
 			let result = ExecStack::<T, ContractBlob<T>>::run_instantiate(
 				instantiate_account,
 				executable,
@@ -1277,10 +1377,10 @@ where
 				err == Error::<T>::StorageDepositLimitExhausted.into()
 			{
 				let balance = Self::evm_balance(&from);
-				return Err(EthTransactError::Message(
-						format!("insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
-							tx.gas.unwrap_or_default()))
-					);
+				return Err(EthTransactError::Message(format!(
+					"insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
+					tx.gas.unwrap_or_default()
+				)));
 			}
 
 			return Err(EthTransactError::Message(format!(
@@ -1363,16 +1463,10 @@ where
 			// A contract deployment
 			None => {
 				// Extract code and data from the input.
-				let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
-					Some(blob_len) => blob_len
-						.try_into()
-						.ok()
-						.and_then(|blob_len| (input.split_at_checked(blob_len)))
-						.unwrap_or_else(|| (&input[..], &[][..])),
-					_ => {
-						log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-						(&input[..], &[][..])
-					},
+				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+					extract_code_and_data(&input).unwrap_or_else(|| (input, Default::default()))
+				} else {
+					(input, vec![])
 				};
 
 				// Dry run the call.
@@ -1381,8 +1475,8 @@ where
 					value,
 					gas_limit,
 					storage_deposit_limit,
-					Code::Upload(code.to_vec()),
-					data.to_vec(),
+					Code::Upload(code.clone()),
+					data.clone(),
 					None,
 					BumpNonce::No,
 				);
@@ -1417,8 +1511,8 @@ where
 						value,
 						gas_limit,
 						storage_deposit_limit,
-						code: code.to_vec(),
-						data: data.to_vec(),
+						code,
+						data,
 					}
 					.into();
 				(result, dispatch_call)
@@ -1442,9 +1536,30 @@ where
 	}
 
 	/// Get the balance with EVM decimals of the given `address`.
+	///
+	/// Returns the spendable balance excluding the existential deposit.
 	pub fn evm_balance(address: &H160) -> U256 {
 		let balance = AccountInfo::<T>::balance((*address).into());
 		Self::convert_native_to_evm(balance)
+	}
+
+	/// Set the EVM balance of an account.
+	///
+	/// The account's total balance becomes the EVM value plus the existential deposit,
+	/// consistent with `evm_balance` which returns the spendable balance excluding the existential
+	/// deposit.
+	pub fn set_evm_balance(address: &H160, evm_value: U256) -> Result<(), Error<T>> {
+		let ed = T::Currency::minimum_balance();
+		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
+		let (value, dust) = balance_with_dust.deconstruct();
+		let account_id = T::AddressMapper::to_account_id(&address);
+		T::Currency::set_balance(&account_id, ed.saturating_add(value));
+		AccountInfoOf::<T>::mutate(address, |account| {
+			account.as_mut().map(|a| a.dust = dust);
+		});
+
+		Ok(())
 	}
 
 	/// Get the nonce for the given `address`.
@@ -1533,7 +1648,8 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_code(origin, code, storage_deposit_limit, false)?;
+		let (module, deposit) =
+			Self::try_upload_pvm_code(origin, code, storage_deposit_limit, false)?;
 		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
 	}
 
@@ -1560,13 +1676,13 @@ where
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_code(
+	fn try_upload_pvm_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_code(code, origin)?;
+		let mut module = ContractBlob::from_pvm_code(code, origin)?;
 		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
@@ -1602,6 +1718,13 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	/// Pallet account, used to hold funds for contracts upload deposit.
+	pub fn account_id() -> T::AccountId {
+		use frame_support::PalletId;
+		use sp_runtime::traits::AccountIdConversion;
+		PalletId(*b"py/reviv").into_account_truncating()
+	}
+
 	/// Returns true if the evm value carries dust.
 	fn has_dust(value: U256) -> bool {
 		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
@@ -1617,7 +1740,7 @@ impl<T: Config> Pallet<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
 	}
 
-	/// Deposit a pallet contracts event.
+	/// Deposit a pallet revive event.
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}

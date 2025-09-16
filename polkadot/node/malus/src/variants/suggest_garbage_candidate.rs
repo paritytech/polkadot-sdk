@@ -32,7 +32,7 @@ use polkadot_cli::{
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
-use polkadot_primitives::{vstaging::CandidateReceiptV2, CandidateDescriptor};
+use polkadot_primitives::{CandidateDescriptorV2, CandidateReceiptV2, CoreIndex};
 
 use polkadot_node_subsystem_util::request_validators;
 use sp_core::traits::SpawnNamed;
@@ -207,39 +207,22 @@ where
 						branches.root()
 					};
 
-					let (collator_id, collator_signature) = {
-						use polkadot_primitives::CollatorPair;
-						use sp_core::crypto::Pair;
-
-						let collator_pair = CollatorPair::generate().0;
-						let signature_payload = polkadot_primitives::collator_signature_payload(
-							&relay_parent,
-							&candidate.descriptor().para_id(),
-							&validation_data_hash,
-							&pov_hash,
-							&validation_code_hash,
-						);
-
-						(collator_pair.public(), collator_pair.sign(&signature_payload))
-					};
-
 					let malicious_commitments = create_fake_candidate_commitments(
 						&malicious_available_data.validation_data,
 					);
 
 					let malicious_candidate = CandidateReceiptV2 {
-						descriptor: CandidateDescriptor {
-							para_id: candidate.descriptor.para_id(),
+						descriptor: CandidateDescriptorV2::new(
+							candidate.descriptor.para_id(),
 							relay_parent,
-							collator: collator_id,
-							persisted_validation_data_hash: validation_data_hash,
+							candidate.descriptor.core_index().unwrap_or(CoreIndex(0)),
+							candidate.descriptor.session_index().unwrap_or(0),
+							validation_data_hash,
 							pov_hash,
 							erasure_root,
-							signature: collator_signature,
-							para_head: malicious_commitments.head_data.hash(),
+							malicious_commitments.head_data.hash(),
 							validation_code_hash,
-						}
-						.into(),
+						),
 						commitments_hash: malicious_commitments.hash(),
 					};
 					let malicious_candidate_hash = malicious_candidate.hash();

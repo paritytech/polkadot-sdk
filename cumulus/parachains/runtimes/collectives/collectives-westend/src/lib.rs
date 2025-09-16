@@ -44,6 +44,9 @@ pub mod xcm_config;
 // Fellowship configurations.
 pub mod fellowship;
 
+// Secretary Configuration
+pub mod secretary;
+
 extern crate alloc;
 
 pub use ambassador::pallet_ambassador_origins;
@@ -67,7 +70,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -126,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_019_002,
+	spec_version: 1_019_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -189,6 +192,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SingleBlockMigrations = Migrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -312,6 +316,8 @@ pub enum ProxyType {
 	Fellowship,
 	/// Ambassador proxy. Allows calls related to the Ambassador Program.
 	Ambassador,
+	/// Secretary proxy. Allows calls related to the Secretary collective
+	Secretary,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -362,6 +368,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
+			ProxyType::Secretary => matches!(
+				c,
+				RuntimeCall::SecretaryCollective { .. } |
+					RuntimeCall::SecretarySalary { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
+			),
 		}
 	}
 	fn is_superset(&self, o: &Self) -> bool {
@@ -408,7 +421,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 	type RelayParentOffset = ConstU32<0>;
 }
 
@@ -734,6 +746,12 @@ construct_runtime!(
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
+
+		// The Secretary Collective
+		// pub type SecretaryCollectiveInstance = pallet_ranked_collective::instance3;
+		SecretaryCollective: pallet_ranked_collective::<Instance3> = 90,
+		// pub type SecretarySalaryInstance = pallet_salary::Instance3;
+		SecretarySalary: pallet_salary::<Instance3> = 91,
 	}
 );
 
@@ -791,7 +809,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -818,12 +835,14 @@ mod benches {
 		[pallet_ranked_collective, FellowshipCollective]
 		[pallet_core_fellowship, FellowshipCore]
 		[pallet_salary, FellowshipSalary]
+		[pallet_treasury, FellowshipTreasury]
 		[pallet_referenda, AmbassadorReferenda]
 		[pallet_ranked_collective, AmbassadorCollective]
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
-		[pallet_treasury, FellowshipTreasury]
+		[pallet_ranked_collective, SecretaryCollective]
+		[pallet_salary, SecretarySalary]
 		[pallet_asset_rate, AssetRate]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
 		// XCM
@@ -1059,12 +1078,6 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
-		}
-	}
-
-	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-			ParachainSystem::core_selector()
 		}
 	}
 
