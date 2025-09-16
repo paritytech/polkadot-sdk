@@ -50,9 +50,11 @@ pub fn compile_module_with_type(
 	fixture_name: &str,
 	fixture_type: FixtureType,
 ) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
+	use anyhow::Context;
 	let out_dir: std::path::PathBuf = FIXTURE_DIR.into();
 	let fixture_path = out_dir.join(format!("{fixture_name}{}", fixture_type.file_extension()));
-	let binary = std::fs::read(fixture_path)?;
+	let binary = std::fs::read(&fixture_path)
+		.with_context(|| format!("Failed to load fixture {fixture_path:?}"))?;
 	let code_hash = sp_io::hashing::keccak_256(&binary);
 	Ok((binary, sp_core::H256(code_hash)))
 }
