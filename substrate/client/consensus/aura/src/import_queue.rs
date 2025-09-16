@@ -190,7 +190,7 @@ where
 		let checked_header = check_header::<C, B, P>(
 			&self.client,
 			slot_now + 1,
-			block.header,
+			block.header.clone(),
 			hash,
 			&authorities[..],
 			self.check_for_equivocation,
@@ -229,7 +229,7 @@ where
 					block.body = Some(inner_body);
 				}
 
-				self.authorities_tracker.import(&pre_header).map_err(|e| {
+				self.authorities_tracker.import(&block).map_err(|e| {
 					format!(
 						"Could not import authorities for block {hash:?} at number {number}: {e}"
 					)

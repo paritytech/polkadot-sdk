@@ -23,6 +23,7 @@ use std::{fmt::Debug, sync::Arc};
 use codec::Codec;
 use fork_tree::ForkTree;
 use parking_lot::RwLock;
+use sc_consensus::block_import::BlockImportParams;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::{AuraApi, ConsensusLog, AURA_ENGINE_ID};
@@ -126,10 +127,11 @@ where
 	}
 
 	/// If there is an authorities change digest in the header, import it into the tracker.
-	pub fn import(&self, header: &B::Header) -> Result<(), String> {
-		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(header) {
-			let hash = header.hash();
-			let number = *header.number();
+	pub fn import(&self, block: &BlockImportParams<B>) -> Result<(), String> {
+		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(&block.header) {
+			let hash = block.post_hash();
+			let parent_hash = *block.header.parent_hash();
+			let number = *block.header.number();
 			log::debug!(
 				target: LOG_TARGET,
 				"Importing authorities change for block {:?} at number {} found in header digest",
@@ -137,7 +139,8 @@ where
 				number,
 			);
 			self.prune_finalized()?;
-			let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
+			let is_descendent_of =
+				sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
 			let mut authorities_cache = self.authorities.write();
 			authorities_cache
 				.import(hash, number, authorities_change, &is_descendent_of)

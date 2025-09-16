@@ -203,7 +203,7 @@ where
 						))
 					}
 
-					self.authorities_tracker.import(&block_params.header).map_err(|e| {
+					self.authorities_tracker.import(&block_params).map_err(|e| {
 						format!(
 							"Could not import authorities for block {:?} at number {}: {e}",
 							block_params.header.hash(),
