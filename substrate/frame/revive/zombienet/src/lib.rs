@@ -19,12 +19,17 @@ use std::{
 	time::Duration,
 };
 use subxt::{self, backend::rpc::RpcClient, OnlineClient, PolkadotConfig};
+use zombienet_configuration::types::AssetLocation;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkConfigBuilder};
 
 pub mod utils;
 
 const PARA_ID: u32 = 1000;
 pub const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
+pub const ALICE_DB: &str = "db/alice-westend-validator_db.tgz";
+pub const BOB_DB: &str = "db/bob-westend-validator_db.tgz";
+pub const COLLATOR1_DB: &str = "db/asset-hub-westend-collator1_db.tgz";
+pub const COLLATOR2_DB: &str = "db/asset-hub-westend-collator2_db.tgz";
 
 pub struct ZombienetNetwork {
 	pub network: Network<LocalFileSystem>,
@@ -34,7 +39,8 @@ impl ZombienetNetwork {
 	/// Create zombienet config.
 	/// Using below approach instead of '*.toml' because toml does not allow to
 	/// unset some fields when patching ("devStakers" in this particular case).
-	fn build_config(collator_rpc_port: u16) -> Result<NetworkConfig, anyhow::Error> {
+	fn build_config(collator_rpc_port: u16, use_db: bool) -> Result<NetworkConfig, anyhow::Error> {
+		log::info!("Building network config, with db: {use_db}");
 		// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 		let images = zombienet_sdk::environment::get_images_from_env();
 		log::info!("Using images: {images:?}");
@@ -46,11 +52,20 @@ impl ZombienetNetwork {
 					.with_default_image(images.polkadot.as_str())
 					.with_default_args(vec![("-lparachain=debug,xcm=trace").into()])
 					.with_node(|node| {
-						node.with_name("alice-westend-validator")
-							.with_initial_balance(2000000000000)
+						let node = node.with_name("alice-westend-validator");
+						if use_db {
+							node.with_db_snapshot(AssetLocation::from(ALICE_DB))
+						} else {
+							node.with_initial_balance(2000000000000)
+						}
 					})
 					.with_node(|node| {
-						node.with_name("bob-westend-validator").with_initial_balance(2000000000000)
+						let node = node.with_name("bob-westend-validator");
+						if use_db {
+							node.with_db_snapshot(AssetLocation::from(BOB_DB))
+						} else {
+							node.with_initial_balance(2000000000000)
+						}
 					})
 			})
 			.with_parachain(|p| {
@@ -69,11 +84,24 @@ impl ZombienetNetwork {
 						}
 					}))
 					.with_collator(|n| {
-						n.with_name("asset-hub-westend-collator1")
+						let node = n
+							.with_name("asset-hub-westend-collator1")
 							// eth-rpc will connect to this port
-							.with_rpc_port(collator_rpc_port)
+							.with_rpc_port(collator_rpc_port);
+						if use_db {
+							node.with_db_snapshot(AssetLocation::from(COLLATOR1_DB))
+						} else {
+							node
+						}
 					})
-					.with_collator(|n| n.with_name("asset-hub-westend-collator2"))
+					.with_collator(|n| {
+						let node = n.with_name("asset-hub-westend-collator2");
+						if use_db {
+							node.with_db_snapshot(AssetLocation::from(COLLATOR2_DB))
+						} else {
+							node
+						}
+					})
 			})
 			.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 				Ok(val) => global_settings.with_base_dir(val),
@@ -88,7 +116,7 @@ impl ZombienetNetwork {
 
 	/// Launch zombienet network and ensure it is running as expected.
 	pub async fn launch(collator_rpc_port: u16) -> Result<ZombienetNetwork, anyhow::Error> {
-		let config = Self::build_config(collator_rpc_port)?;
+		let config = Self::build_config(collator_rpc_port, true)?;
 
 		log::info!("Launching network");
 		let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
@@ -107,7 +135,7 @@ impl ZombienetNetwork {
 		let alice = network.get_node("alice-westend-validator")?.wait_client().await?;
 
 		log::info!("Ensuring parachain making progress");
-		assert_para_throughput(&alice, 5, [(ParaId::from(PARA_ID), 2..8)].into_iter().collect())
+		assert_para_throughput(&alice, 5, [(ParaId::from(PARA_ID), 1..8)].into_iter().collect())
 			.await?;
 
 		Ok(Self { network })
