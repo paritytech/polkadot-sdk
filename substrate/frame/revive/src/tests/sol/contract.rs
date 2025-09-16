@@ -24,7 +24,7 @@ use crate::{
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes, U256},
-	sol_types::{SolCall, SolConstructor, SolInterface},
+	sol_types::{SolCall, SolInterface},
 };
 use frame_support::{assert_err, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
