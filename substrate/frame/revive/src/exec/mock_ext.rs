@@ -96,7 +96,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::code_size")
 	}
 
-	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool {
+	fn caller_is_origin(&self, _use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_origin")
 	}
 
