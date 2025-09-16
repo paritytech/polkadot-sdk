@@ -1224,6 +1224,18 @@ impl parachains_slashing::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxPublishItems: u32 = 100;
+	pub const MaxKeyLength: u32 = 256;
+	pub const MaxValueLength: u32 = 1024;
+}
+
+impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
+	type MaxPublishItems = MaxPublishItems;
+	type MaxKeyLength = MaxKeyLength;
+	type MaxValueLength = MaxValueLength;
+}
+
+parameter_types! {
 	pub const ParaDeposit: Balance = 40 * UNITS;
 }
 
@@ -1597,6 +1609,9 @@ construct_runtime! {
 		Auctions: auctions = 72,
 		Crowdloan: crowdloan = 73,
 		Coretime: coretime = 74,
+
+		// Broadcaster pallet for pubsub XCM v5 functionality
+		Broadcaster: polkadot_runtime_parachains::broadcaster = 75,
 
 		// Migrations pallet
 		MultiBlockMigrations: pallet_migrations = 98,

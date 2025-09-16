@@ -45,3 +45,4 @@ rustc-ice-*
 .claude
 CLAUDE.md
 context/
+bin/
