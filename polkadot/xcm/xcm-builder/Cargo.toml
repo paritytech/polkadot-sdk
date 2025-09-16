@@ -20,6 +20,8 @@ impl-trait-for-tuples = { workspace = true }
 pallet-asset-conversion.workspace = true
 pallet-transaction-payment.workspace = true
 polkadot-parachain-primitives.workspace = true
+polkadot-primitives.workspace = true
+polkadot-runtime-parachains.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 sp-arithmetic.workspace = true
 sp-core.workspace = true
@@ -69,6 +71,8 @@ std = [
 	"pallet-asset-conversion/std",
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
+	"polkadot-runtime-parachains/std",
 	"primitive-types/std",
 	"scale-info/std",
 	"sp-arithmetic/std",

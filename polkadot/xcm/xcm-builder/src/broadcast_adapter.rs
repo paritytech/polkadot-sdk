@@ -18,9 +18,11 @@
 
 use core::marker::PhantomData;
 use frame_support::traits::Contains;
+use polkadot_primitives::Id as ParaId;
+use polkadot_runtime_parachains::broadcaster::publish;
 use xcm::latest::{Junction, Location, PublishData, Result as XcmResult};
 use xcm::latest::prelude::XcmError;
-use xcm_executor::traits::{BroadcastHandler, HandlePublish};
+use xcm_executor::traits::BroadcastHandler;
 
 /// Configurable broadcast adapter that validates parachain origins.
 pub struct ParachainBroadcastAdapter<Filter, Handler>(PhantomData<(Filter, Handler)>);
@@ -28,7 +30,7 @@ pub struct ParachainBroadcastAdapter<Filter, Handler>(PhantomData<(Filter, Handl
 impl<Filter, Handler> BroadcastHandler for ParachainBroadcastAdapter<Filter, Handler>
 where
 	Filter: Contains<Location>,
-	Handler: HandlePublish,
+	Handler: publish::Publish,
 {
 	fn handle_publish(origin: &Location, data: PublishData) -> XcmResult {
 		// Check if origin is authorized to publish
@@ -38,19 +40,17 @@ where
 
 		// Extract parachain ID from authorized origin
 		let para_id = match origin.unpack() {
-			(0, [Junction::Parachain(id)]) => *id,        // Direct parachain
-			(1, [Junction::Parachain(id), ..]) => *id,    // Sibling parachain
+			(0, [Junction::Parachain(id)]) => ParaId::from(*id),        // Direct parachain
+			(1, [Junction::Parachain(id), ..]) => ParaId::from(*id),    // Sibling parachain
 			_ => return Err(XcmError::BadOrigin),          // Should be caught by filter
 		};
 
 		// Call the actual handler
 		let data_vec = data.into_inner();
-		Handler::handle_publish(para_id, data_vec).map_err(|_| XcmError::Unimplemented)
+		Handler::publish_data(para_id, data_vec).map_err(|_| XcmError::Unimplemented)
 	}
 }
 
-// The HandlePublish trait is re-exported from xcm_executor::traits
-// Pallets implement this trait directly (see broadcaster pallet)
 
 /// Allows only direct parachains (parents=0, interior=[Parachain(_)]).
 pub struct DirectParachainsOnly;

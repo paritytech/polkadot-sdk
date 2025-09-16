@@ -26,9 +26,22 @@ use frame_support::{
 	traits::Get,
 };
 use polkadot_primitives::Id as ParaId;
-use xcm_executor::traits::HandlePublish;
 
 pub use pallet::*;
+
+/// Trait for publishing key-value data.
+/// Inspired by fungibles trait.
+/// TODO: Check if we need to move out of pallets into a separate crate.
+/// TODO: Check if sufficient level of abstraction, for now we will leave ParaId.
+pub mod publish {
+	use super::*;
+
+	/// Trait for publishing key-value data for parachains.
+	pub trait Publish {
+		/// Publish key-value data for a specific parachain.
+		fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult;
+	}
+}
 
 #[cfg(test)]
 mod tests;
@@ -161,10 +174,9 @@ pub mod pallet {
 	}
 }
 
-// XCM integration - implement HandlePublish trait for use with ParachainBroadcastAdapter
-impl<T: Config> HandlePublish for Pallet<T> {
-	fn handle_publish(publisher: u32, data: Vec<(Vec<u8>, Vec<u8>)>) -> Result<(), ()> {
-		let para_id = polkadot_primitives::Id::from(publisher);
-		Self::handle_publish(para_id, data).map_err(|_| ())
+// Implement publish::Publish trait
+impl<T: Config> publish::Publish for Pallet<T> {
+	fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult {
+		Self::handle_publish(publisher, data)
 	}
 }
