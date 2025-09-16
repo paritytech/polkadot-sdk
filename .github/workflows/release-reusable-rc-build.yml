@@ -254,17 +254,17 @@ jobs:
   #         name: ${{ matrix.binaries }}_${{ inputs.target }}
   #         path: ${{ env.ARTIFACTS_PATH }}
 
-  # build-polkadot-deb-and-rpm-package:
-  #   if: ${{ inputs.package == 'polkadot' && inputs.target == 'x86_64-unknown-linux-gnu' }}
-  #   needs: [build-rc]
-  #   runs-on: ubuntu-latest
+  build-polkadot-deb-and-rpm-package:
+    if: ${{ inputs.package == 'polkadot' && inputs.target == 'x86_64-unknown-linux-gnu' }}
+    needs: [build-rc]
+    runs-on: ubuntu-latest
 
-  #   steps:
-  #   - name: Checkout sources
-  #     uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
-  #     with:
-  #       ref: ${{ inputs.release_tag }}
-  #       fetch-depth: 0
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      with:
+        ref: ${{ inputs.release_tag }}
+        fetch-depth: 0
 
 
     - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
