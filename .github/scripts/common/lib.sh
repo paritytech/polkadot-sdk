@@ -237,33 +237,45 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
-# Fetch rpm package from S3. Assumes the ENV are set:
-# - REPO in the form paritytech/polkadot
-# - VERSION (the git tag)
+# Fetch rpm package from S3.
 fetch_rpm_package_from_s3() {
   BINARY=$1
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
-  
-  # --- Improved Logging for Debugging ---
+
   echo "--- Preparing to fetch RPM package ---"
-  echo "Git Tag (VERSION):      $VERSION"
+  echo "Git Tag (VERSION):           $VERSION"
   echo "Code Version (NODE_VERSION): $NODE_VERSION"
-  echo "Output Directory:       $OUTPUT_DIR"
+
+  # --- YOU MUST CORRECT THIS LOGIC ---
+  # The goal is to make the final 'URL' variable below perfectly match
+  # the S3 path that your 'upload_s3_release' script uses.
+  #
+  # You need to determine the correct version to use for the FILENAME.
+  # Is it the Git Tag? Is it the Node Version?
+  #
+  # Example: If the filename should use the node version:
+  FILENAME="${BINARY}_${NODE_VERSION}-1.x86_64.rpm"
+  #
+  # Example: If the filename should use a cleaned-up git tag version:
+  # FILENAME="${BINARY}_${VERSION}-1.x86_64.rpm"
   
+  # You also need to confirm the correct directory structure.
+  # This currently uses the Git Tag for the directory path.
+  PATH_VERSION_DIR="$VERSION"
+  # --- END OF LOGIC TO CORRECT ---
+
   URL_BASE=$(get_s3_url_base $BINARY)
-  URL="$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}-1.x86_64.rpm"
+  URL="${URL_BASE}/${PATH_VERSION_DIR}/x86_64-unknown-linux-gnu/${FILENAME}"
   
-  echo "Constructed URL:        $URL"
+  echo "Constructed URL:             $URL"
   echo "------------------------------------"
 
   mkdir -p "$OUTPUT_DIR"
   pushd "$OUTPUT_DIR" > /dev/null
 
   echo "Fetching rpm package..."
-  
-  # --- CORRECTED COMMAND ---
-  # The '--fail' flag makes curl exit with an error on 404 Not Found.
-  # The '|| echo' part has been removed to stop suppressing errors.
+
+  # This corrected curl command will now fail properly if the URL is not found.
   curl --fail --progress-bar -LO "$URL"
 
   echo "Download successful."
