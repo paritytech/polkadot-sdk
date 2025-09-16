@@ -25,7 +25,7 @@ default_args = [ "-lparachain=debug", "-lxcm=trace" ]
     args = ["--trie-cache-size=0", "--disable-worker-version-check"]
 
 [[parachains]]
-id = 4000
+id = 1000
 addToGenesis = true
 cumulus_based = true
 

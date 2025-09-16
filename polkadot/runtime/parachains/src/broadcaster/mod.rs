@@ -29,6 +29,8 @@ use polkadot_primitives::Id as ParaId;
 
 pub use pallet::*;
 
+pub mod runtime_api;
+
 /// Trait for publishing key-value data.
 /// Inspired by fungibles trait.
 /// TODO: Check if we need to move out of pallets into a separate crate.
