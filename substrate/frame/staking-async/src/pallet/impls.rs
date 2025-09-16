@@ -1953,7 +1953,7 @@ impl<T: Config> Pallet<T> {
 		// we don't call this method. Otherwise, Eras::do_try_state enforces that both ActiveEra
 		// and CurrentEra are Some. Thus, we can safely unwrap here.
 		let era = ActiveEra::<T>::get()
-			.expect("ActiveEra must be set when checking paged exposures")
+			.ok_or(TryRuntimeError::Other("ActiveEra must be set when checking paged exposures"))?
 			.index;
 
 		let accumulator_default = PagedExposureMetadata {
