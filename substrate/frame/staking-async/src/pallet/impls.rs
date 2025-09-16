@@ -1937,8 +1937,8 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Pre-condition: ActiveEra is Some.
 	/// Invariants:
+	/// * ActiveEra is Some.
 	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
