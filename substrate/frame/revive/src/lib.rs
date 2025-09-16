@@ -1731,12 +1731,11 @@ where
 		if let Ok(who) = ensure_signed(origin.clone()) {
 			let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
 
-			// // EIP_1052: precompile address has EMPTY_CODE_HASH but should be treated as having
-			// code in this check.
+			// EIP_1052: precompile can never be used as EOA.
 			if is_precompile::<T>(&address) {
 				log::debug!(
 					target: crate::LOG_TARGET,
-					"EIP-3607: reject externally-signed tx from pre compile account {:?}",
+					"EIP-3607: reject externally-signed tx from precompile account {:?}",
 					address
 				);
 				return Err(ContractResult {
@@ -1746,8 +1745,7 @@ where
 					storage_deposit: Default::default(),
 				});
 			}
-			// Get canonical code-hash (handles precompiles, contract storage and non-existent
-			// accounts).
+
 			let code_hash = code_hash::<T>(&address);
 
 			// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
