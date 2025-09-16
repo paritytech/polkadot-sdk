@@ -254,8 +254,9 @@ jobs:
                 -v "${TEMP_DIR}/rpmmacros:/etc/rpm/macros.sign:ro" \
                 --user root:root \
                 --rm \
-                docker.io/fedora:latest \
-                /bin/bash -c "dnf install -y gnupg rpm-sign createrepo_c && \
+                docker.io/ubuntu:latest \
+                /bin/bash -c "apt-get update && apt-get install -y gnupg rpm createrepo-c && \
+                              chmod 700 /root/.gnupg && \
                               cd /rpm && \
                               echo 'Signing package...' && \
                               rpm --addsign '${rpm_filename}' && \
