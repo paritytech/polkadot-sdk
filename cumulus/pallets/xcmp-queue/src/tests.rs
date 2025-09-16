@@ -251,12 +251,14 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 					size_in_bytes: total_size,
 					new_pages_count: idx as u32 + 1,
 				},
+				true,
 			);
 
 			let mut weight_meter = WeightMeter::with_limit(required_weight);
 			let res = XcmpQueue::enqueue_xcmp_messages(
 				1000.into(),
 				&xcms.iter().map(|xcm| xcm.as_bounded_slice()).collect::<Vec<_>>(),
+				false,
 				&mut weight_meter,
 			);
 			if idx < xcms.len() - 1 {
