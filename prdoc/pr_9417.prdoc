@@ -1,0 +1,13 @@
+title: 'Measure backed in block count vs backable '
+doc:
+- audience: Todo
+  description: Closes https://github.com/paritytech/polkadot-sdk/issues/9341
+crates:
+- name: polkadot-node-core-provisioner
+  bump: patch
+- name: polkadot-overseer
+  bump: patch
+- name: polkadot-node-subsystem-types
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
