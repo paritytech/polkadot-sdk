@@ -1257,11 +1257,11 @@ where
 				return Ok(output);
 			}
 
-			let frame = self.top_frame_mut();
-
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
-			if entry_point == ExportedFunction::Constructor {
+			let frame = if entry_point == ExportedFunction::Constructor {
+				let origin = self.origin.account_id()?.clone();
+				let frame = self.top_frame_mut();
 				let contract_info = frame.contract_info();
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
@@ -1273,10 +1273,7 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(
-						data,
-						caller.account_id()?.clone(),
-					)?;
+					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
 					module.store_code(skip_transfer)?;
 					code_deposit = module.code_info().deposit();
 					contract_info.code_hash = *module.code_hash();
@@ -1288,7 +1285,10 @@ where
 				frame
 					.nested_storage
 					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
-			}
+				frame
+			} else {
+				self.top_frame_mut()
+			};
 
 			// The storage deposit is only charged at the end of every call stack.
 			// To make sure that no sub call uses more than it is allowed to,
