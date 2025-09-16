@@ -21,6 +21,8 @@ use std::{
 use subxt::{self, backend::rpc::RpcClient, OnlineClient, PolkadotConfig};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkConfigBuilder};
 
+pub mod utils;
+
 const PARA_ID: u32 = 1000;
 pub const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
