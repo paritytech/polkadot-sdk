@@ -39,8 +39,8 @@ pub struct HardhatMetadata {
 	pub client_version: String,
 	pub chain_id: u64,
 	pub instance_id: H256,
-	pub last_block_number: u64,
-	pub last_block_hash: H256,
+	pub latest_block_number: u64,
+	pub latest_block_hash: H256,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub forked_network: Option<HardhatForkedNetwork>,
 }

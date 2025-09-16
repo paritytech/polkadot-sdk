@@ -1285,8 +1285,8 @@ impl Client {
 			client_version: "0.1.0-stubbed".to_string(),
 			chain_id: self.chain_id.into(),
 			instance_id: self.api.genesis_hash(),
-			last_block_number: block.header.number.into(),
-			last_block_hash: block.hash(),
+			latest_block_number: block.header.number.into(),
+			latest_block_hash: block.hash(),
 			forked_network: None, // TODO: add forked network from chopsticks
 		};
 		Ok(Some(metadata))
