@@ -18,7 +18,10 @@ targets = ["riscv64imac-unknown-none-elf"]
 [dependencies]
 alloy-core = { workspace = true, optional = true, features = ["sol-types"] }
 bitflags = { workspace = true }
-codec = { features = [ "derive", "max-encoded-len" ], optional = true, workspace = true }
+codec = { features = [
+  "derive",
+  "max-encoded-len",
+], optional = true, workspace = true }
 const-crypto = { version = "0.3.0", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
 pallet-revive-proc-macro = { workspace = true }
