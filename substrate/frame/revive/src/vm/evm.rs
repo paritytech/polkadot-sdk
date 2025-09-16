@@ -47,6 +47,10 @@ pub mod instructions;
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod instructions;
 
+mod interpreter;
+mod memory;
+mod stack;
+
 /// Hard-coded value returned by the EVM `DIFFICULTY` opcode.
 ///
 /// After Ethereum's Merge (Sept 2022), the `DIFFICULTY` opcode was redefined to return
@@ -157,9 +161,9 @@ fn run<'a, E: Ext>(
 	let host = &mut DummyHost {};
 	loop {
 		#[cfg(not(feature = "std"))]
-		let action = interpreter.run_plain(table, host);
-		#[cfg(feature = "std")]
 		let action = run_plain(interpreter, table, host);
+		#[cfg(feature = "std")]
+		let action = run_plain_with_tracing(interpreter, table, host);
 		match action {
 			InterpreterAction::Return(result) => {
 				log::trace!(target: LOG_TARGET, "Evm return {:?}", result);
@@ -249,6 +253,39 @@ fn run_call<'a, E: Ext>(
 /// NB: copied directly from revm tag v82
 #[cfg(feature = "std")]
 fn run_plain<WIRE: InterpreterTypes>(
+	interpreter: &mut Interpreter<WIRE>,
+	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
+	host: &mut DummyHost,
+) -> InterpreterAction {
+	use crate::{alloc::string::ToString, format};
+	use revm::{
+		bytecode::OpCode,
+		interpreter::{
+			instruction_context::InstructionContext,
+			interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr},
+		},
+	};
+	while interpreter.bytecode.is_not_end() {
+		// Get current opcode.
+		let opcode = interpreter.bytecode.opcode();
+
+		// SAFETY: In analysis we are doing padding of bytecode so that we are sure that last
+		// byte instruction is STOP so we are safe to just increment program_counter bcs on last
+		// instruction it will do noop and just stop execution of this contract
+		interpreter.bytecode.relative_jump(1);
+		let context = InstructionContext { interpreter, host };
+		// Execute instruction.
+		instruction_table[opcode as usize](context);
+	}
+	interpreter.bytecode.revert_to_previous_pointer();
+
+	interpreter.take_next_action()
+}
+
+/// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
+/// NB: copied directly from revm tag v82
+#[cfg(feature = "std")]
+fn run_plain_with_tracing<WIRE: InterpreterTypes>(
 	interpreter: &mut Interpreter<WIRE>,
 	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 	host: &mut DummyHost,
