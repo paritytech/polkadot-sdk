@@ -188,25 +188,21 @@ jobs:
             aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
           fi
 
-      # --- ADD THIS NEW VERIFICATION STEP HERE ---
       - name: Verify Downloaded RPM Integrity
         if: ${{ inputs.package_type == 'rpm' }}
         run: |
-          # Install the rpm tool on the runner to perform the check
           sudo apt-get update && sudo apt-get install -y rpm
           
-          # Find the downloaded .rpm artifact
-          rpmname=$(find release-artifacts/ -name 'polkadot_*.rpm' -print -quit)
+          # CORRECTED: Looking for a hyphen instead of an underscore
+          rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' -print -quit)
           if [ -z "$rpmname" ]; then
             echo "Error: RPM package artifact not found for verification."
+            echo "Contents of release-artifacts directory:"
+            ls -R release-artifacts/
             exit 1
           fi
           echo "Verifying integrity of $rpmname..."
-          
-          # The -vK command checks the package's header and digests.
-          # We add '|| true' so the job continues even if the check fails,
-          # allowing us to see the debug output.
-          rpm -vK "$rpmname" || true
+          rpm -vK "$rpmname" || true # Use || true to avoid failing the step if verification fails
 
       - name: Add package to local repo
         env:
@@ -230,7 +226,7 @@ jobs:
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             # Find the downloaded .rpm artifact
-            rpmname=$(find release-artifacts/ -name 'polkadot_*.rpm' -print -quit)
+            rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' -print -quit)
             if [ -z "$rpmname" ]; then
               echo "Error: RPM package artifact not found in release-artifacts/"
               exit 1
