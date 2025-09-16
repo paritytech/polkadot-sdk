@@ -388,7 +388,7 @@ impl EthRpcServerImpl {
 	) -> RpcResult<Option<TransactionInfo>> {
 		let mut substrate_tx_idx: usize =
 			ethereum_tx_index.try_into().map_err(|_| EthRpcError::ConversionError)?;
-		// Skip substrate system extrinsics
+		// Skip substrate inherents
 		substrate_tx_idx += 2;
 
 		let Some(receipt) = self
