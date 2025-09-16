@@ -126,145 +126,145 @@ jobs:
           name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: /artifacts/${{ matrix.binaries }}
 
-  build-macos-rc:
-    if: ${{ inputs.target == 'aarch64-apple-darwin' }}
-    runs-on: parity-macos
-    environment: release
-    strategy:
-      matrix:
-        binaries: ${{ fromJSON(inputs.binary) }}
-    env:
-      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
-        with:
-          ref: ${{ inputs.release_tag }}
-          fetch-depth: 0
+  # build-macos-rc:
+  #   if: ${{ inputs.target == 'aarch64-apple-darwin' }}
+  #   runs-on: parity-macos
+  #   environment: release
+  #   strategy:
+  #     matrix:
+  #       binaries: ${{ fromJSON(inputs.binary) }}
+  #   env:
+  #     PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+  #     PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+  #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #     AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+  #       with:
+  #         ref: ${{ inputs.release_tag }}
+  #         fetch-depth: 0
 
-      - name: Set rust version from env file
-        run: |
-          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
-          echo $RUST_VERSION
-          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
-      - name: Set workspace environment variable
-        # relevant for artifacts upload, which can not interpolate Github Action variable syntax when
-        # used within valid paths. We can not use root-based paths either, since it is set as read-only
-        # on the `parity-macos` runner.
-        run: echo "ARTIFACTS_PATH=${GITHUB_WORKSPACE}/artifacts/${{ matrix.binaries }}" >> $GITHUB_ENV
+  #     - name: Set rust version from env file
+  #       run: |
+  #         RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
+  #         echo $RUST_VERSION
+  #         echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
+  #     - name: Set workspace environment variable
+  #       # relevant for artifacts upload, which can not interpolate Github Action variable syntax when
+  #       # used within valid paths. We can not use root-based paths either, since it is set as read-only
+  #       # on the `parity-macos` runner.
+  #       run: echo "ARTIFACTS_PATH=${GITHUB_WORKSPACE}/artifacts/${{ matrix.binaries }}" >> $GITHUB_ENV
 
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
-      - name: Set homebrew binaries location on path
-        run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
+  #     - name: Set up Homebrew
+  #       uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
+  #     - name: Set homebrew binaries location on path
+  #       run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
 
-      - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
-        with:
-          cache: false
-          toolchain: ${{ env.RUST_VERSION }}
-          target: wasm32-unknown-unknown
-          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
+  #     - name: Install rust ${{ env.RUST_VERSION }}
+  #       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+  #       with:
+  #         cache: false
+  #         toolchain: ${{ env.RUST_VERSION }}
+  #         target: wasm32-unknown-unknown
+  #         components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
 
-      - name: cargo info
-        run: |
-          echo "######## rustup show ########"
-          rustup show
-          echo "######## cargo --version ########"
-          cargo --version
+  #     - name: cargo info
+  #       run: |
+  #         echo "######## rustup show ########"
+  #         rustup show
+  #         echo "######## cargo --version ########"
+  #         cargo --version
 
-      - name: Install protobuf
-        run: brew install protobuf
-      - name: Install gpg
-        run: |
-          brew install gnupg
-          # Setup for being able to resolve: keyserver.ubuntu.com.
-          # See: https://github.com/actions/runner-images/issues/9777
-          mkdir -p ~/.gnupg/
-          touch ~/.gnupg/dirmngr.conf
-          echo "standard-resolver" >  ~/.gnupg/dirmngr.conf
+  #     - name: Install protobuf
+  #       run: brew install protobuf
+  #     - name: Install gpg
+  #       run: |
+  #         brew install gnupg
+  #         # Setup for being able to resolve: keyserver.ubuntu.com.
+  #         # See: https://github.com/actions/runner-images/issues/9777
+  #         mkdir -p ~/.gnupg/
+  #         touch ~/.gnupg/dirmngr.conf
+  #         echo "standard-resolver" >  ~/.gnupg/dirmngr.conf
 
-      - name: Install llvm
-        run: |
-          brew install llvm@21
+  #     - name: Install llvm
+  #       run: |
+  #         brew install llvm@21
 
-      - name: Set dynamic library path
-        run: |
-          LLVM_PATH=$(brew --prefix llvm)
-          export LIBCLANG_PATH="$LLVM_PATH/lib"
-          export LDFLAGS="-L$LLVM_PATH/lib"
-          export CPPFLAGS="-I$LLVM_PATH/include"
-          echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+  #     - name: Set dynamic library path
+  #       run: |
+  #         LLVM_PATH=$(brew --prefix llvm)
+  #         export LIBCLANG_PATH="$LLVM_PATH/lib"
+  #         export LDFLAGS="-L$LLVM_PATH/lib"
+  #         export CPPFLAGS="-I$LLVM_PATH/include"
+  #         echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
 
-      - name: Install sha256sum
-        run: |
-          brew install coreutils
+  #     - name: Install sha256sum
+  #       run: |
+  #         brew install coreutils
 
-      - name: Install pgpkkms
-        run: |
-          # Install pgpkms that is used to sign built artifacts
-          python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed" --break-system-packages
+  #     - name: Install pgpkkms
+  #       run: |
+  #         # Install pgpkms that is used to sign built artifacts
+  #         python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed" --break-system-packages
 
-      - name: Import gpg keys
-        shell: bash
-        run: |
-          . ./.github/scripts/common/lib.sh
+  #     - name: Import gpg keys
+  #       shell: bash
+  #       run: |
+  #         . ./.github/scripts/common/lib.sh
 
-          import_gpg_keys
+  #         import_gpg_keys
 
-      - name: Build binary
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-          ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
+  #     - name: Build binary
+  #       run: |
+  #         git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
+  #         ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
-        with:
-          subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
+  #     - name: Generate artifact attestation
+  #       uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+  #       with:
+  #         subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
-      - name: Sign artifacts
-        working-directory: ${{ env.ARTIFACTS_PATH }}
-        run: |
-          python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+  #     - name: Sign artifacts
+  #       working-directory: ${{ env.ARTIFACTS_PATH }}
+  #       run: |
+  #         python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
 
-      - name: Check sha256 ${{ matrix.binaries }}
-        working-directory: ${{ env.ARTIFACTS_PATH }}
-        shell: bash
-        run: |
-          .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+  #     - name: Check sha256 ${{ matrix.binaries }}
+  #       working-directory: ${{ env.ARTIFACTS_PATH }}
+  #       shell: bash
+  #       run: |
+  #         .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-          echo "Checking binary  ${{ matrix.binaries }}"
-          check_sha256  ${{ matrix.binaries }}
+  #         echo "Checking binary  ${{ matrix.binaries }}"
+  #         check_sha256  ${{ matrix.binaries }}
 
-      - name: Check GPG ${{ matrix.binaries }}
-        working-directory: ${{ env.ARTIFACTS_PATH }}
-        shell: bash
-        run: |
-          . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+  #     - name: Check GPG ${{ matrix.binaries }}
+  #       working-directory: ${{ env.ARTIFACTS_PATH }}
+  #       shell: bash
+  #       run: |
+  #         . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-          check_gpg  ${{ matrix.binaries }}
+  #         check_gpg  ${{ matrix.binaries }}
 
-      - name: Upload ${{ matrix.binaries }} artifacts
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-        with:
-          name: ${{ matrix.binaries }}_${{ inputs.target }}
-          path: ${{ env.ARTIFACTS_PATH }}
+  #     - name: Upload ${{ matrix.binaries }} artifacts
+  #       uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+  #       with:
+  #         name: ${{ matrix.binaries }}_${{ inputs.target }}
+  #         path: ${{ env.ARTIFACTS_PATH }}
 
-  build-polkadot-deb-and-rpm-package:
-    if: ${{ inputs.package == 'polkadot' && inputs.target == 'x86_64-unknown-linux-gnu' }}
-    needs: [build-rc]
-    runs-on: ubuntu-latest
+  # build-polkadot-deb-and-rpm-package:
+  #   if: ${{ inputs.package == 'polkadot' && inputs.target == 'x86_64-unknown-linux-gnu' }}
+  #   needs: [build-rc]
+  #   runs-on: ubuntu-latest
 
-    steps:
-    - name: Checkout sources
-      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
-      with:
-        ref: ${{ inputs.release_tag }}
-        fetch-depth: 0
+  #   steps:
+  #   - name: Checkout sources
+  #     uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+  #     with:
+  #       ref: ${{ inputs.release_tag }}
+  #       fetch-depth: 0
 
 
     - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
