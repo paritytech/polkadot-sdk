@@ -130,9 +130,12 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		let current_index = self.current_stack.last().unwrap();
 
 		if let Some(trace) = self.traces.get_mut(*current_index) {
-			let position = trace.child_call_count;
-			let log =
-				CallLog { address, topics: topics.to_vec(), data: data.to_vec().into(), position };
+			let log = CallLog {
+				address,
+				topics: topics.to_vec(),
+				data: data.to_vec().into(),
+				position: trace.child_call_count,
+			};
 
 			trace.logs.push(log);
 		}
