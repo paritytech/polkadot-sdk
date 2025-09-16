@@ -7,4 +7,4 @@ doc:
     Avoid double counting PoV size when enqueing XCMP message
 crates:
 - name: cumulus-pallet-xcmp-queue
-  bump: patch
+  bump: major
