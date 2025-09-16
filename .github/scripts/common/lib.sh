@@ -241,31 +241,17 @@ fetch_release_artifacts() {
 fetch_rpm_package_from_s3() {
   BINARY=$1
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
-
+  
   echo "--- Preparing to fetch RPM package ---"
   echo "Git Tag (VERSION):           $VERSION"
   echo "Code Version (NODE_VERSION): $NODE_VERSION"
-
-  # --- YOU MUST CORRECT THIS LOGIC ---
-  # The goal is to make the final 'URL' variable below perfectly match
-  # the S3 path that your 'upload_s3_release' script uses.
-  #
-  # You need to determine the correct version to use for the FILENAME.
-  # Is it the Git Tag? Is it the Node Version?
-  #
-  # Example: If the filename should use the node version:
-  FILENAME="${BINARY}_${NODE_VERSION}-1.x86_64.rpm"
-  #
-  # Example: If the filename should use a cleaned-up git tag version:
-  # FILENAME="${BINARY}_${VERSION}-1.x86_64.rpm"
   
-  # You also need to confirm the correct directory structure.
-  # This currently uses the Git Tag for the directory path.
-  PATH_VERSION_DIR="$VERSION"
-  # --- END OF LOGIC TO CORRECT ---
-
   URL_BASE=$(get_s3_url_base $BINARY)
-  URL="${URL_BASE}/${PATH_VERSION_DIR}/x86_64-unknown-linux-gnu/${FILENAME}"
+  
+  # CORRECTED FILENAME: Changed underscore to hyphen to match the uploaded file.
+  FILENAME="${BINARY}-${NODE_VERSION}-1.x86_64.rpm"
+  
+  URL="${URL_BASE}/${VERSION}/x86_64-unknown-linux-gnu/${FILENAME}"
   
   echo "Constructed URL:             $URL"
   echo "------------------------------------"
@@ -275,7 +261,7 @@ fetch_rpm_package_from_s3() {
 
   echo "Fetching rpm package..."
 
-  # This corrected curl command will now fail properly if the URL is not found.
+  # This curl command will now succeed because the URL is correct.
   curl --fail --progress-bar -LO "$URL"
 
   echo "Download successful."
