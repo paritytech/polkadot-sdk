@@ -161,9 +161,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(dry_run.data.into())
 	}
 
-	async fn send_raw_transaction(&self, transaction: TransactionSigned) -> RpcResult<H256> {
-		let hash = H256(keccak_256(&transaction.signed_payload()));
-		let call = subxt_client::tx().revive().eth_transact(subxt::utils::Static(transaction));
+	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
+		let hash = H256(keccak_256(&transaction.0));
+		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 		self.client.submit(call).await.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");
 			err
@@ -205,8 +205,8 @@ impl EthRpcServer for EthRpcServerImpl {
 		}
 
 		let tx = transaction.try_into_unsigned().map_err(|_| EthRpcError::InvalidTransaction)?;
-		let payload = account.sign_transaction(tx);
-		self.send_raw_transaction(payload).await
+		let payload = account.sign_transaction(tx).signed_payload();
+		self.send_raw_transaction(Bytes(payload)).await
 	}
 
 	async fn get_block_by_hash(
