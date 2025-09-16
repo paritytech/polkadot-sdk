@@ -74,6 +74,7 @@ jobs:
   fetch-artifacts-from-s3:
     runs-on: ubuntu-latest
     needs: [validate-inputs]
+    environment: release
     env:
       REPO: ${{ github.repository }}
       VERSION: ${{ needs.validate-inputs.outputs.release_tag }}
