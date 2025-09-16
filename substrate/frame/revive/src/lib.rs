@@ -2059,11 +2059,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 					tracer_type: $crate::evm::TracerType,
 				) -> Vec<(u32, $crate::evm::Trace)> {
 					use $crate::{sp_runtime::traits::Block, tracing::trace};
-					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type);
 					let mut traces = vec![];
 					let (header, extrinsics) = block.deconstruct();
 					<$Executive>::initialize_block(&header);
 					for (index, ext) in extrinsics.into_iter().enumerate() {
+						let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
 						let t = tracer.as_tracing();
 						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 
@@ -2104,7 +2104,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					tracer_type: $crate::evm::TracerType,
 				) -> Result<$crate::evm::Trace, $crate::EthTransactError> {
 					use $crate::tracing::trace;
-					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type);
+					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
 					let t = tracer.as_tracing();
 
 					t.watch_address(&tx.from.unwrap_or_default());
@@ -2116,7 +2116,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					} else if let Err(err) = result {
 						Err(err)
 					} else {
-						Ok(tracer.empty_trace())
+						Ok($crate::Pallet::<Self>::evm_tracer(tracer_type).empty_trace())
 					}
 				}
 
