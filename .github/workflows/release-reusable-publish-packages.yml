@@ -260,7 +260,7 @@ jobs:
                 --user root:root \
                 --rm \
                 docker.io/paritytech/rpm \
-                /bin/bash -c "cd /rpm && rpm --addsign '${rpm_filename}'"
+                /bin/bash -c "dnf install -y gnupg && cd /rpm && rpm --addsign '${rpm_filename}'"
 
             # Cleanup
             rm -rf "${TEMP_DIR}"
