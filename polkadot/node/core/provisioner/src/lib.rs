@@ -281,7 +281,7 @@ async fn handle_active_leaves_update<Context>(
 		 ?diff,
 		 ?in_block_count,
 		 local_count = ?inherent.backed_candidates.len(),
-		 leaf_hash=?leaf.hash, "Statement distribution propagation update");
+		 leaf_hash=?leaf.hash, "Offchain vs on-chain backing update");
 
 	metrics.observe_backable_vs_in_block(diff);
 	Ok(())
