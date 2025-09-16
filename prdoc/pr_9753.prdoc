@@ -1,17 +1,9 @@
 title: Fix Aura authorities tracker bug
 doc:
-- audience: Todo
+- audience: [Node Dev, Runtime Dev]
   description: |-
-    Currently, the Aura authorities tracker uses the block pre-hash to import the authorities, but the post-hash to fetch them. That results in block verification failures. A scenario to reproduce the bug is as follows:
-
-    * Start a parachain with a single-collator fixed-authority Aura;
-    * Upgrade the parachain runtime to include `session` and `collator-selection` pallets;
-    * Register the collator keys as session keys, then add the collator to invulnerables;
-    * Start a second collator, rotate its keys, register them as session keys, and add the second collator to invulnerables;
-    * When the second collator is trying to import the block where it's enacted as the second Aura authority, it fails the block verification and does not import or produce any blocks anymore.
-
-    This PR changes the behavior to importing the authorities using the block post-hash, which fixes the bug.
-crates:
+    Fix a bug in the Aura authority tracker that resulted in an improper hash being used as the
+    key for the authority set. As a result, a new authority couldn't be introduced to the set.
 - name: cumulus-client-consensus-aura
   bump: patch
 - name: sc-consensus-aura
