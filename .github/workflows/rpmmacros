@@ -1,5 +1,5 @@
 %_signature gpg
-%_gpg_path /home/nonroot/.gnupg
+%_gpg_path /root/.gnupg
 %_gpg_name security@parity.io
 %_gpgbin /usr/bin/gpg
 %__gpg_sign_cmd %{__gpg} gpg --force-v3-sigs --batch --verbose --no-armor -u "%{_gpg_name}" -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}
