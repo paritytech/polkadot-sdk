@@ -38,7 +38,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
 use polkadot_primitives::{
-	BackedCandidate, CandidateHash, CandidateEvent, CoreIndex, CoreState, Hash, Id as ParaId,
+	BackedCandidate, CandidateEvent, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
 	SignedAvailabilityBitfield, ValidatorIndex,
 };
 use sc_consensus_slots::time_until_next_slot;
@@ -241,7 +241,8 @@ async fn handle_active_leaves_update<Context>(
 	let slot_delay = time_until_next_slot(Duration::from_millis(6000));
 	gum::debug!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Expecting next slot in {}ms", slot_delay.as_millis());
 
-	let slot_delay_task = Delay::new(slot_delay + PRE_PROPOSE_TIMEOUT).map(move |_| leaf.hash).boxed();
+	let slot_delay_task =
+		Delay::new(slot_delay + PRE_PROPOSE_TIMEOUT).map(move |_| leaf.hash).boxed();
 	slot_delays.push(slot_delay_task);
 
 	let Ok(Ok(candidate_events)) =
