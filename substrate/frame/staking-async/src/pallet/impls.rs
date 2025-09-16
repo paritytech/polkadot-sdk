@@ -1951,7 +1951,7 @@ impl<T: Config> Pallet<T> {
 			BTreeMap::new();
 		// If the pallet is not initialized, we return immediately from pallet's do_try_state() and
 		// we don't call this method. Otherwise, Eras::do_try_state enforces that both ActiveEra
-		// and CurrentEra are Some. Thus, we can safely unwrap here.
+		// and CurrentEra are Some. Thus, we should never hit this error.
 		let era = ActiveEra::<T>::get()
 			.ok_or(TryRuntimeError::Other("ActiveEra must be set when checking paged exposures"))?
 			.index;
