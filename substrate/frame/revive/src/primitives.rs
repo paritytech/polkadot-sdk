@@ -23,6 +23,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
+use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
@@ -50,6 +51,15 @@ impl<T> DepositLimit<T> {
 impl<T> From<T> for DepositLimit<T> {
 	fn from(value: T) -> Self {
 		Self::Balance(value)
+	}
+}
+
+impl<T: Bounded + Copy> DepositLimit<T> {
+	pub fn limit(&self) -> T {
+		match self {
+			Self::UnsafeOnlyForDryRun => T::max_value(),
+			Self::Balance(limit) => *limit,
+		}
 	}
 }
 
@@ -345,5 +355,14 @@ pub enum BumpNonce {
 	/// Do not increment the nonce after contract instantiation
 	No,
 	/// Increment the nonce after contract instantiation
+	Yes,
+}
+
+/// Indicates whether the code was removed after the last refcount was decremented.
+#[must_use = "You must handle whether the code was removed or not."]
+pub enum CodeRemoved {
+	/// The code was not removed. (refcount > 0)
+	No,
+	/// The code was removed. (refcount == 0)
 	Yes,
 }

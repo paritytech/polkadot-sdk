@@ -85,14 +85,12 @@ impl<T: Config> Pallet<T> {
 			.max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for validators, defaulting to `MinNominatorBond` if not
-	/// set or less than `MinNominatorBond`.
+	/// Returns the minimum required bond for participation in staking as a validator account.
 	pub(crate) fn min_validator_bond() -> BalanceOf<T> {
-		MinValidatorBond::<T>::get().max(Self::min_nominator_bond())
+		MinValidatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for nominators, considering the chain’s existential
-	/// deposit.
+	/// Returns the minimum required bond for participation in staking as a nominator account.
 	pub(crate) fn min_nominator_bond() -> BalanceOf<T> {
 		MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
@@ -178,6 +176,18 @@ impl<T: Config> Pallet<T> {
 	pub fn weight_of(who: &T::AccountId) -> VoteWeight {
 		let issuance = asset::total_issuance::<T>();
 		Self::slashable_balance_of_vote_weight(who, issuance)
+	}
+
+	/// Checks if a slash has been cancelled for the given era and slash parameters.
+	pub(crate) fn check_slash_cancelled(
+		era: EraIndex,
+		validator: &T::AccountId,
+		slash_fraction: Perbill,
+	) -> bool {
+		let cancelled_slashes = CancelledSlashes::<T>::get(&era);
+		cancelled_slashes.iter().any(|(cancelled_validator, cancel_fraction)| {
+			*cancelled_validator == *validator && *cancel_fraction >= slash_fraction
+		})
 	}
 
 	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
@@ -739,11 +749,6 @@ impl<T: Config> Pallet<T> {
 				.defensive_unwrap_or_default();
 		}
 		Nominators::<T>::insert(who, nominations);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -763,11 +768,6 @@ impl<T: Config> Pallet<T> {
 			false
 		};
 
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
-
 		outcome
 	}
 
@@ -784,11 +784,6 @@ impl<T: Config> Pallet<T> {
 			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who));
 		}
 		Validators::<T>::insert(who, prefs);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -806,11 +801,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			false
 		};
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 
 		outcome
 	}
@@ -979,11 +969,13 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		log!(
 			debug,
-			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters",
+			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters [first: {:?}, last: {:?}]",
 			page,
 			status,
 			bounds,
 			voters.len(),
+			voters.first().map(|(x, y, _)| (x, y)),
+			voters.last().map(|(x, y, _)| (x, y)),
 		);
 
 		match status {
@@ -1014,8 +1006,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 
 		let targets = Self::get_npos_targets(bounds);
-		// We can't handle this case yet -- return an error. WIP to improve handling this case in
-		// <https://github.com/paritytech/substrate/pull/13195>.
 		if bounds.exhausted(None, CountBound(targets.len() as u32).into()) {
 			return Err("Target snapshot too big")
 		}
@@ -1124,9 +1114,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// 3. Activate Next Era: When we receive an activation timestamp in the session report, it
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
-	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
+	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) -> Weight {
 		log!(debug, "Received session report: {}", report,);
-		let consumed_weight = T::WeightInfo::rc_on_session_report();
 
 		let rc_client::SessionReport {
 			end_index,
@@ -1136,13 +1125,16 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
+		// note: weight for `reward_active_era` is taken care of inside `end_session`
 		Eras::<T>::reward_active_era(validator_points.into_iter());
-		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
-		// NOTE: we might want to either return these weights so that they are registered in the
-		// rc-client pallet, or directly benchmarked there, such that we can use them in the
-		// "pre-dispatch" fashion. That said, since these are all `Mandatory` weights, it doesn't
-		// make that big of a difference.
-		Self::register_weight(consumed_weight);
+		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp)
+	}
+
+	fn weigh_on_relay_session_report(
+		_report: &rc_client::SessionReport<Self::AccountId>,
+	) -> Weight {
+		// worst case weight of this is always
+		T::WeightInfo::rc_on_session_report()
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
@@ -1158,14 +1150,14 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	fn on_new_offences(
 		slash_session: SessionIndex,
 		offences: Vec<rc_client::Offence<T::AccountId>>,
-	) {
+	) -> Weight {
 		log!(debug, "🦹 on_new_offences: {:?}", offences);
-		let consumed_weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
+		let weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
 
 		// Find the era to which offence belongs.
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			log!(warn, "🦹 on_new_offences: no active era; ignoring offence");
-			return
+			return T::WeightInfo::rc_on_offence(0);
 		};
 
 		let active_era_start_session = Rotator::<T>::active_era_start_session_index();
@@ -1186,7 +1178,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 					// defensive: this implies offence is for a discarded era, and should already be
 					// filtered out.
 					log!(warn, "🦹 on_offence: no era found for slash_session; ignoring offence");
-					return
+					return T::WeightInfo::rc_on_offence(0);
 				},
 			}
 		};
@@ -1338,7 +1330,11 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			}
 		}
 
-		Self::register_weight(consumed_weight);
+		weight
+	}
+
+	fn weigh_on_new_offences(offence_count: u32) -> Weight {
+		T::WeightInfo::rc_on_offence(offence_count)
 	}
 }
 
@@ -2059,6 +2055,11 @@ impl<T: Config> Pallet<T> {
 			Self::ensure_era_slashes_applied(era)?;
 		}
 
+		// (5) Ensure no canceled slashes exist in the past eras.
+		for (era, _) in CancelledSlashes::<T>::iter() {
+			ensure!(era >= active_era, "Found cancelled slashes for era before active era");
+		}
+
 		Ok(())
 	}
 
@@ -2071,21 +2072,40 @@ impl<T: Config> Pallet<T> {
 
 		match (is_nominator, is_validator) {
 			(false, false) => {
-				if ledger.active < Self::min_chilled_bond() {
-					log!(warn, "Chilled stash {:?} has less than minimum bond", stash);
+				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
+					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
+					log!(
+						warn,
+						"Chilled stash {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_chilled_bond()
+					);
 				}
 				// is chilled
 			},
 			(true, false) => {
 				// Nominators must have a minimum bond.
 				if ledger.active < Self::min_nominator_bond() {
-					log!(warn, "Nominator {:?} has less than minimum bond", stash);
+					log!(
+						warn,
+						"Nominator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_nominator_bond()
+					);
 				}
 			},
 			(false, true) => {
 				// Validators must have a minimum bond.
 				if ledger.active < Self::min_validator_bond() {
-					log!(warn, "Validator {:?} has less than minimum bond", stash);
+					log!(
+						warn,
+						"Validator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_validator_bond()
+					);
 				}
 			},
 			(true, true) => {

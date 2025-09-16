@@ -35,6 +35,7 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
+polkadot-primitives-test-helpers = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
