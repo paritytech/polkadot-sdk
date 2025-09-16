@@ -58,7 +58,7 @@ use polkadot_primitives::{
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
-	sync::Arc
+	sync::Arc,
 };
 
 /// Network events as transmitted to other subsystems, wrapped in their message types.
