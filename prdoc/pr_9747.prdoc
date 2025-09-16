@@ -1,4 +1,4 @@
-title: 'staking-async: uninitialized state in try-state checks'
+title: 'staking-async: handle uninitialized state in try-state checks'
 doc:
 - audience: Runtime Dev
   description: |-
