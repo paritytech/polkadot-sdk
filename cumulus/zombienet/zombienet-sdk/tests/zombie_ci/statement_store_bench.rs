@@ -18,16 +18,12 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
-			let r = r
-				.with_chain("westend-local")
+			r.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
-
-			(1..6).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+				.with_node(|node| node.with_name("validator-0"))
+				.with_node(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
 			p.with_id(2400)
