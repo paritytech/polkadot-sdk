@@ -5,7 +5,7 @@
 // propagated to peers.
 
 use anyhow::anyhow;
-use sp_core::{sr25519, Bytes, Decode, Encode, Pair};
+use sp_core::{blake2_256, sr25519, Bytes, Decode, Encode, Pair};
 use sp_keyring::Sr25519Keyring;
 use sp_statement_store::{Statement, Topic};
 use std::collections::HashMap;
@@ -34,7 +34,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 			p.with_id(2400)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("people-westend-local")
+				.with_chain_spec_path("tests/zombie_ci/people-rococo-spec.json")
 				.with_default_args(vec![
 					"--force-authoring".into(),
 					"-lparachain=debug".into(),
@@ -127,6 +127,71 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		println!("Participant {:?} group members: {:?}", participant.keyring, participant.group);
 	}
 
+	// Generate and exchange symmetric keys
+	for participant in &mut participants {
+		participant.generate_symmetric_keys();
+
+		// Send symmetric keys to group members with higher idx
+		for &receiver_idx in participant.group.keys() {
+			if receiver_idx > participant.idx {
+				if let Some(statement) = participant.symmetric_key_statement(receiver_idx) {
+					println!(
+						"Sending {:?} symmetric key to idx {} {:?}",
+						participant.keyring,
+						receiver_idx,
+						statement.channel()
+					);
+					let statement_bytes: Bytes = statement.encode().into();
+					let _: () = collator_rpc
+						.request("statement_submit", rpc_params![statement_bytes])
+						.await?;
+				}
+			}
+		}
+	}
+
+	// Poll for symmetric keys from other participants
+	for participant in &mut participants {
+		println!("Participant {:?} polling for symmetric keys...", participant.keyring);
+
+		// Check for symmetric keys from each group member with lower idx
+		for (&sender_idx, sender_session_key) in participant.group.iter() {
+			if sender_idx < participant.idx {
+				let topic =
+					vec![topic_for_pair(sender_session_key, &participant.session_key.public())];
+
+				let statements: Vec<Bytes> = collator_rpc
+					.request("statement_broadcastsStatement", rpc_params![topic])
+					.await?;
+
+				for statement_bytes in &statements {
+					if let Ok(statement) =
+						sp_statement_store::Statement::decode(&mut &statement_bytes[..])
+					{
+						if let Some(data) = statement.data() {
+							if data.len() == 32 {
+								let mut symmetric_key = [0u8; 32];
+								symmetric_key.copy_from_slice(data);
+								participant.symmetric_keys.insert(sender_idx, symmetric_key);
+
+								println!(
+									"Participant {:?} received symmetric key from idx {}",
+									participant.keyring, sender_idx
+								);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		println!(
+			"Participant {:?} symmetric keys: {} keys",
+			participant.keyring,
+			participant.symmetric_keys.len()
+		);
+	}
+
 	Ok(())
 }
 
@@ -135,12 +200,13 @@ struct Participant {
 	session_key: sr25519::Pair,
 	idx: usize,
 	group: HashMap<usize, sr25519::Public>,
+	symmetric_keys: HashMap<usize, [u8; 32]>,
 }
 
 impl Participant {
 	fn new(keyring: Sr25519Keyring, idx: usize) -> Self {
 		let (session_key, _) = sr25519::Pair::generate();
-		Self { keyring, session_key, idx, group: HashMap::new() }
+		Self { keyring, session_key, idx, group: HashMap::new(), symmetric_keys: HashMap::new() }
 	}
 
 	fn public_key_statement(&self) -> Statement {
@@ -163,6 +229,38 @@ impl Participant {
 			self.group.insert(idx, session_key);
 		}
 	}
+
+	fn generate_symmetric_keys(&mut self) {
+		for &other_idx in self.group.keys() {
+			if other_idx > self.idx {
+				let mut key_material = Vec::new();
+				key_material.extend_from_slice(&self.idx.to_le_bytes());
+				key_material.extend_from_slice(&other_idx.to_le_bytes());
+				let symmetric_key = blake2_256(&key_material);
+				self.symmetric_keys.insert(other_idx, symmetric_key);
+			}
+		}
+	}
+
+	fn symmetric_key_statement(&self, receiver_idx: usize) -> Option<Statement> {
+		if let (Some(symmetric_key), Some(receiver_session_key)) =
+			(self.symmetric_keys.get(&receiver_idx), self.group.get(&receiver_idx))
+		{
+			let mut statement = Statement::new();
+
+			let topic = topic_for_pair(&self.session_key.public(), receiver_session_key);
+			let channel = channel_for_pair(&self.session_key.public(), receiver_session_key, 0);
+
+			statement.set_channel(channel);
+			statement.set_topic(0, topic);
+			statement.set_plain_data(symmetric_key.to_vec());
+			statement.sign_sr25519_private(&self.keyring.pair());
+
+			Some(statement)
+		} else {
+			None
+		}
+	}
 }
 
 fn topic_public_key() -> Topic {
@@ -177,4 +275,23 @@ fn topic_idx(idx: usize) -> Topic {
 	let mut topic = [0u8; 32];
 	topic[..8].copy_from_slice(&idx.to_le_bytes());
 	topic
+}
+
+fn topic_for_pair(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
+	let mut data = Vec::new();
+	data.extend_from_slice(sender.as_ref());
+	data.extend_from_slice(receiver.as_ref());
+	blake2_256(&data)
+}
+
+fn channel_for_pair(
+	sender: &sr25519::Public,
+	receiver: &sr25519::Public,
+	message_counter: u64,
+) -> Topic {
+	let mut data = Vec::new();
+	data.extend_from_slice(sender.as_ref());
+	data.extend_from_slice(receiver.as_ref());
+	data.extend_from_slice(&message_counter.to_le_bytes());
+	blake2_256(&data)
 }
