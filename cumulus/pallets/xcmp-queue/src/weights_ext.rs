@@ -65,12 +65,12 @@ pub trait WeightInfoExt: WeightInfo {
 		// If the messages are not added to the beginning of the first page, the page will be
 		// decoded and re-encoded once. Let's account for this.
 		let pos_overhead = {
-			let pos_overhead = Self::enqueue_empty_xcmp_message_at(first_page_pos)
+			let mut pos_overhead = Self::enqueue_empty_xcmp_message_at(first_page_pos)
 				.saturating_sub(Self::enqueue_empty_xcmp_message_at(0));
 			// We need to account for the PoV size of the first page in the message queue only the
 			// first time when we access it.
 			if !is_first_sender_batch {
-				pos_overhead.set_proof_size(0);
+				pos_overhead = pos_overhead.set_proof_size(0);
 			}
 			pos_overhead
 		};
