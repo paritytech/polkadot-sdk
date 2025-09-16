@@ -481,3 +481,49 @@ fn relayer_fee_paid_out_when_no_tip_exists() {
 		assert_eq!(Tips::<Test>::get(nonce), None);
 	});
 }
+
+#[test]
+fn tip_paid_out_when_no_relayer_fee() {
+	new_tester().execute_with(|| {
+		let nonce: u64 = 99;
+		let tip: u128 = 8_500;
+
+		// Add tip for nonce before message is processed
+		assert_ok!(InboundQueue::add_tip(nonce, tip));
+		assert_eq!(Tips::<Test>::get(nonce), Some(tip));
+
+		// Process inbound message with zero relayer_fee but with tip
+		let relayer: AccountId = Keyring::Bob.into();
+		assert_ok!(InboundQueue::process_message(
+			relayer,
+			Message {
+				nonce,
+				assets: vec![],
+				xcm: XcmPayload::Raw(vec![]),
+				claimer: None,
+				execution_fee: 1_000_000_000,
+				relayer_fee: 0,
+				gateway: mock::GatewayAddress::get(),
+				origin: H160::random(),
+				value: 3_000_000_000,
+			},
+		));
+
+		// Tip should be paid out even without relayer fee
+		assert_eq!(
+			RegisteredRewardsCount::get(),
+			1,
+			"Tip should be paid out even when relayer_fee is 0"
+		);
+
+		// Check the actual reward amount paid out (should be just the tip)
+		assert_eq!(
+			RegisteredRewardAmount::get(),
+			tip,
+			"Reward amount should equal tip when relayer_fee is 0"
+		);
+
+		// Tip should be consumed from storage
+		assert_eq!(Tips::<Test>::get(nonce), None);
+	});
+}
