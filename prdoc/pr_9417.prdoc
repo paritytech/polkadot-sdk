@@ -8,4 +8,4 @@ crates:
 - name: polkadot-node-core-provisioner
   bump: patch
 - name: polkadot-overseer
-  bump: patch
+  bump: major
