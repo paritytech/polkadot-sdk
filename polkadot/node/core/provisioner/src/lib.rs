@@ -38,7 +38,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
 use polkadot_primitives::{
-	BackedCandidate, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
+	BackedCandidate, CandidateHash, CandidateEvent, CoreIndex, CoreState, Hash, Id as ParaId,
 	SignedAvailabilityBitfield, ValidatorIndex,
 };
 use sc_consensus_slots::time_until_next_slot;
@@ -183,15 +183,12 @@ async fn run_iteration<Context>(
 
 					inherent_receivers.push(task);
 
-					// If we are also authoring a block in this slot, this will duplicate the
-					// fetch inherent work.
-					// TODO: add some small offset and avoid calling it
 					send_inherent_data_bg(ctx, &state, vec![inherent_tx], metrics.clone()).await?;
 				}
 			},
 			(hash, inherent_data) = inherent_receivers.select_next_some() => {
 				if let Ok(inherent_data) = inherent_data {
-					gum::debug!(
+					gum::trace!(
 						target: LOG_TARGET,
 						relay_parent = ?hash,
 						"Debug Inherent Data became ready"
@@ -244,7 +241,7 @@ async fn handle_active_leaves_update<Context>(
 	let slot_delay = time_until_next_slot(Duration::from_millis(6000));
 	gum::debug!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Expecting next slot in {}ms", slot_delay.as_millis());
 
-	let slot_delay_task = Delay::new(slot_delay).map(move |_| leaf.hash).boxed();
+	let slot_delay_task = Delay::new(slot_delay + PRE_PROPOSE_TIMEOUT).map(move |_| leaf.hash).boxed();
 	slot_delays.push(slot_delay_task);
 
 	let Ok(Ok(candidate_events)) =
