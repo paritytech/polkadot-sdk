@@ -178,6 +178,26 @@ jobs:
             aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
           fi
 
+      # --- ADD THIS NEW VERIFICATION STEP HERE ---
+      - name: Verify Downloaded RPM Integrity
+        if: ${{ inputs.package_type == 'rpm' }}
+        run: |
+          # Install the rpm tool on the runner to perform the check
+          sudo apt-get update && sudo apt-get install -y rpm
+          
+          # Find the downloaded .rpm artifact
+          rpmname=$(find release-artifacts/ -name 'polkadot_*.rpm' -print -quit)
+          if [ -z "$rpmname" ]; then
+            echo "Error: RPM package artifact not found for verification."
+            exit 1
+          fi
+          echo "Verifying integrity of $rpmname..."
+          
+          # The -vK command checks the package's header and digests.
+          # We add '|| true' so the job continues even if the check fails,
+          # allowing us to see the debug output.
+          rpm -vK "$rpmname" || true
+
       - name: Add package to local repo
         env:
           PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
