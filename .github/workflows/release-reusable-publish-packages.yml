@@ -248,7 +248,7 @@ jobs:
 
             # Run all RPM operations inside a standard Fedora container
             podman run \
-                -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
+                -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent:ro" \
                 -v "${LOCAL_REPO_PATH}:/rpm:rw" \
                 -v "${TEMP_DIR}/rpmmacros:/etc/rpm/macros.sign:ro" \
                 --user root:root \
