@@ -4051,8 +4051,9 @@ fn call_tracing_works() {
 
 		let tracer_configs = vec![
 			 CallTracerConfig{ with_logs: false, only_top_call: false},
-			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: true, only_top_call: false},
 			 CallTracerConfig{ with_logs: false, only_top_call: true},
+			 CallTracerConfig{ with_logs: true, only_top_call: true},
 		];
 
 		// Verify that the first trace report the same weight reported by bare_call
@@ -4154,12 +4155,15 @@ fn call_tracing_works() {
 													..Default::default()
 												}
 											],
+											child_call_count: 1,
 											..Default::default()
 										},
 									],
+									child_call_count: 2,
 									..Default::default()
 								},
 							],
+							child_call_count: 2,
 							..Default::default()
 						},
 					]
@@ -4179,6 +4183,7 @@ fn call_tracing_works() {
 					logs: logs.clone(),
 					value: Some(U256::from(0)),
 					calls: calls,
+					child_call_count: 2,
 					..Default::default()
 				};
 
@@ -4244,6 +4249,7 @@ fn create_call_tracing_works() {
 					call_type: CallType::Create2,
 					..Default::default()
 				},],
+				child_call_count: 1,
 				..Default::default()
 			}
 		);
