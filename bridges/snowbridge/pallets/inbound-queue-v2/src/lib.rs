@@ -257,7 +257,9 @@ pub mod pallet {
 				})?;
 
 			// Pay relayer reward
-			if !relayer_fee.is_zero() {
+			let tip = Tips::<T>::take(nonce).unwrap_or_default();
+			let total_tip = relayer_fee.saturating_add(tip);
+			if total_tip > 0 {
 				T::RewardPayment::register_reward(
 					&relayer,
 					T::DefaultRewardKind::get(),
