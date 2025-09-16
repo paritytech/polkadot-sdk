@@ -238,39 +238,37 @@ fetch_release_artifacts() {
 }
 
 # Fetch rpm package from S3. Assumes the ENV are set:
-# - RELEASE_ID
-# - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot
+# - VERSION (the git tag)
 fetch_rpm_package_from_s3() {
   BINARY=$1
-  echo "Version    : $NODE_VERSION"
-  echo "Repo       : $REPO"
-  echo "Binary     : $BINARY"
-  echo "Tag        : $VERSION"
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
-  echo "OUTPUT_DIR : $OUTPUT_DIR"
-
+  
+  # --- Improved Logging for Debugging ---
+  echo "--- Preparing to fetch RPM package ---"
+  echo "Git Tag (VERSION):      $VERSION"
+  echo "Code Version (NODE_VERSION): $NODE_VERSION"
+  echo "Output Directory:       $OUTPUT_DIR"
+  
   URL_BASE=$(get_s3_url_base $BINARY)
-  echo "URL_BASE=$URL_BASE"
-
-  # TODO: Check if the URL is still the same, source for this one was linked below in combination with changes on deb package:
-  # https://github.com/paritytech/cleanroom/blob/6fdec6d0ce41121ad67152b7bb6f944bbdae9f03/ansible/roles/parity-repos/files/add-packages.sh#L69C33-L69C46
-
-  # URL=$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}_amd64.deb
-  URL=$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}-1.x86_64.rpm
+  URL="$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}-1.x86_64.rpm"
+  
+  echo "Constructed URL:        $URL"
+  echo "------------------------------------"
 
   mkdir -p "$OUTPUT_DIR"
   pushd "$OUTPUT_DIR" > /dev/null
 
   echo "Fetching rpm package..."
+  
+  # --- CORRECTED COMMAND ---
+  # The '--fail' flag makes curl exit with an error on 404 Not Found.
+  # The '|| echo' part has been removed to stop suppressing errors.
+  curl --fail --progress-bar -LO "$URL"
 
-  echo "Fetching %s" "$URL"
-  curl --progress-bar -LO "$URL" || echo "Missing $URL"
-
-  pwd
-  ls -al --color
+  echo "Download successful."
+  ls -al
   popd > /dev/null
-
 }
 
 # Fetch deb package from S3. Assumes the ENV are set:
