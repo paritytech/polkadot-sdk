@@ -123,14 +123,14 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		BeforeAllRuntimeMigrations, ExecuteBlock, IsInherent, OffchainWorker, OnFinalize, OnIdle,
-		OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents, PostTransactions, PreInherents,
+		BeforeAllRuntimeMigrations, ExecuteBlock, Get, IsInherent, OffchainWorker, OnFinalize,
+		OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents, PostTransactions,
+		PreInherents,
 	},
 	weights::{Weight, WeightMeter},
 	MAX_EXTRINSIC_DEPTH,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::{
 	generic::Digest,
 	traits::{
@@ -231,7 +231,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitialize<BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System, BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -274,7 +274,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitialize<BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System, BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -468,33 +468,35 @@ where
 	}
 }
 
-/// See [`Hooks::on_initialize`].
-pub trait OnInitializeWithWeight<T: frame_system::Config, BlockNumber> {
-	/// See [`Hooks::on_initialize`].
-	fn on_initialize_with_weight_registration(_n: BlockNumber) -> Weight {
-		Weight::zero()
-	}
+/// Extension trait for [`OnInitialize`].
+///
+/// It takes care to register the weight of each pallet directly after executing its
+/// `on_initialize`.
+///
+/// The trait is sealed.
+pub trait OnInitializeWithWeightRegistration<T: frame_system::Config, BlockNumber> {
+	/// The actual logic that calls `on_initialize` and registers the weight.
+	fn on_initialize_with_weight_registration(_n: BlockNumber) -> Weight;
 }
 
-#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
-#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
-#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
-#[tuple_types_custom_trait_bound(OnInitialize<BlockNumber>)]
-impl<BlockNumber: Clone, T: frame_system::Config> OnInitializeWithWeight<T, BlockNumber> for Tuple {
-	fn on_initialize_with_weight_registration(n: BlockNumber) -> Weight {
-		let mut weight = Weight::zero();
-		for_tuples!( #(
-			let individual_weight = Tuple::on_initialize(n.clone());
+frame_support::impl_for_tuples_attr! {
+	#[tuple_types_custom_trait_bound(OnInitialize<BlockNumber>)]
+	impl<BlockNumber: Clone, T: frame_system::Config> OnInitializeWithWeightRegistration<T, BlockNumber> for Tuple {
+		fn on_initialize_with_weight_registration(n: BlockNumber) -> Weight {
+			let mut weight = Weight::zero();
+			for_tuples!( #(
+				let individual_weight = Tuple::on_initialize(n.clone());
 
-			<frame_system::Pallet<T>>::register_extra_weight_unchecked(
-				individual_weight,
-				DispatchClass::Mandatory,
-			);
+				<frame_system::Pallet<T>>::register_extra_weight_unchecked(
+					individual_weight,
+					DispatchClass::Mandatory,
+				);
 
-			weight = weight.saturating_add(individual_weight);
-		)* );
+				weight = weight.saturating_add(individual_weight);
+			)* );
 
-		weight
+			weight
+		}
 	}
 }
 
@@ -512,7 +514,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitialize<BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System, BlockNumberFor<System>>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -580,7 +582,7 @@ where
 	) {
 		// Reset events before apply runtime upgrade hook.
 		// This is required to preserve events from runtime upgrade hook.
-		// This means the format of all the event related storages must always be compatible.
+		// This means the format of all the event related storage must always be compatible.
 		<frame_system::Pallet<System>>::reset_events();
 
 		let mut weight = Weight::zero();
@@ -594,15 +596,23 @@ where
 			);
 		}
 		<frame_system::Pallet<System>>::initialize(block_number, parent_hash, digest);
-		weight = weight.saturating_add(<AllPalletsWithSystem as OnInitialize<
-			BlockNumberFor<System>,
-		>>::on_initialize(*block_number));
-		weight = weight.saturating_add(
-			<System::BlockWeights as frame_support::traits::Get<_>>::get().base_block,
-		);
+
+		weight = System::BlockWeights::get().base_block.saturating_add(weight);
+		// Register the base block weight and optional `on_runtime_upgrade` weight.
 		<frame_system::Pallet<System>>::register_extra_weight_unchecked(
 			weight,
 			DispatchClass::Mandatory,
+		);
+
+		weight =
+			weight.saturating_add(<AllPalletsWithSystem as OnInitializeWithWeightRegistration<
+				System,
+				BlockNumberFor<System>,
+			>>::on_initialize_with_weight_registration(*block_number));
+
+		log::debug!(
+			target: LOG_TARGET,
+			"[{block_number:?}]: Block initialization weight consumption: {weight:?}",
 		);
 
 		frame_system::Pallet::<System>::note_finished_initialize();
