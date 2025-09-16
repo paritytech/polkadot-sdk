@@ -1777,6 +1777,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		// If the pallet is not initialized (both ActiveEra and CurrentEra are None),
+		// there's nothing to check, so return early.
+		if ActiveEra::<T>::get().is_none() && CurrentEra::<T>::get().is_none() {
+			return Ok(());
+		}
+
 		session_rotation::Rotator::<T>::do_try_state()?;
 		session_rotation::Eras::<T>::do_try_state()?;
 
@@ -1957,6 +1963,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
+	/// * ActiveEra is Some.
 	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
@@ -1967,7 +1974,13 @@ impl<T: Config> Pallet<T> {
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
 			BTreeMap::new();
-		let era = ActiveEra::<T>::get().unwrap().index;
+		// If the pallet is not initialized, we return immediately from pallet's do_try_state() and
+		// we don't call this method. Otherwise, Eras::do_try_state enforces that both ActiveEra
+		// and CurrentEra are Some. Thus, we should never hit this error.
+		let era = ActiveEra::<T>::get()
+			.ok_or(TryRuntimeError::Other("ActiveEra must be set when checking paged exposures"))?
+			.index;
+
 		let accumulator_default = PagedExposureMetadata {
 			total: Zero::zero(),
 			own: Zero::zero(),
