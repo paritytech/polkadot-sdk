@@ -177,6 +177,9 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	async fn set_next_block_timestamp(&self, next_timestamp: U256) -> RpcResult<()> {
 		Ok(self.client.set_next_block_timestamp(next_timestamp).await?)
 	}
+	async fn increase_time(&self, increase_by_seconds: U256) -> RpcResult<U256> {
+		Ok(self.client.increase_time(increase_by_seconds).await?)
+	}
 
 	async fn set_prev_randao(&self, prev_randao: H256) -> RpcResult<Option<H256>> {
 		Ok(self.client.set_prev_randao(prev_randao).await?)

@@ -92,6 +92,9 @@ pub trait HardhatRpc {
 	#[method(name = "evm_setNextBlockTimestamp")]
 	async fn set_next_block_timestamp(&self, next_timestamp: U256) -> RpcResult<()>;
 
+	#[method(name = "evm_increaseTime")]
+	async fn increase_time(&self, increase_by_seconds: U256) -> RpcResult<U256>;
+
 	#[method(name = "evm_setBlockGasLimit")]
 	async fn set_block_gas_limit(&self, block_gas_limit: U128) -> RpcResult<Option<U128>>;
 
