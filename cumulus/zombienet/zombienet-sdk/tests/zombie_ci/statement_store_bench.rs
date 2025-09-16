@@ -5,7 +5,9 @@
 // propagated to peers.
 
 use anyhow::anyhow;
-use sp_core::{Bytes, Decode, Encode};
+use sp_core::{ed25519, Bytes, Decode, Encode, Pair};
+use sp_keyring::Sr25519Keyring;
+use sp_statement_store::{Statement, Topic};
 use zombienet_sdk::{subxt::ext::subxt_rpcs::rpc_params, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
@@ -56,37 +58,76 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 	assert!(network.wait_until_is_up(60).await.is_ok());
 
-	let charlie_node = network.get_node("charlie")?;
-	let charlie_rpc = charlie_node.rpc().await?;
+	let collator_node = network.get_node("charlie")?;
+	let collator_rpc = collator_node.rpc().await?;
 
-	let alice = sp_keyring::Sr25519Keyring::Alice;
-	let bob = sp_keyring::Sr25519Keyring::Bob;
-	let charlie = sp_keyring::Sr25519Keyring::Charlie;
-	let dave = sp_keyring::Sr25519Keyring::Dave;
-	let eve = sp_keyring::Sr25519Keyring::Eve;
-	let ferdie = sp_keyring::Sr25519Keyring::Ferdie;
+	let participants: Vec<_> = [
+		Sr25519Keyring::Alice,
+		Sr25519Keyring::Bob,
+		Sr25519Keyring::Charlie,
+		Sr25519Keyring::Dave,
+		Sr25519Keyring::Eve,
+		Sr25519Keyring::Ferdie,
+	]
+	.into_iter()
+	.map(Participant::new)
+	.collect();
 
-	// Create the statement "1,2,3" signed by dave.
-	let mut statement = sp_statement_store::Statement::new();
-	statement.set_channel([0u8; 32]);
-	statement.set_plain_data(vec![1, 2, 3]);
+	let mut statements = Vec::new();
+	for participant in &participants {
+		let statement = participant.public_key_statement();
+		let statement_bytes: Bytes = statement.encode().into();
+		statements.push(statement_bytes.clone());
 
-	statement.sign_sr25519_private(&dave.pair());
-	let statement: Bytes = statement.encode().into();
-
-	// Submit the statement to charlie.
-	let _: () = charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
-
-	// Ensure that charlie stored the statement.
-	let charlie_dump: Vec<Bytes> = charlie_rpc.request("statement_dump", rpc_params![]).await?;
-	if charlie_dump != vec![statement.clone()] {
-		return Err(anyhow!("charlie did not store the statement"));
+		// Submit each participant's statement to charlie.
+		let _: () = collator_rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
 	}
 
-	let statement_bytes = charlie_dump.first().unwrap();
-	if let Ok(statement) = sp_statement_store::Statement::decode(&mut &statement_bytes[..]) {
-		println!("{:?}", statement);
+	// Ensure that charlie stored all statements.
+	let charlie_dump: Vec<Bytes> = collator_rpc.request("statement_dump", rpc_params![]).await?;
+	if charlie_dump.len() != statements.len() {
+		return Err(anyhow!(
+			"charlie did not store all statements, expected {}, got {}",
+			statements.len(),
+			charlie_dump.len()
+		));
+	}
+
+	for statement_bytes in &charlie_dump {
+		if let Ok(statement) = sp_statement_store::Statement::decode(&mut &statement_bytes[..]) {
+			println!("{:?}", statement);
+		}
 	}
 
 	Ok(())
+}
+
+struct Participant {
+	keyring: Sr25519Keyring,
+	session_key: ed25519::Pair,
+}
+
+impl Participant {
+	fn new(keyring: Sr25519Keyring) -> Self {
+		let (session_key, _) = ed25519::Pair::generate();
+		Self { keyring, session_key }
+	}
+
+	fn public_key_statement(&self) -> Statement {
+		let mut statement = Statement::new();
+		statement.set_channel([0u8; 32]);
+		statement.set_topic(0, topic_public_key());
+		statement.set_plain_data(self.session_key.public().to_vec());
+		statement.sign_sr25519_private(&self.keyring.pair());
+
+		statement
+	}
+}
+
+fn topic_public_key() -> Topic {
+	let mut topic = [0u8; 32];
+	let source = b"public key";
+	let len = source.len().min(32);
+	topic[..len].copy_from_slice(&source[..len]);
+	topic
 }
