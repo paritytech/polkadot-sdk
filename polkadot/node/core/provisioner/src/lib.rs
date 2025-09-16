@@ -170,31 +170,35 @@ async fn run_iteration<Context>(
 			hash = slot_delays.select_next_some() => {
 				gum::debug!(target: LOG_TARGET, leaf_hash=?hash, "Slot start, preparing debug inherent");
 
-				if let Some(state) = per_relay_parent.get_mut(&hash) {
-					// Create the inherent data just to record the backed candidates.
-					let (inherent_tx, inherent_rx) = oneshot::channel();
-					let task = async move {
-						match inherent_rx.await {
-							Ok(res) => (hash, Ok(res)),
-							Err(e) => (hash, Err(e)),
-						}
+				let Some(state) = per_relay_parent.get_mut(&hash) else {
+					continue
+				};
+
+				// Create the inherent data just to record the backed candidates.
+				let (inherent_tx, inherent_rx) = oneshot::channel();
+				let task = async move {
+					match inherent_rx.await {
+						Ok(res) => (hash, Ok(res)),
+						Err(e) => (hash, Err(e)),
 					}
-					.boxed();
-
-					inherent_receivers.push(task);
-
-					send_inherent_data_bg(ctx, &state, vec![inherent_tx], metrics.clone()).await?;
 				}
+				.boxed();
+
+				inherent_receivers.push(task);
+
+				send_inherent_data_bg(ctx, &state, vec![inherent_tx], metrics.clone()).await?;
 			},
 			(hash, inherent_data) = inherent_receivers.select_next_some() => {
-				if let Ok(inherent_data) = inherent_data {
-					gum::trace!(
-						target: LOG_TARGET,
-						relay_parent = ?hash,
-						"Debug Inherent Data became ready"
-					);
-					inherents.insert(hash, inherent_data);
-				}
+				let Ok(inherent_data) = inherent_data else {
+					continue
+				};
+
+				gum::trace!(
+					target: LOG_TARGET,
+					relay_parent = ?hash,
+					"Debug Inherent Data became ready"
+				);
+				inherents.insert(hash, inherent_data);
 			}
 			hash = inherent_delays.select_next_some() => {
 				if let Some(state) = per_relay_parent.get_mut(&hash) {
