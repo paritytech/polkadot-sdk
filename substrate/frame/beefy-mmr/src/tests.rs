@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{BeefyNextAuthoritySet, MmrLeafVersion},
-	AncestryHelper, Commitment, Payload, ValidatorSet,
+	AncestryHelper, Commitment, MmrRootHash, Payload, ValidatorSet,
 };
 
 use sp_core::H256;
@@ -39,7 +39,7 @@ fn init_block(block: u64, maybe_parent_hash: Option<H256>) {
 	Mmr::on_initialize(block);
 }
 
-pub fn beefy_log(log: ConsensusLog<BeefyId>) -> DigestItem {
+pub fn beefy_log(log: ConsensusLog<BeefyId, MmrRootHash>) -> DigestItem {
 	DigestItem::Consensus(BEEFY_ENGINE_ID, log.encode())
 }
 

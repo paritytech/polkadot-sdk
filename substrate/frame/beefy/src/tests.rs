@@ -33,7 +33,7 @@ use sp_consensus_beefy::{
 		generate_double_voting_proof, generate_fork_voting_proof,
 		generate_future_block_voting_proof, Keyring as BeefyKeyring,
 	},
-	Payload, ValidatorSet, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE,
+	MmrRootHash, Payload, ValidatorSet, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE,
 };
 use sp_runtime::{DigestItem, Perbill};
 use sp_session::MembershipProof;
@@ -47,7 +47,7 @@ fn init_block(block: u64) {
 	Session::on_initialize(block);
 }
 
-pub fn beefy_log(log: ConsensusLog<BeefyId>) -> DigestItem {
+pub fn beefy_log(log: ConsensusLog<BeefyId, MmrRootHash>) -> DigestItem {
 	DigestItem::Consensus(BEEFY_ENGINE_ID, log.encode())
 }
 
@@ -389,7 +389,7 @@ fn report_equivocation_current_set_works(
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), initial_balance);
@@ -486,7 +486,7 @@ fn report_equivocation_old_set_works(
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), initial_balance);

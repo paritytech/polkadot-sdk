@@ -33,7 +33,7 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::TestXt,
-	traits::{Header as HeaderT, OpaqueKeys},
+	traits::{Header as HeaderT, Keccak256, OpaqueKeys},
 	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
