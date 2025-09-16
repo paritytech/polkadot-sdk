@@ -38,7 +38,6 @@ fn try_state_works_with_uninitialized_pallet() {
 
 #[test]
 fn try_state_detects_inconsistent_active_current_era() {
-	// Test that try-state fails if only one of ActiveEra or CurrentEra is set
 	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 		// Set only ActiveEra (CurrentEra remains None) - this violates the invariant
 		ActiveEra::<Test>::put(ActiveEraInfo { index: 1, start: None });
@@ -63,7 +62,6 @@ fn try_state_detects_inconsistent_active_current_era() {
 		ActiveEra::<Test>::put(ActiveEraInfo { index: 1, start: None });
 		CurrentEra::<Test>::put(1);
 		// Need to set up bonded eras for this to pass
-		// With BondingDuration = 3 and ActiveEra = 1, BondedEras must contain [0, 1]
 		use frame_support::BoundedVec;
 		let bonded_eras: BoundedVec<(u32, u32), _> =
 			BoundedVec::try_from(vec![(0, 0), (1, 0)]).unwrap();
