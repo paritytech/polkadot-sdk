@@ -37,6 +37,7 @@ pallet-asset-rate = { workspace = true }
 pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-assets-freezer = { workspace = true }
+pallet-assets-vesting = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-bags-list = { workspace = true }
@@ -93,7 +94,11 @@ sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 
 # num-traits feature needed for dex integer sq root:
-primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+primitive-types = { features = [
+	"codec",
+	"num-traits",
+	"scale-info",
+], workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
@@ -165,6 +170,7 @@ runtime-benchmarks = [
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-rewards/runtime-benchmarks",
 	"pallet-assets-freezer/runtime-benchmarks",
+	"pallet-assets-vesting/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -233,6 +239,7 @@ try-runtime = [
 	"pallet-asset-rate/try-runtime",
 	"pallet-asset-rewards/try-runtime",
 	"pallet-assets-freezer/try-runtime",
+	"pallet-assets-vesting/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -311,6 +318,7 @@ std = [
 	"pallet-asset-rate/std",
 	"pallet-asset-rewards/std",
 	"pallet-assets-freezer/std",
+	"pallet-assets-vesting/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",

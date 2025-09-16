@@ -1201,6 +1201,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-vesting",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -1340,6 +1341,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-vesting",
  "pallet-aura",
  "pallet-authorship",
  "pallet-bags-list",
@@ -11422,6 +11424,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-assets-vesting"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "pallet-assets",
+ "pallet-assets-freezer",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-atomic-swap"
 version = "28.0.0"
 dependencies = [
@@ -16244,6 +16259,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-freezer",
  "pallet-assets-holder",
+ "pallet-assets-vesting",
  "pallet-atomic-swap",
  "pallet-aura",
  "pallet-authority-discovery",
