@@ -323,14 +323,14 @@ fn test_xcm_enqueueing_uses_correct_pov_size(xcm_encoding: XcmEncoding) {
 				// For the first page for a certain sender, we should take into account the
 				// `first_page_pos` in the PoV size
 				(1000.into(), 1, page.as_slice()),
+				// For the first page for a different sender, we should take into account the
+				// `first_page_pos` in the PoV size
+				(2000.into(), 1, page.as_slice()),
 				// For the following pages, we shouldn't take into account the
 				// `first_page_pos` in the PoV size anymore
 				(1000.into(), 1, page.as_slice()),
+				(2000.into(), 1, page.as_slice()),
 				(1000.into(), 1, page.as_slice()),
-				(1000.into(), 1, page.as_slice()),
-				(1000.into(), 1, page.as_slice()),
-				// For the first page for a different sender, we should take into account the
-				// `first_page_pos` in the PoV size
 				(2000.into(), 1, page.as_slice()),
 			]
 			.into_iter(),
