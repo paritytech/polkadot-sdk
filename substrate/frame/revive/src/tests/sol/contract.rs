@@ -24,7 +24,7 @@ use crate::{
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes, U256},
-	sol_types::SolCall,
+	sol_types::{SolCall, SolInterface},
 };
 use frame_support::{assert_err, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
@@ -451,5 +451,25 @@ fn create2_works() {
 		let echo_output = Callee::echoCall::abi_decode_returns(&echo_result.data).unwrap();
 
 		assert_eq!(magic_number, echo_output, "Callee.echo must return 42");
+	});
+}
+
+#[test]
+fn instantiate_from_constructor_works() {
+	use pallet_revive_fixtures::CallerWithConstructor::*;
+
+	let (caller_code, _) =
+		compile_module_with_type("CallerWithConstructor", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let data = CallerWithConstructorCalls::callBar(callBarCall {}).abi_encode();
+		let result = builder::bare_call(addr).data(data).build_and_unwrap_result();
+		let result = callBarCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(result, U256::from(42));
 	});
 }
