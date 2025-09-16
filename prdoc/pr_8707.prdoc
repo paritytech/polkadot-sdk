@@ -15,14 +15,14 @@ crates:
 - name: sp-consensus-beefy
   bump: major
 - name: pallet-beefy-mmr
-  bump: patch
+  bump: major
 - name: pallet-beefy
-  bump: minor
+  bump: major
 - name: pallet-staking-async-rc-runtime
-  bump: minor
+  bump: major
 - name: rococo-runtime
-  bump: minor
+  bump: major
 - name: westend-runtime
-  bump: minor
+  bump: major
 - name: kitchensink-runtime
-  bump: minor
+  bump: major
