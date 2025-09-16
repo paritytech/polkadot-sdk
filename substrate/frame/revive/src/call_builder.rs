@@ -31,7 +31,7 @@ use crate::{
 	limits,
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
-	vm::{PreparedCall, Runtime},
+	vm::pvm::{PreparedCall, Runtime},
 	AccountInfo, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
 	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
 	PristineCode, Weight,
@@ -40,7 +40,7 @@ use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
 use frame_system::RawOrigin;
 use pallet_revive_fixtures::bench as bench_fixtures;
-use sp_core::{Get, H160, H256, U256};
+use sp_core::{H160, H256, U256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::{Bounded, Hash};
 
@@ -203,8 +203,7 @@ where
 
 /// The deposit limit we use for benchmarks.
 pub fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
-	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into()) +
-		T::DepositPerItem::get() * 1024u32.into()
+	<BalanceOf<T>>::max_value()
 }
 
 /// The funding that each account that either calls or instantiates contracts is funded with.
@@ -417,6 +416,13 @@ impl VmBinaryModule {
 		Self::with_num_instructions(size / 3)
 	}
 
+	// Same as [`Self::sized`] but using EVM bytecode.
+	pub fn evm_sized(size: u32) -> Self {
+		use revm::bytecode::opcode::STOP;
+		let code = vec![STOP; size as usize];
+		Self::new(code)
+	}
+
 	/// A contract code of specified number of instructions that uses all its bytes for instructions
 	/// but will return immediately.
 	///
@@ -476,6 +482,14 @@ impl VmBinaryModule {
 		"
 		);
 		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		Self::new(code)
+	}
+
+	/// An evm contract that executes `size` JUMPDEST instructions.
+	pub fn evm_noop(size: u32) -> Self {
+		use revm::bytecode::opcode::JUMPDEST;
+
+		let code = vec![JUMPDEST; size as usize];
 		Self::new(code)
 	}
 }
