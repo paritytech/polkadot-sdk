@@ -2152,10 +2152,12 @@ where
 	}
 }
 
+/// Returns the code hash of the contract at `address`.
+/// For details refer to https://eips.ethereum.org/EIPS/eip-1052
 pub fn code_hash<T: Config>(address: &H160) -> H256 {
-	// precompiles have static code provided by the runtime
-	if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-		return sp_io::hashing::keccak_256(code).into();
+	// EIP_1052: The EXTCODEHASH of a precompiled contract is either c5d246... or 0.
+	if is_precompile::<T>(address) {
+		return EMPTY_CODE_HASH;
 	}
 
 	// check stored contract info or account existence
@@ -2168,6 +2170,11 @@ pub fn code_hash<T: Config>(address: &H160) -> H256 {
 				H256::zero()
 			}
 		})
+}
+
+/// Returns true if the address has a precompile contract, else false.
+pub fn is_precompile<T: Config>(address: &H160) -> bool {
+	<AllPrecompiles<T>>::code(address.as_fixed_bytes()).is_some()
 }
 
 mod sealing {

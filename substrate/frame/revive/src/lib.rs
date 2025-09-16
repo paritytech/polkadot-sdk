@@ -1727,9 +1727,25 @@ where
 	fn ensure_non_contract_if_signed<ReturnValue>(
 		origin: &OriginFor<T>,
 	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
-		use crate::exec::{code_hash, EMPTY_CODE_HASH};
+		use crate::exec::{code_hash, is_precompile, EMPTY_CODE_HASH};
 		if let Ok(who) = ensure_signed(origin.clone()) {
 			let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
+
+			// // EIP_1052: precompile address has EMPTY_CODE_HASH but should be treated as having
+			// code in this check.
+			if is_precompile::<T>(&address) {
+				log::debug!(
+					target: crate::LOG_TARGET,
+					"EIP-3607: reject externally-signed tx from pre compile account {:?}",
+					address
+				);
+				return Err(ContractResult {
+					result: Err(DispatchError::BadOrigin),
+					gas_consumed: Weight::default(),
+					gas_required: Weight::default(),
+					storage_deposit: Default::default(),
+				});
+			}
 			// Get canonical code-hash (handles precompiles, contract storage and non-existent
 			// accounts).
 			let code_hash = code_hash::<T>(&address);

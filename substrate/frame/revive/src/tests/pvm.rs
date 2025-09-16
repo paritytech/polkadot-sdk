@@ -3672,13 +3672,15 @@ fn code_hash_works() {
 		assert_ok!(builder::call(addr).data((dummy_addr, code_hash).encode()).build());
 		// code hash of itself
 		assert_ok!(builder::call(addr).data((addr, self_code_hash).encode()).build());
+
+		// EIP_1052: The EXTCODEHASH of a precompiled contract is either c5d246... or 0.
 		// code hash of primitive pre-compile (exist but have no bytecode)
 		assert_ok!(builder::call(addr)
 			.data((primitive_precompile, crate::exec::EMPTY_CODE_HASH).encode())
 			.build());
 		// code hash of normal pre-compile (do have a bytecode)
 		assert_ok!(builder::call(addr)
-			.data((builtin_precompile, sp_io::hashing::keccak_256(&EVM_REVERT)).encode())
+			.data((builtin_precompile, crate::exec::EMPTY_CODE_HASH).encode())
 			.build());
 
 		// EOA doesn't exists
