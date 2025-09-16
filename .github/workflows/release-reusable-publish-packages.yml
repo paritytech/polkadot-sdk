@@ -233,40 +233,36 @@ jobs:
             fi
             echo "Found RPM package: $rpmname"
 
-            # Copy the RPM to the correct directory, create the repo
+            # Copy the RPM to the correct directory
             cp "$rpmname" "$LOCAL_REPO_PATH/"
             chmod 644 "$LOCAL_REPO_PATH"/*.rpm
-
-            # Ensure directory permissions are correct
             chmod 755 "$LOCAL_REPO_PATH"
 
-            # Create RPM macros file
-            # TODO: original 2nd line of rpmmacros was %_gpg_path /home/polkadot/.gnupg and not %_gpg_path /home/nonroot/.gnupg
             # Create a temporary directory for rpm macros
             TEMP_DIR=$(mktemp -d)
             cp "${{ github.workspace }}/.github/workflows/rpmmacros" "${TEMP_DIR}/rpmmacros"
-            chmod 644 "${TEMP_DIR}/rpmmacros"  # Make readable by all users
+            chmod 644 "${TEMP_DIR}/rpmmacros"
 
             rpm_filename=$(basename "$rpmname")
-            echo "Signing RPM package: $rpm_filename"
+            echo "Signing RPM and creating repository for: $rpm_filename"
 
-            # Run inside podman with corrected permissions
-            # https://github.com/paritytech/cleanroom/issues/35
-            # User changed to root:root from originally line like -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent"
+            # Run all RPM operations inside a standard Fedora container
             podman run \
                 -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
                 -v "${LOCAL_REPO_PATH}:/rpm:rw" \
                 -v "${TEMP_DIR}/rpmmacros:/etc/rpm/macros.sign:ro" \
                 --user root:root \
                 --rm \
-                docker.io/paritytech/rpm \
-                /bin/bash -c "yum install -y gnupg && cd /rpm && rpm --addsign '${rpm_filename}'"
-
+                docker.io/fedora:latest \
+                /bin/bash -c "dnf install -y gnupg rpm-sign createrepo_c && \
+                              cd /rpm && \
+                              echo 'Signing package...' && \
+                              rpm --addsign '${rpm_filename}' && \
+                              echo 'Updating repository metadata...' && \
+                              createrepo_c --update ."
+            
             # Cleanup
             rm -rf "${TEMP_DIR}"
-            
-            echo "Creating a repo"
-            createrepo --update "$LOCAL_REPO_PATH"
           fi
 
       - name: Upload updated repo to S3
