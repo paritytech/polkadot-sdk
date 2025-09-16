@@ -260,11 +260,7 @@ pub mod pallet {
 			let tip = Tips::<T>::take(nonce).unwrap_or_default();
 			let total_tip = relayer_fee.saturating_add(tip);
 			if total_tip > 0 {
-				T::RewardPayment::register_reward(
-					&relayer,
-					T::DefaultRewardKind::get(),
-					relayer_fee,
-				);
+				T::RewardPayment::register_reward(&relayer, T::DefaultRewardKind::get(), total_tip);
 			}
 
 			Self::deposit_event(Event::MessageReceived { nonce, message_id });

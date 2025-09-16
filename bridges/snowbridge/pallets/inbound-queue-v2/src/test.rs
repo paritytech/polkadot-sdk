@@ -7,7 +7,7 @@ use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
 use snowbridge_inbound_queue_primitives::{v2::XcmPayload, EventProof, Proof};
 use snowbridge_test_utils::{
-	mock_rewards::RegisteredRewardsCount,
+	mock_rewards::{RegisteredRewardAmount, RegisteredRewardsCount},
 	mock_xcm::{set_charge_fees_override, set_sender_override},
 };
 use sp_keyring::sr25519::Keyring;
@@ -395,40 +395,44 @@ fn inbound_tip_is_paid_out_to_relayer() {
 	new_tester().execute_with(|| {
 		let nonce: u64 = 77;
 		let tip: u128 = 12_345;
-
-		// Sanity: no rewards registered yet
-		assert_eq!(RegisteredRewardsCount::get(), 0);
+		let relayer_fee: u128 = 2_000;
 
 		// Add tip for nonce before message is processed
 		assert_ok!(InboundQueue::add_tip(nonce, tip));
 		assert_eq!(Tips::<Test>::get(nonce), Some(tip));
 
-		// Process inbound message with zero relayer_fee
+		// Process inbound message with relayer_fee
 		let relayer: AccountId = Keyring::Bob.into();
 		assert_ok!(InboundQueue::process_message(
-            relayer,
-            Message {
-                nonce,
-                assets: vec![],
-                xcm: XcmPayload::Raw(vec![]),
-                claimer: None,
-                // Use non-zero values to avoid debug asserts in XCM asset conversions
-                execution_fee: 1_000_000_000,
-                relayer_fee: 0,
-                gateway: mock::GatewayAddress::get(),
-                origin: H160::random(),
-                value: 3_000_000_000,
-            },
-        ));
+			relayer,
+			Message {
+				nonce,
+				assets: vec![],
+				xcm: XcmPayload::Raw(vec![]),
+				claimer: None,
+				execution_fee: 1_000_000_000,
+				relayer_fee,
+				gateway: mock::GatewayAddress::get(),
+				origin: H160::random(),
+				value: 3_000_000_000,
+			},
+		));
 
-		// Since relayer_fee == 0 and tips are ignored in payout, no reward was registered
+		// Reward should be registered from relayer_fee + tip
 		assert_eq!(
 			RegisteredRewardsCount::get(),
 			1,
-			"Reward should be registered from tips"
+			"Reward should be registered from relayer_fee + tip"
 		);
 
-		// Tip should be paid out
+		// Check the actual reward amount paid out (should be relayer_fee + tip)
+		assert_eq!(
+			RegisteredRewardAmount::get(),
+			relayer_fee + tip,
+			"Reward amount should equal relayer_fee + tip"
+		);
+
+		// Tip should be consumed from storage
 		assert_eq!(Tips::<Test>::get(nonce), None);
 	});
 }
@@ -439,27 +443,25 @@ fn relayer_fee_paid_out_when_no_tip_exists() {
 		let nonce: u64 = 88;
 		let relayer_fee: u128 = 5_000;
 
-		assert_eq!(RegisteredRewardsCount::get(), 0);
-
 		// Ensure no tip exists for this nonce
 		assert_eq!(Tips::<Test>::get(nonce), None);
 
 		// Process inbound message with relayer_fee but no tip
 		let relayer: AccountId = Keyring::Bob.into();
 		assert_ok!(InboundQueue::process_message(
-            relayer,
-            Message {
-                nonce,
-                assets: vec![],
-                xcm: XcmPayload::Raw(vec![]),
-                claimer: None,
-                execution_fee: 1_000_000_000,
-                relayer_fee,
-                gateway: mock::GatewayAddress::get(),
-                origin: H160::random(),
-                value: 3_000_000_000,
-            },
-        ));
+			relayer,
+			Message {
+				nonce,
+				assets: vec![],
+				xcm: XcmPayload::Raw(vec![]),
+				claimer: None,
+				execution_fee: 1_000_000_000,
+				relayer_fee,
+				gateway: mock::GatewayAddress::get(),
+				origin: H160::random(),
+				value: 3_000_000_000,
+			},
+		));
 
 		// Relayer fee should be paid out even without tip
 		assert_eq!(
@@ -468,8 +470,14 @@ fn relayer_fee_paid_out_when_no_tip_exists() {
 			"Relayer fee should be paid out even when no tip exists"
 		);
 
+		// Check the actual reward amount paid out
+		assert_eq!(
+			RegisteredRewardAmount::get(),
+			relayer_fee,
+			"Reward amount should equal relayer_fee when no tip exists"
+		);
+
 		// Confirm no tip storage was affected
 		assert_eq!(Tips::<Test>::get(nonce), None);
 	});
 }
-
