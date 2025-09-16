@@ -32,9 +32,11 @@ use sc_network::NetworkBackend;
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_runtime::traits::Header;
+use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
+use sp_runtime::traits::{Header, UniqueSaturatedInto};
 use std::{marker::PhantomData, sync::Arc};
+use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
+use sp_consensus_aura::SlotDuration;
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
@@ -170,6 +172,11 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				}
 			});
 
+		let slot_duration = 6000;
+		// This provider will check which timestamp gets passed into the inherent and emit the
+		// corresponding aura digest.
+		let aura_digest_provider = AuraConsensusDataProvider::new_with_slot_duration(SlotDuration::from_millis(slot_duration));
+
 		let client_for_cidp = client.clone();
 		let params = sc_consensus_manual_seal::ManualSealParams {
 			block_import: client.clone(),
@@ -178,7 +185,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			pool: transaction_pool.clone(),
 			select_chain,
 			commands_stream: Box::pin(manual_seal_stream),
-			consensus_data_provider: None,
+			consensus_data_provider: Some(Box::new(aura_digest_provider)),
 			create_inherent_data_providers: move |block: Hash, ()| {
 				let current_para_head = client_for_cidp
 					.header(block)
@@ -207,15 +214,17 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				let current_para_block_head =
 					Some(polkadot_primitives::HeadData(current_para_head.encode()));
 				let client_for_xcm = client_for_cidp.clone();
+				let current_block_number = UniqueSaturatedInto::<u32>::unique_saturated_into(
+					*current_para_head.number(),
+				) + 1;
+				log::info!("Current block number: {current_block_number}");
 				async move {
 					use sp_runtime::traits::UniqueSaturatedInto;
 
 					let mocked_parachain = MockValidationDataInherentDataProvider {
 						// When using manual seal we start from block 0, and it's very unlikely to
 						// reach a block number > u32::MAX.
-						current_para_block: UniqueSaturatedInto::<u32>::unique_saturated_into(
-							*current_para_head.number(),
-						),
+						current_para_block: current_block_number,
 						para_id,
 						current_para_block_head,
 						relay_offset: 0,
@@ -236,10 +245,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						}),
 					};
 					Ok((
-						// This is intentional, as the runtime that we expect to run against this
-						// will never receive the aura-related inherents/digests, and providing
-						// real timestamps would cause aura <> timestamp checking to fail.
-						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(0)),
+						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(current_block_number as u64 * slot_duration)),
 						mocked_parachain,
 					))
 				}
