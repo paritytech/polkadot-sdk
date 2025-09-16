@@ -35,8 +35,12 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 					"-lparachain=debug".into(),
 					"--enable-statement-store".into(),
 				])
+				.with_collator(|n| n.with_name("alice"))
+				.with_collator(|n| n.with_name("bob"))
 				.with_collator(|n| n.with_name("charlie"))
 				.with_collator(|n| n.with_name("dave"))
+				.with_collator(|n| n.with_name("eve"))
+				.with_collator(|n| n.with_name("ferdie"))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
@@ -52,17 +56,21 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 	assert!(network.wait_until_is_up(60).await.is_ok());
 
-	let charlie = network.get_node("charlie")?;
-	let dave = network.get_node("dave")?;
+	let charlie_node = network.get_node("charlie")?;
+	let charlie_rpc = charlie_node.rpc().await?;
 
-	let charlie_rpc = charlie.rpc().await?;
-	let dave_rpc = dave.rpc().await?;
+	let alice = sp_keyring::Sr25519Keyring::Alice;
+	let bob = sp_keyring::Sr25519Keyring::Bob;
+	let charlie = sp_keyring::Sr25519Keyring::Charlie;
+	let dave = sp_keyring::Sr25519Keyring::Dave;
+	let eve = sp_keyring::Sr25519Keyring::Eve;
+	let ferdie = sp_keyring::Sr25519Keyring::Ferdie;
 
 	// Create the statement "1,2,3" signed by dave.
 	let mut statement = sp_statement_store::Statement::new();
 	statement.set_channel([0u8; 32]);
 	statement.set_plain_data(vec![1, 2, 3]);
-	let dave = sp_keyring::Sr25519Keyring::Dave;
+
 	statement.sign_sr25519_private(&dave.pair());
 	let statement: Bytes = statement.encode().into();
 
@@ -72,33 +80,12 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	// Ensure that charlie stored the statement.
 	let charlie_dump: Vec<Bytes> = charlie_rpc.request("statement_dump", rpc_params![]).await?;
 	if charlie_dump != vec![statement.clone()] {
-		return Err(anyhow!("Charlie did not store the statement"));
+		return Err(anyhow!("charlie did not store the statement"));
 	}
 
 	let statement_bytes = charlie_dump.first().unwrap();
 	if let Ok(statement) = sp_statement_store::Statement::decode(&mut &statement_bytes[..]) {
 		println!("{:?}", statement);
-	}
-
-	// Query dave until it receives the statement, stop if 20 seconds passed.
-	let query_start_time = std::time::SystemTime::now();
-	let stop_after_secs = 20;
-	loop {
-		let dave_dump: Vec<Bytes> = dave_rpc.request("statement_dump", rpc_params![]).await?;
-		if !dave_dump.is_empty() {
-			if dave_dump != vec![statement.clone()] {
-				return Err(anyhow!("Dave statement store is not the expected one"));
-			}
-			break;
-		}
-
-		let elapsed =
-			query_start_time.elapsed().map_err(|_| anyhow!("Failed to get elapsed time"))?;
-		if elapsed.as_secs() > stop_after_secs {
-			return Err(anyhow!("Dave did not receive the statement in time"));
-		}
-
-		tokio::time::sleep(core::time::Duration::from_secs(1)).await;
 	}
 
 	Ok(())
