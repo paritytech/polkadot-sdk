@@ -10,10 +10,7 @@ use pallet_revive_eth_rpc::{
 	subxt_client::{self},
 	EthRpcClient,
 };
-use pallet_revive_zombienet::{
-	utils::{assert_block, assert_transactions, print_receipt_info},
-	TestEnvironment, BEST_BLOCK_METRIC,
-};
+use pallet_revive_zombienet::{utils::*, TestEnvironment, BEST_BLOCK_METRIC};
 use sp_core::{H256, U256};
 use subxt::{self, ext::subxt_rpcs::rpc_params};
 // use zombienet_sdk::subxt::{
@@ -42,8 +39,9 @@ async fn test_dont_spawn_zombienet() {
 	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
 	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
 
-	test_transfer(&test_env).await;
+	test_single_transfer(&test_env).await;
 	test_deployment(&test_env).await;
+	test_parallel_transfers(&test_env, 5).await;
 }
 
 // This tests makes sure that RPC collator is able to build blocks
@@ -77,7 +75,7 @@ async fn test_with_zombienet_spawning() {
 		.is_ok());
 }
 
-async fn test_transfer(test_env: &TestEnvironment) {
+async fn test_single_transfer(test_env: &TestEnvironment) {
 	let TestEnvironment { eth_rpc_client, .. } = test_env;
 
 	let alith = Account::default();
@@ -210,4 +208,75 @@ async fn test_deployment(test_env: &TestEnvironment) {
 	assert_block(test_env, BlockNumberOrTag::U256(receipt.block_number), false).await;
 	assert_transactions(test_env, account, vec![(tx.hash(), tx.generic_transaction(), receipt)])
 		.await;
+}
+
+async fn test_parallel_transfers(test_env: &TestEnvironment, num_transactions: usize) {
+	println!("\n\n=== Testing Parallel Transfers ===\n\n");
+
+	let TestEnvironment { eth_rpc_client, .. } = test_env;
+	let alith = Account::default();
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let amount = U256::from(1_000_000_000_000_000_000u128);
+
+	println!("Creating {} parallel transfer transactions", num_transactions);
+	let mut nonce = eth_rpc_client
+		.get_transaction_count(alith.address(), BlockTag::Latest.into())
+		.await
+		.unwrap_or_else(|err| panic!("Failed to fetch account nonce: {err:?}"));
+
+	let mut transactions = Vec::new();
+	for i in 0..num_transactions {
+		let tx_builder = TransactionBuilder::new(eth_rpc_client)
+			.signer(alith.clone())
+			.nonce(nonce)
+			.value(amount)
+			.to(ethan.address());
+
+		transactions.push(tx_builder);
+		println!("Prepared transaction {}/{num_transactions} with nonce: {nonce:?}", i + 1);
+		nonce = nonce.saturating_add(U256::one());
+	}
+
+	println!("Submitting and waiting for {} transactions in parallel", num_transactions);
+	let start_time = std::time::Instant::now();
+
+	let results = submit_and_wait_for_transactions_parallel(test_env, transactions)
+		.await
+		.unwrap_or_else(|err| {
+			panic!("Failed to submit or wait for parallel transactions: {err:?}")
+		});
+
+	let duration = start_time.elapsed();
+	println!(
+		"Completed {} transactions in {:?} ({:.2} tx/sec)",
+		results.len(),
+		duration,
+		results.len() as f64 / duration.as_secs_f64()
+	);
+
+	println!("Successfully completed {} parallel transactions", results.len());
+
+	let mut blocks = vec![];
+	let mut txs = vec![];
+
+	// Verify all transactions were successful
+	for (i, (hash, generic_tx, receipt)) in results.into_iter().enumerate() {
+		println!("Transaction {}: hash={hash:?}, block={}", i + 1, receipt.block_number);
+		assert_eq!(
+			receipt.status.unwrap_or(U256::zero()),
+			U256::one(),
+			"Transaction should be successful"
+		);
+		let block = BlockNumberOrTag::U256(receipt.block_number);
+
+		if !blocks.contains(&block) {
+			blocks.push(block);
+		}
+		txs.push((hash, generic_tx, receipt));
+	}
+
+	for block in blocks {
+		assert_block(test_env, block, false).await;
+	}
+	assert_transactions(test_env, alith, txs).await;
 }

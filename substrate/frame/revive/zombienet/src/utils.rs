@@ -138,3 +138,37 @@ pub async fn assert_transactions(
 		assert_eq!(expected_tx_info, tx_by_block_hash_and_index);
 	}
 }
+
+pub async fn submit_and_wait_for_transaction<Client: EthRpcClient + Sync + Send>(
+	test_env: &TestEnvironment,
+	tx_builder: TransactionBuilder<Client>,
+) -> Result<(H256, GenericTransaction, ReceiptInfo), anyhow::Error> {
+	let tx = tx_builder.send().await?;
+	let hash = tx.hash();
+	let generic_tx = tx.generic_transaction();
+
+	println!("Submitted tx: {:?}", hash);
+
+	let receipt = tx.wait_for_receipt().await?;
+	println!("Received receipt for tx: {:?}", hash);
+	Ok((hash, generic_tx, receipt))
+}
+
+pub async fn submit_and_wait_for_transactions_parallel<Client: EthRpcClient + Sync + Send>(
+	test_env: &TestEnvironment,
+	transactions: Vec<TransactionBuilder<Client>>,
+) -> Result<Vec<(H256, GenericTransaction, ReceiptInfo)>, anyhow::Error> {
+	// Create futures for each transaction
+	let transaction_futures: Vec<_> = transactions
+		.into_iter()
+		.map(|tx_builder| submit_and_wait_for_transaction(test_env, tx_builder))
+		.collect();
+
+	// Wait for all transactions to complete
+	let results = futures::future::join_all(transaction_futures).await;
+
+	// Convert Vec<Result<T, E>> to Result<Vec<T>, E>
+	let results: Result<Vec<_>, _> = results.into_iter().collect();
+
+	results
+}
