@@ -7,7 +7,5 @@ zombienet-polkadot-functional-spam-statement-distribution-requests
 zombienet-polkadot-misc-0001-parachains-paritydb
 zombienet-polkadot-functional-duplicate-collations
 zombienet-substrate-0002-validators-warp-sync
-zombienet-cumulus-0002-pov_recovery
-zombienet-cumulus-0006-rpc_collator_builds_blocks
 zombienet-cumulus-0009-elastic_scaling_pov_recovery
 zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot
