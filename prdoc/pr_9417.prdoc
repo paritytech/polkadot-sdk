@@ -6,8 +6,7 @@ doc:
     backed on chain versus offchain from the perspective of the node.
 crates:
 - name: polkadot-node-core-provisioner
-  bump: patch
-  validate: false
+  bump: minor
 - name: polkadot-overseer
   bump: major
 
