@@ -172,12 +172,10 @@ jobs:
           
           # --- Add Package to Repo and Sign ---
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
-            # CORRECTED: Replaced non-portable '-print-quit'
             debname=$(find release-artifacts/ -name 'polkadot_*.deb' | head -n 1)
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
           
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            # CORRECTED: Replaced non-portable '-print-quit'
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
             
             echo "%_signature gpg" > ${HOME}/.rpmmacros
