@@ -91,7 +91,7 @@ pub async fn assert_transactions(
 ) {
 	let TestEnvironment { eth_rpc_client, .. } = test_env;
 
-	for (idx, (tx_hash, tx, receipt)) in transactions.into_iter().enumerate() {
+	for (tx_hash, tx, receipt) in transactions.into_iter() {
 		let block_number = receipt.block_number;
 		let block_hash = receipt.block_hash;
 		let tx_unsigned = tx
@@ -108,25 +108,31 @@ pub async fn assert_transactions(
 		let tx_by_block_number_and_index = eth_rpc_client
 			.get_transaction_by_block_number_and_index(
 				BlockNumberOrTag::U256(block_number.into()),
-				idx.into(),
+				receipt.transaction_index,
 			)
 			.await
 			.unwrap_or_else(|err| {
 				panic!(
-					"Failed to fetch tx by block number {block_number:?} and index {idx:?} {err:?}",
+					"Failed to fetch tx by block number {block_number:?} and index {:?} {err:?}",
+					receipt.transaction_index
 				)
 			})
 			.expect(&format!(
-				"Expected transaction at block number {block_number:?} and index {idx:?} not found"
+				"Expected transaction at block number {block_number:?} and index {:?} not found",
+				receipt.transaction_index
 			));
 		let tx_by_block_hash_and_index = eth_rpc_client
-			.get_transaction_by_block_hash_and_index(block_hash, idx.into())
+			.get_transaction_by_block_hash_and_index(block_hash, receipt.transaction_index)
 			.await
 			.unwrap_or_else(|err| {
-				panic!("Failed to fetch tx by block hash {block_hash:?} and index {idx:?} {err:?}",)
+				panic!(
+					"Failed to fetch tx by block hash {block_hash:?} and index {:?} {err:?}",
+					receipt.transaction_index
+				)
 			})
 			.expect(&format!(
-				"Expected transaction at block hash {block_hash:?} and index {idx:?} not found",
+				"Expected transaction at block hash {block_hash:?} and index {:?} not found",
+				receipt.transaction_index
 			));
 
 		assert_eq!(expected_tx_info, tx_by_hash);
