@@ -60,7 +60,7 @@ where
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(&mut self) -> Option<Trace> {
+	pub fn collect_trace(self) -> Option<Trace> {
 		match self {
 			Tracer::CallTracer(inner) => inner.collect_trace().map(Trace::Call),
 			Tracer::PrestateTracer(inner) => Some(inner.collect_trace().into()),

@@ -801,6 +801,40 @@ fn origin_returns_proper_values() {
 }
 
 #[test]
+fn to_account_id_returns_proper_values() {
+	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let alice_account_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
+		assert_eq!(ctx.ext.to_account_id(&ALICE_ADDR), alice_account_id);
+
+		const UNMAPPED_ADDR: H160 = H160([99u8; 20]);
+		let mut unmapped_fallback_account_id = [0xEE; 32];
+		unmapped_fallback_account_id[..20].copy_from_slice(UNMAPPED_ADDR.as_bytes());
+		assert_eq!(
+			ctx.ext.to_account_id(&UNMAPPED_ADDR),
+			AccountId32::new(unmapped_fallback_account_id)
+		);
+
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, bob_code_hash);
+		let origin = Origin::from_account_id(ALICE);
+		let mut storage_meter = storage::meter::Meter::new(0);
+		let result = MockStack::run_call(
+			origin,
+			BOB_ADDR,
+			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut storage_meter,
+			U256::zero(),
+			vec![0],
+			false,
+		);
+		assert_matches!(result, Ok(_));
+	});
+}
+
+#[test]
 fn code_hash_returns_proper_values() {
 	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 		// ALICE is not a contract but account exists so it returns hash of empty data
@@ -867,13 +901,13 @@ fn own_code_hash_returns_proper_values() {
 fn caller_is_origin_returns_proper_values() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not the origin of the stack call
-		assert!(!ctx.ext.caller_is_origin());
+		assert!(!ctx.ext.caller_is_origin(false));
 		exec_success()
 	});
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// ALICE is the origin of the call stack
-		assert!(ctx.ext.caller_is_origin());
+		assert!(ctx.ext.caller_is_origin(false));
 		// BOB calls CHARLIE
 		ctx.ext
 			.call(Weight::zero(), U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
@@ -903,7 +937,7 @@ fn caller_is_origin_returns_proper_values() {
 fn root_caller_succeeds() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
@@ -929,7 +963,7 @@ fn root_caller_succeeds() {
 fn root_caller_does_not_succeed_when_value_not_zero() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
@@ -955,13 +989,13 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 fn root_caller_succeeds_with_consecutive_calls() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not root, even though the origin is root.
-		assert!(!ctx.ext.caller_is_root());
+		assert!(!ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		// BOB calls CHARLIE.
 		ctx.ext
 			.call(Weight::zero(), U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
