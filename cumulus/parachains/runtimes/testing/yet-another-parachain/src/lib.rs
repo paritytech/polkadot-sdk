@@ -236,7 +236,7 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const Period: u32 = prod_or_fast!(1 * HOURS, 1 * MINUTES);
+	pub const Period: u32 = prod_or_fast!(10 * MINUTES, 10);
 	pub const Offset: u32 = 0;
 }
 
@@ -258,7 +258,7 @@ impl pallet_session::Config for Runtime {
 
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
-	pub const SessionLength: BlockNumber = prod_or_fast!(1 * HOURS, 1 * MINUTES);
+	pub const SessionLength: BlockNumber = prod_or_fast!(10 * MINUTES, 10);
 	// StakingAdmin pluralistic body.
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 }
