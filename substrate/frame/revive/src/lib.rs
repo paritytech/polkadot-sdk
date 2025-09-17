@@ -1675,6 +1675,46 @@ where
 		Ok(maybe_value)
 	}
 
+	/// Set storage of a specified contract under a specified key.
+	///
+	/// If the `value` is `None`, the storage entry is deleted.
+	///
+	/// Returns an error if the contract does not exist or if the write operation fails.
+	pub fn set_storage(address: H160, key: [u8; 32], value: Option<Vec<u8>>) -> SetStorageResult {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		contract_info
+			.write(&Key::from_fixed(key), value, None, false)
+			.map_err(ContractAccessError::StorageWriteFailed)
+	}
+
+	/// Set the storage of a specified contract under a specified variable-sized key.
+	///
+	/// If the `value` is `None`, the storage entry is deleted.
+	///
+	/// Returns an error if the contract does not exist, if the key decoding fails,
+	/// or if the write operation fails.
+	pub fn set_storage_var_key(
+		address: H160,
+		key: Vec<u8>,
+		value: Option<Vec<u8>>,
+	) -> SetStorageResult {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		contract_info
+			.write(
+				&Key::try_from_var(key)
+					.map_err(|_| ContractAccessError::KeyDecodingFailed)?
+					.into(),
+				value,
+				None,
+				false,
+			)
+			.map_err(ContractAccessError::StorageWriteFailed)
+	}
+
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	fn try_upload_pvm_code(
 		origin: T::AccountId,
@@ -1862,6 +1902,24 @@ sp_api::decl_runtime_apis! {
 			key: Vec<u8>,
 		) -> GetStorageResult;
 
+		/// Set a given storage key in a given contract to a specified value.
+		///
+		/// See [`crate::Pallet::set_storage`].
+		fn set_storage(
+			address: H160,
+			key: [u8; 32],
+			value: Option<Vec<u8>>,
+		) -> SetStorageResult;
+
+		/// Set a given variable-sized storage key in a given contract to a specified value.
+		///
+		/// See [`crate::Pallet::set_storage_var_key`].
+		fn set_storage_var_key(
+			address: H160,
+			key: Vec<u8>,
+			value: Option<Vec<u8>>,
+		) -> SetStorageResult;
+
 		/// Traces the execution of an entire block and returns call traces.
 		///
 		/// This is intended to be called through `state_call` to replay the block from the
@@ -1892,7 +1950,6 @@ sp_api::decl_runtime_apis! {
 
 		/// The address of the validator that produced the current block.
 		fn block_author() -> Option<H160>;
-
 		/// Get the H160 address associated to this account id
 		fn address(account_id: AccountId) -> H160;
 
@@ -2052,6 +2109,22 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn get_storage(address: $crate::H160, key: [u8; 32]) -> $crate::GetStorageResult {
 					$crate::Pallet::<Self>::get_storage(address, key)
+				}
+
+				fn set_storage(
+					address: $crate::H160,
+					key: [u8; 32],
+					value: Option<Vec<u8>>,
+				) -> $crate::SetStorageResult {
+					$crate::Pallet::<Self>::set_storage(address, key, value)
+				}
+
+				fn set_storage_var_key(
+					address: $crate::H160,
+					key: Vec<u8>,
+					value: Option<Vec<u8>>,
+				) -> $crate::SetStorageResult {
+					$crate::Pallet::<Self>::set_storage_var_key(address, key, value)
 				}
 
 				fn trace_block(

@@ -31,7 +31,7 @@ use crate::{
 		sol_data::{Bool, FixedBytes},
 		SolType,
 	},
-	storage::DeletionQueueManager,
+	storage::{DeletionQueueManager, WriteOutcome},
 	test_utils::builder::Contract,
 	tests::{
 		builder, initialize_block, test_utils::*, Balances, CodeHashLockupDepositPercent,
@@ -4990,5 +4990,90 @@ fn return_data_limit_is_enforced() {
 			let result = builder::bare_call(addr).data(return_size.encode()).build().result;
 			assert_result(result);
 		}
+	});
+}
+
+#[test]
+fn get_set_storage_key_works() {
+	let (code, _code_hash) = compile_module("storage_keys").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let contract_key_to_test = [1; 32];
+		// Checking non-existing keys gets created.
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, None);
+
+		let value_to_write = Some(vec![1, 2, 3]);
+		let write_result =
+			Pallet::<Test>::set_storage(addr, contract_key_to_test, value_to_write.clone())
+				.unwrap();
+		assert_eq!(write_result, WriteOutcome::New);
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, value_to_write);
+
+		// Check existing keys overwrite
+
+		let new_value_to_write = Some(vec![5, 1, 2, 3]);
+		let write_result =
+			Pallet::<Test>::set_storage(addr, contract_key_to_test, new_value_to_write.clone())
+				.unwrap();
+		assert_eq!(
+			write_result,
+			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+		);
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, new_value_to_write);
+	});
+}
+
+#[test]
+fn get_set_storage_var_key_works() {
+	let (code, _code_hash) = compile_module("storage_keys").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let contract_key_to_test = vec![1; 85];
+		// Checking non-existing keys gets created.
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, None);
+
+		let value_to_write = Some(vec![1, 2, 3]);
+		let write_result = Pallet::<Test>::set_storage_var_key(
+			addr,
+			contract_key_to_test.clone(),
+			value_to_write.clone(),
+		)
+		.unwrap();
+		assert_eq!(write_result, WriteOutcome::New);
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, value_to_write);
+
+		// Check existing keys overwrite
+
+		let new_value_to_write = Some(vec![5, 1, 2, 3]);
+		let write_result = Pallet::<Test>::set_storage_var_key(
+			addr,
+			contract_key_to_test.clone(),
+			new_value_to_write.clone(),
+		)
+		.unwrap();
+		assert_eq!(
+			write_result,
+			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+		);
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, new_value_to_write);
 	});
 }
