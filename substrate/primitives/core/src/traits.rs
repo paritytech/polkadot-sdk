@@ -58,14 +58,14 @@ pub trait FetchRuntimeCode {
 	/// Fetch the runtime `:code`.
 	///
 	/// If the `:code` could not be found/not available, `None` should be returned.
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>>;
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>>;
 }
 
 /// Wrapper to use a `u8` slice or `Vec` as [`FetchRuntimeCode`].
 pub struct WrappedRuntimeCode<'a>(pub Cow<'a, [u8]>);
 
 impl<'a> FetchRuntimeCode for WrappedRuntimeCode<'a> {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		Some(self.0.as_ref().into())
 	}
 }
@@ -74,7 +74,7 @@ impl<'a> FetchRuntimeCode for WrappedRuntimeCode<'a> {
 pub struct NoneFetchRuntimeCode;
 
 impl FetchRuntimeCode for NoneFetchRuntimeCode {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		None
 	}
 }
@@ -111,7 +111,7 @@ impl<'a> RuntimeCode<'a> {
 }
 
 impl<'a> FetchRuntimeCode for RuntimeCode<'a> {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		self.code_fetcher.fetch_runtime_code()
 	}
 }

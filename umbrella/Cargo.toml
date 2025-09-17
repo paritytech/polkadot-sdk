@@ -904,6 +904,7 @@ node = [
 	"polkadot-node-subsystem-util",
 	"polkadot-omni-node-lib",
 	"polkadot-overseer",
+	"polkadot-primitives-test-helpers",
 	"polkadot-rpc",
 	"polkadot-service",
 	"polkadot-statement-distribution",
@@ -2486,6 +2487,11 @@ path = "../cumulus/polkadot-omni-node/lib"
 default-features = false
 optional = true
 path = "../polkadot/node/overseer"
+
+[dependencies.polkadot-primitives-test-helpers]
+default-features = false
+optional = true
+path = "../polkadot/primitives/test-helpers"
 
 [dependencies.polkadot-rpc]
 default-features = false

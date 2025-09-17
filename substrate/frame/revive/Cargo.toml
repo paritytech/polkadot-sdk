@@ -18,7 +18,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 alloy-consensus = { workspace = true, default-features = false }
-alloy-core = { workspace = true, features = ["sol-types"] }
+alloy-core = { workspace = true, features = ["sol-types", "rlp"] }
+alloy-rlp = { version = "0.3.12", default-features = false }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true, features = ["from", "try_into"] }
 environmental = { workspace = true }
@@ -48,7 +49,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
-pallet-revive-uapi = { workspace = true, features = ["scale"] }
+pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces", "scale"] }
 pallet-transaction-payment = { workspace = true }
 ripemd = { workspace = true }
 sp-api = { workspace = true }
