@@ -788,10 +788,11 @@ impl Client {
 			};
 
 			let params = rpc_params![true, true, None::<H256>, interval];
-			let res: String =
+			let res: CreatedBlock<H256> =
 				self.rpc_client.request("engine_createBlock", params).await.unwrap();
 
-			latest_block = Some(serde_json::from_str(&res).unwrap());
+			println!("res: {:?}", res);
+			latest_block = Some(res);
 		}
 
 		let mut blocks_sub = self.api.blocks().subscribe_finalized().await.unwrap();
