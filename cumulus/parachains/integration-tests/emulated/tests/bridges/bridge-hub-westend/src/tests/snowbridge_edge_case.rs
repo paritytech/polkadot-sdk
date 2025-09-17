@@ -16,8 +16,17 @@
 use crate::{imports::*, tests::snowbridge_common::*};
 use bridge_hub_westend_runtime::xcm_config::LocationToAccountId;
 use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
+use frame_support::assert_noop;
+use hex_literal::hex;
+use snowbridge_beacon_primitives::{
+	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
+};
 use snowbridge_core::AssetMetadata;
-use snowbridge_pallet_system::Error;
+use snowbridge_inbound_queue_primitives::{EventProof, Log, Proof};
+use snowbridge_pallet_inbound_queue::{
+	Error as InboundQueueError, SendError as InboundQueueSendError,
+};
+use snowbridge_pallet_system::Error as SystemError;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
 
@@ -115,7 +124,7 @@ fn test_register_ena_on_bh_will_fail() {
 					decimals: 18,
 				},
 			),
-			Error::<Runtime>::LocationConversionFailed
+			SystemError::<Runtime>::LocationConversionFailed
 		);
 	});
 }
@@ -292,5 +301,95 @@ fn export_from_non_system_parachain_will_fail() {
 				origin: *origin == bridge_hub_common::AggregateMessageOrigin::Sibling(PenpalB::para_id()),
 			},]
 		);
+	});
+}
+
+pub fn mock_event_log() -> Log {
+	Log {
+		// gateway address
+		address: hex!("eda338e4dc46038493b885327842fd3e301cab39").into(),
+		topics: vec![
+			hex!("7153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84f").into(),
+			// channel id
+			hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into(),
+			// message id
+			hex!("5f7060e971b0dc81e63f0aa41831091847d97c1a4693ac450cc128c7214e65e0").into(),
+		],
+		// Nonce + Payload
+		data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d00e40b54020000000000000000000000000000000000000000000000000000000000").into(),
+	}
+}
+
+pub fn mock_execution_proof() -> ExecutionProof {
+	ExecutionProof {
+		header: BeaconHeader::default(),
+		ancestry_proof: None,
+		execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+			parent_hash: Default::default(),
+			fee_recipient: Default::default(),
+			state_root: Default::default(),
+			receipts_root: Default::default(),
+			logs_bloom: vec![],
+			prev_randao: Default::default(),
+			block_number: 0,
+			gas_limit: 0,
+			gas_used: 0,
+			timestamp: 0,
+			extra_data: vec![],
+			base_fee_per_gas: Default::default(),
+			block_hash: Default::default(),
+			transactions_root: Default::default(),
+			withdrawals_root: Default::default(),
+			blob_gas_used: 0,
+			excess_blob_gas: 0,
+		}),
+		execution_branch: vec![],
+	}
+}
+
+/// Tests the full cycle of eth transfers:
+/// - sending a token to AssetHub
+/// - returning the token to Ethereum
+#[test]
+fn send_eth_asset_from_ethereum_to_parachain_fail_and_storage_rollback() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+
+	// Send the token
+	BridgeHubWestend::execute_with(|| {
+		let free_balance_before =
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				assethub_sovereign.clone(),
+			);
+		assert_eq!(free_balance_before, INITIAL_FUND);
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+
+		type Runtime = <BridgeHubWestend as Chain>::Runtime;
+
+		type EthereumInboundQueue =
+			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumInboundQueue;
+
+		let event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+
+		assert_noop!(
+			EthereumInboundQueue::submit_without_verification(
+				RuntimeOrigin::signed(BridgeHubWestendSender::get()),
+				event
+			),
+			InboundQueueError::<Runtime>::Send(InboundQueueSendError::Transport)
+		);
+
+		let free_balance_after =
+			<BridgeHubWestend as BridgeHubWestendPallet>::Balances::free_balance(
+				assethub_sovereign,
+			);
+		assert_eq!(free_balance_after, INITIAL_FUND);
 	});
 }

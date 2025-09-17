@@ -321,6 +321,66 @@ pub mod pallet {
 			Self::deposit_event(Event::OperatingModeChanged { mode });
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::submit())]
+		pub fn submit_without_verification(
+			origin: OriginFor<T>,
+			event: EventProof,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
+
+			let envelope =
+				Envelope::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+
+			// Retrieve the registered channel for this message
+			let channel =
+				T::ChannelLookup::lookup(envelope.channel_id).ok_or(Error::<T>::InvalidChannel)?;
+
+			// Reward relayer from the sovereign account of the destination parachain, only if funds
+			// are available
+			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
+			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
+			let amount = T::Token::reducible_balance(
+				&sovereign_account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			)
+			.min(delivery_cost);
+			if !amount.is_zero() {
+				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+			}
+
+			// Decode payload into `VersionedMessage`
+			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
+				.map_err(|_| Error::<T>::InvalidPayload)?;
+
+			// Decode message into XCM
+			let (xcm, fee) = Self::do_convert(envelope.message_id, message)?;
+
+			log::info!(
+				target: LOG_TARGET,
+				"💫 xcm decoded as {:?} with fee {:?}",
+				xcm,
+				fee
+			);
+
+			// Burning fees for teleport
+			Self::burn_fees(channel.para_id, fee)?;
+
+			// Attempt to send XCM to an non-exist parachain
+			let message_id = Self::send_xcm(xcm, 3000.into())?;
+
+			Self::deposit_event(Event::MessageReceived {
+				channel_id: envelope.channel_id,
+				nonce: envelope.nonce,
+				message_id,
+				fee_burned: fee,
+			});
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
