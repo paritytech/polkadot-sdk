@@ -797,6 +797,87 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	fn handle_xcmp_message<'a>(
+		sender: ParaId,
+		format: XcmpMessageFormat,
+		data: &mut &'a [u8],
+		known_xcm_senders: &mut BTreeSet<ParaId>,
+		meter: &mut WeightMeter,
+	) -> Result<(), ()> {
+		match format {
+			XcmpMessageFormat::Signals => match ChannelSignal::decode(data) {
+				Ok(ChannelSignal::Suspend) => {
+					if meter.try_consume(T::WeightInfo::suspend_channel()).is_err() {
+						defensive!("Not enough weight to process suspend signal - dropping");
+						return Err(());
+					}
+					Self::suspend_channel(sender)
+				},
+				Ok(ChannelSignal::Resume) => {
+					if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
+						defensive!("Not enough weight to process resume signal - dropping");
+						return Err(());
+					}
+					Self::resume_channel(sender)
+				},
+				Err(_) => {
+					defensive!("Undecodable channel signal - dropping");
+					return Err(());
+				},
+			},
+			XcmpMessageFormat::ConcatenatedVersionedXcm |
+			XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
+				let encoding = match format {
+					XcmpMessageFormat::ConcatenatedVersionedXcm => XcmEncoding::Simple,
+					XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => XcmEncoding::Double,
+					_ => {
+						// This branch is unreachable.
+						return Err(());
+					},
+				};
+
+				let is_first_sender_batch = known_xcm_senders.insert(sender);
+				if is_first_sender_batch {
+					if meter.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages()).is_err() {
+						defensive!(
+							"Out of weight: cannot enqueue XCMP messages; dropping page; \
+										Used weight: ",
+							meter.consumed_ratio()
+						);
+						return Err(());
+					}
+				}
+
+				let mut can_process_next_batch = true;
+				let batch =
+					match Self::take_first_concatenated_xcms(data, encoding, XCM_BATCH_SIZE, meter)
+					{
+						Ok(batch) => batch,
+						Err(batch) => {
+							// We'll try to process the current batch,
+							// but we drop the rest of the page.
+							defensive!("HRMP inbound decode stream broke; page will be dropped.");
+							can_process_next_batch = false;
+							batch
+						},
+					};
+				if batch.is_empty() {
+					return Err(());
+				}
+				Self::enqueue_xcmp_messages(sender, &batch, is_first_sender_batch, meter)?;
+				if !can_process_next_batch {
+					return Err(());
+				}
+			},
+			XcmpMessageFormat::ConcatenatedEncodedBlob => {
+				defensive!("Blob messages are unhandled - dropping");
+				return Err(());
+			},
+		}
+
+		Ok(())
+	}
+
 	/// The worst-case weight of `on_idle`.
 	pub fn on_idle_weight() -> Weight {
 		<T as crate::Config>::WeightInfo::on_idle_good_msg()
@@ -899,114 +980,52 @@ enum XcmEncoding {
 
 impl<T: Config> XcmpMessageHandler for Pallet<T> {
 	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
-		iter: I,
+		xcmp_messages: I,
 		max_weight: Weight,
 	) -> Weight {
+		let mut known_xcm_senders = BTreeSet::new();
 		let mut meter = WeightMeter::with_limit(max_weight);
 
-		let mut known_xcm_senders = BTreeSet::new();
-		for (sender, _sent_at, mut data) in iter {
-			let format = match XcmpMessageFormat::decode(&mut data) {
-				Ok(f) => f,
-				Err(_) => {
-					defensive!("Unknown XCMP message format - dropping");
-					continue;
-				},
-			};
+		let mut xcmp_messages: Vec<_> = xcmp_messages
+			.filter_map(|(sender, _sent_at, mut data)| {
+				let format = match XcmpMessageFormat::decode(&mut data) {
+					Ok(f) => f,
+					Err(_) => {
+						defensive!("Unknown XCMP message format - dropping");
+						return None;
+					},
+				};
+				Some((sender, format, data))
+			})
+			.collect();
 
-			match format {
-				XcmpMessageFormat::Signals => {
-					let mut signal_count = 0;
-					while !data.is_empty() && signal_count < MAX_SIGNALS_PER_PAGE {
-						signal_count += 1;
-						match ChannelSignal::decode(&mut data) {
-							Ok(ChannelSignal::Suspend) => {
-								if meter.try_consume(T::WeightInfo::suspend_channel()).is_err() {
-									defensive!(
-										"Not enough weight to process suspend signal - dropping"
-									);
-									break;
-								}
-								Self::suspend_channel(sender)
-							},
-							Ok(ChannelSignal::Resume) => {
-								if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
-									defensive!(
-										"Not enough weight to process resume signal - dropping"
-									);
-									break;
-								}
-								Self::resume_channel(sender)
-							},
-							Err(_) => {
-								defensive!("Undecodable channel signal - dropping");
-								break;
-							},
-						}
-					}
-				},
-				XcmpMessageFormat::ConcatenatedVersionedXcm |
-				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
-					let encoding = match format {
-						XcmpMessageFormat::ConcatenatedVersionedXcm => XcmEncoding::Simple,
-						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => XcmEncoding::Double,
-						_ => {
-							// This branch is unreachable.
-							continue;
-						},
-					};
+		loop {
+			let mut processed_xcm_senders = BTreeSet::new();
+			xcmp_messages.retain_mut(|(sender, format, data)| {
+				if data.is_empty() {
+					return false;
+				}
 
-					let mut is_first_sender_batch = known_xcm_senders.insert(sender);
-					if is_first_sender_batch {
-						if meter
-							.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages())
-							.is_err()
-						{
-							defensive!(
-								"Out of weight: cannot enqueue XCMP messages; dropping page; \
-                                    Used weight: ",
-								meter.consumed_ratio()
-							);
-							continue;
-						}
-					}
+				// We process at most 1 page per sender in each round.
+				if !processed_xcm_senders.insert(*sender) {
+					return true;
+				}
 
-					let mut can_process_next_batch = true;
-					while can_process_next_batch {
-						let batch = match Self::take_first_concatenated_xcms(
-							&mut data,
-							encoding,
-							XCM_BATCH_SIZE,
-							&mut meter,
-						) {
-							Ok(batch) => batch,
-							Err(batch) => {
-								can_process_next_batch = false;
-								defensive!(
-									"HRMP inbound decode stream broke; page will be dropped."
-								);
-								batch
-							},
-						};
-						if batch.is_empty() {
-							break;
-						}
+				if let Err(_) = Self::handle_xcmp_message(
+					*sender,
+					*format,
+					data,
+					&mut known_xcm_senders,
+					&mut meter,
+				) {
+					return false;
+				}
 
-						if let Err(()) = Self::enqueue_xcmp_messages(
-							sender,
-							&batch,
-							is_first_sender_batch,
-							&mut meter,
-						) {
-							break;
-						}
-						is_first_sender_batch = false;
-					}
-				},
-				XcmpMessageFormat::ConcatenatedEncodedBlob => {
-					defensive!("Blob messages are unhandled - dropping");
-					continue;
-				},
+				return true;
+			});
+
+			if xcmp_messages.is_empty() || processed_xcm_senders.is_empty() {
+				break;
 			}
 		}
 

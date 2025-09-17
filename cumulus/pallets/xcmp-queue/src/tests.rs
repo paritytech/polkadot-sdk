@@ -101,20 +101,22 @@ fn handling_signals_works() {
 		let channel = get_channel(1000.into());
 		assert_eq!(channel, None);
 
-		// Only the first 3 signals are processed
+		// All the signals are processed
 		let page = (
 			XcmpMessageFormat::Signals,
 			ChannelSignal::Suspend,
 			ChannelSignal::Resume,
 			ChannelSignal::Suspend,
 			ChannelSignal::Resume,
+			ChannelSignal::Suspend,
 			ChannelSignal::Resume,
+			ChannelSignal::Suspend,
 			ChannelSignal::Resume,
 		)
 			.encode();
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
-		let channel = get_channel(1000.into()).unwrap();
-		assert_eq!(channel.state, OutboundState::Suspended);
+		let channel = get_channel(1000.into());
+		assert_eq!(channel, None);
 	})
 }
 
