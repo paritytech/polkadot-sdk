@@ -21,7 +21,7 @@
 use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
 
-use polkadot_primitives::vstaging::UMP_SEPARATOR;
+use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;

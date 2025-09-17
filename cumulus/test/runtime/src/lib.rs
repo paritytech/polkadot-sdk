@@ -263,7 +263,11 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type PreInherents =
-		cumulus_pallet_parachain_system::max_parachain_block_weight::MaxBlockWeightHooks<Runtime, NumberOfBlocksPerRelaySlot>;
+		cumulus_pallet_parachain_system::max_parachain_block_weight::MaxBlockWeightHooks<
+			Runtime,
+			NumberOfBlocksPerRelaySlot,
+		>;
+	type SingleBlockMigrations = TestOnRuntimeUpgrade;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -464,7 +468,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	TestOnRuntimeUpgrade,
 >;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;

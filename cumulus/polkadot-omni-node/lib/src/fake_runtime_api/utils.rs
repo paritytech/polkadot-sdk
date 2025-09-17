@@ -15,7 +15,7 @@
 // limitations under the License.
 
 pub(crate) mod imports {
-	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
+	pub use cumulus_primitives_core::ParaId;
 	pub use parachains_common::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{

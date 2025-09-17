@@ -45,9 +45,7 @@ use assets_common::{
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use cumulus_primitives_core::{
-	relay_chain::AccountIndex, AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId,
-};
+use cumulus_primitives_core::{relay_chain::AccountIndex, AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -145,7 +143,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_019_003,
+	spec_version: 1_019_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -202,6 +200,7 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
+	type SingleBlockMigrations = Migrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -1573,7 +1572,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]

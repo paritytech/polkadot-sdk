@@ -46,9 +46,6 @@ pub struct TestCollatorCli {
 	pub relaychain_args: Vec<String>,
 
 	#[arg(long)]
-	pub use_null_consensus: bool,
-
-	#[arg(long)]
 	pub disable_block_announcements: bool,
 
 	#[arg(long)]

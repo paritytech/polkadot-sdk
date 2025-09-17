@@ -70,7 +70,7 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::traits::{Disabled, TransformOrigin};
 use parachains_common::{
 	impls::{AssetsFrom, NonZeroIssuance},
@@ -226,6 +226,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SingleBlockMigrations = RemoveCollectiveFlip;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -694,7 +695,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	RemoveCollectiveFlip,
 >;
 
 pub struct RemoveCollectiveFlip;

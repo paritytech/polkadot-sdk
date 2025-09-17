@@ -65,7 +65,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 pub use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -103,7 +103,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	authoring_version: 1,
-	spec_version: 1_019_003,
+	spec_version: 1_019_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,

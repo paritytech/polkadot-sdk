@@ -21,7 +21,7 @@ use core::cmp::max;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{MemoryTr, RuntimeFlag, StackTr},
+		interpreter_types::{MemoryTr, StackTr},
 	},
 	primitives::U256,
 };
@@ -32,7 +32,7 @@ use revm::{
 pub fn mload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([], top, context.interpreter);
-	let offset = as_usize_or_fail!(context.interpreter, top);
+	let offset: usize = as_usize_or_fail!(context.interpreter, top);
 	resize_memory!(context.interpreter, offset, 32);
 	*top =
 		U256::try_from_be_slice(context.interpreter.memory.slice_len(offset, 32).as_ref()).unwrap()
@@ -72,13 +72,12 @@ pub fn msize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// EIP-5656: Memory copying instruction that copies memory from one location to another.
 pub fn mcopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CANCUN);
 	popn!([dst, src, len], context.interpreter);
 
 	// Into usize or fail
 	let len = as_usize_or_fail!(context.interpreter, len);
 	// Deduce gas
-	gas_or_fail!(context.interpreter, revm_gas::copy_cost_verylow(len));
+	gas_or_fail_legacy!(context.interpreter, revm_gas::copy_cost_verylow(len));
 	if len == 0 {
 		return;
 	}

@@ -23,7 +23,7 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	CodeRemoved, Config, ExecReturnValue, ImmutableData,
+	Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -80,6 +80,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::caller")
 	}
 
+	fn caller_of_caller(&self) -> Origin<Self::T> {
+		panic!("MockExt::caller_of_caller")
+	}
+
 	fn origin(&self) -> &Origin<Self::T> {
 		panic!("MockExt::origin")
 	}
@@ -92,11 +96,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::code_size")
 	}
 
-	fn caller_is_origin(&self) -> bool {
+	fn caller_is_origin(&self, _use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_origin")
 	}
 
-	fn caller_is_root(&self) -> bool {
+	fn caller_is_root(&self, _use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_root")
 	}
 
@@ -138,6 +142,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn block_author(&self) -> Option<H160> {
 		panic!("MockExt::block_author")
+	}
+
+	fn gas_limit(&self) -> u64 {
+		panic!("MockExt::gas_limit")
+	}
+
+	fn chain_id(&self) -> u64 {
+		panic!("MockExt::chain_id")
 	}
 
 	fn max_value_size(&self) -> u32 {
@@ -193,6 +205,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		panic!("MockExt::last_frame_output_mut")
 	}
+
+	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
+		panic!("MockExt::copy_code_slice")
+	}
+
+	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
+		panic!("MockExt::to_account_id")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
@@ -219,7 +239,7 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 		&mut self,
 		_gas_limit: Weight,
 		_deposit_limit: U256,
-		_code: H256,
+		_code: Code,
 		_value: U256,
 		_input_data: Vec<u8>,
 		_salt: Option<&[u8; 32]>,

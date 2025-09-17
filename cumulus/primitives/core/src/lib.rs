@@ -37,8 +37,8 @@ pub use polkadot_parachain_primitives::primitives::{
 	XcmpMessageHandler,
 };
 pub use polkadot_primitives::{
-	vstaging::{ClaimQueueOffset, CoreSelector},
-	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
+	AbridgedHostConfiguration, AbridgedHrmpChannel, ClaimQueueOffset, CoreSelector,
+	PersistedValidationData,
 };
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
@@ -247,6 +247,17 @@ pub struct BundleInfo {
 	pub maybe_last: bool,
 }
 
+/// Return value of [`CumulusDigestItem::core_info_exists_at_max_once`]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CoreInfoExistsAtMaxOnce {
+	/// Exists exactly once.
+	Once(CoreInfo),
+	/// Not found.
+	NotFound,
+	/// Found more than once.
+	MoreThanOnce,
+}
+
 /// Identifier for a relay chain block used by [`CumulusDigestItem`].
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum RelayBlockIdentifier {
@@ -306,18 +317,32 @@ impl CumulusDigestItem {
 		})
 	}
 
-	/// Returns `true` if `Self::CoreInfo` only exists at max once in the given `digest`.
-	pub fn core_info_exists_at_max_once(digest: &Digest) -> bool {
-		digest
+	/// Returns the found [`CoreInfo`] and  iff [`Self::CoreInfo`] exists at max once in the given
+	/// `digest`.
+	pub fn core_info_exists_at_max_once(digest: &Digest) -> CoreInfoExistsAtMaxOnce {
+		let mut core_info = None;
+		if digest
 			.logs()
 			.iter()
 			.filter(|l| match l {
 				DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, d) => {
-					matches!(Self::decode_all(&mut &d[..]), Ok(CumulusDigestItem::CoreInfo(_)))
+					if let Ok(Self::CoreInfo(ci)) = Self::decode_all(&mut &d[..]) {
+						core_info = Some(ci);
+						true
+					} else {
+						false
+					}
 				},
 				_ => false,
 			})
 			.count() <= 1
+		{
+			core_info
+				.map(CoreInfoExistsAtMaxOnce::Once)
+				.unwrap_or(CoreInfoExistsAtMaxOnce::NotFound)
+		} else {
+			CoreInfoExistsAtMaxOnce::MoreThanOnce
+		}
 	}
 
 	/// Returns the [`RelayBlockIdentifier`] from the given `digest`.

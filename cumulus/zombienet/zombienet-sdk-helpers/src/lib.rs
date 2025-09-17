@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{BundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
-use polkadot_primitives::{vstaging::CandidateReceiptV2, BlakeTwo256, HashT, Id as ParaId};
+use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, HashT, Id as ParaId};
 use sp_runtime::traits::Zero;
 use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
 use tokio::{
@@ -16,13 +16,13 @@ use zombienet_sdk::subxt::{
 	self,
 	backend::legacy::LegacyRpcMethods,
 	blocks::Block,
-	config::{signed_extensions::CheckMortalityParams, ExtrinsicParams, Header},
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, Header},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
-	tx::{signer::Signer, DynamicPayload, SubmittableExtrinsic, TxStatus},
+	tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
 	utils::H256,
-	Config, OnlineClient, PolkadotConfig,
+	OnlineClient, PolkadotConfig,
 };
 
 /// Specifies which block should occupy a full core.
@@ -356,14 +356,17 @@ pub async fn assert_para_blocks_throughput(
 		}
 
 		let block = relay_rpc_client
-			.chain_get_block(Some(current_relay_header.hash()))
+			.chain_get_block(Some(current_relay_header.hash_with(relay_client.hasher())))
 			.await?
 			.ok_or_else(|| {
-				anyhow!("Could not fetch relay block: {:?}", current_relay_header.hash())
+				anyhow!(
+					"Could not fetch relay block: {:?}",
+					current_relay_header.hash_with(relay_client.hasher())
+				)
 			})?
 			.block;
 
-		let block = relay_client.blocks().at(block.header.hash()).await?;
+		let block = relay_client.blocks().at(block.header.hash_with(relay_client.hasher())).await?;
 
 		let included_events = find_candidate_included_events(para_id, &block).await?;
 
@@ -579,11 +582,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 	call: &DynamicPayload,
 	signer: &S,
 ) -> Result<H256, anyhow::Error> {
-	let mut extensions: <<PolkadotConfig as Config>::ExtrinsicParams as ExtrinsicParams<
-		PolkadotConfig,
-	>>::Params = Default::default();
-
-	extensions.4 = CheckMortalityParams::<PolkadotConfig>::immortal();
+	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
 
 	let tx = client.tx().create_signed(call, signer, extensions).await?;
 
@@ -602,11 +601,11 @@ pub async fn submit_unsigned_extrinsic_and_wait_for_finalization_success(
 
 /// Submit the given transaction and wait for its finalization.
 async fn submit_tx_and_wait_for_finalization(
-	tx: SubmittableExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+	tx: SubmittableTransaction<PolkadotConfig, OnlineClient<PolkadotConfig>>,
 ) -> Result<H256, anyhow::Error> {
 	let mut tx = tx.submit_and_watch().await?;
 
-	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
+	// Below we use the low level API to replicate the `wait_for_in_block` behavior
 	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
 	while let Some(status) = tx.next().await.transpose()? {
 		match status {

@@ -31,13 +31,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	slashing,
-	vstaging::{CandidateEvent, ClaimQueueOffset, CoreState, OccupiedCore, ScrapedOnChainVotes},
-	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
+	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, ClaimQueueOffset,
+	CoreIndex, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
@@ -540,6 +538,16 @@ impl ClaimQueueSnapshot {
 			} else {
 				None
 			}
+		})
+	}
+	/// Get all claimed cores for the given `para_id` at the specified depth.
+	pub fn iter_claims_at_depth_for_para(
+		&self,
+		depth: usize,
+		para_id: ParaId,
+	) -> impl Iterator<Item = CoreIndex> + '_ {
+		self.0.iter().filter_map(move |(core_index, ids)| {
+			ids.get(depth).filter(|id| **id == para_id).map(|_| *core_index)
 		})
 	}
 }

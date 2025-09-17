@@ -97,8 +97,10 @@ mod block_builder_task;
 mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
-
 mod slot_timer;
+
+#[cfg(test)]
+mod tests;
 
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {

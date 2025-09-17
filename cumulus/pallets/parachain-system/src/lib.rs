@@ -191,6 +191,7 @@ pub mod ump_constants {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 
@@ -532,9 +533,21 @@ pub mod pallet {
 			weight += T::DbWeight::get().reads(1);
 
 			// We need to ensure that `CoreInfo` digest exists only once.
-			if !CumulusDigestItem::core_info_exists_at_max_once(&frame_system::Pallet::<T>::digest())
-			{
-				panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+			match CumulusDigestItem::core_info_exists_at_max_once(
+				&frame_system::Pallet::<T>::digest(),
+			) {
+				CoreInfoExistsAtMaxOnce::Once(core_info) => {
+					assert_eq!(
+						core_info.claim_queue_offset.0,
+						T::RelayParentOffset::get() as u8,
+						"Only {} is supported as valid claim queue offset",
+						T::RelayParentOffset::get()
+					);
+				},
+				CoreInfoExistsAtMaxOnce::NotFound => {},
+				CoreInfoExistsAtMaxOnce::MoreThanOnce => {
+					panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+				},
 			}
 
 			weight
@@ -1514,7 +1527,7 @@ impl<T: Config> Pallet<T> {
 	/// Send the ump signals
 	#[cfg(feature = "experimental-ump-signals")]
 	fn send_ump_signal() {
-		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+		use cumulus_primitives_core::relay_chain::{UMPSignal, UMP_SEPARATOR};
 
 		if let Some(core_info) =
 			CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())

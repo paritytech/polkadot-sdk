@@ -601,7 +601,6 @@ fn validate_block_handles_ump_signal() {
 		relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR},
 		ClaimQueueOffset, CoreInfo, CoreSelector,
 	};
-
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
