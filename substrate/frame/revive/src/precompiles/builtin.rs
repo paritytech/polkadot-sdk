@@ -39,7 +39,7 @@ use crate::{
 pub use self::{
 	benchmarking::{IBenchmarking, NoInfo, WithInfo},
 	storage::{IStorage, Storage},
-	system::{ISystem, System},
+	system::System,
 };
 
 #[cfg(not(feature = "runtime-benchmarks"))]

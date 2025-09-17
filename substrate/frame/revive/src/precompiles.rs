@@ -41,7 +41,7 @@ pub use sp_core::{H160, H256, U256};
 
 use crate::{
 	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError,
+	Error as CrateError, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};

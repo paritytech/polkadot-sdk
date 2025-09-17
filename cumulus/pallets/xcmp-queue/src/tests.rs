@@ -17,6 +17,7 @@ use super::{
 	mock::{mk_page, versioned_xcm, EnqueuedMessages, HRMP_PARA_ID},
 	*,
 };
+use std::collections::BTreeMap;
 use XcmpMessageFormat::*;
 
 use codec::Input;
@@ -26,7 +27,7 @@ use frame_support::{
 	traits::{BatchFootprint, Hooks},
 	StorageNoopGuard,
 };
-use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
+use mock::{new_test_ext, FirstPagePos, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
 use xcm::{MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH};
@@ -242,7 +243,6 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 10), XcmEncoding::Simple);
 		for (idx, xcm) in xcms.iter().enumerate() {
 			EnqueuedMessages::set(vec![]);
-
 			total_size += xcm.len();
 			let required_weight = <<Test as Config>::WeightInfo>::enqueue_xcmp_messages(
 				0,
@@ -251,12 +251,14 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 					size_in_bytes: total_size,
 					new_pages_count: idx as u32 + 1,
 				},
+				true,
 			);
 
 			let mut weight_meter = WeightMeter::with_limit(required_weight);
 			let res = XcmpQueue::enqueue_xcmp_messages(
 				1000.into(),
 				&xcms.iter().map(|xcm| xcm.as_bounded_slice()).collect::<Vec<_>>(),
+				true,
 				&mut weight_meter,
 			);
 			if idx < xcms.len() - 1 {
@@ -273,6 +275,69 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 					.collect::<Vec<_>>()
 			);
 		}
+	})
+}
+
+#[test]
+fn xcm_enqueueing_uses_correct_pov_size() {
+	test_xcm_enqueueing_uses_correct_pov_size(XcmEncoding::Simple);
+	test_xcm_enqueueing_uses_correct_pov_size(XcmEncoding::Double);
+}
+
+fn test_xcm_enqueueing_uses_correct_pov_size(xcm_encoding: XcmEncoding) {
+	let first_page_pos = 100_000;
+	// Our mocked queue enqueues 1 message per page.
+	// Let's make sure we don't hit the drop threshold.
+	new_test_ext().execute_with(|| {
+		<QueueConfig<Test>>::set(QueueConfigData {
+			suspend_threshold: 300,
+			drop_threshold: 300,
+			resume_threshold: 300,
+		});
+		FirstPagePos::set(BTreeMap::from([
+			(1000.into(), first_page_pos),
+			(2000.into(), first_page_pos),
+		]));
+
+		let page = generate_mock_xcm_page(0, 1, xcm_encoding);
+		let consumed_weight = XcmpQueue::handle_xcmp_messages(
+			[
+				// For the first page for a certain sender, we should take into account the
+				// `first_page_pos` in the PoV size
+				(1000.into(), 1, page.as_slice()),
+				// For the following pages, we shouldn't take into account the
+				// `first_page_pos` in the PoV size anymore
+				(1000.into(), 1, page.as_slice()),
+				(1000.into(), 1, page.as_slice()),
+				(1000.into(), 1, page.as_slice()),
+				(1000.into(), 1, page.as_slice()),
+			]
+			.into_iter(),
+			Weight::MAX,
+		);
+		assert!(consumed_weight.proof_size() > first_page_pos as u64);
+		assert!(consumed_weight.proof_size() < 2 * first_page_pos as u64);
+
+		let consumed_weight = XcmpQueue::handle_xcmp_messages(
+			[
+				// For the first page for a certain sender, we should take into account the
+				// `first_page_pos` in the PoV size
+				(1000.into(), 1, page.as_slice()),
+				// For the first page for a different sender, we should take into account the
+				// `first_page_pos` in the PoV size
+				(2000.into(), 1, page.as_slice()),
+				// For the following pages, we shouldn't take into account the
+				// `first_page_pos` in the PoV size anymore
+				(1000.into(), 1, page.as_slice()),
+				(2000.into(), 1, page.as_slice()),
+				(1000.into(), 1, page.as_slice()),
+				(2000.into(), 1, page.as_slice()),
+			]
+			.into_iter(),
+			Weight::MAX,
+		);
+		assert!(consumed_weight.proof_size() > 2 * first_page_pos as u64);
+		assert!(consumed_weight.proof_size() < 3 * first_page_pos as u64);
 	})
 }
 
