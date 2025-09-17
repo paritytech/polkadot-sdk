@@ -158,6 +158,7 @@ fn decode_key(key_bytes: &[u8], is_fixed_key: bool) -> Result<Key, ()> {
 	}
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -167,7 +168,6 @@ mod tests {
 		tests::{ExtBuilder, Test},
 	};
 
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	#[test]
 	#[should_panic(expected = "Storage precompile can only be called via delegate call")]
 	fn panic_if_called_without_delegate_call() {
