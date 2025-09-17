@@ -1,37 +1,16 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use cumulus_zombienet_sdk_helpers::{
-	submit_extrinsic_and_wait_for_finalization_success,
-	submit_extrinsic_with_params_and_wait_for_finalization_success,
-};
-use pallet_revive::{
-	evm::{
-		Account, Block as EvmBlock, BlockNumberOrTag, BlockTag, GenericTransaction, ReceiptInfo,
-		TransactionInfo,
-	},
-	sp_runtime::MultiAddress,
-};
-use pallet_revive_eth_rpc::{
-	example::TransactionBuilder,
-	subxt_client::{self, src_chain},
-	EthRpcClient,
-};
+use cumulus_zombienet_sdk_helpers::submit_extrinsic_with_params_and_wait_for_finalization_success;
+use pallet_revive::evm::{Account, BlockNumberOrTag, BlockTag};
+use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
 use pallet_revive_zombienet::{utils::*, TestEnvironment, BEST_BLOCK_METRIC};
-use sp_core::{Encode, H256, U256};
-use subxt::{
-	self, config::polkadot::PolkadotExtrinsicParamsBuilder, dynamic::Value,
-	ext::subxt_rpcs::rpc_params, tx::DynamicPayload,
-};
+use sp_core::U256;
+use subxt::{self, config::polkadot::PolkadotExtrinsicParamsBuilder, dynamic::Value};
 use subxt_signer::sr25519::dev;
-// use zombienet_sdk::subxt::{
-// 	self, backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, OnlineClient, PolkadotConfig,
-// };
 
 const COLLATOR_RPC_PORT: u16 = 9944;
 const ETH_RPC_URL: &str = "http://localhost:8545";
-
-const ROOT_FROM_NO_DATA: &str = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
 
 // This tests makes sure that RPC collator is able to build blocks
 #[tokio::test(flavor = "multi_thread")]
@@ -53,7 +32,7 @@ async fn test_dont_spawn_zombienet() {
 	// test_single_transfer(&test_env).await;
 	// test_deployment(&test_env).await;
 	// test_parallel_transfers(&test_env, 5).await;
-	test_mixed_evm_substrate_transactions(&test_env, 3, 1).await;
+	test_mixed_evm_substrate_transactions(&test_env, 3, 2).await;
 }
 
 // This tests makes sure that RPC collator is able to build blocks
@@ -252,7 +231,7 @@ async fn test_parallel_transfers(test_env: &TestEnvironment, num_transactions: u
 	println!("Submitting and waiting for {} transactions in parallel", num_transactions);
 	let start_time = std::time::Instant::now();
 
-	let results = submit_and_wait_for_transactions_parallel(test_env, transactions)
+	let results = eth_rpc_submit_and_wait_for_transactions_parallel(transactions)
 		.await
 		.unwrap_or_else(|err| {
 			panic!("Failed to submit or wait for parallel transactions: {err:?}")
@@ -330,30 +309,30 @@ async fn test_mixed_evm_substrate_transactions(
 	let alice_signer = dev::alice();
 
 	// Prepare all substrate transfer calls first
-	let mut substrate_transfer_calls = Vec::new();
+	let mut substrate_calls = Vec::new();
 	for i in 0..num_substrate_txs {
-		let transfer_call =
-			subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
-		substrate_transfer_calls.push(transfer_call);
+		let call = subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
+		substrate_calls.push(call);
 		println!("Prepared substrate transaction {}/{num_substrate_txs}", i + 1);
 	}
 
 	// Create futures for all substrate transfer calls
 	let mut substrate_tx_futures = Vec::new();
-	for (idx, transfer_call) in substrate_transfer_calls.iter().enumerate() {
-		// let extensions = PolkadotExtrinsicParamsBuilder::new().nonce(idx as
-		// u64).immortal().build(); let future =
-		// submit_extrinsic_with_params_and_wait_for_finalization_success( 	collator_client,
-		// 	transfer_call,
-		// 	&alice_signer,
-		// 	extensions,
-		// );
-		let future = submit_extrinsic_and_wait_for_finalization_success(
+	let mut nonce = collator_client
+		.tx()
+		.account_nonce(&alice_signer.public_key().into())
+		.await
+		.unwrap_or_else(|err| panic!("Failed to fetch account nonce: {err:?}"));
+	for call in &substrate_calls {
+		let extensions = PolkadotExtrinsicParamsBuilder::new().nonce(nonce).immortal().build();
+		let future = submit_extrinsic_with_params_and_wait_for_finalization_success(
 			collator_client,
-			transfer_call,
+			call,
 			&alice_signer,
+			extensions,
 		);
 		substrate_tx_futures.push(future);
+		nonce += 1;
 	}
 
 	println!(
@@ -364,7 +343,7 @@ async fn test_mixed_evm_substrate_transactions(
 
 	// Submit all transactions in parallel
 	let (evm_results, substrate_results) = tokio::join!(
-		submit_and_wait_for_transactions_parallel(test_env, evm_transactions),
+		eth_rpc_submit_and_wait_for_transactions_parallel(evm_transactions),
 		futures::future::join_all(substrate_tx_futures)
 	);
 

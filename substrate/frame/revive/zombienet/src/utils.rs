@@ -5,21 +5,17 @@
 //!
 //! This crate contains integration tests that use Zombienet to test
 //! pallet-revive functionality in a realistic multi-node environment.
-use crate::{TestEnvironment, BEST_BLOCK_METRIC};
+use crate::TestEnvironment;
 use pallet_revive::evm::{
-	Account, Block as EvmBlock, BlockNumberOrTag, BlockTag, GenericTransaction, ReceiptInfo,
-	TransactionInfo,
+	Account, Block as EvmBlock, BlockNumberOrTag, GenericTransaction, ReceiptInfo, TransactionInfo,
 };
 use pallet_revive_eth_rpc::{
 	example::TransactionBuilder,
 	subxt_client::{self},
 	EthRpcClient,
 };
-use sp_core::{H256, U256};
+use sp_core::H256;
 use subxt::{self, ext::subxt_rpcs::rpc_params};
-// use zombienet_sdk::subxt::{
-// 	self, backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, OnlineClient, PolkadotConfig,
-// };
 
 const ROOT_FROM_NO_DATA: &str = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
 
@@ -93,7 +89,7 @@ pub async fn assert_transactions(
 	signer: Account,
 	transactions: Vec<(H256, GenericTransaction, ReceiptInfo)>,
 ) {
-	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
+	let TestEnvironment { eth_rpc_client, .. } = test_env;
 
 	for (idx, (tx_hash, tx, receipt)) in transactions.into_iter().enumerate() {
 		let block_number = receipt.block_number;
@@ -139,8 +135,7 @@ pub async fn assert_transactions(
 	}
 }
 
-pub async fn submit_and_wait_for_transaction<Client: EthRpcClient + Sync + Send>(
-	test_env: &TestEnvironment,
+pub async fn eth_rpc_submit_and_wait_for_transaction<Client: EthRpcClient + Sync + Send>(
 	tx_builder: TransactionBuilder<Client>,
 ) -> Result<(H256, GenericTransaction, ReceiptInfo), anyhow::Error> {
 	let tx = tx_builder.send().await?;
@@ -154,14 +149,15 @@ pub async fn submit_and_wait_for_transaction<Client: EthRpcClient + Sync + Send>
 	Ok((hash, generic_tx, receipt))
 }
 
-pub async fn submit_and_wait_for_transactions_parallel<Client: EthRpcClient + Sync + Send>(
-	test_env: &TestEnvironment,
+pub async fn eth_rpc_submit_and_wait_for_transactions_parallel<
+	Client: EthRpcClient + Sync + Send,
+>(
 	transactions: Vec<TransactionBuilder<Client>>,
 ) -> Result<Vec<(H256, GenericTransaction, ReceiptInfo)>, anyhow::Error> {
 	// Create futures for each transaction
 	let transaction_futures: Vec<_> = transactions
 		.into_iter()
-		.map(|tx_builder| submit_and_wait_for_transaction(test_env, tx_builder))
+		.map(|tx_builder| eth_rpc_submit_and_wait_for_transaction(tx_builder))
 		.collect();
 
 	// Wait for all transactions to complete
