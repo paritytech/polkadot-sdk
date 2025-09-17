@@ -204,6 +204,11 @@ jobs:
           echo "Verifying integrity of $rpmname..."
           rpm -vK "$rpmname" || true # Use || true to avoid failing the step if verification fails
 
+      - name: Install signing and repo tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm createrepo-c reprepro
+
       - name: Add package to local repo
         env:
           PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
@@ -225,7 +230,6 @@ jobs:
             # Add the package to the local Debian repository
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            # Find the downloaded .rpm artifact
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' -print -quit)
             if [ -z "$rpmname" ]; then
               echo "Error: RPM package artifact not found in release-artifacts/"
@@ -233,38 +237,21 @@ jobs:
             fi
             echo "Found RPM package: $rpmname"
 
-            # Copy the RPM to the correct directory
-            cp "$rpmname" "$LOCAL_REPO_PATH/"
-            chmod 644 "$LOCAL_REPO_PATH"/*.rpm
-            chmod 755 "$LOCAL_REPO_PATH"
-
-            # Create a temporary directory for rpm macros
-            TEMP_DIR=$(mktemp -d)
-            cp "${{ github.workspace }}/.github/workflows/rpmmacros" "${TEMP_DIR}/rpmmacros"
-            chmod 644 "${TEMP_DIR}/rpmmacros"
-
-            rpm_filename=$(basename "$rpmname")
-            echo "Signing RPM and creating repository for: $rpm_filename"
-
-            # Run all RPM operations inside a standard Fedora container
-            podman run \
-                -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent:ro" \
-                -v "${HOME}/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx:ro" \
-                -v "${LOCAL_REPO_PATH}:/rpm:rw" \
-                -v "${TEMP_DIR}/rpmmacros:/etc/rpm/macros.sign:ro" \
-                --user root:root \
-                --rm \
-                docker.io/ubuntu:latest \
-                /bin/bash -c "apt-get update && apt-get install -y gnupg rpm createrepo-c && \
-                              chmod 700 /root/.gnupg && \
-                              cd /rpm && \
-                              echo 'Signing package...' && \
-                              rpm --addsign '${rpm_filename}' && \
-                              echo 'Updating repository metadata...' && \
-                              createrepo_c --update ."
+            PGPKMS_RPM_SIGNER=$(which pgpkms-rpm-signer)
+            sed -i "s|%__gpg_sign_cmd.*|%__gpg_sign_cmd ${PGPKMS_RPM_SIGNER} %{__plaintext_filename}|" ./.github/workflows/rpmmacros
             
-            # Cleanup
-            rm -rf "${TEMP_DIR}"
+            echo "--- Modified rpmmacros file ---"
+            cat ./.github/workflows/rpmmacros
+            echo "-----------------------------"
+
+            rpm \
+              --define "_topdir $(pwd)" \
+              --rcfile "$(pwd)/.github/workflows/rpmmacros" \
+              --addsign "$rpmname"
+
+            cp "$rpmname" "$LOCAL_REPO_PATH/"
+
+            createrepo_c --update "$LOCAL_REPO_PATH"
           fi
 
       - name: Upload updated repo to S3
