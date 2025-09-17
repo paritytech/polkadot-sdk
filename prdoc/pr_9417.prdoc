@@ -10,5 +10,4 @@ crates:
   validate: false
 - name: polkadot-overseer
   bump: major
-- name: yet-another-parachain-runtime
-  bump: none
+
