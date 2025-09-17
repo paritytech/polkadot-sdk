@@ -73,7 +73,7 @@ jobs:
       - name: Comment PR (Start)
         # No need to comment on prdoc start or if --quiet
         if: ${{ github.event.inputs.is_quiet == 'false' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt')}}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -130,7 +130,7 @@ jobs:
       subweight: ${{ steps.subweight.outputs.result }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
@@ -282,14 +282,14 @@ jobs:
           private-key: ${{ secrets.CMD_BOT_APP_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ steps.generate_token.outputs.token }}
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: command-diff
           path: command-diff
@@ -337,7 +337,7 @@ jobs:
         # No need to comment on prdoc success or --quiet
         #TODO: return "&& !contains(github.event.comment.body, '--quiet')"
         if: ${{ github.event.inputs.is_quiet == 'false' && needs.cmd.result == 'success' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt') }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           SUBWEIGHT: "${{ needs.cmd.outputs.subweight }}"
           CMD_OUTPUT: "${{ needs.cmd.outputs.cmd_output }}"
@@ -378,7 +378,7 @@ jobs:
     steps:
       - name: Comment PR (Failure)
         if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -399,7 +399,7 @@ jobs:
 
       - name: Add 😕 reaction on failure
         if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -412,7 +412,7 @@ jobs:
 
       - name: Add 👍 reaction on success
         if: ${{ needs.cmd.result == 'success' && needs.after-cmd.result == 'success' && needs.before-cmd.result == 'success' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

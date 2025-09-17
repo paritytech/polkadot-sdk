@@ -34,7 +34,7 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - name: Checkout
-          uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
+          uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4.0.0
           with:
             fetch-depth: 0
 
@@ -83,7 +83,7 @@ jobs:
       matrix: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
 
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
+      - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4.0.0
         with:
           fetch-depth: 0
 
@@ -105,7 +105,7 @@ jobs:
           echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with:
           subject-path:  ${{ steps.srtool_build.outputs.wasm }}
 
