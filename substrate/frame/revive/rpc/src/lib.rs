@@ -384,16 +384,14 @@ impl EthRpcServerImpl {
 	async fn get_transaction_by_substrate_block_hash_and_index(
 		&self,
 		substrate_block_hash: H256,
-		ethereum_tx_index: U256,
+		transaction_index: U256,
 	) -> RpcResult<Option<TransactionInfo>> {
-		let mut substrate_tx_idx: usize =
-			ethereum_tx_index.try_into().map_err(|_| EthRpcError::ConversionError)?;
-		// Skip substrate inherents
-		substrate_tx_idx += 2;
-
 		let Some(receipt) = self
 			.client
-			.receipt_by_hash_and_index(&substrate_block_hash, substrate_tx_idx)
+			.receipt_by_hash_and_index(
+				&substrate_block_hash,
+				transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?,
+			)
 			.await
 		else {
 			return Ok(None)

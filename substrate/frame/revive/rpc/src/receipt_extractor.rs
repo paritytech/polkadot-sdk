@@ -164,8 +164,8 @@ impl ReceiptExtractor {
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
 		maybe_receipt: Option<ReceiptGasInfo>,
+		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let transaction_index = ext.index();
 		let events = ext.events().await?;
 		let block_number: U256 = substrate_block.number().into();
 
@@ -277,17 +277,17 @@ impl ReceiptExtractor {
 				.await
 				.unwrap_or(substrate_block_hash);
 
-		// TODO: Order of receipt and transaction info is important while building
-		// the state tries. Are we sorting them afterwards?
+		// Process extrinsics in order while maintaining parallelism within buffer window
 		stream::iter(ext_iter)
-			.map(|(ext, call, receipt)| async move {
-				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt)
+			.enumerate()
+			.map(|(idx, (ext, call, receipt))| async move {
+				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt, idx)
 					.await
 					.inspect_err(|err| {
 						log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
 					})
 			})
-			.buffer_unordered(10)
+			.buffered(10)
 			.collect::<Vec<Result<_, _>>>()
 			.await
 			.into_iter()
@@ -357,7 +357,7 @@ impl ReceiptExtractor {
 
 		let (ext, eth_call, maybe_receipt) = ext_iter
 			.into_iter()
-			.find(|(e, _, _)| e.index() as usize == transaction_index)
+			.nth(transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
 		let substrate_block_number = block.number() as u64;
@@ -367,8 +367,15 @@ impl ReceiptExtractor {
 				.await
 				.unwrap_or(substrate_block_hash);
 
-		self.extract_from_extrinsic(block, eth_block_hash, ext, eth_call, maybe_receipt)
-			.await
+		self.extract_from_extrinsic(
+			block,
+			eth_block_hash,
+			ext,
+			eth_call,
+			maybe_receipt,
+			transaction_index,
+		)
+		.await
 	}
 
 	/// Get the Ethereum block hash for the given Substrate block.
