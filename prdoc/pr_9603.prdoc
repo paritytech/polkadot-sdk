@@ -1,4 +1,3 @@
-@@ -0,0 +1,13 @@
 title: '[pallet-revive] Migrate unstable storage host functions to `Storage` pre-compile'
 doc:
 - audience: Runtime Dev
