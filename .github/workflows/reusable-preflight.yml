@@ -41,6 +41,19 @@ on:
           parity-oldlinux
           By default we use spot machines that can be terminated at any time.
           Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      # New is used only during transition to the new runners
+      RUNNER_NEW:
+        value: ${{ jobs.preflight.outputs.RUNNER }}
+        description: |
+          Main runner for resource-intensive tasks
+          By default we use spot machines that can be terminated at any time.
+          Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      RUNNER_OLDLINUX_NEW:
+        value: ${{ jobs.preflight.outputs.RUNNER_OLDLINUX }}
+        description: |
+          parity-oldlinux
+          By default we use spot machines that can be terminated at any time.
+          Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
       RUNNER_DEFAULT:
         value: ${{ jobs.preflight.outputs.RUNNER_DEFAULT }}
         description: "Relatively lightweight runner. When `ubuntu-latest` is not enough"
