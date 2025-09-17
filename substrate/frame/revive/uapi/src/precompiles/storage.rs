@@ -29,6 +29,12 @@ sol! {
 	interface IStorage {
 		/// Clear the value at the given key in the contract storage.
 		///
+		/// # Important
+		///
+		/// This function can only be called via a delegate call! For Solidity, the low level
+		/// `delegatecall` function has to be used. For languages that use the FFI
+		/// of `pallet-revive`, the [`crate::HostFn::delegate_call`] function can be used.
+		///
 		/// # Parameters
 		///
 		/// - `key`: The storage key.
@@ -63,6 +69,12 @@ sol! {
 			external returns (bool containedKey, uint valueLen);
 
 		/// Retrieve and remove the value under the given key from storage.
+		///
+		/// # Important
+		///
+		/// This function can only be called via a delegate call! For Solidity, the low level
+		/// `delegatecall` function has to be used. For languages that use the FFI
+		/// of `pallet-revive`, the [`crate::HostFn::delegate_call`] function can be used.
 		///
 		/// # Parameters
 		///
