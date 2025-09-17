@@ -1,0 +1,11 @@
+title: "revive-rpc: use generic RpcClient"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Support for a generic RPC client in the revive eth rpc proxy, instead of the previously hardcoded
+      ReconnectingRpcClient. This enables more flexible usage of the revive rpc as a library.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
