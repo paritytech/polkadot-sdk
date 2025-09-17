@@ -35,7 +35,7 @@ pub use generic::{Context, Table};
 pub mod v2 {
 	use crate::generic;
 	use polkadot_primitives::{
-		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
+		CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 		CompactStatement as PrimitiveStatement, CoreIndex, ValidatorIndex, ValidatorSignature,
 	};
 

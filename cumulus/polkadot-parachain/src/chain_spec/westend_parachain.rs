@@ -27,7 +27,7 @@ pub fn westend_parachain_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		westend_parachain_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "westend-local".into() },
+		Extensions::new_with_relay_chain("westend-local".into()),
 	)
 	.with_name("Westend Parachain Local")
 	.with_id("local_testnet")

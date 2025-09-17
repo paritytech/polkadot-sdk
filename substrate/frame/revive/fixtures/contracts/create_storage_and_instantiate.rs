@@ -43,7 +43,7 @@ pub extern "C" fn call() {
 	key[0] = 1;
 	api::set_storage(StorageFlags::empty(), &key, data);
 
-	let value = u256_bytes(10_000u64);
+	let value = u256_bytes(10_000_000_000u64);
 	let salt = [0u8; 32];
 	let mut address = [0u8; 20];
 	let mut deploy_input = [0; 32 + 4];
