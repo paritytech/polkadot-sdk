@@ -544,15 +544,10 @@ fn ensure_can_reserve<T: Config<I>, I: 'static>(
 	value: T::Balance,
 	check_existential_deposit: bool,
 ) -> DispatchResult {
-	let AccountData { free, reserved, frozen, .. } = Pallet::<T, I>::account(who);
+	let AccountData { free, .. } = Pallet::<T, I>::account(who);
 
 	// Early validation: Check sufficient free balance
 	let new_free_balance = free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
-
-	// The reserve is allowed as long as the total balance (free + reserved)
-	// remains above the frozen balance
-	let total_balance = free.saturating_add(reserved);
-	ensure!(total_balance >= frozen, Error::<T, I>::LiquidityRestrictions);
 
 	// Conditionally validate existential deposit preservation
 	if check_existential_deposit {
