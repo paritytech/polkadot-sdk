@@ -1685,7 +1685,7 @@ where
 
 		// Length to fee conversion of 5 MiB tx size:
 		// pallet_transaction_payment::Pallet::<T>::length_to_fee(5 * 1024 * 1024);
-		let length_fee: u64 = 52428800000000000 + 6 * 10 ^ 9;
+		let length_fee: u64 = 52_428_800_000_000_000 + 6 * 1_000_000_000;
 		// 519.999.999.188
 		let balance: BalanceOf<T> = BalanceOf::<T>::saturated_from(length_fee);
 
