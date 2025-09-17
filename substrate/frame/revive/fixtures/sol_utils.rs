@@ -244,4 +244,3 @@ pub fn take_storage<A: HostFn>(flags: StorageFlags, key: &[u8], decode_output: &
 		return Some(decoded);
 	}
 }
-

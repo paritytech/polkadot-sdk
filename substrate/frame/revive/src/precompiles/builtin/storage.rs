@@ -43,7 +43,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 	) -> Result<Vec<u8>, Error> {
 		// Benchmarks call the pre-compile functions directly, without the delegate
 		// call overhead. The `delegate_call` overhead is benchmarked individually.
-		#[cfg(not(feature = "runtime-benchmarks"))]
+		//#[cfg(not(feature = "runtime-benchmarks"))]
 		assert!(env.is_delegate_call(), "Storage precompile can only be called via delegate call");
 
 		use IStorage::IStorageCalls;

@@ -136,7 +136,7 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		load_code_proof_size, // just enough to load the contract
 		&[u8::MAX; 32], // No deposit limit.
 		&value,

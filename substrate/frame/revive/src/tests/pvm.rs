@@ -557,6 +557,22 @@ fn storage_work() {
 }
 
 #[test]
+#[should_panic(expected = "Storage precompile can only be called via delegate call")]
+fn storage_no_delegate_call() {
+	let (code, _code_hash) = compile_module("storage_disallow_delegate_call").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.native_value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		let _ = builder::bare_call(addr).build();
+	});
+}
+
+#[test]
 fn storage_max_value_limit() {
 	let (binary, _code_hash) = compile_module("storage_size").unwrap();
 
