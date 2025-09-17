@@ -60,15 +60,6 @@ impl AssetIdExtractor for InlineAssetIdExtractor {
 	}
 }
 
-const fn ee_suffix(mut account: [u8; 32]) -> AccountId32 {
-	let mut i = 20;
-	while i < 32 {
-		account[i] = 0xee;
-		i += 1;
-	}
-	AccountId32::new(account)
-}
-
 /// A precompile configuration that uses a prefix [`AddressMatcher`].
 pub struct InlineIdConfig<const PREFIX: u16>;
 
