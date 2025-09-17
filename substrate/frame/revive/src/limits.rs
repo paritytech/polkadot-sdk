@@ -48,6 +48,13 @@ pub const CALL_STACK_DEPTH: u32 = 25;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
+/// The maximum number of events a call to [`crate::SyscallDoc::deposit_event`] can emit.
+///
+/// It is unlikely that a single contract call needs to emit more than 512 events.
+/// This limit is in place to prevent a single contract call from filling up the memory
+/// with events.
+pub const NUM_EMITTED_EVENTS: u32 = 512;
+
 /// Maximum size of events (including topics) and storage values.
 pub const PAYLOAD_BYTES: u32 = 416;
 

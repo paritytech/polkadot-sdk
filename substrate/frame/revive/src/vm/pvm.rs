@@ -325,11 +325,21 @@ pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
 	input_data: Option<Vec<u8>>,
 	_phantom_data: PhantomData<M>,
+	/// The number of emitted events.
+	///
+	/// When this reaches the maximum allowed number of events, no further events
+	/// can be emitted, and the transaction will fail.
+	emitted_events: u32,
 }
 
 impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
-		Self { ext, input_data: Some(input_data), _phantom_data: Default::default() }
+		Self {
+			ext,
+			input_data: Some(input_data),
+			_phantom_data: Default::default(),
+			emitted_events: 0,
+		}
 	}
 
 	/// Get a mutable reference to the inner `Ext`.

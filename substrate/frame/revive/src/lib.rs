@@ -527,6 +527,8 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
+		/// The amount of emitted events exceeds [`limits::NUM_EMITTED_EVENTS`].
+		TooManyEmittedEvents = 0x32,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
