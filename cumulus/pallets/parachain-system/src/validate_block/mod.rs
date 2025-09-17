@@ -68,31 +68,3 @@ pub struct MemoryOptimizedValidationParams {
 	pub relay_parent_number: cumulus_primitives_core::relay_chain::BlockNumber,
 	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
 }
-
-/// The validation params passed to `validate_block`.
-///
-/// Used by the pallet to validate the validation data passed by the collator.
-pub struct ValidationParams {
-	pub parent_head: bytes::Bytes,
-	pub relay_parent_number: cumulus_primitives_core::relay_chain::BlockNumber,
-	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
-}
-
-// Stores the [`ValidationParams`] when running `execute_block` inside of `validate_block`.
-//
-// The pallet uses the params to verify the `ValidationData` coming from the collator.
-environmental::environmental!(validation_params: ValidationParams);
-
-/// Run `function` with the given `validation_params` available in its context.
-#[cfg(not(feature = "std"))]
-fn run_with_validation_params(validation_params: &mut ValidationParams, function: impl FnOnce()) {
-	validation_params::using(validation_params, function)
-}
-
-/// Run `function` with access to [`ValidationParams`].
-///
-/// `function` will only be executed in the `validate_block` context, as otherwise the validation
-/// parameters are not set.
-pub(crate) fn with_validation_params(function: impl FnOnce(&mut ValidationParams)) {
-	validation_params::with(function);
-}

@@ -16,15 +16,12 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{
-	run_with_validation_params, trie_cache, trie_recorder, MemoryOptimizedValidationParams,
-	ValidationParams,
-};
+use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{UMPSignal, UMP_SEPARATOR},
-	ClaimQueueOffset, CoreSelector, ParachainBlockData,
+	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
+	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
@@ -163,11 +160,6 @@ where
 	let mut head_data = None;
 	let mut new_validation_code = None;
 	let num_blocks = blocks.len();
-	let mut validation_params = ValidationParams {
-		parent_head: parachain_head,
-		relay_parent_number,
-		relay_parent_storage_root,
-	};
 
 	// Create the db
 	let mut db = match proof.to_memory_db(Some(parent_header.state_root())) {
@@ -206,20 +198,18 @@ where
 
 		parent_header = block.header().clone();
 
-		run_with_validation_params(&mut validation_params, || {
-			run_with_externalities_and_recorder::<B, _, _>(
-				&execute_backend,
-				// Here is the only place where we want to use the recorder.
-				// We want to ensure that we not accidentally read something from the proof, that
-				// was not yet read and thus, alter the proof size. Otherwise, we end up with
-				// mismatches in later blocks.
-				&mut execute_recorder,
-				&mut overlay,
-				|| {
-					E::execute_block(block);
-				},
-			);
-		});
+		run_with_externalities_and_recorder::<B, _, _>(
+			&execute_backend,
+			// Here is the only place where we want to use the recorder.
+			// We want to ensure that we not accidentally read something from the proof, that
+			// was not yet read and thus, alter the proof size. Otherwise, we end up with
+			// mismatches in later blocks.
+			&mut execute_recorder,
+			&mut overlay,
+			|| {
+				E::execute_block(block);
+			},
+		);
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
@@ -228,6 +218,15 @@ where
 			// are passing here the overlay.
 			&mut overlay,
 			|| {
+				// Ensure the validation data is correct.
+				validate_validation_data(
+					crate::ValidationData::<PSC>::get()
+						.expect("`ValidationData` must be set after executing a block; qed"),
+					&parachain_head,
+					relay_parent_number,
+					relay_parent_storage_root,
+				);
+
 				new_validation_code =
 					new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
 
@@ -346,6 +345,24 @@ where
 		horizontal_messages,
 		hrmp_watermark,
 	}
+}
+
+/// Validates the given [`PersistedValidationData`] against the data from the relay chain.
+fn validate_validation_data(
+	validation_data: PersistedValidationData,
+	parent_header: &[u8],
+	relay_parent_number: RNumber,
+	relay_parent_storage_root: RHash,
+) {
+	assert_eq!(parent_header, &validation_data.parent_head.0, "Parent head doesn't match");
+	assert_eq!(
+		relay_parent_number, validation_data.relay_parent_number,
+		"Relay parent number doesn't match",
+	);
+	assert_eq!(
+		relay_parent_storage_root, validation_data.relay_parent_storage_root,
+		"Relay parent storage root doesn't match",
+	);
 }
 
 /// Build a seed from the head data of the parachain block.

@@ -590,10 +590,6 @@ pub mod pallet {
 				collator_peer_id: _,
 			} = data;
 
-			// Ensure that the validation data is correct when run in the context of
-			// `validate_block`.
-			Self::validate_validation_data(&vfp);
-
 			// Check that the associated relay chain block number is as expected.
 			T::CheckAssociatedRelayNumber::check_associated_relay_number(
 				vfp.relay_parent_number,
@@ -800,8 +796,8 @@ pub mod pallet {
 	pub type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	/// The [`PersistedValidationData`] set for this block.
-	/// This value is expected to be set only once per block and it's never stored
-	/// in the trie.
+	///
+	/// This value is expected to be set only once by the [`Pallet::set_validation_data`] inherent.
 	#[pallet::storage]
 	pub type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
 
@@ -1089,27 +1085,6 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Validates the given [`PersistedValidationData`] against the data from the relay chain.
-	///
-	/// This function will actually only do the checks when running inside the context of
-	/// `validate_block`, as it needs to access the data passed by the relay chain.
-	fn validate_validation_data(validation_data: &PersistedValidationData) {
-		validate_block::with_validation_params(|params| {
-			assert_eq!(
-				params.parent_head, validation_data.parent_head.0,
-				"Parent head doesn't match"
-			);
-			assert_eq!(
-				params.relay_parent_number, validation_data.relay_parent_number,
-				"Relay parent number doesn't match",
-			);
-			assert_eq!(
-				params.relay_parent_storage_root, validation_data.relay_parent_storage_root,
-				"Relay parent storage root doesn't match",
-			);
-		});
-	}
-
 	/// The bandwidth limit per block that applies when receiving messages from the relay chain via
 	/// DMP or XCMP.
 	///
