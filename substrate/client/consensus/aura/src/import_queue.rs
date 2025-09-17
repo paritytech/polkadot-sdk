@@ -163,6 +163,7 @@ where
 		let hash = block.header.hash();
 		let number = *block.header.number();
 		let parent_hash = *block.header.parent_hash();
+		let post_header = block.post_header();
 
 		let authorities = self
 			.authorities_tracker
@@ -190,7 +191,7 @@ where
 		let checked_header = check_header::<C, B, P>(
 			&self.client,
 			slot_now + 1,
-			block.header.clone(),
+			block.header,
 			hash,
 			&authorities[..],
 			self.check_for_equivocation,
@@ -229,7 +230,7 @@ where
 					block.body = Some(inner_body);
 				}
 
-				self.authorities_tracker.import(&block).map_err(|e| {
+				self.authorities_tracker.import(&post_header).map_err(|e| {
 					format!(
 						"Could not import authorities for block {hash:?} at number {number}: {e}"
 					)

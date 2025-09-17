@@ -23,7 +23,6 @@ use std::{fmt::Debug, sync::Arc};
 use codec::Codec;
 use fork_tree::ForkTree;
 use parking_lot::RwLock;
-use sc_consensus::block_import::BlockImportParams;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::{AuraApi, ConsensusLog, AURA_ENGINE_ID};
@@ -127,11 +126,11 @@ where
 	}
 
 	/// If there is an authorities change digest in the header, import it into the tracker.
-	pub fn import(&self, block: &BlockImportParams<B>) -> Result<(), String> {
-		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(&block.header) {
-			let hash = block.post_hash();
-			let parent_hash = *block.header.parent_hash();
-			let number = *block.header.number();
+	pub fn import(&self, post_header: &B::Header) -> Result<(), String> {
+		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(&post_header) {
+			let hash = post_header.hash();
+			let parent_hash = *post_header.parent_hash();
+			let number = *post_header.number();
 			log::debug!(
 				target: LOG_TARGET,
 				"Importing authorities change for block {:?} at number {} found in header digest",
