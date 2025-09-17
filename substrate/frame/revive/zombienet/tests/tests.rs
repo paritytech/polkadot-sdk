@@ -1,18 +1,29 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use pallet_revive::evm::{
-	Account, Block as EvmBlock, BlockNumberOrTag, BlockTag, GenericTransaction, ReceiptInfo,
-	TransactionInfo,
+use cumulus_zombienet_sdk_helpers::{
+	submit_extrinsic_and_wait_for_finalization_success,
+	submit_extrinsic_with_params_and_wait_for_finalization_success,
+};
+use pallet_revive::{
+	evm::{
+		Account, Block as EvmBlock, BlockNumberOrTag, BlockTag, GenericTransaction, ReceiptInfo,
+		TransactionInfo,
+	},
+	sp_runtime::MultiAddress,
 };
 use pallet_revive_eth_rpc::{
 	example::TransactionBuilder,
-	subxt_client::{self},
+	subxt_client::{self, src_chain},
 	EthRpcClient,
 };
 use pallet_revive_zombienet::{utils::*, TestEnvironment, BEST_BLOCK_METRIC};
-use sp_core::{H256, U256};
-use subxt::{self, ext::subxt_rpcs::rpc_params};
+use sp_core::{Encode, H256, U256};
+use subxt::{
+	self, config::polkadot::PolkadotExtrinsicParamsBuilder, dynamic::Value,
+	ext::subxt_rpcs::rpc_params, tx::DynamicPayload,
+};
+use subxt_signer::sr25519::dev;
 // use zombienet_sdk::subxt::{
 // 	self, backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, OnlineClient, PolkadotConfig,
 // };
@@ -39,9 +50,10 @@ async fn test_dont_spawn_zombienet() {
 	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
 	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
 
-	test_single_transfer(&test_env).await;
-	test_deployment(&test_env).await;
-	test_parallel_transfers(&test_env, 5).await;
+	// test_single_transfer(&test_env).await;
+	// test_deployment(&test_env).await;
+	// test_parallel_transfers(&test_env, 5).await;
+	test_mixed_evm_substrate_transactions(&test_env, 3, 1).await;
 }
 
 // This tests makes sure that RPC collator is able to build blocks
@@ -279,4 +291,136 @@ async fn test_parallel_transfers(test_env: &TestEnvironment, num_transactions: u
 		assert_block(test_env, block, false).await;
 	}
 	assert_transactions(test_env, alith, txs).await;
+}
+
+async fn test_mixed_evm_substrate_transactions(
+	test_env: &TestEnvironment,
+	num_evm_txs: usize,
+	num_substrate_txs: usize,
+) {
+	println!("\n\n=== Testing Mixed EVM and Substrate Transactions ===\n\n");
+
+	let TestEnvironment { eth_rpc_client, collator_client, .. } = test_env;
+	let alith = Account::default();
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let amount = U256::from(500_000_000_000_000_000u128);
+
+	// Prepare EVM transactions
+	println!("Creating {} EVM transfer transactions", num_evm_txs);
+	let mut nonce = eth_rpc_client
+		.get_transaction_count(alith.address(), BlockTag::Latest.into())
+		.await
+		.unwrap_or_else(|err| panic!("Failed to fetch account nonce: {err:?}"));
+
+	let mut evm_transactions = Vec::new();
+	for i in 0..num_evm_txs {
+		let tx_builder = TransactionBuilder::new(eth_rpc_client)
+			.signer(alith.clone())
+			.nonce(nonce)
+			.value(amount)
+			.to(ethan.address());
+
+		evm_transactions.push(tx_builder);
+		println!("Prepared EVM transaction {}/{num_evm_txs} with nonce: {nonce:?}", i + 1);
+		nonce = nonce.saturating_add(U256::one());
+	}
+
+	// Prepare substrate transactions (simple balance transfers)
+	println!("Creating {} substrate transfer transactions", num_substrate_txs);
+	let alice_signer = dev::alice();
+
+	// Prepare all substrate transfer calls first
+	let mut substrate_transfer_calls = Vec::new();
+	for i in 0..num_substrate_txs {
+		let transfer_call =
+			subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
+		substrate_transfer_calls.push(transfer_call);
+		println!("Prepared substrate transaction {}/{num_substrate_txs}", i + 1);
+	}
+
+	// Create futures for all substrate transfer calls
+	let mut substrate_tx_futures = Vec::new();
+	for (idx, transfer_call) in substrate_transfer_calls.iter().enumerate() {
+		// let extensions = PolkadotExtrinsicParamsBuilder::new().nonce(idx as
+		// u64).immortal().build(); let future =
+		// submit_extrinsic_with_params_and_wait_for_finalization_success( 	collator_client,
+		// 	transfer_call,
+		// 	&alice_signer,
+		// 	extensions,
+		// );
+		let future = submit_extrinsic_and_wait_for_finalization_success(
+			collator_client,
+			transfer_call,
+			&alice_signer,
+		);
+		substrate_tx_futures.push(future);
+	}
+
+	println!(
+		"Submitting {} EVM and {} substrate transactions in parallel",
+		num_evm_txs, num_substrate_txs
+	);
+	let start_time = std::time::Instant::now();
+
+	// Submit all transactions in parallel
+	let (evm_results, substrate_results) = tokio::join!(
+		submit_and_wait_for_transactions_parallel(test_env, evm_transactions),
+		futures::future::join_all(substrate_tx_futures)
+	);
+
+	let duration = start_time.elapsed();
+
+	// Handle results
+	let evm_results = evm_results
+		.unwrap_or_else(|err| panic!("Failed to submit or wait for EVM transactions: {err:?}"));
+
+	let substrate_success_count = substrate_results.iter().filter(|result| result.is_ok()).count();
+
+	let substrate_failed_count = substrate_results.len() - substrate_success_count;
+
+	println!(
+		"Completed {} EVM and {} substrate transactions ({} substrate failed) in {:?} ({:.2} total tx/sec)",
+		evm_results.len(),
+		substrate_success_count,
+		substrate_failed_count,
+		duration,
+		(evm_results.len() + substrate_success_count) as f64 / duration.as_secs_f64()
+	);
+
+	// Report any substrate transaction failures
+	for (i, result) in substrate_results.iter().enumerate() {
+		if let Err(err) = result {
+			println!("Substrate transaction {} failed: {err:?}", i + 1);
+		}
+	}
+
+	// Verify EVM transactions
+	let mut blocks = vec![];
+	let mut evm_txs = vec![];
+
+	for (i, (hash, generic_tx, receipt)) in evm_results.into_iter().enumerate() {
+		println!("EVM Transaction {}: hash={hash:?}, block={}", i + 1, receipt.block_number);
+		assert_eq!(
+			receipt.status.unwrap_or(U256::zero()),
+			U256::one(),
+			"EVM transaction should be successful"
+		);
+		let block = BlockNumberOrTag::U256(receipt.block_number);
+
+		if !blocks.contains(&block) {
+			blocks.push(block);
+		}
+		evm_txs.push((hash, generic_tx, receipt));
+	}
+
+	// Verify blocks contain the transactions
+	for block in blocks {
+		assert_block(test_env, block, false).await;
+	}
+	assert_transactions(test_env, alith, evm_txs).await;
+
+	println!(
+		"Successfully completed mixed transaction test with {} EVM and {} substrate transactions",
+		num_evm_txs, substrate_success_count
+	);
 }

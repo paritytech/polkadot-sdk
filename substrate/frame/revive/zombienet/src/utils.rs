@@ -150,7 +150,7 @@ pub async fn submit_and_wait_for_transaction<Client: EthRpcClient + Sync + Send>
 	println!("Submitted tx: {:?}", hash);
 
 	let receipt = tx.wait_for_receipt().await?;
-	println!("Received receipt for tx: {:?}", hash);
+	println!("Received receipt for tx: {:?} block: {:?} ", hash, receipt.block_number);
 	Ok((hash, generic_tx, receipt))
 }
 
