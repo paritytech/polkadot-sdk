@@ -126,8 +126,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pip awscli reprepro rpm createrepo-c
-          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
+          sudo apt-get install -y python3-pip reprepro rpm createrepo-c
+
+          python3 -m pip install awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
+
+          # Set the path for the pgpkms wrapper tool for the debian step
           echo "PGPKMS_REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
 
       - name: Checkout sources
