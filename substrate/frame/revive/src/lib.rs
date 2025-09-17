@@ -45,7 +45,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EventLog, ReceiptGasInfo, TransactionDetails},
+		block_hash::{EthereumBlockBuilder, EthereumBlockBuilderIR, ReceiptGasInfo},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
 		TransactionSigned, TYPE_EIP1559,
@@ -130,20 +130,49 @@ const SENTINEL: u32 = u32::MAX;
 const LOG_TARGET: &str = "runtime::revive";
 
 pub(crate) mod eth_block_storage {
+	use crate::{
+		evm::block_hash::{AccumulateReceipt, LogsBloom},
+		H160, H256,
+	};
+	use alloc::vec::Vec;
 	use environmental::environmental;
 
 	/// The maximum number of block hashes to keep in the history.
 	pub const BLOCK_HASH_COUNT: u32 = 256;
 
-	// Indicates whether an Ethereum call is currently being executed.
-	environmental!(executing_call: bool);
+	// The events emitted by this pallet while executing the current inflight transaction.
+	//
+	// The events are needed to reconstruct the receipt root hash, as they represent the
+	// logs emitted by the contract. The events are consumed when the transaction is
+	// completed. To minimize the amount of used memory, the events are RLP encoded directly.
+	environmental!(receipt: AccumulateReceipt);
 
-	pub fn is_executing_ethereum_call() -> bool {
-		executing_call::with(|ctx| *ctx).unwrap_or(false)
+	/// Capture the Ethereum log for the current transaction.
+	///
+	/// This method does nothing if called from outside of the ethereum context.
+	pub fn capture_ethereum_log(contract: &H160, data: &[u8], topics: &[H256]) {
+		receipt::with(|receipt| {
+			receipt.add_log(contract, data, topics);
+		});
 	}
 
+	/// Get the receipt details of the current transaction.
+	///
+	/// This method returns `None` if and only if the function is called
+	/// from outside of the ethereum context.
+	pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
+		receipt::with(|receipt| {
+			let encoding = core::mem::take(&mut receipt.encoding);
+			let bloom = core::mem::take(&mut receipt.bloom);
+			(encoding, bloom)
+		})
+	}
+
+	/// Capture the receipt events emitted from the current ethereum
+	/// transaction. The transaction must be signed by an eth-compatible
+	/// wallet.
 	pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
-		executing_call::using(&mut true, f)
+		receipt::using(&mut AccumulateReceipt::new(), f)
 	}
 }
 
@@ -498,6 +527,8 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
+		/// The amount of emitted events exceeds [`limits::NUM_EMITTED_EVENTS`].
+		TooManyEmittedEvents = 0x32,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -549,27 +580,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
-	/// The events emitted by this pallet while executing the current inflight transaction.
-	///
-	/// The events are needed to reconstruct the ReceiptInfo, as they represent the
-	/// logs emitted by the contract. The events are consumed when the transaction is
-	/// completed and moved to the `InflightEthTransactions` storage object.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type InflightEthTxEvents<T: Config> = StorageValue<_, Vec<EventLog>, ValueQuery>;
-
-	/// The EVM submitted transactions that are inflight for the current block.
-	///
-	/// The transactions are needed to construct the ETH block.
-	///
-	/// This contains the information about transaction payload, transaction index within the block,
-	/// the events emitted by the transaction, the status of the transaction (success or not), and
-	/// the gas consumed.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type InflightEthTransactions<T: Config> =
-		StorageValue<_, Vec<TransactionDetails>, ValueQuery>;
-
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
 	/// # Note
@@ -598,6 +608,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
+
+	/// Incremental ethereum block builder.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type EthBlockBuilderIR<T: Config> =
+		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -645,9 +661,6 @@ pub mod pallet {
 			// If we cannot fetch the block author there's nothing we can do.
 			// Finding the block author traverses the digest logs.
 			let Some(block_author) = Self::block_author() else {
-				// Drain storage in case of errors.
-				InflightEthTxEvents::<T>::kill();
-				InflightEthTransactions::<T>::kill();
 				return;
 			};
 
@@ -659,17 +672,13 @@ pub mod pallet {
 				H256::default()
 			};
 			let gas_limit = Self::evm_block_gas_limit();
-			// This touches the storage, must account for weights.
-			let transactions = InflightEthTransactions::<T>::take();
 
-			let (block_hash, block, receipt_data) = EthBlock::build(
-				transactions,
-				eth_block_num,
-				parent_hash,
-				T::Time::now().into(),
-				block_author,
-				gas_limit,
-			);
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			EthBlockBuilderIR::<T>::kill();
+
+			let (block_hash, block, receipt_data) = EthereumBlockBuilder::from_ir(block_builder_ir)
+				.build(eth_block_num, parent_hash, T::Time::now().into(), block_author, gas_limit);
+
 			// Put the block hash into storage.
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
@@ -1408,6 +1417,13 @@ where
 			tx.r#type = Some(TYPE_EIP1559.into());
 		}
 
+		let Ok(unsigned) = tx.clone().try_into_unsigned() else {
+			return Err(EthTransactError::Message("Failed to convert to unsigned tx".into()));
+		};
+		const DUMMY_SIGNATURE: [u8; 65] = [1u8; 65];
+		let dummy_signed = unsigned.with_signature(DUMMY_SIGNATURE);
+		let encoded_dummy_payload = dummy_signed.signed_payload();
+
 		// Convert the value to the native balance type.
 		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
@@ -1499,7 +1515,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						transaction_encoded: TransactionSigned::default().signed_payload(),
+						transaction_encoded: encoded_dummy_payload,
 					}
 					.into();
 					(result, dispatch_call)
@@ -1571,7 +1587,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						transaction_encoded: TransactionSigned::default().signed_payload(),
+						transaction_encoded: encoded_dummy_payload,
 					}
 					.into();
 				(result, dispatch_call)
@@ -1582,8 +1598,7 @@ where
 			return Err(EthTransactError::Message("Invalid transaction".into()));
 		}
 
-		let eth_transact_call =
-			crate::Call::<T>::eth_transact { signed_transaction: TransactionSigned::default() };
+		let eth_transact_call = crate::Call::<T>::eth_transact { signed_transaction: dummy_signed };
 		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
@@ -1661,12 +1676,20 @@ where
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 	{
+		use sp_runtime::SaturatedConversion;
+
 		let max_block_weight = T::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		Self::evm_gas_from_weight(max_block_weight)
+		// Length to fee conversion of 5 MiB tx size:
+		// pallet_transaction_payment::Pallet::<T>::length_to_fee(5 * 1024 * 1024);
+		let length_fee: u64 = 52_428_800_000_000_000 + 6 * 1_000_000_000;
+		// 519.999.999.188
+		let balance: BalanceOf<T> = BalanceOf::<T>::saturated_from(length_fee);
+
+		Self::evm_gas_from_weight(max_block_weight).saturating_add(Self::evm_fee_to_gas(balance))
 	}
 
 	/// Get the gas price.
@@ -1796,15 +1819,23 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
-		// Collect inflight events emitted by this EVM transaction.
-		let logs = InflightEthTxEvents::<T>::take();
+		// Method returns `None` only when called from outside of the ethereum context.
+		// This is not the case here, since the `store_transaction` is called from within the
+		// ethereum context.
+		let (encoded_logs, bloom) = eth_block_storage::get_receipt_details().unwrap_or_default();
 
-		InflightEthTransactions::<T>::append(TransactionDetails {
+		let block_builder_ir = EthBlockBuilderIR::<T>::get();
+		let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
+
+		block_builder.process_transaction(
 			transaction_encoded,
-			logs,
 			success,
 			gas_used,
-		});
+			encoded_logs,
+			bloom,
+		);
+
+		EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 	}
 
 	/// The address of the validator that produced the current block.
