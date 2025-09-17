@@ -27,7 +27,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-tracing = { workspace = true }
-impl-trait-for-tuples = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
