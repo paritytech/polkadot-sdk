@@ -21,30 +21,16 @@
 // The functions in this file don't require an allocator and use `const`
 // functions where possible, to offload computation to compile time.
 
-use uapi::CallFlags;
-use uapi::ReturnFlags;
-use uapi::STORAGE_PRECOMPILE_ADDR;
+use uapi::{
+	CallFlags,
+	ReturnFlags,
+	solidity_selector,
+	STORAGE_PRECOMPILE_ADDR,
+};
 
 /// When encoding a Rust `[u8]` to Solidity `bytes`, a small amount
 /// of overhead space is required (for padding and the length word).
 const SOLIDITY_BYTES_ENCODING_OVERHEAD: usize = 64;
-
-/// Returns the Solidity selector for a given function signature `fn_sig`.
-///
-/// Note that this is a `const` function, it is evaluated at compile time.
-///
-/// # Usage
-///
-/// ```
-/// let sel = solidity_selector("ownCodeHash()");
-/// assert_eq!(sel, [219, 107, 220, 138]);
-/// ```
-const fn solidity_selector(fn_sig: &str) -> [u8; 4] {
-	let output: [u8; 32] = const_crypto::sha3::Keccak256::new()
-		.update(fn_sig.as_bytes())
-		.finalize();
-	[output[0], output[1], output[2], output[3]]
-}
 
 /// Encodes a `u32` to big-endian `[u8; 32]` with padded zeros.
 fn encode_u32(value: u32) -> [u8; 32] {
