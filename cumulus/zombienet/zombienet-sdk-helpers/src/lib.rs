@@ -14,7 +14,9 @@ use tokio::{
 use zombienet_sdk::subxt::{
 	self,
 	blocks::Block,
-	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
+	config::{
+		polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem, PolkadotExtrinsicParams,
+	},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
@@ -304,17 +306,20 @@ fn extract_relay_parent_storage_root(
 
 /// Submits the given `call` as transaction and waits for it successful finalization.
 ///
-/// The transaction is send as immortal transaction.
-pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<PolkadotConfig>>(
+/// The transaction is send with specified extrinsic parameters.
+pub async fn submit_extrinsic_with_params_and_wait_for_finalization_success<
+	S: Signer<PolkadotConfig>,
+>(
 	client: &OnlineClient<PolkadotConfig>,
 	call: &DynamicPayload,
 	signer: &S,
+	params: <PolkadotExtrinsicParams<PolkadotConfig> as subxt::config::ExtrinsicParams<
+		PolkadotConfig,
+	>>::Params,
 ) -> Result<(), anyhow::Error> {
-	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
-
 	let mut tx = client
 		.tx()
-		.create_signed(call, signer, extensions)
+		.create_signed(call, signer, params)
 		.await?
 		.submit_and_watch()
 		.await?;
@@ -339,6 +344,19 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 		}
 	}
 	Ok(())
+}
+
+/// Submits the given `call` as transaction and waits for it successful finalization.
+///
+/// The transaction is send as immortal transaction.
+pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<PolkadotConfig>>(
+	client: &OnlineClient<PolkadotConfig>,
+	call: &DynamicPayload,
+	signer: &S,
+) -> Result<(), anyhow::Error> {
+	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
+	submit_extrinsic_with_params_and_wait_for_finalization_success(client, call, signer, extensions)
+		.await
 }
 
 /// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
