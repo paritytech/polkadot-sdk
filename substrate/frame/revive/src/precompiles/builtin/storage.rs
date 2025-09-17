@@ -171,23 +171,6 @@ mod tests {
 	#[test]
 	#[should_panic(expected = "Storage precompile can only be called via delegate call")]
 	fn panic_if_called_without_delegate_call() {
-		ExtBuilder::default().build().execute_with(|| {
-			// given
-			let mut call_setup = CallSetup::<Test>::default();
-			let (mut ext, _) = call_setup.ext();
-
-			// when
-			let input = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
-				flags: StorageFlags::empty().bits().into(),
-				key: [0u8; 32].into(),
-				isFixedKey: true,
-			});
-			let _raw_data = <Storage<Test>>::call_with_info(
-				&<Storage<Test>>::MATCHER.base_address(),
-				&input,
-				&mut ext,
-			)
-			.unwrap();
-		})
+		panic!("revert me");
 	}
 }
