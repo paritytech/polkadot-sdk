@@ -197,12 +197,12 @@ pub fn clear_storage<A: HostFn>(flags: StorageFlags, key: &[u8]) -> Option<u32> 
 		Some(&mut &mut output[..]),
 	);
 	if let Err(code) = ret {
-		// We encode the error code into the revert buffer, as some fixtures rely on detecting
-		// `OutOfResources`.
+		// We encode the error code into the revert buffer, as some fixtures rely
+		// on detecting `OutOfResources`.
 		A::return_value(ReturnFlags::REVERT, &(code as u32).to_le_bytes());
 	};
 
-	// check the returned `containedKey` boolean
+	// Check the returned `containedKey` boolean
 	if output[31] == 0 {
 		return None;
 	}

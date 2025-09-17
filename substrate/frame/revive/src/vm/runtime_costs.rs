@@ -100,15 +100,15 @@ pub enum RuntimeCosts {
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
 	SetStorage { old_bytes: u32, new_bytes: u32 },
-	/// Weight of calling the `clearStorage` function of the `System` pre-compile
+	/// Weight of calling the `clearStorage` function of the `Storage` pre-compile
 	/// per cleared byte.
 	ClearStorage(u32),
-	/// Weight of calling the `containsStorage` function of the `System` pre-compile
+	/// Weight of calling the `containsStorage` function of the `Storage` pre-compile
 	/// per byte of the checked item.
 	ContainsStorage(u32),
 	/// Weight of calling `seal_get_storage` with the specified size in storage.
 	GetStorage(u32),
-	/// Weight of calling the `takeStorage` function of the `System` pre-compile
+	/// Weight of calling the `takeStorage` function of the `Storage` pre-compile
 	/// for the given size.
 	TakeStorage(u32),
 	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.

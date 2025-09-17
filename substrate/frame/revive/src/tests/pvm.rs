@@ -558,8 +558,8 @@ fn storage_work() {
 
 #[test]
 #[should_panic(expected = "Storage precompile can only be called via delegate call")]
-fn storage_no_delegate_call() {
-	let (code, _code_hash) = compile_module("storage_disallow_delegate_call").unwrap();
+fn storage_precompile_only_delegate_call() {
+	let (code, _code_hash) = compile_module("storage_precompile_only_delegate_call").unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
