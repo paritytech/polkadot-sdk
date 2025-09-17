@@ -1118,6 +1118,23 @@ impl Client {
 		Ok(())
 	}
 
+	pub async fn increase_time(&self, increase_by_seconds: U256) -> Result<U256, ClientError> {
+		if increase_by_seconds.is_zero() {
+			return Err(ClientError::ConversionFailed);
+		}
+
+		let increase_by = increase_by_seconds.as_u64();
+
+		let current_block = self.latest_block().await;
+		let current_timestamp = extract_block_timestamp(&current_block).await.unwrap_or_default();
+
+		let new_timestamp = current_timestamp.saturating_add(increase_by);
+
+		self.set_next_block_timestamp(U256::from(new_timestamp)).await?;
+
+		Ok(U256::from(new_timestamp))
+	}
+
 	pub async fn set_block_gas_limit(
 		&self,
 		block_gas_limit: U128,
@@ -1268,8 +1285,8 @@ impl Client {
 			client_version: "0.1.0-stubbed".to_string(),
 			chain_id: self.chain_id.into(),
 			instance_id: self.api.genesis_hash(),
-			last_block_number: block.header.number.into(),
-			last_block_hash: block.hash(),
+			latest_block_number: block.header.number.into(),
+			latest_block_hash: block.hash(),
 			forked_network: None, // TODO: add forked network from chopsticks
 		};
 		Ok(Some(metadata))

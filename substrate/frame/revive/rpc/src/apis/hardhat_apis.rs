@@ -39,8 +39,8 @@ pub struct HardhatMetadata {
 	pub client_version: String,
 	pub chain_id: u64,
 	pub instance_id: H256,
-	pub last_block_number: u64,
-	pub last_block_hash: H256,
+	pub latest_block_number: u64,
+	pub latest_block_hash: H256,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub forked_network: Option<HardhatForkedNetwork>,
 }
@@ -91,6 +91,9 @@ pub trait HardhatRpc {
 
 	#[method(name = "evm_setNextBlockTimestamp")]
 	async fn set_next_block_timestamp(&self, next_timestamp: U256) -> RpcResult<()>;
+
+	#[method(name = "evm_increaseTime")]
+	async fn increase_time(&self, increase_by_seconds: U256) -> RpcResult<U256>;
 
 	#[method(name = "evm_setBlockGasLimit")]
 	async fn set_block_gas_limit(&self, block_gas_limit: U128) -> RpcResult<Option<U128>>;
