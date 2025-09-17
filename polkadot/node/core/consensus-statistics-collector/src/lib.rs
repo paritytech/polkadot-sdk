@@ -47,6 +47,7 @@ mod availability_distribution_metrics;
 
 use approval_voting_metrics::ApprovalsStats;
 use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows};
+use crate::availability_distribution_metrics::{handle_chunks_downloaded, ChunksDownloaded};
 use self::metrics::Metrics;
 
 const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
@@ -68,7 +69,8 @@ impl PerRelayView {
 struct View {
     per_relay: HashMap<Hash, PerRelayView>,
     no_shows_per_session: HashMap<SessionIndex, HashMap<ValidatorIndex, usize>>,
-    chunks_downloaded: HashMap<ValidatorIndex, u64>,
+    candidates_per_session: HashMap<SessionIndex, HashSet<CandidateHash>>,
+    chunks_downloaded: ChunksDownloaded,
 }
 
 impl View {
@@ -76,7 +78,8 @@ impl View {
         return View{
             per_relay: HashMap::new(),
             no_shows_per_session: HashMap::new(),
-            chunks_downloaded: HashMap::new(),
+            candidates_per_session: HashMap::new(),
+            chunks_downloaded: ChunksDownloaded::new(),
         };
     }
 }
@@ -137,8 +140,14 @@ pub(crate) async fn run_iteration<Context>(
             FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
             FromOrchestra::Communication { msg } => {
                 match msg {
-                    ConsensusStatisticsCollectorMessage::ChunksDownloaded(_, _)=> {
-
+                    ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+                        session_index, candidate_hash, downloads)=> {
+                        handle_chunks_downloaded(
+                            view,
+                            session_index,
+                            candidate_hash,
+                            downloads,
+                        )
                     },
                     ConsensusStatisticsCollectorMessage::CandidateApproved(candidate_hash, block_hash, approvals) => {
                         handle_candidate_approved(
