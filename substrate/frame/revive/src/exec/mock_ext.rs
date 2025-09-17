@@ -80,6 +80,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::caller")
 	}
 
+	fn caller_of_caller(&self) -> Origin<Self::T> {
+		panic!("MockExt::caller_of_caller")
+	}
+
 	fn origin(&self) -> &Origin<Self::T> {
 		panic!("MockExt::origin")
 	}
@@ -92,11 +96,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::code_size")
 	}
 
-	fn caller_is_origin(&self) -> bool {
+	fn caller_is_origin(&self, _use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_origin")
 	}
 
-	fn caller_is_root(&self) -> bool {
+	fn caller_is_root(&self, _use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_root")
 	}
 
@@ -204,6 +208,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
 		panic!("MockExt::copy_code_slice")
+	}
+
+	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
+		panic!("MockExt::to_account_id")
 	}
 }
 
