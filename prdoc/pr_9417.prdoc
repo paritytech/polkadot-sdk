@@ -7,5 +7,6 @@ doc:
 crates:
 - name: polkadot-node-core-provisioner
   bump: patch
+  validate: false
 - name: polkadot-overseer
   bump: major
