@@ -606,6 +606,29 @@ impl<T: Config> Pallet<T> {
 		Self::compute_fee_details(len, info, tip).final_fee()
 	}
 
+	/// Compute the fee before adjusting for chain utilization.
+	///
+	/// This is used by pallet_revive to calculate the ethereum gas.
+	pub fn compute_unadjusted_fee(
+		len: u32,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+	) -> Option<BalanceOf<T>>
+	where
+		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	{
+		let reverser = NextFeeMultiplier::<T>::get().reciprocal()?;
+		let (fee_details, unadjusted_weight_fee) =
+			Self::compute_fee_raw(len, info.total_weight(), 0u32.into(), info.pays_fee, info.class);
+		let tip = fee_details.tip;
+		let reversed_fee = if let Some(inclusion_fee) = fee_details.inclusion_fee {
+			let fee = inclusion_fee.base_fee.saturating_add(inclusion_fee.len_fee);
+			reverser.saturating_mul_int(fee)
+		} else {
+			0u32.into()
+		};
+		Some(reversed_fee.saturating_add(unadjusted_weight_fee).saturating_add(tip))
+	}
+
 	/// Compute the fee details for a particular transaction.
 	pub fn compute_fee_details(
 		len: u32,
@@ -615,7 +638,7 @@ impl<T: Config> Pallet<T> {
 	where
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	{
-		Self::compute_fee_raw(len, info.total_weight(), tip, info.pays_fee, info.class)
+		Self::compute_fee_raw(len, info.total_weight(), tip, info.pays_fee, info.class).0
 	}
 
 	/// Compute the actual post dispatch fee for a particular transaction.
@@ -651,15 +674,19 @@ impl<T: Config> Pallet<T> {
 			post_info.pays_fee(info),
 			info.class,
 		)
+		.0
 	}
 
+	/// Internal function that does the actual computation.
+	///
+	/// Returns the fee details and the unadjusted weight fee.
 	fn compute_fee_raw(
 		len: u32,
 		weight: Weight,
 		tip: BalanceOf<T>,
 		pays_fee: Pays,
 		class: DispatchClass,
-	) -> FeeDetails<BalanceOf<T>> {
+	) -> (FeeDetails<BalanceOf<T>>, BalanceOf<T>) {
 		if pays_fee == Pays::Yes {
 			// the adjustable part of the fee.
 			let unadjusted_weight_fee = Self::weight_to_fee(weight);
@@ -671,12 +698,15 @@ impl<T: Config> Pallet<T> {
 			let len_fee = Self::length_to_fee(len);
 
 			let base_fee = Self::weight_to_fee(T::BlockWeights::get().get(class).base_extrinsic);
-			FeeDetails {
-				inclusion_fee: Some(InclusionFee { base_fee, len_fee, adjusted_weight_fee }),
-				tip,
-			}
+			(
+				FeeDetails {
+					inclusion_fee: Some(InclusionFee { base_fee, len_fee, adjusted_weight_fee }),
+					tip,
+				},
+				unadjusted_weight_fee,
+			)
 		} else {
-			FeeDetails { inclusion_fee: None, tip }
+			(FeeDetails { inclusion_fee: None, tip }, 0u32.into())
 		}
 	}
 

@@ -54,7 +54,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -392,9 +392,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
-	/// Returns the price for the specified amount of weight.
-	fn get_weight_price(&self, weight: Weight) -> U256;
-
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
 
@@ -437,6 +434,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
 	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
+
+	/// Returns the effective gas price of this transaction.
+	fn effective_gas_price(&self) -> u64;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -814,6 +814,8 @@ where
 				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 			});
 
+			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
+
 			result
 		}
 	}
@@ -857,6 +859,7 @@ where
 				Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract });
 			}
 		}
+		log::trace!(target: LOG_TARGET, "instantiate finished with: {result:?}");
 		result
 	}
 
@@ -2092,10 +2095,6 @@ where
 		limits::PAYLOAD_BYTES
 	}
 
-	fn get_weight_price(&self, weight: Weight) -> U256 {
-		T::WeightPrice::convert(weight).into()
-	}
-
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
 		&self.top_frame().nested_gas
 	}
@@ -2157,6 +2156,14 @@ where
 		}
 
 		buf[len..].fill(0);
+	}
+
+	fn effective_gas_price(&self) -> u64 {
+		self.exec_config
+			.effective_gas_price
+			.unwrap_or_else(|| <Contracts<T>>::evm_gas_price())
+			.try_into()
+			.unwrap_or(u64::MAX)
 	}
 }
 

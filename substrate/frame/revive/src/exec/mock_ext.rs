@@ -152,10 +152,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::max_value_size")
 	}
 
-	fn get_weight_price(&self, _weight: Weight) -> U256 {
-		panic!("MockExt::get_weight_price")
-	}
-
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
 		&self.gas_meter
 	}
@@ -204,6 +200,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
 		panic!("MockExt::copy_code_slice")
+	}
+
+	fn effective_gas_price(&self) -> u64 {
+		panic!("MockExt::effective_gas_price")
 	}
 }
 

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{address::AddressMapper, evm::runtime::GAS_PRICE, vm::RuntimeCosts};
+use crate::{address::AddressMapper, vm::RuntimeCosts};
 use revm::primitives::{Address, U256};
 
 use super::Context;
@@ -26,7 +26,7 @@ use crate::{vm::Ext, Config};
 /// Gets the gas price of the originating transaction.
 pub fn gasprice<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::GasPrice);
-	push!(context.interpreter, U256::from(GAS_PRICE));
+	push!(context.interpreter, U256::from(context.interpreter.extend.effective_gas_price()));
 }
 
 /// Implements the ORIGIN instruction.

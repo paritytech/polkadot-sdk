@@ -89,7 +89,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
-	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
+	consensus::*, currency::*, snowbridge::EthereumNetwork, time::*,
 };
 use westend_runtime_constants::time::DAYS as RC_DAYS;
 use xcm_config::{
@@ -246,6 +246,18 @@ parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
 }
+
+/// `pallet_revive` requires this specific `WeightToFee` implementation.
+///
+/// This is needed because we make certain assumptions about how weight
+/// is mapped to fees. Enforced at compile time.
+type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
+	// p
+	CENTS,
+	// q
+	{ 100 * ExtrinsicBaseWeight::get().ref_time() as u128 },
+	Runtime,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1169,7 +1181,6 @@ impl pallet_revive::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type DepositPerItem = DepositPerItem;
 	type DepositPerByte = DepositPerByte;
-	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type Precompiles = (
 		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
@@ -1190,9 +1201,8 @@ impl pallet_revive::Config for Runtime {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ConstU64<420_420_421>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
-	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
-	type DepositSource = ();
+	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 }
 
 parameter_types! {

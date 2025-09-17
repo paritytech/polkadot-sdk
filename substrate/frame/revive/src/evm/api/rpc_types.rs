@@ -204,17 +204,23 @@ fn logs_bloom_works() {
 }
 
 impl GenericTransaction {
+	/// The gas price that is actually paid (including priority fee).
+	pub fn effective_gas_price(&self, base_gas_price: U256) -> Option<U256> {
+		if let Some(prio_price) = self.max_priority_fee_per_gas {
+			let max_price = self.max_fee_per_gas?;
+			Some(max_price.min(base_gas_price.saturating_add(prio_price)))
+		} else {
+			self.gas_price
+		}
+	}
+
 	/// Create a new [`GenericTransaction`] from a signed transaction.
-	pub fn from_signed(tx: TransactionSigned, base_gas_price: U256, from: Option<H160>) -> Self {
-		Self::from_unsigned(tx.into(), base_gas_price, from)
+	pub fn from_signed(tx: TransactionSigned, from: Option<H160>) -> Self {
+		Self::from_unsigned(tx.into(), from)
 	}
 
 	/// Create a new [`GenericTransaction`] from a unsigned transaction.
-	pub fn from_unsigned(
-		tx: TransactionUnsigned,
-		base_gas_price: U256,
-		from: Option<H160>,
-	) -> Self {
+	pub fn from_unsigned(tx: TransactionUnsigned, from: Option<H160>) -> Self {
 		use TransactionUnsigned::*;
 		match tx {
 			TransactionLegacyUnsigned(tx) => GenericTransaction {
@@ -238,11 +244,6 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: Some(tx.to),
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_blob_gas),
-				),
 				access_list: Some(tx.access_list),
 				blob_versioned_hashes: tx.blob_versioned_hashes,
 				max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
@@ -259,11 +260,6 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: tx.to,
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_gas),
-				),
 				access_list: Some(tx.access_list),
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
 				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
@@ -291,11 +287,6 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: tx.to,
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_gas),
-				),
 				access_list: Some(tx.access_list),
 				authorization_list: tx.authorization_list,
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
@@ -327,7 +318,6 @@ impl GenericTransaction {
 				value: self.value.unwrap_or_default(),
 				to: self.to,
 				gas: self.gas.unwrap_or_default(),
-				gas_price: self.max_fee_per_gas.unwrap_or_default(),
 				access_list: self.access_list.unwrap_or_default(),
 				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
 				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
@@ -368,7 +358,6 @@ impl GenericTransaction {
 				value: self.value.unwrap_or_default(),
 				to: self.to,
 				gas: self.gas.unwrap_or_default(),
-				gas_price: self.max_fee_per_gas.unwrap_or_default(),
 				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
 				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
 				access_list: self.access_list.unwrap_or_default(),
@@ -394,8 +383,9 @@ fn from_unsigned_works_for_legacy() {
 		..Default::default()
 	});
 
-	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
+	let generic = GenericTransaction::from_unsigned(tx.clone(), None);
 	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	assert_eq!(generic.effective_gas_price(base_gas_price), Some(U256::from(11)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);
@@ -411,14 +401,14 @@ fn from_unsigned_works_for_1559() {
 		value: U256::from(1),
 		to: Some(H160::zero()),
 		gas: U256::from(1),
-		gas_price: U256::from(20),
 		max_fee_per_gas: U256::from(20),
-		max_priority_fee_per_gas: U256::from(1),
+		max_priority_fee_per_gas: U256::from(30),
 		..Default::default()
 	});
 
-	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
-	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	let generic = GenericTransaction::from_unsigned(tx.clone(), None);
+	assert_eq!(generic.gas_price, None);
+	assert_eq!(generic.effective_gas_price(base_gas_price), Some(U256::from(20)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);
@@ -434,7 +424,6 @@ fn from_unsigned_works_for_7702() {
 		value: U256::from(1),
 		to: Some(H160::zero()),
 		gas: U256::from(1),
-		gas_price: U256::from(20),
 		max_fee_per_gas: U256::from(20),
 		max_priority_fee_per_gas: U256::from(1),
 		authorization_list: vec![AuthorizationListEntry {
@@ -448,8 +437,9 @@ fn from_unsigned_works_for_7702() {
 		..Default::default()
 	});
 
-	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
-	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	let generic = GenericTransaction::from_unsigned(tx.clone(), None);
+	assert_eq!(generic.gas_price, None);
+	assert_eq!(generic.effective_gas_price(base_gas_price), Some(U256::from(11)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);

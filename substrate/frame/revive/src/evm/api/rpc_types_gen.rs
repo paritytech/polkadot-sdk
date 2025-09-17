@@ -529,11 +529,6 @@ pub struct Transaction1559Unsigned {
 	pub chain_id: U256,
 	/// gas limit
 	pub gas: U256,
-	/// gas price
-	/// The effective gas price paid by the sender in wei. For transactions not yet included in a
-	/// block, this value should be set equal to the max fee per gas. This field is DEPRECATED,
-	/// please transition to using effectiveGasPrice in the receipt object going forward.
-	pub gas_price: U256,
 	/// input data
 	pub input: Bytes,
 	/// max fee per gas
@@ -659,11 +654,6 @@ pub struct Transaction7702Unsigned {
 	pub chain_id: U256,
 	/// gas limit
 	pub gas: U256,
-	/// gas price
-	/// The effective gas price paid by the sender in wei. For transactions not yet included in a
-	/// block, this value should be set equal to the max fee per gas. This field is DEPRECATED,
-	/// please transition to using effectiveGasPrice in the receipt object going forward.
-	pub gas_price: U256,
 	/// input data
 	pub input: Bytes,
 	/// max fee per gas
@@ -715,26 +705,6 @@ pub enum TransactionSigned {
 impl Default for TransactionSigned {
 	fn default() -> Self {
 		TransactionSigned::TransactionLegacySigned(Default::default())
-	}
-}
-
-impl TransactionSigned {
-	/// Get the effective gas price.
-	pub fn effective_gas_price(&self, base_gas_price: U256) -> U256 {
-		match &self {
-			TransactionSigned::TransactionLegacySigned(tx) =>
-				tx.transaction_legacy_unsigned.gas_price,
-			TransactionSigned::Transaction7702Signed(tx) => base_gas_price
-				.saturating_add(tx.transaction_7702_unsigned.max_priority_fee_per_gas)
-				.min(tx.transaction_7702_unsigned.max_fee_per_gas),
-			TransactionSigned::Transaction4844Signed(tx) => base_gas_price
-				.saturating_add(tx.transaction_4844_unsigned.max_priority_fee_per_gas)
-				.min(tx.transaction_4844_unsigned.max_fee_per_blob_gas),
-			TransactionSigned::Transaction1559Signed(tx) => base_gas_price
-				.saturating_add(tx.transaction_1559_unsigned.max_priority_fee_per_gas)
-				.min(tx.transaction_1559_unsigned.max_fee_per_gas),
-			TransactionSigned::Transaction2930Signed(tx) => tx.transaction_2930_unsigned.gas_price,
-		}
 	}
 }
 

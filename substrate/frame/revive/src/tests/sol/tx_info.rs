@@ -18,10 +18,10 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	evm::runtime::GAS_PRICE,
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config,
+	vm::evm::U256Converter,
+	Code, Config, Pallet,
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
@@ -49,7 +49,7 @@ fn gasprice_works() {
 				)
 				.build_and_unwrap_result();
 			assert_eq!(
-				U256::from(GAS_PRICE),
+				<Pallet<Test>>::evm_gas_price().into_revm_u256(),
 				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
 			);
 		});

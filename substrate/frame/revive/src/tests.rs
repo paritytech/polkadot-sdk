@@ -22,9 +22,13 @@ mod sol;
 
 use crate::{
 	self as pallet_revive,
+	evm::{
+		fees::{BlockRatioFee, Info as FeeInfo},
+		runtime::{EthExtra, SetWeightLimit},
+	},
 	genesis::{Account, ContractData},
 	test_utils::*,
-	AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, CodeInfoOf, Config,
+	AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call, CodeInfoOf, Config,
 	GenesisConfig, Origin, Pallet, PristineCode,
 };
 use frame_support::{
@@ -32,18 +36,36 @@ use frame_support::{
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	traits::{ConstU32, ConstU64, FindAuthor, StorageVersion},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, Weight},
 };
 use pallet_revive_fixtures::compile_module;
-use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
 use sp_core::U256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
+	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
-	AccountId32, BuildStorage, Perbill,
+	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill,
 };
 
-type Block = frame_system::mocking::MockBlock<Test>;
+pub type Address = MultiAddress<AccountId32, u32>;
+pub type Block = sp_runtime::generic::Block<Header<u64, BlakeTwo256>, UncheckedExtrinsic>;
+pub type Signature = MultiSignature;
+pub type SignedExtra = (frame_system::CheckNonce<Test>, ChargeTransactionPayment<Test>);
+pub type UncheckedExtrinsic =
+	crate::evm::runtime::UncheckedExtrinsic<Address, Signature, EthExtraImpl>;
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct EthExtraImpl;
+
+impl EthExtra for EthExtraImpl {
+	type Config = Test;
+	type Extension = SignedExtra;
+
+	fn get_eth_extension(nonce: u32, tip: BalanceOf<Test>) -> Self::Extension {
+		(frame_system::CheckNonce::from(nonce), ChargeTransactionPayment::from(tip))
+	}
+}
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -227,7 +249,7 @@ impl Test {
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
-			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
+			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, 10 * 1024 * 1024),
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
@@ -281,7 +303,7 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = IdentityFee<<Self as pallet_balances::Config>::Balance>;
+	type WeightToFee = BlockRatioFee<1, 1, Self>;
 	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
@@ -332,7 +354,6 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
-	pub DepositSource: Option<RuntimeHoldReason> = Some(pallet_transaction_payment::HoldReason::Payment.into());
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -359,16 +380,28 @@ impl Config for Test {
 	type ChainId = ChainId;
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
-	type DepositSource = DepositSource;
+	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 }
 
-impl TryFrom<RuntimeCall> for crate::Call<Test> {
+impl TryFrom<RuntimeCall> for Call<Test> {
 	type Error = ();
 
 	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
 		match value {
 			RuntimeCall::Contracts(call) => Ok(call),
 			_ => Err(()),
+		}
+	}
+}
+
+impl SetWeightLimit for RuntimeCall {
+	fn set_weight_limit(&mut self, weight_limit: Weight) {
+		match self {
+			Self::Contracts(
+				Call::eth_call { gas_limit, .. } |
+				Call::eth_instantiate_with_code { gas_limit, .. },
+			) => *gas_limit = weight_limit,
+			_ => (),
 		}
 	}
 }

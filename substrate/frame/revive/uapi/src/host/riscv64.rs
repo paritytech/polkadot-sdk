@@ -101,7 +101,6 @@ mod sys {
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
 		pub fn address(out_ptr: *mut u8);
-		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn ref_time_left() -> u64;
 		pub fn get_immutable_data(out_ptr: *mut u8, out_len_ptr: *mut u32);
@@ -397,10 +396,6 @@ impl HostFn for HostFnImpl {
 
 	fn block_author(output: &mut [u8; 20]) {
 		unsafe { sys::block_author(output.as_mut_ptr()) }
-	}
-
-	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {
-		unsafe { sys::weight_to_fee(ref_time_limit, proof_size_limit, output.as_mut_ptr()) };
 	}
 
 	fn hash_keccak_256(input: &[u8], output: &mut [u8; 32]) {
