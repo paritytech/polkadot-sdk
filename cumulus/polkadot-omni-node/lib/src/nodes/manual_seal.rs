@@ -172,10 +172,12 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				}
 			});
 
-		let slot_duration = 6000;
+		let slot_duration = sc_consensus_aura::slot_duration(&*client)
+			.expect("slot_duration is always present; qed.");
+;
 		// This provider will check which timestamp gets passed into the inherent and emit the
 		// corresponding aura digest.
-		let aura_digest_provider = AuraConsensusDataProvider::new_with_slot_duration(SlotDuration::from_millis(slot_duration));
+		let aura_digest_provider = AuraConsensusDataProvider::new_with_slot_duration(slot_duration);
 
 		let client_for_cidp = client.clone();
 		let params = sc_consensus_manual_seal::ManualSealParams {
@@ -245,7 +247,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						}),
 					};
 					Ok((
-						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(current_block_number as u64 * slot_duration)),
+						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(current_block_number as u64 * slot_duration.as_millis())),
 						mocked_parachain,
 					))
 				}

@@ -135,6 +135,8 @@ where
 	}
 }
 
+pub type RuntimeApiOf<T> = <T as BaseNodeSpec>::RuntimeApi;
+
 pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 

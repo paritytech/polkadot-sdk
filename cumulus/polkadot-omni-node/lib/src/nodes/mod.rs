@@ -17,9 +17,12 @@
 pub mod aura;
 mod manual_seal;
 
-use crate::common::spec::{DynNodeSpec, NodeSpec as NodeSpecT};
+use crate::common::spec::{BaseNodeSpec, DynNodeSpec, NodeSpec as NodeSpecT, RuntimeApiOf};
 use manual_seal::ManualSealNode;
 use sc_service::{Configuration, TaskManager};
+use sp_api::ConstructRuntimeApi;
+use sp_consensus_aura::AuraApi;
+use crate::common::types::ParachainClient;
 
 /// The current node version for cumulus official binaries, which takes the basic
 /// SemVer form `<major>.<minor>.<patch>`. It should correspond to the latest
@@ -41,6 +44,8 @@ pub trait DynNodeSpecExt: DynNodeSpec {
 impl<T> DynNodeSpecExt for T
 where
 	T: NodeSpecT + DynNodeSpec,
+	RuntimeApiOf<T>: ConstructRuntimeApi<T::Block, ParachainClient<T::Block, RuntimeApiOf<T>>>,
+	<RuntimeApiOf<T> as ConstructRuntimeApi<T::Block, ParachainClient<T::Block, RuntimeApiOf<T>>>>::RuntimeApi: AuraApi<T::Block, sp_consensus_aura::sr25519::AuthorityId>,
 {
 	#[sc_tracing::logging::prefix_logs_with("Parachain")]
 	fn start_manual_seal_node(
