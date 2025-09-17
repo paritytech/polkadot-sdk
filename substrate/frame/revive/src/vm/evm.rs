@@ -17,10 +17,10 @@
 
 use crate::{
 	exec::ExecError,
-	vec,
+	gas, vec,
 	vm::{BytecodeType, ExecResult, Ext},
-	AccountIdOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256,
-	LOG_TARGET, U256,
+	AccountIdOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue,
+	RuntimeCosts, H256, LOG_TARGET, U256,
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::min;
@@ -42,6 +42,9 @@ use revm::{
 use sp_core::H160;
 use sp_runtime::Weight;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod instructions;
+#[cfg(not(feature = "runtime-benchmarks"))]
 mod instructions;
 
 /// Hard-coded value returned by the EVM `DIFFICULTY` opcode.
@@ -129,7 +132,7 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 		return_data: Default::default(),
 		memory: SharedMemory::new(),
 		input: inputs,
-		runtime_flag: RuntimeFlags { is_static: false, spec_id: SpecId::default() },
+		runtime_flag: RuntimeFlags { is_static: ext.is_read_only(), spec_id: SpecId::default() },
 		extend: ext,
 	};
 
@@ -153,15 +156,16 @@ fn run<'a, E: Ext>(
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
 	loop {
+		#[cfg(not(feature = "std"))]
 		let action = interpreter.run_plain(table, host);
+		#[cfg(feature = "std")]
+		let action = run_plain(interpreter, table, host);
 		match action {
 			InterpreterAction::Return(result) => {
 				log::trace!(target: LOG_TARGET, "Evm return {:?}", result);
 				debug_assert!(
-					result.gas.limit() == 0 &&
-						result.gas.remaining() == 0 &&
-						result.gas.refunded() == 0,
-					"Interpreter gas state should remain unchanged; found: {:?}",
+					result.gas == Default::default(),
+					"Interpreter gas state is unused; found: {:?}",
 					result.gas,
 				);
 				return result;
@@ -187,7 +191,6 @@ fn run_call<'a, E: Ext>(
 
 	let input = match &call_input.input {
 		CallInput::Bytes(bytes) => bytes.to_vec(),
-		// Consider the usage fo SharedMemory as REVM is doing
 		CallInput::SharedBuffer(range) => interpreter.memory.global_slice(range.clone()).to_vec(),
 	};
 	let call_result = match call_input.scheme {
@@ -211,25 +214,27 @@ fn run_call<'a, E: Ext>(
 		),
 	};
 
-	let return_value = interpreter.extend.last_frame_output();
-	let return_data: Bytes = return_value.data.clone().into();
+	let (return_data, did_revert) = {
+		let return_value = interpreter.extend.last_frame_output();
+		let return_data: Bytes = return_value.data.clone().into();
+		(return_data, return_value.did_revert())
+	};
 
 	let mem_length = call_input.return_memory_offset.len();
 	let mem_start = call_input.return_memory_offset.start;
 	let returned_len = return_data.len();
 	let target_len = min(mem_length, returned_len);
-	// Set the interpreter with the nested frame result
+
 	interpreter.return_data.set_buffer(return_data);
 
 	match call_result {
 		Ok(()) => {
 			// success or revert
-			// TODO: Charge CopyToContract
+			gas!(interpreter, RuntimeCosts::CopyToContract(target_len as u32));
 			interpreter
 				.memory
 				.set(mem_start, &interpreter.return_data.buffer()[..target_len]);
-			let _ =
-				interpreter.stack.push(primitives::U256::from(!return_value.did_revert() as u8));
+			let _ = interpreter.stack.push(primitives::U256::from(!did_revert as u8));
 		},
 		Err(err) => {
 			let _ = interpreter.stack.push(primitives::U256::ZERO);
@@ -238,6 +243,52 @@ fn run_call<'a, E: Ext>(
 			}
 		},
 	}
+}
+
+/// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
+/// NB: copied directly from revm tag v82
+#[cfg(feature = "std")]
+fn run_plain<WIRE: InterpreterTypes>(
+	interpreter: &mut Interpreter<WIRE>,
+	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
+	host: &mut DummyHost,
+) -> InterpreterAction {
+	use crate::{alloc::string::ToString, format};
+	use revm::{
+		bytecode::OpCode,
+		interpreter::{
+			instruction_context::InstructionContext,
+			interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr},
+		},
+	};
+	while interpreter.bytecode.is_not_end() {
+		log::trace!(target: LOG_TARGET,
+			"[{pc}]: {opcode}, stacktop: {stacktop}, memory size: {memsize} {memory:?}",
+			pc = interpreter.bytecode.pc(),
+			opcode = OpCode::new(interpreter.bytecode.opcode())
+				.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
+			stacktop = interpreter.stack.top().map_or("None".to_string(), |x| format!("{:#x}", x)),
+			memsize = interpreter.memory.size(),
+			// printing at most the first 32 bytes of memory
+			memory = interpreter
+				.memory
+				.slice_len(0, core::cmp::min(32, interpreter.memory.size()))
+				.to_vec(),
+		);
+		// Get current opcode.
+		let opcode = interpreter.bytecode.opcode();
+
+		// SAFETY: In analysis we are doing padding of bytecode so that we are sure that last
+		// byte instruction is STOP so we are safe to just increment program_counter bcs on last
+		// instruction it will do noop and just stop execution of this contract
+		interpreter.bytecode.relative_jump(1);
+		let context = InstructionContext { interpreter, host };
+		// Execute instruction.
+		instruction_table[opcode as usize](context);
+	}
+	interpreter.bytecode.revert_to_previous_pointer();
+
+	interpreter.take_next_action()
 }
 
 fn run_create<'a, E: Ext>(
@@ -268,7 +319,7 @@ fn run_create<'a, E: Ext>(
 		Ok(address) => {
 			if return_value.did_revert() {
 				// Contract creation reverted — return data must be propagated
-				// TODO: Charge CopyToContract
+				gas!(interpreter, RuntimeCosts::CopyToContract(return_data.len() as u32));
 				interpreter.return_data.set_buffer(return_data);
 				let _ = interpreter.stack.push(primitives::U256::ZERO);
 			} else {

@@ -15,6 +15,7 @@
 
 use super::*;
 use crate as xcmp_queue;
+use alloc::collections::BTreeMap;
 use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
@@ -104,7 +105,6 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Test>;
 	type RelayParentOffset = ConstU32<0>;
 }
 
@@ -139,6 +139,7 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 
 parameter_types! {
 	pub static EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
+	pub static FirstPagePos: BTreeMap<ParaId, usize> = Default::default();
 }
 
 /// An `EnqueueMessage` implementation that puts all messages in thread-local storage.
@@ -197,7 +198,10 @@ impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalSt
 	) -> BatchesFootprints {
 		// Let's consider that we add one message per page
 		let footprint = Self::footprint(origin);
-		let mut batches_footprints = BatchesFootprints::default();
+		let mut batches_footprints = BatchesFootprints {
+			first_page_pos: *FirstPagePos::get().entry(origin).or_default(),
+			footprints: vec![],
+		};
 		for (idx, msg) in msgs.enumerate() {
 			if footprint.pages + idx as u32 + 1 > total_pages_limit {
 				break;
@@ -284,8 +288,6 @@ pub(crate) fn mk_page() -> Vec<u8> {
 			0 => versioned_xcm(older_xcm_version).encode(),
 			1 => versioned_xcm(newer_xcm_version).encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
-			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
-			// instead.
 			_ => unreachable!(),
 		});
 	}

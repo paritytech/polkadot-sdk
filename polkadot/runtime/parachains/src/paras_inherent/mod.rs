@@ -49,17 +49,13 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use polkadot_primitives::{
-	effective_minimum_backing_votes,
-	node_features::FeatureIndex,
-	vstaging::{
-		BackedCandidate, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt,
-		InherentData as ParachainsInherentData, ScrapedOnChainVotes,
-	},
-	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
-	DisputeStatementSet, HeadData, MultiDisputeStatementSet, SessionIndex,
-	SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
-	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
-	PARACHAINS_INHERENT_IDENTIFIER,
+	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet,
+	HeadData, InherentData as ParachainsInherentData, MultiDisputeStatementSet,
+	ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields, SigningContext,
+	UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields, ValidatorId,
+	ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
@@ -200,7 +196,7 @@ pub mod pallet {
 
 		fn on_finalize(_: BlockNumberFor<T>) {
 			if Included::<T>::take().is_none() {
-				panic!("Bitfields and heads must be included every block");
+				panic!("ParachainInherent was not executed in this block. This is a bug. Please report this at https://github.com/paritytech/polkadot-sdk/issues.");
 			}
 		}
 	}
