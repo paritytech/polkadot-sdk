@@ -85,7 +85,7 @@ use polkadot_node_subsystem_types::messages::{
 	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
 	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
 	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
-	StatisticsCollectorMessage,
+	ConsensusStatisticsCollectorMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
@@ -659,7 +659,7 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	prospective_parachains: ProspectiveParachains,
 
-	#[subsystem(StatisticsCollectorMessage, sends: [])]
+	#[subsystem(ConsensusStatisticsCollectorMessage, sends: [])]
 	statistics_collector: StatisticsCollector,
 
 	/// External listeners waiting for a hash to be in the active-leave set.

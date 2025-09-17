@@ -95,7 +95,7 @@ use persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry};
 use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
 };
-use polkadot_node_subsystem::messages::StatisticsCollectorMessage;
+use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
 
 mod approval_checking;
 pub mod approval_db;
@@ -2885,7 +2885,7 @@ async fn import_approval<Sender>(
 ) -> SubsystemResult<(Vec<Action>, ApprovalCheckResult)>
 where
 	Sender: SubsystemSender<RuntimeApiMessage> +
-	SubsystemSender<StatisticsCollectorMessage>,
+	SubsystemSender<ConsensusStatisticsCollectorMessage>,
 {
 	macro_rules! respond_early {
 		($e: expr) => {{
@@ -3039,7 +3039,7 @@ async fn advance_approval_state<Sender>(
 ) -> Vec<Action>
 where
 	Sender: SubsystemSender<RuntimeApiMessage> +
-	SubsystemSender<StatisticsCollectorMessage>,
+	SubsystemSender<ConsensusStatisticsCollectorMessage>,
 {
 	let validator_index = transition.validator_index();
 
@@ -3096,7 +3096,7 @@ where
 			metrics.on_observed_no_shows(status.last_no_shows);
 			sender
 				.send_message(
-					StatisticsCollectorMessage::ObservedNoShows(
+					ConsensusStatisticsCollectorMessage::ObservedNoShows(
 						session_index,
 						status.no_show_validators.clone(),
 					))
@@ -3176,44 +3176,46 @@ where
 			state.record_no_shows(session_index, para_id.into(), &status.no_show_validators);
 			let mut collected_useful_approvals = vec![];
 
-			// getting all the votes a candidate has till now
-			for validator_approval_idx in candidate_entry.approvals().iter_ones() {
-				if let Some(current_block_assignments) = candidate_entry.approval_entry(&block_hash) {
-					for tranche_entry in approval_entry.tranches() {
-						match status.required_tranches {
-							RequiredTranches::All => {},
-							RequiredTranches::Exact {needed, ..} => {
-								if tranche_entry.tranche() <= needed {
-									let trance_assignments = tranche_entry.assignments();
-									let useful_vote = trance_assignments
-										.iter()
-										.find(|(validator_on_tranche, _)| *validator_on_tranche == ValidatorIndex(validator_approval_idx as _));
+			match status.required_tranches {
+				RequiredTranches::All => {
+					collected_useful_approvals.extend(candidate_entry.approvals().iter_ones().into());
+				},
+				RequiredTranches::Exact {needed, ..} => {
+					let tranches = approval_entry.tranches();
+					for validator_approval_idx in candidate_entry.approvals().iter_ones() {
+						for tranche_entry in tranches {
+							if tranche_entry.tranche() <= needed {
+								let trance_assignments = tranche_entry.assignments();
+								let useful_vote = trance_assignments
+									.iter()
+									.find(|(validator_on_tranche, _)| *validator_on_tranche == ValidatorIndex(validator_approval_idx as _));
 
-									match useful_vote {
-										Some((vidx, _)) => collected_useful_approvals.push(*vidx),
-										// Found no useful votes on a needed tranche
-										None => {}
-									}
+								match useful_vote {
+									Some((vidx, _)) => collected_useful_approvals.push(*vidx),
+									// Found no useful votes on a needed tranche
+									None => {}
 								}
 							}
-							_ => {}
 						}
 					}
-				}
+				},
+				RequiredTranches::Pending {..} => panic!("Newly approved candidate should never be pending; qed"),
 			}
 
-			_ = sender.try_send_message(StatisticsCollectorMessage::CandidateApproved(
-				candidate_hash,
-				block_hash,
-				collected_useful_approvals,
-			)).map_err(|_| {
-				gum::warn!(
+			if collected_useful_approvals.len() > 0 {
+				_ = sender.try_send_message(ConsensusStatisticsCollectorMessage::CandidateApproved(
+					candidate_hash,
+					block_hash,
+					collected_useful_approvals,
+				)).map_err(|_| {
+					gum::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?block_hash,
 					"Failed to send approvals to statistics subsystem",
 				);
-			});
+				});
+			}
 		}
 
 		actions.extend(schedule_wakeup_action(

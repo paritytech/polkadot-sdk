@@ -211,15 +211,33 @@ pub struct State {
 
 	/// A record of errors returned when requesting a chunk from a validator.
 	recorded_errors: HashMap<(AuthorityDiscoveryId, ValidatorIndex), ErrorRecord>,
+
+	chunks_received_by: HashMap<ValidatorIndex, Vec<ChunkIndex>>,
 }
 
 impl State {
 	pub fn new() -> Self {
-		Self { received_chunks: BTreeMap::new(), recorded_errors: HashMap::new() }
+		Self {
+			received_chunks: BTreeMap::new(),
+			recorded_errors: HashMap::new(),
+			chunks_received_by: HashMap::new(),
+		}
 	}
 
 	fn insert_chunk(&mut self, chunk_index: ChunkIndex, chunk: Chunk) {
 		self.received_chunks.insert(chunk_index, chunk);
+	}
+
+	fn note_received_chunk(&mut self, sender: ValidatorIndex, chunk: ChunkIndex) {
+		self.chunks_received_by.entry(sender).or_default().push(chunk);
+	}
+
+	// return the amount of chunks downloaded per validator
+	pub fn get_download_chunks_metrics(&self) -> HashMap<ValidatorIndex, u64> {
+		self.chunks_received_by
+			.iter()
+			.map(|(validator, downloaded)| (*validator, downloaded.count()))
+			.collect()
 	}
 
 	fn chunk_count(&self) -> usize {
@@ -467,6 +485,8 @@ impl State {
 	) -> (usize, usize) {
 		let metrics = &params.metrics;
 
+		let mut received_chunks: HashMap<ValidatorIndex, u64> = HashMap::new();
+
 		let mut total_received_responses = 0;
 		let mut error_count = 0;
 
@@ -506,6 +526,7 @@ impl State {
 									chunk.index,
 									Chunk { chunk: chunk.chunk, validator_index },
 								);
+								self.note_received_chunk(validator_index, chunk.index)
 							} else {
 								metrics.on_chunk_request_invalid(strategy_type);
 								error_count += 1;

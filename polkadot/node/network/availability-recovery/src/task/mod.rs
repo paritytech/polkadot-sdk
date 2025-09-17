@@ -38,6 +38,7 @@ use sc_network::ProtocolName;
 
 use futures::channel::{mpsc, oneshot};
 use std::collections::VecDeque;
+use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
 
 /// Recovery parameters common to all strategies in a `RecoveryTask`.
 #[derive(Clone)]
@@ -178,6 +179,9 @@ where
 				},
 				Ok(data) => {
 					self.params.metrics.on_recovery_succeeded(strategy_type, data.encoded_size());
+					_ = self.sender.try_send_message(
+						ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+							self.state.get_download_chunks_metrics()));
 					return Ok(data)
 				},
 			}

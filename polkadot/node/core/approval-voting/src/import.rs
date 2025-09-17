@@ -66,7 +66,7 @@ use crate::{
 };
 
 use polkadot_node_primitives::approval::time::{slot_number_to_tick, Tick};
-use polkadot_node_subsystem::messages::StatisticsCollectorMessage;
+use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
 use super::{State, LOG_TARGET};
 
 #[derive(Debug)]
@@ -336,7 +336,7 @@ pub(crate) async fn handle_new_head<
 	Sender: SubsystemSender<ChainApiMessage>
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainSelectionMessage>
-		+ SubsystemSender<StatisticsCollectorMessage>,
+		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
 	AVSender: SubsystemSender<ApprovalDistributionMessage>,
 	B: Backend,
 >(

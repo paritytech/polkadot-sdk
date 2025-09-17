@@ -33,6 +33,7 @@ use polkadot_primitives::ValidatorIndex;
 use futures::{channel::oneshot, SinkExt};
 use rand::seq::SliceRandom;
 use std::collections::VecDeque;
+use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
 
 /// Parameters specific to the `FetchChunks` strategy.
 pub struct FetchChunksParams {
@@ -166,14 +167,6 @@ impl FetchChunks {
 
 #[async_trait::async_trait]
 impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender> for FetchChunks {
-	fn display_name(&self) -> &'static str {
-		"Fetch chunks"
-	}
-
-	fn strategy_type(&self) -> &'static str {
-		"regular_chunks"
-	}
-
 	async fn run(
 		mut self: Box<Self>,
 		state: &mut State,
@@ -293,6 +286,14 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			self.total_received_responses += total_responses;
 			self.error_count += error_count;
 		}
+	}
+
+	fn display_name(&self) -> &'static str {
+		"Fetch chunks"
+	}
+
+	fn strategy_type(&self) -> &'static str {
+		"regular_chunks"
 	}
 }
 

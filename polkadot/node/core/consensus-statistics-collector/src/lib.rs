@@ -29,7 +29,7 @@ use gum::CandidateHash;
 use polkadot_node_subsystem::{
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
-use polkadot_node_subsystem::messages::StatisticsCollectorMessage;
+use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
 use polkadot_primitives::{Hash, SessionIndex, ValidatorIndex};
 use polkadot_node_primitives::approval::time::Tick;
 use polkadot_node_primitives::approval::v1::DelayTranche;
@@ -42,50 +42,41 @@ mod error;
 mod metrics;
 #[cfg(test)]
 mod tests;
+mod approval_voting_metrics;
+mod availability_distribution_metrics;
 
-
+use approval_voting_metrics::ApprovalsStats;
+use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows};
 use self::metrics::Metrics;
 
 const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
 
-struct ApprovalsStats {
-    votes: HashSet<ValidatorIndex>,
-}
-
-impl ApprovalsStats {
-    fn new(votes: HashSet<ValidatorIndex>) -> Self {
-        Self { votes }
-    }
-}
-
 struct PerRelayView {
     relay_approved: bool,
-    included_candidates: Vec<CandidateHash>,
     approvals_stats: HashMap<CandidateHash, ApprovalsStats>,
-    votes_per_tranche: HashMap<DelayTranche, usize>,
 }
 
 impl PerRelayView {
     fn new(candidates: Vec<CandidateHash>) -> Self {
         return PerRelayView{
             relay_approved: false,
-            included_candidates: candidates,
             approvals_stats: HashMap::new(),
-            votes_per_tranche: HashMap::new(),
         }
     }
 }
 
 struct View {
-    per_relay_parent: HashMap<Hash, PerRelayView>,
+    per_relay: HashMap<Hash, PerRelayView>,
     no_shows_per_session: HashMap<SessionIndex, HashMap<ValidatorIndex, usize>>,
+    chunks_downloaded: HashMap<ValidatorIndex, u64>,
 }
 
 impl View {
     fn new() -> Self {
         return View{
-            per_relay_parent: HashMap::new(),
+            per_relay: HashMap::new(),
             no_shows_per_session: HashMap::new(),
+            chunks_downloaded: HashMap::new(),
         };
     }
 }
@@ -140,35 +131,32 @@ pub(crate) async fn run_iteration<Context>(
             FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
             FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
                 if let Some(actived) = update.activated {
-                    view.per_relay_parent.insert(actived.hash, PerRelayView::new(vec![]));
+                    view.per_relay.insert(actived.hash, PerRelayView::new(vec![]));
                 }
             },
             FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
             FromOrchestra::Communication { msg } => {
                 match msg {
-                    StatisticsCollectorMessage::CandidateApproved(candidate_hash, block_hash, approvals) => {
-                        if let Some(relay_view) = view.per_relay_parent.get_mut(&block_hash) {
-                            relay_view.approvals_stats
-                                .entry(candidate_hash)
-                                .and_modify(|a: &mut ApprovalsStats| {
-                                    a.votes.extend(approvals.into());
-                                });
-                        }
-                    }
-                    StatisticsCollectorMessage::ObservedNoShows(session_idx, no_show_validators) => {
-                        view.no_shows_per_session
-                            .entry(session_idx)
-                            .and_modify(|q: &mut HashMap<ValidatorIndex, usize>| {
-                                for v_idx in no_show_validators {
-                                    q.entry(*v_idx)
-                                        .and_modify(|v: &mut usize| *v += 1)
-                                        .or_insert(1);
-                                }
-                            })
-                            .or_insert(HashMap::new());
+                    ConsensusStatisticsCollectorMessage::ChunksDownloaded(_, _)=> {
+
                     },
-                    StatisticsCollectorMessage::RelayBlockApproved(block_hash) => {
-                        view.per_relay_parent
+                    ConsensusStatisticsCollectorMessage::CandidateApproved(candidate_hash, block_hash, approvals) => {
+                        handle_candidate_approved(
+                            view,
+                            block_hash,
+                            candidate_hash,
+                            approvals,
+                        );
+                    }
+                    ConsensusStatisticsCollectorMessage::ObservedNoShows(session_idx, no_show_validators) => {
+                        handle_observed_no_shows(
+                            view,
+                            session_idx,
+                            no_show_validators,
+                        );
+                    },
+                    ConsensusStatisticsCollectorMessage::RelayBlockApproved(block_hash) => {
+                        view.per_relay
                             .entry(block_hash)
                             .and_modify(|q| q.relay_approved = true);
                     },
