@@ -15,7 +15,13 @@ use pallet_revive_eth_rpc::{
 	EthRpcClient,
 };
 use sp_core::H256;
-use subxt::{self, ext::subxt_rpcs::rpc_params};
+use subxt::{
+	self,
+	config::polkadot::PolkadotExtrinsicParamsBuilder,
+	ext::subxt_rpcs::rpc_params,
+	tx::{DynamicPayload, Signer, TxProgress, TxStatus},
+	OnlineClient, PolkadotConfig,
+};
 
 const ROOT_FROM_NO_DATA: &str = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
 
@@ -155,22 +161,119 @@ pub async fn eth_rpc_submit_and_wait_for_transaction<Client: EthRpcClient + Sync
 	Ok((hash, generic_tx, receipt))
 }
 
+pub async fn eth_rpc_submit_transactions<Client: EthRpcClient + Sync + Send>(
+	transactions: Vec<TransactionBuilder<Client>>,
+) -> Result<
+	Vec<(H256, GenericTransaction, pallet_revive_eth_rpc::example::SubmittedTransaction<Client>)>,
+	anyhow::Error,
+> {
+	let mut submitted_txs = Vec::new();
+
+	for tx_builder in transactions {
+		let tx = tx_builder.send().await?;
+		let hash = tx.hash();
+		let generic_tx = tx.generic_transaction();
+		println!("Submitted tx: {:?}", hash);
+		submitted_txs.push((hash, generic_tx, tx));
+	}
+
+	Ok(submitted_txs)
+}
+
+pub async fn eth_rpc_wait_for_receipts<Client: EthRpcClient + Sync + Send>(
+	submitted_txs: Vec<(
+		H256,
+		GenericTransaction,
+		pallet_revive_eth_rpc::example::SubmittedTransaction<Client>,
+	)>,
+) -> Result<Vec<(H256, GenericTransaction, ReceiptInfo)>, anyhow::Error> {
+	let wait_futures: Vec<_> = submitted_txs
+		.into_iter()
+		.map(|(hash, generic_tx, tx)| async move {
+			let receipt = tx.wait_for_receipt().await?;
+			println!("Received receipt for tx: {:?} block: {:?}", hash, receipt.block_number);
+			Ok::<(H256, GenericTransaction, ReceiptInfo), anyhow::Error>((
+				hash, generic_tx, receipt,
+			))
+		})
+		.collect();
+
+	let results = futures::future::join_all(wait_futures).await;
+	let results: Result<Vec<_>, _> = results.into_iter().collect();
+	results
+}
+
 pub async fn eth_rpc_submit_and_wait_for_transactions_parallel<
 	Client: EthRpcClient + Sync + Send,
 >(
 	transactions: Vec<TransactionBuilder<Client>>,
 ) -> Result<Vec<(H256, GenericTransaction, ReceiptInfo)>, anyhow::Error> {
-	// Create futures for each transaction
-	let transaction_futures: Vec<_> = transactions
+	let submitted_txs = eth_rpc_submit_transactions(transactions).await?;
+	eth_rpc_wait_for_receipts(submitted_txs).await
+}
+
+pub async fn substrate_submit_extrinsics<S: Signer<PolkadotConfig>>(
+	client: &OnlineClient<PolkadotConfig>,
+	calls: Vec<DynamicPayload>,
+	signer: &S,
+	mut nonce: u64,
+) -> Result<Vec<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>, anyhow::Error> {
+	let mut submitted_txs = Vec::new();
+
+	for call in calls {
+		let extensions = PolkadotExtrinsicParamsBuilder::new().nonce(nonce).immortal().build();
+		let tx = client
+			.tx()
+			.create_signed(&call, signer, extensions)
+			.await?
+			.submit_and_watch()
+			.await?;
+
+		println!("Submitted substrate extrinsic with nonce: {}", nonce);
+		submitted_txs.push(tx);
+		nonce += 1;
+	}
+
+	Ok(submitted_txs)
+}
+
+pub async fn substrate_wait_for_finalization(
+	submitted_txs: Vec<TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
+) -> Vec<Result<(), anyhow::Error>> {
+	let wait_futures: Vec<_> = submitted_txs
 		.into_iter()
-		.map(|tx_builder| eth_rpc_submit_and_wait_for_transaction(tx_builder))
+		.enumerate()
+		.map(|(index, mut tx)| async move {
+			while let Some(status) = tx.next().await {
+				let status = status?;
+				match &status {
+					TxStatus::InBestBlock(tx_in_block) |
+					TxStatus::InFinalizedBlock(tx_in_block) => {
+						let _result = tx_in_block.wait_for_success().await?;
+						let block_status =
+							if status.as_finalized().is_some() { "Finalized" } else { "Best" };
+						println!(
+							"[{}] Substrate tx {} in block: {:#?}",
+							block_status,
+							index,
+							tx_in_block.block_hash()
+						);
+						return Ok(());
+					},
+					TxStatus::Error { message } |
+					TxStatus::Invalid { message } |
+					TxStatus::Dropped { message } => {
+						return Err(anyhow::format_err!(
+							"Error submitting substrate tx {}: {message}",
+							index
+						));
+					},
+					_ => continue,
+				}
+			}
+			Ok(())
+		})
 		.collect();
 
-	// Wait for all transactions to complete
-	let results = futures::future::join_all(transaction_futures).await;
-
-	// Convert Vec<Result<T, E>> to Result<Vec<T>, E>
-	let results: Result<Vec<_>, _> = results.into_iter().collect();
-
-	results
+	futures::future::join_all(wait_futures).await
 }
