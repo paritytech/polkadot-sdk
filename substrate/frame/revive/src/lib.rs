@@ -1902,23 +1902,6 @@ sp_api::decl_runtime_apis! {
 			key: Vec<u8>,
 		) -> GetStorageResult;
 
-		/// Set a given storage key in a given contract to a specified value.
-		///
-		/// See [`crate::Pallet::set_storage`].
-		fn set_storage(
-			address: H160,
-			key: [u8; 32],
-			value: Option<Vec<u8>>,
-		) -> SetStorageResult;
-
-		/// Set a given variable-sized storage key in a given contract to a specified value.
-		///
-		/// See [`crate::Pallet::set_storage_var_key`].
-		fn set_storage_var_key(
-			address: H160,
-			key: Vec<u8>,
-			value: Option<Vec<u8>>,
-		) -> SetStorageResult;
 
 		/// Traces the execution of an entire block and returns call traces.
 		///
@@ -2109,22 +2092,6 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn get_storage(address: $crate::H160, key: [u8; 32]) -> $crate::GetStorageResult {
 					$crate::Pallet::<Self>::get_storage(address, key)
-				}
-
-				fn set_storage(
-					address: $crate::H160,
-					key: [u8; 32],
-					value: Option<Vec<u8>>,
-				) -> $crate::SetStorageResult {
-					$crate::Pallet::<Self>::set_storage(address, key, value)
-				}
-
-				fn set_storage_var_key(
-					address: $crate::H160,
-					key: Vec<u8>,
-					value: Option<Vec<u8>>,
-				) -> $crate::SetStorageResult {
-					$crate::Pallet::<Self>::set_storage_var_key(address, key, value)
 				}
 
 				fn trace_block(
