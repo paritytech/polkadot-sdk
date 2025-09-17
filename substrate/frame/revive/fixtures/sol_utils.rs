@@ -93,11 +93,12 @@ fn encode_bytes(input: &[u8], out: &mut [u8]) -> usize {
 	//
 	// Then the offset will be
 	//   * 32 bytes for `uint32`
+	//   * 32 bytes for `bool`
 	//   * Another 32 bytes for this offset word
-	// The 64 then points to the start of the `bytes` data segment (specifically
+	// The 96 then points to the start of the `bytes` data segment (specifically
 	// its `len` field (`bytes = offset (32 bytes) | len (32 bytes) | data (variable)`).
-	let offset: u32 = 96;
-	out[28..32].copy_from_slice(&offset.to_be_bytes()[..4]);
+	let assumed_offset: u32 = 96;
+	out[28..32].copy_from_slice(&assumed_offset.to_be_bytes()[..4]);
 	out[..28].copy_from_slice(&[0u8; 28]); // make sure the first bytes are zeroed
 
 	// Encode length as a 32-byte big-endian word
