@@ -10,8 +10,11 @@ use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
-	NetworkConfigBuilder,
+	LocalFileSystem, NetworkConfigBuilder, Orchestrator,
 };
+
+use zombienet_configuration::types::AssetLocation;
+use zombienet_orchestrator::ScopedFilesystem;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn elastic_scaling_mixed_collators_test() -> Result<(), anyhow::Error> {
@@ -52,19 +55,12 @@ async fn elastic_scaling_mixed_collators_test() -> Result<(), anyhow::Error> {
 				.with_default_command("test-parachain-2506")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("relay-parent-offset")
-				.with_chain_spec_command("{{mainCommand}} build-spec --chain {{chainName}} {{disableBootnodes}} --para-id 2000")
 				.with_default_args(vec![
 					"--authoring=slot-based".into(),
 					("-lparachain=debug,aura=debug").into(),
 				])
-				.with_collator(|n| {
-					n.with_name("collator-2506")
-					.with_command("test-parachain-2506")
-				})
-				.with_collator(|n| {
-					n.with_name("collator-2509")
-					.with_command("test-parachain-2509")
-				})
+				.with_collator(|n| n.with_name("collator-2506").with_command("test-parachain-2506"))
+				.with_collator(|n| n.with_name("collator-2509").with_command("test-parachain-2509"))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
@@ -76,8 +72,31 @@ async fn elastic_scaling_mixed_collators_test() -> Result<(), anyhow::Error> {
 			anyhow!("config errs: {errs}")
 		})?;
 
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	// Build chain-spec and modify the content of the raw version
+
+	let filesystem = LocalFileSystem;
+	let provider = NativeProvider::new(filesystem.clone());
+	let ns = provider.create_namespace().await?;
+
+	let base_dir = ns.base_dir().to_string_lossy();
+	let scoped_fs = ScopedFilesystem::new(&filesystem, &base_dir);
+
+	let mut network_spec = zombienet_orchestrator::NetworkSpec::from_config(&config).await?;
+	let para = network_spec.parachains_iter_mut().next().unwrap();
+	let chain_spec = para.chain_spec_mut().unwrap();
+	chain_spec.build(&ns, &scoped_fs).await?;
+	chain_spec.build_raw(&ns, &scoped_fs).await?;
+
+	let raw_path = chain_spec.raw_path().unwrap();
+	let file_full_path = format!("{base_dir}/{}", raw_path.to_string_lossy());
+	let content = tokio::fs::read_to_string(&file_full_path).await?;
+	let mut content_json: serde_json::Value = serde_json::from_str(&content)?;
+	content_json["para_id"] = json!(2000);
+	let _ = tokio::fs::write(&file_full_path, serde_json::to_string(&content_json)?).await?;
+	chain_spec.set_asset_location(AssetLocation::FilePath(PathBuf::from_str(&file_full_path)?));
+
+	let orchestrator = Orchestrator::new(filesystem, provider.clone());
+	let network = orchestrator.spawn_from_spec(network_spec).await?;
 
 	let relay_node = network.get_node("validator-0")?;
 	let para_node_rp_offset = network.get_node("collator-2509")?;
