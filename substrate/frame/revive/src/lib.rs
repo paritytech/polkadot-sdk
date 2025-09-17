@@ -1902,7 +1902,6 @@ sp_api::decl_runtime_apis! {
 			key: Vec<u8>,
 		) -> GetStorageResult;
 
-
 		/// Traces the execution of an entire block and returns call traces.
 		///
 		/// This is intended to be called through `state_call` to replay the block from the
@@ -1933,6 +1932,7 @@ sp_api::decl_runtime_apis! {
 
 		/// The address of the validator that produced the current block.
 		fn block_author() -> Option<H160>;
+
 		/// Get the H160 address associated to this account id
 		fn address(account_id: AccountId) -> H160;
 
