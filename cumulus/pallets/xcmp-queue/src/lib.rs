@@ -641,6 +641,7 @@ impl<T: Config> Pallet<T> {
 	fn enqueue_xcmp_messages<'a>(
 		sender: ParaId,
 		xcms: &[BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>],
+		is_first_sender_batch: bool,
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
@@ -651,6 +652,7 @@ impl<T: Config> Pallet<T> {
 			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
 				batches_footprints.first_page_pos.saturated_into(),
 				batch_info,
+				is_first_sender_batch,
 			);
 
 			match meter.can_consume(required_weight) {
@@ -662,6 +664,7 @@ impl<T: Config> Pallet<T> {
 		meter.consume(T::WeightInfo::enqueue_xcmp_messages(
 			batches_footprints.first_page_pos.saturated_into(),
 			best_batch_footprint,
+			is_first_sender_batch,
 		));
 		T::XcmpQueue::enqueue_messages(
 			xcms.iter().take(best_batch_footprint.msgs_count).copied(),
@@ -943,7 +946,8 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						},
 					};
 
-					if known_xcm_senders.insert(sender) {
+					let mut is_first_sender_batch = known_xcm_senders.insert(sender);
+					if is_first_sender_batch {
 						if meter
 							.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages())
 							.is_err()
@@ -978,9 +982,15 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							break;
 						}
 
-						if let Err(()) = Self::enqueue_xcmp_messages(sender, &batch, &mut meter) {
+						if let Err(()) = Self::enqueue_xcmp_messages(
+							sender,
+							&batch,
+							is_first_sender_batch,
+							&mut meter,
+						) {
 							break
 						}
+						is_first_sender_batch = false;
 					}
 				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
