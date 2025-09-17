@@ -22,7 +22,7 @@ jobs:
   test-linux-stable-int:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -50,7 +50,7 @@ jobs:
   test-linux-stable-runtime-benchmarks:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -83,13 +83,13 @@ jobs:
         partition: [1/3, 2/3, 3/3]
         runners:
           [
-            "${{ needs.preflight.outputs.RUNNER }}",
-            "${{ needs.preflight.outputs.RUNNER_OLDLINUX }}",
+            "${{ needs.preflight.outputs.RUNNER_NEW }}",
+            "${{ needs.preflight.outputs.RUNNER_OLDLINUX_NEW }}",
           ]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
       # needed for tests that use unshare syscall
-      options: --security-opt seccomp=unconfined
+      options: --privileged
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
@@ -124,16 +124,14 @@ jobs:
 
   # some tests do not run with `try-runtime` feature enabled
   # https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
-  #
-  # all_security_features_work and nonexistent_cache_dir are currently skipped
-  # becuase runners don't have the necessary permissions to run them
   test-linux-stable-no-try-runtime:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
+      options: --privileged
     strategy:
       fail-fast: false
       matrix:
@@ -155,8 +153,7 @@ jobs:
                    --no-fail-fast \
                    --cargo-quiet \
                    --features experimental,ci-only-tests \
-                   --filter-expr " !test(/all_security_features_work/) - test(/nonexistent_cache_dir/)" \
-                   --partition count:${{ matrix.partition }} \
+                   --partition count:${{ matrix.partition }}
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
