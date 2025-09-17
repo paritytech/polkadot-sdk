@@ -980,6 +980,10 @@ pub use polkadot_parachain_primitives;
 #[cfg(feature = "polkadot-primitives")]
 pub use polkadot_primitives;
 
+/// Test helpers for Polkadot runtime primitives.
+#[cfg(feature = "polkadot-primitives-test-helpers")]
+pub use polkadot_primitives_test_helpers;
+
 /// Polkadot specific RPC functionality.
 #[cfg(feature = "polkadot-rpc")]
 pub use polkadot_rpc;
