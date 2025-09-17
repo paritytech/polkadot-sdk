@@ -430,7 +430,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
-	/// Check if
+	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
 
 	/// Returns an immutable reference to the output of the last executed call frame.

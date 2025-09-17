@@ -41,8 +41,8 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 		input: &Self::Interface,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		// Runtime benchmarks call the pre-compile functions directly, without
-		// the delegate call overhead. That overhead is benchmarked individually.
+		// Benchmarks call the pre-compile functions directly, without the delegate
+		// call overhead. The `delegate_call` overhead is benchmarked individually.
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert!(env.is_delegate_call(), "Storage precompile can only be called via delegate call");
 
