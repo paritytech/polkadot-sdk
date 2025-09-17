@@ -4,23 +4,41 @@
 // Test that people-westend enables the statement store in the node and that statements are
 // propagated to peers.
 
+// Removed AES-GCM import - using simple XOR for performance testing
 use anyhow::anyhow;
-use sp_core::{blake2_256, sr25519, Bytes, Decode, Encode, Pair};
+use codec::{Decode, Encode};
+use sp_core::{blake2_256, ed25519, sr25519, Bytes, Pair};
 use sp_keyring::Sr25519Keyring;
 use sp_statement_store::{Statement, Topic};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use zombienet_sdk::{subxt::ext::subxt_rpcs::rpc_params, NetworkConfigBuilder};
 
 const GROUP_SIZE: usize = 6;
+const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
+const MESSAGE_COUNT: usize = 2;
+
+#[derive(Encode, Decode, Clone)]
+struct StatementRequest {
+	request_id: u64,
+	data: Vec<u8>,
+}
+
+#[derive(Encode, Decode, Clone)]
+struct StatementResponse {
+	request_id: u64,
+	response_code: u8,
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
+
+	println!("=== Spawning the network ===");
+
 	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
-
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("westend-local")
@@ -37,7 +55,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 				.with_chain_spec_path("tests/zombie_ci/people-rococo-spec.json")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lparachain=debug".into(),
+					"-lstatement-store=trace".into(),
 					"--enable-statement-store".into(),
 				])
 				.with_collator(|n| n.with_name("alice"))
@@ -77,119 +95,191 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	.map(|(idx, keyring)| Participant::new(keyring, idx))
 	.collect();
 
-	let mut statements = Vec::new();
+	println!("=== Session keys exchange ===");
+
+	// Send session keys
 	for participant in &participants {
 		let statement = participant.public_key_statement();
 		let statement_bytes: Bytes = statement.encode().into();
-		statements.push(statement_bytes.clone());
 
 		let _: () = collator_rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
 	}
 
+	// Receive session keys
 	for participant in &mut participants {
-		println!("Participant {:?} polling for statements from others...", participant.keyring);
-
 		let topic = vec![topic_public_key()];
 
 		let statements: Vec<Bytes> = collator_rpc
 			.request("statement_broadcastsStatement", rpc_params![topic])
 			.await?;
-
 		for statement_bytes in &statements {
-			if let Ok(statement) = sp_statement_store::Statement::decode(&mut &statement_bytes[..])
-			{
-				if let Some(topic_1) = statement.topic(1) {
-					let other_idx = usize::from_le_bytes({
-						let mut bytes = [0u8; 8];
-						bytes.copy_from_slice(&topic_1[..8]);
-						bytes
-					});
-
-					if let Some(data) = statement.data() {
-						let slice = data.as_slice();
-						if slice.len() == 32 {
-							let mut array = [0u8; 32];
-							array.copy_from_slice(slice);
-							let session_key = sr25519::Public::from_raw(array);
-
-							participant.add_group_member(other_idx, session_key);
-
-							println!(
-								"Participant {:?} found session key {:?} for idx {}",
-								participant.keyring, session_key, other_idx
-							);
-						}
-					}
-				}
-			}
+			let statement = Statement::decode(&mut &statement_bytes[..])?;
+			let topic1 = statement.topic(1).expect("Must contain idx");
+			let other_idx = usize::from_le_bytes(topic1[..8].try_into()?);
+			let data = statement.data().expect("Must contain session_key");
+			let session_key = sr25519::Public::from_raw(data[..].try_into()?);
+			participant.add_group_member(other_idx, session_key);
 		}
 
-		println!("Participant {:?} group members: {:?}", participant.keyring, participant.group);
+		assert_eq!(participant.session_keys.len(), GROUP_SIZE - 1);
 	}
 
-	// Generate and exchange symmetric keys
-	for participant in &mut participants {
-		participant.generate_symmetric_keys();
+	println!("=== Symmetric keys exchange ===");
 
-		// Send symmetric keys to group members with higher idx
-		for &receiver_idx in participant.group.keys() {
-			if receiver_idx > participant.idx {
-				if let Some(statement) = participant.symmetric_key_statement(receiver_idx) {
-					println!(
-						"Sending {:?} symmetric key to idx {} {:?}",
-						participant.keyring,
-						receiver_idx,
-						statement.channel()
-					);
-					let statement_bytes: Bytes = statement.encode().into();
-					let _: () = collator_rpc
-						.request("statement_submit", rpc_params![statement_bytes])
-						.await?;
-				}
-			}
+	// Send symmetric keys
+	for participant in &mut participants {
+		for &receiver_idx in participant.session_keys.keys() {
+			let Some(statement) = participant.symmetric_key_statement(receiver_idx) else {
+				continue
+			};
+			let statement_bytes: Bytes = statement.encode().into();
+			let _: () =
+				collator_rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
 		}
 	}
 
-	// Poll for symmetric keys from other participants
+	// Receive symmetric keys from other participants
 	for participant in &mut participants {
-		println!("Participant {:?} polling for symmetric keys...", participant.keyring);
-
 		// Check for symmetric keys from each group member with lower idx
-		for (&sender_idx, sender_session_key) in participant.group.iter() {
+		for (&sender_idx, sender_session_key) in participant.session_keys.iter() {
 			if sender_idx < participant.idx {
-				let topic =
-					vec![topic_for_pair(sender_session_key, &participant.session_key.public())];
+				let topic1 = topic_for_pair(sender_session_key, &participant.session_key.public());
+				let topics = vec![topic1];
+				let statements: Vec<Bytes> = collator_rpc
+					.request("statement_broadcastsStatement", rpc_params![topics])
+					.await?;
+				for statement_bytes in &statements {
+					let statement = Statement::decode(&mut &statement_bytes[..])?;
+					let data = statement.data().expect("Must contain symmetric key");
+					participant
+						.symmetric_keys
+						.insert(sender_idx, ed25519::Public::from_raw(data.as_slice().try_into()?));
+				}
+			}
+		}
+
+		assert_eq!(participant.symmetric_keys.len(), GROUP_SIZE - 1);
+	}
+
+	let statements: Vec<Bytes> = collator_rpc
+		.request("statement_broadcastsStatement", rpc_params![vec![blake2_256(b"request")]])
+		.await?;
+	assert_eq!(statements.len(), 0);
+
+	let statements: Vec<Bytes> = collator_rpc
+		.request("statement_broadcastsStatement", rpc_params![vec![blake2_256(b"response")]])
+		.await?;
+	assert_eq!(statements.len(), 0);
+
+	for i in 0..MESSAGE_COUNT {
+		println!("=== Req/res exchange round {} ===", i + 1);
+
+		// Send request
+		for participant in &mut participants {
+			let receiver_indices = participant.session_keys.keys().cloned().collect::<Vec<_>>();
+			for &receiver_idx in &receiver_indices {
+				let request_statement = participant
+					.create_request_statement(receiver_idx)
+					.expect("Receiver must present");
+				let statement_bytes: Bytes = request_statement.encode().into();
+				let _: () =
+					collator_rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
+			}
+		}
+
+		let statements: Vec<Bytes> = collator_rpc
+			.request("statement_broadcastsStatement", rpc_params![vec![blake2_256(b"request")]])
+			.await?;
+		assert_eq!(statements.len(), GROUP_SIZE * (GROUP_SIZE - 1) * (i + 1));
+
+		// Receive request
+		for participant in &mut participants {
+			let senders = participant.session_keys.clone();
+			for (&sender_idx, sender_key) in &senders {
+				let topic0 = blake2_256(b"request");
+				let topic1 = topic_for_pair(&sender_key, &participant.session_key.public());
+				let topics = vec![topic0, topic1];
 
 				let statements: Vec<Bytes> = collator_rpc
-					.request("statement_broadcastsStatement", rpc_params![topic])
+					.request("statement_broadcastsStatement", rpc_params![topics])
 					.await?;
+				assert_eq!(statements.len(), (i + 1));
 
 				for statement_bytes in &statements {
-					if let Ok(statement) =
-						sp_statement_store::Statement::decode(&mut &statement_bytes[..])
-					{
-						if let Some(data) = statement.data() {
-							if data.len() == 32 {
-								let mut symmetric_key = [0u8; 32];
-								symmetric_key.copy_from_slice(data);
-								participant.symmetric_keys.insert(sender_idx, symmetric_key);
+					let statement = Statement::decode(&mut &statement_bytes[..])?;
+					let data = statement.data().expect("Must contain request");
+					let req = StatementRequest::decode(&mut &data[..])?;
 
-								println!(
-									"Participant {:?} received symmetric key from idx {}",
-									participant.keyring, sender_idx
-								);
-							}
-						}
+					if !participant.has_processed_request(sender_idx, req.request_id) {
+						assert!(!participant.has_pending_response(sender_idx));
+						participant.pending_responses.insert(sender_idx, Some(req.request_id));
 					}
 				}
 			}
 		}
 
-		println!(
-			"Participant {:?} symmetric keys: {} keys",
-			participant.keyring,
-			participant.symmetric_keys.len()
-		);
+		// Send response
+		for participant in &mut participants {
+			let receiver_indices = participant.session_keys.keys().cloned().collect::<Vec<_>>();
+			for &receiver_idx in &receiver_indices {
+				let req_id =
+					participant.pending_responses.get_mut(&receiver_idx).unwrap().take().unwrap();
+
+				let request_statement = participant
+					.create_response_statement(req_id, receiver_idx)
+					.expect("Receiver must present");
+				let statement_bytes: Bytes = request_statement.encode().into();
+				let _: () =
+					collator_rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
+				participant.processed_requests.entry(receiver_idx).or_default().insert(req_id);
+			}
+		}
+
+		let statements: Vec<Bytes> = collator_rpc
+			.request("statement_broadcastsStatement", rpc_params![vec![blake2_256(b"response")]])
+			.await?;
+		assert_eq!(statements.len(), GROUP_SIZE * (GROUP_SIZE - 1) * (i + 1));
+
+		// Receive response
+		for participant in &mut participants {
+			let senders = participant.session_keys.clone();
+			for (&sender_idx, sender_key) in &senders {
+				let topic0 = blake2_256(b"response");
+				let topic1 = topic_for_pair(&sender_key, &participant.session_key.public());
+				let topics = vec![topic0, topic1];
+
+				let statements: Vec<Bytes> = collator_rpc
+					.request("statement_broadcastsStatement", rpc_params![topics])
+					.await?;
+				assert_eq!(statements.len(), (i + 1));
+
+				for statement_bytes in &statements {
+					let statement = Statement::decode(&mut &statement_bytes[..])?;
+					let data = statement.data().expect("Must contain response");
+					let res = StatementResponse::decode(&mut &data[..])?;
+					if !participant
+						.received_responses
+						.get(&sender_idx)
+						.map_or(false, |ress| ress.contains(&res.request_id))
+					{
+						participant
+							.received_responses
+							.entry(sender_idx)
+							.or_default()
+							.insert(res.request_id);
+					}
+				}
+			}
+		}
+
+		println!("All messages in the round processed");
+	}
+
+	for participant in &participants {
+		assert_eq!(
+			participant.received_responses.values().map(|set| set.len()).sum::<usize>(),
+			(GROUP_SIZE - 1) * MESSAGE_COUNT
+		)
 	}
 
 	Ok(())
@@ -199,14 +289,31 @@ struct Participant {
 	keyring: Sr25519Keyring,
 	session_key: sr25519::Pair,
 	idx: usize,
-	group: HashMap<usize, sr25519::Public>,
-	symmetric_keys: HashMap<usize, [u8; 32]>,
+	session_keys: HashMap<usize, sr25519::Public>,
+	symmetric_keys: HashMap<usize, ed25519::Public>,
+	request_counter: u64,
+	pending_responses: HashMap<usize, Option<u64>>,
+	processed_requests: HashMap<usize, HashSet<u64>>,
+	received_responses: HashMap<usize, HashSet<u64>>,
 }
 
 impl Participant {
 	fn new(keyring: Sr25519Keyring, idx: usize) -> Self {
 		let (session_key, _) = sr25519::Pair::generate();
-		Self { keyring, session_key, idx, group: HashMap::new(), symmetric_keys: HashMap::new() }
+		let mut participant = Self {
+			keyring,
+			session_key,
+			idx,
+			session_keys: HashMap::new(),
+			symmetric_keys: HashMap::new(),
+			request_counter: 0,
+			pending_responses: HashMap::new(),
+			processed_requests: HashMap::new(),
+			received_responses: HashMap::new(),
+		};
+
+		participant.generate_symmetric_keys();
+		participant
 	}
 
 	fn public_key_statement(&self) -> Statement {
@@ -226,40 +333,124 @@ impl Participant {
 
 	fn add_group_member(&mut self, idx: usize, session_key: sr25519::Public) {
 		if self.is_in_same_group(idx) && idx != self.idx {
-			self.group.insert(idx, session_key);
+			self.session_keys.insert(idx, session_key);
 		}
 	}
 
+	fn has_processed_request(&self, sender_idx: usize, request_id: u64) -> bool {
+		self.processed_requests
+			.get(&sender_idx)
+			.map_or(false, |reqs| reqs.contains(&request_id))
+	}
+
+	fn has_pending_response(&self, sender_idx: usize) -> bool {
+		self.pending_responses.get(&sender_idx).map_or(false, |res| res.is_some())
+	}
+
 	fn generate_symmetric_keys(&mut self) {
-		for &other_idx in self.group.keys() {
+		let group_start = (self.idx / GROUP_SIZE) * GROUP_SIZE;
+		let group_end = group_start + GROUP_SIZE;
+
+		for other_idx in group_start..group_end {
 			if other_idx > self.idx {
-				let mut key_material = Vec::new();
-				key_material.extend_from_slice(&self.idx.to_le_bytes());
-				key_material.extend_from_slice(&other_idx.to_le_bytes());
-				let symmetric_key = blake2_256(&key_material);
-				self.symmetric_keys.insert(other_idx, symmetric_key);
+				let (pair, _) = ed25519::Pair::generate();
+				self.symmetric_keys.insert(other_idx, pair.public());
 			}
 		}
 	}
 
 	fn symmetric_key_statement(&self, receiver_idx: usize) -> Option<Statement> {
-		if let (Some(symmetric_key), Some(receiver_session_key)) =
-			(self.symmetric_keys.get(&receiver_idx), self.group.get(&receiver_idx))
-		{
-			let mut statement = Statement::new();
+		let (Some(symmetric_key), Some(receiver_session_key)) =
+			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
+		else {
+			return None
+		};
 
-			let topic = topic_for_pair(&self.session_key.public(), receiver_session_key);
-			let channel = channel_for_pair(&self.session_key.public(), receiver_session_key, 0);
+		let mut statement = Statement::new();
 
-			statement.set_channel(channel);
-			statement.set_topic(0, topic);
-			statement.set_plain_data(symmetric_key.to_vec());
-			statement.sign_sr25519_private(&self.keyring.pair());
+		let topic = topic_for_pair(&self.session_key.public(), receiver_session_key);
+		let channel = channel_for_pair(&self.session_key.public(), receiver_session_key, 0);
 
-			Some(statement)
-		} else {
-			None
+		statement.set_channel(channel);
+		statement.set_topic(0, topic);
+		statement.set_plain_data(symmetric_key.to_vec());
+		statement.sign_sr25519_private(&self.keyring.pair());
+
+		Some(statement)
+	}
+
+	fn create_request_statement(&mut self, receiver_idx: usize) -> Option<Statement> {
+		let (Some(_symmetric_key), Some(receiver_session_key)) =
+			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
+		else {
+			return None
+		};
+
+		self.request_counter += 1;
+		let request_id = self.request_counter;
+
+		// Create 5KiB payload
+		let mut data = vec![0u8; MESSAGE_SIZE];
+		for (i, byte) in data.iter_mut().enumerate() {
+			*byte = (i % 256) as u8; // Simple pattern for testing
 		}
+
+		let request = StatementRequest { request_id, data };
+		let request_data = request.encode();
+		let mut statement = Statement::new();
+
+		let topic0 = blake2_256(b"request");
+		let topic1 = topic_for_pair(&self.session_key.public(), receiver_session_key);
+		let channel =
+			channel_for_request(&self.session_key.public(), receiver_session_key, request_id);
+
+		statement.set_topic(0, topic0);
+		statement.set_topic(1, topic1);
+		statement.set_channel(channel);
+		statement.set_plain_data(request_data);
+		statement.sign_sr25519_private(&self.keyring.pair());
+
+		println!(
+			"Participant {:?} created request {} to idx {}",
+			self.keyring, request_id, receiver_idx
+		);
+
+		Some(statement)
+	}
+
+	fn create_response_statement(
+		&mut self,
+		request_id: u64,
+		receiver_idx: usize,
+	) -> Option<Statement> {
+		let (Some(_symmetric_key), Some(receiver_session_key)) =
+			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
+		else {
+			return None
+		};
+
+		let response = StatementResponse { request_id, response_code: 0 };
+		let response_data = response.encode();
+
+		let mut statement = Statement::new();
+
+		let topic0 = blake2_256(b"response");
+		let topic1 = topic_for_pair(&self.session_key.public(), receiver_session_key);
+		let channel =
+			channel_for_response(&self.session_key.public(), receiver_session_key, request_id);
+
+		statement.set_topic(0, topic0);
+		statement.set_topic(1, topic1);
+		statement.set_channel(channel);
+		statement.set_plain_data(response_data);
+		statement.sign_sr25519_private(&self.keyring.pair());
+
+		println!(
+			"Participant {:?} created response for request {} to idx {}",
+			self.keyring, request_id, receiver_idx
+		);
+
+		Some(statement)
 	}
 }
 
@@ -287,11 +478,37 @@ fn topic_for_pair(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic
 fn channel_for_pair(
 	sender: &sr25519::Public,
 	receiver: &sr25519::Public,
-	message_counter: u64,
+	message_counter: usize,
 ) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(sender.as_ref());
 	data.extend_from_slice(receiver.as_ref());
 	data.extend_from_slice(&message_counter.to_le_bytes());
+	blake2_256(&data)
+}
+
+fn channel_for_request(
+	sender: &sr25519::Public,
+	receiver: &sr25519::Public,
+	counter: u64,
+) -> Topic {
+	let mut data = Vec::new();
+	data.extend_from_slice(b"request");
+	data.extend_from_slice(sender.as_ref());
+	data.extend_from_slice(receiver.as_ref());
+	data.extend_from_slice(&counter.to_le_bytes());
+	blake2_256(&data)
+}
+
+fn channel_for_response(
+	sender: &sr25519::Public,
+	receiver: &sr25519::Public,
+	counter: u64,
+) -> Topic {
+	let mut data = Vec::new();
+	data.extend_from_slice(b"response");
+	data.extend_from_slice(sender.as_ref());
+	data.extend_from_slice(receiver.as_ref());
+	data.extend_from_slice(&counter.to_le_bytes());
 	blake2_256(&data)
 }
