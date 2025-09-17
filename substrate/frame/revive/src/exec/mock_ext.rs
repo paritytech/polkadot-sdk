@@ -198,6 +198,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
+	fn is_delegate_call(&self) -> bool {
+		panic!("MockExt::is_delegate_call")
+	}
+
 	fn last_frame_output(&self) -> &ExecReturnValue {
 		panic!("MockExt::last_frame_output")
 	}

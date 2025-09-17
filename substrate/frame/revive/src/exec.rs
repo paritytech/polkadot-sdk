@@ -430,6 +430,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
+	/// Check if
+	fn is_delegate_call(&self) -> bool;
+
 	/// Returns an immutable reference to the output of the last executed call frame.
 	fn last_frame_output(&self) -> &ExecReturnValue;
 
@@ -2164,6 +2167,10 @@ where
 
 	fn is_read_only(&self) -> bool {
 		self.top_frame().read_only
+	}
+
+	fn is_delegate_call(&self) -> bool {
+		self.top_frame().delegate.is_some()
 	}
 
 	fn last_frame_output(&self) -> &ExecReturnValue {

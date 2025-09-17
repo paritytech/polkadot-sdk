@@ -41,7 +41,7 @@ pub use sp_core::{H160, H256, U256};
 
 use crate::{
 	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError, LOG_TARGET,
+	Error as CrateError,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
@@ -51,7 +51,7 @@ use sp_runtime::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) use builtin::{
-	IBenchmarking, IStorage, ISystem, NoInfo as BenchmarkNoInfo, Storage as BenchmarkStorage,
+	IBenchmarking, NoInfo as BenchmarkNoInfo, Storage as BenchmarkStorage,
 	System as BenchmarkSystem, WithInfo as BenchmarkWithInfo,
 };
 

@@ -22,57 +22,12 @@ use crate::{
 	Config, Key,
 };
 use alloc::vec::Vec;
-use alloy_core::{sol, sol_types::SolValue};
+use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
-use pallet_revive_uapi::StorageFlags;
+use pallet_revive_uapi::{precompiles::storage::IStorage, StorageFlags};
 use sp_core::hexdisplay::AsBytesRef;
 
 pub struct Storage<T>(PhantomData<T>);
-
-sol! {
-	interface IStorage {
-		/// Clear the value at the given key in the contract storage.
-		///
-		/// # Parameters
-		///
-		/// - `key`: The storage key.
-		///
-		/// # Return
-		///
-		/// If no entry existed for this key, `containedKey` is `false` and
-		/// `valueLen` is `0`.
-		function clearStorage(uint32 flags, bool isFixedKey, bytes memory key)
-			external returns (bool containedKey, uint valueLen);
-
-		/// Checks whether there is a value stored under the given key.
-		///
-		/// The key length must not exceed the maximum defined by the contracts module parameter.
-		///
-		/// # Parameters
-		///
-		/// - `key`: The storage key.
-		///
-		/// # Return
-		///
-		/// Returns the size of the pre-existing value at the specified key.
-		/// If no entry exists for this key `containedKey` is `false` and
-		/// `valueLen` is `0`.
-		function containsStorage(uint32 flags, bool isFixedKey, bytes memory key)
-			external returns (bool containedKey, uint valueLen);
-
-		/// Retrieve and remove the value under the given key from storage.
-		///
-		/// # Parameters
-		///
-		/// - `key`: The storage key.
-		///
-		/// # Errors
-		///
-		/// Returns empty bytes if no value was found under `key`.
-		function takeStorage(uint32 flags, bool isFixedKey, bytes memory key)
-			external returns (bytes memory);
-	}
-}
 
 impl<T: Config> BuiltinPrecompile for Storage<T> {
 	type T = T;
@@ -86,6 +41,11 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 		input: &Self::Interface,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		// Runtime benchmarks call the pre-compile functions directly, without
+		// the delegate call overhead. That overhead is benchmarked individually.
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		assert!(env.is_delegate_call(), "Storage precompile can only be called via delegate call");
+
 		use IStorage::IStorageCalls;
 		let max_size = env.max_value_size();
 		match input {
@@ -195,5 +155,39 @@ fn decode_key(key_bytes: &[u8], is_fixed_key: bool) -> Result<Key, ()> {
 			}
 			Key::try_from_var(key_bytes.to_vec())
 		},
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		call_builder::CallSetup,
+		precompiles::BuiltinPrecompile,
+		tests::{ExtBuilder, Test},
+	};
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	#[test]
+	#[should_panic(expected = "Storage precompile can only be called via delegate call")]
+	fn panic_if_called_without_delegate_call() {
+		ExtBuilder::default().build().execute_with(|| {
+			// given
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// when
+			let input = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+				flags: StorageFlags::empty().bits().into(),
+				key: [0u8; 32].into(),
+				isFixedKey: true,
+			});
+			let _raw_data = <Storage<Test>>::call_with_info(
+				&<Storage<Test>>::MATCHER.base_address(),
+				&input,
+				&mut ext,
+			)
+			.unwrap();
+		})
 	}
 }

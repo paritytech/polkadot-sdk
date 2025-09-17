@@ -23,9 +23,7 @@
 
 use uapi::CallFlags;
 use uapi::ReturnFlags;
-
-const STORAGE_PRECOMPILE_ADDR: [u8; 20] =
-	hex_literal::hex!("0000000000000000000000000000000000000901");
+use uapi::STORAGE_PRECOMPILE_ADDR;
 
 /// When encoding a Rust `[u8]` to Solidity `bytes`, a small amount
 /// of overhead space is required (for padding and the length word).

@@ -30,8 +30,7 @@ use crate::{
 			SolType,
 		},
 		run::builtin as run_builtin_precompile,
-		BenchmarkSystem, BuiltinPrecompile,
-		BenchmarkStorage, IStorage,
+		BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 	},
 	storage::WriteOutcome,
 	vm::{
@@ -54,7 +53,9 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_revive_uapi::{
-	pack_hi_lo, precompiles::system::ISystem, CallFlags, ReturnErrorCode, StorageFlags,
+	pack_hi_lo,
+	precompiles::{storage::IStorage, system::ISystem},
+	CallFlags, ReturnErrorCode, StorageFlags,
 };
 use revm::{
 	bytecode::{opcode::EXTCODECOPY, Bytecode},
