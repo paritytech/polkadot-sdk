@@ -155,6 +155,7 @@ impl<T: Config> Origin<T> {
 	pub fn from_account_id(account_id: T::AccountId) -> Self {
 		Origin::Signed(account_id)
 	}
+
 	/// Creates a new Origin from a `RuntimeOrigin`.
 	pub fn from_runtime_origin(o: OriginFor<T>) -> Result<Self, DispatchError> {
 		match o.into() {
@@ -163,6 +164,7 @@ impl<T: Config> Origin<T> {
 			_ => Err(BadOrigin.into()),
 		}
 	}
+
 	/// Returns the AccountId of a Signed Origin or an error if the origin is Root.
 	pub fn account_id(&self) -> Result<&T::AccountId, DispatchError> {
 		match self {
@@ -206,6 +208,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Returns the code hash of the contract being executed.
+	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
 
 	/// Sets new code hash and immutable data for an existing contract.
@@ -288,8 +291,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
-	///
-	/// Returns the code size of the called contract.
 	fn call(
 		&mut self,
 		gas_limit: Weight,
@@ -325,8 +326,14 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the caller.
 	fn caller(&self) -> Origin<Self::T>;
 
+	/// Returns the caller of the caller.
+	fn caller_of_caller(&self) -> Origin<Self::T>;
+
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
+
+	/// Returns the account id for the given `address`.
+	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
 
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
@@ -336,10 +343,10 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn code_size(&self, address: &H160) -> u64;
 
 	/// Check if the caller of the current contract is the origin of the whole call stack.
-	fn caller_is_origin(&self) -> bool;
+	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool;
 
 	/// Check if the caller is origin, and this origin is root.
-	fn caller_is_root(&self) -> bool;
+	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool;
 
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
@@ -1998,8 +2005,25 @@ where
 		}
 	}
 
+	fn caller_of_caller(&self) -> Origin<T> {
+		// fetch top frame of top frame
+		let caller_of_caller_frame = match self.frames().nth(2) {
+			None => return self.origin.clone(),
+			Some(frame) => frame,
+		};
+		if let Some(DelegateInfo { caller, .. }) = &caller_of_caller_frame.delegate {
+			caller.clone()
+		} else {
+			Origin::from_account_id(caller_of_caller_frame.account_id.clone())
+		}
+	}
+
 	fn origin(&self) -> &Origin<T> {
 		&self.origin
+	}
+
+	fn to_account_id(&self, address: &H160) -> T::AccountId {
+		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
@@ -2028,13 +2052,14 @@ where
 			.unwrap_or_default()
 	}
 
-	fn caller_is_origin(&self) -> bool {
-		self.origin == self.caller()
+	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool {
+		let caller = if use_caller_of_caller { self.caller_of_caller() } else { self.caller() };
+		self.origin == caller
 	}
 
-	fn caller_is_root(&self) -> bool {
+	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool {
 		// if the caller isn't origin, then it can't be root.
-		self.caller_is_origin() && self.origin == Origin::Root
+		self.caller_is_origin(use_caller_of_caller) && self.origin == Origin::Root
 	}
 
 	fn balance(&self) -> U256 {

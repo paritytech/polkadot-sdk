@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! External C API to communicate with substrate contracts runtime module.
+//! External C API to communicate with Polkadot SDK's `pallet-revive` module.
 //!
-//! Refer to substrate FRAME contract module for more documentation.
+//! Refer to the FRAME `pallet-revive` module for more documentation.
 
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -23,6 +23,9 @@ mod flags;
 pub use flags::*;
 mod host;
 mod macros;
+
+pub mod precompiles;
+pub use precompiles::{system::SYSTEM_PRECOMPILE_ADDR, utils::solidity_selector};
 
 pub use host::{HostFn, HostFnImpl};
 
