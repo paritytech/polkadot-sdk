@@ -1,8 +1,0 @@
-title: added check to make sure a contract account cannot transfer funds as an EOA
-  account
-doc:
-- audience: Runtime Dev
-  description: null
-crates:
-- name: pallet-revive
-  bump: patch
