@@ -15,6 +15,7 @@
 // limitations under the License.
 
 use crate::common::{
+	aura::AuraIdT,
 	rpc::BuildRpcExtensions as BuildRpcExtensionsT,
 	spec::{BaseNodeSpec, BuildImportQueue, ClientBlockImport, NodeSpec as NodeSpecT},
 	types::{Hash, ParachainBlockImport, ParachainClient},
@@ -27,25 +28,27 @@ use futures::FutureExt;
 use polkadot_primitives::UpgradeGoAhead;
 use sc_client_api::Backend;
 use sc_consensus::{DefaultImportQueue, LongestChain};
-use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
+use sc_consensus_manual_seal::{
+	consensus::aura::AuraConsensusDataProvider,
+	rpc::{ManualSeal, ManualSealApiServer},
+};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
+use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::{Header, UniqueSaturatedInto};
 use std::{marker::PhantomData, sync::Arc};
-use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
-use sp_consensus_aura::SlotDuration;
 
-pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
+pub struct ManualSealNode<NodeSpec, AuraId>(PhantomData<(NodeSpec, AuraId)>);
 
-impl<NodeSpec: NodeSpecT>
+impl<NodeSpec: NodeSpecT, AuraId>
 	BuildImportQueue<
 		NodeSpec::Block,
 		NodeSpec::RuntimeApi,
 		Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
-	> for ManualSealNode<NodeSpec>
+	> for ManualSealNode<NodeSpec, AuraId>
 {
 	fn build_import_queue(
 		client: Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
@@ -65,14 +68,14 @@ impl<NodeSpec: NodeSpecT>
 	}
 }
 
-impl<NodeSpec: NodeSpecT> BaseNodeSpec for ManualSealNode<NodeSpec> {
+impl<NodeSpec: NodeSpecT, AuraId> BaseNodeSpec for ManualSealNode<NodeSpec, AuraId> {
 	type Block = NodeSpec::Block;
 	type RuntimeApi = NodeSpec::RuntimeApi;
 	type BuildImportQueue = Self;
 	type InitBlockImport = ClientBlockImport;
 }
 
-impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
+impl<NodeSpec: NodeSpecT, AuraId: AuraIdT> ManualSealNode<NodeSpec, AuraId> {
 	pub fn new() -> Self {
 		Self(Default::default())
 	}
@@ -172,10 +175,12 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				}
 			});
 
-		let slot_duration = 6000;
+		// let slot_duration = sc_consensus_aura::slot_duration(&*client)
+		// 	.expect("slot_duration is always present; qed.");
+		let slot_duration = SlotDuration::from_millis(6000);
 		// This provider will check which timestamp gets passed into the inherent and emit the
 		// corresponding aura digest.
-		let aura_digest_provider = AuraConsensusDataProvider::new_with_slot_duration(SlotDuration::from_millis(slot_duration));
+		let aura_digest_provider = AuraConsensusDataProvider::new_with_slot_duration(slot_duration);
 
 		let client_for_cidp = client.clone();
 		let params = sc_consensus_manual_seal::ManualSealParams {
@@ -245,7 +250,9 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						}),
 					};
 					Ok((
-						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(current_block_number as u64 * slot_duration)),
+						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(
+							current_block_number as u64 * slot_duration.as_millis(),
+						)),
 						mocked_parachain,
 					))
 				}

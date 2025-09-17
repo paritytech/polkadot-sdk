@@ -20,8 +20,8 @@ use crate::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::BuildParachainRpcExtensions,
 		spec::{
-			BaseNodeSpec, BuildImportQueue, ClientBlockImport, InitBlockImport, NodeSpec,
-			StartConsensus,
+			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
+			NodeSpec, StartConsensus,
 		},
 		types::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
@@ -29,7 +29,6 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	nodes::DynNodeSpecExt,
 };
 use cumulus_client_collator::service::{
 	CollatorService, ServiceInterface as CollatorServiceInterface,
@@ -209,7 +208,7 @@ where
 
 pub fn new_aura_node_spec<Block, RuntimeApi, AuraId>(
 	extra_args: &NodeExtraArgs,
-) -> Box<dyn DynNodeSpecExt>
+) -> Box<dyn DynNodeSpec>
 where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
