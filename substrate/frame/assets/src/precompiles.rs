@@ -30,8 +30,6 @@ use pallet_revive::precompiles::{
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
 
-use pallet_revive::test_utils::AccountId32;
-
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
 	type AssetId;
