@@ -130,6 +130,10 @@ jobs:
           python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
           echo "PGPKMS_REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
 
+          # --- ADD THIS LINE FOR DEBUGGING ---
+          echo "--- Listing all installed pgpkms tools ---"
+          ls -l /home/runner/.local/bin/pgpkms*
+
       - name: Install awscli for S3 and CloudFront interaction
         run: |
           python3 -m pip install awscli
