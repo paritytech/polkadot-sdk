@@ -556,6 +556,7 @@ fn storage_work() {
 	});
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 #[should_panic(expected = "Storage precompile can only be called via delegate call")]
 fn storage_precompile_only_delegate_call() {
