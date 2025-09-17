@@ -7,8 +7,8 @@ doc:
     Besides that it also changes the how `validate_block` verifies the `ValidationData` passed by the collator. Instead of extracting the `ValidationData` before executing the block, the validation data is now checked as part of the pallet logic.
 crates:
 - name: cumulus-pallet-aura-ext
-  bump: minor
+  bump: major
 - name: cumulus-pallet-parachain-system-proc-macro
-  bump: minor
+  bump: major
 - name: cumulus-pallet-parachain-system
-  bump: minor
+  bump: major
