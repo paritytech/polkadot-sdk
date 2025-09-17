@@ -165,6 +165,31 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// This function registers a high weight usage manually, while it actually only announces
+		/// to use a weight of `0` :)
+		///
+		/// Uses a custom `authorize` logic to ensure the transaction is only accepted when we can
+		/// fit the `1s` weight into the block.
+		#[pallet::weight(0)]
+		#[pallet::authorize(|
+			_source: TransactionSource,
+		| -> TransactionValidityWithRefund {
+			if frame_system::Pallet::<T>::remaining_block_weight().can_consume(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0)) {
+				Ok((ValidTransaction { provides: vec![vec![1, 2, 3, 4, 5]], ..Default::default() }, Weight::zero()))
+			} else {
+				Err(TransactionValidityError::Invalid(InvalidTransaction::ExhaustsResources))
+			}
+		})]
+		pub fn use_more_weight_than_announced(_: OriginFor<T>) -> DispatchResult {
+			// Register weight manually.
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0),
+				DispatchClass::Normal,
+			);
+
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]

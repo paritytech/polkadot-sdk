@@ -124,6 +124,20 @@ async fn pov_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error> {
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
 		.await?;
 
+	let use_more_weight_than_announced = create_use_more_weight_than_announced_call();
+
+	log::info!(
+		"Testing scenario 5: Sending a transaction which uses more weight than what it registered"
+	);
+	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+		&para_client,
+		&use_more_weight_than_announced,
+		&alice,
+	)
+	.await?;
+
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
+
 	Ok(())
 }
 
@@ -158,6 +172,15 @@ fn create_schedule_weight_registration_call() -> DynamicPayload {
 	zombienet_sdk::subxt::tx::dynamic(
 		"TestPallet",
 		"schedule_weight_registration",
+		vec![] as Vec<zombienet_sdk::subxt::ext::scale_value::Value>,
+	)
+}
+
+/// Creates a `test-pallet` `use_more_weight_than_announced` call
+fn create_use_more_weight_than_announced_call() -> DynamicPayload {
+	zombienet_sdk::subxt::tx::dynamic(
+		"TestPallet",
+		"use_more_weight_than_announced",
 		vec![] as Vec<zombienet_sdk::subxt::ext::scale_value::Value>,
 	)
 }
