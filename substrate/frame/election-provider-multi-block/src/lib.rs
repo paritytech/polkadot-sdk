@@ -1472,9 +1472,7 @@ where
 		let who: T::AccountId = frame_benchmarking::account(seed, index, 777);
 		whitelist!(who);
 		let max_deposit = signed::Pallet::<T>::deposit_for(who.clone(), T::Pages::get());
-		let balance = max_deposit
-			.saturating_mul(1000u32.into())
-			.saturating_add(T::Currency::minimum_balance());
+		let balance = max_deposit.saturating_add(T::Currency::minimum_balance());
 		T::Currency::mint_into(&who, balance).unwrap();
 		who
 	}
