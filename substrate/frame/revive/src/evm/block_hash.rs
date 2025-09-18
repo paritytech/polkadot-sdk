@@ -23,7 +23,10 @@ use crate::evm::{
 
 use alloc::{vec, vec::Vec};
 use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
-use alloy_core::primitives::{bytes::BufMut, B256};
+use alloy_core::{
+	primitives::{bytes::BufMut, B256},
+	rlp,
+};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -274,14 +277,14 @@ impl IncrementalHashBuilder {
 
 	/// Add a new value to the hash builder.
 	pub fn add_value(&mut self, value: Vec<u8>) {
-		let rlp_index = alloy_rlp::encode_fixed_size(&self.index);
+		let rlp_index = rlp::encode_fixed_size(&self.index);
 		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
 
 		if self.index == 0x7f {
 			// Pushing the previous item since we are expecting the index
 			// to be index + 1 in the sorted order.
 			if let Some(encoded_value) = self.first_value.take() {
-				let rlp_index = alloy_rlp::encode_fixed_size(&0usize);
+				let rlp_index = rlp::encode_fixed_size(&0usize);
 
 				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 			}
@@ -296,7 +299,7 @@ impl IncrementalHashBuilder {
 		// first value index is the last one in the sorted vector
 		// by rlp encoding of the index.
 		if let Some(encoded_value) = self.first_value.take() {
-			let rlp_index = alloy_rlp::encode_fixed_size(&0usize);
+			let rlp_index = rlp::encode_fixed_size(&0usize);
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 		}
 
@@ -413,24 +416,24 @@ impl AccumulateReceipt {
 		for topic in topics {
 			// Topics are represented by 32 bytes. However, their encoding
 			// can produce different lengths depending on their value.
-			topics_len += alloy_rlp::Encodable::length(&topic.0);
+			topics_len += rlp::Encodable::length(&topic.0);
 		}
 		// Account for the size of the list header.
-		let topics_list_header_length = topics_len + alloy_rlp::length_of_length(topics_len);
+		let topics_list_header_length = topics_len + rlp::length_of_length(topics_len);
 		// Compute the total payload length of the log.
-		let payload_length = alloy_rlp::Encodable::length(&contract.0) +
-			alloy_rlp::Encodable::length(&data) +
+		let payload_length = rlp::Encodable::length(&contract.0) +
+			rlp::Encodable::length(&data) +
 			topics_list_header_length;
 
-		let header = alloy_rlp::Header { list: true, payload_length };
+		let header = rlp::Header { list: true, payload_length };
 		header.encode(&mut self.encoding);
-		alloy_rlp::Encodable::encode(&contract.0, &mut self.encoding);
+		rlp::Encodable::encode(&contract.0, &mut self.encoding);
 		// Encode the topics as a list
-		alloy_rlp::Header { list: true, payload_length: topics_len }.encode(&mut self.encoding);
+		rlp::Header { list: true, payload_length: topics_len }.encode(&mut self.encoding);
 		for topic in topics {
-			alloy_rlp::Encodable::encode(&topic.0, &mut self.encoding);
+			rlp::Encodable::encode(&topic.0, &mut self.encoding);
 		}
-		alloy_rlp::Encodable::encode(&data, &mut self.encoding);
+		rlp::Encodable::encode(&data, &mut self.encoding);
 	}
 
 	/// Finalize the accumulated receipt and return the RLP encoded bytes.
@@ -442,23 +445,23 @@ impl AccumulateReceipt {
 		transaction_type: Vec<u8>,
 	) -> Vec<u8> {
 		let logs_length = encoded_logs.len();
-		let list_header_length = logs_length + alloy_rlp::length_of_length(logs_length);
+		let list_header_length = logs_length + rlp::length_of_length(logs_length);
 
-		let header = alloy_rlp::Header {
+		let header = rlp::Header {
 			list: true,
-			payload_length: alloy_rlp::Encodable::length(&status) +
-				alloy_rlp::Encodable::length(&gas) +
-				alloy_rlp::Encodable::length(&bloom.bloom) +
+			payload_length: rlp::Encodable::length(&status) +
+				rlp::Encodable::length(&gas) +
+				rlp::Encodable::length(&bloom.bloom) +
 				list_header_length,
 		};
 
 		let mut encoded = transaction_type;
 		header.encode(&mut encoded);
-		alloy_rlp::Encodable::encode(&status, &mut encoded);
-		alloy_rlp::Encodable::encode(&gas, &mut encoded);
-		alloy_rlp::Encodable::encode(&bloom.bloom, &mut encoded);
+		rlp::Encodable::encode(&status, &mut encoded);
+		rlp::Encodable::encode(&gas, &mut encoded);
+		rlp::Encodable::encode(&bloom.bloom, &mut encoded);
 
-		let logs_header = alloy_rlp::Header { list: true, payload_length: logs_length };
+		let logs_header = rlp::Header { list: true, payload_length: logs_length };
 		logs_header.encode(&mut encoded);
 
 		encoded.extend(encoded_logs);
@@ -683,7 +686,7 @@ mod test {
 		for i in 0..items_len {
 			let index = adjust_index_for_rlp(i, items_len);
 
-			let index_buffer = alloy_rlp::encode_fixed_size(&index);
+			let index_buffer = rlp::encode_fixed_size(&index);
 			hb.add_leaf(Nibbles::unpack(&index_buffer), &encoded[index]);
 
 			// Each mask in these vectors holds a u16.
@@ -736,9 +739,9 @@ mod test {
 
 	#[test]
 	fn test_alloy_rlp_ordering_compatibility() {
-		let zero_encoded = alloy_rlp::encode_fixed_size(&0usize);
-		let max_single_byte = alloy_rlp::encode_fixed_size(&127usize);
-		let first_multi_byte = alloy_rlp::encode_fixed_size(&128usize);
+		let zero_encoded = rlp::encode_fixed_size(&0usize);
+		let max_single_byte = rlp::encode_fixed_size(&127usize);
+		let first_multi_byte = rlp::encode_fixed_size(&128usize);
 
 		// Document the exact bytes we expect
 		assert_eq!(zero_encoded.as_slice(), &[0x80]); // RLP encoding of 0
