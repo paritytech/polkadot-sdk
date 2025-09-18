@@ -791,7 +791,6 @@ impl Client {
 			let res: CreatedBlock<H256> =
 				self.rpc_client.request("engine_createBlock", params).await.unwrap();
 
-			println!("res: {:?}", res);
 			latest_block = Some(res);
 		}
 
@@ -816,18 +815,14 @@ impl Client {
 		}
 
 		let params = rpc_params![true, true, None::<H256>, None::<u64>];
-		let res: String = self.rpc_client.request("engine_createBlock", params).await.unwrap();
+		let latest_block: CreatedBlock<H256> = self.rpc_client.request("engine_createBlock", params).await.unwrap();
 
-		let latest_block = Some(serde_json::from_str(&res).unwrap());
-
-		Ok(latest_block.unwrap())
+		Ok(latest_block)
 	}
 
 	/// Returns `true` if block production is set to `instant`.
 	pub async fn get_automine(&self) -> Result<bool, ClientError> {
-		let res: String = self.rpc_client.request("hardhat_getAutomine", rpc_params![]).await.unwrap();
-
-		let automine = serde_json::from_str(&res).unwrap();
+		let automine: bool = self.rpc_client.request("hardhat_getAutomine", rpc_params![]).await.unwrap();
 
 		Ok(automine)
 	}
@@ -838,13 +833,11 @@ impl Client {
 	/// it trims the extra bytes that are not the `eth_transact` payload before hashing.
 	/// If there's a match, it submits the hash of that extrinsic to be removed.
 	pub async fn drop_transaction(&self, hash: H256) -> Result<Option<H256>, ClientError> {
-		let res: String = self
+		let bytes_pending_transactions: Vec<Bytes> = self
 			.rpc_client
 			.request("author_pendingExtrinsics", Default::default())
 			.await
 			.unwrap();
-
-		let bytes_pending_transactions: Vec<Bytes> = serde_json::from_str(&res).unwrap();
 
 		for transaction in bytes_pending_transactions {
 			match H256(keccak_256(&transaction.0[7..])).eq(&hash) {
@@ -1224,13 +1217,11 @@ impl Client {
 	}
 
 	pub async fn pending_transactions(&self) -> Result<Option<Vec<H256>>, ClientError> {
-		let res: String = self
+		let bytes_pending_transactions: Vec<H256> = self
 			.rpc_client
 			.request("author_pendingExtrinsics", Default::default())
 			.await
 			.unwrap();
-
-		let bytes_pending_transactions: Vec<Bytes> = serde_json::from_str(&res).unwrap();
 
 		let pending_eth_transactions: Vec<H256> = bytes_pending_transactions
 			.into_iter()
@@ -1286,22 +1277,18 @@ impl Client {
 	}
 
 	pub async fn snapshot(&self) -> Result<Option<U64>, ClientError> {
-		let res: String = self
+		let snapshot_id: u64 = self
 			.rpc_client
 			.request("evm_snapshot", Default::default())
 			.await
 			.unwrap();
-
-		let snapshot_id: u64 = serde_json::from_str(&res).unwrap();
 
 		Ok(Some(U64::from(snapshot_id)))
 	}
 
 	pub async fn revert(&self, id: U64) -> Result<Option<bool>, ClientError> {
 		let params = rpc_params![id.as_u64()];
-		let res: String = self.rpc_client.request("evm_revert", params).await.unwrap();
-
-		let result: bool = serde_json::from_str(&res).unwrap();
+		let result: bool = self.rpc_client.request("evm_revert", params).await.unwrap();
 
 		let block = self.api.blocks().at_latest().await?;
 		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
@@ -1310,13 +1297,11 @@ impl Client {
 	}
 
 	pub async fn reset(&self) -> Result<Option<bool>, ClientError> {
-		let res: String = self
+		let result: bool = self
 			.rpc_client
 			.request("hardhat_reset", Default::default())
 			.await
 			.unwrap();
-
-		let result: bool = serde_json::from_str(&res).unwrap();
 
 		let block = self.api.blocks().at_latest().await?;
 		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
