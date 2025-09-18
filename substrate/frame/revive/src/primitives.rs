@@ -357,3 +357,12 @@ pub enum BumpNonce {
 	/// Increment the nonce after contract instantiation
 	Yes,
 }
+
+/// Indicates whether the code was removed after the last refcount was decremented.
+#[must_use = "You must handle whether the code was removed or not."]
+pub enum CodeRemoved {
+	/// The code was not removed. (refcount > 0)
+	No,
+	/// The code was removed. (refcount == 0)
+	Yes,
+}

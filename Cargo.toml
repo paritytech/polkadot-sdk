@@ -885,7 +885,7 @@ k256 = { version = "0.13.4", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
 kvdb-memorydb = { version = "0.13.0" }
-kvdb-rocksdb = { version = "0.19.0" }
+kvdb-rocksdb = { version = "0.20.0" }
 kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
 libc = { version = "0.2.155" }
@@ -1292,8 +1292,6 @@ simple-mermaid = { version = "0.1.1" }
 slot-range-helper = { path = "polkadot/runtime/common/slot_range_helper", default-features = false }
 slotmap = { version = "1.0" }
 smallvec = { version = "1.11.0", default-features = false }
-smoldot = { version = "0.11.0", default-features = false }
-smoldot-light = { version = "0.9.0", default-features = false }
 snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", default-features = false }
 snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false }
 snowbridge-ethereum = { path = "bridges/snowbridge/primitives/ethereum", default-features = false }
@@ -1401,9 +1399,9 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.41", default-features = false }
-subxt-metadata = { version = "0.41", default-features = false }
-subxt-signer = { version = "0.41" }
+subxt = { version = "0.43", default-features = false }
+subxt-metadata = { version = "0.43", default-features = false }
+subxt-signer = { version = "0.43" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1418,8 +1416,10 @@ testnet-parachains-constants = { path = "cumulus/parachains/runtimes/constants",
 thiserror = { version = "1.0.64" }
 thousands = { version = "0.2.0" }
 threadpool = { version = "1.7" }
-tikv-jemalloc-ctl = { version = "0.5.0" }
-tikv-jemallocator = { version = "0.5.0" }
+tikv-jemalloc-ctl = { version = "0.6.0", features = [
+	"stats",
+] }
+tikv-jemallocator = { version = "0.6.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
 tokio = { version = "1.45.0", default-features = false }
@@ -1475,9 +1475,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.3.8" }
-zombienet-orchestrator = { version = "0.3.8" }
-zombienet-sdk = { version = "0.3.8" }
+zombienet-configuration = { version = "0.3.13" }
+zombienet-orchestrator = { version = "0.3.13" }
+zombienet-sdk = { version = "0.3.13" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
