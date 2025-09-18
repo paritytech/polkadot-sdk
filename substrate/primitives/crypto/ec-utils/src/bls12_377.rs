@@ -17,7 +17,7 @@
 
 //! *BLS12-377* types and host functions.
 
-use crate::{utils, utils::*};
+use crate::utils;
 use alloc::vec::Vec;
 use ark_bls12_377_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
@@ -83,19 +83,16 @@ impl CurveHooks for HostHooks {
 		g1: impl Iterator<Item = <Bls12_377 as Pairing>::G1Prepared>,
 		g2: impl Iterator<Item = <Bls12_377 as Pairing>::G2Prepared>,
 	) -> <Bls12_377 as Pairing>::TargetField {
-		host_calls::bls12_377_multi_miller_loop(
-			encode(g1.collect::<Vec<_>>()),
-			encode(g2.collect::<Vec<_>>()),
-		)
-		.and_then(|res| decode(res))
-		.unwrap_or_default()
+		host_calls::bls12_377_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
+			.and_then(|res| utils::decode(res))
+			.unwrap_or_default()
 	}
 
 	fn final_exponentiation(
 		target: <Bls12_377 as Pairing>::TargetField,
 	) -> <Bls12_377 as Pairing>::TargetField {
-		host_calls::bls12_377_final_exponentiation(encode(target))
-			.and_then(|res| decode(res))
+		host_calls::bls12_377_final_exponentiation(utils::encode(target))
+			.and_then(|res| utils::decode(res))
 			.unwrap_or_default()
 	}
 
@@ -103,8 +100,8 @@ impl CurveHooks for HostHooks {
 		bases: &[G1Affine],
 		scalars: &[<G1Config as CurveConfig>::ScalarField],
 	) -> G1Projective {
-		host_calls::bls12_377_msm_g1(encode(bases), encode(scalars))
-			.and_then(|res| decode_proj_sw(res))
+		host_calls::bls12_377_msm_g1(utils::encode(bases), utils::encode(scalars))
+			.and_then(|res| utils::decode_proj_sw(res))
 			.unwrap_or_default()
 	}
 
@@ -112,20 +109,20 @@ impl CurveHooks for HostHooks {
 		bases: &[G2Affine],
 		scalars: &[<G2Config as CurveConfig>::ScalarField],
 	) -> G2Projective {
-		host_calls::bls12_377_msm_g2(encode(bases), encode(scalars))
-			.and_then(|res| decode_proj_sw(res))
+		host_calls::bls12_377_msm_g2(utils::encode(bases), utils::encode(scalars))
+			.and_then(|res| utils::decode_proj_sw(res))
 			.unwrap_or_default()
 	}
 
 	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
-		host_calls::bls12_377_mul_projective_g1(encode_proj_sw(base), encode(scalar))
-			.and_then(|res| decode_proj_sw(res))
+		host_calls::bls12_377_mul_projective_g1(utils::encode_proj_sw(base), utils::encode(scalar))
+			.and_then(|res| utils::decode_proj_sw(res))
 			.unwrap_or_default()
 	}
 
 	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
-		host_calls::bls12_377_mul_projective_g2(encode_proj_sw(base), encode(scalar))
-			.and_then(|res| decode_proj_sw(res))
+		host_calls::bls12_377_mul_projective_g2(utils::encode_proj_sw(base), utils::encode(scalar))
+			.and_then(|res| utils::decode_proj_sw(res))
 			.unwrap_or_default()
 	}
 }

@@ -73,9 +73,7 @@ impl CurveHooks for HostHooks {
 		g1: impl Iterator<Item = <Bls12_381 as Pairing>::G1Prepared>,
 		g2: impl Iterator<Item = <Bls12_381 as Pairing>::G2Prepared>,
 	) -> <Bls12_381 as Pairing>::TargetField {
-		let g1 = utils::encode(g1.collect::<Vec<_>>());
-		let g2 = utils::encode(g2.collect::<Vec<_>>());
-		host_calls::bls12_381_multi_miller_loop(g1, g2)
+		host_calls::bls12_381_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
 			.and_then(|res| utils::decode(res))
 			.unwrap_or_default()
 	}
@@ -101,24 +99,21 @@ impl CurveHooks for HostHooks {
 		bases: &[G2Affine],
 		scalars: &[<G2Config as CurveConfig>::ScalarField],
 	) -> G2Projective {
-		let bases = utils::encode(bases);
-		let scalars = utils::encode(scalars);
-		let res = host_calls::bls12_381_msm_g2(bases, scalars).unwrap_or_default();
-		utils::decode_proj_sw(res).unwrap_or_default()
+		host_calls::bls12_381_msm_g2(utils::encode(bases), utils::encode(scalars))
+			.and_then(|res| utils::decode_proj_sw(res))
+			.unwrap_or_default()
 	}
 
 	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
-		let base = utils::encode_proj_sw(base);
-		let scalar = utils::encode(scalar);
-		let res = host_calls::bls12_381_mul_projective_g1(base, scalar).unwrap_or_default();
-		utils::decode_proj_sw(res).unwrap_or_default()
+		host_calls::bls12_381_mul_projective_g1(utils::encode_proj_sw(base), utils::encode(scalar))
+			.and_then(|res| utils::decode_proj_sw(res))
+			.unwrap_or_default()
 	}
 
 	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
-		let base = utils::encode_proj_sw(base);
-		let scalar = utils::encode(scalar);
-		let res = host_calls::bls12_381_mul_projective_g2(base, scalar).unwrap_or_default();
-		utils::decode_proj_sw(res).unwrap_or_default()
+		host_calls::bls12_381_mul_projective_g2(utils::encode_proj_sw(base), utils::encode(scalar))
+			.and_then(|res| utils::decode_proj_sw(res))
+			.unwrap_or_default()
 	}
 }
 
