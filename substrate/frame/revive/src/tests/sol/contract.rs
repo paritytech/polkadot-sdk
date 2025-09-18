@@ -418,7 +418,7 @@ fn create2_works() {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		let salt = [42u8; 32];
+		let salt = U256::from(42).to_be_bytes();
 
 		let initcode = Bytes::from(callee_code);
 		// Prepare the CREATE2 call
