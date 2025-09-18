@@ -17,25 +17,22 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
-use crate::parachain_inherent::BasicParachainInherentData;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{Hash as RHash, UMPSignal, UMP_SEPARATOR},
+	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
 	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
 };
-use polkadot_parachain_primitives::primitives::{
-	HeadData, RelayChainBlockNumber, ValidationResult,
-};
+use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
-	Block as BlockT, ExtrinsicCall, ExtrinsicLike, Hash as HashT, HashingFor, Header as HeaderT,
+	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT,
 };
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
@@ -69,21 +66,12 @@ environmental::environmental!(recorder: trait ProofSizeProvider);
 /// we have the in-memory database that contains all the values from the state of the parachain
 /// that we require to verify the block.
 ///
-/// 5. We are going to run `check_inherents`. This is important to check stuff like the timestamp
-/// matching the real world time.
-///
-/// 6. The last step is to execute the entire block in the machinery we just have setup. Executing
+/// 5. The last step is to execute the entire block in the machinery we just have setup. Executing
 /// the blocks include running all transactions in the block against our in-memory database and
 /// ensuring that the final storage root matches the storage root in the header of the block. In the
 /// end we return back the [`ValidationResult`] with all the required information for the validator.
 #[doc(hidden)]
-#[allow(deprecated)]
-pub fn validate_block<
-	B: BlockT,
-	E: ExecuteBlock<B>,
-	PSC: crate::Config,
-	CI: crate::CheckInherents<B>,
->(
+pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	MemoryOptimizedValidationParams {
 		block_data,
 		parent_head: parachain_head,
@@ -205,49 +193,13 @@ where
 		let mut overlay = OverlayedChanges::default();
 
 		parent_header = block.header().clone();
-		let inherent_data = extract_parachain_inherent_data(&block);
-
-		validate_validation_data(
-			&inherent_data.validation_data,
-			relay_parent_number,
-			relay_parent_storage_root,
-			&parachain_head,
-		);
-
-		// We don't need the recorder or the overlay in here.
-		run_with_externalities_and_recorder::<B, _, _>(
-			&backend,
-			&mut Default::default(),
-			&mut Default::default(),
-			|| {
-				let relay_chain_proof = crate::RelayChainStateProof::new(
-					PSC::SelfParaId::get(),
-					inherent_data.validation_data.relay_parent_storage_root,
-					inherent_data.relay_chain_state.clone(),
-				)
-				.expect("Invalid relay chain state proof");
-
-				#[allow(deprecated)]
-				let res = CI::check_inherents(&block, &relay_chain_proof);
-
-				if !res.ok() {
-					if log::log_enabled!(log::Level::Error) {
-						res.into_errors().for_each(|e| {
-							log::error!("Checking inherent with identifier `{:?}` failed", e.0)
-						});
-					}
-
-					panic!("Checking inherents failed");
-				}
-			},
-		);
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&execute_backend,
 			// Here is the only place where we want to use the recorder.
-			// We want to ensure that we not accidentally read something from the proof, that was
-			// not yet read and thus, alter the proof size. Otherwise we end up with mismatches in
-			// later blocks.
+			// We want to ensure that we not accidentally read something from the proof, that
+			// was not yet read and thus, alter the proof size. Otherwise, we end up with
+			// mismatches in later blocks.
 			&mut execute_recorder,
 			&mut overlay,
 			|| {
@@ -262,6 +214,15 @@ where
 			// are passing here the overlay.
 			&mut overlay,
 			|| {
+				// Ensure the validation data is correct.
+				validate_validation_data(
+					crate::ValidationData::<PSC>::get()
+						.expect("`ValidationData` must be set after executing a block; qed"),
+					&parachain_head,
+					relay_parent_number,
+					relay_parent_storage_root,
+				);
+
 				new_validation_code =
 					new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
 
@@ -382,35 +343,14 @@ where
 	}
 }
 
-/// Extract the [`BasicParachainInherentData`].
-fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
-	block: &B,
-) -> &BasicParachainInherentData
-where
-	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
-{
-	block
-		.extrinsics()
-		.iter()
-		// Inherents are at the front of the block and are unsigned.
-		.take_while(|e| e.is_bare())
-		.filter_map(|e| e.call().is_sub_type())
-		.find_map(|c| match c {
-			crate::Call::set_validation_data { data: validation_data, .. } => Some(validation_data),
-			_ => None,
-		})
-		.expect("Could not find `set_validation_data` inherent")
-}
-
-/// Validate the given [`PersistedValidationData`] against the [`MemoryOptimizedValidationParams`].
+/// Validates the given [`PersistedValidationData`] against the data from the relay chain.
 fn validate_validation_data(
-	validation_data: &PersistedValidationData,
-	relay_parent_number: RelayChainBlockNumber,
+	validation_data: PersistedValidationData,
+	parent_header: &[u8],
+	relay_parent_number: RNumber,
 	relay_parent_storage_root: RHash,
-	parent_head: &[u8],
 ) {
-	assert_eq!(parent_head, validation_data.parent_head.0, "Parent head doesn't match");
+	assert_eq!(parent_header, &validation_data.parent_head.0, "Parent head doesn't match");
 	assert_eq!(
 		relay_parent_number, validation_data.relay_parent_number,
 		"Relay parent number doesn't match",
