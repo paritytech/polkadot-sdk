@@ -13,7 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
+    if: false
     uses: ./.github/workflows/reusable-preflight.yml
 
   # No filter for 'all_security_features_work' and 'nonexistent_cache_dir'
