@@ -229,6 +229,11 @@ fn holds_and_freezes() {
 			assert_ok!(<Balances as MutateHold<_>>::hold(&TestId::Foo, &who, 35));
 			assert_eq!(b(who), (65, 35, 0));
 
+			// Can hold or reserve up to 64 more (leaving 1 for ED)
+			let expected = 64;
+			ensure_max_reserve(who, expected);
+			ensure_max_hold(who, expected);
+
 			// Freeze 90 tokens
 			assert_ok!(<Balances as MutateFreeze<_>>::set_freeze(&TestId::Foo, &who, 90));
 			assert_eq!(b(who), (65, 35, 90));
@@ -257,6 +262,11 @@ fn locks_reserves_and_holds() {
 			// Reserve 20 tokens
 			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&who, 20));
 			assert_eq!(b(who), (80, 20, 60));
+
+			// Can hold or reserve up to 79 more (leaving 1 for ED)
+			let expected = 79;
+			ensure_max_reserve(who, expected);
+			ensure_max_hold(who, expected);
 
 			// Hold 15 tokens (accumulates with reserve)
 			assert_ok!(<Balances as MutateHold<_>>::hold(&TestId::Foo, &who, 15));
@@ -335,9 +345,19 @@ fn reserves_holds_and_freezes() {
 			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&who, 20));
 			assert_eq!(b(who), (80, 20, 0));
 
+			// Can hold or reserve up to 79 more (leaving 1 for ED)
+			let expected = 79;
+			ensure_max_reserve(who, expected);
+			ensure_max_hold(who, expected);
+
 			// Hold 25 tokens (accumulates with reserve)
 			assert_ok!(<Balances as MutateHold<_>>::hold(&TestId::Foo, &who, 25));
 			assert_eq!(b(who), (55, 45, 0)); // reserved = 20 + 25 = 45
+
+			// Can hold or reserve up to 54 more (leaving 1 for ED)
+			let expected = 54;
+			ensure_max_reserve(who, expected);
+			ensure_max_hold(who, expected);
 
 			// Freeze 90 tokens
 			assert_ok!(<Balances as MutateFreeze<_>>::set_freeze(&TestId::Foo, &who, 90));
@@ -364,13 +384,28 @@ fn locks_reserves_holds_and_freezes() {
 			<Balances as LockableCurrency<_>>::set_lock(ID, &who, 40, WithdrawReasons::all());
 			assert_eq!(b(who), (100, 0, 40));
 
+			// Can hold or reserve up to 99 more (leaving 1 for ED)
+			let expected = 99;
+			ensure_max_reserve(who, expected);
+			ensure_max_hold(who, expected);
+
 			// Reserve 20 tokens
 			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&who, 20));
 			assert_eq!(b(who), (80, 20, 40));
 
+			// Can hold or reserve up to 79 more (leaving 1 for ED)
+			let expected = 79;
+			ensure_max_reserve(who, expected);
+			ensure_max_hold(who, expected);
+
 			// Hold 15 tokens (accumulates with reserve)
 			assert_ok!(<Balances as MutateHold<_>>::hold(&TestId::Foo, &who, 15));
 			assert_eq!(b(who), (65, 35, 40)); // reserved = 20 + 15 = 35
+
+			// Can hold or reserve up to 64 more (leaving 1 for ED)
+			let expected = 64;
+			ensure_max_reserve(who, expected);
+			ensure_max_hold(who, expected);
 
 			// Freeze 85 tokens (max of lock 40 and freeze 85)
 			assert_ok!(<Balances as MutateFreeze<_>>::set_freeze(&TestId::Foo, &who, 85));
