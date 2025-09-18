@@ -16,7 +16,7 @@ use zombienet_sdk::{
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
-const GROUP_SIZE: usize = 6;
+const GROUP_SIZE: u32 = 6;
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
 const MESSAGE_COUNT: usize = 2;
 
@@ -27,9 +27,9 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	);
 
 	let network = spawn_network().await?;
-	let mut rpcs = Vec::with_capacity(GROUP_SIZE);
+	let mut rpcs = Vec::with_capacity(GROUP_SIZE as usize);
 
-	for _ in 0..GROUP_SIZE {
+	for _ in 0..GROUP_SIZE as usize {
 		let rpc = get_rpc(&network, "charlie").await?;
 		rpcs.push(rpc);
 	}
@@ -45,7 +45,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	.into_iter()
 	.enumerate()
 	.zip(rpcs)
-	.map(|((idx, keyring), rpc)| Participant::new(keyring, idx, rpc))
+	.map(|((idx, keyring), rpc)| Participant::new(keyring, idx as u32, rpc))
 	.collect();
 
 	println!("=== Session keys exchange ===");
@@ -70,6 +70,18 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	// Receive symmetric keys from other participants
 	for participant in &mut participants {
 		participant.receive_symmetric_keys().await?;
+	}
+
+	println!("=== Symmetric key acknowledgments ===");
+
+	// Send acknowledgments for received symmetric keys
+	for participant in &mut participants {
+		participant.send_symmetric_key_acknowledgments().await?;
+	}
+
+	// Receive acknowledgments from others
+	for participant in &mut participants {
+		participant.receive_symmetric_key_acknowledgments().await?;
 	}
 
 	for i in 0..MESSAGE_COUNT {
@@ -101,7 +113,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	for participant in &participants {
 		assert_eq!(
 			participant.received_responses.values().map(|set| set.len()).sum::<usize>(),
-			(GROUP_SIZE - 1) * MESSAGE_COUNT
+			(GROUP_SIZE as usize - 1) * MESSAGE_COUNT
 		)
 	}
 
@@ -175,27 +187,34 @@ struct StatementResponse {
 	response_code: u8,
 }
 
+#[derive(Encode, Decode, Clone)]
+enum StatementAcknowledge {
+	SymmetricKeyReceived { sender_idx: u32 },
+}
+
 struct Participant {
 	keyring: Sr25519Keyring,
 	session_key: sr25519::Pair,
-	idx: usize,
-	group_members: Vec<usize>,
-	session_keys: HashMap<usize, sr25519::Public>,
-	symmetric_keys: HashMap<usize, sr25519::Public>,
+	idx: u32,
+	group_members: Vec<u32>,
+	session_keys: HashMap<u32, sr25519::Public>,
+	symmetric_keys: HashMap<u32, sr25519::Public>,
+	symmetric_key_acks: HashMap<u32, bool>,
+	pending_symmetric_key_acks: HashMap<u32, bool>,
 	request_counter: u64,
-	pending_responses: HashMap<usize, Option<u64>>,
-	processed_requests: HashMap<usize, HashSet<u64>>,
-	received_responses: HashMap<usize, HashSet<u64>>,
+	pending_responses: HashMap<u32, Option<u64>>,
+	processed_requests: HashMap<u32, HashSet<u64>>,
+	received_responses: HashMap<u32, HashSet<u64>>,
 	rpc: RpcClient,
 }
 
 impl Participant {
-	fn new(keyring: Sr25519Keyring, idx: usize, rpc: RpcClient) -> Self {
+	fn new(keyring: Sr25519Keyring, idx: u32, rpc: RpcClient) -> Self {
 		let (session_key, _) = sr25519::Pair::generate();
 
 		let group_start = (idx / GROUP_SIZE) * GROUP_SIZE;
 		let group_end = group_start + GROUP_SIZE;
-		let group_members: Vec<usize> = (group_start..group_end).filter(|&i| i != idx).collect();
+		let group_members: Vec<u32> = (group_start..group_end).filter(|&i| i != idx).collect();
 
 		let mut symmetric_keys = HashMap::new();
 		for &other_idx in &group_members {
@@ -212,6 +231,8 @@ impl Participant {
 			group_members,
 			session_keys: HashMap::new(),
 			symmetric_keys,
+			symmetric_key_acks: HashMap::new(),
+			pending_symmetric_key_acks: HashMap::new(),
 			request_counter: 0,
 			pending_responses: HashMap::new(),
 			processed_requests: HashMap::new(),
@@ -242,10 +263,11 @@ impl Participant {
 		Ok(())
 	}
 
-	async fn send_symmetric_keys(&self) -> Result<(), anyhow::Error> {
+	async fn send_symmetric_keys(&mut self) -> Result<(), anyhow::Error> {
 		for &receiver_idx in &self.group_members {
 			let Some(statement) = self.symmetric_key_statement(receiver_idx) else { continue };
 			self.statement_submit(statement).await?;
+			self.symmetric_key_acks.insert(receiver_idx, false);
 		}
 
 		Ok(())
@@ -255,18 +277,87 @@ impl Participant {
 		for (&sender_idx, sender_session_key) in self.session_keys.iter() {
 			// Check for symmetric keys from each group member with lower idx
 			if sender_idx < self.idx {
-				let topic1 = topic_for_pair(sender_session_key, &self.session_key.public());
+				let topic1 = topic_pair(sender_session_key, &self.session_key.public());
 				let topics = vec![topic1];
 				let statements = self.statement_broadcasts_statement(topics).await?;
 				for statement in &statements {
 					let data = statement.data().expect("Must contain symmetric key");
 					self.symmetric_keys
 						.insert(sender_idx, sr25519::Public::from_raw(data.as_slice().try_into()?));
+					self.pending_symmetric_key_acks.insert(sender_idx, false);
 				}
 			}
 		}
 
 		assert_eq!(self.symmetric_keys.len(), self.group_members.len());
+
+		Ok(())
+	}
+
+	async fn send_symmetric_key_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
+		let pending_acks: Vec<u32> = self
+			.pending_symmetric_key_acks
+			.iter()
+			.filter(|(_, &sent)| !sent)
+			.map(|(&idx, _)| idx)
+			.collect();
+
+		for sender_idx in pending_acks {
+			let ack = StatementAcknowledge::SymmetricKeyReceived { sender_idx: self.idx };
+			let ack_data = ack.encode();
+
+			if let Some(sender_session_key) = self.session_keys.get(&sender_idx) {
+				let mut statement = Statement::new();
+
+				let topic0 = topic_ack();
+				let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
+				let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
+
+				statement.set_topic(0, topic0);
+				statement.set_topic(1, topic1);
+				statement.set_channel(channel);
+				statement.set_plain_data(ack_data);
+				statement.sign_sr25519_private(&self.keyring.pair());
+
+				self.statement_submit(statement).await?;
+				self.pending_symmetric_key_acks.insert(sender_idx, true);
+			}
+		}
+
+		Ok(())
+	}
+
+	async fn receive_symmetric_key_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
+		let pending_acks: Vec<u32> = self
+			.symmetric_key_acks
+			.iter()
+			.filter(|(_, &received)| !received)
+			.map(|(&idx, _)| idx)
+			.collect();
+
+		for receiver_idx in pending_acks {
+			if let Some(receiver_session_key) = self.session_keys.get(&receiver_idx) {
+				let topic0 = topic_ack();
+				let topic1 = topic_pair(receiver_session_key, &self.session_key.public());
+				let topics = vec![topic0, topic1];
+
+				let statements = self.statement_broadcasts_statement(topics).await?;
+				for statement in &statements {
+					let data = statement.data().expect("Must contain acknowledgment");
+					let ack = StatementAcknowledge::decode(&mut &data[..])?;
+
+					match ack {
+						StatementAcknowledge::SymmetricKeyReceived {
+							sender_idx: ack_sender_idx,
+						} =>
+							if ack_sender_idx == receiver_idx {
+								// Mark acknowledgment as received
+								self.symmetric_key_acks.insert(receiver_idx, true);
+							},
+					}
+				}
+			}
+		}
 
 		Ok(())
 	}
@@ -305,17 +396,17 @@ impl Participant {
 		statement
 	}
 
-	fn has_processed_request(&self, sender_idx: usize, request_id: u64) -> bool {
+	fn has_processed_request(&self, sender_idx: u32, request_id: u64) -> bool {
 		self.processed_requests
 			.get(&sender_idx)
 			.map_or(false, |reqs| reqs.contains(&request_id))
 	}
 
-	fn has_pending_response(&self, sender_idx: usize) -> bool {
+	fn has_pending_response(&self, sender_idx: u32) -> bool {
 		self.pending_responses.get(&sender_idx).map_or(false, |res| res.is_some())
 	}
 
-	fn symmetric_key_statement(&self, receiver_idx: usize) -> Option<Statement> {
+	fn symmetric_key_statement(&self, receiver_idx: u32) -> Option<Statement> {
 		let (Some(symmetric_key), Some(receiver_session_key)) =
 			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
 		else {
@@ -324,8 +415,8 @@ impl Participant {
 
 		let mut statement = Statement::new();
 
-		let topic = topic_for_pair(&self.session_key.public(), receiver_session_key);
-		let channel = channel_for_pair(&self.session_key.public(), receiver_session_key, 0);
+		let topic = topic_pair(&self.session_key.public(), receiver_session_key);
+		let channel = channel_pair(&self.session_key.public(), receiver_session_key, 0);
 
 		statement.set_channel(channel);
 		statement.set_topic(0, topic);
@@ -335,7 +426,7 @@ impl Participant {
 		Some(statement)
 	}
 
-	fn create_request_statement(&mut self, receiver_idx: usize) -> Option<Statement> {
+	fn create_request_statement(&mut self, receiver_idx: u32) -> Option<Statement> {
 		let (Some(_symmetric_key), Some(receiver_session_key)) =
 			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
 		else {
@@ -356,9 +447,8 @@ impl Participant {
 		let mut statement = Statement::new();
 
 		let topic0 = blake2_256(b"request");
-		let topic1 = topic_for_pair(&self.session_key.public(), receiver_session_key);
-		let channel =
-			channel_for_request(&self.session_key.public(), receiver_session_key, request_id);
+		let topic1 = topic_pair(&self.session_key.public(), receiver_session_key);
+		let channel = channel_request(&self.session_key.public(), receiver_session_key, request_id);
 
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
@@ -377,7 +467,7 @@ impl Participant {
 	fn create_response_statement(
 		&mut self,
 		request_id: u64,
-		receiver_idx: usize,
+		receiver_idx: u32,
 	) -> Option<Statement> {
 		let (Some(_symmetric_key), Some(receiver_session_key)) =
 			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
@@ -391,9 +481,9 @@ impl Participant {
 		let mut statement = Statement::new();
 
 		let topic0 = blake2_256(b"response");
-		let topic1 = topic_for_pair(&self.session_key.public(), receiver_session_key);
+		let topic1 = topic_pair(&self.session_key.public(), receiver_session_key);
 		let channel =
-			channel_for_response(&self.session_key.public(), receiver_session_key, request_id);
+			channel_response(&self.session_key.public(), receiver_session_key, request_id);
 
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
@@ -423,7 +513,7 @@ impl Participant {
 		let senders = self.session_keys.clone();
 		for (&sender_idx, sender_key) in &senders {
 			let topic0 = blake2_256(b"request");
-			let topic1 = topic_for_pair(&sender_key, &self.session_key.public());
+			let topic1 = topic_pair(&sender_key, &self.session_key.public());
 			let topics = vec![topic0, topic1];
 
 			let statements = self.statement_broadcasts_statement(topics).await?;
@@ -460,7 +550,7 @@ impl Participant {
 		let senders = self.session_keys.clone();
 		for (&sender_idx, sender_key) in &senders {
 			let topic0 = blake2_256(b"response");
-			let topic1 = topic_for_pair(&sender_key, &self.session_key.public());
+			let topic1 = topic_pair(&sender_key, &self.session_key.public());
 			let topics = vec![topic0, topic1];
 
 			let statements = self.statement_broadcasts_statement(topics).await?;
@@ -488,23 +578,27 @@ fn topic_public_key() -> Topic {
 	topic
 }
 
-fn topic_idx(idx: usize) -> Topic {
+fn topic_ack() -> Topic {
+	blake2_256(b"ack")
+}
+
+fn topic_idx(idx: u32) -> Topic {
 	let mut topic = [0u8; 32];
-	topic[..8].copy_from_slice(&idx.to_le_bytes());
+	topic[..4].copy_from_slice(&idx.to_le_bytes());
 	topic
 }
 
-fn topic_for_pair(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
+fn topic_pair(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(sender.as_ref());
 	data.extend_from_slice(receiver.as_ref());
 	blake2_256(&data)
 }
 
-fn channel_for_pair(
+fn channel_pair(
 	sender: &sr25519::Public,
 	receiver: &sr25519::Public,
-	message_counter: usize,
+	message_counter: u32,
 ) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(sender.as_ref());
@@ -513,11 +607,7 @@ fn channel_for_pair(
 	blake2_256(&data)
 }
 
-fn channel_for_request(
-	sender: &sr25519::Public,
-	receiver: &sr25519::Public,
-	counter: u64,
-) -> Topic {
+fn channel_request(sender: &sr25519::Public, receiver: &sr25519::Public, counter: u64) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(b"request");
 	data.extend_from_slice(sender.as_ref());
@@ -526,11 +616,7 @@ fn channel_for_request(
 	blake2_256(&data)
 }
 
-fn channel_for_response(
-	sender: &sr25519::Public,
-	receiver: &sr25519::Public,
-	counter: u64,
-) -> Topic {
+fn channel_response(sender: &sr25519::Public, receiver: &sr25519::Public, counter: u64) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(b"response");
 	data.extend_from_slice(sender.as_ref());
