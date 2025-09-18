@@ -15,9 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::i256::{i256_div, i256_mod};
+use super::{
+	i256::{i256_div, i256_mod},
+	modular::Modular,
+};
 use crate::{
-	vm::{evm::Interpreter, Ext},
+	vm::{
+		evm::{interpreter::HaltReason, Interpreter},
+		Ext,
+	},
 	U256,
 };
 use revm::interpreter::gas::{EXP, LOW, MID, VERYLOW};
@@ -109,75 +115,89 @@ pub fn mulmod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchR
 }
 
 /// Implements the EXP instruction - exponentiates two values from stack.
-// pub fn exp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
-// 	let ([op1], op2) = interpreter.stack.popn_top()?;
-// 	// Calculate gas cost based on exponent size - use approximate cost calculation
-// 	// since we don't have access to SpecId here
-// 	interpreter
-// 		.ext
-// 		.gas_meter_mut()
-// 		.charge_evm_gas(revm_gas::exp_cost(spec_id, *op2))?;
-// 	*op2 = op1.pow(*op2);
-// 	Ok(())
-// }
-// /// Implements the `SIGNEXTEND` opcode as defined in the Ethereum Yellow Paper.
-// ///
-// /// In the yellow paper `SIGNEXTEND` is defined to take two inputs, we will call them
-// /// `x` and `y`, and produce one output.
-// ///
-// /// The first `t` bits of the output (numbering from the left, starting from 0) are
-// /// equal to the `t`-th bit of `y`, where `t` is equal to `256 - 8(x + 1)`.
-// ///
-// /// The remaining bits of the output are equal to the corresponding bits of `y`.
-// ///
-// /// **Note**: If `x >= 32` then the output is equal to `y` since `t <= 0`.
-// ///
-// /// To efficiently implement this algorithm in the case `x < 32` we do the following.
-// ///
-// /// Let `b` be equal to the `t`-th bit of `y` and let `s = 255 - t = 8x + 7`
-// /// (this is effectively the same index as `t`, but numbering the bits from the
-// /// right instead of the left).
-// ///
-// /// We can create a bit mask which is all zeros up to and including the `t`-th bit,
-// /// and all ones afterwards by computing the quantity `2^s - 1`.
-// ///
-// /// We can use this mask to compute the output depending on the value of `b`.
-// ///
-// /// If `b == 1` then the yellow paper says the output should be all ones up to
-// /// and including the `t`-th bit, followed by the remaining bits of `y`; this is equal to
-// /// `y | !mask` where `|` is the bitwise `OR` and `!` is bitwise negation.
-// ///
-// /// Similarly, if `b == 0` then the yellow paper says the output should start with all zeros,
-// /// then end with bits from `b`; this is equal to `y & mask` where `&` is bitwise `AND`.
-// pub fn signextend<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
-// 	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
-// 	let ([ext], x) = interpreter.stack.popn_top()?;
-// 	// For 31 we also don't need to do anything.
-// 	if ext < U256::from(31) {
-// 		let ext_low = ext.low_u64() as usize;
-// 		if ext_low < 32 {
-// 			let bit_index = 8 * ext_low + 7;
-// 			if bit_index < 256 {
-// 				let bit = x.bit(bit_index);
-// 				let mask = (U256::from(1) << bit_index) - U256::from(1);
-// 				*x = if bit { *x | !mask } else { *x & mask };
-// 			}
-// 		}
-// 	}
-// 	Ok(())
-// }
+pub fn exp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+	let ([op1], op2) = interpreter.stack.popn_top()?;
+	let gas_cost = exp_cost(*op2).ok_or_else(|| crate::Error::<E::T>::OutOfGas)?;
+	interpreter.ext.gas_meter_mut().charge_evm_gas(gas_cost)?;
+	*op2 = op1.pow(*op2);
+	Ok(())
+}
+
+/// Implements the `SIGNEXTEND` opcode as defined in the Ethereum Yellow Paper.
+///
+/// In the yellow paper `SIGNEXTEND` is defined to take two inputs, we will call them
+/// `x` and `y`, and produce one output.
+///
+/// The first `t` bits of the output (numbering from the left, starting from 0) are
+/// equal to the `t`-th bit of `y`, where `t` is equal to `256 - 8(x + 1)`.
+///
+/// The remaining bits of the output are equal to the corresponding bits of `y`.
+///
+/// **Note**: If `x >= 32` then the output is equal to `y` since `t <= 0`.
+///
+/// To efficiently implement this algorithm in the case `x < 32` we do the following.
+///
+/// Let `b` be equal to the `t`-th bit of `y` and let `s = 255 - t = 8x + 7`
+/// (this is effectively the same index as `t`, but numbering the bits from the
+/// right instead of the left).
+///
+/// We can create a bit mask which is all zeros up to and including the `t`-th bit,
+/// and all ones afterwards by computing the quantity `2^s - 1`.
+///
+/// We can use this mask to compute the output depending on the value of `b`.
+///
+/// If `b == 1` then the yellow paper says the output should be all ones up to
+/// and including the `t`-th bit, followed by the remaining bits of `y`; this is equal to
+/// `y | !mask` where `|` is the bitwise `OR` and `!` is bitwise negation.
+///
+/// Similarly, if `b == 0` then the yellow paper says the output should start with all zeros,
+/// then end with bits from `b`; this is equal to `y & mask` where `&` is bitwise `AND`.
+pub fn signextend<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
+	let ([ext], x) = interpreter.stack.popn_top()?;
+	// For 31 we also don't need to do anything.
+	if ext < U256::from(31) {
+		let ext = &ext.0[0];
+		let bit_index = (8 * ext + 7) as usize;
+		let bit = x.bit(bit_index);
+		let mask = (U256::from(1) << bit_index) - U256::from(1);
+		*x = if bit { *x | !mask } else { *x & mask };
+	}
+	Ok(())
+}
 
 /// `EXP` opcode cost calculation.
-#[inline]
-pub fn exp_cost(power: U256) -> Option<u64> {
+fn exp_cost(power: U256) -> Option<u64> {
 	if power.is_zero() {
 		Some(EXP)
 	} else {
 		// EIP-160: EXP cost increase
-		let gas_byte = 50;
+		let gas_byte = U256::from(50);
 		let gas = U256::from(EXP)
 			.checked_add(gas_byte.checked_mul(U256::from(log2floor(power) / 8 + 1))?)?;
 
 		u64::try_from(gas).ok()
 	}
+}
+
+const fn log2floor(value: U256) -> u64 {
+	let mut l: u64 = 256;
+	let mut i = 3;
+	loop {
+		if value.0[i] == 0u64 {
+			l -= 64;
+		} else {
+			l -= value.0[i].leading_zeros() as u64;
+			if l == 0 {
+				return l;
+			} else {
+				return l - 1;
+			}
+		}
+		if i == 0 {
+			break;
+		}
+		i -= 1;
+	}
+	l
 }

@@ -19,13 +19,15 @@
 
 use super::interpreter::Interpreter;
 use crate::vm::Ext;
+mod bits;
+mod modular;
 
-// #[macro_use]
-// mod macros;
+#[macro_use]
+mod macros;
 // /// Arithmetic operations (ADD, SUB, MUL, DIV, etc.).
 mod arithmetic;
-// /// Bitwise operations (AND, OR, XOR, NOT, etc.).
-// mod bitwise;
+/// Bitwise operations (AND, OR, XOR, NOT, etc.).
+mod bitwise;
 // /// Block information instructions (COINBASE, TIMESTAMP, etc.).
 // mod block_info;
 // /// Contract operations (CALL, CREATE, DELEGATECALL, etc.).
