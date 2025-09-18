@@ -21,7 +21,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{fungible, Imbalance, OnUnbalanced},
+	traits::{Imbalance, OnUnbalanced, fungible},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use frame_system as system;

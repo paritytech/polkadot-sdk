@@ -51,23 +51,23 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use frame_support::{
+	RuntimeDebugNoBound,
 	dispatch::{
 		DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
 	pallet_prelude::TransactionSource,
-	traits::{Defensive, EstimateCallFee, Get},
+	traits::{Defensive, EstimateCallFee, Get, Imbalance},
 	weights::{Weight, WeightToFee},
-	RuntimeDebugNoBound,
 };
 pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
+	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
 		Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
-	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 pub use weights::WeightInfo;
@@ -87,7 +87,10 @@ pub mod weights;
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
 
+const LOG_TARGET: &str = "runtime::txpayment";
+
 type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+type CreditOf<T> = <<T as Config>::OnChargeTransaction as TxCreditHold<T>>::Credit;
 
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
@@ -411,6 +414,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
+	/// The `OnChargeTransaction` stores the withdrawn tx fee here.
+	///
+	/// Use `withdraw_txfee` and `remaining_txfee` to access from outside the crate.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub(crate) type TxPaymentCredit<T: Config> = StorageValue<_, CreditOf<T>>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub multiplier: Multiplier,
@@ -446,6 +456,7 @@ pub mod pallet {
 			NextFeeMultiplier::<T>::mutate(|fm| {
 				*fm = T::FeeMultiplierUpdate::convert(*fm);
 			});
+			TxPaymentCredit::<T>::kill();
 		}
 
 		#[cfg(feature = "std")]
@@ -682,6 +693,57 @@ impl<T: Config> Pallet<T> {
 	/// Deposit the [`Event::TransactionFeePaid`] event.
 	pub fn deposit_fee_paid_event(who: T::AccountId, actual_fee: BalanceOf<T>, tip: BalanceOf<T>) {
 		Self::deposit_event(Event::TransactionFeePaid { who, actual_fee, tip });
+	}
+
+	/// Withdraw `amount` from the currents transaction's fees.
+	///
+	/// If enough balance is available a credit of size `amount` is returned.
+	///
+	/// # Warning
+	///
+	/// This is only useful if a pallet knows that the pre-dispatch weight was vastly
+	/// overestimated. Drawing too much balance will cause the signer to underpay for the
+	/// transaction. Too much means that not enough is left to pay for the fee with regard
+	/// to the post dispatch weight.
+	pub fn withdraw_txfee<Balance>(amount: Balance) -> Option<CreditOf<T>>
+	where
+		CreditOf<T>: Imbalance<Balance>,
+		Balance: PartialOrd,
+	{
+		<TxPaymentCredit<T>>::mutate(|credit| {
+			let credit = credit.as_mut()?;
+			if amount > credit.peek() {
+				return None
+			}
+			Some(credit.extract(amount))
+		})
+	}
+
+	/// Deposit some additional balance.
+	pub fn deposit_txfee<Balance>(deposit: CreditOf<T>)
+	where
+		CreditOf<T>: Imbalance<Balance>,
+	{
+		<TxPaymentCredit<T>>::mutate(|credit| {
+			if let Some(credit) = credit.as_mut() {
+				credit.subsume(deposit);
+			} else {
+				*credit = Some(deposit)
+			}
+		});
+	}
+
+	/// Return how much balance is currently available to pay for the transaction.
+	///
+	/// Does **not** include the tip.
+	///
+	/// If noone calls `charge_from_txfee` it is the same as the pre dispatch fee.
+	pub fn remaining_txfee<Balance>() -> Balance
+	where
+		CreditOf<T>: Imbalance<Balance>,
+		Balance: Default,
+	{
+		<TxPaymentCredit<T>>::get().map(|c| c.peek()).unwrap_or_default()
 	}
 }
 
