@@ -180,14 +180,13 @@ jobs:
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
             echo "🔍 Checking for pgpkms-rpmsign..."
-            PGPKMS_PATH=$(which pgpkms-rpmsign || true)
-            echo "pgpkms-rpmsign resolved to: ${PGPKMS_PATH}"
+            echo "pgpkms-rpmsign resolved to: ${PGPKMS_RPMSIGN_PATH}"
 
             echo "Signing package with pgpkms (via AWS KMS)..."
             rpmsign \
               -D "_signature gpg" \
               -D "_gpg_name ${PGP_KMS_HASH}" \
-              -D "__gpg $(which pgpkms-rpmsign)" \
+              -D "__gpg ${PGPKMS_RPMSIGN_PATH}" \
               -D "__gpg_sign_cmd %{__gpg} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}" \
               --addsign "$rpmname"
 
