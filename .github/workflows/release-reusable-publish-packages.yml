@@ -177,19 +177,13 @@ jobs:
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
-            echo "Printing rpmmacros (before patching)..."
-            cat ./.github/workflows/rpmmacros
-
-            # Patch macros with runtime values
-            sed -i "s|PGP_KMS_HASH|${PGP_KMS_HASH}|" ./.github/workflows/rpmmacros
-            sed -i "s|PGPKMS_RPMSIGN_PATH|${PGPKMS_RPMSIGN_PATH}|" ./.github/workflows/rpmmacros
-            sed -i "s|PGP_KMS_KEY|${PGP_KMS_KEY}|" ./.github/workflows/rpmmacros
-
-            echo "Printing rpmmacros (after patching)..."
-            cat ./.github/workflows/rpmmacros
-
             echo "Signing package with pgpkms (via AWS KMS)..."
-            rpmsign --macros=./.github/workflows/rpmmacros --addsign "$rpmname"
+            rpmsign \
+              -D "_signature gpg" \
+              -D "_gpg_name ${PGP_KMS_HASH}" \
+              -D "__gpg ${PGPKMS_RPMSIGN_PATH}" \
+              -D "__gpg_sign_cmd %{__gpg} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}" \
+              --addsign "$rpmname"
 
             echo "Copying signed package to local repo..."
             cp "$rpmname" "$LOCAL_REPO_PATH/"
