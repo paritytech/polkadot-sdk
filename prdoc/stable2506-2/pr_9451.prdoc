@@ -1,0 +1,8 @@
+title: 'Call `SingleBlockMigrations` from `frame_system::Config` on `try_on_runtime_upgrade`.'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes a small bug in `try-runtime` code, where `SingleBlockMigrations` from `frame_system::Config` was not called in `try_on_runtime_upgrade`.
+crates:
+- name: frame-executive
+  bump: patch

@@ -96,7 +96,7 @@ where
 			})
 		}
 
-		let outcome = clear_prefix(&P::name_hash(), Some(key_budget), None);
+		let outcome = clear_prefix(P::name_hash(), Some(key_budget), None);
 
 		meter.consume(T::WeightInfo::reset_pallet_migration(outcome.backend));
 

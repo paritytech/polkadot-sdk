@@ -20,6 +20,7 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
+	vm::pvm::extract_code_and_data,
 	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, OnChargeTransactionBalanceOf, Pallet,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
@@ -55,7 +56,7 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// - Not too high, ensuring the gas value is large enough (at least 7 digits) to encode the
 ///   ref_time, proof_size, and deposit into the less significant (6 lower) digits of the gas value.
 /// - Not too low, enabling users to adjust the gas price to define a tip.
-pub(crate) const GAS_PRICE: u64 = 1_000u64;
+pub(crate) const GAS_PRICE: u64 = 1_000_000u64;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
@@ -367,23 +368,22 @@ pub trait EthExtra {
 				.into()
 			}
 		} else {
-			let blob = match polkavm::ProgramBlob::blob_length(&data) {
-				Some(blob_len) =>
-					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
-				_ => None,
-			};
-
-			let Some((code, data)) = blob else {
-				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
-				return Err(InvalidTransaction::Call);
+			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+				let Some((code, data)) = extract_code_and_data(&data) else {
+					log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
+					return Err(InvalidTransaction::Call);
+				};
+				(code, data)
+			} else {
+				(data, Default::default())
 			};
 
 			crate::Call::eth_instantiate_with_code::<Self::Config> {
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				code: code.to_vec(),
-				data: data.to_vec(),
+				code,
+				data,
 			}
 			.into()
 		};
@@ -511,6 +511,7 @@ mod test {
 				Weight::MAX,
 				|eth_call, dispatch_call| {
 					let mut info = dispatch_call.get_dispatch_info();
+
 					info.extension_weight =
 						Extra::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
 					let uxt: Ex =
@@ -678,13 +679,17 @@ mod test {
 
 	#[test]
 	fn check_instantiate_data() {
-		let code = b"invalid code".to_vec();
+		let code: Vec<u8> = polkavm_common::program::BLOB_MAGIC
+			.into_iter()
+			.chain(b"invalid code".iter().cloned())
+			.collect();
 		let data = vec![1];
+
 		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
 		// Fail because the tx input fail to get the blob length
 		assert_eq!(
-			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = vec![1, 2, 3].into())),
+			builder.check(),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		);
 	}
@@ -695,7 +700,7 @@ mod test {
 			(
 				"Eth fees too low",
 				Box::new(|tx| {
-					tx.gas_price = Some(tx.gas_price.unwrap() / 2);
+					tx.gas_price = Some(100u64.into());
 				}),
 				InvalidTransaction::Payment,
 			),
@@ -719,7 +724,8 @@ mod test {
 	#[test]
 	fn check_transaction_tip() {
 		let (code, _) = compile_module("dummy").unwrap();
-		let data = vec![];
+		// create some dummy data to increase the gas fee
+		let data = vec![42u8; crate::limits::CALLDATA_BYTES as usize];
 		let (_, extra, tx) =
 			UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.mutate_estimate_and_check(Box::new(|tx| {
@@ -729,6 +735,7 @@ mod test {
 				.unwrap();
 		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
 		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
+
 		assert_eq!(extra.1.tip(), expected_tip);
 	}
 

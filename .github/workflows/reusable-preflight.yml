@@ -41,6 +41,19 @@ on:
           parity-oldlinux
           By default we use spot machines that can be terminated at any time.
           Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      # New is used only during transition to the new runners
+      RUNNER_NEW:
+        value: ${{ jobs.preflight.outputs.RUNNER_NEW }}
+        description: |
+          Main runner for resource-intensive tasks
+          By default we use spot machines that can be terminated at any time.
+          Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+      RUNNER_OLDLINUX_NEW:
+        value: ${{ jobs.preflight.outputs.RUNNER_OLDLINUX_NEW }}
+        description: |
+          parity-oldlinux
+          By default we use spot machines that can be terminated at any time.
+          Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
       RUNNER_DEFAULT:
         value: ${{ jobs.preflight.outputs.RUNNER_DEFAULT }}
         description: "Relatively lightweight runner. When `ubuntu-latest` is not enough"
@@ -71,7 +84,6 @@ on:
         description: "Sha of the current revision, 8-symbols long"
 
 jobs:
-
   #
   #
   #
@@ -86,7 +98,9 @@ jobs:
       # Runners
       # https://github.com/paritytech/ci_cd/wiki/GitHub#paritytech-self-hosted-runners
       RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
+      RUNNER_NEW: ${{ steps.set_runner.outputs.RUNNER_NEW }}
       RUNNER_OLDLINUX: ${{ steps.set_runner.outputs.RUNNER_OLDLINUX }}
+      RUNNER_OLDLINUX_NEW: ${{ steps.set_runner.outputs.RUNNER_OLDLINUX_NEW }}
       RUNNER_DEFAULT: ${{ steps.set_runner.outputs.RUNNER_DEFAULT }}
       RUNNER_WEIGHTS: ${{ steps.set_runner.outputs.RUNNER_WEIGHTS }}
       RUNNER_BENCHMARK: ${{ steps.set_runner.outputs.RUNNER_BENCHMARK }}
@@ -99,7 +113,6 @@ jobs:
       COMMIT_SHA_SHORT: ${{ steps.set_vars.outputs.COMMIT_SHA_SHORT }}
 
     steps:
-
       - uses: actions/checkout@v4
 
       #
@@ -153,9 +166,13 @@ jobs:
           if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
             echo "RUNNER=parity-large-persistent" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
+            echo "RUNNER_NEW=parity-large-persistent-new" >> $GITHUB_OUTPUT
+            echo "RUNNER_OLDLINUX_NEW=parity-oldlinux-persistent-new" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX=parity-oldlinux" >> $GITHUB_OUTPUT
+            echo "RUNNER_NEW=parity-large-new" >> $GITHUB_OUTPUT
+            echo "RUNNER_OLDLINUX_NEW=parity-oldlinux-new" >> $GITHUB_OUTPUT
           fi
 
       #
@@ -174,7 +191,6 @@ jobs:
           #
           export REF_NAME=${{ github.ref_name }}
           echo "REF_SLUG=${REF_NAME//\//_}" >> $GITHUB_OUTPUT
-
 
       - name: log
         shell: bash
