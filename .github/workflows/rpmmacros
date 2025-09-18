@@ -1,4 +1,4 @@
 %_signature gpg
 %_gpg_path /root/.gnupg
-%_gpg_name 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE   # or use ${PGP_KMS_HASH} in workflow
+%_gpg_name 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
 %__gpg_sign_cmd /usr/local/bin/pgpkms-rpmsign --key arn:aws:kms:...:key/... --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}
