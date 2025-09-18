@@ -179,11 +179,11 @@ jobs:
 
             echo "Creating ~/.rpmmacros for pgpkms-rpmsign..."
             cat > ${HOME}/.rpmmacros <<'EOF'
-            %_signature gpg
-            %_gpg_path /root/.gnupg
-            %_gpg_name ${PGP_KMS_HASH}
-            %__gpg_sign_cmd ${PGPKMS_RPMSIGN_PATH} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}
-            EOF
+%_signature gpg
+%_gpg_path /root/.gnupg
+%_gpg_name ${PGP_KMS_HASH}
+%__gpg_sign_cmd ${PGPKMS_RPMSIGN_PATH} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}
+EOF
 
             echo "Signing package with pgpkms (via AWS KMS)..."
             rpmsign --addsign "$rpmname"
