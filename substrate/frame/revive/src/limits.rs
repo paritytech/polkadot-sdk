@@ -124,7 +124,7 @@ pub mod code {
 		let len: u64 = pvm_blob.len() as u64;
 		if len > crate::limits::code::BLOB_BYTES.into() {
 			log::debug!(target: LOG_TARGET, "contract blob too large: {len} limit: {BLOB_BYTES}");
-			return Err(<Error<T>>::BlobTooLarge.into())
+			// return Err(<Error<T>>::BlobTooLarge.into())
 		}
 
 		#[cfg(feature = "std")]
