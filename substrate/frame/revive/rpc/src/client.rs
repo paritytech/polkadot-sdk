@@ -28,11 +28,7 @@ use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo, LOG_TARGET,
 };
-use jsonrpsee::{
-	core::traits::ToRpcParams,
-	rpc_params,
-	types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned},
-};
+use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
@@ -53,6 +49,7 @@ use subxt::{
 		},
 	},
 	config::{HashFor, Header},
+	ext::subxt_rpcs::rpc_params,
 	Config, OnlineClient,
 };
 use thiserror::Error;
@@ -156,7 +153,7 @@ impl From<ClientError> for ErrorObjectOwned {
 #[derive(Clone)]
 pub struct Client {
 	api: OnlineClient<SrcChainConfig>,
-	rpc_client: ReconnectingRpcClient,
+	rpc_client: RpcClient,
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: ReceiptProvider,
 	block_provider: SubxtBlockInfoProvider,
@@ -193,19 +190,18 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 /// clients.
 pub async fn connect(
 	node_rpc_url: &str,
-) -> Result<
-	(OnlineClient<SrcChainConfig>, ReconnectingRpcClient, LegacyRpcMethods<SrcChainConfig>),
-	ClientError,
-> {
+) -> Result<(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<SrcChainConfig>), ClientError>
+{
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
 		.build(node_rpc_url.to_string())
 		.await?;
+	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
-	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
+	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(rpc_client.clone());
 	Ok((api, rpc_client, rpc))
 }
 
@@ -213,7 +209,7 @@ impl Client {
 	/// Create a new client instance.
 	pub async fn new(
 		api: OnlineClient<SrcChainConfig>,
-		rpc_client: ReconnectingRpcClient,
+		rpc_client: RpcClient,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
@@ -418,7 +414,7 @@ impl Client {
 	pub async fn sync_state(
 		&self,
 	) -> Result<sc_rpc::system::SyncState<SubstrateBlockNumber>, ClientError> {
-		let client = RpcClient::new(self.rpc_client.clone());
+		let client = self.rpc_client.clone();
 		let sync_state: sc_rpc::system::SyncState<SubstrateBlockNumber> =
 			client.request("system_syncState", Default::default()).await?;
 		Ok(sync_state)
@@ -531,15 +527,17 @@ impl Client {
 		>,
 		ClientError,
 	> {
-		let params = rpc_params![block_hash].to_rpc_params().unwrap_or_default();
-		let res = self.rpc_client.request("chain_getBlock".to_string(), params).await.unwrap();
-
 		let signed_block: sp_runtime::generic::SignedBlock<
 			sp_runtime::generic::Block<
 				sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
 				sp_runtime::OpaqueExtrinsic,
 			>,
-		> = serde_json::from_str(res.get()).unwrap();
+		> = self
+			.rpc_client
+			.request("chain_getBlock", rpc_params![block_hash])
+			.await
+			.unwrap();
+
 		Ok(signed_block.block)
 	}
 
