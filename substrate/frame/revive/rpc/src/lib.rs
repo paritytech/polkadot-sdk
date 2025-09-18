@@ -494,7 +494,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		// let rustc_version = env!("RUSTC_VERSION");
 		// let target = env!("TARGET");
 		// Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
-		Ok(format!("anvil"))
+		Ok(format!("hardhatnetwork"))
 	}
 
 	async fn fee_history(
