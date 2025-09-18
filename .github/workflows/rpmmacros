@@ -1,5 +1,4 @@
 %_signature gpg
 %_gpg_path /root/.gnupg
-%_gpg_name security@parity.io
-%_gpgbin /usr/bin/gpg
-%__gpg_sign_cmd %{__gpg} gpg --force-v3-sigs --batch --verbose --no-armor -u "%{_gpg_name}" -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}
+%_gpg_name 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE   # or use ${PGP_KMS_HASH} in workflow
+%__gpg_sign_cmd /usr/local/bin/pgpkms-rpmsign --key arn:aws:kms:...:key/... --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}
