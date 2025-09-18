@@ -51,7 +51,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	println!("=== Session keys exchange ===");
 
 	// Send session keys
-	for participant in &participants {
+	for participant in &mut participants {
 		participant.send_session_key().await?;
 	}
 
@@ -95,6 +95,16 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		// Receive request
 		for participant in &mut participants {
 			participant.receive_requests().await?;
+		}
+
+		// Send request acknowledgments
+		for participant in &mut participants {
+			participant.send_request_acknowledgments().await?;
+		}
+
+		// Receive request acknowledgments
+		for participant in &mut participants {
+			participant.receive_request_acknowledgments().await?;
 		}
 
 		// Send response
@@ -177,19 +187,20 @@ async fn get_rpc(
 
 #[derive(Encode, Decode, Clone)]
 struct StatementRequest {
-	request_id: u64,
+	request_id: u32,
 	data: Vec<u8>,
 }
 
 #[derive(Encode, Decode, Clone)]
 struct StatementResponse {
-	request_id: u64,
+	request_id: u32,
 	response_code: u8,
 }
 
 #[derive(Encode, Decode, Clone)]
 enum StatementAcknowledge {
 	SymmetricKeyReceived { sender_idx: u32 },
+	RequestReceived { sender_idx: u32, request_id: u32 },
 }
 
 struct Participant {
@@ -201,10 +212,12 @@ struct Participant {
 	symmetric_keys: HashMap<u32, sr25519::Public>,
 	symmetric_key_acks: HashMap<u32, bool>,
 	pending_symmetric_key_acks: HashMap<u32, bool>,
-	request_counter: u64,
-	pending_responses: HashMap<u32, Option<u64>>,
-	processed_requests: HashMap<u32, HashSet<u64>>,
-	received_responses: HashMap<u32, HashSet<u64>>,
+	request_acks: HashMap<(u32, u32), bool>,
+	pending_request_acks: HashMap<(u32, u32), bool>,
+	submit_counter: u32,
+	pending_responses: HashMap<u32, Option<u32>>,
+	processed_requests: HashMap<u32, HashSet<u32>>,
+	received_responses: HashMap<u32, HashSet<u32>>,
 	rpc: RpcClient,
 }
 
@@ -233,7 +246,9 @@ impl Participant {
 			symmetric_keys,
 			symmetric_key_acks: HashMap::new(),
 			pending_symmetric_key_acks: HashMap::new(),
-			request_counter: 0,
+			request_acks: HashMap::new(),
+			pending_request_acks: HashMap::new(),
+			submit_counter: 0,
 			pending_responses: HashMap::new(),
 			processed_requests: HashMap::new(),
 			received_responses: HashMap::new(),
@@ -241,7 +256,7 @@ impl Participant {
 		}
 	}
 
-	async fn send_session_key(&self) -> Result<(), anyhow::Error> {
+	async fn send_session_key(&mut self) -> Result<(), anyhow::Error> {
 		let statement = self.public_key_statement();
 		self.statement_submit(statement).await
 	}
@@ -264,7 +279,8 @@ impl Participant {
 	}
 
 	async fn send_symmetric_keys(&mut self) -> Result<(), anyhow::Error> {
-		for &receiver_idx in &self.group_members {
+		let group_members = self.group_members.clone();
+		for receiver_idx in group_members {
 			let Some(statement) = self.symmetric_key_statement(receiver_idx) else { continue };
 			self.statement_submit(statement).await?;
 			self.symmetric_key_acks.insert(receiver_idx, false);
@@ -316,6 +332,7 @@ impl Participant {
 				statement.set_topic(0, topic0);
 				statement.set_topic(1, topic1);
 				statement.set_channel(channel);
+				statement.set_priority(self.submit_counter);
 				statement.set_plain_data(ack_data);
 				statement.sign_sr25519_private(&self.keyring.pair());
 
@@ -354,6 +371,7 @@ impl Participant {
 								// Mark acknowledgment as received
 								self.symmetric_key_acks.insert(receiver_idx, true);
 							},
+						_ => {},
 					}
 				}
 			}
@@ -362,9 +380,10 @@ impl Participant {
 		Ok(())
 	}
 
-	async fn statement_submit(&self, statement: Statement) -> Result<(), anyhow::Error> {
+	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
 		let _: () = self.rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
+		self.submit_counter += 1;
 
 		Ok(())
 	}
@@ -388,6 +407,7 @@ impl Participant {
 	fn public_key_statement(&self) -> Statement {
 		let mut statement = Statement::new();
 		statement.set_channel([0u8; 32]);
+		statement.set_priority(self.submit_counter);
 		statement.set_topic(0, topic_public_key());
 		statement.set_topic(1, topic_idx(self.idx));
 		statement.set_plain_data(self.session_key.public().to_vec());
@@ -396,7 +416,7 @@ impl Participant {
 		statement
 	}
 
-	fn has_processed_request(&self, sender_idx: u32, request_id: u64) -> bool {
+	fn has_processed_request(&self, sender_idx: u32, request_id: u32) -> bool {
 		self.processed_requests
 			.get(&sender_idx)
 			.map_or(false, |reqs| reqs.contains(&request_id))
@@ -419,6 +439,7 @@ impl Participant {
 		let channel = channel_pair(&self.session_key.public(), receiver_session_key, 0);
 
 		statement.set_channel(channel);
+		statement.set_priority(self.submit_counter);
 		statement.set_topic(0, topic);
 		statement.set_plain_data(symmetric_key.to_vec());
 		statement.sign_sr25519_private(&self.keyring.pair());
@@ -433,8 +454,8 @@ impl Participant {
 			return None
 		};
 
-		self.request_counter += 1;
-		let request_id = self.request_counter;
+		self.submit_counter += 1;
+		let request_id = self.submit_counter;
 
 		// Create 5KiB payload
 		let mut data = vec![0u8; MESSAGE_SIZE];
@@ -453,6 +474,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
+		statement.set_priority(self.submit_counter);
 		statement.set_plain_data(request_data);
 		statement.sign_sr25519_private(&self.keyring.pair());
 
@@ -466,7 +488,7 @@ impl Participant {
 
 	fn create_response_statement(
 		&mut self,
-		request_id: u64,
+		request_id: u32,
 		receiver_idx: u32,
 	) -> Option<Statement> {
 		let (Some(_symmetric_key), Some(receiver_session_key)) =
@@ -488,6 +510,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
+		statement.set_priority(self.submit_counter);
 		statement.set_plain_data(response_data);
 		statement.sign_sr25519_private(&self.keyring.pair());
 
@@ -505,6 +528,8 @@ impl Participant {
 			let statement =
 				self.create_request_statement(receiver_idx).expect("Receiver must present");
 			self.statement_submit(statement).await?;
+			// Track that we sent a request and are waiting for acknowledgment
+			self.request_acks.insert((receiver_idx, self.submit_counter), false);
 		}
 		Ok(())
 	}
@@ -524,6 +549,8 @@ impl Participant {
 				if !self.has_processed_request(sender_idx, req.request_id) {
 					assert!(!self.has_pending_response(sender_idx));
 					self.pending_responses.insert(sender_idx, Some(req.request_id));
+					// Mark that we received a request and need to send acknowledgment
+					self.pending_request_acks.insert((sender_idx, req.request_id), false);
 				}
 			}
 		}
@@ -543,6 +570,78 @@ impl Participant {
 				self.processed_requests.entry(receiver_idx).or_default().insert(req_id);
 			}
 		}
+		Ok(())
+	}
+
+	async fn send_request_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
+		let pending_acks: Vec<(u32, u32)> = self
+			.pending_request_acks
+			.iter()
+			.filter(|(_, &sent)| !sent)
+			.map(|(&(sender_idx, request_id), _)| (sender_idx, request_id))
+			.collect();
+
+		for (sender_idx, request_id) in pending_acks {
+			let ack = StatementAcknowledge::RequestReceived { sender_idx: self.idx, request_id };
+			let ack_data = ack.encode();
+
+			if let Some(sender_session_key) = self.session_keys.get(&sender_idx) {
+				let mut statement = Statement::new();
+
+				let topic0 = topic_ack();
+				let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
+				let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
+
+				statement.set_topic(0, topic0);
+				statement.set_topic(1, topic1);
+				statement.set_channel(channel);
+				statement.set_priority(self.submit_counter);
+				statement.set_plain_data(ack_data);
+				statement.sign_sr25519_private(&self.keyring.pair());
+
+				self.statement_submit(statement).await?;
+				// Mark acknowledgment as sent
+				self.pending_request_acks.insert((sender_idx, request_id), true);
+			}
+		}
+
+		Ok(())
+	}
+
+	async fn receive_request_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
+		let pending_acks: Vec<(u32, u32)> = self
+			.request_acks
+			.iter()
+			.filter(|(_, &received)| !received)
+			.map(|(&(receiver_idx, request_id), _)| (receiver_idx, request_id))
+			.collect();
+
+		for (receiver_idx, request_id) in pending_acks {
+			if let Some(receiver_session_key) = self.session_keys.get(&receiver_idx) {
+				let topic0 = topic_ack();
+				let topic1 = topic_pair(receiver_session_key, &self.session_key.public());
+				let topics = vec![topic0, topic1];
+
+				let statements = self.statement_broadcasts_statement(topics).await?;
+				for statement in &statements {
+					let data = statement.data().expect("Must contain acknowledgment");
+					let ack = StatementAcknowledge::decode(&mut &data[..])?;
+
+					match ack {
+						StatementAcknowledge::RequestReceived {
+							sender_idx: ack_sender_idx,
+							request_id: ack_request_id,
+						} =>
+							if ack_sender_idx == receiver_idx && ack_request_id == request_id {
+								// Mark acknowledgment as received
+								self.request_acks.insert((receiver_idx, request_id), true);
+							},
+						_ => {},
+					}
+				}
+			}
+		}
+
 		Ok(())
 	}
 
@@ -607,7 +706,7 @@ fn channel_pair(
 	blake2_256(&data)
 }
 
-fn channel_request(sender: &sr25519::Public, receiver: &sr25519::Public, counter: u64) -> Topic {
+fn channel_request(sender: &sr25519::Public, receiver: &sr25519::Public, counter: u32) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(b"request");
 	data.extend_from_slice(sender.as_ref());
@@ -616,7 +715,7 @@ fn channel_request(sender: &sr25519::Public, receiver: &sr25519::Public, counter
 	blake2_256(&data)
 }
 
-fn channel_response(sender: &sr25519::Public, receiver: &sr25519::Public, counter: u64) -> Topic {
+fn channel_response(sender: &sr25519::Public, receiver: &sr25519::Public, counter: u32) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(b"response");
 	data.extend_from_slice(sender.as_ref());
