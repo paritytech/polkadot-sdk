@@ -64,7 +64,7 @@ sp-version = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 
 [dev-dependencies]
-alloy-consensus = { workspace = true, features = ["serde"] }
+alloy-consensus = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
