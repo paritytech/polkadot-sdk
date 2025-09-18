@@ -78,6 +78,7 @@ jobs:
           chain: ${{ matrix.chain }}
           runtime_dir: ${{ matrix.runtime_dir }}
           profile: ${{ inputs.profile }}
+          tag: "1.81.0"
 
       - name: Summary
         run: |
