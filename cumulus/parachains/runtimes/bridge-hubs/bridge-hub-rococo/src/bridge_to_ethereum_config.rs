@@ -22,8 +22,6 @@ use crate::{
 	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime,
 	RuntimeEvent, TransactionByteFee, TreasuryAccount,
 };
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
 use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use pallet_xcm::EnsureXcm;
@@ -226,13 +224,16 @@ pub mod benchmark_helpers {
 	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
 	use codec::Encode;
 	use snowbridge_beacon_primitives::BeaconHeader;
+	use snowbridge_inbound_queue_primitives::EventFixture;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
 	use sp_core::H256;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		fn initialize_storage() -> EventFixture {
+			//EthereumBeaconClient::store_finalized_header(beacon_header,
+			// block_roots_root).unwrap();
+			todo!()
 		}
 	}
 

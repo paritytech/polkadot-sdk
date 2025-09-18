@@ -329,6 +329,7 @@ pub mod benchmark_helpers {
 	use codec::Encode;
 	use hex_literal::hex;
 	use snowbridge_beacon_primitives::BeaconHeader;
+	use snowbridge_inbound_queue_primitives::EventFixture;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
 	use snowbridge_pallet_outbound_queue_v2::BenchmarkHelper as OutboundQueueBenchmarkHelperV2;
@@ -336,7 +337,8 @@ pub mod benchmark_helpers {
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
+		fn initialize_storage() -> EventFixture {
+			/*
 			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
 			System::set_storage(
 				RuntimeOrigin::root(),
@@ -346,6 +348,8 @@ pub mod benchmark_helpers {
 				)],
 			)
 			.unwrap();
+			*/
+			todo!()
 		}
 	}
 
