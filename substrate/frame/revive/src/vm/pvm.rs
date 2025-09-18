@@ -29,7 +29,7 @@ use crate::{
 	limits,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	BalanceOf, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
+	BalanceOf, Code, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -38,6 +38,14 @@ use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{DispatchError, RuntimeDebug};
+
+/// Extracts the code and data from a given program blob.
+pub fn extract_code_and_data(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
+	let blob_len = polkavm::ProgramBlob::blob_length(data)?;
+	let blob_len = blob_len.try_into().ok()?;
+	let (code, data) = data.split_at_checked(blob_len)?;
+	Some((code.to_vec(), data.to_vec()))
+}
 
 /// Abstraction over the memory access within syscalls.
 ///
@@ -325,11 +333,21 @@ pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
 	input_data: Option<Vec<u8>>,
 	_phantom_data: PhantomData<M>,
+	/// The number of emitted events.
+	///
+	/// When this reaches the maximum allowed number of events, no further events
+	/// can be emitted, and the transaction will fail.
+	emitted_events: u32,
 }
 
 impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
-		Self { ext, input_data: Some(input_data), _phantom_data: Default::default() }
+		Self {
+			ext,
+			input_data: Some(input_data),
+			_phantom_data: Default::default(),
+			emitted_events: 0,
+		}
 	}
 
 	/// Get a mutable reference to the inner `Ext`.
@@ -448,31 +466,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		// Write the resulting hash back into the sandboxed output buffer.
 		memory.write(output_ptr, hash.as_ref())?;
 		Ok(())
-	}
-
-	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
-	///
-	/// This is used when converting the error returned from a subcall in order to decide
-	/// whether to trap the caller or allow handling of the error.
-	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
-		use crate::exec::ErrorOrigin::Callee;
-		use ReturnErrorCode::*;
-
-		let transfer_failed = Error::<E::T>::TransferFailed.into();
-		let out_of_gas = Error::<E::T>::OutOfGas.into();
-		let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
-		let duplicate_contract = Error::<E::T>::DuplicateContract.into();
-		let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
-
-		// errors in the callee do not trap the caller
-		match (from.error, from.origin) {
-			(err, _) if err == transfer_failed => Ok(TransferFailed),
-			(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
-			(err, _) if err == unsupported_precompile => Err(err),
-			(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
-			(_, Callee) => Ok(CalleeTrapped),
-			(err, _) => Err(err),
-		}
 	}
 
 	fn decode_key(&self, memory: &M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
@@ -815,7 +808,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				Ok(self.ext.last_frame_output().into())
 			},
 			Err(err) => {
-				let error_code = Self::exec_error_into_return_code(err)?;
+				let error_code = super::exec_error_into_return_code::<E>(err)?;
 				memory.write(output_len_ptr, &0u32.to_le_bytes())?;
 				Ok(error_code)
 			},
@@ -872,7 +865,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		match self.ext.instantiate(
 			weight,
 			deposit_limit,
-			code_hash,
+			Code::Existing(code_hash),
 			value,
 			input_data,
 			salt.as_ref(),
@@ -900,7 +893,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
-			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
+			Err(err) => Ok(super::exec_error_into_return_code::<E>(err)?),
 		}
 	}
 }

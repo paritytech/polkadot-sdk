@@ -49,17 +49,13 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use polkadot_primitives::{
-	effective_minimum_backing_votes,
-	node_features::FeatureIndex,
-	vstaging::{
-		BackedCandidate, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt,
-		InherentData as ParachainsInherentData, ScrapedOnChainVotes,
-	},
-	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
-	DisputeStatementSet, HeadData, MultiDisputeStatementSet, SessionIndex,
-	SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
-	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
-	PARACHAINS_INHERENT_IDENTIFIER,
+	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet,
+	HeadData, InherentData as ParachainsInherentData, MultiDisputeStatementSet,
+	ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields, SigningContext,
+	UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields, ValidatorId,
+	ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
@@ -200,7 +196,7 @@ pub mod pallet {
 
 		fn on_finalize(_: BlockNumberFor<T>) {
 			if Included::<T>::take().is_none() {
-				panic!("Bitfields and heads must be included every block");
+				panic!("ParachainInherent was not executed in this block. This is a bug. Please report this at https://github.com/paritytech/polkadot-sdk/issues.");
 			}
 		}
 	}
@@ -1328,15 +1324,23 @@ fn filter_backed_statements_from_disabled_validators<
 		// The indices of statements from disabled validators in `BackedCandidate`. We have to drop
 		// these.
 		let indices_to_drop = disabled_indices.clone() & &validator_indices;
+
+		// Remove the corresponding votes from `validity_votes`
+		for idx in indices_to_drop.iter_ones().rev() {
+			// Map the index in `indices_to_drop` (which is an index into the validator group)
+			// to the index in the validity votes vector, which might have less number of votes,
+			// than validators assigned to the group.
+			//
+			// For each index `idx` in `indices_to_drop`, the corresponding index in the
+			// validity votes vector is the number of `1` bits in `validator_indices` before `idx`.
+			let mapped_idx = validator_indices[..idx].count_ones();
+			bc.validity_votes_mut().remove(mapped_idx);
+		}
+
 		// Apply the bitmask to drop the disabled validator from `validator_indices`
 		validator_indices &= !disabled_indices;
 		// Update the backed candidate
 		bc.set_validator_indices_and_core_index(validator_indices, maybe_injected_core_index);
-
-		// Remove the corresponding votes from `validity_votes`
-		for idx in indices_to_drop.iter_ones().rev() {
-			bc.validity_votes_mut().remove(idx);
-		}
 
 		// By filtering votes we might render the candidate invalid and cause a failure in
 		// [`process_candidates`]. To avoid this we have to perform a sanity check here. If there

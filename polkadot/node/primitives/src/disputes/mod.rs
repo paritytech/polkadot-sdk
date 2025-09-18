@@ -25,9 +25,9 @@ use sp_application_crypto::AppCrypto;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CompactStatement,
-	DisputeStatement, EncodeAs, InvalidDisputeStatementKind, SessionIndex, SigningContext,
-	UncheckedSigned, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement, DisputeStatement,
+	EncodeAs, InvalidDisputeStatementKind, SessionIndex, SigningContext, UncheckedSigned,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 /// `DisputeMessage` and related types.
