@@ -66,56 +66,51 @@ pub type Config = ark_bw6_761_ext::Config<HostHooks>;
 pub type BW6_761 = ark_bw6_761_ext::BW6_761<HostHooks>;
 
 impl CurveHooks for HostHooks {
-	fn bw6_761_multi_miller_loop(
+	fn multi_miller_loop(
 		g1: impl Iterator<Item = <BW6_761 as Pairing>::G1Prepared>,
 		g2: impl Iterator<Item = <BW6_761 as Pairing>::G2Prepared>,
-	) -> Result<<BW6_761 as Pairing>::TargetField, ()> {
-		let g1 = utils::encode(g1.collect::<Vec<_>>());
-		let g2 = utils::encode(g2.collect::<Vec<_>>());
-		let res = host_calls::bw6_761_multi_miller_loop(g1, g2).unwrap_or_default();
-		utils::decode(res)
+	) -> <BW6_761 as Pairing>::TargetField {
+		host_calls::bw6_761_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
+			.and_then(|res| utils::decode(res))
+			.unwrap_or_default()
 	}
 
-	fn bw6_761_final_exponentiation(
+	fn final_exponentiation(
 		target: <BW6_761 as Pairing>::TargetField,
-	) -> Result<<BW6_761 as Pairing>::TargetField, ()> {
-		let target = utils::encode(target);
-		let res = host_calls::bw6_761_final_exponentiation(target).unwrap_or_default();
-		utils::decode(res)
+	) -> <BW6_761 as Pairing>::TargetField {
+		host_calls::bw6_761_final_exponentiation(utils::encode(target))
+			.and_then(|res| utils::decode(res))
+			.unwrap_or_default()
 	}
 
-	fn bw6_761_msm_g1(
+	fn msm_g1(
 		bases: &[G1Affine],
 		scalars: &[<G1Config as CurveConfig>::ScalarField],
-	) -> Result<G1Projective, ()> {
-		let bases = utils::encode(bases);
-		let scalars = utils::encode(scalars);
-		let res = host_calls::bw6_761_msm_g1(bases, scalars).unwrap_or_default();
-		utils::decode_proj_sw(res)
+	) -> G1Projective {
+		host_calls::bw6_761_msm_g1(utils::encode(bases), utils::encode(scalars))
+			.and_then(|res| utils::decode_proj_sw(res))
+			.unwrap_or_default()
 	}
 
-	fn bw6_761_msm_g2(
+	fn msm_g2(
 		bases: &[G2Affine],
 		scalars: &[<G2Config as CurveConfig>::ScalarField],
-	) -> Result<G2Projective, ()> {
-		let bases = utils::encode(bases);
-		let scalars = utils::encode(scalars);
-		let res = host_calls::bw6_761_msm_g2(bases, scalars).unwrap_or_default();
-		utils::decode_proj_sw(res)
+	) -> G2Projective {
+		host_calls::bw6_761_msm_g2(utils::encode(bases), utils::encode(scalars))
+			.and_then(|res| utils::decode_proj_sw(res))
+			.unwrap_or_default()
 	}
 
-	fn bw6_761_mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> Result<G1Projective, ()> {
-		let base = utils::encode_proj_sw(base);
-		let scalar = utils::encode(scalar);
-		let res = host_calls::bw6_761_mul_projective_g1(base, scalar).unwrap_or_default();
-		utils::decode_proj_sw(res)
+	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
+		host_calls::bw6_761_mul_projective_g1(utils::encode_proj_sw(base), utils::encode(scalar))
+			.and_then(|res| utils::decode_proj_sw(res))
+			.unwrap_or_default()
 	}
 
-	fn bw6_761_mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> Result<G2Projective, ()> {
-		let base = utils::encode_proj_sw(base);
-		let scalar = utils::encode(scalar);
-		let res = host_calls::bw6_761_mul_projective_g2(base, scalar).unwrap_or_default();
-		utils::decode_proj_sw(res)
+	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
+		host_calls::bw6_761_mul_projective_g2(utils::encode_proj_sw(base), utils::encode(scalar))
+			.and_then(|res| utils::decode_proj_sw(res))
+			.unwrap_or_default()
 	}
 }
 

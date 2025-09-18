@@ -534,6 +534,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-bw6-761"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cc9cae367e0c3c0b52e3ef13371122752654f45d0212ec7306fb0c1c012cd98"
+dependencies = [
+ "ark-bls12-377 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-bw6-761-ext"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6e1216f968e21c72fdaba53dbc9e547a8a60cc87b1dc74ac589727e906f9297"
+dependencies = [
+ "ark-bw6-761",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-models-ext",
+ "ark-std 0.5.0",
+]
+
+[[package]]
 name = "ark-ec"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -22906,6 +22931,8 @@ dependencies = [
  "ark-bls12-377-ext",
  "ark-bls12-381 0.5.0",
  "ark-bls12-381-ext",
+ "ark-bw6-761",
+ "ark-bw6-761-ext",
  "ark-ec 0.5.0",
  "ark-scale",
  "sp-runtime-interface 24.0.0",
