@@ -130,8 +130,8 @@ jobs:
 
           python3 -m pip install awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
 
-          # Set the path for the pgpkms wrapper tool for the debian step
           echo "PGPKMS_REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
+          echo "PGPKMS_RPMSIGN_PATH=$(which pgpkms-rpmsign)" >> $GITHUB_ENV
 
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -166,7 +166,6 @@ jobs:
             aws s3 sync "$AWS_REPO_PATH" "$LOCAL_REPO_PATH" || true
           fi
 
-          # --- Import GPG Keys ---
           . ./.github/scripts/common/lib.sh
           import_gpg_keys
           
@@ -177,11 +176,12 @@ jobs:
           
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
-            
-            echo "%_signature gpg" > ${HOME}/.rpmmacros
-            echo "%_gpg_name ${PGP_KMS_HASH}" >> ${HOME}/.rpmmacros
-            
-            echo "Signing package directly on the runner..."
+
+            echo "Patching rpmmacros to use pgpkms-rpmsign..."
+            sed -i "s|^%_gpg_name.*|%_gpg_name ${PGP_KMS_HASH}|" ${HOME}/.rpmmacros || echo "%_gpg_name ${PGP_KMS_HASH}" >> ${HOME}/.rpmmacros
+            sed -i "s|^%__gpg_sign_cmd.*|%__gpg_sign_cmd ${PGPKMS_RPMSIGN_PATH} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}|" ${HOME}/.rpmmacros
+
+            echo "Signing package with pgpkms (via AWS KMS)..."
             rpmsign --addsign "$rpmname"
 
             echo "Copying signed package to local repo..."
