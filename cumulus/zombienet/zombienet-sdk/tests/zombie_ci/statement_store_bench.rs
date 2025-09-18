@@ -117,6 +117,16 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 			participant.receive_responses().await?;
 		}
 
+		// Send response acknowledgments
+		for participant in &mut participants {
+			participant.send_response_acknowledgments().await?;
+		}
+
+		// Receive response acknowledgments
+		for participant in &mut participants {
+			participant.receive_response_acknowledgments().await?;
+		}
+
 		println!("All messages in the round processed");
 	}
 
@@ -201,6 +211,7 @@ struct StatementResponse {
 enum StatementAcknowledge {
 	SymmetricKeyReceived { sender_idx: u32 },
 	RequestReceived { sender_idx: u32, request_id: u32 },
+	ResponseReceived { sender_idx: u32, request_id: u32 },
 }
 
 struct Participant {
@@ -214,6 +225,8 @@ struct Participant {
 	pending_symmetric_key_acks: HashMap<u32, bool>,
 	request_acks: HashMap<(u32, u32), bool>,
 	pending_request_acks: HashMap<(u32, u32), bool>,
+	response_acks: HashMap<(u32, u32), bool>,
+	pending_response_acks: HashMap<(u32, u32), bool>,
 	submit_counter: u32,
 	pending_responses: HashMap<u32, Option<u32>>,
 	processed_requests: HashMap<u32, HashSet<u32>>,
@@ -248,6 +261,8 @@ impl Participant {
 			pending_symmetric_key_acks: HashMap::new(),
 			request_acks: HashMap::new(),
 			pending_request_acks: HashMap::new(),
+			response_acks: HashMap::new(),
+			pending_response_acks: HashMap::new(),
 			submit_counter: 0,
 			pending_responses: HashMap::new(),
 			processed_requests: HashMap::new(),
@@ -567,6 +582,8 @@ impl Participant {
 					.expect("Receiver must present");
 				self.statement_submit(statement).await?;
 				self.processed_requests.entry(receiver_idx).or_default().insert(req_id);
+				// Track that we sent a response and are waiting for acknowledgment
+				self.response_acks.insert((receiver_idx, req_id), false);
 			}
 		}
 		Ok(())
@@ -661,9 +678,83 @@ impl Participant {
 					.map_or(false, |ress| ress.contains(&res.request_id))
 				{
 					self.received_responses.entry(sender_idx).or_default().insert(res.request_id);
+					// Mark that we received a response and need to send acknowledgment
+					self.pending_response_acks.insert((sender_idx, res.request_id), false);
 				}
 			}
 		}
+		Ok(())
+	}
+
+	async fn send_response_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
+		let pending_acks: Vec<(u32, u32)> = self
+			.pending_response_acks
+			.iter()
+			.filter(|(_, &sent)| !sent)
+			.map(|(&(sender_idx, request_id), _)| (sender_idx, request_id))
+			.collect();
+
+		for (sender_idx, request_id) in pending_acks {
+			let ack = StatementAcknowledge::ResponseReceived { sender_idx: self.idx, request_id };
+			let ack_data = ack.encode();
+
+			if let Some(sender_session_key) = self.session_keys.get(&sender_idx) {
+				let mut statement = Statement::new();
+
+				let topic0 = topic_ack();
+				let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
+				let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
+
+				statement.set_topic(0, topic0);
+				statement.set_topic(1, topic1);
+				statement.set_channel(channel);
+				statement.set_priority(self.submit_counter);
+				statement.set_plain_data(ack_data);
+				statement.sign_sr25519_private(&self.keyring.pair());
+
+				self.statement_submit(statement).await?;
+				// Mark acknowledgment as sent
+				self.pending_response_acks.insert((sender_idx, request_id), true);
+			}
+		}
+
+		Ok(())
+	}
+
+	async fn receive_response_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
+		let pending_acks: Vec<(u32, u32)> = self
+			.response_acks
+			.iter()
+			.filter(|(_, &received)| !received)
+			.map(|(&(receiver_idx, request_id), _)| (receiver_idx, request_id))
+			.collect();
+
+		for (receiver_idx, request_id) in pending_acks {
+			if let Some(receiver_session_key) = self.session_keys.get(&receiver_idx) {
+				let topic0 = topic_ack();
+				let topic1 = topic_pair(receiver_session_key, &self.session_key.public());
+				let topics = vec![topic0, topic1];
+
+				let statements = self.statement_broadcasts_statement(topics).await?;
+				for statement in &statements {
+					let data = statement.data().expect("Must contain acknowledgment");
+					let ack = StatementAcknowledge::decode(&mut &data[..])?;
+
+					match ack {
+						StatementAcknowledge::ResponseReceived {
+							sender_idx: ack_sender_idx,
+							request_id: ack_request_id,
+						} =>
+							if ack_sender_idx == receiver_idx && ack_request_id == request_id {
+								// Mark acknowledgment as received
+								self.response_acks.insert((receiver_idx, request_id), true);
+							},
+						_ => {},
+					}
+				}
+			}
+		}
+
 		Ok(())
 	}
 }
