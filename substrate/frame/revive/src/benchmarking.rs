@@ -2716,7 +2716,7 @@ mod benchmarks {
 				);
 
 				// Store transaction
-				let _ = Pallet::<T>::eth_block_storage::with_ethereum_context(|| {
+				let _ = eth_block_storage::with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
 						eth_block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2782,7 +2782,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = Pallet::<T>::eth_block_storage::with_ethereum_context(|| {
+		let _ = eth_block_storage::with_ethereum_context(|| {
 			let (encoded_logs, bloom) =
 				eth_block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2802,11 +2802,7 @@ mod benchmarks {
 
 		// Create e events with minimal data to isolate event count overhead
 		for _ in 0..e {
-			Pallet::<T>::eth_block_storage::eth_block_storage::capture_ethereum_log(
-				&instance.address,
-				&vec![],
-				&vec![],
-			);
+			eth_block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
 		}
 
 		#[block]
@@ -2849,7 +2845,7 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = Pallet::<T>::eth_block_storage::with_ethereum_context(|| {
+		let _ = eth_block_storage::with_ethereum_context(|| {
 			let (encoded_logs, bloom) =
 				eth_block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2890,11 +2886,7 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		Pallet::<T>::eth_block_storage::eth_block_storage::capture_ethereum_log(
-			&instance.address,
-			&event_data,
-			&topics,
-		);
+		eth_block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
 
 		#[block]
 		{
