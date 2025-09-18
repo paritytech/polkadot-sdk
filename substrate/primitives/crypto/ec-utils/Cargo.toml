@@ -22,8 +22,8 @@ ark-bls12-381-ext = { optional = true, workspace = true }
 ark-bw6-761 = { optional = true, workspace = true }
 ark-bw6-761-ext = { optional = true, workspace = true }
 ark-ec = { optional = true, workspace = true }
-# ark-ed-on-bls12-377 = { optional = true, workspace = true }
-# ark-ed-on-bls12-377-ext = { optional = true, workspace = true }
+ark-ed-on-bls12-377 = { optional = true, workspace = true }
+ark-ed-on-bls12-377-ext = { optional = true, workspace = true }
 # ark-ed-on-bls12-381-bandersnatch = { optional = true, workspace = true }
 # ark-ed-on-bls12-381-bandersnatch-ext = { optional = true, workspace = true }
 ark-scale = { features = ["hazmat"], optional = true, workspace = true }
@@ -40,10 +40,10 @@ std = [
 	"ark-bw6-761?/std",
 	"ark-ec?/parallel",
 	"ark-ec?/std",
-	# "ark-ed-on-bls12-377-ext?/std",
-	# "ark-ed-on-bls12-377?/std",
-	# "ark-ed-on-bls12-381-bandersnatch-ext?/std",
-	# "ark-ed-on-bls12-381-bandersnatch?/std",
+	"ark-ed-on-bls12-377-ext?/std",
+	"ark-ed-on-bls12-377?/std",
+	"ark-ed-on-bls12-381-bandersnatch-ext?/std",
+	"ark-ed-on-bls12-381-bandersnatch?/std",
 	"ark-scale?/std",
 	"sp-runtime-interface?/std",
 ]
@@ -51,16 +51,16 @@ common = ["ark-ec", "ark-scale", "sp-runtime-interface"]
 bls12-377 = ["ark-bls12-377", "ark-bls12-377-ext", "common"]
 bls12-381 = ["ark-bls12-381", "ark-bls12-381-ext", "common"]
 bw6-761 = ["ark-bw6-761", "ark-bw6-761-ext", "common"]
-# ed-on-bls12-377 = ["ark-ed-on-bls12-377", "ark-ed-on-bls12-377-ext", "common"]
-# ed-on-bls12-381-bandersnatch = [
-# 	"ark-ed-on-bls12-381-bandersnatch",
-# 	"ark-ed-on-bls12-381-bandersnatch-ext",
-# 	"common",
-# ]
+ed-on-bls12-377 = ["ark-ed-on-bls12-377", "ark-ed-on-bls12-377-ext", "common"]
+ed-on-bls12-381-bandersnatch = [
+	"ark-ed-on-bls12-381-bandersnatch",
+	"ark-ed-on-bls12-381-bandersnatch-ext",
+	"common",
+]
 all-curves = [
 	"bls12-377",
 	"bls12-381",
 	"bw6-761",
-	# "ed-on-bls12-377",
-	# "ed-on-bls12-381-bandersnatch",
+	"ed-on-bls12-377",
+	"ed-on-bls12-381-bandersnatch",
 ]

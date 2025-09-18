@@ -39,6 +39,7 @@ type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
 
 #[inline(always)]
+#[allow(unused)]
 pub fn encode_iter<T: CanonicalSerialize>(iter: impl Iterator<Item = T>) -> Vec<u8> {
 	encode(iter.collect::<Vec<_>>())
 }
