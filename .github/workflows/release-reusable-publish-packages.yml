@@ -134,11 +134,6 @@ jobs:
           export PATH=$HOME/.local/bin:$PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-          # Verify binaries exist
-          ls -l $HOME/.local/bin
-          which pgpkms-reprepro || echo "pgpkms-reprepro not in PATH"
-          which pgpkms-rpmsign || echo "pgpkms-rpmsign not in PATH"
-
           # Export to GITHUB_ENV (this time they won’t be empty)
           echo "PGPKMS_REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
           echo "PGPKMS_RPMSIGN_PATH=$(which pgpkms-rpmsign)" >> $GITHUB_ENV
@@ -187,15 +182,14 @@ jobs:
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
-            echo "fourth 🔍 Checking for pgpkms-rpmsign..."
-            echo "pgpkms-rpmsign resolved to: ${PGPKMS_RPMSIGN_PATH}"
-
             echo "Signing package with pgpkms (via AWS KMS)..."
             rpmsign \
               -D "_signature gpg" \
               -D "_gpg_name ${PGP_KMS_HASH}" \
               -D "__gpg $HOME/.local/bin/pgpkms" \
-              -D "__gpg_sign_cmd %{__gpg} gpg --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}" \
+              -D "__gpg_sign_cmd %{__gpg} gpg --key ${PGP_KMS_KEY} --digest-algo sha256 \
+                  --detach-sign --armor --batch --no-verbose \
+                  --output %{__signature_filename} %{__plaintext_filename}" \
               --addsign "$rpmname"
 
             echo "Copying signed package to local repo..."
