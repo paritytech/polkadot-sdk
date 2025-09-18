@@ -128,7 +128,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-pip reprepro rpm createrepo-c
 
-          python3 -m pip install awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
+          python3 -m pip install --user awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
+
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
           echo "PGPKMS_REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
           echo "PGPKMS_RPMSIGN_PATH=$(which pgpkms-rpmsign)" >> $GITHUB_ENV
