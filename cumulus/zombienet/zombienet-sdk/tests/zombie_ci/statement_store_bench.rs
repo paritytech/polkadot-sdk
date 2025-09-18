@@ -469,7 +469,7 @@ impl Participant {
 
 		let topic0 = blake2_256(b"request");
 		let topic1 = topic_pair(&self.session_key.public(), receiver_session_key);
-		let channel = channel_request(&self.session_key.public(), receiver_session_key, request_id);
+		let channel = channel_request(&self.session_key.public(), receiver_session_key);
 
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
@@ -504,8 +504,7 @@ impl Participant {
 
 		let topic0 = blake2_256(b"response");
 		let topic1 = topic_pair(&self.session_key.public(), receiver_session_key);
-		let channel =
-			channel_response(&self.session_key.public(), receiver_session_key, request_id);
+		let channel = channel_response(&self.session_key.public(), receiver_session_key);
 
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
@@ -706,20 +705,18 @@ fn channel_pair(
 	blake2_256(&data)
 }
 
-fn channel_request(sender: &sr25519::Public, receiver: &sr25519::Public, counter: u32) -> Topic {
+fn channel_request(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(b"request");
 	data.extend_from_slice(sender.as_ref());
 	data.extend_from_slice(receiver.as_ref());
-	data.extend_from_slice(&counter.to_le_bytes());
 	blake2_256(&data)
 }
 
-fn channel_response(sender: &sr25519::Public, receiver: &sr25519::Public, counter: u32) -> Topic {
+fn channel_response(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
 	let mut data = Vec::new();
 	data.extend_from_slice(b"response");
 	data.extend_from_slice(sender.as_ref());
 	data.extend_from_slice(receiver.as_ref());
-	data.extend_from_slice(&counter.to_le_bytes());
 	blake2_256(&data)
 }
