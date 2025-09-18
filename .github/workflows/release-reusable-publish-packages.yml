@@ -194,7 +194,7 @@ jobs:
             rpmsign \
               -D "_signature gpg" \
               -D "_gpg_name ${PGP_KMS_HASH}" \
-              -D "__gpg ${PGPKMS_RPMSIGN_PATH}" \
+              -D "__gpg $HOME/.local/bin/pgpkms}" \
               -D "__gpg_sign_cmd %{__gpg} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}" \
               --addsign "$rpmname"
 
