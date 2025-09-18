@@ -122,7 +122,9 @@ pub enum EthTransactError {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 /// Error encountered while creating a BalanceWithDust from a U256 balance.
 pub enum BalanceConversionError {
+	/// Error encountered while creating the main balance value.
 	Value,
+	/// Error encountered while creating the dust value.
 	Dust,
 }
 

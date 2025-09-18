@@ -1549,7 +1549,7 @@ where
 	/// consistent with `evm_balance` which returns the spendable balance excluding the existential
 	/// deposit.
 	pub fn set_evm_balance(address: &H160, evm_value: U256) -> Result<(), Error<T>> {
-		let (balance, dust) = Self::construct_native_balance(evm_value)
+		let (balance, dust) = Self::new_balance_with_dust(evm_value)
 			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		let account_id = T::AddressMapper::to_account_id(&address);
 		T::Currency::set_balance(&account_id, balance);
@@ -1563,7 +1563,7 @@ where
 	/// Construct native balance from EVM balance.
 	///
 	/// Adds the existential deposit and returns the native balance plus the dust.
-	pub fn construct_native_balance(
+	pub fn new_balance_with_dust(
 		evm_value: U256,
 	) -> Result<(BalanceOf<T>, u32), BalanceConversionError> {
 		let ed = T::Currency::minimum_balance();
@@ -1908,14 +1908,14 @@ sp_api::decl_runtime_apis! {
 		/// Get the H160 address associated to this account id
 		fn address(account_id: AccountId) -> H160;
 
+		/// Get the account id associated to this H160 address.
+		fn account_id(address: H160) -> AccountId;
+
 		/// The address used to call the runtime's pallets dispatchables
 		fn runtime_pallets_address() -> H160;
 
 		/// The code at the specified address taking pre-compiles into account.
 		fn code(address: H160) -> Vec<u8>;
-
-		/// Get the account id associated to this H160 address.
-		fn account_id(address: H160) -> AccountId;
 
 		/// Construct the new balance and dust components of this EVM balance.
 		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
@@ -2152,7 +2152,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
-					$crate::Pallet::<Self>::construct_native_balance(balance)
+					$crate::Pallet::<Self>::new_balance_with_dust(balance)
 				}
 			}
 		}
