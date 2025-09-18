@@ -299,7 +299,7 @@ fn run_create<'a, E: Ext>(
 
 	let salt = match create_input.scheme {
 		CreateScheme::Create => None,
-		CreateScheme::Create2 { salt } => Some(salt.to_le_bytes()),
+		CreateScheme::Create2 { salt } => Some(salt.to_be_bytes()),
 		CreateScheme::Custom { .. } => unreachable!("custom create schemes are not supported"),
 	};
 

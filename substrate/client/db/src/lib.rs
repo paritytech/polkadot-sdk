@@ -2373,9 +2373,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							reverted_finalized.insert(removed_hash);
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
-									if !number_to_revert.is_zero()
-										&& self
-											.have_state_at(prev_hash, number_to_revert - One::one())
+									if !number_to_revert.is_zero() &&
+										self.have_state_at(prev_hash, prev_number)
 									{
 										let lookup_key = utils::number_and_hash_to_lookup_key(
 											prev_number,
