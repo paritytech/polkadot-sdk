@@ -1470,8 +1470,5 @@ pub enum ConsensusStatisticsCollectorMessage {
 	CandidateApproved(CandidateHash, Hash, Vec<ValidatorIndex>),
 
 	// Set of candidates that has not shared votes in time
-	ObservedNoShows(SessionIndex, Vec<ValidatorIndex>),
-
-	// All relay block's candidates are approved, therefore relay block is approved
-	RelayBlockApproved(Hash)
+	NoShows(SessionIndex, Vec<ValidatorIndex>),
 }

@@ -47,7 +47,7 @@ mod availability_distribution_metrics;
 
 use approval_voting_metrics::ApprovalsStats;
 use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows};
-use crate::availability_distribution_metrics::{handle_chunks_downloaded, ChunksDownloaded};
+use crate::availability_distribution_metrics::{handle_chunks_downloaded, AvailabilityDownloads};
 use self::metrics::Metrics;
 
 const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
@@ -70,7 +70,7 @@ struct View {
     per_relay: HashMap<Hash, PerRelayView>,
     no_shows_per_session: HashMap<SessionIndex, HashMap<ValidatorIndex, usize>>,
     candidates_per_session: HashMap<SessionIndex, HashSet<CandidateHash>>,
-    chunks_downloaded: ChunksDownloaded,
+    chunks_downloaded: AvailabilityDownloads,
 }
 
 impl View {
@@ -79,7 +79,7 @@ impl View {
             per_relay: HashMap::new(),
             no_shows_per_session: HashMap::new(),
             candidates_per_session: HashMap::new(),
-            chunks_downloaded: ChunksDownloaded::new(),
+            chunks_downloaded: AvailabilityDownloads::new(),
         };
     }
 }
@@ -157,7 +157,7 @@ pub(crate) async fn run_iteration<Context>(
                             approvals,
                         );
                     }
-                    ConsensusStatisticsCollectorMessage::ObservedNoShows(session_idx, no_show_validators) => {
+                    ConsensusStatisticsCollectorMessage::NoShows(session_idx, no_show_validators) => {
                         handle_observed_no_shows(
                             view,
                             session_idx,

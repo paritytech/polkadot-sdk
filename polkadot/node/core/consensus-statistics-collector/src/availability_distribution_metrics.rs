@@ -4,24 +4,24 @@ use gum::CandidateHash;
 use polkadot_primitives::{SessionIndex, ValidatorIndex};
 use crate::View;
 
-pub struct ChunksDownloaded {
-    pub per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
+pub struct AvailabilityDownloads {
+    pub chunks_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
 }
 
-impl ChunksDownloaded {
+impl AvailabilityDownloads {
     pub fn new() -> Self {
         Self {
-            per_candidate: Default::default(),
+            chunks_per_candidate: Default::default(),
         }
     }
-    
+
     pub fn note_candidate_chunk_downloaded(
         &mut self,
         hash: CandidateHash,
         validator_index: ValidatorIndex,
         count: u64,
     ) {
-        self.per_candidate
+        self.chunks_per_candidate
             .entry(hash)
             .or_default()
             .entry(validator_index)

@@ -2924,7 +2924,7 @@ where
 	gum::trace!(
 		target: LOG_TARGET,
 		"Received approval for num_candidates {:}",
-		approval.candidate_indices.clone().count_ones()
+		approval.candidate_indices.count_ones()
 	);
 
 	let mut actions = Vec::new();
@@ -3094,14 +3094,6 @@ where
 		let is_approved = check.is_approved(tick_now.saturating_sub(APPROVAL_DELAY));
 		if status.last_no_shows != 0 {
 			metrics.on_observed_no_shows(status.last_no_shows);
-			sender
-				.send_message(
-					ConsensusStatisticsCollectorMessage::ObservedNoShows(
-						session_index,
-						status.no_show_validators.clone(),
-					))
-				.await;
-
 			gum::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
@@ -3174,48 +3166,12 @@ where
 		}
 		if newly_approved {
 			state.record_no_shows(session_index, para_id.into(), &status.no_show_validators);
-			let mut collected_useful_approvals = vec![];
-
-			match status.required_tranches {
-				RequiredTranches::All => {
-					collected_useful_approvals.extend(candidate_entry.approvals().iter_ones().into());
-				},
-				RequiredTranches::Exact {needed, ..} => {
-					let tranches = approval_entry.tranches();
-					for validator_approval_idx in candidate_entry.approvals().iter_ones() {
-						for tranche_entry in tranches {
-							if tranche_entry.tranche() <= needed {
-								let trance_assignments = tranche_entry.assignments();
-								let useful_vote = trance_assignments
-									.iter()
-									.find(|(validator_on_tranche, _)| *validator_on_tranche == ValidatorIndex(validator_approval_idx as _));
-
-								match useful_vote {
-									Some((vidx, _)) => collected_useful_approvals.push(*vidx),
-									// Found no useful votes on a needed tranche
-									None => {}
-								}
-							}
-						}
-					}
-				},
-				RequiredTranches::Pending {..} => panic!("Newly approved candidate should never be pending; qed"),
-			}
-
-			if collected_useful_approvals.len() > 0 {
-				_ = sender.try_send_message(ConsensusStatisticsCollectorMessage::CandidateApproved(
-					candidate_hash,
-					block_hash,
-					collected_useful_approvals,
-				)).map_err(|_| {
-					gum::warn!(
-					target: LOG_TARGET,
-					?candidate_hash,
-					?block_hash,
-					"Failed to send approvals to statistics subsystem",
-				);
-				});
-			}
+			collect_useful_approvals(sender,  &status, block_hash, &candidate_entry, &approval_entry);
+			_ = sender
+				.try_send_message(ConsensusStatisticsCollectorMessage::NoShows(
+					session_index,
+					status.no_show_validators,
+				));
 		}
 
 		actions.extend(schedule_wakeup_action(
@@ -4098,4 +4054,48 @@ fn compute_delayed_approval_sending_tick(
 
 	metrics.on_delayed_approval(sign_no_later_than.checked_sub(tick_now).unwrap_or_default());
 	sign_no_later_than
+}
+
+// collect all the approvals required to approve the
+// candidate, ignoring any other approval that belongs
+// to not required tranches
+fn collect_useful_approvals<Sender>(
+	sender: &mut Sender,
+	status: &ApprovalStatus,
+	block_hash: Hash,
+	candidate_entry: &CandidateEntry,
+	approval_entry: &ApprovalEntry,
+)
+where
+	Sender: SubsystemSender<ConsensusStatisticsCollectorMessage>
+{
+	let candidate_hash = candidate_entry.candidate.hash();
+	let candidate_approvals = candidate_entry.approvals();
+
+	let collected_useful_approvals: Vec<ValidatorIndex> = match status.required_tranches {
+		RequiredTranches::All => {
+			candidate_approvals.iter_ones().into()
+		},
+		RequiredTranches::Exact {needed, ..} => {
+			let mut assigned_mask = approval_entry.assignments_up_to(needed);
+			assigned_mask &= candidate_approvals;
+			assigned_mask.iter_ones().into()
+		},
+		RequiredTranches::Pending {..} => panic!("Newly approved candidate should never be pending; qed"),
+	};
+
+	if collected_useful_approvals.len() > 0 {
+		_ = sender.try_send_message(ConsensusStatisticsCollectorMessage::CandidateApproved(
+			candidate_hash,
+			block_hash,
+			collected_useful_approvals,
+		)).map_err(|_| {
+			gum::warn!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?block_hash,
+					"Failed to send approvals to statistics subsystem",
+				);
+		});
+	}
 }
