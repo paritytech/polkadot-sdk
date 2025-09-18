@@ -128,9 +128,6 @@ jobs:
 
           echo "Version: $VERSION"
 
-          ls -la ${{ github.workspace}}/runtimes
-          ls -la ${{ github.workspace}}/prdoc/stable2556
-
           ./scripts/release/build-changelogs.sh
 
       - name: Archive artifact context.json
@@ -147,7 +144,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           gh release create ${{ env.REL_TAG }} \
-            --repo ${{ github.repository }} \
+            --repo paritytech/polkadot-sdk \
             --draft \
             --title "Polkadot ${{ env.REL_TAG }}" \
             --notes-file ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
@@ -266,7 +263,7 @@ jobs:
 
   post_to_matrix:
     runs-on: ubuntu-latest
-    needs: [ validate-inputs, publish-release-draft ]
+    needs: [ validate-inputs, publish-release-draft, publish-runtimes, publish-release-artifacts ]
     environment: release
     strategy:
       matrix:
