@@ -2200,7 +2200,7 @@ pub fn code_hash<T: Config>(address: &H160) -> H256 {
 
 /// Returns true if the address has a precompile contract, else false.
 pub fn is_precompile<T: Config>(address: &H160) -> bool {
-	<AllPrecompiles<T>>::code(address.as_fixed_bytes()).is_some()
+	<AllPrecompiles<T>>::get(address.as_fixed_bytes()).is_some()
 }
 
 mod sealing {
