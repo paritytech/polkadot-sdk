@@ -130,20 +130,18 @@ jobs:
 
           python3 -m pip install --user awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
 
-          echo "first 🔍 Checking for pgpkms-rpmsign..."
-          echo "pgpkms-rpmsign resolved to: ${PGPKMS_RPMSIGN_PATH}"
-
+          # Ensure ~/.local/bin is in PATH right now and for later steps
           export PATH=$HOME/.local/bin:$PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-          echo "second 🔍 Checking for pgpkms-rpmsign..."
-          echo "pgpkms-rpmsign resolved to: ${PGPKMS_RPMSIGN_PATH}"
+          # Verify binaries exist
+          ls -l $HOME/.local/bin
+          which pgpkms-reprepro || echo "pgpkms-reprepro not in PATH"
+          which pgpkms-rpmsign || echo "pgpkms-rpmsign not in PATH"
 
+          # Export to GITHUB_ENV (this time they won’t be empty)
           echo "PGPKMS_REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
           echo "PGPKMS_RPMSIGN_PATH=$(which pgpkms-rpmsign)" >> $GITHUB_ENV
-
-          echo "third 🔍 Checking for pgpkms-rpmsign..."
-          echo "pgpkms-rpmsign resolved to: ${PGPKMS_RPMSIGN_PATH}"
 
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
