@@ -163,7 +163,16 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
-		let call = subxt_client::tx().revive().eth_transact(transaction.0);
+
+		let transaction = match TransactionSigned::decode(&transaction.0) {
+			Ok(tx) => tx,
+			Err(err) => {
+				log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
+				return Err(EthRpcError::RlpError(err).into());
+			},
+		};
+
+		let call = subxt_client::tx().revive().eth_transact(subxt::utils::Static(transaction));
 		self.client.submit(call).await.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");
 			err

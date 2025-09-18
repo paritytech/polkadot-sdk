@@ -17,7 +17,9 @@
 
 use crate::rc::mock::*;
 use frame::testing_prelude::*;
-use pallet_staking_async_ah_client::{self as ah_client, Mode, OperatingMode};
+use pallet_staking_async_ah_client::{
+	self as ah_client, Mode, OffenceSendQueue, OperatingMode, OutgoingSessionReport, UnexpectedKind,
+};
 use pallet_staking_async_rc_client::{
 	self as rc_client, Offence, SessionReport, ValidatorSetReport,
 };
@@ -375,6 +377,125 @@ fn cleans_validator_points_upon_session_report() {
 }
 
 #[test]
+fn session_report_send_fails_after_retries() {
+	// if a session report cannot be sent, first we retry. If we still fail and retries are out, we
+	// restore the points.
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// insert a custom validator point for easier tracking
+		ah_client::ValidatorPoints::<Runtime>::insert(1, 100);
+
+		assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), 0);
+		assert!(ah_client::OutgoingSessionReport::<Runtime>::get().is_none());
+
+		// when roll forward, but next message will fail to be sent
+		NextAhDeliveryFails::set(true);
+		roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 1, false);
+
+		// these are the points that are saved in the outgoing report
+		assert_eq!(
+			OutgoingSessionReport::<Runtime>::get().unwrap().0.validator_points,
+			vec![(1, 100), (11, 580)]
+		);
+
+		// now we have 2 retries left
+		assert!(matches!(ah_client::OutgoingSessionReport::<Runtime>::get(), Some((_, 2))));
+		// validator points are drained, since we have the session report.
+		assert_eq!(validator_points(), vec![]);
+		// event emitted
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![ah_client::Event::Unexpected(UnexpectedKind::SessionReportSendFailed)]
+		);
+
+		// again
+		NextAhDeliveryFails::set(true);
+		roll_next();
+		assert!(matches!(ah_client::OutgoingSessionReport::<Runtime>::get(), Some((_, 1))));
+		// this is registered by our mock setup
+		assert_eq!(validator_points(), vec![(11, 20)]);
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![ah_client::Event::Unexpected(UnexpectedKind::SessionReportSendFailed)]
+		);
+
+		// in the meantime, we receive some new validator points.
+		ah_client::ValidatorPoints::<Runtime>::insert(1, 50);
+
+		// again
+		NextAhDeliveryFails::set(true);
+		roll_next();
+		assert!(matches!(ah_client::OutgoingSessionReport::<Runtime>::get(), Some((_, 0))));
+		assert_eq!(validator_points(), vec![(1, 50), (11, 40)]);
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![ah_client::Event::Unexpected(UnexpectedKind::SessionReportSendFailed)]
+		);
+
+		// last time, we will drop it now.
+		NextAhDeliveryFails::set(true);
+		roll_next();
+		assert!(matches!(ah_client::OutgoingSessionReport::<Runtime>::get(), None));
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![
+				ah_client::Event::Unexpected(UnexpectedKind::SessionReportSendFailed),
+				ah_client::Event::Unexpected(UnexpectedKind::SessionReportDropped)
+			]
+		);
+
+		// validator points are restored and merged with what we have noted in the meantime.
+		assert_eq!(validator_points(), vec![(1, 150), (11, 640)]);
+	})
+}
+
+#[test]
+fn reports_unexpected_event_if_too_many_validator_points() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// create 1 too many validator points
+		for v in 0..=MaximumValidatorsWithPoints::get() {
+			ah_client::ValidatorPoints::<Runtime>::insert(v as AccountId, 100);
+		}
+
+		// roll until next session
+		roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 1, false);
+
+		// message is placed in the outbox
+		assert!(matches!(
+			&LocalQueue::get_since_last_call()[..],
+			[(
+				30,
+				OutgoingMessages::SessionReport(SessionReport {
+					validator_points, ..
+				})
+			)] if validator_points.len() as u32 == MaximumValidatorsWithPoints::get()
+		));
+
+		// but there is an unexpected event for us
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![ah_client::Event::Unexpected(UnexpectedKind::ValidatorPointDropped)]
+		);
+
+		// and one validator point is left;
+		assert_eq!(ah_client::ValidatorPoints::<Runtime>::iter().count(), 1);
+
+		// it will be sent in the next session report
+		roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 2, false);
+
+		assert!(matches!(
+			&LocalQueue::get_since_last_call()[..],
+			[(
+				60,
+				OutgoingMessages::SessionReport(SessionReport {
+					validator_points, ..
+				})
+			)] if validator_points.len() as u32 == 1 + 1
+			// 1 more validator point added by the authorship pallet in our test setup
+		));
+	})
+}
+
+#[test]
 fn drops_too_small_validator_set() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		assert_eq!(MinimumValidatorSetSize::get(), 4);
@@ -389,7 +510,7 @@ fn drops_too_small_validator_set() {
 		assert_ok!(ah_client::Pallet::<Runtime>::validator_set(RuntimeOrigin::root(), report),);
 		assert_eq!(
 			ah_client_events_since_last_call(),
-			vec![ah_client::Event::SetTooSmallAndDropped,]
+			vec![ah_client::Event::SetTooSmallAndDropped]
 		);
 
 		assert!(ah_client::ValidatorSet::<Runtime>::get().is_none());
@@ -464,25 +585,168 @@ fn on_offence_non_validator() {
 				None
 			));
 
+			// roll 1 block to process
+			roll_next();
+
 			// we nonetheless have sent the offence report to AH
 			assert_eq!(
 				LocalQueue::get_since_last_call(),
 				vec![(
-					150,
-					OutgoingMessages::OffenceReport(
+					151,
+					OutgoingMessages::OffenceReportPaged(vec![(
 						5,
-						vec![Offence {
+						Offence {
 							offender: 5,
 							reporters: vec![],
 							slash_fraction: Perbill::from_percent(50)
-						}]
-					)
+						}
+					)])
 				)]
 			);
 
 			// no disabling has happened in session
 			assert_eq!(session_events_since_last_call(), vec![]);
 		})
+}
+
+#[test]
+fn offences_first_queued_and_then_sent() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// flush some relevant data
+		LocalQueue::flush();
+		let _ = session_events_since_last_call();
+
+		// submit an offence for two accounts
+		assert_ok!(pallet_root_offences::Pallet::<Runtime>::create_offence(
+			RuntimeOrigin::root(),
+			vec![(4, Perbill::from_percent(50)), (5, Perbill::from_percent(50))],
+			Some(vec![Default::default(), Default::default()]),
+			None
+		));
+
+		// Nothing is in our local outgoing queue yet
+		assert_eq!(LocalQueue::get_since_last_call(), vec![]);
+
+		// But we have it in our internal buffer
+		assert_eq!(OffenceSendQueue::<Runtime>::count(), 2);
+
+		// roll one block forward
+		roll_next();
+
+		// now it is in outbox.
+		assert_eq!(
+			LocalQueue::get_since_last_call(),
+			vec![(
+				2,
+				OutgoingMessages::OffenceReportPaged(vec![
+					(
+						0,
+						Offence {
+							offender: 4,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50)
+						}
+					),
+					(
+						0,
+						Offence {
+							offender: 5,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50)
+						}
+					)
+				])
+			)]
+		);
+	})
+}
+
+#[test]
+fn offences_spam_sent_page_by_page() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// flush some relevant data
+		LocalQueue::flush();
+		let _ = session_events_since_last_call();
+
+		let onchain_batch_size = MaxOffenceBatchSize::get();
+		// fill 2.5 pages worth of offecnces all at once
+		let offence_count = 5 * onchain_batch_size / 2;
+
+		let offences = (0..offence_count)
+			.map(|i| {
+				(
+					// identification tuple,
+					(i as AccountId, Default::default()),
+					// session index
+					0,
+					// time-slot, opaque number, just to make sure we create lots of unique
+					// offences.
+					i as u128,
+					// slash fraction
+					Perbill::from_percent(50).deconstruct(),
+				)
+			})
+			.collect::<Vec<_>>();
+		assert_ok!(pallet_root_offences::Pallet::<Runtime>::report_offence(RuntimeOrigin::root(), offences));
+
+		// all offences reported to the offence pallet.
+		assert_eq!(offence_events_since_last_call().len() as u32, offence_count);
+
+		// offence pallet will try and deduplicate them, but they all have the same time-slot,
+		// therefore are all reported to ah-client.
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), offence_count);
+		// 2.5 pages worth of offences
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 3);
+
+		// Nothing is in our local (outgoing queue yet)
+		assert_eq!(LocalQueue::get_since_last_call(), vec![]);
+
+		// roll one block forward, a page is sent.
+		roll_next();
+
+		// we have set 1 message in our outbox, which is consisted of a batch of offences. First page is `onchain_batch_size / 2`
+		assert!(matches!(
+			&LocalQueue::get_since_last_call()[..],
+			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size / 2
+		));
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), 2 * onchain_batch_size);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 2);
+
+		// To spice it up, we simulate 1 failed attempt in the next page as well. This is equivalent to the DMP queue being too busy to receive this message from us.
+		NextAhDeliveryFails::set(true);
+		roll_next();
+
+		// offence queue has not changed, we didn't send anyhting.
+		assert!(LocalQueue::get_since_last_call().is_empty());
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), 2 * onchain_batch_size);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 2);
+
+		// even to warn us is emitted
+		assert_eq!(ah_client_events_since_last_call(), vec![ah_client::Event::Unexpected(UnexpectedKind::OffenceSendFailed)]);
+
+		// Now let's make real progress again
+		roll_next();
+		assert!(matches!(
+			&LocalQueue::get_since_last_call()[..],
+			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size
+		));
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), onchain_batch_size);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 1);
+
+
+		roll_next();
+		assert!(matches!(
+			&LocalQueue::get_since_last_call()[..],
+			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size
+		));
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), 0);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 0);
+
+		// nothing more is set to outbox.
+		roll_next();
+		assert!(LocalQueue::get_since_last_call().is_empty());
+
+	})
 }
 
 #[test]
@@ -507,26 +771,32 @@ fn on_offence_non_validator_and_active() {
 				None
 			));
 
+			// roll 1 block to process it
+			roll_next();
+
 			// we nonetheless have sent the offence report to AH
 			assert_eq!(
 				LocalQueue::get_since_last_call(),
 				vec![(
-					150,
-					OutgoingMessages::OffenceReport(
-						5,
-						vec![
+					151,
+					OutgoingMessages::OffenceReportPaged(vec![
+						(
+							5,
 							Offence {
 								offender: 4,
 								reporters: vec![],
 								slash_fraction: Perbill::from_percent(50)
-							},
+							}
+						),
+						(
+							5,
 							Offence {
 								offender: 5,
 								reporters: vec![],
 								slash_fraction: Perbill::from_percent(50)
 							}
-						]
-					)
+						)
+					])
 				)]
 			);
 
@@ -566,19 +836,22 @@ fn wont_disable_past_session_offence() {
 				Some(5)
 			));
 
+			// roll 1 block to process it
+			roll_next();
+
 			// we nonetheless have sent the offence report to AH
 			assert_eq!(
 				LocalQueue::get_since_last_call(),
 				vec![(
-					240,
-					OutgoingMessages::OffenceReport(
+					241,
+					OutgoingMessages::OffenceReportPaged(vec![(
 						5,
-						vec![Offence {
+						Offence {
 							offender: 1,
 							reporters: vec![],
 							slash_fraction: Perbill::from_percent(50)
-						},]
-					)
+						}
+					)])
 				)]
 			);
 
@@ -609,23 +882,7 @@ fn on_offence_disable_and_re_enabled_next_set() {
 				None
 			));
 
-			// offence dispatched to AH
-			assert_eq!(
-				LocalQueue::get_since_last_call(),
-				vec![(
-					150,
-					OutgoingMessages::OffenceReport(
-						5,
-						vec![Offence {
-							offender: 4,
-							reporters: vec![],
-							slash_fraction: Perbill::from_percent(50)
-						},]
-					)
-				)]
-			);
-
-			// session disables 4
+			// session disables 4 immediately
 			assert_eq!(
 				session_events_since_last_call(),
 				vec![pallet_session::Event::ValidatorDisabled { validator: 4 }]
@@ -636,6 +893,25 @@ fn on_offence_disable_and_re_enabled_next_set() {
 					.map(|(x, _)| x)
 					.collect::<Vec<_>>(),
 				vec![3]
+			);
+
+			// roll 1 block to process it.
+			roll_next();
+
+			// offence dispatched to AH
+			assert_eq!(
+				LocalQueue::get_since_last_call(),
+				vec![(
+					151,
+					OutgoingMessages::OffenceReportPaged(vec![(
+						5,
+						Offence {
+							offender: 4,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50)
+						}
+					)])
+				)]
 			);
 
 			// now receive the same validator set, again

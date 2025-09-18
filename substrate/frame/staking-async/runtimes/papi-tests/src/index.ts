@@ -1,5 +1,6 @@
 import { rcPresetFor, runPreset } from "./cmd";
 import { logger } from "./utils";
+import { monitorVmpQueues } from "./vmp-monitor";
 import { Command } from "commander";
 
 export enum Presets {
@@ -28,6 +29,38 @@ if (require.main === module) {
 		.action(async (options) => {
 			const { paraPreset } = options;
 			runPreset(paraPreset);
+		});
+
+	program
+		.command("monitor-vmp")
+		.description("Monitor VMP (Vertical Message Passing) - both DMP and UMP queues")
+		.option(
+			"--relay-port <port>",
+			"Relay chain WebSocket port",
+			"9944"
+		)
+		.option(
+			"--para-port <port>",
+			"Parachain WebSocket port (optional)",
+			"9946"
+		)
+		.option(
+			"-r, --refresh <seconds>",
+			"Refresh interval in seconds",
+			"3"
+		)
+		.option(
+			"--para-id <id>",
+			"Specific parachain ID to monitor (default: all)"
+		)
+		.action(async (options) => {
+			const { relayPort, paraPort, refresh, paraId } = options;
+			await monitorVmpQueues({
+				relayPort: parseInt(relayPort),
+				paraPort: paraPort ? parseInt(paraPort) : undefined,
+				refreshInterval: parseInt(refresh),
+				paraId: paraId ? parseInt(paraId) : undefined
+			});
 		});
 
 	program.parse(process.argv);

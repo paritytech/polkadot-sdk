@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::evm::Block;
+use crate::evm::block_hash::IncrementalHashBuilder;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 
@@ -72,8 +72,14 @@ fn test_transactions_root_verification() {
 			test_data.transactions_rlp.iter().map(|hex_str| hex_to_bytes(hex_str)).collect();
 
 		// Calculate the transactions root
-		let calculated_root = Block::compute_trie_root(&transactions_rlp);
-		let calculated_root = H256::from_slice(&calculated_root.0);
+		let mut builder = IncrementalHashBuilder::new(transactions_rlp[0].clone());
+		for rlp_value in transactions_rlp.iter().skip(1) {
+			builder.add_value(rlp_value.clone());
+
+			let ir_builder = builder.to_ir();
+			builder = IncrementalHashBuilder::from_ir(ir_builder);
+		}
+		let calculated_root = builder.finish();
 
 		// Parse the expected root from the test data
 		let expected_root = hex_to_h256(&test_data.transactions_root);
@@ -103,8 +109,14 @@ fn test_receipts_root_verification() {
 			test_data.receipts_rlp.iter().map(|hex_str| hex_to_bytes(hex_str)).collect();
 
 		// Calculate the receipts root
-		let calculated_root = Block::compute_trie_root(&receipts_rlp);
-		let calculated_root = H256::from_slice(&calculated_root.0);
+		let mut builder = IncrementalHashBuilder::new(receipts_rlp[0].clone());
+		for rlp_value in receipts_rlp.iter().skip(1) {
+			builder.add_value(rlp_value.clone());
+
+			let ir_builder = builder.to_ir();
+			builder = IncrementalHashBuilder::from_ir(ir_builder);
+		}
+		let calculated_root = builder.finish();
 
 		// Parse the expected root from the test data
 		let expected_root = hex_to_h256(&test_data.receipts_root);

@@ -712,7 +712,7 @@ mod test {
 	}
 
 	#[test]
-	fn transaction_encode_2718_is_compatible_with_ethereum() {
+	fn rlp_codec_is_compatible_with_ethereum() {
 		// RLP encoded transactions
 		let test_cases = [
 			// Legacy
@@ -752,7 +752,7 @@ mod test {
 				assert_eq!(
                     rlp_encoded_revive,
                     rlp_encoded_ethereum,
-                    "encode_2718() output differs from ethereum crate EnvelopedEncodable for transaction type"
+                    "RLP encoded output differs from ethereum crate EnvelopedEncodable for transaction type"
                 );
 			}
 		}

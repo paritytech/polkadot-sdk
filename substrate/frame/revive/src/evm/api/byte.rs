@@ -80,6 +80,7 @@ impl Bytes {
 impl_hex!(Byte, u8, 0u8);
 impl_hex!(Bytes, Vec<u8>, vec![]);
 impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
+impl_hex!(Bytes32, [u8; 32], [0u8; 32]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
 
 #[test]
