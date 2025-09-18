@@ -7,7 +7,7 @@
 // Removed AES-GCM import - using simple XOR for performance testing
 use anyhow::anyhow;
 use codec::{Decode, Encode};
-use sp_core::{blake2_256, ed25519, sr25519, Bytes, Pair};
+use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_keyring::Sr25519Keyring;
 use sp_statement_store::{Statement, Topic};
 use std::collections::{HashMap, HashSet};
@@ -179,8 +179,9 @@ struct Participant {
 	keyring: Sr25519Keyring,
 	session_key: sr25519::Pair,
 	idx: usize,
+	group_members: Vec<usize>,
 	session_keys: HashMap<usize, sr25519::Public>,
-	symmetric_keys: HashMap<usize, ed25519::Public>,
+	symmetric_keys: HashMap<usize, sr25519::Public>,
 	request_counter: u64,
 	pending_responses: HashMap<usize, Option<u64>>,
 	processed_requests: HashMap<usize, HashSet<u64>>,
@@ -191,21 +192,32 @@ struct Participant {
 impl Participant {
 	fn new(keyring: Sr25519Keyring, idx: usize, rpc: RpcClient) -> Self {
 		let (session_key, _) = sr25519::Pair::generate();
-		let mut participant = Self {
+
+		let group_start = (idx / GROUP_SIZE) * GROUP_SIZE;
+		let group_end = group_start + GROUP_SIZE;
+		let group_members: Vec<usize> = (group_start..group_end).filter(|&i| i != idx).collect();
+
+		let mut symmetric_keys = HashMap::new();
+		for &other_idx in &group_members {
+			if other_idx > idx {
+				let (pair, _) = sr25519::Pair::generate();
+				symmetric_keys.insert(other_idx, pair.public());
+			}
+		}
+
+		Self {
 			keyring,
 			session_key,
 			idx,
+			group_members,
 			session_keys: HashMap::new(),
-			symmetric_keys: HashMap::new(),
+			symmetric_keys,
 			request_counter: 0,
 			pending_responses: HashMap::new(),
 			processed_requests: HashMap::new(),
 			received_responses: HashMap::new(),
 			rpc,
-		};
-
-		participant.generate_symmetric_keys();
-		participant
+		}
 	}
 
 	async fn send_session_key(&self) -> Result<(), anyhow::Error> {
@@ -214,24 +226,24 @@ impl Participant {
 	}
 
 	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
-		let topic = vec![topic_public_key()];
+		for &member_idx in &self.group_members {
+			let topics = vec![topic_public_key(), topic_idx(member_idx)];
+			let statements = self.statement_broadcasts_statement(topics).await?;
 
-		let statements = self.statement_broadcasts_statement(topic).await?;
-		for statement in &statements {
-			let topic1 = statement.topic(1).expect("Must contain idx");
-			let other_idx = usize::from_le_bytes(topic1[..8].try_into()?);
-			let data = statement.data().expect("Must contain session_key");
-			let session_key = sr25519::Public::from_raw(data[..].try_into()?);
-			self.add_group_member(other_idx, session_key);
+			for statement in &statements {
+				let data = statement.data().expect("Must contain session_key");
+				let session_key = sr25519::Public::from_raw(data[..].try_into()?);
+				self.session_keys.insert(member_idx, session_key);
+			}
 		}
 
-		assert_eq!(self.session_keys.len(), GROUP_SIZE - 1);
+		assert_eq!(self.session_keys.len(), self.group_members.len());
 
 		Ok(())
 	}
 
 	async fn send_symmetric_keys(&self) -> Result<(), anyhow::Error> {
-		for &receiver_idx in self.session_keys.keys() {
+		for &receiver_idx in &self.group_members {
 			let Some(statement) = self.symmetric_key_statement(receiver_idx) else { continue };
 			self.statement_submit(statement).await?;
 		}
@@ -249,12 +261,12 @@ impl Participant {
 				for statement in &statements {
 					let data = statement.data().expect("Must contain symmetric key");
 					self.symmetric_keys
-						.insert(sender_idx, ed25519::Public::from_raw(data.as_slice().try_into()?));
+						.insert(sender_idx, sr25519::Public::from_raw(data.as_slice().try_into()?));
 				}
 			}
 		}
 
-		assert_eq!(self.symmetric_keys.len(), GROUP_SIZE - 1);
+		assert_eq!(self.symmetric_keys.len(), self.group_members.len());
 
 		Ok(())
 	}
@@ -293,16 +305,6 @@ impl Participant {
 		statement
 	}
 
-	fn is_in_same_group(&self, other_idx: usize) -> bool {
-		self.idx / GROUP_SIZE == other_idx / GROUP_SIZE
-	}
-
-	fn add_group_member(&mut self, idx: usize, session_key: sr25519::Public) {
-		if self.is_in_same_group(idx) && idx != self.idx {
-			self.session_keys.insert(idx, session_key);
-		}
-	}
-
 	fn has_processed_request(&self, sender_idx: usize, request_id: u64) -> bool {
 		self.processed_requests
 			.get(&sender_idx)
@@ -311,18 +313,6 @@ impl Participant {
 
 	fn has_pending_response(&self, sender_idx: usize) -> bool {
 		self.pending_responses.get(&sender_idx).map_or(false, |res| res.is_some())
-	}
-
-	fn generate_symmetric_keys(&mut self) {
-		let group_start = (self.idx / GROUP_SIZE) * GROUP_SIZE;
-		let group_end = group_start + GROUP_SIZE;
-
-		for other_idx in group_start..group_end {
-			if other_idx > self.idx {
-				let (pair, _) = ed25519::Pair::generate();
-				self.symmetric_keys.insert(other_idx, pair.public());
-			}
-		}
 	}
 
 	fn symmetric_key_statement(&self, receiver_idx: usize) -> Option<Statement> {
@@ -420,8 +410,8 @@ impl Participant {
 	}
 
 	async fn send_requests(&mut self) -> Result<(), anyhow::Error> {
-		let receiver_indices = self.session_keys.keys().cloned().collect::<Vec<_>>();
-		for &receiver_idx in &receiver_indices {
+		let group_members = self.group_members.clone();
+		for receiver_idx in group_members {
 			let statement =
 				self.create_request_statement(receiver_idx).expect("Receiver must present");
 			self.statement_submit(statement).await?;
@@ -451,15 +441,17 @@ impl Participant {
 	}
 
 	async fn send_responses(&mut self) -> Result<(), anyhow::Error> {
-		let receiver_indices = self.session_keys.keys().cloned().collect::<Vec<_>>();
-		for &receiver_idx in &receiver_indices {
-			let req_id = self.pending_responses.get_mut(&receiver_idx).unwrap().take().unwrap();
-
-			let statement = self
-				.create_response_statement(req_id, receiver_idx)
-				.expect("Receiver must present");
-			self.statement_submit(statement).await?;
-			self.processed_requests.entry(receiver_idx).or_default().insert(req_id);
+		let group_members = self.group_members.clone();
+		for receiver_idx in group_members {
+			if let Some(req_id) =
+				self.pending_responses.get_mut(&receiver_idx).and_then(|r| r.take())
+			{
+				let statement = self
+					.create_response_statement(req_id, receiver_idx)
+					.expect("Receiver must present");
+				self.statement_submit(statement).await?;
+				self.processed_requests.entry(receiver_idx).or_default().insert(req_id);
+			}
 		}
 		Ok(())
 	}
