@@ -149,12 +149,12 @@ jobs:
           mkdir -p "$LOCAL_REPO_PATH/conf"
           cp ${{ github.workspace }}/.github/scripts/release/distributions "$LOCAL_REPO_PATH/conf/distributions"
 
-      - name: Sync repo, import keys, sign, and update metadata
+          - name: Sync repo, import keys, sign, and update metadata
         env:
-          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.aws_release_access_key_id }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
-          PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
-          PGP_KMS_HASH:  ${{ secrets.pgp_kms_hash }}
+          PGP_KMS_KEY: ${{ secrets.pgp_kms_key }}
+          PGP_KMS_HASH: ${{ secrets.pgp_kms_hash }}
         run: |
           # --- Sync Repo from S3 ---
           mkdir -p "$LOCAL_REPO_PATH"
@@ -168,18 +168,22 @@ jobs:
 
           . ./.github/scripts/common/lib.sh
           import_gpg_keys
-          
+
           # --- Add Package to Repo and Sign ---
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             debname=$(find release-artifacts/ -name 'polkadot_*.deb' | head -n 1)
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
-          
+
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
-            echo "Patching rpmmacros to use pgpkms-rpmsign..."
-            sed -i "s|^%_gpg_name.*|%_gpg_name ${PGP_KMS_HASH}|" ${{ github.workspace }}/.github/workflows/release/.rpmmacros || echo "%_gpg_name ${PGP_KMS_HASH}" >> ${{ github.workspace }}/.github/workflows/release/.rpmmacros
-            sed -i "s|^%__gpg_sign_cmd.*|%__gpg_sign_cmd ${PGPKMS_RPMSIGN_PATH} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}|" ${{ github.workspace }}/.github/workflows/release/.rpmmacros
+            echo "Creating ~/.rpmmacros for pgpkms-rpmsign..."
+            cat > ${HOME}/.rpmmacros <<'EOF'
+            %_signature gpg
+            %_gpg_path /root/.gnupg
+            %_gpg_name ${PGP_KMS_HASH}
+            %__gpg_sign_cmd ${PGPKMS_RPMSIGN_PATH} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}
+            EOF
 
             echo "Signing package with pgpkms (via AWS KMS)..."
             rpmsign --addsign "$rpmname"
@@ -190,6 +194,7 @@ jobs:
             echo "Updating repository metadata..."
             createrepo_c --update "$LOCAL_REPO_PATH"
           fi
+
 
       - name: Upload updated repo to S3
         env:
