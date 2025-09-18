@@ -177,13 +177,13 @@ jobs:
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
-            echo "Creating ~/.rpmmacros for pgpkms-rpmsign..."
-            cat > ${HOME}/.rpmmacros <<'EOF'
-%_signature gpg
-%_gpg_path /root/.gnupg
-%_gpg_name ${PGP_KMS_HASH}
-%__gpg_sign_cmd ${PGPKMS_RPMSIGN_PATH} --key ${PGP_KMS_KEY} --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}
-EOF
+            echo "Setting up ~/.rpmmacros from repo template..."
+            cp ./.github/workflows/rpmmacros ${HOME}/.rpmmacros
+
+            # Patch macros with runtime values
+            sed -i "s|PGP_KMS_HASH|${PGP_KMS_HASH}|" ${HOME}/.rpmmacros
+            sed -i "s|PGPKMS_RPMSIGN_PATH|${PGPKMS_RPMSIGN_PATH}|" ${HOME}/.rpmmacros
+            sed -i "s|PGP_KMS_KEY|${PGP_KMS_KEY}|" ${HOME}/.rpmmacros
 
             echo "Signing package with pgpkms (via AWS KMS)..."
             rpmsign --addsign "$rpmname"
