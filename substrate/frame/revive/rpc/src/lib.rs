@@ -318,7 +318,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		if transaction.nonce.is_none() {
 			transaction.nonce =
-				Some(self.get_transaction_count(from, BlockTag::Latest.into()).await?);
+				Some(self.get_transaction_count(account.address(), BlockTag::Latest.into()).await?);
 		}
 
 		if transaction.chain_id.is_none() {
