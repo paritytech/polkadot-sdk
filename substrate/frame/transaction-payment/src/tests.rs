@@ -24,13 +24,16 @@ use sp_runtime::{
 	generic::UncheckedExtrinsic,
 	traits::{DispatchTransaction, One},
 	transaction_validity::{InvalidTransaction, TransactionSource::External},
-	BuildStorage,
+	BuildStorage, TokenError,
 };
 
 use frame_support::{
-	assert_ok,
+	assert_err, assert_ok,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::{Currency, OriginTrait},
+	traits::{
+		tokens::{fungible::Mutate, Preservation},
+		Currency, OriginTrait,
+	},
 	weights::Weight,
 };
 use frame_system as system;
@@ -554,6 +557,43 @@ fn refund_does_not_recreate_account() {
 			System::assert_has_event(RuntimeEvent::System(system::Event::KilledAccount {
 				account: 2,
 			}));
+		});
+}
+
+/// Make sure that a protected transfer of all free balance fails
+/// despite the provider reference we are adding pre-dispatch.
+#[test]
+fn protected_transfer_should_fail() {
+	ExtBuilder::default()
+		.balance_factor(10)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			// So events are emitted
+			System::set_block_number(10);
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			Ext::from(5 /* tipped */)
+				.test_run(Some(2).into(), CALL, &info, 10, 0, |_origin| {
+					assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
+
+					// kill the account between pre and post dispatch
+					assert_err!(
+						<Balances as Mutate<AccountId>>::transfer(
+							&2,
+							&3,
+							Balances::free_balance(2),
+							Preservation::Protect,
+						),
+						TokenError::NotExpendable,
+					);
+					assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 5);
+
+					Ok(post_info_from_weight(Weight::from_parts(50, 0)))
+				})
+				.unwrap()
+				.unwrap();
+			assert!(System::account_exists(&2));
+			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 50 - 5);
 		});
 }
 
