@@ -19,7 +19,7 @@ use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
-	ensure_is_only_block_in_core, find_core_info,
+	ensure_is_last_block_in_core, ensure_is_only_block_in_core, find_core_info,
 	submit_extrinsic_and_wait_for_finalization_success, BlockToCheck,
 };
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
@@ -124,10 +124,11 @@ async fn pov_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error> {
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
 		.await?;
 
-	let use_more_weight_than_announced = create_use_more_weight_than_announced_call();
+	let use_more_weight_than_announced = create_use_more_weight_than_announced_call(true);
 
 	log::info!(
-		"Testing scenario 5: Sending a transaction which uses more weight than what it registered"
+		"Testing scenario 5: Sending a transaction which uses more weight than what \
+		it registered and transactions appears in the first block of a core"
 	);
 	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
 		&para_client,
@@ -137,6 +138,21 @@ async fn pov_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error> {
 	.await?;
 
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
+
+	let use_more_weight_than_announced = create_use_more_weight_than_announced_call(false);
+
+	log::info!(
+		"Testing scenario 6: Sending a transaction which uses more weight than what \
+		it registered and transactions appears in the last block of a core"
+	);
+	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+		&para_client,
+		&use_more_weight_than_announced,
+		&alice,
+	)
+	.await?;
+
+	ensure_is_last_block_in_core(&para_client, block_hash).await?;
 
 	Ok(())
 }
@@ -177,11 +193,12 @@ fn create_schedule_weight_registration_call() -> DynamicPayload {
 }
 
 /// Creates a `test-pallet` `use_more_weight_than_announced` call
-fn create_use_more_weight_than_announced_call() -> DynamicPayload {
+fn create_use_more_weight_than_announced_call(must_be_first_block_in_core: bool) -> DynamicPayload {
 	zombienet_sdk::subxt::tx::dynamic(
 		"TestPallet",
 		"use_more_weight_than_announced",
-		vec![] as Vec<zombienet_sdk::subxt::ext::scale_value::Value>,
+		vec![value![must_be_first_block_in_core]]
+			as Vec<zombienet_sdk::subxt::ext::scale_value::Value>,
 	)
 }
 

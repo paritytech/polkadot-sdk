@@ -240,7 +240,7 @@ where
 						log::error!(
 							target: LOG_TARGET,
 							"Inherent block logic took longer than the target block weight, \
-							`DynamicMaxBlockWeightPreInherent` not registered as `PreInherents` hook!",
+							`MaxBlockWeightHooks` not registered as `PreInherents` hook!",
 						);
 					} else if info
 						.total_weight()
@@ -271,33 +271,67 @@ where
 		}).map_err(Into::into)
 	}
 
-	fn post_dispatch_extrinsic(info: &DispatchInfo, post_info: &PostDispatchInfo, len: usize) {
+	fn post_dispatch_extrinsic() {
 		crate::BlockWeightMode::<T>::mutate(|weight_mode| {
 			let Some(mode) = *weight_mode else { return };
 
+			let target_block_weight =
+				MaxParachainBlockWeight::target_block_weight::<T>(TargetBlockRate::get());
+
+			let is_above_limit = frame_system::Pallet::<T>::remaining_block_weight()
+				.consumed()
+				.any_gt(target_block_weight);
+
 			match mode {
-				// If the previous one was already `FullCore` or `FractionOfCore`, we don't need to
-				// change anything.
-				BlockWeightMode::FullCore | BlockWeightMode::FractionOfCore { .. } => {},
-				// Now we need to check if the transaction required more weight than a fraction of a
-				// core block.
-				BlockWeightMode::PotentialFullCore { first_transaction_index } =>
-					if post_info
-						.calc_actual_weight(info)
-						// The extrinsic lengths counts towards the POV size
-						.saturating_add(Weight::from_parts(0, len as u64))
-						.all_lt(MaxParachainBlockWeight::target_block_weight::<T>(
-							TargetBlockRate::get(),
-						)) {
-						*weight_mode =
-							Some(BlockWeightMode::FractionOfCore { first_transaction_index });
-					} else {
+				// If the previous mode was already `FullCore`, we are fine.
+				BlockWeightMode::FullCore => {},
+				BlockWeightMode::FractionOfCore { .. } =>
+				// If we are above the limit, it means the transaction used more weight than what it
+				// had announced, which should not happen.
+					if is_above_limit {
+						log::error!(
+							target: LOG_TARGET,
+							"Extrinsic ({}) used more weight than what it had announced and pushed the \
+							block above the allowed weight limit!",
+							frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default()
+						);
+
+						// If this isn't the first block in a core, we register the full core weight
+						// to ensure that we don't include any other transactions. Because we don't
+						// know how many weight of the core was already used by the blocks before.
+						if !is_first_block_in_core::<T>() {
+							log::error!(
+								target: LOG_TARGET,
+								"Registering `FULL_CORE_WEIGHT` to ensure no other transaction is included \
+								in this block, because this isn't the first block in the core!",
+							);
+
+							frame_system::Pallet::<T>::register_extra_weight_unchecked(
+								MaxParachainBlockWeight::FULL_CORE_WEIGHT,
+								frame_support::dispatch::DispatchClass::Mandatory,
+							);
+						}
+
 						*weight_mode = Some(BlockWeightMode::FullCore);
 
 						// Inform the node that this block uses the full core.
 						frame_system::Pallet::<T>::deposit_log(
 							CumulusDigestItem::UseFullCore.to_digest_item(),
 						);
+					},
+				// Now we need to check if the transaction required more weight than a fraction of a
+				// core block.
+				BlockWeightMode::PotentialFullCore { first_transaction_index } =>
+					if is_above_limit {
+						*weight_mode = Some(BlockWeightMode::FullCore);
+
+						// Inform the node that this block uses the full core.
+						frame_system::Pallet::<T>::deposit_log(
+							CumulusDigestItem::UseFullCore.to_digest_item(),
+						);
+					} else {
+						*weight_mode =
+							Some(BlockWeightMode::FractionOfCore { first_transaction_index });
 					},
 			}
 		});
@@ -388,7 +422,7 @@ where
 	) -> Result<(), TransactionValidityError> {
 		S::post_dispatch(pre, info, post_info, len, result)?;
 
-		Self::post_dispatch_extrinsic(info, post_info, len);
+		Self::post_dispatch_extrinsic();
 
 		Ok(())
 	}
@@ -421,7 +455,7 @@ where
 	) -> Result<(), TransactionValidityError> {
 		S::bare_post_dispatch(info, post_info, len, result)?;
 
-		Self::post_dispatch_extrinsic(info, post_info, len);
+		Self::post_dispatch_extrinsic();
 
 		Ok(())
 	}

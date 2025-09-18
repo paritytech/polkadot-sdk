@@ -106,7 +106,7 @@ pub use pallet_timestamp::{Call as TimestampCall, Now};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-pub use test_pallet::Call as TestPalletCall;
+pub use test_pallet::{Call as TestPalletCall, TestTransactionExtension};
 
 pub type SessionHandlers = ();
 
@@ -453,6 +453,7 @@ pub type TxExtension = cumulus_pallet_parachain_system::DynamicMaxBlockWeight<
 			frame_system::CheckNonce<Runtime>,
 			frame_system::CheckWeight<Runtime>,
 			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+			test_pallet::TestTransactionExtension<Runtime>,
 		),
 	>,
 	NumberOfBlocksPerRelaySlot,

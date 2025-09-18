@@ -25,12 +25,16 @@ pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 pub mod pallet {
 	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
 	use alloc::vec;
+	use cumulus_primitives_core::CumulusDigestItem;
 	use frame_support::{
+		dispatch::DispatchInfo,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
 		pallet_prelude::*,
+		traits::IsSubType,
 		weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 	};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::{Dispatchable, Implication, TransactionExtension};
 
 	/// The inherent identifier for weight consumption.
 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"consume0";
@@ -169,19 +173,13 @@ pub mod pallet {
 		/// This function registers a high weight usage manually, while it actually only announces
 		/// to use a weight of `0` :)
 		///
-		/// Uses a custom `authorize` logic to ensure the transaction is only accepted when we can
-		/// fit the `1s` weight into the block.
+		/// Uses the [`TestTransactionExtension`] logic to ensure the transaction is only accepted
+		/// when we can fit the `1s` weight into the block.
 		#[pallet::weight(0)]
-		#[pallet::authorize(|
-			_source: TransactionSource,
-		| -> TransactionValidityWithRefund {
-			if frame_system::Pallet::<T>::remaining_block_weight().can_consume(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0)) {
-				Ok((ValidTransaction { provides: vec![vec![1, 2, 3, 4, 5]], ..Default::default() }, Weight::zero()))
-			} else {
-				Err(TransactionValidityError::Invalid(InvalidTransaction::ExhaustsResources))
-			}
-		})]
-		pub fn use_more_weight_than_announced(_: OriginFor<T>) -> DispatchResult {
+		pub fn use_more_weight_than_announced(
+			_: OriginFor<T>,
+			_must_be_first_block_in_core: bool,
+		) -> DispatchResult {
 			// Register weight manually.
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
 				Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0),
@@ -229,6 +227,93 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
+		}
+	}
+
+	#[derive(
+		Encode,
+		Decode,
+		CloneNoBound,
+		EqNoBound,
+		PartialEqNoBound,
+		TypeInfo,
+		RuntimeDebugNoBound,
+		DecodeWithMemTracking,
+	)]
+	#[scale_info(skip_type_params(T))]
+	pub struct TestTransactionExtension<T>(core::marker::PhantomData<T>);
+
+	impl<T> Default for TestTransactionExtension<T> {
+		fn default() -> Self {
+			Self(core::marker::PhantomData)
+		}
+	}
+
+	impl<T: Config> TransactionExtension<T::RuntimeCall> for TestTransactionExtension<T>
+	where
+		T: Config + Send + Sync,
+		T::RuntimeCall: IsSubType<Call<T>> + Dispatchable<Info = DispatchInfo>,
+	{
+		const IDENTIFIER: &'static str = "TestTransactionExtension";
+		type Implicit = ();
+		type Val = ();
+		type Pre = ();
+
+		fn validate(
+			&self,
+			origin: T::RuntimeOrigin,
+			call: &T::RuntimeCall,
+			_info: &DispatchInfo,
+			_len: usize,
+			_self_implicit: Self::Implicit,
+			_inherited_implication: &impl Implication,
+			_: TransactionSource,
+		) -> ValidateResult<Self::Val, T::RuntimeCall> {
+			if let Some(call) = call.is_sub_type() {
+				match call {
+					Call::use_more_weight_than_announced { must_be_first_block_in_core } =>
+						if {
+							let digest = frame_system::Pallet::<T>::digest();
+
+							CumulusDigestItem::find_bundle_info(&digest)
+								// Default being `true` to support `validate_transaction`
+								.map_or(true, |bi| bi.index == 0) ||
+								// If it doesn't need to be the first block in the core, we can just always accept the transaction.
+								!must_be_first_block_in_core
+						} {
+							Ok((
+								ValidTransaction {
+									provides: vec![vec![1, 2, 3, 4, 5]],
+									..Default::default()
+								},
+								(),
+								origin,
+							))
+						} else {
+							Err(TransactionValidityError::Invalid(
+								InvalidTransaction::ExhaustsResources,
+							))
+						},
+					_ => Ok((Default::default(), (), origin)),
+				}
+			} else {
+				Ok((Default::default(), (), origin))
+			}
+		}
+
+		fn prepare(
+			self,
+			val: Self::Val,
+			_origin: &T::RuntimeOrigin,
+			_call: &T::RuntimeCall,
+			_info: &DispatchInfo,
+			_len: usize,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			Ok(val)
+		}
+
+		fn weight(&self, _: &T::RuntimeCall) -> Weight {
+			Weight::zero()
 		}
 	}
 }

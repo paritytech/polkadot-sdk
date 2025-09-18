@@ -710,26 +710,32 @@ fn find_bundle_info(
 		.ok_or_else(|| anyhow!("Failed to find `BundleInfo` digest"))
 }
 
-/// Validates that the given block is the first block on its core (bundle index == 0).
-async fn ensure_is_only_block_in_core_impl(
+/// Validates that the given block is a "special" block in the core.
+///
+/// If `is_only_block_in_core` is true, it checks if the given block is the first block in the core
+/// and the only one. If this is `false`, it only checks if the block is the last block in the core.
+async fn ensure_is_block_in_core_impl(
 	para_client: &OnlineClient<PolkadotConfig>,
 	block_hash: H256,
+	is_only_block_in_core: bool,
 ) -> Result<(), anyhow::Error> {
 	let blocks = para_client.blocks();
 	let block = blocks.at(block_hash).await?;
 	let block_core_info = find_core_info(&block)?;
 
-	let parent = blocks.at(block.header().parent_hash).await?;
+	if is_only_block_in_core {
+		let parent = blocks.at(block.header().parent_hash).await?;
 
-	// Genesis is for sure on a different core :)
-	if parent.number() != 0 {
-		let parent_core_info = find_core_info(&parent)?;
+		// Genesis is for sure on a different core :)
+		if parent.number() != 0 {
+			let parent_core_info = find_core_info(&parent)?;
 
-		if parent_core_info == block_core_info {
-			return Err(anyhow::anyhow!(
-				"Not first block ({}) in core, at least the parent block is on the same core.",
-				block.header().number
-			));
+			if parent_core_info == block_core_info {
+				return Err(anyhow::anyhow!(
+					"Not first block ({}) in core, at least the parent block is on the same core.",
+					block.header().number
+				));
+			}
 		}
 	}
 
@@ -761,7 +767,8 @@ async fn ensure_is_only_block_in_core_impl(
 
 	if next_block_core_info == block_core_info {
 		return Err(anyhow::anyhow!(
-			"Not first block ({}) in core, at least the following block is on the same core.",
+			"Not {} block ({}) in core, at least the following block is on the same core.",
+			if is_only_block_in_core { "first" } else { "last" },
 			block.header().number
 		));
 	}
@@ -778,7 +785,7 @@ pub async fn ensure_is_only_block_in_core(
 
 	match block_to_check {
 		BlockToCheck::Exact(block_hash) =>
-			ensure_is_only_block_in_core_impl(para_client, block_hash).await,
+			ensure_is_block_in_core_impl(para_client, block_hash, true).await,
 		BlockToCheck::NextFirstBundleBlock(start_block_hash) => {
 			let start_block = blocks.at(start_block_hash).await?;
 
@@ -800,10 +807,18 @@ pub async fn ensure_is_only_block_in_core(
 			}
 
 			if let Some(block) = next_first_bundle_block {
-				ensure_is_only_block_in_core_impl(para_client, block).await
+				ensure_is_block_in_core_impl(para_client, block, true).await
 			} else {
 				Err(anyhow!("Could not find the next bundle after {}", start_block.number()))
 			}
 		},
 	}
+}
+
+/// Checks if the specified block is the last block in a core.
+pub async fn ensure_is_last_block_in_core(
+	para_client: &OnlineClient<PolkadotConfig>,
+	block_to_check: H256,
+) -> Result<(), anyhow::Error> {
+	ensure_is_block_in_core_impl(para_client, block_to_check, false).await
 }
