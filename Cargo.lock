@@ -114,9 +114,9 @@ dependencies = [
  "either",
  "k256",
  "once_cell",
- "rand 0.8.5",
  "secp256k1 0.30.0",
  "serde",
+ "serde_with",
  "thiserror 2.0.16",
 ]
 
@@ -1072,9 +1072,6 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "asn1-rs"
@@ -5417,7 +5414,6 @@ dependencies = [
  "ident_case",
  "proc-macro2 1.0.101",
  "quote 1.0.40",
- "serde",
  "strsim",
  "syn 2.0.106",
 ]
@@ -11137,7 +11133,9 @@ version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa11e84403164a9f12982ab728f3c67c6fd4ab5b5f0254ffc217bdbd3b28ab0"
 dependencies = [
+ "alloy-rlp",
  "cfg-if",
+ "proptest",
  "ruint",
  "serde",
  "smallvec",
@@ -13152,7 +13150,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
- "alloy-rlp",
+ "alloy-trie",
  "array-bytes 6.2.3",
  "assert_matches",
  "derive_more 0.99.20",
@@ -18211,7 +18209,6 @@ dependencies = [
  "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
- "serde",
 ]
 
 [[package]]
@@ -21399,7 +21396,6 @@ dependencies = [
  "bitcoin_hashes 0.14.0",
  "rand 0.8.5",
  "secp256k1-sys 0.10.1",
- "serde",
 ]
 
 [[package]]
