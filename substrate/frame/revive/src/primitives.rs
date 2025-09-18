@@ -17,7 +17,7 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{BalanceOf, Config, Error, H160, U256};
+use crate::{BalanceOf, Config, H160, U256};
 use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
@@ -119,6 +119,15 @@ pub enum EthTransactError {
 	Message(String),
 }
 
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+/// Error encountered while creating a BalanceWithDust from a U256 balance.
+pub enum BalanceConversionError {
+	/// Error encountered while creating the main balance value.
+	Value,
+	/// Error encountered while creating the dust value.
+	Dust,
+}
+
 /// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
 /// in the native currency
 #[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
@@ -149,7 +158,9 @@ impl<Balance> BalanceWithDust<Balance> {
 	}
 
 	/// Creates a new `BalanceWithDust` from the given EVM value.
-	pub fn from_value<T: Config>(value: U256) -> Result<BalanceWithDust<BalanceOf<T>>, Error<T>>
+	pub fn from_value<T: Config>(
+		value: U256,
+	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError>
 	where
 		BalanceOf<T>: TryFrom<U256>,
 	{
@@ -158,8 +169,8 @@ impl<Balance> BalanceWithDust<Balance> {
 		}
 
 		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
-		let value = quotient.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
-		let dust = remainder.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
+		let value = quotient.try_into().map_err(|_| BalanceConversionError::Value)?;
+		let dust = remainder.try_into().map_err(|_| BalanceConversionError::Dust)?;
 
 		Ok(BalanceWithDust { value, dust })
 	}
