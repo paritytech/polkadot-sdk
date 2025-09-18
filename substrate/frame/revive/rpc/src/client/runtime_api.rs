@@ -17,7 +17,7 @@
 
 use crate::{
 	client::Balance,
-	subxt_client::{self, SrcChainConfig, runtime_apis::revive_api::types::address::AccountId},
+	subxt_client::{self, runtime_apis::revive_api::types::address::AccountId, SrcChainConfig},
 	ClientError, LOG_TARGET,
 };
 use pallet_revive::{
@@ -104,7 +104,7 @@ impl RuntimeApi {
 	}
 
 	// Get the account for the given H160 address
-	pub async fn account_or_fallback(&self,address: H160) -> Result<AccountId, ClientError> {
+	pub async fn account_or_fallback(&self, address: H160) -> Result<AccountId, ClientError> {
 		let payload = subxt_client::apis().revive_api().account_or_fallback(address);
 		let account = self.0.call(payload).await?;
 		Ok(account)

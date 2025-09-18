@@ -30,9 +30,7 @@ use sc_service::{
 	start_rpc_servers, TaskManager,
 };
 use sqlx::sqlite::SqlitePoolOptions;
-use std::{
-	sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 use subxt_signer::eth::dev;
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;

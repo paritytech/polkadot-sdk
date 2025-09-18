@@ -145,10 +145,9 @@ impl From<ClientError> for ErrorObjectOwned {
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
-			)))
-			| ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
-			},
+			))) |
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -158,12 +157,10 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) => {
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
-			},
-			_ => {
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
-			},
+			ClientError::TransactError(EthTransactError::Message(msg)) =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			_ =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
 		}
 	}
 }
@@ -694,9 +691,8 @@ impl Client {
 		let block_author: H160;
 
 		match maybe_coinbase {
-			None => {
-				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default()
-			},
+			None =>
+				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default(),
 			Some(author) => block_author = author,
 		}
 
@@ -1111,7 +1107,10 @@ impl Client {
 
 		let params = rpc_params![next_timestamp].to_rpc_params().unwrap();
 
-		let _ = self.rpc_client.request("engine_setNextBlockTimestamp".to_string(), params).await;
+		let _ = self
+			.rpc_client
+			.request("engine_setNextBlockTimestamp".to_string(), params)
+			.await;
 
 		Ok(())
 	}
@@ -1264,9 +1263,8 @@ impl Client {
 		let block_author: H160;
 
 		match maybe_coinbase {
-			None => {
-				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default()
-			},
+			None =>
+				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default(),
 			Some(author) => block_author = author,
 		}
 

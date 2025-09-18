@@ -510,7 +510,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn personal_sign(&self, message: Bytes, address: H160) -> RpcResult<Option<Bytes>> {
 		let impersonated = self.client.is_impersonated_account(address).await.unwrap();
-		
+
 		let account = match impersonated {
 			Some(true) => &self.accounts[0],
 			_ => self
