@@ -1652,8 +1652,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/staking-async
 name = "pallet-staking-async"
-from = "0.4.0"
-to = "0.4.1"
+from = "0.4.1"
+to = "0.4.2"
 bump = "patch"
 reason = "changed"
 
