@@ -5019,3 +5019,47 @@ fn reject_signed_tx_from_contract_address() {
 		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
 	});
 }
+
+#[test]
+fn reject_signed_tx_from_primitive_precompile_address() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		// blake2f precompile address
+		let precompile_addr = H160::from_low_u64_be(9);
+		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+
+		let call_result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(fake_account.clone()))
+			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
+
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(fake_account))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn reject_signed_tx_from_builtin_precompile_address() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		// system precompile address
+		let precompile_addr = H160::from_low_u64_be(0x900);
+		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+
+		let call_result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(fake_account.clone()))
+			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
+
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(fake_account))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+	});
+}
