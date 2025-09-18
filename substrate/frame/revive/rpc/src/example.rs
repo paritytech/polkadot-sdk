@@ -20,15 +20,6 @@ use anyhow::Context;
 use pallet_revive::evm::*;
 use std::sync::Arc;
 
-/// Transaction type enum for specifying which type of transaction to send
-#[derive(Debug, Clone, Copy)]
-pub enum TransactionType {
-	Legacy,
-	Eip2930,
-	Eip1559,
-	Eip4844,
-}
-
 /// Transaction builder.
 pub struct TransactionBuilder<Client: EthRpcClient + Sync + Send> {
 	client: Arc<Client>,
@@ -36,7 +27,7 @@ pub struct TransactionBuilder<Client: EthRpcClient + Sync + Send> {
 	value: U256,
 	input: Bytes,
 	to: Option<H160>,
-	mutate: Box<dyn FnOnce(&mut TransactionUnsigned)>,
+	mutate: Box<dyn FnOnce(&mut TransactionLegacyUnsigned)>,
 }
 
 #[derive(Debug)]
@@ -59,25 +50,16 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 
 	/// Wait for the receipt of the transaction.
 	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
-		self.wait_for_receipt_advanced(true).await
-	}
-
-	/// Wait for the receipt of the transaction.
-	pub async fn wait_for_receipt_advanced(&self, check_gas: bool) -> anyhow::Result<ReceiptInfo> {
 		let hash = self.hash();
 		for _ in 0..30 {
 			tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 			let receipt = self.client.get_transaction_receipt(hash).await?;
 			if let Some(receipt) = receipt {
 				if receipt.is_success() {
-					if check_gas {
-						assert!(
-							self.gas() > receipt.gas_used,
-							"Gas used {:?} should be less than gas estimated {:?}",
-							receipt.gas_used,
-							self.gas()
-						);
-					}
+					assert!(
+						self.gas() > receipt.gas_used,
+						"Gas used should be less than gas estimated."
+					);
 					return Ok(receipt)
 				} else {
 					anyhow::bail!("Transaction failed receipt: {receipt:?}")
@@ -125,7 +107,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 	}
 
 	/// Set a mutation function, that mutates the transaction before sending.
-	pub fn mutate(mut self, mutate: impl FnOnce(&mut TransactionUnsigned) + 'static) -> Self {
+	pub fn mutate(mut self, mutate: impl FnOnce(&mut TransactionLegacyUnsigned) + 'static) -> Self {
 		self.mutate = Box::new(mutate);
 		self
 	}
@@ -153,18 +135,10 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 
 	/// Send the transaction.
 	pub async fn send(self) -> anyhow::Result<SubmittedTransaction<Client>> {
-		self.send_typed(TransactionType::Legacy).await
-	}
-
-	/// Send the transaction with a specific transaction type.
-	pub async fn send_typed(
-		self,
-		tx_type: TransactionType,
-	) -> anyhow::Result<SubmittedTransaction<Client>> {
 		let TransactionBuilder { client, signer, value, input, to, mutate } = self;
 
 		let from = signer.address();
-		let chain_id = client.chain_id().await?;
+		let chain_id = Some(client.chain_id().await?);
 		let gas_price = client.gas_price().await?;
 		let nonce = client
 			.get_transaction_count(from, BlockTag::Latest.into())
@@ -187,77 +161,20 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			.with_context(|| "Failed to fetch gas estimate")?;
 
 		println!("Gas estimate: {gas:?}");
-
-		let mut unsigned_tx: TransactionUnsigned = match tx_type {
-			TransactionType::Legacy => TransactionLegacyUnsigned {
-				gas,
-				nonce,
-				to,
-				value,
-				input,
-				gas_price,
-				chain_id: Some(chain_id),
-				..Default::default()
-			}
-			.into(),
-			TransactionType::Eip2930 => Transaction2930Unsigned {
-				gas,
-				nonce,
-				to,
-				value,
-				input,
-				gas_price,
-				chain_id,
-				access_list: vec![],
-				r#type: TypeEip2930,
-			}
-			.into(),
-			TransactionType::Eip1559 => {
-				// For EIP-1559, we use gas_price as max_fee_per_gas and set
-				// max_priority_fee_per_gas to a reasonable default
-				let max_priority_fee_per_gas = gas_price / 10; // 10% of gas price as priority fee
-				Transaction1559Unsigned {
-					gas,
-					nonce,
-					to,
-					value,
-					input,
-					gas_price,
-					max_fee_per_gas: gas_price,
-					max_priority_fee_per_gas,
-					chain_id,
-					access_list: vec![],
-					r#type: TypeEip1559,
-				}
-				.into()
-			},
-			TransactionType::Eip4844 => {
-				// For EIP-4844, we need a destination address (cannot be None for blob
-				// transactions)
-				let to = to.ok_or_else(|| {
-					anyhow::anyhow!("EIP-4844 transactions require a destination address")
-				})?;
-				let max_priority_fee_per_gas = gas_price / 10; // 10% of gas price as priority fee
-				Transaction4844Unsigned {
-					gas,
-					nonce,
-					to,
-					value,
-					input,
-					max_fee_per_gas: gas_price,
-					max_priority_fee_per_gas,
-					max_fee_per_blob_gas: gas_price, // Use gas_price as blob gas fee
-					chain_id,
-					access_list: vec![],
-					blob_versioned_hashes: vec![],
-					r#type: TypeEip4844,
-				}
-				.into()
-			},
+		let mut unsigned_tx = TransactionLegacyUnsigned {
+			gas,
+			nonce,
+			to,
+			value,
+			input,
+			gas_price,
+			chain_id,
+			..Default::default()
 		};
+
 		mutate(&mut unsigned_tx);
 
-		let signed_tx = signer.sign_transaction(unsigned_tx);
+		let signed_tx = signer.sign_transaction(unsigned_tx.into());
 		let bytes = signed_tx.signed_payload();
 
 		let hash = client
