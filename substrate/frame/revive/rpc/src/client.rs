@@ -1280,22 +1280,35 @@ impl Client {
 		Ok(Some(U64::from(snapshot_id)))
 	}
 
-	pub async fn revert(&self, id: U64) -> Result<Option<bool>, ClientError> {
+	pub async fn revert(&mut self, id: U64) -> Result<Option<bool>, ClientError> {
 		let params = rpc_params![id.as_u64()];
 		let result: bool = self.rpc_client.request("evm_revert", params).await.unwrap();
 
-		let block = self.api.blocks().at_latest().await?;
-		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
+		// Recreate API client and block provider to clear cached state
+		self.api = OnlineClient::<SrcChainConfig>::from_rpc_client(self.rpc_client.clone()).await?;
+		self.block_provider = SubxtBlockInfoProvider::new(
+			self.api.clone(), 
+			self.rpc.clone()
+		).await?;
 
 		Ok(Some(result))
 	}
 
-	pub async fn reset(&self) -> Result<Option<bool>, ClientError> {
+	pub async fn reset(&mut self) -> Result<Option<bool>, ClientError> {
 		let result: bool =
 			self.rpc_client.request("hardhat_reset", Default::default()).await.unwrap();
 
-		let block = self.api.blocks().at_latest().await?;
-		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
+		// Recreate the API client to clear any cached metadata
+		self.api = OnlineClient::<SrcChainConfig>::from_rpc_client(self.rpc_client.clone()).await?;
+		
+		// Recreate the block provider with fresh state
+		self.block_provider = SubxtBlockInfoProvider::new(
+			self.api.clone(), 
+			self.rpc.clone()
+		).await?;
+
+		// Reset the block offset to 0
+		*self.block_offset.write().unwrap() = 0;
 
 		Ok(Some(result))
 	}
