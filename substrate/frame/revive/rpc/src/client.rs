@@ -145,10 +145,9 @@ impl From<ClientError> for ErrorObjectOwned {
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
-			)))
-			| ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
-			},
+			))) |
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -158,12 +157,10 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) => {
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
-			},
-			_ => {
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
-			},
+			ClientError::TransactError(EthTransactError::Message(msg)) =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			_ =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
 		}
 	}
 }
@@ -694,9 +691,8 @@ impl Client {
 		let block_author: H160;
 
 		match maybe_coinbase {
-			None => {
-				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default()
-			},
+			None =>
+				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default(),
 			Some(author) => block_author = author,
 		}
 
@@ -815,14 +811,16 @@ impl Client {
 		}
 
 		let params = rpc_params![true, true, None::<H256>, None::<u64>];
-		let latest_block: CreatedBlock<H256> = self.rpc_client.request("engine_createBlock", params).await.unwrap();
+		let latest_block: CreatedBlock<H256> =
+			self.rpc_client.request("engine_createBlock", params).await.unwrap();
 
 		Ok(latest_block)
 	}
 
 	/// Returns `true` if block production is set to `instant`.
 	pub async fn get_automine(&self) -> Result<bool, ClientError> {
-		let automine: bool = self.rpc_client.request("hardhat_getAutomine", rpc_params![]).await.unwrap();
+		let automine: bool =
+			self.rpc_client.request("hardhat_getAutomine", rpc_params![]).await.unwrap();
 
 		Ok(automine)
 	}
@@ -1250,9 +1248,8 @@ impl Client {
 		let block_author: H160;
 
 		match maybe_coinbase {
-			None => {
-				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default()
-			},
+			None =>
+				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default(),
 			Some(author) => block_author = author,
 		}
 
@@ -1277,11 +1274,8 @@ impl Client {
 	}
 
 	pub async fn snapshot(&self) -> Result<Option<U64>, ClientError> {
-		let snapshot_id: u64 = self
-			.rpc_client
-			.request("evm_snapshot", Default::default())
-			.await
-			.unwrap();
+		let snapshot_id: u64 =
+			self.rpc_client.request("evm_snapshot", Default::default()).await.unwrap();
 
 		Ok(Some(U64::from(snapshot_id)))
 	}
@@ -1297,11 +1291,8 @@ impl Client {
 	}
 
 	pub async fn reset(&self) -> Result<Option<bool>, ClientError> {
-		let result: bool = self
-			.rpc_client
-			.request("hardhat_reset", Default::default())
-			.await
-			.unwrap();
+		let result: bool =
+			self.rpc_client.request("hardhat_reset", Default::default()).await.unwrap();
 
 		let block = self.api.blocks().at_latest().await?;
 		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
