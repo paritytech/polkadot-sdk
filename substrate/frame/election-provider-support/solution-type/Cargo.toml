@@ -35,4 +35,10 @@ frame-support = { workspace = true, default-features = true }
 trybuild = { workspace = true }
 
 [package.metadata.cargo-udeps.ignore]
-development = ["frame-election-provider-support", "trybuild", "frame-support", "scale-info", "sp-arithmetic"]
+development = [
+	"frame-election-provider-support",
+	"frame-support",
+	"scale-info",
+	"sp-arithmetic",
+	"trybuild",
+]

@@ -63,4 +63,9 @@ disable_target_static_assertions = []
 
 [package.metadata.cargo-udeps.ignore]
 normal = ["static_assertions"]
-development = ["sp-io", "sp-runtime-interface-test-wasm", "sp-state-machine", "static_assertions"]
+development = [
+	"sp-io",
+	"sp-runtime-interface-test-wasm",
+	"sp-state-machine",
+	"static_assertions",
+]

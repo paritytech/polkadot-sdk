@@ -28,4 +28,4 @@ default = ["std"]
 std = ["codec/std", "polkadot-parachain-primitives/std", "sp-io/std"]
 
 [package.metadata.cargo-udeps.ignore]
-normal = ["polkadot-parachain-primitives", "dlmalloc"]
+normal = ["dlmalloc", "polkadot-parachain-primitives"]

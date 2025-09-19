@@ -111,12 +111,6 @@ jobs:
       SKIP_WASM_BUILD: 1
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
-
-      - name: Install nightly & cargo-udeps
-        run: |
-          rustup toolchain install nightly --profile minimal -y
-          (cargo +nightly udeps -V) || cargo +nightly install cargo-udeps --locked
-
       - name: Run cargo-udeps (workspace)
         id: required
         run: |
@@ -125,7 +119,6 @@ jobs:
           else
             cargo +nightly udeps --workspace --all-features --all-targets --exclude polkadot-zombienet-sdk-tests
           fi
-
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
