@@ -542,10 +542,9 @@ fn instantiate_unique_trie_id() {
 }
 
 #[test]
-#[ignore]
 fn instantiate_unique_trie_id2() {
     let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
-    let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct").unwrap();
+    let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
 
     ExtBuilder::default().build().execute_with(|| {
         let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1093,6 +1092,8 @@ fn self_destruct_works() {
 		// Check that the code is gone
 		assert!(PristineCode::<Test>::get(&code_hash).is_none());
 
+		println!("contract balance: {:?}", <Test as Config>::Currency::total_balance(&contract.account_id));
+
 		// Check that account is gone
 		assert!(get_contract_checked(&contract.addr).is_none());
 		assert_eq!(<Test as Config>::Currency::total_balance(&contract.account_id), 0);
@@ -1105,6 +1106,8 @@ fn self_destruct_works() {
 
 		// Check that the Alice is missing Django's benefit. Within ALICE's total balance
 		// there's also the code upload deposit held.
+		println!("alice balance: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
+		println!("expected balance: {:?}", 1_000_000 - (100_000 + min_balance));
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&ALICE),
 			1_000_000 - (100_000 + min_balance)
@@ -3902,7 +3905,9 @@ fn mapped_address_works() {
 
 		// without a mapping everything will be send to the fallback account
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code.clone()))
+			.native_value(100)
+			.build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
@@ -3929,7 +3934,9 @@ fn recovery_works() {
 		// eve puts her AccountId20 as argument to terminate but forgot to register
 		// her AccountId32 first so now the funds are trapped in her fallback account
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code.clone()))
+			.native_value(100)
+			.build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();

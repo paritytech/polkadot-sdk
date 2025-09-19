@@ -21,7 +21,6 @@ use crate::{
 	vm::RuntimeCosts,
 	Config, H160,
 };
-use crate::H160;
 use crate::precompiles::ExtWithInfo;
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -109,24 +108,50 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				log::info!("called precompile call_with_info");
         use ISystem::ISystemCalls;
         match input {
-            ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
-                env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
-                let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
-                Ok(output.to_vec())
-            },
-            ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
-                env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
-                let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
-                Ok(output.to_vec())
-            },
-            ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
-                use crate::address::AddressMapper;
-                use codec::Encode;
-                env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
-                let account_id =
-                    T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
-                Ok(account_id.encode())
-            },
+			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
+				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
+				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
+				Ok(output.abi_encode())
+			},
+			ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
+				env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
+				let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
+				Ok(output.abi_encode())
+			},
+			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
+				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
+				let account_id = env.to_account_id(&H160::from_slice(input.as_slice()));
+				Ok(account_id.encode().abi_encode())
+			},
+			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
+				let is_origin = env.caller_is_origin(true);
+				Ok(is_origin.abi_encode())
+			},
+			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
+				let is_root = env.caller_is_root(true);
+				Ok(is_root.abi_encode())
+			},
+			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
+				let caller = env.caller();
+				let addr = T::AddressMapper::to_address(caller.account_id()?);
+				let output = env.code_hash(&addr.into()).0.abi_encode();
+				Ok(output)
+			},
+			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::MinimumBalance)?;
+				let minimum_balance = env.minimum_balance();
+				Ok(minimum_balance.to_big_endian().abi_encode())
+			},
+			ISystemCalls::weightLeft(ISystem::weightLeftCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::WeightLeft)?;
+				let ref_time = env.gas_meter().gas_left().ref_time();
+				let proof_size = env.gas_meter().gas_left().proof_size();
+				let res = (ref_time, proof_size);
+				Ok(res.abi_encode())
+			},
             ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
 				log::info!("called precompile terminate {:?}", beneficiary);
                 // charge termination cost

@@ -1557,7 +1557,11 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> DispatchResult {
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
+        let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
+            .map_err(|e| {
+				log::error!("exec.rs transfer() from: {from:?}, to: {to:?}, value: {value:?}, error: {e:?}");
+				Error::<T>::BalanceConversionFailed
+			})?;
 		if value.is_zero() {
 			return Ok(());
 		}
@@ -1684,18 +1688,6 @@ where
 		let contract_account = T::AddressMapper::to_account_id(contract_address);
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
-		// transfer balance (including dust) to beneficiary
-		{
-			let raw_value: U256 = self.account_balance(&contract_account);
-			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)?;
-			if !value.is_zero() {
-				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
-			}
-		}
-
-		if !self.contracts_created.contains(&contract_account) {
-			return Ok(CodeRemoved::No);
-		}
 
 		// refund storage deposit accounting if any (use provided ContractInfo)
 		let deposit_to_refund = contract_info.total_deposit();
@@ -1709,6 +1701,31 @@ where
 						"Failed to refund storage deposit during deferred destruction"
 					);
 				});
+		}
+
+		// transfer balance (including dust) to beneficiary
+		{
+			let raw_value: U256 = self.account_balance(&contract_account);
+            log::info!(
+                target: LOG_TARGET,
+                "Transferring balance of BalanceWithDust {{ value: {:?}, dust: 0 }} (raw: {:?}) from {:?} to {:?}",
+                raw_value,
+                raw_value,
+                contract_address,
+                beneficiary_address
+            );
+			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
+			    .map_err(|e| {
+					log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
+					Error::<T>::BalanceConversionFailed
+				})?;
+			if !value.is_zero() {
+				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
+			}
+		}
+
+		if !self.contracts_created.contains(&contract_account) {
+			return Ok(CodeRemoved::No);
 		}
 
 		// mark trie for deletion and remove on-chain entries
@@ -2251,7 +2268,7 @@ where
 			}
 			T::AddressMapper::to_address(&frame.account_id)
 		};
-		if allow_from_outside_tx {
+		if allow_from_outside_tx || true {
 			// Pretend the contract was created in the current tx
 			let account_id = self.top_frame_mut().account_id.clone();
 			self.contracts_created.insert(account_id);
