@@ -56,7 +56,7 @@ use frame_support::{
 		DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
 	pallet_prelude::TransactionSource,
-	traits::{Defensive, EstimateCallFee, Get, Imbalance},
+	traits::{Defensive, EstimateCallFee, Get, Imbalance, SuppressedDrop},
 	weights::{Weight, WeightToFee},
 };
 pub use pallet::*;
@@ -87,10 +87,11 @@ pub mod weights;
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
 
-const LOG_TARGET: &str = "runtime::txpayment";
-
 type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
-type CreditOf<T> = <<T as Config>::OnChargeTransaction as TxCreditHold<T>>::Credit;
+type CreditOf<T> = <StoredCreditOf<T> as SuppressedDrop>::Inner;
+type StoredCreditOf<T> = <<T as Config>::OnChargeTransaction as TxCreditHold<T>>::Credit;
+
+const LOG_TARGET: &str = "runtime::txpayment";
 
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
@@ -419,7 +420,7 @@ pub mod pallet {
 	/// Use `withdraw_txfee` and `remaining_txfee` to access from outside the crate.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(crate) type TxPaymentCredit<T: Config> = StorageValue<_, CreditOf<T>>;
+	pub(crate) type TxPaymentCredit<T: Config> = StorageValue<_, StoredCreditOf<T>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -711,7 +712,7 @@ impl<T: Config> Pallet<T> {
 		Balance: PartialOrd,
 	{
 		<TxPaymentCredit<T>>::mutate(|credit| {
-			let credit = credit.as_mut()?;
+			let credit = SuppressedDrop::as_mut(credit.as_mut()?);
 			if amount > credit.peek() {
 				return None
 			}
@@ -725,10 +726,10 @@ impl<T: Config> Pallet<T> {
 		CreditOf<T>: Imbalance<Balance>,
 	{
 		<TxPaymentCredit<T>>::mutate(|credit| {
-			if let Some(credit) = credit.as_mut() {
+			if let Some(credit) = credit.as_mut().map(SuppressedDrop::as_mut) {
 				credit.subsume(deposit);
 			} else {
-				*credit = Some(deposit)
+				*credit = Some(SuppressedDrop::new(deposit))
 			}
 		});
 	}
@@ -743,7 +744,9 @@ impl<T: Config> Pallet<T> {
 		CreditOf<T>: Imbalance<Balance>,
 		Balance: Default,
 	{
-		<TxPaymentCredit<T>>::get().map(|c| c.peek()).unwrap_or_default()
+		<TxPaymentCredit<T>>::get()
+			.map(|c| SuppressedDrop::as_ref(&c).peek())
+			.unwrap_or_default()
 	}
 }
 

@@ -60,7 +60,7 @@ impl<Balance> HandleImbalanceDrop<Balance> for () {
 	MaxEncodedLen,
 	TypeInfo,
 )]
-#[scale_info(bounds(B: TypeInfo), skip_type_params(OnDrop, OppositeOnDrop))]
+#[scale_info(skip_type_params(OnDrop, OppositeOnDrop))]
 pub struct Imbalance<
 	B: Balance,
 	OnDrop: HandleImbalanceDrop<B>,

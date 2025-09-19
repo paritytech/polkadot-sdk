@@ -22,7 +22,8 @@ use codec::{DecodeWithMemTracking, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	traits::{
-		Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons,
+		Currency, ExistenceRequirement, Imbalance, NoDrop, OnUnbalanced, SuppressedDrop,
+		WithdrawReasons,
 		fungible::{Balanced, Credit, Inspect},
 		tokens::{Precision, WithdrawConsequence},
 	},
@@ -102,7 +103,7 @@ pub trait TxCreditHold<T: Config> {
 	/// type **wont't** require a storage migration.
 	///
 	/// Set to `()` if your `OnChargeTransaction` impl does not store the credit.
-	type Credit: FullCodec + DecodeWithMemTracking + MaxEncodedLen + TypeInfo;
+	type Credit: FullCodec + DecodeWithMemTracking + MaxEncodedLen + TypeInfo + SuppressedDrop;
 }
 
 /// Implements transaction payment for a pallet implementing the [`frame_support::traits::fungible`]
@@ -116,11 +117,11 @@ pub struct FungibleAdapter<F, OU>(PhantomData<(F, OU)>);
 impl<T, F, OU> OnChargeTransaction<T> for FungibleAdapter<F, OU>
 where
 	T: Config,
-	T::OnChargeTransaction: TxCreditHold<T, Credit = Credit<T::AccountId, F>>,
+	T::OnChargeTransaction: TxCreditHold<T, Credit = NoDrop<Credit<T::AccountId, F>>>,
 	F: Balanced<T::AccountId> + 'static,
-	OU: OnUnbalanced<Self::Credit>,
+	OU: OnUnbalanced<<Self::Credit as SuppressedDrop>::Inner>,
 {
-	type LiquidityInfo = Option<Self::Credit>;
+	type LiquidityInfo = Option<<Self::Credit as SuppressedDrop>::Inner>;
 	type Balance = <F as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	fn withdraw_fee(
@@ -177,8 +178,9 @@ where
 	) -> Result<(), TransactionValidityError> {
 		let corrected_fee = corrected_fee.saturating_sub(tip);
 
-		// Should always be `Some`. Public API of the pallet does not allow to remove it.
-		let remaining_credit = <TxPaymentCredit<T>>::take().unwrap_or_default();
+		let remaining_credit = <TxPaymentCredit<T>>::take()
+			.map(|stored_credit| stored_credit.into_inner())
+			.unwrap_or_default();
 
 		// If pallets take away too much it makes the transaction invalid. They need to make
 		// sure that this does not happen. We do not invalide the transaction because we already
@@ -190,7 +192,6 @@ where
 		// skip refund if account was killed by the tx
 		let fee_credit = if frame_system::Pallet::<T>::account_exists(who) {
 			let (mut fee_credit, refund_credit) = remaining_credit.split(corrected_fee);
-
 			// resolve might fail if refund is below the ed and account
 			// is kept alive by other providers
 			if let false = refund_credit.peek().is_zero() &&
@@ -198,7 +199,6 @@ where
 			{
 				fee_credit.subsume(not_refunded);
 			}
-
 			fee_credit
 		} else {
 			remaining_credit
@@ -225,7 +225,7 @@ where
 	T: Config,
 	F: Balanced<T::AccountId> + 'static,
 {
-	type Credit = Credit<<T as frame_system::Config>::AccountId, F>;
+	type Credit = NoDrop<Credit<<T as frame_system::Config>::AccountId, F>>;
 }
 
 /// Implements the transaction payment for a pallet implementing the [`Currency`]
