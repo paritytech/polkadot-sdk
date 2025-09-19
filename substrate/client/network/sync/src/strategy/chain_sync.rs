@@ -1205,6 +1205,7 @@ where
 										import_existing: self.import_existing,
 										skip_execution: true,
 										state: None,
+										allow_missing_parent: false,
 									}
 								})
 								.collect();
@@ -1244,6 +1245,7 @@ where
 									import_existing: self.import_existing,
 									skip_execution: self.skip_execution(),
 									state: None,
+									allow_missing_parent: false,
 								}
 							})
 							.collect()
@@ -1386,6 +1388,7 @@ where
 							import_existing: false,
 							skip_execution: true,
 							state: None,
+							allow_missing_parent: false,
 						}
 					})
 					.collect()
@@ -1523,6 +1526,7 @@ where
 
 	fn required_block_attributes(&self) -> BlockAttributes {
 		match self.mode {
+			// TODO Try making it just HEADER
 			ChainSyncMode::Full =>
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
 			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
@@ -1772,6 +1776,7 @@ where
 					import_existing: self.import_existing,
 					skip_execution: self.skip_execution(),
 					state: None,
+					allow_missing_parent: false,
 				}
 			})
 			.collect()
@@ -2020,6 +2025,7 @@ where
 					import_existing: true,
 					skip_execution: self.skip_execution(),
 					state: Some(state),
+					allow_missing_parent: false,
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });

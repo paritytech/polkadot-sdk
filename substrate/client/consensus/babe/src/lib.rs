@@ -1032,14 +1032,18 @@ where
 
 		let pre_digest = find_pre_digest::<Block>(&block.header)?;
 		let (check_header, epoch_descriptor) = {
-			let (epoch_descriptor, viable_epoch) = query_epoch_changes(
+			let result = query_epoch_changes(
 				&self.epoch_changes,
 				self.client.as_ref(),
 				&self.config,
 				*number,
 				pre_digest.slot(),
 				parent_hash,
-			)?;
+			);
+			if let Err(ref e) = result {
+				log::info!("XXX query epoch changes error: {e:?}");
+			}
+			let (epoch_descriptor, viable_epoch) = result?;
 
 			// We add one to the current slot to allow for some small drift.
 			// FIXME #1019 in the future, alter this queue to allow deferring of headers
@@ -1092,6 +1096,7 @@ where
 /// 2. When importing whole state we don't calculate epoch descriptor, but rather read it from the
 ///    state after import. We also skip all verifications because there's no parent state and we
 ///    trust the sync module to verify that the state is correct and finalized.
+/// 3. When importing blocks during warp sync.
 fn is_state_sync_or_gap_sync_import<B: BlockT>(
 	client: &impl HeaderBackend<B>,
 	block: &BlockImportParams<B>,
@@ -1099,7 +1104,8 @@ fn is_state_sync_or_gap_sync_import<B: BlockT>(
 	let number = *block.header.number();
 	let info = client.info();
 	info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-		block.with_state()
+		block.with_state() ||
+		block.origin == BlockOrigin::ConsensusBroadcast
 }
 
 /// A block-import handler for BABE.
@@ -1453,28 +1459,53 @@ where
 		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
+		log::info!("XXX finalized block is {:?}", self.client.info().finalized_hash);
+
+		if block.origin == BlockOrigin::ConsensusBroadcast {
+			log::info!(
+				"XXX warp importing block {:?} ({})",
+				block.post_hash(),
+				block.header.number()
+			);
+		} else {
+			log::info!(
+				"XXX non-warp importing block {:?} ({})",
+				block.post_hash(),
+				block.header.number()
+			);
+		}
+
 		let hash = block.post_hash();
 		let number = *block.header.number();
 		let info = self.client.info();
 
-		self.check_inherents_and_equivocations(&mut block).await?;
+		self.check_inherents_and_equivocations(&mut block).await.map_err(|e| {
+			log::info!("XXX check inherents/equivocations failed: {:?}", e);
+			e
+		})?;
 
-		let block_status = self
-			.client
-			.status(hash)
-			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
+		log::info!("XXX check inherents/equivocations passed");
+
+		let block_status = self.client.status(hash).map_err(|e| {
+			log::info!("XXX status lookup failed: {:?}", e);
+			ConsensusError::ClientImport(e.to_string())
+		})?;
 
 		// Skip babe logic if block already in chain or importing blocks during initial sync,
 		// otherwise the check for epoch changes will error because trying to re-import an
 		// epoch change or because of missing epoch data in the tree, respectively.
 		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-			block_status == BlockStatus::InChain
+			block_status == BlockStatus::InChain ||
+			block.origin == BlockOrigin::ConsensusBroadcast
 		{
+			log::info!("XXX going directly to inner");
 			// When re-importing existing block strip away intermediates.
 			// In case of initial sync intermediates should not be present...
 			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
-			return self.inner.import_block(block).await.map_err(Into::into)
+			let result = self.inner.import_block(block).await.map_err(Into::into);
+			log::info!("XXX BabeBlockImport inner ({}) result: {result:?}", self.inner.name());
+			return result
 		}
 
 		if block.with_state() {
@@ -1732,6 +1763,10 @@ where
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await.map_err(Into::into)
+	}
+
+	fn name(&self) -> String {
+		format!("BabeBlockImport -> {}", self.inner.name())
 	}
 }
 

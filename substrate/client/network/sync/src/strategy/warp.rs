@@ -421,6 +421,7 @@ where
 					// Shouldn't already exist in the database.
 					import_existing: false,
 					state: None,
+					allow_missing_parent: true,
 				}
 			};
 
@@ -437,7 +438,7 @@ where
 				*last_hash = new_last_hash;
 				self.total_proof_bytes += response.0.len() as u64;
 				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::NetworkInitialSync,
+					origin: BlockOrigin::ConsensusBroadcast,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
 			},
@@ -452,7 +453,7 @@ where
 				self.total_proof_bytes += response.0.len() as u64;
 				self.phase = Phase::TargetBlock(header);
 				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::NetworkInitialSync,
+					origin: BlockOrigin::ConsensusBroadcast,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
 			},

@@ -502,7 +502,14 @@ where
 
 		*self.importing_block.write() = Some(hash);
 
-		operation.op.set_create_gap(create_gap);
+		operation.op.set_create_gap(if origin == BlockOrigin::ConsensusBroadcast {
+			// Never create gaps for consensus imported blocks, because this import origin is used
+			// during warp sync, and the following gap sync needs to import all blocks. Otherwise I
+			// get block not found errors because gap sync proceeds from an incorrect place.
+			false
+		} else {
+			create_gap
+		});
 
 		let result = self.execute_and_import_block(
 			operation,
@@ -803,8 +810,9 @@ where
 	{
 		let parent_hash = import_block.header.parent_hash();
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
-		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
-		{
+		let parent_block_status = self.block_status(*parent_hash);
+		log::info!("XXX parent block status: {parent_block_status:?}");
+		let (enact_state, storage_changes) = match (parent_block_status?, state_action) {
 			(BlockStatus::KnownBad, _) =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad)),
 			(
@@ -812,7 +820,8 @@ where
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
-			(BlockStatus::Unknown, _) =>
+			// For warp sync, the parent block will always not be present.
+			(BlockStatus::Unknown, _) if import_block.origin != BlockOrigin::ConsensusBroadcast =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent)),
 			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::InChainPruned, StateAction::Execute) =>
@@ -825,10 +834,14 @@ where
 		let storage_changes = match (enact_state, storage_changes, &import_block.body) {
 			// We have storage changes and should enact the state, so we don't need to do anything
 			// here
-			(true, changes @ Some(_), _) => changes,
+			(true, changes @ Some(_), _) => {
+				log::info!("XXX changes are Some");
+				changes
+			},
 			// We should enact state, but don't have any storage changes, so we need to execute the
 			// block.
 			(true, None, Some(ref body)) => {
+				log::info!("XXX hit the execution path, not good");
 				let mut runtime_api = self.runtime_api();
 				let call_context = CallContext::Onchain;
 				runtime_api.set_call_context(call_context);
@@ -858,9 +871,15 @@ where
 				Some(sc_consensus::StorageChanges::Changes(gen_storage_changes))
 			},
 			// No block body, no storage changes
-			(true, None, None) => None,
+			(true, None, None) => {
+				log::info!("XXX no block body, no storage changes");
+				None
+			},
 			// We should not enact the state, so we set the storage changes to `None`.
-			(false, _, _) => None,
+			(false, _, _) => {
+				log::info!("XXX we should not enact the state");
+				None
+			},
 		};
 
 		Ok(PrepareStorageChangesResult::Import(storage_changes))
@@ -884,7 +903,13 @@ where
 
 		// Find tree route from last finalized to given block.
 		let route_from_finalized =
-			sp_blockchain::tree_route(self.backend.blockchain(), info.finalized_hash, hash)?;
+			sp_blockchain::tree_route(self.backend.blockchain(), info.finalized_hash, hash);
+
+		if let Err(ref e) = route_from_finalized {
+			log::info!("XXX cant get route from finalized");
+		}
+
+		let route_from_finalized = route_from_finalized?;
 
 		if let Some(retracted) = route_from_finalized.retracted().get(0) {
 			warn!(
@@ -1723,11 +1748,15 @@ where
 		&self,
 		mut import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		let span = tracing::span!(tracing::Level::DEBUG, "import_block");
-		let _enter = span.enter();
+		log::info!("XXX got to client block import");
+		println!("XXX got to client block import");
+
+		//let span = tracing::span!(tracing::Level::DEBUG, "import_block");
+		//let _enter = span.enter();
 
 		let storage_changes =
 			match self.prepare_block_storage_changes(&mut import_block).map_err(|e| {
+				println!("XXX Block prepare storage changes error: {}", e);
 				warn!("Block prepare storage changes error: {}", e);
 				ConsensusError::ClientImport(e.to_string())
 			})? {
@@ -1735,10 +1764,13 @@ where
 				PrepareStorageChangesResult::Import(storage_changes) => storage_changes,
 			};
 
+		println!("XXX prepared storage changes");
+
 		self.lock_import_and_run(|operation| {
 			self.apply_block(operation, import_block, storage_changes)
 		})
 		.map_err(|e| {
+			println!("XXX Block import error: {}", e);
 			warn!("Block import error: {}", e);
 			ConsensusError::ClientImport(e.to_string())
 		})
@@ -1806,6 +1838,10 @@ where
 
 		Ok(ImportResult::imported(false))
 	}
+
+	fn name(&self) -> String {
+		"Client".to_string()
+	}
 }
 
 #[async_trait::async_trait]
@@ -1832,6 +1868,10 @@ where
 		import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		(&self).import_block(import_block).await
+	}
+
+	fn name(&self) -> String {
+		(&self).name()
 	}
 }
 

@@ -197,4 +197,8 @@ where
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await
 	}
+
+	fn name(&self) -> String {
+		format!("BeefyBlockImport -> {}", self.inner.name())
+	}
 }

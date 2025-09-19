@@ -328,6 +328,8 @@ pub trait BlockImport<B: BlockT> {
 
 	/// Import a block.
 	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error>;
+
+	fn name(&self) -> String;
 }
 
 #[async_trait::async_trait]
@@ -342,6 +344,10 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 	/// Import a block.
 	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
 		(**self).import_block(block).await
+	}
+
+	fn name(&self) -> String {
+		format!("Box({})", (**self).name())
 	}
 }
 
@@ -359,6 +365,10 @@ where
 
 	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
 		(&**self).import_block(block).await
+	}
+
+	fn name(&self) -> String {
+		format!("Arc({})", (&**self).name())
 	}
 }
 

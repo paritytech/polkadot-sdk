@@ -241,8 +241,16 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
+		log::info!("XXX block import: {}", block_import.name());
+
 		let res =
 			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
+
+		for (result, hash) in &res.results {
+			if let Err(ref e) = result {
+				log::info!("XXX block import failed for hash: {:?}: {e:?}", hash);
+			}
+		}
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}

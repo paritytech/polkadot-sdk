@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technotracingies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -114,6 +114,7 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	while to.number > from.number {
 		to_branch.push(HashAndNumber { number: to.number, hash: to.hash });
 
+		println!("XXX fetching parent of {}", to.number);
 		to = backend.header_metadata(to.parent)?;
 	}
 
@@ -121,6 +122,7 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 		Vec::with_capacity(Into::<U256>::into(to.number.saturating_sub(from.number)).as_usize());
 	while from.number > to.number {
 		from_branch.push(HashAndNumber { number: from.number, hash: from.hash });
+		println!("XXX fetching parent of {}", from.number);
 		from = backend.header_metadata(from.parent)?;
 	}
 
@@ -128,8 +130,10 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 
 	while to.hash != from.hash {
 		to_branch.push(HashAndNumber { number: to.number, hash: to.hash });
+		println!("XXX fetching parent of {}", to.number);
 		to = backend.header_metadata(to.parent)?;
 
+		println!("XXX fetching parent of {}", from.number);
 		from_branch.push(HashAndNumber { number: from.number, hash: from.hash });
 		from = backend.header_metadata(from.parent)?;
 	}
