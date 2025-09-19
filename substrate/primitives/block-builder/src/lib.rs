@@ -31,34 +31,6 @@ mod client_side;
 #[cfg(feature = "std")]
 pub use client_side::*;
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug)]
-pub struct BlockRate {
-	/// Time between individual blocks.
-	pub block_time: BlockTime,
-	/// Maximum time to spend building per block.
-	pub block_building_time: Duration,
-}
-
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug)]
-pub enum BlockTime {
-	/// Blocks are expected every X.
-	Regularly {
-		/// Time between blocks.
-		every: Duration,
-	},
-	/// Blocks are coming at unexpected times.
-	Irregular,
-}
-
-impl BlockTime {
-	pub fn as_regular(&self) -> Option<Duration> {
-		match self {
-			Self::Regularly { every } => Some(*every),
-			Self::Irregular => None,
-		}
-	}
-}
-
 sp_api::decl_runtime_apis! {
 	/// The `BlockBuilder` api trait that provides the required functionality for building a block.
 	#[api_version(6)]
