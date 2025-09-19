@@ -162,6 +162,13 @@ jobs:
           mkdir -p "$LOCAL_REPO_PATH/conf"
           cp ${{ github.workspace }}/.github/scripts/release/distributions "$LOCAL_REPO_PATH/conf/distributions"
 
+      - name: Sign RPM with pgpkms
+        run: |
+          echo "Running pgpkms dry-run test..."
+          echo "hello world" > testfile.txt
+          /home/runner/.local/bin/pgpkms sign --input testfile.txt --output testfile.sig
+          ls -l testfile*
+
       - name: Sync repo, import keys, sign, and update metadata
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.aws_access_key_id }}
