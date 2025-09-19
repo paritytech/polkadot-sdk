@@ -195,6 +195,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::signed::{CalculateBaseDeposit, CalculatePageDeposit};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -1469,8 +1470,6 @@ where
 	fn funded_account(seed: &'static str, index: u32) -> T::AccountId {
 		use frame_benchmarking::whitelist;
 		use frame_support::traits::fungible::{Inspect, Mutate};
-		use signed::{CalculateBaseDeposit, CalculatePageDeposit};
-
 		let who: T::AccountId = frame_benchmarking::account(seed, index, 777);
 		whitelist!(who);
 
@@ -1487,7 +1486,15 @@ where
 			base.saturating_add(pages)
 		};
 
-		let total_needed = worst_case_deposit.saturating_add(T::Currency::minimum_balance());
+		// Transaction fees: assume as conservativ estimate that each operation costs ~1% of
+		// minimum_balance
+		let min_balance = T::Currency::minimum_balance();
+		let num_operations = 1u32.saturating_add(T::Pages::get()); // 1 register + N submit_page
+		let tx_fee_buffer = (min_balance / 100u32.into()).saturating_mul(num_operations.into());
+
+		let total_needed = worst_case_deposit
+			.saturating_add(tx_fee_buffer)
+			.saturating_add(T::Currency::minimum_balance());
 
 		T::Currency::mint_into(&who, total_needed).unwrap();
 		who
@@ -1623,7 +1630,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		}
 	}
 
-	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
 		Self::create_targets_snapshot();
