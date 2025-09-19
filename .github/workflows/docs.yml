@@ -26,7 +26,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - run: forklift cargo test --doc --workspace
         id: required
         env:
@@ -46,7 +46,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - run: forklift cargo doc --all-features --workspace --no-deps
         id: required
         env:
@@ -65,7 +65,7 @@ jobs:
 
           inject_simple_analytics "$docs_dir" "$script_content"
       - run: echo "<meta http-equiv=refresh content=0;url=polkadot_sdk_docs/index.html>" > ./crate-docs/index.html
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ github.sha }}-doc
           path: ./crate-docs/
@@ -85,11 +85,11 @@ jobs:
       image: paritytech/mdbook-utils:e14aae4a-20221123
       options: --user root
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - run: mdbook build ./polkadot/roadmap/implementers-guide
       - run: mkdir -p artifacts
       - run: mv polkadot/roadmap/implementers-guide/book artifacts/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ github.sha }}-guide
           path: ./artifacts/
@@ -119,10 +119,10 @@ jobs:
     environment: subsystem-benchmarks
     needs: [build-rustdoc, build-implementers-guide]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           ref: gh-pages
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         id: app-token
         with:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
@@ -134,12 +134,12 @@ jobs:
         env:
           REF_NAME: ${{ github.head_ref || github.ref_name }}
       - name: Download rustdocs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ${{ github.sha }}-doc
           path: ${{ github.head_ref || github.ref_name }}
       - name: Download guide
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ${{ github.sha }}-guide
           path: /tmp
