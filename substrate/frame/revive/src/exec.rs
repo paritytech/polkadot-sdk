@@ -2027,7 +2027,18 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		code_hash::<T>(address)
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return sp_io::hashing::keccak_256(code).into()
+		}
+
+		<AccountInfo<T>>::load_contract(&address)
+			.map(|contract| contract.code_hash)
+			.unwrap_or_else(|| {
+				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
+					return EMPTY_CODE_HASH;
+				}
+				H256::zero()
+			})
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
@@ -2177,30 +2188,14 @@ where
 	}
 }
 
-/// Returns the code hash of the contract at `address`.
-pub fn code_hash<T: Config>(address: &H160) -> H256 {
-	// EIP_1052: The EXTCODEHASH of a precompiled contract is either c5d246... or 0.
-	// But EXTCODEHASH for a *custom* precompile should return the hash of its code.
-	// EVM has no concept of a custom precompile.
-	if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-		return sp_io::hashing::keccak_256(code).into();
-	}
-
-	// check stored contract info or account existence
-	<AccountInfo<T>>::load_contract(address)
-		.map(|contract| contract.code_hash)
-		.unwrap_or_else(|| {
-			if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
-				EMPTY_CODE_HASH
-			} else {
-				H256::zero()
-			}
-		})
-}
-
 /// Returns true if the address has a precompile contract, else false.
-pub fn is_precompile<T: Config>(address: &H160) -> bool {
-	<AllPrecompiles<T>>::get(address.as_fixed_bytes()).is_some()
+pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
+{
+	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
 }
 
 mod sealing {

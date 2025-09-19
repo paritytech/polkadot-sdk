@@ -1727,42 +1727,42 @@ where
 	fn ensure_non_contract_if_signed<ReturnValue>(
 		origin: &OriginFor<T>,
 	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
-		use crate::exec::{code_hash, is_precompile, EMPTY_CODE_HASH};
-		if let Ok(who) = ensure_signed(origin.clone()) {
-			let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
+		use crate::exec::{is_precompile, EMPTY_CODE_HASH};
+		let Ok(who) = ensure_signed(origin.clone()) else {
+		    return Ok(())
+		};
+		let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
 
-			// EIP_1052: precompile can never be used as EOA.
-			if is_precompile::<T>(&address) {
-				log::debug!(
-					target: crate::LOG_TARGET,
-					"EIP-3607: reject externally-signed tx from precompile account {:?}",
-					address
-				);
-				return Err(ContractResult {
-					result: Err(DispatchError::BadOrigin),
-					gas_consumed: Weight::default(),
-					gas_required: Weight::default(),
-					storage_deposit: Default::default(),
-				});
-			}
+		// EIP_1052: precompile can never be used as EOA.
+		// if is_precompile::<T>(&address) {
+		if is_precompile::<T, ContractBlob<T>>(&address) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject externally-signed tx from precompile account {:?}",
+				address
+			);
+			return Err(ContractResult {
+				result: Err(DispatchError::BadOrigin),
+				gas_consumed: Weight::default(),
+				gas_required: Weight::default(),
+				storage_deposit: Default::default(),
+			});
+		}
 
-			let code_hash = code_hash::<T>(&address);
-
-			// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
-			// (account exists but no code).
-			if !(code_hash == H256::zero() || code_hash == EMPTY_CODE_HASH) {
-				log::debug!(
-					target: crate::LOG_TARGET,
-					"EIP-3607: reject externally-signed tx from contract account {:?}",
-					address
-				);
-				return Err(ContractResult {
-					result: Err(DispatchError::BadOrigin),
-					gas_consumed: Weight::default(),
-					gas_required: Weight::default(),
-					storage_deposit: Default::default(),
-				});
-			}
+		// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
+		// (account exists but no code).
+		if <AccountInfo<T>>::is_contract(&address) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject externally-signed tx from contract account {:?}",
+				address
+			);
+			return Err(ContractResult {
+				result: Err(DispatchError::BadOrigin),
+				gas_consumed: Weight::default(),
+				gas_required: Weight::default(),
+				storage_deposit: Default::default(),
+			});
 		}
 		Ok(())
 	}
