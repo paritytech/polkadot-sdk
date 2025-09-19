@@ -1460,9 +1460,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/election-provider-multi-block
 name = "pallet-election-provider-multi-block"
-from = "0.2.0"
-to = "0.3.0"
-bump = "major"
+from = "0.3.0"
+to = "0.3.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
