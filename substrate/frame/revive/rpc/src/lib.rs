@@ -427,7 +427,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
-		Ok(bytes.unwrap_or_default().into())
+		// Return 32-byte zero value for empty storage (Ethereum spec compliance)
+		// https://www.quicknode.com/docs/ethereum/eth_getStorageAt
+		Ok(bytes.unwrap_or_else(|| vec![0u8; 32]).into())
 	}
 
 	async fn get_transaction_by_block_hash_and_index(
