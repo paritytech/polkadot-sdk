@@ -1781,11 +1781,6 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			data.check_extrinsics(&block)
 		}
 
-		fn block_rate() -> sp_block_builder::BlockRate {
-			sp_block_builder::BlockRate {
-				block_time: sp_block_builder::BlockTime::Regularly { every: core::time::Duration::from_secs(6) } ,
-				block_building_time: core::time::Duration::from_secs(2),
-			}
 		}
 	}
 

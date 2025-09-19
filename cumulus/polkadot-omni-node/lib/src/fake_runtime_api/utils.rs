@@ -106,9 +106,6 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
-				fn block_rate() -> sp_block_builder::BlockRate {
-					unimplemented!()
-				}
 			}
 
 			impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<$block> for $runtime {

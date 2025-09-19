@@ -82,9 +82,6 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn block_rate() -> sp_block_builder::BlockRate {
-			unimplemented!()
-		}
 	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
