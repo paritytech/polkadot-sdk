@@ -452,9 +452,9 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 
 	let (fixtures, fixtures_resolc) = if env::var(SKIP_PALLET_REVIVE_FIXTURES).is_err() {
 		(
-			format!(r#"include_bytes!(concat!("{}", "/", $name, ".polkavm")"#, out_dir.display()),
+			format!(r#"include_bytes!(concat!("{}", "/", $name, ".polkavm"))"#, out_dir.display()),
 			format!(
-				r#"include_bytes!(concat!("{}", "/", $name, ".resolc.polkavm")"#,
+				r#"include_bytes!(concat!("{}", "/", $name, ".resolc.polkavm"))"#,
 				out_dir.display()
 			),
 		)
