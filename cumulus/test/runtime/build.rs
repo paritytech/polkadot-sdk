@@ -52,7 +52,7 @@ fn main() {
 		.enable_feature("pov-bundling")
 		.enable_feature("experimental-ump-signals")
 		.import_memory()
-		.set_file_name("wasm_binary_pov_bundling.rs")
+		.set_file_name("wasm_binary_block_bundling.rs")
 		.build();
 
 	WasmBuilder::new()

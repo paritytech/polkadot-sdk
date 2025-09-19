@@ -42,7 +42,7 @@ const PARA_ID: u32 = 2400;
 /// As we increase the number of cores via `assign_core`, we expect the blocks to spread over the
 /// relay cores.
 #[tokio::test(flavor = "multi_thread")]
-async fn pov_bundling_basic() -> Result<(), anyhow::Error> {
+async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);

@@ -125,11 +125,11 @@ pub fn get_elastic_scaling_mvp_chain_spec(id: Option<ParaId>) -> GenericChainSpe
 	)
 }
 
-pub fn get_pov_bundling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+pub fn get_block_bundling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::pov_bundling::WASM_BINARY
+		cumulus_test_runtime::block_bundling::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 	)
 }

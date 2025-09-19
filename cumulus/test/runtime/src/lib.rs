@@ -46,9 +46,9 @@ pub mod elastic_scaling {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
 }
 
-pub mod pov_bundling {
+pub mod block_bundling {
 	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_pov_bundling.rs"));
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_block_bundling.rs"));
 }
 
 pub mod sync_backing {

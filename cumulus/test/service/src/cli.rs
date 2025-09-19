@@ -306,9 +306,9 @@ impl SubstrateCli for TestCollatorCli {
 					ParaId::from(2300),
 				))) as Box<_>
 			},
-			"pov-bundling" => {
-				tracing::info!("Using pov-bundling chain spec.");
-				Box::new(cumulus_test_service::get_pov_bundling_chain_spec(Some(ParaId::from(
+			"block-bundling" => {
+				tracing::info!("Using block-bundling chain spec.");
+				Box::new(cumulus_test_service::get_block_bundling_chain_spec(Some(ParaId::from(
 					2400,
 				)))) as Box<_>
 			},

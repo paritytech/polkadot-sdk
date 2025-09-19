@@ -43,7 +43,7 @@ const PARA_ID: u32 = 2400;
 /// 2. One with a PoV size bigger than what one block alone is allowed to process.
 /// Each transaction is sent after the other and waits for finalization.
 #[tokio::test(flavor = "multi_thread")]
-async fn pov_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error> {
+async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);

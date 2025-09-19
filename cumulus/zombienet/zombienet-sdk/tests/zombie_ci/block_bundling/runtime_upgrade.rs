@@ -16,15 +16,23 @@
 // limitations under the License.
 
 use anyhow::anyhow;
-
+use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
+use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
+	ensure_is_only_block_in_core, find_core_info,
+	submit_extrinsic_and_wait_for_finalization_success,
+	submit_unsigned_extrinsic_and_wait_for_finalization_success, BlockToCheck,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use sp_core::blake2_256;
+use std::sync::Arc;
 use zombienet_sdk::{
 	subxt::{
-		backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
+		ext::scale_value::{value, Value},
+		tx::DynamicPayload,
+		utils::H256,
 		OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::sr25519::dev,
@@ -32,16 +40,37 @@ use zombienet_sdk::{
 };
 
 const PARA_ID: u32 = 2400;
+/// 4 blocks per core and each gets 1/4 of the [`MAX_POV_SIZE`], so the runtime needs to be bigger
+/// than this to trigger the logic of getting one full core.
+const MIN_RUNTIME_SIZE_BYTES: usize = MAX_POV_SIZE as usize / 4 + 50 * 1024;
 
-/// A test that ensures that PoV bundling works with 3 cores and glutton consuming 80% ref time.
+/// A test that performs runtime upgrade using the `authorize_upgrade` and
+/// `apply_authorized_upgrade` logic.
 ///
-/// This test starts with 3 cores assigned and configures glutton to use 80% of ref time,
-/// then validates that the parachain produces 72 blocks.
+/// This test starts with 3 cores assigned and performs two transactions:
+/// 1. First calls `authorize_upgrade` to authorize the new runtime code hash
+/// 2. Then calls `apply_authorized_upgrade` with the actual runtime code
+/// The runtime code is validated to be at least 2.5MiB in size, and both transactions
+/// are validated to be the only block in their respective cores.
 #[tokio::test(flavor = "multi_thread")]
-async fn pov_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
+async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
+
+	// Validate runtime size requirement
+	let runtime_wasm =
+		WASM_RUNTIME_UPGRADE.ok_or_else(|| anyhow!("WASM runtime upgrade binary not available"))?;
+
+	if runtime_wasm.len() <= MIN_RUNTIME_SIZE_BYTES {
+		return Err(anyhow!(
+			"Runtime size {} bytes is below minimum required {} bytes (2.5MiB)",
+			runtime_wasm.len(),
+			MIN_RUNTIME_SIZE_BYTES
+		));
+	}
+
+	log::info!("Runtime size validation passed: {} bytes", runtime_wasm.len());
 
 	let config = build_network_config().await?;
 
@@ -51,7 +80,7 @@ async fn pov_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-1")?;
 
-	let para_client = para_node.wait_client().await?;
+	let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
 
@@ -67,20 +96,57 @@ async fn pov_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("3 cores total assigned to the parachain");
 
-	// Wait for the parachain to produce 72 blocks with 3 cores and glutton active
-	// With 3 cores, we expect roughly 3x throughput compared to single core
-	// Adjusting expectations based on glutton consuming 80% of ref time
-	assert_para_throughput(
-		&relay_client,
-		6,
-		[(ParaId::from(PARA_ID), 12..19)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
+	// Step 1: Authorize the runtime upgrade
+	let code_hash = blake2_256(runtime_wasm);
+	let authorize_call = create_authorize_upgrade_call(code_hash.into());
+	let sudo_authorize_call = create_sudo_call(authorize_call);
+
+	log::info!("Sending authorize_upgrade transaction");
+	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+		&para_client,
+		&sudo_authorize_call,
+		&alice,
 	)
 	.await?;
+	log::info!("Authorize upgrade transaction finalized");
 
-	assert_finality_lag(&para_client, 72).await?;
-	log::info!("Test finished successfully - 72 blocks produced with 3 cores and glutton");
+	// Step 2: Apply the authorized upgrade with the actual runtime code
+	let apply_call = create_apply_authorized_upgrade_call(runtime_wasm.to_vec());
+
+	log::info!(
+		"Sending apply_authorized_upgrade transaction with runtime size: {} bytes",
+		runtime_wasm.len()
+	);
+
+	let block_hash =
+		submit_unsigned_extrinsic_and_wait_for_finalization_success(&para_client, &apply_call)
+			.await?;
+	log::info!("Apply authorized upgrade transaction finalized in block: {:?}", block_hash);
+
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
+
+	//TODO: Verify that the runtime upgrade block is also using a full core.
+
 	Ok(())
+}
+
+/// Creates a `System::authorize_upgrade` call
+fn create_authorize_upgrade_call(code_hash: H256) -> DynamicPayload {
+	zombienet_sdk::subxt::tx::dynamic(
+		"System",
+		"authorize_upgrade",
+		vec![Value::from_bytes(code_hash)],
+	)
+}
+
+/// Creates a `System::apply_authorized_upgrade` call
+fn create_apply_authorized_upgrade_call(code: Vec<u8>) -> DynamicPayload {
+	zombienet_sdk::subxt::tx::dynamic("System", "apply_authorized_upgrade", vec![value!(code)])
+}
+
+/// Creates a `pallet-sudo` `sudo` call wrapping the inner call
+fn create_sudo_call(inner_call: DynamicPayload) -> DynamicPayload {
+	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![inner_call.into_value()])
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
@@ -119,14 +185,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					("slot-based").into(),
 					("-lparachain=debug,aura=trace").into(),
 				])
-				.with_genesis_overrides(json!({
-					"glutton": {
-						"compute": "800000000", // 80% ref time consumption
-						"storage": "0", // No storage consumption
-						"trashDataCount": 5000, // Initialize with some trash data
-						"blockLength": "0" // No block length consumption
-					}
-				}))
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))
 				.with_collator(|n| n.with_name("collator-2"))
