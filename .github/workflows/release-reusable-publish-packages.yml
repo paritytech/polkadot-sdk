@@ -183,12 +183,8 @@ jobs:
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
             echo "Signing package with pgpkms (via AWS KMS)..."
-            rpmsign \
-              -D "_signature gpg" \
-              -D "_gpg_name ${PGP_KMS_HASH}" \
-              -D "__gpg $HOME/.local/bin/pgpkms" \
-              -D "__gpg_sign_cmd %{__gpg} pgpkms sign --input %{__plaintext_filename} --output %{__signature_filename}" \
-              --addsign "$rpmname"
+            cp .github/workflows/rpmmacros $HOME/.rpmmacros
+            rpm --addsign "$rpmname"
 
             echo "Copying signed package to local repo..."
             cp "$rpmname" "$LOCAL_REPO_PATH/"

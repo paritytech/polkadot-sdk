@@ -1,5 +1,6 @@
 %_signature gpg
-%_gpg_path /root/.gnupg
+%_gpg_path /home/runner/.gnupg
 %_gpg_name 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
-%__gpg /usr/local/bin/pgpkms-rpmsign
-%__gpg_sign_cmd %{__gpg} --key arn:aws:kms:...:key/... --digest-algo sha256 --detach-sign --armor --batch --no-verbose --output %{__signature_filename} %{__plaintext_filename}
+%__gpg /home/runner/.local/bin/pgpkms
+%__gpgbin /home/runner/.local/bin/pgpkms
+%__gpg_sign_cmd %{__gpg} pgpkms sign --input %{__plaintext_filename} --output %{__signature_filename}
