@@ -1727,12 +1727,11 @@ where
 	fn ensure_non_contract_if_signed<ReturnValue>(
 		origin: &OriginFor<T>,
 	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
-		use crate::exec::{is_precompile, EMPTY_CODE_HASH};
+		use crate::exec::is_precompile;
 		let Ok(who) = ensure_signed(origin.clone()) else { return Ok(()) };
 		let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
 
 		// EIP_1052: precompile can never be used as EOA.
-		// if is_precompile::<T>(&address) {
 		if is_precompile::<T, ContractBlob<T>>(&address) {
 			log::debug!(
 				target: crate::LOG_TARGET,
