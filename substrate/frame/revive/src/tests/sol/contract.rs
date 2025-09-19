@@ -378,7 +378,7 @@ fn delegatecall_works(caller_type: FixtureType, callee_type: FixtureType) {
 }
 
 #[test]
-fn create_works_solc_solc() {
+fn create_works() {
     let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
     let (callee_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
 
