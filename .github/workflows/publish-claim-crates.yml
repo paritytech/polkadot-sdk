@@ -12,10 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
 
-      # - name: Rust Cache
-      #   uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
-      #   with:
-      #     cache-on-failure: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+        with:
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: install parity-publish
         run: cargo install parity-publish@0.10.4 --locked -q

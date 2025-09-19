@@ -14,10 +14,10 @@ env:
   TOOLCHAIN: nightly-2025-05-09
 
 jobs:
-  isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yml
+  # isdraft:
+  #   uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    needs: isdraft
+    # needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
   check-semver:
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
-          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Rust compilation prerequisites
         run: |
@@ -128,7 +128,7 @@ jobs:
 
             exit 1
           fi
-          
+
           # Only enforce SemVer restrictions for backports targeting stable branches
           if [[ "$BASE_BRANCH" != stable* && "$BASE_BRANCH" != unstable* ]]; then
               echo "ℹ️ Branch '$BASE_BRANCH' is not a (un)stable branch. Skipping SemVer backport-specific enforcements."
