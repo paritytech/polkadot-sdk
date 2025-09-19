@@ -231,7 +231,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitializeWithWeightRegistration<System, BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -274,7 +274,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitializeWithWeightRegistration<System, BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -474,15 +474,15 @@ where
 /// `on_initialize`.
 ///
 /// The trait is sealed.
-pub trait OnInitializeWithWeightRegistration<T: frame_system::Config, BlockNumber> {
+pub trait OnInitializeWithWeightRegistration<T: frame_system::Config> {
 	/// The actual logic that calls `on_initialize` and registers the weight.
-	fn on_initialize_with_weight_registration(_n: BlockNumber) -> Weight;
+	fn on_initialize_with_weight_registration(_n: BlockNumberFor<T>) -> Weight;
 }
 
 frame_support::impl_for_tuples_attr! {
-	#[tuple_types_custom_trait_bound(OnInitialize<BlockNumber>)]
-	impl<BlockNumber: Clone, T: frame_system::Config> OnInitializeWithWeightRegistration<T, BlockNumber> for Tuple {
-		fn on_initialize_with_weight_registration(n: BlockNumber) -> Weight {
+	#[tuple_types_custom_trait_bound(OnInitialize<frame_system::pallet_prelude::BlockNumberFor<T>>)]
+	impl<T: frame_system::Config> OnInitializeWithWeightRegistration<T> for Tuple {
+		fn on_initialize_with_weight_registration(n: BlockNumberFor<T>) -> Weight {
 			let mut weight = Weight::zero();
 			for_tuples!( #(
 				let individual_weight = Tuple::on_initialize(n.clone());
@@ -514,7 +514,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitializeWithWeightRegistration<System, BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -604,11 +604,10 @@ where
 			DispatchClass::Mandatory,
 		);
 
-		weight =
-			weight.saturating_add(<AllPalletsWithSystem as OnInitializeWithWeightRegistration<
-				System,
-				BlockNumberFor<System>,
-			>>::on_initialize_with_weight_registration(*block_number));
+		weight = weight
+			.saturating_add(<AllPalletsWithSystem as OnInitializeWithWeightRegistration<
+			System,
+		>>::on_initialize_with_weight_registration(*block_number));
 
 		log::debug!(
 			target: LOG_TARGET,
