@@ -147,6 +147,14 @@ jobs:
           name: release-artifacts
           path: release-artifacts
 
+      - name: Debug pgpkms install
+        run: |
+          echo "Checking installed pgpkms scripts..."
+          ls -l $HOME/.local/bin
+          which pgpkms || true
+          which pgpkms-reprepro || true
+          which pgpkms-rpmsign || true
+
       - name: Setup local deb repo config
         if: ${{ inputs.package_type == 'deb' }}
         run: |
