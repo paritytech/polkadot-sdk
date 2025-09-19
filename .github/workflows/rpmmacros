@@ -2,4 +2,4 @@
 %_gpg_name 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
 %__gpg /home/runner/.local/bin/pgpkms
 %__gpgbin /home/runner/.local/bin/pgpkms
-%__gpg_sign_cmd %{__gpg} sign --input %{__plaintext_filename} --output %{__signature_filename}
+%__gpg_sign_cmd /home/runner/.local/bin/pgpkms sign --input %{__plaintext_filename}
