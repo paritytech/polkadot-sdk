@@ -192,6 +192,10 @@ jobs:
 
             echo "Signing package with pgpkms (via AWS KMS)..."
             cp .github/workflows/rpmmacros $HOME/.rpmmacros
+
+            echo "Dumping rpm gpg-related macros..."
+            rpm --showrc | grep gpg || true
+            echo "Contents of .rpmmacros:"
             cat $HOME/.rpmmacros
             rpm --addsign "$rpmname"
 
