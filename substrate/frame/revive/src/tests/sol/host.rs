@@ -31,6 +31,7 @@ use alloy_core::{
 use frame_support::traits::{fungible::Mutate, Get};
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Host};
 use pretty_assertions::assert_eq;
+use test_case::test_case;
 
 fn convert_to_free_balance(total_balance: u128) -> U256 {
 	let existential_deposit_planck =
@@ -187,20 +188,22 @@ fn extcodehash_works() {
 	}
 }
 
-#[test]
-fn extcodecopy_works() {
+/// EXTCODECOPY does not exist in PVM so we only test Solc caller contract.
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnly::HostEvmOnlyCalls};
-	let fixture_type = FixtureType::Solc;
 
-	let (code, _) = compile_module_with_type("HostEvmOnly", fixture_type).unwrap();
-	let (dummy_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("HostEvmOnly", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Host", callee_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 		let Contract { addr: dummy_addr, .. } =
-			builder::bare_instantiate(Code::Upload(dummy_code.clone())).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(callee_code.clone()))
+				.build_and_unwrap_contract();
 
 		let contract_info = test_utils::get_contract(&dummy_addr);
 		let code_hash = contract_info.code_hash;
@@ -534,12 +537,15 @@ fn transient_storage_works() {
 	}
 }
 
-#[test]
-fn logs_denied_for_static_call() {
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn logs_denied_for_static_call(caller_type: FixtureType, callee_type: FixtureType) {
 	use pallet_revive_fixtures::Caller;
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
-		let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		let (host_code, _) = compile_module_with_type("Host", callee_type).unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
 			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
