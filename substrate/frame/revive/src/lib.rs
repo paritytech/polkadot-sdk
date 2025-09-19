@@ -1549,17 +1549,28 @@ where
 	/// consistent with `evm_balance` which returns the spendable balance excluding the existential
 	/// deposit.
 	pub fn set_evm_balance(address: &H160, evm_value: U256) -> Result<(), Error<T>> {
-		let ed = T::Currency::minimum_balance();
-		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)
+		let (balance, dust) = Self::new_balance_with_dust(evm_value)
 			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
-		let (value, dust) = balance_with_dust.deconstruct();
 		let account_id = T::AddressMapper::to_account_id(&address);
-		T::Currency::set_balance(&account_id, ed.saturating_add(value));
+		T::Currency::set_balance(&account_id, balance);
 		AccountInfoOf::<T>::mutate(address, |account| {
 			account.as_mut().map(|a| a.dust = dust);
 		});
 
 		Ok(())
+	}
+
+	/// Construct native balance from EVM balance.
+	///
+	/// Adds the existential deposit and returns the native balance plus the dust.
+	pub fn new_balance_with_dust(
+		evm_value: U256,
+	) -> Result<(BalanceOf<T>, u32), BalanceConversionError> {
+		let ed = T::Currency::minimum_balance();
+		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)?;
+		let (value, dust) = balance_with_dust.deconstruct();
+
+		Ok((ed.saturating_add(value), dust))
 	}
 
 	/// Get the nonce for the given `address`.
@@ -1587,7 +1598,8 @@ where
 	/// Convert a gas value into a substrate fee
 	fn evm_gas_to_fee(gas: U256, gas_price: U256) -> Result<BalanceOf<T>, Error<T>> {
 		let fee = gas.saturating_mul(gas_price);
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(fee)?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(fee)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		Ok(value.into_rounded_balance())
 	}
 
@@ -1896,11 +1908,17 @@ sp_api::decl_runtime_apis! {
 		/// Get the H160 address associated to this account id
 		fn address(account_id: AccountId) -> H160;
 
+		/// Get the account id associated to this H160 address.
+		fn account_id(address: H160) -> AccountId;
+
 		/// The address used to call the runtime's pallets dispatchables
 		fn runtime_pallets_address() -> H160;
 
 		/// The code at the specified address taking pre-compiles into account.
 		fn code(address: H160) -> Vec<u8>;
+
+		/// Construct the new balance and dust components of this EVM balance.
+		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
 	}
 }
 
@@ -2126,6 +2144,15 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn code(address: $crate::H160) -> Vec<u8> {
 					$crate::Pallet::<Self>::code(&address)
+				}
+
+				fn account_id(address: $crate::H160) -> AccountId {
+					use $crate::AddressMapper;
+					<Self as $crate::Config>::AddressMapper::to_account_id(&address)
+				}
+
+				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
+					$crate::Pallet::<Self>::new_balance_with_dust(balance)
 				}
 			}
 		}
