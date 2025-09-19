@@ -485,7 +485,7 @@ frame_support::impl_for_tuples_attr! {
 		fn on_initialize_with_weight_registration(n: BlockNumberFor<T>) -> Weight {
 			let mut weight = Weight::zero();
 			for_tuples!( #(
-				let individual_weight = Tuple::on_initialize(n.clone());
+				let individual_weight = Tuple::on_initialize(n);
 
 				<frame_system::Pallet<T>>::register_extra_weight_unchecked(
 					individual_weight,
