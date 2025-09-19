@@ -54,7 +54,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Download repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - name: Install gh cli
         id: gh
         uses: ./.github/actions/set-up-gh
@@ -74,7 +74,7 @@ jobs:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
       - name: Push Commit
-        uses: stefanzweifel/git-auto-commit-action@v6
+        uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6.0.1
         with:
           commit_message: Add PrDoc (auto generated)
           branch: ${{ steps.gh.outputs.branch }}

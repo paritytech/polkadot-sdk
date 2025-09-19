@@ -82,7 +82,7 @@ jobs:
         if: contains(matrix.name, 'opensuse')
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Set additional expect flags if necessary
         run: |
@@ -194,7 +194,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Set additional expect flags if necessary
         run: |
