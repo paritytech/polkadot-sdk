@@ -1469,11 +1469,27 @@ where
 	fn funded_account(seed: &'static str, index: u32) -> T::AccountId {
 		use frame_benchmarking::whitelist;
 		use frame_support::traits::fungible::{Inspect, Mutate};
+		use signed::{CalculateBaseDeposit, CalculatePageDeposit};
+
 		let who: T::AccountId = frame_benchmarking::account(seed, index, 777);
 		whitelist!(who);
-		let max_deposit = signed::Pallet::<T>::deposit_for(who.clone(), T::Pages::get());
-		let balance = max_deposit.saturating_add(T::Currency::minimum_balance());
-		T::Currency::mint_into(&who, balance).unwrap();
+
+		// Calculate deposit for worst-case scenario: full queue + all pages submitted.
+		// This accounts for the exponential deposit growth in GeometricDepositBase
+		// where deposit = base * (1 + increase_factor)^queue_len.
+		// We use maximum possible queue_len to ensure adequate funding regardless
+		// of queue state changes during benchmark execution.
+		let worst_case_deposit = {
+			let max_queue_size = T::MaxSubmissions::get() as usize;
+			let base = T::DepositBase::calculate_base_deposit(max_queue_size);
+			let pages =
+				T::DepositPerPage::calculate_page_deposit(max_queue_size, T::Pages::get() as usize);
+			base.saturating_add(pages)
+		};
+
+		let total_needed = worst_case_deposit.saturating_add(T::Currency::minimum_balance());
+
+		T::Currency::mint_into(&who, total_needed).unwrap();
 		who
 	}
 
