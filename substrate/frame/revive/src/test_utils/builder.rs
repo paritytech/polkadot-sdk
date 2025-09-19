@@ -141,6 +141,14 @@ builder!(
 		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
+	pub fn concat_evm_data(mut self, more_data: &[u8]) -> Self {
+		let Code::Upload(code) = &mut self.code else {
+			panic!("concat_evm_data should only be used with Code::Upload");
+		};
+		code.extend_from_slice(more_data);
+		self
+	}
+
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
 		self.evm_value = Pallet::<T>::convert_native_to_evm(value);

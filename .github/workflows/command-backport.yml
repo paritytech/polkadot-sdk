@@ -30,7 +30,7 @@ jobs:
         github.event.pull_request.base.ref == 'master'
       )
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Check for backport labels
         id: check_labels
@@ -54,13 +54,13 @@ jobs:
 
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         with:
           app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
           private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
 
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           token: ${{ steps.generate_token.outputs.token }}
 
@@ -75,7 +75,7 @@ jobs:
 
 
       - name: Create backport pull requests
-        uses: korthout/backport-action@v3
+        uses: korthout/backport-action@ca4972adce8039ff995e618f5fc02d1b7961f27a # v3.3.0
         id: backport
         with:
           target_branches: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}
@@ -101,7 +101,7 @@ jobs:
 
       - name: Label Backports
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
@@ -118,7 +118,7 @@ jobs:
 
       - name: Request Review
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
