@@ -107,7 +107,7 @@ impl crate::Config for Test {
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;
 	type MaxMessagePayloadSize = ConstU32<1024>;
-	type MaxMessagesPerBlock = ConstU32<20>;
+	type MaxMessagesInBatch = ConstU32<20>;
 	type GasMeter = ConstantGasMeter;
 	type Balance = u128;
 	type WeightToFee = IdentityFee<u128>;
@@ -134,16 +134,14 @@ pub fn new_tester() -> sp_io::TestExternalities {
 pub fn run_to_end_of_next_block() {
 	// finish current block
 	MessageQueue::on_finalize(System::block_number());
-	OutboundQueue::on_finalize(System::block_number());
 	System::on_finalize(System::block_number());
 	// start next block
 	System::set_block_number(System::block_number() + 1);
 	System::on_initialize(System::block_number());
-	OutboundQueue::on_initialize(System::block_number());
 	MessageQueue::on_initialize(System::block_number());
 	// finish next block
 	MessageQueue::on_finalize(System::block_number());
-	OutboundQueue::on_finalize(System::block_number());
+	OutboundQueue::on_idle(System::block_number(), Weight::MAX);
 	System::on_finalize(System::block_number());
 }
 

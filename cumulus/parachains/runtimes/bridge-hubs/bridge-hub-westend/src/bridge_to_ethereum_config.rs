@@ -181,7 +181,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	// worst-case, Benchmark results in `../weights/snowbridge_pallet_outbound_queue_v2.
 	// rs` show that the `process` function consumes less than 1% of the block capacity, which is
 	// safe enough.
-	type MaxMessagesPerBlock = ConstU32<32>;
+	type MaxMessagesInBatch = ConstU32<32>;
 	type GasMeter = ConstantGasMeterV2;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;

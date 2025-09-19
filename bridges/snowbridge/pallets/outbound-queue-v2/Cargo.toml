@@ -24,6 +24,7 @@ ethabi = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
+tracing = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
@@ -75,6 +76,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
