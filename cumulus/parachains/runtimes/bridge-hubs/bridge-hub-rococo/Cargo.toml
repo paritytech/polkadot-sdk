@@ -116,6 +116,7 @@ snowbridge-pallet-inbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
+snowbridge-pallet-inbound-queue-fixtures = { workspace = true }
 
 bridge-hub-common = { workspace = true }
 

@@ -69,9 +69,6 @@ use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
 pub use weights::WeightInfo;
 
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::BeaconHeader;
-
 type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 

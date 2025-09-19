@@ -119,6 +119,7 @@ snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-system-v2 = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
 snowbridge-system-v2-runtime-api = { workspace = true }
+snowbridge-pallet-inbound-queue-fixtures = { workspace = true }
 
 [dev-dependencies]
 bridge-hub-test-utils = { workspace = true, default-features = true }
@@ -205,6 +206,7 @@ std = [
 	"snowbridge-pallet-system/std",
 	"snowbridge-system-runtime-api/std",
 	"snowbridge-system-v2-runtime-api/std",
+	"snowbridge-pallet-inbound-queue-fixtures/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -270,6 +272,7 @@ runtime-benchmarks = [
 	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-system-v2/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

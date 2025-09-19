@@ -51,8 +51,6 @@ use sp_core::H160;
 use sp_runtime::traits::TryConvert;
 use sp_std::prelude::*;
 use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
-#[cfg(feature = "runtime-benchmarks")]
-use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
 
 pub use pallet::*;
 
