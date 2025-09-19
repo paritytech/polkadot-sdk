@@ -1,0 +1,16 @@
+title: 'pallet-revive: Fix docs.rs'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Fixed failing docs.rs build for `pallet-revive-uapi` by fixing a writing attribute in the manifest (we were using `default-target` instead of `targets`)
+    - Removed the macros defining host functions because the cfg attributes introduced in #6866 won't work on them
+    - Added an docs.rs specific attribute so that the `unstable-hostfn` feature tag will show up on the functions that are guarded behind it.
+crates:
+- name: pallet-contracts-uapi
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-proc-macro
+  bump: major

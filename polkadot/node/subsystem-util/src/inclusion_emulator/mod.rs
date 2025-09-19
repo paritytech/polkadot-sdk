@@ -82,9 +82,9 @@
 /// in practice at most once every few weeks.
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
-	CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData, UpgradeRestriction,
-	ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, skip_ump_signals, BlockNumber,
+	CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -115,6 +115,8 @@ pub struct Constraints {
 	pub max_pov_size: usize,
 	/// The maximum new validation code size allowed, in bytes.
 	pub max_code_size: usize,
+	/// The maximum head-data size, in bytes.
+	pub max_head_data_size: usize,
 	/// The amount of UMP messages remaining.
 	pub ump_remaining: usize,
 	/// The amount of UMP bytes remaining.
@@ -146,6 +148,7 @@ impl From<PrimitiveConstraints> for Constraints {
 			min_relay_parent_number: c.min_relay_parent_number,
 			max_pov_size: c.max_pov_size as _,
 			max_code_size: c.max_code_size as _,
+			max_head_data_size: c.max_head_data_size as _,
 			ump_remaining: c.ump_remaining as _,
 			ump_remaining_bytes: c.ump_remaining_bytes as _,
 			max_ump_num_per_candidate: c.max_ump_num_per_candidate as _,
@@ -233,7 +236,7 @@ impl Constraints {
 	) -> Result<(), ModificationError> {
 		if let Some(HrmpWatermarkUpdate::Trunk(hrmp_watermark)) = modifications.hrmp_watermark {
 			// head updates are always valid.
-			if self.hrmp_inbound.valid_watermarks.iter().all(|w| w != &hrmp_watermark) {
+			if !self.hrmp_inbound.valid_watermarks.contains(&hrmp_watermark) {
 				return Err(ModificationError::DisallowedHrmpWatermark(hrmp_watermark))
 			}
 		}
@@ -306,7 +309,7 @@ impl Constraints {
 			match new.hrmp_inbound.valid_watermarks.binary_search(&hrmp_watermark.watermark()) {
 				Ok(pos) => {
 					// Exact match, so this is OK in all cases.
-					let _ = new.hrmp_inbound.valid_watermarks.drain(..pos + 1);
+					let _ = new.hrmp_inbound.valid_watermarks.drain(..pos);
 				},
 				Err(pos) => match hrmp_watermark {
 					HrmpWatermarkUpdate::Head(_) => {
@@ -431,9 +434,9 @@ pub struct ConstraintModifications {
 	pub hrmp_watermark: Option<HrmpWatermarkUpdate>,
 	/// Outbound HRMP channel modifications.
 	pub outbound_hrmp: HashMap<ParaId, OutboundHrmpChannelModification>,
-	/// The amount of UMP messages sent.
+	/// The amount of UMP XCM messages sent. `UMPSignal` and separator are excluded.
 	pub ump_messages_sent: usize,
-	/// The amount of UMP bytes sent.
+	/// The amount of UMP XCM bytes sent. `UMPSignal` and separator are excluded.
 	pub ump_bytes_sent: usize,
 	/// The amount of DMP messages processed.
 	pub dmp_messages_processed: usize,
@@ -520,6 +523,10 @@ pub enum FragmentValidityError {
 	///
 	/// Max allowed, new.
 	CodeSizeTooLarge(usize, usize),
+	/// Head data size too big.
+	///
+	/// Max allowed, new.
+	HeadDataTooLarge(usize, usize),
 	/// Relay parent too old.
 	///
 	/// Min allowed, current.
@@ -600,6 +607,13 @@ impl Fragment {
 		validation_code_hash: &ValidationCodeHash,
 		persisted_validation_data: &PersistedValidationData,
 	) -> Result<ConstraintModifications, FragmentValidityError> {
+		// Filter UMP signals and the separator.
+		let upward_messages =
+			skip_ump_signals(commitments.upward_messages.iter()).collect::<Vec<_>>();
+
+		let ump_messages_sent = upward_messages.len();
+		let ump_bytes_sent = upward_messages.iter().map(|msg| msg.len()).sum();
+
 		let modifications = {
 			ConstraintModifications {
 				required_parent: Some(commitments.head_data.clone()),
@@ -632,8 +646,8 @@ impl Fragment {
 
 					outbound_hrmp
 				},
-				ump_messages_sent: commitments.upward_messages.len(),
-				ump_bytes_sent: commitments.upward_messages.iter().map(|msg| msg.len()).sum(),
+				ump_messages_sent,
+				ump_bytes_sent,
 				dmp_messages_processed: commitments.processed_downward_messages as _,
 				code_upgrade_applied: operating_constraints
 					.future_validation_code
@@ -679,32 +693,24 @@ impl Fragment {
 	}
 }
 
-fn validate_against_constraints(
+/// Validates if the candidate commitments are obeying the constraints.
+pub fn validate_commitments(
 	constraints: &Constraints,
 	relay_parent: &RelayChainBlockInfo,
 	commitments: &CandidateCommitments,
-	persisted_validation_data: &PersistedValidationData,
 	validation_code_hash: &ValidationCodeHash,
-	modifications: &ConstraintModifications,
 ) -> Result<(), FragmentValidityError> {
-	let expected_pvd = PersistedValidationData {
-		parent_head: constraints.required_parent.clone(),
-		relay_parent_number: relay_parent.number,
-		relay_parent_storage_root: relay_parent.storage_root,
-		max_pov_size: constraints.max_pov_size as u32,
-	};
-
-	if expected_pvd != *persisted_validation_data {
-		return Err(FragmentValidityError::PersistedValidationDataMismatch(
-			expected_pvd,
-			persisted_validation_data.clone(),
-		))
-	}
-
 	if constraints.validation_code_hash != *validation_code_hash {
 		return Err(FragmentValidityError::ValidationCodeMismatch(
 			constraints.validation_code_hash,
 			*validation_code_hash,
+		))
+	}
+
+	if commitments.head_data.0.len() > constraints.max_head_data_size {
+		return Err(FragmentValidityError::HeadDataTooLarge(
+			constraints.max_head_data_size,
+			commitments.head_data.0.len(),
 		))
 	}
 
@@ -733,6 +739,39 @@ fn validate_against_constraints(
 		))
 	}
 
+	if commitments.horizontal_messages.len() > constraints.max_hrmp_num_per_candidate {
+		return Err(FragmentValidityError::HrmpMessagesPerCandidateOverflow {
+			messages_allowed: constraints.max_hrmp_num_per_candidate,
+			messages_submitted: commitments.horizontal_messages.len(),
+		})
+	}
+
+	Ok(())
+}
+
+fn validate_against_constraints(
+	constraints: &Constraints,
+	relay_parent: &RelayChainBlockInfo,
+	commitments: &CandidateCommitments,
+	persisted_validation_data: &PersistedValidationData,
+	validation_code_hash: &ValidationCodeHash,
+	modifications: &ConstraintModifications,
+) -> Result<(), FragmentValidityError> {
+	validate_commitments(constraints, relay_parent, commitments, validation_code_hash)?;
+
+	let expected_pvd = PersistedValidationData {
+		parent_head: constraints.required_parent.clone(),
+		relay_parent_number: relay_parent.number,
+		relay_parent_storage_root: relay_parent.storage_root,
+		max_pov_size: constraints.max_pov_size as u32,
+	};
+
+	if expected_pvd != *persisted_validation_data {
+		return Err(FragmentValidityError::PersistedValidationDataMismatch(
+			expected_pvd,
+			persisted_validation_data.clone(),
+		))
+	}
 	if modifications.dmp_messages_processed == 0 {
 		if constraints
 			.dmp_remaining_messages
@@ -743,20 +782,12 @@ fn validate_against_constraints(
 		}
 	}
 
-	if commitments.horizontal_messages.len() > constraints.max_hrmp_num_per_candidate {
-		return Err(FragmentValidityError::HrmpMessagesPerCandidateOverflow {
-			messages_allowed: constraints.max_hrmp_num_per_candidate,
-			messages_submitted: commitments.horizontal_messages.len(),
-		})
-	}
-
-	if commitments.upward_messages.len() > constraints.max_ump_num_per_candidate {
+	if modifications.ump_messages_sent > constraints.max_ump_num_per_candidate {
 		return Err(FragmentValidityError::UmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_ump_num_per_candidate,
 			messages_submitted: commitments.upward_messages.len(),
 		})
 	}
-
 	constraints
 		.check_modifications(&modifications)
 		.map_err(FragmentValidityError::OutputsInvalid)
@@ -770,7 +801,7 @@ pub trait HypotheticalOrConcreteCandidate {
 	/// Return a reference to the persisted validation data, if present.
 	fn persisted_validation_data(&self) -> Option<&PersistedValidationData>;
 	/// Return a reference to the validation code hash, if present.
-	fn validation_code_hash(&self) -> Option<&ValidationCodeHash>;
+	fn validation_code_hash(&self) -> Option<ValidationCodeHash>;
 	/// Return the parent head hash.
 	fn parent_head_data_hash(&self) -> Hash;
 	/// Return the output head hash, if present.
@@ -790,7 +821,7 @@ impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
 		self.persisted_validation_data()
 	}
 
-	fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
+	fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
 		self.validation_code_hash()
 	}
 
@@ -814,7 +845,11 @@ impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::{HorizontalMessages, OutboundHrmpMessage, ValidationCode};
+	use codec::Encode;
+	use polkadot_primitives::{
+		ClaimQueueOffset, CoreSelector, HorizontalMessages, OutboundHrmpMessage, UMPSignal,
+		ValidationCode, UMP_SEPARATOR,
+	};
 
 	#[test]
 	fn stack_modifications() {
@@ -960,34 +995,49 @@ mod tests {
 			validation_code_hash: ValidationCode(vec![4, 5, 6]).hash(),
 			upgrade_restriction: None,
 			future_validation_code: None,
+			max_head_data_size: 1024,
 		}
 	}
 
 	#[test]
-	fn constraints_disallowed_trunk_watermark() {
+	fn constraints_check_trunk_watermark() {
 		let constraints = make_constraints();
 		let mut modifications = ConstraintModifications::identity();
-		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Trunk(7));
 
+		// The current hrmp watermark is kept
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Trunk(6));
+		assert!(constraints.check_modifications(&modifications).is_ok());
+		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
+		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![6, 8]);
+
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Trunk(7));
 		assert_eq!(
 			constraints.check_modifications(&modifications),
 			Err(ModificationError::DisallowedHrmpWatermark(7)),
 		);
-
 		assert_eq!(
 			constraints.apply_modifications(&modifications),
 			Err(ModificationError::DisallowedHrmpWatermark(7)),
 		);
+
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Trunk(8));
+		assert!(constraints.check_modifications(&modifications).is_ok());
+		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
+		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![8]);
 	}
 
 	#[test]
-	fn constraints_always_allow_head_watermark() {
+	fn constraints_check_head_watermark() {
 		let constraints = make_constraints();
 		let mut modifications = ConstraintModifications::identity();
-		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Head(7));
 
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Head(5));
 		assert!(constraints.check_modifications(&modifications).is_ok());
+		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
+		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![6, 8]);
 
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Head(7));
+		assert!(constraints.check_modifications(&modifications).is_ok());
 		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
 		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![8]);
 	}
@@ -1268,6 +1318,35 @@ mod tests {
 	}
 
 	#[test]
+	fn ump_signals_ignored() {
+		let relay_parent = RelayChainBlockInfo {
+			number: 6,
+			hash: Hash::repeat_byte(0xbe),
+			storage_root: Hash::repeat_byte(0xff),
+		};
+
+		let constraints = make_constraints();
+		let mut candidate = make_candidate(&constraints, &relay_parent);
+		let max_ump = constraints.max_ump_num_per_candidate;
+
+		// Fill ump queue to the limit.
+		candidate
+			.commitments
+			.upward_messages
+			.try_extend((0..max_ump).map(|i| vec![i as u8]))
+			.unwrap();
+
+		// Add ump signals.
+		candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+
+		Fragment::new(relay_parent, constraints, Arc::new(candidate)).unwrap();
+	}
+
+	#[test]
 	fn fragment_relay_parent_too_old() {
 		let relay_parent = RelayChainBlockInfo {
 			number: 3,
@@ -1436,6 +1515,26 @@ mod tests {
 		assert_eq!(
 			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			Err(FragmentValidityError::HrmpMessagesDescendingOrDuplicate(1)),
+		);
+	}
+
+	#[test]
+	fn head_data_size_too_large() {
+		let relay_parent = RelayChainBlockInfo {
+			number: 6,
+			hash: Hash::repeat_byte(0xcc),
+			storage_root: Hash::repeat_byte(0xff),
+		};
+
+		let constraints = make_constraints();
+		let mut candidate = make_candidate(&constraints, &relay_parent);
+
+		let head_data_size = constraints.max_head_data_size;
+		candidate.commitments.head_data = vec![0; head_data_size + 1].into();
+
+		assert_eq!(
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
+			Err(FragmentValidityError::HeadDataTooLarge(head_data_size, head_data_size + 1)),
 		);
 	}
 }

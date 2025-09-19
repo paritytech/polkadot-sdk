@@ -6,6 +6,7 @@ authors.workspace = true
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
+readme = "README.md"
 
 [lints]
 workspace = true
@@ -17,5 +18,11 @@ frame-benchmarking-cli = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
-log = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+cumulus-test-runtime = { workspace = true }
+sc-chain-spec = { workspace = true }
+sp-genesis-builder = { workspace = true, default-features = true }
+tempfile = { workspace = true }

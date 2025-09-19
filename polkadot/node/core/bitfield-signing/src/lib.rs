@@ -27,10 +27,9 @@ use futures::{
 	FutureExt,
 };
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{AvailabilityStoreMessage, BitfieldDistributionMessage},
-	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal, PerLeafSpan, SpawnedSubsystem,
-	SubsystemError, SubsystemResult,
+	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
 	self as util, request_availability_cores, runtime::recv_runtime, Validator,
@@ -80,11 +79,8 @@ async fn get_core_availability(
 	core: &CoreState,
 	validator_index: ValidatorIndex,
 	sender: &Mutex<&mut impl overseer::BitfieldSigningSenderTrait>,
-	span: &jaeger::Span,
 ) -> Result<bool, Error> {
 	if let CoreState::Occupied(core) = core {
-		let _span = span.child("query-chunk-availability");
-
 		let (tx, rx) = oneshot::channel();
 		sender
 			.lock()
@@ -118,15 +114,12 @@ async fn get_core_availability(
 ///   prone to false negatives)
 async fn construct_availability_bitfield(
 	relay_parent: Hash,
-	span: &jaeger::Span,
 	validator_idx: ValidatorIndex,
 	sender: &mut impl overseer::BitfieldSigningSenderTrait,
 ) -> Result<AvailabilityBitfield, Error> {
 	// get the set of availability cores from the runtime
-	let availability_cores = {
-		let _span = span.child("get-availability-cores");
-		recv_runtime(request_availability_cores(relay_parent, sender).await).await?
-	};
+	let availability_cores =
+		{ recv_runtime(request_availability_cores(relay_parent, sender).await).await? };
 
 	// Wrap the sender in a Mutex to share it between the futures.
 	//
@@ -140,7 +133,7 @@ async fn construct_availability_bitfield(
 	let results = future::try_join_all(
 		availability_cores
 			.iter()
-			.map(|core| get_core_availability(core, validator_idx, &sender, span)),
+			.map(|core| get_core_availability(core, validator_idx, &sender)),
 	)
 	.await?;
 
@@ -234,8 +227,6 @@ async fn handle_active_leaves_update<Sender>(
 where
 	Sender: overseer::BitfieldSigningSenderTrait,
 {
-	let span = PerLeafSpan::new(leaf.span, "bitfield-signing");
-	let span_delay = span.child("delay");
 	let wait_until = Instant::now() + SPAWNED_TASK_DELAY;
 
 	// now do all the work we can before we need to wait for the availability store
@@ -253,28 +244,16 @@ where
 	// SPAWNED_TASK_DELAY each time.
 	let _timer = metrics.time_run();
 
-	drop(span_delay);
-	let span_availability = span.child("availability");
-
-	let bitfield = match construct_availability_bitfield(
-		leaf.hash,
-		&span_availability,
-		validator.index(),
-		&mut sender,
-	)
-	.await
-	{
-		Err(Error::Runtime(runtime_err)) => {
-			// Don't take down the node on runtime API errors.
-			gum::warn!(target: LOG_TARGET, err = ?runtime_err, "Encountered a runtime API error");
-			return Ok(())
-		},
-		Err(err) => return Err(err),
-		Ok(bitfield) => bitfield,
-	};
-
-	drop(span_availability);
-	let span_signing = span.child("signing");
+	let bitfield =
+		match construct_availability_bitfield(leaf.hash, validator.index(), &mut sender).await {
+			Err(Error::Runtime(runtime_err)) => {
+				// Don't take down the node on runtime API errors.
+				gum::warn!(target: LOG_TARGET, err = ?runtime_err, "Encountered a runtime API error");
+				return Ok(())
+			},
+			Err(err) => return Err(err),
+			Ok(bitfield) => bitfield,
+		};
 
 	let signed_bitfield =
 		match validator.sign(keystore, bitfield).map_err(|e| Error::Keystore(e))? {
@@ -289,9 +268,6 @@ where
 		};
 
 	metrics.on_bitfield_signed();
-
-	drop(span_signing);
-	let _span_gossip = span.child("gossip");
 
 	sender
 		.send_message(BitfieldDistributionMessage::DistributeBitfield(leaf.hash, signed_bitfield))

@@ -6,46 +6,43 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://paritytech.github.io"
 repository.workspace = true
-description = "Experimental: The single package to get you started with building frame pallets and runtimes"
+description = "The single package to get you started with building frame pallets and runtimes"
 
 [lints]
 workspace = true
 
 [package.metadata.docs.rs]
-# enable `experimental` feature for docs
-features = ["experimental"]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { workspace = true }
 
 # primitive deps, used for developing FRAME pallets.
-sp-runtime = { workspace = true }
-sp-io = { workspace = true }
-sp-core = { workspace = true }
 sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 # frame deps, for developing FRAME pallets.
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 
 # primitive types used for developing FRAME runtimes.
-sp-version = { optional = true, workspace = true }
 sp-api = { optional = true, workspace = true }
 sp-block-builder = { optional = true, workspace = true }
-sp-transaction-pool = { optional = true, workspace = true }
-sp-offchain = { optional = true, workspace = true }
-sp-session = { optional = true, workspace = true }
 sp-consensus-aura = { optional = true, workspace = true }
 sp-consensus-grandpa = { optional = true, workspace = true }
+sp-genesis-builder = { optional = true, workspace = true }
 sp-inherents = { optional = true, workspace = true }
+sp-keyring = { optional = true, workspace = true }
+sp-offchain = { optional = true, workspace = true }
+sp-session = { optional = true, workspace = true }
 sp-storage = { optional = true, workspace = true }
+sp-transaction-pool = { optional = true, workspace = true }
+sp-version = { optional = true, workspace = true }
 
 frame-executive = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { optional = true, workspace = true }
@@ -60,27 +57,8 @@ frame-try-runtime = { optional = true, workspace = true }
 docify = { workspace = true }
 log = { workspace = true }
 
-[dev-dependencies]
-pallet-examples = { workspace = true }
-
 [features]
 default = ["runtime", "std"]
-experimental = ["frame-support/experimental"]
-runtime = [
-	"sp-api",
-	"sp-block-builder",
-	"sp-consensus-aura",
-	"sp-consensus-grandpa",
-	"sp-inherents",
-	"sp-offchain",
-	"sp-session",
-	"sp-storage",
-	"sp-transaction-pool",
-	"sp-version",
-
-	"frame-executive",
-	"frame-system-rpc-runtime-api",
-]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -92,14 +70,17 @@ std = [
 	"frame-try-runtime?/std",
 	"log/std",
 	"scale-info/std",
+	"serde/std",
 	"sp-api?/std",
 	"sp-arithmetic/std",
 	"sp-block-builder?/std",
 	"sp-consensus-aura?/std",
 	"sp-consensus-grandpa?/std",
 	"sp-core/std",
+	"sp-genesis-builder?/std",
 	"sp-inherents?/std",
 	"sp-io/std",
+	"sp-keyring?/std",
 	"sp-offchain?/std",
 	"sp-runtime/std",
 	"sp-session?/std",
@@ -119,6 +100,22 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
-	"pallet-examples/try-runtime",
 	"sp-runtime/try-runtime",
+]
+experimental = ["frame-support/experimental"]
+runtime = [
+	"frame-executive",
+	"frame-system-rpc-runtime-api",
+	"sp-api",
+	"sp-block-builder",
+	"sp-consensus-aura",
+	"sp-consensus-grandpa",
+	"sp-genesis-builder",
+	"sp-inherents",
+	"sp-keyring",
+	"sp-offchain",
+	"sp-session",
+	"sp-storage",
+	"sp-transaction-pool",
+	"sp-version",
 ]

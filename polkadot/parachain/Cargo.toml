@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 version = "6.0.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -13,14 +15,15 @@ workspace = true
 # note: special care is taken to avoid inclusion of `sp-io` externals when compiling
 # this crate for WASM. This is critical to avoid forcing all parachain WASM into implementing
 # various unnecessary Substrate-specific endpoints.
-codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
-sp-runtime = { features = ["serde"], workspace = true }
-sp-core = { features = ["serde"], workspace = true }
-sp-weights = { workspace = true }
-polkadot-core-primitives = { workspace = true }
-derive_more = { workspace = true, default-features = true }
+array-bytes = { workspace = true }
 bounded-collections = { features = ["serde"], workspace = true }
+codec = { features = ["derive"], workspace = true }
+derive_more = { workspace = true, default-features = true }
+polkadot-core-primitives = { workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-weights = { workspace = true }
 
 # all optional crates.
 serde = { features = ["alloc", "derive"], workspace = true }

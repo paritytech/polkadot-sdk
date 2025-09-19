@@ -19,12 +19,12 @@
 //! State sync support.
 
 use crate::{
-	schema::v1::{StateEntry, StateRequest, StateResponse},
+	schema::v1::{KeyValueStateEntry, StateEntry, StateRequest, StateResponse},
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use log::debug;
-use sc_client_api::{CompactProof, ProofProvider};
+use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
 use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
@@ -89,20 +89,60 @@ pub enum ImportResult<B: BlockT> {
 	BadResponse,
 }
 
-/// State sync state machine. Accumulates partial state data until it
-/// is ready to be imported.
-pub struct StateSync<B: BlockT, Client> {
-	target_block: B::Hash,
+struct StateSyncMetadata<B: BlockT> {
+	last_key: SmallVec<[Vec<u8>; 2]>,
 	target_header: B::Header,
-	target_root: B::Hash,
 	target_body: Option<Vec<B::Extrinsic>>,
 	target_justifications: Option<Justifications>,
-	last_key: SmallVec<[Vec<u8>; 2]>,
-	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	complete: bool,
-	client: Arc<Client>,
 	imported_bytes: u64,
 	skip_proof: bool,
+}
+
+impl<B: BlockT> StateSyncMetadata<B> {
+	fn target_hash(&self) -> B::Hash {
+		self.target_header.hash()
+	}
+
+	/// Returns target block number.
+	fn target_number(&self) -> NumberFor<B> {
+		*self.target_header.number()
+	}
+
+	fn target_root(&self) -> B::Hash {
+		*self.target_header.state_root()
+	}
+
+	fn next_request(&self) -> StateRequest {
+		StateRequest {
+			block: self.target_hash().encode(),
+			start: self.last_key.clone().into_vec(),
+			no_proof: self.skip_proof,
+		}
+	}
+
+	fn progress(&self) -> StateSyncProgress {
+		let cursor = *self.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
+		let percent_done = cursor as u32 * 100 / 256;
+		StateSyncProgress {
+			percentage: percent_done,
+			size: self.imported_bytes,
+			phase: if self.complete {
+				StateSyncPhase::ImportingState
+			} else {
+				StateSyncPhase::DownloadingState
+			},
+		}
+	}
+}
+
+/// State sync state machine.
+///
+/// Accumulates partial state data until it is ready to be imported.
+pub struct StateSync<B: BlockT, Client> {
+	metadata: StateSyncMetadata<B>,
+	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
+	client: Arc<Client>,
 }
 
 impl<B, Client> StateSync<B, Client>
@@ -120,17 +160,91 @@ where
 	) -> Self {
 		Self {
 			client,
-			target_block: target_header.hash(),
-			target_root: *target_header.state_root(),
-			target_header,
-			target_body,
-			target_justifications,
-			last_key: SmallVec::default(),
+			metadata: StateSyncMetadata {
+				last_key: SmallVec::default(),
+				target_header,
+				target_body,
+				target_justifications,
+				complete: false,
+				imported_bytes: 0,
+				skip_proof,
+			},
 			state: HashMap::default(),
-			complete: false,
-			imported_bytes: 0,
-			skip_proof,
 		}
+	}
+
+	fn process_state_key_values(
+		&mut self,
+		state_root: Vec<u8>,
+		key_values: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
+	) {
+		let is_top = state_root.is_empty();
+
+		let entry = self.state.entry(state_root).or_default();
+
+		if entry.0.len() > 0 && entry.1.len() > 1 {
+			// Already imported child_trie with same root.
+			// Warning this will not work with parallel download.
+			return;
+		}
+
+		let mut child_storage_roots = Vec::new();
+
+		for (key, value) in key_values {
+			// Skip all child key root (will be recalculated on import)
+			if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
+				child_storage_roots.push((value, key));
+			} else {
+				self.metadata.imported_bytes += key.len() as u64;
+				entry.0.push((key, value));
+			}
+		}
+
+		for (root, storage_key) in child_storage_roots {
+			self.state.entry(root).or_default().1.push(storage_key);
+		}
+	}
+
+	fn process_state_verified(&mut self, values: KeyValueStates) {
+		for values in values.0 {
+			self.process_state_key_values(values.state_root, values.key_values);
+		}
+	}
+
+	fn process_state_unverified(&mut self, response: StateResponse) -> bool {
+		let mut complete = true;
+		// if the trie is a child trie and one of its parent trie is empty,
+		// the parent cursor stays valid.
+		// Empty parent trie content only happens when all the response content
+		// is part of a single child trie.
+		if self.metadata.last_key.len() == 2 && response.entries[0].entries.is_empty() {
+			// Do not remove the parent trie position.
+			self.metadata.last_key.pop();
+		} else {
+			self.metadata.last_key.clear();
+		}
+		for state in response.entries {
+			debug!(
+				target: LOG_TARGET,
+				"Importing state from {:?} to {:?}",
+				state.entries.last().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
+				state.entries.first().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
+			);
+
+			if !state.complete {
+				if let Some(e) = state.entries.last() {
+					self.metadata.last_key.push(e.key.clone());
+				}
+				complete = false;
+			}
+
+			let KeyValueStateEntry { state_root, entries, complete: _ } = state;
+			self.process_state_key_values(
+				state_root,
+				entries.into_iter().map(|StateEntry { key, value }| (key, value)),
+			);
+		}
+		complete
 	}
 }
 
@@ -145,11 +259,11 @@ where
 			debug!(target: LOG_TARGET, "Bad state response");
 			return ImportResult::BadResponse
 		}
-		if !self.skip_proof && response.proof.is_empty() {
+		if !self.metadata.skip_proof && response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse
 		}
-		let complete = if !self.skip_proof {
+		let complete = if !self.metadata.skip_proof {
 			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
 			let proof_size = response.proof.len() as u64;
 			let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
@@ -160,9 +274,9 @@ where
 				},
 			};
 			let (values, completed) = match self.client.verify_range_proof(
-				self.target_root,
+				self.metadata.target_root(),
 				proof,
-				self.last_key.as_slice(),
+				self.metadata.last_key.as_slice(),
 			) {
 				Err(e) => {
 					debug!(
@@ -177,110 +291,25 @@ where
 			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
 
 			let complete = completed == 0;
-			if !complete && !values.update_last_key(completed, &mut self.last_key) {
+			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
 				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
 			};
 
-			for values in values.0 {
-				let key_values = if values.state_root.is_empty() {
-					// Read child trie roots.
-					values
-						.key_values
-						.into_iter()
-						.filter(|key_value| {
-							if well_known_keys::is_child_storage_key(key_value.0.as_slice()) {
-								self.state
-									.entry(key_value.1.clone())
-									.or_default()
-									.1
-									.push(key_value.0.clone());
-								false
-							} else {
-								true
-							}
-						})
-						.collect()
-				} else {
-					values.key_values
-				};
-				let entry = self.state.entry(values.state_root).or_default();
-				if entry.0.len() > 0 && entry.1.len() > 1 {
-					// Already imported child_trie with same root.
-					// Warning this will not work with parallel download.
-				} else if entry.0.is_empty() {
-					for (key, _value) in key_values.iter() {
-						self.imported_bytes += key.len() as u64;
-					}
-
-					entry.0 = key_values;
-				} else {
-					for (key, value) in key_values {
-						self.imported_bytes += key.len() as u64;
-						entry.0.push((key, value))
-					}
-				}
-			}
-			self.imported_bytes += proof_size;
+			self.process_state_verified(values);
+			self.metadata.imported_bytes += proof_size;
 			complete
 		} else {
-			let mut complete = true;
-			// if the trie is a child trie and one of its parent trie is empty,
-			// the parent cursor stays valid.
-			// Empty parent trie content only happens when all the response content
-			// is part of a single child trie.
-			if self.last_key.len() == 2 && response.entries[0].entries.is_empty() {
-				// Do not remove the parent trie position.
-				self.last_key.pop();
-			} else {
-				self.last_key.clear();
-			}
-			for state in response.entries {
-				debug!(
-					target: LOG_TARGET,
-					"Importing state from {:?} to {:?}",
-					state.entries.last().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
-					state.entries.first().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
-				);
-
-				if !state.complete {
-					if let Some(e) = state.entries.last() {
-						self.last_key.push(e.key.clone());
-					}
-					complete = false;
-				}
-				let is_top = state.state_root.is_empty();
-				let entry = self.state.entry(state.state_root).or_default();
-				if entry.0.len() > 0 && entry.1.len() > 1 {
-					// Already imported child trie with same root.
-				} else {
-					let mut child_roots = Vec::new();
-					for StateEntry { key, value } in state.entries {
-						// Skip all child key root (will be recalculated on import).
-						if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
-							child_roots.push((value, key));
-						} else {
-							self.imported_bytes += key.len() as u64;
-							entry.0.push((key, value))
-						}
-					}
-					for (root, storage_key) in child_roots {
-						self.state.entry(root).or_default().1.push(storage_key);
-					}
-				}
-			}
-			complete
+			self.process_state_unverified(response)
 		};
 		if complete {
-			self.complete = true;
+			self.metadata.complete = true;
+			let target_hash = self.metadata.target_hash();
 			ImportResult::Import(
-				self.target_block,
-				self.target_header.clone(),
-				ImportedState {
-					block: self.target_block,
-					state: std::mem::take(&mut self.state).into(),
-				},
-				self.target_body.clone(),
-				self.target_justifications.clone(),
+				target_hash,
+				self.metadata.target_header.clone(),
+				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
+				self.metadata.target_body.clone(),
+				self.metadata.target_justifications.clone(),
 			)
 		} else {
 			ImportResult::Continue
@@ -289,40 +318,26 @@ where
 
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest {
-		StateRequest {
-			block: self.target_block.encode(),
-			start: self.last_key.clone().into_vec(),
-			no_proof: self.skip_proof,
-		}
+		self.metadata.next_request()
 	}
 
 	/// Check if the state is complete.
 	fn is_complete(&self) -> bool {
-		self.complete
+		self.metadata.complete
 	}
 
 	/// Returns target block number.
 	fn target_number(&self) -> NumberFor<B> {
-		*self.target_header.number()
+		self.metadata.target_number()
 	}
 
 	/// Returns target block hash.
 	fn target_hash(&self) -> B::Hash {
-		self.target_block
+		self.metadata.target_hash()
 	}
 
 	/// Returns state sync estimated progress.
 	fn progress(&self) -> StateSyncProgress {
-		let cursor = *self.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
-		let percent_done = cursor as u32 * 100 / 256;
-		StateSyncProgress {
-			percentage: percent_done,
-			size: self.imported_bytes,
-			phase: if self.complete {
-				StateSyncPhase::ImportingState
-			} else {
-				StateSyncPhase::DownloadingState
-			},
-		}
+		self.metadata.progress()
 	}
 }

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use polkadot_primitives::CommittedCandidateReceiptError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -30,8 +31,12 @@ pub enum Error {
 	UtilRuntime(#[from] polkadot_node_subsystem_util::runtime::Error),
 	#[error(transparent)]
 	Erasure(#[from] polkadot_erasure_coding::Error),
-	#[error("Parachain backing state not available in runtime.")]
-	MissingParaBackingState,
+	#[error("Collation submitted before initialization")]
+	SubmittedBeforeInit,
+	#[error("V2 core index check failed: {0}")]
+	CandidateReceiptCheck(CommittedCandidateReceiptError),
+	#[error("PoV size {0} exceeded maximum size of {1}")]
+	POVSizeExceeded(usize, usize),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

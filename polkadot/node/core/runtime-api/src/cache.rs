@@ -20,9 +20,10 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
+	async_backing::{self, Constraints},
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
 	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
 	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
 	ValidationCodeHash, ValidatorId, ValidatorIndex,
@@ -71,6 +72,10 @@ pub(crate) struct RequestResultCache {
 	node_features: LruMap<SessionIndex, NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
 	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	backing_constraints: LruMap<(Hash, ParaId), Option<Constraints>>,
+	scheduling_lookahead: LruMap<SessionIndex, u32>,
+	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
+	para_ids: LruMap<SessionIndex, Vec<ParaId>>,
 }
 
 impl Default for RequestResultCache {
@@ -108,6 +113,10 @@ impl Default for RequestResultCache {
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			backing_constraints: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			scheduling_lookahead: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			validation_code_bomb_limits: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			para_ids: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -555,10 +564,54 @@ impl RequestResultCache {
 	) {
 		self.claim_queue.insert(relay_parent, value);
 	}
+
+	pub(crate) fn backing_constraints(
+		&mut self,
+		key: (Hash, ParaId),
+	) -> Option<&Option<Constraints>> {
+		self.backing_constraints.get(&key).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_backing_constraints(
+		&mut self,
+		key: (Hash, ParaId),
+		value: Option<Constraints>,
+	) {
+		self.backing_constraints.insert(key, value);
+	}
+
+	pub(crate) fn scheduling_lookahead(&mut self, session_index: SessionIndex) -> Option<u32> {
+		self.scheduling_lookahead.get(&session_index).copied()
+	}
+
+	pub(crate) fn cache_scheduling_lookahead(
+		&mut self,
+		session_index: SessionIndex,
+		scheduling_lookahead: u32,
+	) {
+		self.scheduling_lookahead.insert(session_index, scheduling_lookahead);
+	}
+
+	/// Cache the validation code bomb limit for a session
+	pub(crate) fn cache_validation_code_bomb_limit(&mut self, session: SessionIndex, limit: u32) {
+		self.validation_code_bomb_limits.insert(session, limit);
+	}
+
+	/// Get the validation code bomb limit for a session if cached
+	pub(crate) fn validation_code_bomb_limit(&mut self, session: SessionIndex) -> Option<u32> {
+		self.validation_code_bomb_limits.get(&session).copied()
+	}
+
+	pub(crate) fn para_ids(&mut self, session_index: SessionIndex) -> Option<&Vec<ParaId>> {
+		self.para_ids.get(&session_index).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_para_ids(&mut self, session_index: SessionIndex, value: Vec<ParaId>) {
+		self.para_ids.insert(session_index, value);
+	}
 }
 
 pub(crate) enum RequestResult {
-	// The structure of each variant is (relay_parent, [params,]*, result)
 	Authorities(Hash, Vec<AuthorityDiscoveryId>),
 	Validators(Hash, Vec<ValidatorId>),
 	MinimumBackingVotes(SessionIndex, u32),
@@ -606,4 +659,8 @@ pub(crate) enum RequestResult {
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
 	CandidatesPendingAvailability(Hash, ParaId, Vec<CommittedCandidateReceipt>),
+	BackingConstraints(Hash, ParaId, Option<Constraints>),
+	SchedulingLookahead(SessionIndex, u32),
+	ValidationCodeBombLimit(SessionIndex, u32),
+	ParaIds(SessionIndex, Vec<ParaId>),
 }

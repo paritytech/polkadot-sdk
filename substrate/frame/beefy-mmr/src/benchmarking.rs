@@ -49,11 +49,27 @@ fn init_block<T: Config>(block_num: u32) {
 mod benchmarks {
 	use super::*;
 
+	/// Generate ancestry proofs with `n` leafs and benchmark the logic that checks
+	/// if the proof is optimal.
+	#[benchmark]
+	fn n_leafs_proof_is_optimal(n: Linear<2, 512>) {
+		pallet_mmr::UseLocalStorage::<T>::set(true);
+
+		for block_num in 1..=n {
+			init_block::<T>(block_num);
+		}
+		let proof = Mmr::<T>::generate_mock_ancestry_proof().unwrap();
+		assert_eq!(proof.leaf_count, n as u64);
+
+		#[block]
+		{
+			<BeefyMmr<T> as AncestryHelper<HeaderFor<T>>>::is_proof_optimal(&proof);
+		};
+	}
+
 	#[benchmark]
 	fn extract_validation_context() {
-		if !cfg!(feature = "test") {
-			pallet_mmr::UseLocalStorage::<T>::set(true);
-		}
+		pallet_mmr::UseLocalStorage::<T>::set(true);
 
 		init_block::<T>(1);
 		let header = System::<T>::finalize();
@@ -71,9 +87,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn read_peak() {
-		if !cfg!(feature = "test") {
-			pallet_mmr::UseLocalStorage::<T>::set(true);
-		}
+		pallet_mmr::UseLocalStorage::<T>::set(true);
 
 		init_block::<T>(1);
 
@@ -91,9 +105,7 @@ mod benchmarks {
 	/// the verification. We need to account for the peaks separately.
 	#[benchmark]
 	fn n_items_proof_is_non_canonical(n: Linear<2, 512>) {
-		if !cfg!(feature = "test") {
-			pallet_mmr::UseLocalStorage::<T>::set(true);
-		}
+		pallet_mmr::UseLocalStorage::<T>::set(true);
 
 		for block_num in 1..=n {
 			init_block::<T>(block_num);

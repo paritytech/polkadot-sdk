@@ -21,20 +21,17 @@
 #[cfg(test)]
 mod tests;
 
-use std::sync::Arc;
-
+use self::error::{Error, Result};
 use crate::{
 	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
 	SubscriptionTaskExecutor,
 };
-
 use codec::{Decode, Encode};
-use futures::TryFutureExt;
-use jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
-use sc_rpc_api::DenyUnsafe;
+use jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscriptionSink};
+use sc_rpc_api::check_if_safe;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
-	TransactionSource, TxHash,
+	TransactionSource, TxHash, TxInvalidityReportMap,
 };
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -42,8 +39,8 @@ use sp_core::Bytes;
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
 use sp_session::SessionKeys;
+use std::sync::Arc;
 
-use self::error::{Error, Result};
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::author::*;
 
@@ -55,8 +52,6 @@ pub struct Author<P, Client> {
 	pool: Arc<P>,
 	/// The key store.
 	keystore: KeystorePtr,
-	/// Whether to deny unsafe calls
-	deny_unsafe: DenyUnsafe,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 }
@@ -67,10 +62,9 @@ impl<P, Client> Author<P, Client> {
 		client: Arc<Client>,
 		pool: Arc<P>,
 		keystore: KeystorePtr,
-		deny_unsafe: DenyUnsafe,
 		executor: SubscriptionTaskExecutor,
 	) -> Self {
-		Author { client, pool, keystore, deny_unsafe, executor }
+		Author { client, pool, keystore, executor }
 	}
 }
 
@@ -83,7 +77,7 @@ where
 	<P::Block as BlockT>::Hash: Unpin,
 {
 	fn rotate_keys_impl(&self, owner: Vec<u8>) -> Result<GeneratedSessionKeys> {
-		self.deny_unsafe.check_if_safe()?;
+		check_if_safe(ext)?;
 
 		let best_block_hash = self.client.info().best_hash;
 		let mut runtime_api = self.client.runtime_api();
@@ -143,8 +137,14 @@ where
 		})
 	}
 
-	fn insert_key(&self, key_type: String, suri: String, public: Bytes) -> Result<()> {
-		self.deny_unsafe.check_if_safe()?;
+	fn insert_key(
+		&self,
+		ext: &Extensions,
+		key_type: String,
+		suri: String,
+		public: Bytes,
+	) -> Result<()> {
+		check_if_safe(ext)?;
 
 		let key_type = key_type.as_str().try_into().map_err(|_| Error::BadKeyType)?;
 		self.keystore
@@ -153,7 +153,7 @@ where
 		Ok(())
 	}
 
-	fn rotate_keys(&self) -> Result<Bytes> {
+	fn rotate_keys(&self, ext: &Extensions) -> Result<Bytes> {
 		self.rotate_keys_impl(Vec::new()).map(|k| k.keys)
 	}
 
@@ -161,8 +161,8 @@ where
 		self.rotate_keys_impl(owner.0)
 	}
 
-	fn has_session_keys(&self, session_keys: Bytes) -> Result<bool> {
-		self.deny_unsafe.check_if_safe()?;
+	fn has_session_keys(&self, ext: &Extensions, session_keys: Bytes) -> Result<bool> {
+		check_if_safe(ext)?;
 
 		let best_block_hash = self.client.info().best_hash;
 		let keys = self
@@ -175,8 +175,8 @@ where
 		Ok(self.keystore.has_keys(&keys))
 	}
 
-	fn has_key(&self, public_key: Bytes, key_type: String) -> Result<bool> {
-		self.deny_unsafe.check_if_safe()?;
+	fn has_key(&self, ext: &Extensions, public_key: Bytes, key_type: String) -> Result<bool> {
+		check_if_safe(ext)?;
 
 		let key_type = key_type.as_str().try_into().map_err(|_| Error::BadKeyType)?;
 		Ok(self.keystore.has_keys(&[(public_key.to_vec(), key_type)]))
@@ -186,25 +186,27 @@ where
 		Ok(self.pool.ready().map(|tx| tx.data().encode().into()).collect())
 	}
 
-	fn remove_extrinsic(
+	async fn remove_extrinsic(
 		&self,
+		ext: &Extensions,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<TxHash<P>>>,
 	) -> Result<Vec<TxHash<P>>> {
-		self.deny_unsafe.check_if_safe()?;
+		check_if_safe(ext)?;
 		let hashes = bytes_or_hash
 			.into_iter()
 			.map(|x| match x {
-				hash::ExtrinsicOrHash::Hash(h) => Ok(h),
+				hash::ExtrinsicOrHash::Hash(h) => Ok((h, None)),
 				hash::ExtrinsicOrHash::Extrinsic(bytes) => {
 					let xt = Decode::decode(&mut &bytes[..])?;
-					Ok(self.pool.hash_of(&xt))
+					Ok((self.pool.hash_of(&xt), None))
 				},
 			})
-			.collect::<Result<Vec<_>>>()?;
+			.collect::<Result<TxInvalidityReportMap<TxHash<P>>>>()?;
 
 		Ok(self
 			.pool
-			.remove_invalid(&hashes)
+			.report_invalid(None, hashes)
+			.await
 			.into_iter()
 			.map(|tx| tx.hash().clone())
 			.collect())
@@ -220,14 +222,16 @@ where
 			},
 		};
 
-		let submit = self.pool.submit_and_watch(best_block_hash, TX_SOURCE, dxt).map_err(|e| {
-			e.into_pool_error()
-				.map(error::Error::from)
-				.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
-		});
-
+		let pool = self.pool.clone();
 		let fut = async move {
-			let stream = match submit.await {
+			let submit =
+				pool.submit_and_watch(best_block_hash, TX_SOURCE, dxt).await.map_err(|e| {
+					e.into_pool_error()
+						.map(error::Error::from)
+						.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
+				});
+
+			let stream = match submit {
 				Ok(stream) => stream,
 				Err(err) => {
 					let _ = pending.reject(ErrorObject::from(err)).await;

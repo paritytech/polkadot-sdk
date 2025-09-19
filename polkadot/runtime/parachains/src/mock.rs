@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, assigner_parachains, configuration, coretime, disputes, dmp, hrmp,
+	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -30,7 +30,9 @@ use polkadot_primitives::CoreIndex;
 
 use codec::Decode;
 use frame_support::{
-	assert_ok, derive_impl, parameter_types,
+	assert_ok, derive_impl,
+	dispatch::GetDispatchInfo,
+	parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
@@ -38,7 +40,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_support_test::TestRandomness;
-use frame_system::limits;
+use frame_system::{limits, EnsureRoot};
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,
@@ -56,7 +58,7 @@ use std::{
 };
 use xcm::{
 	prelude::XcmVersion,
-	v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
+	v5::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
 	IntoVersion, VersionedXcm, WrapVersion,
 };
 
@@ -76,7 +78,6 @@ frame_support::construct_runtime!(
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
 		MockAssigner: mock_assigner,
-		ParachainsAssigner: assigner_parachains,
 		OnDemand: on_demand,
 		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
@@ -90,12 +91,21 @@ frame_support::construct_runtime!(
 	}
 );
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
 	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
+}
+
+impl<C> frame_system::offchain::CreateBare<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
 }
 
 parameter_types! {
@@ -237,6 +247,9 @@ impl crate::paras::Config for Test {
 	type NextSessionRotation = TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<AccountId>;
 }
 
 impl crate::dmp::Config for Test {}
@@ -252,7 +265,7 @@ thread_local! {
 /// versions in the `VERSION_WRAPPER`.
 pub struct TestUsesOnlyStoredVersionWrapper;
 impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
@@ -358,6 +371,9 @@ impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {
 	fn service_page_item() -> Weight {
 		Weight::zero()
 	}
+	fn set_service_head() -> Weight {
+		Weight::zero()
+	}
 	fn bump_service_head() -> Weight {
 		Weight::zero()
 	}
@@ -389,8 +405,6 @@ impl pallet_message_queue::Config for Test {
 	type ServiceWeight = MessageQueueServiceWeight;
 	type IdleMaxServiceWeight = ();
 }
-
-impl assigner_parachains::Config for Test {}
 
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
@@ -426,7 +440,6 @@ impl Get<InteriorLocation> for BrokerPot {
 impl coretime::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Test>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
@@ -449,8 +462,16 @@ impl SendXcm for DummyXcmSender {
 	}
 }
 
+pub struct InclusionWeightInfo;
+
+impl crate::inclusion::WeightInfo for InclusionWeightInfo {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+		Weight::from_parts(1024 * 1024, 0)
+	}
+}
+
 impl crate::inclusion::Config for Test {
-	type WeightInfo = ();
+	type WeightInfo = InclusionWeightInfo;
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = Disputes;
 	type RewardValidators = TestRewardValidators;
@@ -503,9 +524,6 @@ pub mod mock_assigner {
 		#[pallet::storage]
 		pub(super) type MockAssignmentQueue<T: Config> =
 			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
-
-		#[pallet::storage]
-		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -513,12 +531,6 @@ pub mod mock_assigner {
 		/// scheduler when filling the claim queue for tests.
 		pub fn add_test_assignment(assignment: Assignment) {
 			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
-		}
-
-		// Allows for customized core count in scheduler tests, rather than a core count
-		// derived from on-demand config + parachain count.
-		pub fn set_core_count(count: u32) {
-			MockCoreCount::<T>::set(Some(count));
 		}
 	}
 
@@ -537,20 +549,18 @@ pub mod mock_assigner {
 		}
 
 		// We don't care about core affinity in the test assigner
-		fn report_processed(_assignment: Assignment) {}
+		fn report_processed(_: Assignment) {}
 
-		// The results of this are tested in on_demand tests. No need to represent it
-		// in the mock assigner.
-		fn push_back_assignment(_assignment: Assignment) {}
+		fn push_back_assignment(assignment: Assignment) {
+			Self::add_test_assignment(assignment);
+		}
 
 		#[cfg(any(feature = "runtime-benchmarks", test))]
 		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
 			Assignment::Bulk(para_id)
 		}
 
-		fn session_core_count() -> u32 {
-			MockCoreCount::<T>::get().unwrap_or(5)
-		}
+		fn assignment_duplicated(_: &Assignment) {}
 	}
 }
 

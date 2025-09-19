@@ -53,7 +53,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		desired_collection_id: T::CollectionId,
 		maybe_desired_item_id: Option<T::ItemId>,
 		maybe_price: Option<PriceWithDirection<ItemPrice<T, I>>>,
-		duration: frame_system::pallet_prelude::BlockNumberFor<T>,
+		duration: BlockNumberFor<T, I>,
 	) -> DispatchResult {
 		ensure!(
 			Self::is_pallet_feature_enabled(PalletFeature::Swaps),
@@ -76,7 +76,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			),
 		};
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let deadline = duration.saturating_add(now);
 
 		PendingSwapOf::<T, I>::insert(
@@ -119,7 +119,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let swap = PendingSwapOf::<T, I>::get(&offered_collection_id, &offered_item_id)
 			.ok_or(Error::<T, I>::UnknownSwap)?;
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		if swap.deadline > now {
 			let item = Item::<T, I>::get(&offered_collection_id, &offered_item_id)
 				.ok_or(Error::<T, I>::UnknownItem)?;
@@ -187,7 +187,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(desired_item == send_item_id, Error::<T, I>::UnknownSwap);
 		}
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		ensure!(now <= swap.deadline, Error::<T, I>::DeadlineExpired);
 
 		if let Some(ref price) = swap.price {

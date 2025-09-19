@@ -1,0 +1,13 @@
+title: '[pallet-revive] implement the gas limit API'
+doc:
+- audience: Runtime Dev
+  description: This PR implements the gas limit API, returning the maximum ref_time
+    per block. Solidity contracts only know a single weight dimension and can use
+    this method to get the block ref_time limit.
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

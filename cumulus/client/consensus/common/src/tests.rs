@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::*;
 
@@ -24,7 +25,7 @@ use cumulus_primitives_core::{
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage,
 };
 use cumulus_relay_chain_interface::{
-	CommittedCandidateReceipt, OccupiedCoreAssumption, OverseerHandle, PHeader, ParaId,
+	CommittedCandidateReceipt, CoreIndex, OccupiedCoreAssumption, OverseerHandle, PHeader, ParaId,
 	RelayChainInterface, RelayChainResult, SessionIndex, StorageValue, ValidatorId,
 };
 use cumulus_test_client::{
@@ -34,14 +35,14 @@ use cumulus_test_client::{
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, StreamExt};
 use futures_timer::Delay;
-use polkadot_primitives::HeadData;
+use polkadot_primitives::{CandidateEvent, HeadData};
 use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_blockchain::Backend as BlockchainBackend;
 use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_version::RuntimeVersion;
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, HashMap, VecDeque},
 	pin::Pin,
 	sync::{Arc, Mutex},
 	time::Duration,
@@ -268,6 +269,30 @@ impl RelayChainInterface for Relaychain {
 	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
 		unimplemented!("Not needed for test")
 	}
+
+	async fn claim_queue(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: PHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn sproof_with_best_parent(client: &Client) -> RelayStateSproofBuilder {
@@ -321,7 +346,7 @@ fn build_block<B: InitBlockBuilder>(
 }
 
 async fn import_block<I: BlockImport<Block>>(
-	importer: &mut I,
+	importer: &I,
 	block: Block,
 	origin: BlockOrigin,
 	import_as_best: bool,
@@ -568,7 +593,7 @@ fn follow_finalized_does_not_stop_on_unknown_block() {
 fn follow_new_best_sets_best_after_it_is_imported() {
 	sp_tracing::try_init_simple();
 
-	let mut client = Arc::new(TestClientBuilder::default().build());
+	let client = Arc::new(TestClientBuilder::default().build());
 
 	let block = build_and_import_block(client.clone(), false);
 

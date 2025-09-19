@@ -42,3 +42,10 @@ pub use event::{
 	BestBlockChanged, ErrorEvent, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 	RuntimeVersionEvent,
 };
+
+/// Follow event sender.
+pub(crate) type FollowEventSender<Hash> = futures::channel::mpsc::Sender<FollowEvent<Hash>>;
+/// Follow event receiver.
+pub(crate) type FollowEventReceiver<Hash> = futures::channel::mpsc::Receiver<FollowEvent<Hash>>;
+/// Follow event send error.
+pub(crate) type FollowEventSendError = futures::channel::mpsc::SendError;

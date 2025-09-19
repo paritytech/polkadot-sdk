@@ -467,7 +467,10 @@ pub(crate) fn write_results(
 				file_name = format!("{}_{}", file_name, instance.to_snake_case());
 			}
 			// "mod::pallet_name.rs" becomes "mod_pallet_name.rs".
-			file_path.push(file_name.replace("::", "_"));
+			file_name = file_name.replace("::", "_");
+			// Some old runtimes have a bug with the pallet and instance name containing a space
+			file_name = file_name.replace(" ", "");
+			file_path.push(file_name);
 			file_path.set_extension("rs");
 		}
 
@@ -484,7 +487,9 @@ pub(crate) fn write_results(
 			benchmarks: results.clone(),
 		};
 
-		let mut output_file = fs::File::create(&file_path)?;
+		let mut output_file = fs::File::create(&file_path).map_err(|e| {
+			format!("Could not write weight file to: {:?}. Error: {:?}", &file_path, e)
+		})?;
 		handlebars
 			.render_template_to_write(&template, &hbs_data, &mut output_file)
 			.map_err(|e| io_error(&e.to_string()))?;

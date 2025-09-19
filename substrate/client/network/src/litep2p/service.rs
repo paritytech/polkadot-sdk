@@ -28,16 +28,19 @@ use crate::{
 	peer_store::PeerStoreProvider,
 	service::out_events,
 	Event, IfDisconnected, NetworkDHTProvider, NetworkEventStream, NetworkPeers, NetworkRequest,
-	NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider, ProtocolName,
-	RequestFailure, Signature,
+	NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider, OutboundFailure,
+	ProtocolName, RequestFailure, Signature,
 };
 
-use crate::litep2p::Record;
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
-use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
-use litep2p::{crypto::ed25519::Keypair, types::multiaddr::Multiaddr as LiteP2pMultiaddr};
+use libp2p::identity::SigningError;
+use litep2p::{
+	addresses::PublicAddresses, crypto::ed25519::Keypair,
+	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
+};
 use parking_lot::RwLock;
+use sc_network_types::kad::{Key as KademliaKey, Record};
 
 use sc_network_common::{
 	role::{ObservedRole, Roles},
@@ -62,6 +65,12 @@ const LOG_TARGET: &str = "sub-libp2p";
 /// [`Litep2pNetworkBackend`](super::Litep2pNetworkBackend).
 #[derive(Debug)]
 pub enum NetworkServiceCommand {
+	/// Find peers closest to `target` in the DHT.
+	FindClosestPeers {
+		/// Target peer ID.
+		target: PeerId,
+	},
+
 	/// Get value from DHT.
 	GetValue {
 		/// Record key.
@@ -100,6 +109,15 @@ pub enum NetworkServiceCommand {
 		/// Record expiration time as measured by a local, monothonic clock.
 		expires: Option<Instant>,
 	},
+
+	/// Start providing `key`.
+	StartProviding { key: KademliaKey },
+
+	/// Stop providing `key`.
+	StopProviding { key: KademliaKey },
+
+	/// Get providers for `key`.
+	GetProviders { key: KademliaKey },
 
 	/// Query network status.
 	Status {
@@ -196,7 +214,7 @@ pub struct Litep2pNetworkService {
 	listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 
 	/// External addresses.
-	external_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
+	external_addresses: PublicAddresses,
 }
 
 impl Litep2pNetworkService {
@@ -210,7 +228,7 @@ impl Litep2pNetworkService {
 		block_announce_protocol: ProtocolName,
 		request_response_protocols: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
 		listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
-		external_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
+		external_addresses: PublicAddresses,
 	) -> Self {
 		Self {
 			local_peer_id,
@@ -255,6 +273,10 @@ impl NetworkSigner for Litep2pNetworkService {
 }
 
 impl NetworkDHTProvider for Litep2pNetworkService {
+	fn find_closest_peers(&self, target: PeerId) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::FindClosestPeers { target });
+	}
+
 	fn get_value(&self, key: &KademliaKey) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::GetValue { key: key.clone() });
 	}
@@ -263,12 +285,7 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValue { key, value });
 	}
 
-	fn put_record_to(
-		&self,
-		record: libp2p::kad::Record,
-		peers: HashSet<PeerId>,
-		update_local_storage: bool,
-	) {
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValueTo {
 			record: Record {
 				key: record.key.to_vec().into(),
@@ -298,6 +315,18 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 			expires,
 		});
 	}
+
+	fn start_providing(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StartProviding { key });
+	}
+
+	fn stop_providing(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StopProviding { key });
+	}
+
+	fn get_providers(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::GetProviders { key });
+	}
 }
 
 #[async_trait::async_trait]
@@ -323,9 +352,8 @@ impl NetworkStatusProvider for Litep2pNetworkService {
 				.collect(),
 			external_addresses: self
 				.external_addresses
-				.read()
-				.iter()
-				.cloned()
+				.get_addresses()
+				.into_iter()
 				.map(|a| Multiaddr::from(a).into())
 				.collect(),
 			connected_peers: HashMap::new(),
@@ -491,7 +519,7 @@ impl NetworkEventStream for Litep2pNetworkService {
 
 impl NetworkStateInfo for Litep2pNetworkService {
 	fn external_addresses(&self) -> Vec<Multiaddr> {
-		self.external_addresses.read().iter().cloned().map(Into::into).collect()
+		self.external_addresses.get_addresses().into_iter().map(Into::into).collect()
 	}
 
 	fn listen_addresses(&self) -> Vec<Multiaddr> {
@@ -508,13 +536,23 @@ impl NetworkStateInfo for Litep2pNetworkService {
 impl NetworkRequest for Litep2pNetworkService {
 	async fn request(
 		&self,
-		_target: PeerId,
-		_protocol: ProtocolName,
-		_request: Vec<u8>,
-		_fallback_request: Option<(Vec<u8>, ProtocolName)>,
-		_connect: IfDisconnected,
+		target: PeerId,
+		protocol: ProtocolName,
+		request: Vec<u8>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		connect: IfDisconnected,
 	) -> Result<(Vec<u8>, ProtocolName), RequestFailure> {
-		unimplemented!();
+		let (tx, rx) = oneshot::channel();
+
+		self.start_request(target, protocol, request, fallback_request, tx, connect);
+
+		match rx.await {
+			Ok(v) => v,
+			// The channel can only be closed if the network worker no longer exists. If the
+			// network worker no longer exists, then all connections to `target` are necessarily
+			// closed, and we legitimately report this situation as a "ConnectionClosed".
+			Err(_) => Err(RequestFailure::Network(OutboundFailure::ConnectionClosed)),
+		}
 	}
 
 	fn start_request(

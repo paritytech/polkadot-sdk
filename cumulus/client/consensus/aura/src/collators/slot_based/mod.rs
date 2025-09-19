@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,60 +9,101 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! A collator for Aura that looks ahead of the most recently included parachain block
-//! when determining what to build upon.
+//! # Architecture Overview
 //!
-//! The block building mechanism consists of two parts:
-//! 	1. A block-builder task that builds parachain blocks at each of our slots.
-//! 	2. A collator task that transforms the blocks into a collation and submits them to the relay
-//!     chain.
+//! The block building mechanism operates through two coordinated tasks:
 //!
-//! Blocks are built on every parachain slot if there is a core scheduled on the relay chain. At the
-//! beginning of each block building loop, we determine how many blocks we expect to build per relay
-//! chain block. The collator implementation then expects that we have that many cores scheduled
-//! during the relay chain block. After the block is built, the block builder task sends it to
-//! the collation task which compresses it and submits it to the collation-generation subsystem.
+//! 1. **Block Builder Task**: Orchestrates the timing and execution of parachain block production
+//! 2. **Collator Task**: Processes built blocks into collations for relay chain submission
+//!
+//! # Block Builder Task Details
+//!
+//! The block builder task manages block production timing and execution through an iterative
+//! process:
+//!
+//! 1. Awaits the next production signal from the internal timer
+//! 2. Retrieves the current best relay chain block and identifies a valid parent block (see
+//!    [find_potential_parents][cumulus_client_consensus_common::find_potential_parents] for parent
+//!    selection criteria)
+//! 3. Validates that:
+//!    - The parachain has an assigned core on the relay chain
+//!    - No block has been previously built on the target core
+//! 4. Executes block building and import operations
+//! 5. Transmits the completed block to the collator task
+//!
+//! # Block Production Timing
+//!
+//! When a block is produced is determined by the following parameters:
+//!
+//! - Parachain slot duration
+//! - Number of assigned parachain cores
+//! - Parachain runtime configuration
+//!
+//! ## Timing Examples
+//!
+//! The following table demonstrates various timing configurations and their effects. The "AURA
+//! Slot" column shows which author is responsible for the block.
+//!
+//! | Slot Duration (ms) | Cores | Production Attempts (ms) | AURA Slot  |
+//! |-------------------|--------|-------------------------|------------|
+//! | 2000              | 3      | 0, 2000, 4000, 6000    | 0, 1, 2, 3 |
+//! | 6000              | 1      | 0, 6000, 12000, 18000  | 0, 1, 2, 3 |
+//! | 6000              | 3      | 0, 2000, 4000, 6000    | 0, 0, 0, 1 |
+//! | 12000             | 1      | 0, 6000, 12000, 18000  | 0, 0, 1, 1 |
+//! | 12000             | 3      | 0, 2000, 4000, 6000    | 0, 0, 0, 0 |
+//!
+//! # Collator Task Details
+//!
+//! The collator task receives built blocks from the block builder task and performs two primary
+//! functions:
+//!
+//! 1. Block compression
+//! 2. Submission to the collation-generation subsystem
 
+use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
+pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 use codec::Codec;
 use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::CollectCollationInfo;
+use cumulus_primitives_core::RelayParentOffsetApi;
 use cumulus_relay_chain_interface::RelayChainInterface;
+use futures::FutureExt;
 use polkadot_primitives::{
 	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
 };
-
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_utils::mpsc::tracing_unbounded;
-
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, traits::SpawnNamed};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member};
-
-use std::{sync::Arc, time::Duration};
-
-use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 mod block_builder_task;
+mod block_import;
 mod collation_task;
+mod relay_chain_data_cache;
+mod slot_timer;
+
+#[cfg(test)]
+mod tests;
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -82,8 +124,6 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub collator_key: CollatorPair,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The length of slots in the relay chain.
-	pub relay_chain_slot_duration: Duration,
 	/// The underlying block proposer this should call into.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
@@ -92,16 +132,26 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
-	/// Drift slots by a fixed duration. This can be used to create more preferrable authoring
+	/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
-	pub slot_drift: Duration,
+	pub slot_offset: Duration,
+	/// The handle returned by [`SlotBasedBlockImport`].
+	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
+	/// Spawner for spawning futures.
+	pub spawner: Spawner,
+	/// Slot duration of the relay chain
+	pub relay_chain_slot_duration: Duration,
+	/// When set, the collator will export every produced `POV` to this folder.
+	pub export_pov: Option<PathBuf>,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }
 
 /// Run aura-based block building and collation task.
-pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
-	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
-) -> (impl futures::Future<Output = ()>, impl futures::Future<Output = ()>)
-where
+pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
+	params: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
+) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
 		+ BlockOf
@@ -113,7 +163,7 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+		AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + RelayParentOffsetApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -125,40 +175,75 @@ where
 	P: Pair + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
+	Spawner: SpawnNamed,
 {
+	let Params {
+		create_inherent_data_providers,
+		block_import,
+		para_client,
+		para_backend,
+		relay_client,
+		code_hash_provider,
+		keystore,
+		collator_key,
+		para_id,
+		proposer,
+		collator_service,
+		authoring_duration,
+		reinitialize,
+		slot_offset,
+		block_import_handle,
+		spawner,
+		export_pov,
+		relay_chain_slot_duration,
+		max_pov_percentage,
+	} = params;
+
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
-		relay_client: params.relay_client.clone(),
-		collator_key: params.collator_key,
-		para_id: params.para_id,
-		reinitialize: params.reinitialize,
-		collator_service: params.collator_service.clone(),
+		relay_client: relay_client.clone(),
+		collator_key,
+		para_id,
+		reinitialize,
+		collator_service: collator_service.clone(),
 		collator_receiver: rx,
+		block_import_handle,
+		export_pov,
 	};
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
 
 	let block_builder_params = block_builder_task::BuilderTaskParams {
-		create_inherent_data_providers: params.create_inherent_data_providers,
-		block_import: params.block_import,
-		para_client: params.para_client,
-		para_backend: params.para_backend,
-		relay_client: params.relay_client,
-		code_hash_provider: params.code_hash_provider,
-		keystore: params.keystore,
-		para_id: params.para_id,
-		proposer: params.proposer,
-		collator_service: params.collator_service,
-		authoring_duration: params.authoring_duration,
+		create_inherent_data_providers,
+		block_import,
+		para_client,
+		para_backend,
+		relay_client,
+		code_hash_provider,
+		keystore,
+		para_id,
+		proposer,
+		collator_service,
+		authoring_duration,
 		collator_sender: tx,
-		relay_chain_slot_duration: params.relay_chain_slot_duration,
-		slot_drift: params.slot_drift,
+		relay_chain_slot_duration,
+		slot_offset,
+		max_pov_percentage,
 	};
 
 	let block_builder_fut =
 		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
 
-	(collation_task_fut, block_builder_fut)
+	spawner.spawn_blocking(
+		"slot-based-block-builder",
+		Some("slot-based-collator"),
+		block_builder_fut.boxed(),
+	);
+	spawner.spawn_blocking(
+		"slot-based-collation",
+		Some("slot-based-collator"),
+		collation_task_fut.boxed(),
+	);
 }
 
 /// Message to be sent from the block builder to the collation task.
@@ -175,4 +260,6 @@ struct CollatorMessage<Block: BlockT> {
 	pub validation_code_hash: ValidationCodeHash,
 	/// Core index that this block should be submitted on
 	pub core_index: CoreIndex,
+	/// Maximum pov size. Currently needed only for exporting PoV.
+	pub max_pov_size: u32,
 }

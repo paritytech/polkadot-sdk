@@ -16,56 +16,58 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-application-crypto = { features = ["serde"], workspace = true }
-sp-consensus-aura = { features = ["serde"], workspace = true }
-sp-consensus-babe = { features = ["serde"], workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-block-builder = { workspace = true }
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-sp-inherents = { workspace = true }
-sp-keyring = { workspace = true }
-sp-offchain = { workspace = true }
-sp-core = { features = ["serde"], workspace = true }
-sp-crypto-hashing = { workspace = true }
-sp-io = { workspace = true }
-frame-support = { workspace = true }
-sp-version = { workspace = true }
-sp-session = { workspace = true }
-sp-api = { workspace = true }
-sp-runtime = { features = ["serde"], workspace = true }
-pallet-babe = { workspace = true }
-pallet-balances = { workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
+frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
+pallet-babe = { workspace = true }
+pallet-balances = { workspace = true }
 pallet-timestamp = { workspace = true }
+pallet-utility = { workspace = true }
+sc-service = { optional = true, workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-api = { workspace = true }
+sp-application-crypto = { features = ["serde"], workspace = true }
+sp-block-builder = { workspace = true }
+sp-consensus-aura = { features = ["serde"], workspace = true }
+sp-consensus-babe = { features = ["serde"], workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
-sp-trie = { workspace = true }
-sp-transaction-pool = { workspace = true }
-trie-db = { workspace = true }
-sc-service = { features = ["test-helpers"], optional = true, workspace = true }
-sp-state-machine = { workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-crypto-hashing = { workspace = true }
+sp-debug-derive = { workspace = true, default-features = false, features = ["force-debug"] }
 sp-externalities = { workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-io = { workspace = true }
+sp-keyring = { workspace = true }
+sp-offchain = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-session = { workspace = true }
+sp-state-machine = { workspace = true }
+sp-transaction-pool = { workspace = true }
+sp-trie = { workspace = true }
+sp-version = { workspace = true }
+trie-db = { workspace = true }
 
 # 3rd party
 array-bytes = { optional = true, workspace = true, default-features = true }
-serde_json = { workspace = true, features = ["alloc"] }
 log = { workspace = true }
+serde_json = { workspace = true, features = ["alloc"] }
 tracing = { workspace = true, default-features = false }
 
 [dev-dependencies]
 futures = { workspace = true }
+pretty_assertions = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-serde_json = { features = ["alloc"], workspace = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, features = ["metadata-hash"], workspace = true, default-features = true }
@@ -85,6 +87,7 @@ std = [
 	"pallet-babe/std",
 	"pallet-balances/std",
 	"pallet-timestamp/std",
+	"pallet-utility/std",
 	"sc-executor/std",
 	"sc-service",
 	"scale-info/std",
@@ -98,6 +101,7 @@ std = [
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-crypto-hashing/std",
+	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
@@ -118,3 +122,8 @@ std = [
 
 # Special feature to disable logging
 disable-logging = ["sp-api/disable-logging"]
+
+# This feature adds BLS crypto primitives.
+# It should not be used in production since the implementation and interface may still
+# be subject to significant changes.
+bls-experimental = ["sp-application-crypto/bls-experimental"]

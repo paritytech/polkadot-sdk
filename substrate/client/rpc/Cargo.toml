@@ -21,7 +21,6 @@ futures = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
@@ -30,6 +29,7 @@ sc-rpc-api = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
@@ -38,24 +38,18 @@ sp-offchain = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-session = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-tracing = { workspace = true }
 assert_matches = { workspace = true }
-sc-block-builder = { workspace = true, default-features = true }
+pretty_assertions = { workspace = true }
 sc-network = { workspace = true, default-features = true }
-sc-network-common = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
-tokio = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
-pretty_assertions = { workspace = true }
-tracing-subscriber = { features = ["env-filter"], workspace = true }
 
 [features]
 test-helpers = []

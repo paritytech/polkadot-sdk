@@ -22,8 +22,10 @@ use codec::MaxEncodedLen;
 use core::{cmp::Ordering, marker::PhantomData};
 use sp_runtime::{
 	traits::{BadOrigin, Get, Member, Morph, TryMorph},
+	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 	Either,
 };
+use sp_weights::Weight;
 
 use super::misc;
 
@@ -189,7 +191,7 @@ macro_rules! impl_ensure_origin_with_arg_ignoring_arg {
 	( impl < { O: .., I: 'static, $( $bound:tt )* }> EnsureOriginWithArg<O, $t_param:ty> for $name:ty {} ) => {
 		impl_ensure_origin_with_arg_ignoring_arg! {
 			impl <{
-				O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+				O: $crate::traits::OriginTrait,
 				I: 'static,
 				$( $bound )*
 			}> EnsureOriginWithArg<O, $t_param> for $name {}
@@ -198,7 +200,7 @@ macro_rules! impl_ensure_origin_with_arg_ignoring_arg {
 	( impl < { O: .. , $( $bound:tt )* }> EnsureOriginWithArg<O, $t_param:ty> for $name:ty {} ) => {
 		impl_ensure_origin_with_arg_ignoring_arg! {
 			impl <{
-				O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
+				O: $crate::traits::OriginTrait,
 				$( $bound )*
 			}> EnsureOriginWithArg<O, $t_param> for $name {}
 		}
@@ -482,7 +484,7 @@ pub trait OriginTrait: Sized {
 	type Call;
 
 	/// The caller origin, overarching type of all pallets origins.
-	type PalletsOrigin: Into<Self> + CallerTrait<Self::AccountId> + MaxEncodedLen;
+	type PalletsOrigin: Send + Sync + Into<Self> + CallerTrait<Self::AccountId> + MaxEncodedLen;
 
 	/// The AccountId used across the system.
 	type AccountId;
@@ -495,6 +497,14 @@ pub trait OriginTrait: Sized {
 
 	/// Replace the caller with caller from the other origin
 	fn set_caller_from(&mut self, other: impl Into<Self>);
+
+	/// Replace the caller with caller from the other origin
+	fn set_caller(&mut self, caller: Self::PalletsOrigin);
+
+	/// Replace the caller with caller from the other origin
+	fn set_caller_from_signed(&mut self, caller_account: Self::AccountId) {
+		self.set_caller(Self::PalletsOrigin::from(RawOrigin::Signed(caller_account)))
+	}
 
 	/// Filter the call if caller is not root, if false is returned then the call must be filtered
 	/// out.
@@ -544,6 +554,40 @@ pub trait OriginTrait: Sized {
 	fn as_system_ref(&self) -> Option<&RawOrigin<Self::AccountId>> {
 		self.caller().as_system_ref()
 	}
+
+	/// Extract a reference to the signer, if that's what the caller is.
+	fn as_signer(&self) -> Option<&Self::AccountId> {
+		self.caller().as_system_ref().and_then(|s| {
+			if let RawOrigin::Signed(ref who) = s {
+				Some(who)
+			} else {
+				None
+			}
+		})
+	}
+}
+
+/// A trait to allow calls to authorize themselves from the origin `None`.
+///
+/// It is implemented by the [`crate::pallet`] macro and used by the
+/// `frame_system::AuthorizeCall` transaction extension.
+///
+/// Pallet writers can declare the authorization logic for a call using the call attribute:
+/// [`crate::pallet_macros::authorize`].
+pub trait Authorize {
+	/// The authorize function.
+	///
+	/// Returns
+	/// * `Some(Ok((valid_transaction, unspent weight)))` if the call is successfully authorized,
+	/// * `Some(Err(error))` if the call authorization is invalid,
+	/// * `None` if the call doesn't provide any authorization.
+	fn authorize(
+		&self,
+		source: TransactionSource,
+	) -> Option<Result<(ValidTransaction, Weight), TransactionValidityError>>;
+
+	/// The weight of the authorization function.
+	fn weight_of_authorize(&self) -> Weight;
 }
 
 #[cfg(test)]

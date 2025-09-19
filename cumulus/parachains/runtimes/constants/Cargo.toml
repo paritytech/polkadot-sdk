@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Common constants for Testnet Parachains runtimes"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

@@ -7,6 +7,13 @@ The `Polkadot SDK` project is an **OPENISH Open Source Project**
 Individuals making significant and valuable contributions are given commit-access to the project. Contributions are done
 via pull-requests and need to be approved by the maintainers.
 
+> **Note:** Contributors who are part of the organization do not need to fork the repository. They can create a branch
+> directly in the repository to send a pull request.
+
+## How?
+
+In order to build this project you need to install some dependencies, follow the instructions in [this guide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk).
+
 ## Rules
 
 There are a few basic ground-rules for contributors (including the maintainer(s) of the project):
@@ -75,10 +82,7 @@ The reviewers are also responsible to check:
 All Pull Requests must contain proper title & description, as described in [Pull Request
 Template](./PULL_REQUEST_TEMPLATE.md). Moreover, all pull requests must have a proper `prdoc` file attached.
 
-Some Pull Requests can be exempt of `prdoc` documentation, those must be labelled with
-[`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L89-L91).
-
-Non "silent" PRs must come with documentation in the form of a `.prdoc` file.
+Pull Requests labelled with ⁠`R0-no-crate-publish-required` are exempt from ⁠prdoc documentation requirements.
 
 See more about `prdoc` [here](./prdoc.md)
 
@@ -161,11 +165,11 @@ test output there is a script
 * `./scripts/update-ui-tests.sh`   to update the tests for a current rust version locally
 * `./scripts/update-ui-tests.sh 1.70` # to update the tests for a specific rust version locally
 
-Or if you have opened PR and you're member of `paritytech` - you can use command-bot to run the tests for you in CI:
-* `bot update-ui` - will run the tests for the current rust version
-* `bot update-ui latest --rust_version=1.70.0` - will run the tests for the specified rust version
-* `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` - will run
-the tests for the specified rust version and specified image
+Or if you have opened PR and you're member of `paritytech` - you can use [/cmd](./commands-readme.md)
+to run the tests for you in CI:
+* `/cmd update-ui` - will run the tests for the current rust version
+* `/cmd update-ui --image docker.io/paritytech/ci-unified:bullseye-1.70.0-2023-05-23` -
+will run the tests for the specified rust version and specified image
 
 ## Feature Propagation
 
@@ -175,8 +179,13 @@ We use [zepter](https://github.com/ggwpez/zepter) to enforce features are propag
 
 If you're member of **paritytech** org - you can use command-bot to run various of common commands in CI:
 
-Start with comment in PR: `bot help` to see the list of available commands.
+Start with comment in PR: `/cmd --help` to see the list of available commands.
 
+## Debug builds
+
+In order to improve build times for debug builds, the workspace `Cargo.toml` is configured to emit
+source line debug information only. If you need full debug info in your local debug builds,
+search for the line `debug = "line-tables-only"`  and comment it out.
 
 ## Deprecating code
 

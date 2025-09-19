@@ -8,19 +8,26 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   check-publish:
     runs-on: ubuntu-latest
+    needs: isdraft
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
+        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
         with:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.8.0
+        run: cargo install parity-publish@0.10.6 --locked -q
 
       - name: parity-publish check
         run: parity-publish --color always check --allow-unpublished

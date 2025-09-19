@@ -41,7 +41,7 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, UnpinWorkerMessage, UsageProvider,
+	ProofProvider, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -85,10 +85,8 @@ use std::{
 	sync::Arc,
 };
 
-#[cfg(feature = "test-helpers")]
-use {
-	super::call_executor::LocalCallExecutor, sc_client_api::in_mem, sp_core::traits::CodeExecutor,
-};
+use super::call_executor::LocalCallExecutor;
+use sp_core::traits::CodeExecutor;
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -152,39 +150,6 @@ enum PrepareStorageChangesResult<Block: BlockT> {
 	Discard(ImportResult),
 	Import(Option<sc_consensus::StorageChanges<Block>>),
 }
-
-/// Create an instance of in-memory client.
-#[cfg(feature = "test-helpers")]
-pub fn new_in_mem<E, Block, G, RA>(
-	backend: Arc<in_mem::Backend<Block>>,
-	executor: E,
-	genesis_block_builder: G,
-	prometheus_registry: Option<Registry>,
-	telemetry: Option<TelemetryHandle>,
-	spawn_handle: Box<dyn SpawnNamed>,
-	config: ClientConfig<Block>,
-) -> sp_blockchain::Result<
-	Client<in_mem::Backend<Block>, LocalCallExecutor<Block, in_mem::Backend<Block>, E>, Block, RA>,
->
-where
-	E: CodeExecutor + sc_executor::RuntimeVersionOf,
-	Block: BlockT,
-	G: BuildGenesisBlock<
-			Block,
-			BlockImportOperation = <in_mem::Backend<Block> as backend::Backend<Block>>::BlockImportOperation,
-		>,
-{
-	new_with_backend(
-		backend,
-		executor,
-		genesis_block_builder,
-		spawn_handle,
-		prometheus_registry,
-		telemetry,
-		config,
-	)
-}
-
 /// Client configuration items.
 #[derive(Debug, Clone)]
 pub struct ClientConfig<Block: BlockT> {
@@ -218,7 +183,6 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 
 /// Create a client with the explicitly provided backend.
 /// This is useful for testing backend implementations.
-#[cfg(feature = "test-helpers")]
 pub fn new_with_backend<B, E, Block, G, RA>(
 	backend: Arc<B>,
 	executor: E,
@@ -475,7 +439,7 @@ where
 
 	/// Get a reference to the state at a given block.
 	pub fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<B::State> {
-		self.backend.state_at(hash)
+		self.backend.state_at(hash, TrieCacheContext::Untrusted)
 	}
 
 	/// Get the code at a given block.
@@ -513,6 +477,7 @@ where
 			fork_choice,
 			intermediates,
 			import_existing,
+			create_gap,
 			..
 		} = import_block;
 
@@ -536,6 +501,8 @@ where
 		let height = (*import_headers.post().number()).saturated_into::<u64>();
 
 		*self.importing_block.write() = Some(hash);
+
+		operation.op.set_create_gap(create_gap);
 
 		let result = self.execute_and_import_block(
 			operation,
@@ -604,9 +571,8 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-		let gap_block = info
-			.block_gap
-			.map_or(false, |(start, _)| *import_headers.post().number() == start);
+		let gap_block =
+			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
@@ -864,8 +830,8 @@ where
 			// block.
 			(true, None, Some(ref body)) => {
 				let mut runtime_api = self.runtime_api();
-
-				runtime_api.set_call_context(CallContext::Onchain);
+				let call_context = CallContext::Onchain;
+				runtime_api.set_call_context(call_context);
 
 				if self.config.enable_import_proof_recording {
 					runtime_api.record_proof();
@@ -880,7 +846,7 @@ where
 					Block::new(import_block.header.clone(), body.clone()),
 				)?;
 
-				let state = self.backend.state_at(*parent_hash)?;
+				let state = self.backend.state_at(*parent_hash, call_context.into())?;
 				let gen_storage_changes = runtime_api
 					.into_storage_changes(&state, *parent_hash)
 					.map_err(sp_blockchain::Error::Storage)?;
@@ -1406,7 +1372,7 @@ where
 	) -> sp_blockchain::Result<(KeyValueStates, usize)> {
 		let mut db = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
 		// Compact encoding
-		let _ = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
+		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
 			&mut db,
 			proof.iter_compact_encoded_nodes(),
 			Some(&root),
@@ -1754,7 +1720,7 @@ where
 	/// If you are not sure that there are no BlockImport objects provided by the consensus
 	/// algorithm, don't use this function.
 	async fn import_block(
-		&mut self,
+		&self,
 		mut import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let span = tracing::span!(tracing::Level::DEBUG, "import_block");
@@ -1854,18 +1820,18 @@ where
 {
 	type Error = ConsensusError;
 
-	async fn import_block(
-		&mut self,
-		import_block: BlockImportParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		(&*self).import_block(import_block).await
-	}
-
 	async fn check_block(
 		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		(&self).check_block(block).await
+	}
+
+	async fn import_block(
+		&self,
+		import_block: BlockImportParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		(&self).import_block(import_block).await
 	}
 }
 

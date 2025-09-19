@@ -23,38 +23,41 @@ harness = false
 [dependencies]
 ahash = { optional = true, workspace = true }
 codec = { workspace = true }
+foldhash = { workspace = true }
 hash-db = { workspace = true }
-lazy_static = { optional = true, workspace = true }
+hashbrown = { workspace = true }
 memory-db = { workspace = true }
 nohash-hasher = { optional = true, workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }
+prometheus-endpoint = { optional = true, workspace = true, default-features = true }
 rand = { optional = true, workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
+schnellru = { optional = true, workspace = true }
+sp-core = { workspace = true }
+sp-externalities = { workspace = true }
 thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 trie-db = { workspace = true }
 trie-root = { workspace = true }
-sp-core = { workspace = true }
-sp-externalities = { workspace = true }
-schnellru = { optional = true, workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 trie-bench = { workspace = true }
 trie-standardmap = { workspace = true }
-sp-runtime = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"ahash",
 	"codec/std",
+	"foldhash/std",
 	"hash-db/std",
-	"lazy_static",
 	"memory-db/std",
 	"nohash-hasher",
 	"parking_lot",
+	"prometheus-endpoint",
 	"rand",
 	"scale-info/std",
 	"schnellru",

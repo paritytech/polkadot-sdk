@@ -16,59 +16,52 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 
+frame-election-provider-support = { workspace = true }
+sp-api = { workspace = true }
 sp-authority-discovery = { workspace = true }
+sp-block-builder = { workspace = true }
 sp-consensus-babe = { workspace = true }
 sp-consensus-beefy = { workspace = true }
-sp-api = { workspace = true }
-sp-inherents = { workspace = true }
-sp-offchain = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-staking = { workspace = true }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-io = { workspace = true }
 sp-mmr-primitives = { workspace = true }
+sp-offchain = { workspace = true }
+sp-runtime = { workspace = true }
 sp-session = { workspace = true }
-sp-version = { workspace = true }
-frame-election-provider-support = { workspace = true }
+sp-staking = { workspace = true }
 sp-transaction-pool = { workspace = true }
-sp-block-builder = { workspace = true }
+sp-version = { workspace = true }
 
+frame-executive = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-system-rpc-runtime-api = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-babe = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-frame-executive = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-offences = { workspace = true }
 pallet-session = { workspace = true }
-frame-support = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
-frame-system = { workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
-test-runtime-constants = { workspace = true }
-pallet-timestamp = { workspace = true }
 pallet-sudo = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-vesting = { workspace = true }
+test-runtime-constants = { workspace = true }
 
-polkadot-runtime-common = { workspace = true }
-polkadot-primitives = { workspace = true }
 pallet-xcm = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
+xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
-xcm = { workspace = true }
-
-[dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
-tiny-keccak = { features = ["keccak"], workspace = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, default-features = true }
@@ -76,12 +69,11 @@ substrate-wasm-builder = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 no_std = []
-only-staking = []
+
 runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"sp-io/with-tracing",
 ]
-
 std = [
 	"codec/std",
 	"frame-election-provider-support/std",
@@ -131,7 +123,6 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -141,9 +132,11 @@ runtime-benchmarks = [
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -153,4 +146,5 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

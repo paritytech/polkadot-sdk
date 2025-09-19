@@ -18,12 +18,12 @@
 
 use frame_support::PalletError;
 use sp_core::RuntimeDebug;
-use sp_std::{default::Default, vec::Vec};
+use sp_std::vec::Vec;
 use sp_trie::{
 	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
 #[cfg(feature = "test-helpers")]
@@ -32,7 +32,9 @@ use sp_trie::{recorder_ext::RecorderExt, Recorder, TrieDBBuilder, TrieError, Tri
 use trie_db::{Trie, TrieConfiguration, TrieDBMut};
 
 /// Errors that can occur when interacting with `UnverifiedStorageProof` and `VerifiedStorageProof`.
-#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
+)]
 pub enum StorageProofError {
 	/// Call to `generate_trie_proof()` failed.
 	UnableToGenerateTrieProof,
@@ -164,7 +166,7 @@ where
 		self.read_value(key).and_then(|v| {
 			v.map(|v| {
 				T::decode(&mut &v[..]).map_err(|e| {
-					log::warn!(target: "bridge-storage-proofs", "read_and_decode_value error: {e:?}");
+					tracing::warn!(target: "bridge-storage-proofs", error=?e, "read_and_decode_value");
 					StorageProofError::DecodeError
 				})
 			})
@@ -280,7 +282,7 @@ where
 
 /// Return valid storage proof and state root.
 ///
-/// NOTE: This should only be used for **testing**.
+/// Note: This should only be used for **testing**.
 #[cfg(feature = "std")]
 pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};

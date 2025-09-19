@@ -32,14 +32,14 @@ impl std::fmt::Display for BenchmarkUsage {
 		write!(
 			f,
 			"\n{}\n{}\n\n{}\n{}\n",
-			format!("{:<32}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
+			format!("{:<64}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
 			self.network_usage
 				.iter()
 				.map(|v| v.to_string())
 				.sorted()
 				.collect::<Vec<String>>()
 				.join("\n"),
-			format!("{:<32}{:>12}{:>12}", "CPU usage, seconds", "total", "per block").blue(),
+			format!("{:<64}{:>12}{:>12}", "CPU usage, seconds", "total", "per block").blue(),
 			self.cpu_usage
 				.iter()
 				.map(|v| v.to_string())
@@ -121,7 +121,7 @@ fn check_resource_usage(
 			))
 		}
 	} else {
-		Some(format!("The resource `{}` is not found", resource_name))
+		Some(format!("The resource `{resource_name}` is not found"))
 	}
 }
 
@@ -134,7 +134,7 @@ pub struct ResourceUsage {
 
 impl std::fmt::Display for ResourceUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{:<32}{:>12.4}{:>12.4}", self.resource_name.cyan(), self.total, self.per_block)
+		write!(f, "{:<64}{:>12.4}{:>12.4}", self.resource_name.cyan(), self.total, self.per_block)
 	}
 }
 

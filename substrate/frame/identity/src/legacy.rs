@@ -17,7 +17,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 use alloc::vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 #[cfg(feature = "runtime-benchmarks")]
 use enumflags2::BitFlag;
 use enumflags2::{bitflags, BitFlags};
@@ -69,6 +69,7 @@ impl TypeInfo for IdentityField {
 	CloneNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	EqNoBound,
 	MaxEncodedLen,
 	PartialEqNoBound,

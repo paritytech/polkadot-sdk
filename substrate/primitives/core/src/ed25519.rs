@@ -17,9 +17,12 @@
 
 //! Simple Ed25519 API.
 
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes,
+use crate::{
+	crypto::{
+		ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+		PublicBytes, SecretStringError, SignatureBytes,
+	},
+	proof_of_possession::NonAggregatable,
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};
@@ -49,6 +52,9 @@ pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 /// A signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
+/// Proof of Possession is the same as Signature for ed25519
+pub type ProofOfPossession = Signature;
+
 /// A key pair.
 #[derive(Copy, Clone)]
 pub struct Pair {
@@ -66,6 +72,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.
@@ -153,12 +160,17 @@ impl CryptoType for Pair {
 	type Pair = Pair;
 }
 
+impl NonAggregatable for Pair {}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	#[cfg(feature = "serde")]
 	use crate::crypto::Ss58Codec;
-	use crate::crypto::DEV_PHRASE;
+	use crate::{
+		crypto::DEV_PHRASE,
+		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	};
 	use serde_json;
 
 	#[test]
@@ -327,5 +339,21 @@ mod tests {
 		assert!(deserialize_signature("\"Not an actual signature.\"").is_err());
 		// Poorly-sized
 		assert!(deserialize_signature("\"abc123\"").is_err());
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let owner = b"owner";
+		let not_owner = b"not owner";
+
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let proof_of_possession = pair.generate_proof_of_possession(owner);
+		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
+		assert_eq!(
+			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
+			false
+		);
+		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
 	}
 }

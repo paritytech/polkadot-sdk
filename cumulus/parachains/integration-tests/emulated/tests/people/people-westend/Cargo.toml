@@ -7,25 +7,26 @@ license = "Apache-2.0"
 description = "People Westend runtime integration tests with xcm-emulator"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-message-queue = { workspace = true }
 pallet-identity = { workspace = true }
+pallet-message-queue = { workspace = true }
 pallet-xcm = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
-polkadot-runtime-common = { workspace = true, default-features = true }
-westend-runtime-constants = { workspace = true, default-features = true }
+westend-runtime = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 # Cumulus
-asset-test-utils = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 westend-system-emulated-network = { workspace = true }

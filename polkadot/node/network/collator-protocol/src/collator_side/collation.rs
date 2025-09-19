@@ -21,16 +21,16 @@ use std::collections::{HashSet, VecDeque};
 use futures::{future::BoxFuture, stream::FuturesUnordered};
 
 use polkadot_node_network_protocol::{
-	request_response::{
-		incoming::OutgoingResponse, v1 as protocol_v1, v2 as protocol_v2, IncomingRequest,
-	},
+	request_response::{incoming::OutgoingResponse, v2 as protocol_v2, IncomingRequest},
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::messages::ParentHeadData;
-use polkadot_primitives::{CandidateHash, CandidateReceipt, Hash, Id as ParaId};
+use polkadot_primitives::{
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, HeadData, Id as ParaId,
+};
 
 /// The status of a collation as seen from the collator.
+#[derive(Clone, Debug, PartialEq)]
 pub enum CollationStatus {
 	/// The collation was created, but we did not advertise it to any validator.
 	Created,
@@ -54,6 +54,15 @@ impl CollationStatus {
 	pub fn advance_to_requested(&mut self) {
 		*self = Self::Requested;
 	}
+
+	/// Return label for metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			CollationStatus::Created => "created",
+			CollationStatus::Advertised => "advertised",
+			CollationStatus::Requested => "requested",
+		}
+	}
 }
 
 /// A collation built by the collator.
@@ -62,8 +71,8 @@ pub struct Collation {
 	pub receipt: CandidateReceipt,
 	/// Proof to verify the state transition of the parachain.
 	pub pov: PoV,
-	/// Parent head-data (or just hash).
-	pub parent_head_data: ParentHeadData,
+	/// Parent head-data
+	pub parent_head_data: HeadData,
 	/// Collation status.
 	pub status: CollationStatus,
 }
@@ -88,14 +97,7 @@ pub struct WaitingCollationFetches {
 
 /// Backwards-compatible wrapper for incoming collations requests.
 pub enum VersionedCollationRequest {
-	V1(IncomingRequest<protocol_v1::CollationFetchingRequest>),
 	V2(IncomingRequest<protocol_v2::CollationFetchingRequest>),
-}
-
-impl From<IncomingRequest<protocol_v1::CollationFetchingRequest>> for VersionedCollationRequest {
-	fn from(req: IncomingRequest<protocol_v1::CollationFetchingRequest>) -> Self {
-		Self::V1(req)
-	}
 }
 
 impl From<IncomingRequest<protocol_v2::CollationFetchingRequest>> for VersionedCollationRequest {
@@ -108,15 +110,20 @@ impl VersionedCollationRequest {
 	/// Returns parachain id from the request payload.
 	pub fn para_id(&self) -> ParaId {
 		match self {
-			VersionedCollationRequest::V1(req) => req.payload.para_id,
 			VersionedCollationRequest::V2(req) => req.payload.para_id,
+		}
+	}
+
+	/// Returns candidate hash from the request payload.
+	pub fn candidate_hash(&self) -> CandidateHash {
+		match self {
+			VersionedCollationRequest::V2(req) => req.payload.candidate_hash,
 		}
 	}
 
 	/// Returns relay parent from the request payload.
 	pub fn relay_parent(&self) -> Hash {
 		match self {
-			VersionedCollationRequest::V1(req) => req.payload.relay_parent,
 			VersionedCollationRequest::V2(req) => req.payload.relay_parent,
 		}
 	}
@@ -124,7 +131,6 @@ impl VersionedCollationRequest {
 	/// Returns id of the peer the request was received from.
 	pub fn peer_id(&self) -> PeerId {
 		match self {
-			VersionedCollationRequest::V1(req) => req.peer,
 			VersionedCollationRequest::V2(req) => req.peer,
 		}
 	}
@@ -132,10 +138,9 @@ impl VersionedCollationRequest {
 	/// Sends the response back to requester.
 	pub fn send_outgoing_response(
 		self,
-		response: OutgoingResponse<protocol_v1::CollationFetchingResponse>,
+		response: OutgoingResponse<protocol_v2::CollationFetchingResponse>,
 	) -> Result<(), ()> {
 		match self {
-			VersionedCollationRequest::V1(req) => req.send_outgoing_response(response),
 			VersionedCollationRequest::V2(req) => req.send_outgoing_response(response),
 		}
 	}

@@ -5,70 +5,72 @@ description = "Pallets and constants used in Relay Chain networks."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-impl-trait-for-tuples = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive"], workspace = true }
+impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 rustc-hex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc"], workspace = true }
-serde_derive = { workspace = true }
 static_assertions = { workspace = true, default-features = true }
 
 sp-api = { workspace = true }
+sp-core = { features = ["serde"], workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
+sp-keyring = { workspace = true }
+sp-npos-elections = { features = ["serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-sp-core = { features = ["serde"], workspace = true }
-sp-npos-elections = { features = ["serde"], workspace = true }
 
+frame-election-provider-support = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-asset-rate = { optional = true, workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-broker = { workspace = true }
+pallet-election-provider-multi-phase = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-session = { workspace = true }
-frame-support = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-reward-fn = { workspace = true }
-frame-system = { workspace = true }
 pallet-timestamp = { workspace = true }
-pallet-vesting = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-treasury = { workspace = true }
-pallet-asset-rate = { optional = true, workspace = true }
-pallet-election-provider-multi-phase = { workspace = true }
-frame-election-provider-support = { workspace = true }
+pallet-vesting = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 pallet-babe = { optional = true, workspace = true }
 
-polkadot-primitives = { workspace = true }
 libsecp256k1 = { workspace = true }
+polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
 
 slot-range-helper = { workspace = true }
 xcm = { workspace = true }
-xcm-executor = { optional = true, workspace = true }
 xcm-builder = { workspace = true }
+xcm-executor = { optional = true, workspace = true }
 
 [dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
 frame-support-test = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
+libsecp256k1 = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
 pallet-treasury = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
-libsecp256k1 = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
+serde_json = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -117,6 +119,7 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"libsecp256k1/hmac",
@@ -128,8 +131,10 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -138,6 +143,7 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

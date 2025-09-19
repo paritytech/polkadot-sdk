@@ -163,7 +163,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	// Foreign asset used: bridged WND
 	let foreign_amount_to_send = ASSET_HUB_ROCOCO_ED * 10_000_000;
 	let wnd_at_rococo_parachains =
-		Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
+		Location::new(2, [Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))]);
 
 	// Configure destination chain to trust AH as reserve of WND
 	PenpalA::execute_with(|| {
@@ -171,7 +171,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Westend)]).encode(),
+				Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]).encode(),
 			)],
 		));
 	});
@@ -293,7 +293,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// Foreign asset used: bridged WND
 	let foreign_amount_to_send = ASSET_HUB_ROCOCO_ED * 10_000_000;
 	let wnd_at_rococo_parachains =
-		Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
+		Location::new(2, [Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))]);
 
 	// Configure destination chain to trust AH as reserve of WND
 	PenpalA::execute_with(|| {
@@ -301,7 +301,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Westend)]).encode(),
+				Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]).encode(),
 			)],
 		));
 	});
@@ -449,20 +449,29 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	let sov_of_receiver_on_ah = AssetHubRococo::sovereign_account_id_of(receiver_as_seen_by_ah);
 	let wnd_to_send = ASSET_HUB_ROCOCO_ED * 10_000_000;
 
-	// Configure destination chain to trust AH as reserve of WND
+	// Configure source and destination chains to trust AH as reserve of WND
+	PenpalA::execute_with(|| {
+		assert_ok!(<PenpalA as Chain>::System::set_storage(
+			<PenpalA as Chain>::RuntimeOrigin::root(),
+			vec![(
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
+				Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]).encode(),
+			)],
+		));
+	});
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as Chain>::System::set_storage(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Westend)]).encode(),
+				Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]).encode(),
 			)],
 		));
 	});
 
 	// Register WND as foreign asset and transfer it around the Rococo ecosystem
 	let wnd_at_rococo_parachains =
-		Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
+		Location::new(2, [Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))]);
 	AssetHubRococo::force_create_foreign_asset(
 		wnd_at_rococo_parachains.clone().try_into().unwrap(),
 		assets_owner.clone(),
@@ -726,8 +735,10 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 	}
 	fn penpal_assertions(t: RelayToParaThroughAHTest) {
 		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-		let expected_id =
-			t.args.assets.into_inner().first().unwrap().id.0.clone().try_into().unwrap();
+		// Assets in t are relative to the relay chain. The asset here should be relative to
+		// Penpal, so parents: 1.
+		let expected_id: Location = Location { parents: 1, interior: Here };
+
 		assert_expected_events!(
 			PenpalA,
 			vec![
@@ -767,6 +778,8 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 			dest,
 			xcm: xcm_on_final_dest,
 		}]);
+
+		Dmp::make_parachain_reachable(AssetHubRococo::para_id());
 
 		// First leg is a teleport, from there a local-reserve-transfer to final dest
 		<Rococo as RococoPallet>::XcmPallet::transfer_assets_using_type_and_then(

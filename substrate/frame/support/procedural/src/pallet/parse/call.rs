@@ -20,7 +20,7 @@ use frame_support_procedural_tools::get_doc_literals;
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
-use syn::{spanned::Spanned, ExprClosure};
+use syn::spanned::Spanned;
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -33,6 +33,8 @@ mod keyword {
 	syn::custom_keyword!(T);
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(feeless_if);
+	syn::custom_keyword!(authorize);
+	syn::custom_keyword!(weight_of_authorize);
 }
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -49,14 +51,13 @@ pub struct CallDef {
 	pub attr_span: proc_macro2::Span,
 	/// Docs, specified on the impl Block.
 	pub docs: Vec<syn::Expr>,
-	/// The optional `weight` attribute on the `pallet::call`.
-	pub inherited_call_weight: Option<InheritedCallWeightAttr>,
 }
 
-/// The weight of a call.
+/// The weight of a call or the weight of authorize.
 #[derive(Clone)]
 pub enum CallWeightDef {
-	/// Explicitly set on the call itself with `#[pallet::weight(…)]`. This value is used.
+	/// Explicitly set on the call itself with `#[pallet::weight(…)]` or
+	/// `#[pallet::weight_of_authorize(…)]`. This value is used.
 	Immediate(syn::Expr),
 
 	/// The default value that should be set for dev-mode pallets. Usually zero.
@@ -65,7 +66,22 @@ pub enum CallWeightDef {
 	/// Inherits whatever value is configured on the pallet level.
 	///
 	/// The concrete value is not known at this point.
-	Inherited,
+	Inherited(syn::Type),
+}
+
+impl CallWeightDef {
+	fn try_from(
+		weight: Option<syn::Expr>,
+		inherited_call_weight: &Option<InheritedCallWeightAttr>,
+		dev_mode: bool,
+	) -> Option<Self> {
+		match (weight, inherited_call_weight) {
+			(Some(weight), _) => Some(CallWeightDef::Immediate(weight)),
+			(None, Some(inherited)) => Some(CallWeightDef::Inherited(inherited.typename.clone())),
+			(None, _) if dev_mode => Some(CallWeightDef::DevModeDefault),
+			(None, _) => None,
+		}
+	}
 }
 
 /// Definition of dispatchable typically: `#[weight...] fn foo(origin .., param1: ...) -> ..`
@@ -89,6 +105,21 @@ pub struct CallVariantDef {
 	pub cfg_attrs: Vec<syn::Attribute>,
 	/// The optional `feeless_if` attribute on the `pallet::call`.
 	pub feeless_check: Option<syn::ExprClosure>,
+	/// The return type of the call: `DispatchInfo` or `DispatchResultWithPostInfo`.
+	pub return_type: helper::CallReturnType,
+	/// The information related to `authorize` attribute.
+	/// `(authorize expression, weight of authorize)`
+	pub authorize: Option<AuthorizeDef>,
+}
+
+/// Definition related to the `authorize` attribute and other related attributes.
+#[derive(Clone)]
+pub struct AuthorizeDef {
+	/// The expression of the authorize attribute.
+	pub expr: syn::Expr,
+	/// The weight of the authorize attribute as define by the attribute
+	/// `[pallet::weight_of_authorize]`.
+	pub weight: CallWeightDef,
 }
 
 /// Attributes for functions in call impl block.
@@ -99,6 +130,10 @@ pub enum FunctionAttr {
 	Weight(syn::Expr),
 	/// Parse for `#[pallet::feeless_if(expr)]`
 	FeelessIf(Span, syn::ExprClosure),
+	/// Parse for `#[pallet::authorize(expr)]`
+	Authorize(syn::Expr),
+	/// Parse for `#[pallet::weight_of_authorize(expr)]`
+	WeightOfAuthorize(syn::Expr),
 }
 
 impl syn::parse::Parse for FunctionAttr {
@@ -122,7 +157,7 @@ impl syn::parse::Parse for FunctionAttr {
 			let index = call_index_content.parse::<syn::LitInt>()?;
 			if !index.suffix().is_empty() {
 				let msg = "Number literal must not have a suffix";
-				return Err(syn::Error::new(index.span(), msg))
+				return Err(syn::Error::new(index.span(), msg));
 			}
 			Ok(FunctionAttr::CallIndex(index.base10_parse()?))
 		} else if lookahead.peek(keyword::feeless_if) {
@@ -138,6 +173,16 @@ impl syn::parse::Parse for FunctionAttr {
 					err
 				})?,
 			))
+		} else if lookahead.peek(keyword::authorize) {
+			content.parse::<keyword::authorize>()?;
+			let closure_content;
+			syn::parenthesized!(closure_content in content);
+			Ok(FunctionAttr::Authorize(closure_content.parse::<syn::Expr>()?))
+		} else if lookahead.peek(keyword::weight_of_authorize) {
+			content.parse::<keyword::weight_of_authorize>()?;
+			let closure_content;
+			syn::parenthesized!(closure_content in content);
+			Ok(FunctionAttr::WeightOfAuthorize(closure_content.parse::<syn::Expr>()?))
 		} else {
 			Err(lookahead.error())
 		}
@@ -198,9 +243,9 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::R
 			} else {
 				"Invalid type: expected `OriginFor<T>` or `T::RuntimeOrigin`"
 			};
-			return Err(syn::Error::new(ty.span(), msg))
+			return Err(syn::Error::new(ty.span(), msg));
 		},
-	}
+	};
 }
 
 impl CallDef {
@@ -214,8 +259,10 @@ impl CallDef {
 		let item_impl = if let syn::Item::Impl(item) = item {
 			item
 		} else {
-			return Err(syn::Error::new(item.span(), "Invalid pallet::call, expected item impl"))
+			return Err(syn::Error::new(item.span(), "Invalid pallet::call, expected item impl"));
 		};
+
+		crate::deprecation::prevent_deprecation_attr_on_outer_enum(&item_impl.attrs)?;
 
 		let instances = vec![
 			helper::check_impl_gen(&item_impl.generics, item_impl.impl_token.span())?,
@@ -225,7 +272,7 @@ impl CallDef {
 		if let Some((_, _, for_)) = item_impl.trait_ {
 			let msg = "Invalid pallet::call, expected no trait ident as in \
 				`impl<..> Pallet<..> { .. }`";
-			return Err(syn::Error::new(for_.span(), msg))
+			return Err(syn::Error::new(for_.span(), msg));
 		}
 
 		let mut methods = vec![];
@@ -242,84 +289,115 @@ impl CallDef {
 						_ => method.vis.span(),
 					};
 
-					return Err(syn::Error::new(span, msg))
+					return Err(syn::Error::new(span, msg));
 				}
 
 				match method.sig.inputs.first() {
 					None => {
 						let msg = "Invalid pallet::call, must have at least origin arg";
-						return Err(syn::Error::new(method.sig.span(), msg))
+						return Err(syn::Error::new(method.sig.span(), msg));
 					},
 					Some(syn::FnArg::Receiver(_)) => {
 						let msg = "Invalid pallet::call, first argument must be a typed argument, \
 							e.g. `origin: OriginFor<T>`";
-						return Err(syn::Error::new(method.sig.span(), msg))
+						return Err(syn::Error::new(method.sig.span(), msg));
 					},
 					Some(syn::FnArg::Typed(arg)) => {
 						check_dispatchable_first_arg_type(&arg.ty, false)?;
 					},
 				}
 
-				if let syn::ReturnType::Type(_, type_) = &method.sig.output {
-					helper::check_pallet_call_return_type(type_)?;
-				} else {
-					let msg = "Invalid pallet::call, require return type \
-						DispatchResultWithPostInfo";
-					return Err(syn::Error::new(method.sig.span(), msg))
-				}
+				let return_type = helper::check_pallet_call_return_type(&method.sig)?;
 
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&method.attrs);
-				let mut call_idx_attrs = vec![];
-				let mut weight_attrs = vec![];
-				let mut feeless_attrs = vec![];
+				let mut call_index = None;
+				let mut weight = None;
+				let mut feeless_check = None;
+				let mut authorize = None;
+				let mut weight_of_authorize = None;
+
 				for attr in helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter() {
 					match attr {
-						FunctionAttr::CallIndex(_) => {
-							call_idx_attrs.push(attr);
+						FunctionAttr::CallIndex(idx) => {
+							if call_index.is_some() {
+								let msg =
+									"Invalid pallet::call, too many call_index attributes given";
+								return Err(syn::Error::new(method.sig.span(), msg))
+							}
+
+							call_index = Some(idx);
 						},
-						FunctionAttr::Weight(_) => {
-							weight_attrs.push(attr);
+						FunctionAttr::Weight(w) => {
+							if weight.is_some() {
+								let msg = "Invalid pallet::call, too many weight attributes given";
+								return Err(syn::Error::new(method.sig.span(), msg))
+							}
+							weight = Some(w);
 						},
-						FunctionAttr::FeelessIf(span, _) => {
-							feeless_attrs.push((span, attr));
+						FunctionAttr::FeelessIf(span, closure) => {
+							if feeless_check.is_some() {
+								let msg =
+									"Invalid pallet::call, there can only be one feeless_if attribute";
+								return Err(syn::Error::new(span, msg))
+							}
+
+							feeless_check = Some(closure);
+						},
+						FunctionAttr::Authorize(expr) => {
+							if authorize.is_some() {
+								let msg =
+									"Invalid pallet::call, there can only be one authorize attribute";
+								return Err(syn::Error::new(method.sig.span(), msg))
+							}
+
+							authorize = Some(expr);
+						},
+						FunctionAttr::WeightOfAuthorize(expr) => {
+							if weight_of_authorize.is_some() {
+								let msg = "Invalid pallet::call, there can only be one weight_of_authorize attribute";
+								return Err(syn::Error::new(method.sig.span(), msg))
+							}
+
+							weight_of_authorize = Some(expr);
 						},
 					}
 				}
 
-				if weight_attrs.is_empty() && dev_mode {
-					// inject a default O(1) weight when dev mode is enabled and no weight has
-					// been specified on the call
-					let empty_weight: syn::Expr = syn::parse_quote!(0);
-					weight_attrs.push(FunctionAttr::Weight(empty_weight));
+				if weight_of_authorize.is_some() && authorize.is_none() {
+					let msg = "Invalid pallet::call, weight_of_authorize attribute must be used with authorize attribute";
+					return Err(syn::Error::new(weight_of_authorize.unwrap().span(), msg))
 				}
 
-				let weight = match weight_attrs.len() {
-					0 if inherited_call_weight.is_some() => CallWeightDef::Inherited,
-					0 if dev_mode => CallWeightDef::DevModeDefault,
-					0 => return Err(syn::Error::new(
-						method.sig.span(),
-						"A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an
-						inherited weight from the `#[pallet:call(weight($type))]` attribute, but
-						none were given.",
-					)),
-					1 => match weight_attrs.pop().unwrap() {
-						FunctionAttr::Weight(w) => CallWeightDef::Immediate(w),
-						_ => unreachable!("checked during creation of the let binding"),
-					},
-					_ => {
-						let msg = "Invalid pallet::call, too many weight attributes given";
-						return Err(syn::Error::new(method.sig.span(), msg))
-					},
+				let authorize = if let Some(expr) = authorize {
+					let weight_of_authorize = CallWeightDef::try_from(
+						weight_of_authorize,
+						&inherited_call_weight,
+						dev_mode,
+					)
+					.ok_or_else(|| {
+						syn::Error::new(
+							method.sig.span(),
+							"A pallet::call using authorize requires either a concrete \
+							`#[pallet::weight_of_authorize($expr)]` or an inherited weight from \
+							the `#[pallet:call(weight($type))]` attribute, but \
+							none were given.",
+						)
+					})?;
+					Some(AuthorizeDef { expr, weight: weight_of_authorize })
+				} else {
+					None
 				};
 
-				if call_idx_attrs.len() > 1 {
-					let msg = "Invalid pallet::call, too many call_index attributes given";
-					return Err(syn::Error::new(method.sig.span(), msg))
-				}
-				let call_index = call_idx_attrs.pop().map(|attr| match attr {
-					FunctionAttr::CallIndex(idx) => idx,
-					_ => unreachable!("checked during creation of the let binding"),
-				});
+				let weight = CallWeightDef::try_from(weight, &inherited_call_weight, dev_mode)
+					.ok_or_else(|| {
+						syn::Error::new(
+							method.sig.span(),
+							"A pallet::call requires either a concrete `#[pallet::weight($expr)]` \
+							or an inherited weight from the `#[pallet:call(weight($type))]` \
+							attribute, but none were given.",
+						)
+					})?;
+
 				let explicit_call_index = call_index.is_some();
 
 				let final_index = match call_index {
@@ -339,7 +417,7 @@ impl CallDef {
 					);
 					let mut err = syn::Error::new(used_fn.span(), &msg);
 					err.combine(syn::Error::new(method.sig.ident.span(), msg));
-					return Err(err)
+					return Err(err);
 				}
 
 				let mut args = vec![];
@@ -355,14 +433,14 @@ impl CallDef {
 
 					if arg_attrs.len() > 1 {
 						let msg = "Invalid pallet::call, argument has too many attributes";
-						return Err(syn::Error::new(arg.span(), msg))
+						return Err(syn::Error::new(arg.span(), msg));
 					}
 
 					let arg_ident = if let syn::Pat::Ident(pat) = &*arg.pat {
 						pat.ident.clone()
 					} else {
 						let msg = "Invalid pallet::call, argument must be ident";
-						return Err(syn::Error::new(arg.pat.span(), msg))
+						return Err(syn::Error::new(arg.pat.span(), msg));
 					};
 
 					args.push((!arg_attrs.is_empty(), arg_ident, arg.ty.clone()));
@@ -370,27 +448,17 @@ impl CallDef {
 
 				let docs = get_doc_literals(&method.attrs);
 
-				if feeless_attrs.len() > 1 {
-					let msg = "Invalid pallet::call, there can only be one feeless_if attribute";
-					return Err(syn::Error::new(feeless_attrs[1].0, msg))
-				}
-				let feeless_check: Option<ExprClosure> =
-					feeless_attrs.pop().map(|(_, attr)| match attr {
-						FunctionAttr::FeelessIf(_, closure) => closure,
-						_ => unreachable!("checked during creation of the let binding"),
-					});
-
 				if let Some(ref feeless_check) = feeless_check {
 					if feeless_check.inputs.len() != args.len() + 1 {
 						let msg = "Invalid pallet::call, feeless_if closure must have same \
 							number of arguments as the dispatchable function";
-						return Err(syn::Error::new(feeless_check.span(), msg))
+						return Err(syn::Error::new(feeless_check.span(), msg));
 					}
 
 					match feeless_check.inputs.first() {
 						None => {
 							let msg = "Invalid pallet::call, feeless_if closure must have at least origin arg";
-							return Err(syn::Error::new(feeless_check.span(), msg))
+							return Err(syn::Error::new(feeless_check.span(), msg));
 						},
 						Some(syn::Pat::Type(arg)) => {
 							check_dispatchable_first_arg_type(&arg.ty, true)?;
@@ -398,29 +466,30 @@ impl CallDef {
 						_ => {
 							let msg = "Invalid pallet::call, feeless_if closure first argument must be a typed argument, \
 								e.g. `origin: OriginFor<T>`";
-							return Err(syn::Error::new(feeless_check.span(), msg))
+							return Err(syn::Error::new(feeless_check.span(), msg));
 						},
 					}
 
 					for (feeless_arg, arg) in feeless_check.inputs.iter().skip(1).zip(args.iter()) {
-						let feeless_arg_type =
-							if let syn::Pat::Type(syn::PatType { ty, .. }) = feeless_arg.clone() {
-								if let syn::Type::Reference(pat) = *ty {
-									pat.elem.clone()
-								} else {
-									let msg = "Invalid pallet::call, feeless_if closure argument must be a reference";
-									return Err(syn::Error::new(ty.span(), msg))
-								}
+						let feeless_arg_type = if let syn::Pat::Type(syn::PatType { ty, .. }) =
+							feeless_arg.clone()
+						{
+							if let syn::Type::Reference(pat) = *ty {
+								pat.elem.clone()
 							} else {
-								let msg = "Invalid pallet::call, feeless_if closure argument must be a type ascription pattern";
-								return Err(syn::Error::new(feeless_arg.span(), msg))
-							};
+								let msg = "Invalid pallet::call, feeless_if closure argument must be a reference";
+								return Err(syn::Error::new(ty.span(), msg));
+							}
+						} else {
+							let msg = "Invalid pallet::call, feeless_if closure argument must be a type ascription pattern";
+							return Err(syn::Error::new(feeless_arg.span(), msg));
+						};
 
 						if feeless_arg_type != arg.2 {
 							let msg =
 								"Invalid pallet::call, feeless_if closure argument must have \
 								a reference to the same type as the dispatchable function argument";
-							return Err(syn::Error::new(feeless_arg.span(), msg))
+							return Err(syn::Error::new(feeless_arg.span(), msg));
 						}
 					}
 
@@ -433,7 +502,7 @@ impl CallDef {
 					};
 					if !valid_return {
 						let msg = "Invalid pallet::call, feeless_if closure must return `bool`";
-						return Err(syn::Error::new(feeless_check.output.span(), msg))
+						return Err(syn::Error::new(feeless_check.output.span(), msg));
 					}
 				}
 
@@ -447,10 +516,12 @@ impl CallDef {
 					attrs: method.attrs.clone(),
 					cfg_attrs,
 					feeless_check,
+					return_type,
+					authorize,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";
-				return Err(syn::Error::new(item.span(), msg))
+				return Err(syn::Error::new(item.span(), msg));
 			}
 		}
 
@@ -461,7 +532,6 @@ impl CallDef {
 			methods,
 			where_clause: item_impl.generics.where_clause.clone(),
 			docs: get_doc_literals(&item_impl.attrs),
-			inherited_call_weight,
 		})
 	}
 }

@@ -29,14 +29,14 @@
 
 pub mod generic;
 
-pub use generic::{Config, Context, Table};
+pub use generic::{Context, Table};
 
 /// Concrete instantiations suitable for v2 primitives.
 pub mod v2 {
 	use crate::generic;
 	use polkadot_primitives::{
-		CandidateHash, CommittedCandidateReceipt, CompactStatement as PrimitiveStatement,
-		CoreIndex, ValidatorIndex, ValidatorSignature,
+		CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		CompactStatement as PrimitiveStatement, CoreIndex, ValidatorIndex, ValidatorSignature,
 	};
 
 	/// Statements about candidates on the network.

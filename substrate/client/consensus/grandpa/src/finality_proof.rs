@@ -319,7 +319,7 @@ mod tests {
 	) -> (Arc<TestClient>, Arc<TestBackend>, Vec<Block>) {
 		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
-		let mut client = Arc::new(builder.build());
+		let client = Arc::new(builder.build());
 
 		let mut blocks = Vec::new();
 		for _ in 0..number_of_blocks {

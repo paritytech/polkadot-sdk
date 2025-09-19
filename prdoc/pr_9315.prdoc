@@ -1,0 +1,15 @@
+title: 'network/kad: Increase memory store capacity for providers'
+doc:
+- audience: Node Dev
+  description: |-
+    Increase Kademlia memory store capacity for DHT content providers (used by parachain DHT-based bootnodes) and reduce provider republish interval & TTL. This is needed to support testnets with 1-minute fast runtime and up to 13 parachains.
+
+    Parameters set:
+    - 10000 provider keys per node
+    - 10h provider record TTL
+    - 3.5h provider republish interval
+
+    Closes https://github.com/paritytech/litep2p/issues/405.
+crates:
+- name: sc-network
+  bump: minor

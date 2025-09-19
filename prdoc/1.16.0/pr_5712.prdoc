@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Better logs for XCM emulator
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Now the XCM emulator has a log every time `execute_with` is called, to know
+      which chain is being used.
+      Also, the logs for UMP, DMP, HRMP processing were included in the `xcm` log filter
+      and changed from showing the message as an array of bytes to a hex string.
+      This means running the tests with `RUST_LOG=xcm` should give you everything you need,
+      you can always filter by `RUST_LOG=xcm::hrmp` or any other if you need it.
+
+crates:
+  - name: xcm-emulator
+    bump: patch

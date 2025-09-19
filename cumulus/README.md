@@ -4,7 +4,7 @@
 
 This repository contains both the Cumulus SDK and also specific chains implemented on top of this SDK.
 
-If you only want to run a **Polkadot Parachain Node**, check out our [container section](./docs/contributor/container.md).
+If you only want to run a **Polkadot Parachain Node**, check out our [container section](../docs/contributor/container.md).
 
 ## Cumulus SDK
 
@@ -34,14 +34,13 @@ A Polkadot [collator](https://wiki.polkadot.network/docs/en/learn-collator) for 
 `polkadot-parachain` binary (previously called `polkadot-collator`).
 
 You may run `polkadot-parachain` locally after building it or using one of the container option described
-[here](./docs/contributor/container.md).
+[here](../docs/contributor/container.md).
 
 ### Relay Chain Interaction
 To operate a parachain node, a connection to the corresponding relay chain is necessary. This can be achieved in one of
-three ways:
+two ways:
 1. Run a full relay chain node within the parachain node (default)
 2. Connect to an external relay chain node via WebSocket RPC
-3. Run a light client for the relay chain
 
 #### In-process Relay Chain Node
 If an external relay chain node is not specified (default behavior), then a full relay chain node is spawned within the
@@ -60,7 +59,7 @@ polkadot-parachain \
 ```
 
 #### External Relay Chain Node
-An external relay chain node is connected via WebsSocket RPC by using the `--relay-chain-rpc-urls` command line
+An external relay chain node is connected via WebSocket RPC by using the `--relay-chain-rpc-urls` command line
 argument. This option accepts one or more space-separated WebSocket URLs to a full relay chain node. By default, only
 the first URL will be used, with the rest as a backup in case the connection to the first node is lost.
 
@@ -80,28 +79,6 @@ polkadot-parachain \
 	--relay-chain-rpc-urls \
 		"ws://relaychain-rpc-endpoint:9944" \
 		"ws://relaychain-rpc-endpoint-backup:9944" \
-	-- \
-	--chain relaychain-chainspec.json
-```
-
-#### Relay Chain Light Client
-An internal relay chain light client provides a fast and lightweight approach for connecting to the relay chain network.
-It provides relay chain notifications and facilitates runtime calls.
-
-To specify which chain the light client should connect to, users need to supply a relay chain chain-spec as part of the
-relay chain arguments.
-
-**Note:** At this time, any parachain nodes using this feature will still spawn a significantly cut-down relay chain
-node in-process. Even though they lack the majority of normal Polkadot subsystems, they will still need to connect
-directly to the relay chain network.
-
-
-##### Example command
-```bash
-polkadot-parachain \
-	--chain parachain-chainspec.json \
-	--tmp \
-	--relay-chain-light-client \
 	-- \
 	--chain relaychain-chainspec.json
 ```
@@ -207,48 +184,30 @@ CHAIN=asset-hub-westend # or asset-hub-kusama
 
 Refer to the [setup instructions](#manual-setup) to run a local network for development.
 
-## Contracts 📝
-
-See [the `contracts-rococo` readme](parachains/runtimes/contracts/contracts-rococo/README.md) for details.
-
 ## Bridge-hub 📝
 
 See [the `bridge-hubs` readme](parachains/runtimes/bridge-hubs/README.md) for details.
 
-## Rococo 👑
-[Rococo](https://polkadot.js.org/apps/?rpc=wss://rococo-rpc.polkadot.io) is becoming a [Community Parachain
-Testbed](https://polkadot.network/blog/rococo-revamp-becoming-a-community-parachain-testbed/) for parachain teams in the
-Polkadot ecosystem. It supports multiple parachains with the differentiation of long-term connections and recurring
-short-term connections, to see which parachains are currently connected and how long they will be connected for [see
-here](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-rpc.polkadot.io#/parachains).
+## Testnets
 
-Rococo is an elaborate style of design and the name describes the painstaking effort that has gone into this project.
+### Paseo
 
-### Build & Launch Rococo Collators
+[Paseo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fpaseo.rpc.amforc.com#/explorer) is the newest testnet for Polkadot,
+replacing Rococo as a decentralised, community run, stable testnet for Parachain teams and dapp developers to build on.
+For more information, check the [Paseo repo](https://github.com/paseo-network).
 
-Collators are similar to validators in the relay chain. These nodes build the blocks that will eventually be included by
-the relay chain for a parachain.
+### Westend
 
-To run a Rococo collator you will need to compile the following binary:
+[Westend](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwestend-rpc.polkadot.io#/explorer)
+is a long running testnet for Polkadot,
+primarily intended to provide a testing environment for Parity to test the latest changes in the SDK.
 
+### Testnet Parachains
 
-```bash
-cargo build --release --locked --bin polkadot-parachain
-```
+A few testnet parachain instances:
 
-Once the executable is built, launch collators for each parachain (repeat once each for chain `tick`, `trick`, `track`):
-
-```bash
-./target/release/polkadot-parachain --chain $CHAIN --validator
-```
-
-You can also build [using a container](./docs/contributor/container.md).
-
-### Parachains
-
-- [Asset Hub](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-statemint-rpc.polkadot.io#/explorer)
-- [Contracts on Rococo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-contracts-rpc.polkadot.io#/explorer)
-- [RILT](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo.kilt.io#/explorer)
+- [Asset Hub Westend](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwestend-asset-hub-rpc.polkadot.io#/explorer)
+- [Frequency Paseo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2F0.rpc.testnet.amplica.io#/explorer)
 
 The network uses horizontal message passing (HRMP) to enable communication between parachains and the relay chain and,
 in turn, between parachains. This means that every message is sent to the relay chain, and from the relay chain to its

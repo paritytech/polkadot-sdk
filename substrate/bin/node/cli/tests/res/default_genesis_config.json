@@ -14,7 +14,8 @@
     "indices": []
   },
   "balances": {
-    "balances": []
+    "balances": [],
+    "devAccounts": null
   },
   "broker": {},
   "transactionPayment": {
@@ -37,6 +38,8 @@
     "keys": [],
     "nonAuthorityKeys": []
 
+  },
+  "revive": {
   },
   "democracy": {},
   "council": {

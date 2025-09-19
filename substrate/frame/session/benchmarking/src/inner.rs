@@ -22,8 +22,11 @@ use alloc::vec::Vec;
 use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 use codec::Decode;
-use frame_benchmarking::v1::benchmarks;
-use frame_support::traits::{Get, KeyOwnerProofSystem, OnInitialize};
+use frame_benchmarking::v2::*;
+use frame_support::{
+	assert_ok,
+	traits::{Get, KeyOwnerProofSystem, OnInitialize},
+};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::{historical::Pallet as Historical, Pallet as Session, *};
 use pallet_staking::{
@@ -52,8 +55,12 @@ impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-benchmarks! {
-	set_keys {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn set_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
@@ -68,9 +75,16 @@ benchmarks! {
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-	}: _(RawOrigin::Signed(v_controller), keys, proof)
+		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 
-	purge_keys {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(v_controller), keys, proof);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn purge_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
@@ -81,29 +95,33 @@ benchmarks! {
 		)?;
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 		let (keys, proof) = T::generate_session_keys_and_proof(v_controller.clone());
+		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 		Session::<T>::set_keys(RawOrigin::Signed(v_controller.clone()).into(), keys, proof)?;
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-	}: _(RawOrigin::Signed(v_controller))
 
-	#[extra]
-	check_membership_proof_current_session {
-		let n in 2 .. MAX_VALIDATORS as u32;
+		#[extrinsic_call]
+		_(RawOrigin::Signed(v_controller));
 
+		Ok(())
+	}
+
+	#[benchmark(extra)]
+	fn check_membership_proof_current_session(n: Linear<2, MAX_VALIDATORS>) {
 		let (key, key_owner_proof1) = check_membership_proof_setup::<T>(n);
 		let key_owner_proof2 = key_owner_proof1.clone();
-	}: {
-		Historical::<T>::check_proof(key, key_owner_proof1);
-	}
-	verify {
+
+		#[block]
+		{
+			Historical::<T>::check_proof(key, key_owner_proof1);
+		}
+
 		assert!(Historical::<T>::check_proof(key, key_owner_proof2).is_some());
 	}
 
-	#[extra]
-	check_membership_proof_historical_session {
-		let n in 2 .. MAX_VALIDATORS as u32;
-
+	#[benchmark(extra)]
+	fn check_membership_proof_historical_session(n: Linear<2, MAX_VALIDATORS>) {
 		let (key, key_owner_proof1) = check_membership_proof_setup::<T>(n);
 
 		// skip to the next session so that the session is historical
@@ -111,14 +129,21 @@ benchmarks! {
 		Session::<T>::rotate_session();
 
 		let key_owner_proof2 = key_owner_proof1.clone();
-	}: {
-		Historical::<T>::check_proof(key, key_owner_proof1);
-	}
-	verify {
+
+		#[block]
+		{
+			Historical::<T>::check_proof(key, key_owner_proof1);
+		}
+
 		assert!(Historical::<T>::check_proof(key, key_owner_proof2).is_some());
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test, extra = false);
+	impl_benchmark_test_suite!(
+		Pallet,
+		crate::mock::new_test_ext(),
+		crate::mock::Test,
+		extra = false
+	);
 }
 
 /// Sets up the benchmark for checking a membership proof. It creates the given
@@ -148,6 +173,8 @@ fn check_membership_proof_setup<T: Config>(
 			keys
 		};
 
+		// TODO: this benchmark is broken, session keys cannot be decoded into 128 bytes anymore,
+		// but not an issue for CI since it is `extra`.
 		let (keys, proof) = T::generate_session_keys_and_proof(controller.clone());
 
 		Session::<T>::set_keys(RawOrigin::Signed(controller).into(), keys, proof).unwrap();

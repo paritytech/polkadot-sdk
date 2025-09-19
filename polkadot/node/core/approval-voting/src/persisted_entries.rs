@@ -26,8 +26,8 @@ use polkadot_node_primitives::approval::{
 	v2::{AssignmentCertV2, CandidateBitfield},
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, GroupIndex, Hash,
-	SessionIndex, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
+	GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_slots::Slot;
 
@@ -36,7 +36,9 @@ use std::collections::BTreeMap;
 
 use crate::approval_db::v2::Bitfield;
 
-use super::{criteria::OurAssignment, time::Tick};
+use super::criteria::OurAssignment;
+
+use polkadot_node_primitives::approval::time::Tick;
 
 /// Metadata regarding a specific tranche of assignments for a specific candidate.
 #[derive(Debug, Clone, PartialEq)]
@@ -170,7 +172,7 @@ impl ApprovalEntry {
 		});
 
 		our.map(|a| {
-			self.import_assignment(a.tranche(), a.validator_index(), tick_now);
+			self.import_assignment(a.tranche(), a.validator_index(), tick_now, false);
 
 			(a.cert().clone(), a.validator_index(), a.tranche())
 		})
@@ -195,6 +197,7 @@ impl ApprovalEntry {
 		tranche: DelayTranche,
 		validator_index: ValidatorIndex,
 		tick_now: Tick,
+		is_duplicate: bool,
 	) {
 		// linear search probably faster than binary. not many tranches typically.
 		let idx = match self.tranches.iter().position(|t| t.tranche >= tranche) {
@@ -211,8 +214,15 @@ impl ApprovalEntry {
 				self.tranches.len() - 1
 			},
 		};
-
-		self.tranches[idx].assignments.push((validator_index, tick_now));
+		// At restart we might have duplicate assignments because approval-distribution is not
+		// persistent across restarts, so avoid adding duplicates.
+		// We already know if we have seen an assignment from this validator and since this
+		// function is on the hot path we can avoid iterating through tranches by using
+		// !is_duplicate to determine if it is already present in the vector and does not need
+		// adding.
+		if !is_duplicate {
+			self.tranches[idx].assignments.push((validator_index, tick_now));
+		}
 		self.assigned_validators.set(validator_index.0 as _, true);
 	}
 
@@ -559,7 +569,7 @@ impl BlockEntry {
 		self.distributed_assignments.resize(new_len, false);
 		self.distributed_assignments |= bitfield;
 
-		// If the an operation did not change our current bitfield, we return true.
+		// If an operation did not change our current bitfield, we return true.
 		let distributed = total_one_bits == self.distributed_assignments.count_ones();
 
 		distributed

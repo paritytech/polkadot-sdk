@@ -51,8 +51,9 @@
 //!   distinct from the Spendable Balance, which represents how much Balance the user can actually
 //!   transfer.
 //!
-//! - **Held Balance**: Held balance still belongs to the account holder, but is suspended. It can
-//!   be slashed, but only after all the free balance has been slashed.
+//! - **Held Balance**: Held balance still belongs to the account holder, but is suspended — it
+//!   cannot be transferred or used for most operations. It may be slashed by the pallet that placed
+//!   the hold.
 //!
 //!   Multiple holds stack rather than overlay. This means that if an account has
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
@@ -160,7 +161,7 @@ mod item_of;
 mod regular;
 mod union_of;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
@@ -186,6 +187,8 @@ use sp_core::Get;
 use sp_runtime::{traits::Convert, DispatchError};
 pub use union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
 
+#[cfg(feature = "experimental")]
+use crate::traits::MaybeConsideration;
 use crate::{
 	ensure,
 	traits::{Consideration, Footprint},
@@ -241,6 +244,20 @@ impl<
 		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
+#[cfg(feature = "experimental")]
+impl<
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateFreeze<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateFreeze<A> + Mutate<A>,
+		R: 'static + Get<F::Id>,
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> MaybeConsideration<A, Fp> for FreezeConsideration<A, F, R, D, Fp>
+{
+	fn is_none(&self) -> bool {
+		self.0.is_zero()
+	}
+}
 
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
 #[derive(
@@ -249,6 +266,7 @@ impl<
 	PartialEqNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
@@ -293,6 +311,20 @@ impl<
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(who: &A, fp: Fp) {
 		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
+	}
+}
+#[cfg(feature = "experimental")]
+impl<
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateHold<A> + Mutate<A>,
+		R: 'static + Get<F::Reason>,
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> MaybeConsideration<A, Fp> for HoldConsideration<A, F, R, D, Fp>
+{
+	fn is_none(&self) -> bool {
+		self.0.is_zero()
 	}
 }
 
