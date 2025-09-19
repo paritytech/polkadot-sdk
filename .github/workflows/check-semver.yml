@@ -1,6 +1,10 @@
 name: Check semver
 
 on:
+  # for cache
+  push:
+    branches:
+      - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   workflow_dispatch:
@@ -68,7 +72,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
-          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Rust compilation prerequisites
         run: |
@@ -82,6 +86,7 @@ jobs:
 
       - name: Get original PR number
         shell: bash
+        if: ${{ github.ref != 'refs/heads/master' }}
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
@@ -100,6 +105,7 @@ jobs:
           echo "PR_NUMBER=$original_pr_number" >> $GITHUB_ENV
 
       - name: Check semver
+        if: ${{ github.ref != 'refs/heads/master' }}
         env:
           PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
           PR: ${{ env.PR_NUMBER }}
@@ -128,7 +134,7 @@ jobs:
 
             exit 1
           fi
-          
+
           # Only enforce SemVer restrictions for backports targeting stable branches
           if [[ "$BASE_BRANCH" != stable* && "$BASE_BRANCH" != unstable* ]]; then
               echo "ℹ️ Branch '$BASE_BRANCH' is not a (un)stable branch. Skipping SemVer backport-specific enforcements."
