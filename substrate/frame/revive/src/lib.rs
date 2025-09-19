@@ -1728,9 +1728,7 @@ where
 		origin: &OriginFor<T>,
 	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
 		use crate::exec::{is_precompile, EMPTY_CODE_HASH};
-		let Ok(who) = ensure_signed(origin.clone()) else {
-		    return Ok(())
-		};
+		let Ok(who) = ensure_signed(origin.clone()) else { return Ok(()) };
 		let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
 
 		// EIP_1052: precompile can never be used as EOA.
