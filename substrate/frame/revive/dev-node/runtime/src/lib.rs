@@ -39,7 +39,9 @@ use polkadot_sdk::{
 	},
 	*,
 };
-use sp_weights::{ConstantMultiplier, IdentityFee};
+use polkadot_runtime_common::SlowAdjustingFeeUpdate;
+use sp_weights::ConstantMultiplier;
+use testnet_parachains_constants::westend::{currency::deposit, fee::WeightToFee};
 
 pub use polkadot_sdk::{
 	parachains_common::{AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature},
@@ -304,15 +306,21 @@ impl pallet_sudo::Config for Runtime {}
 impl pallet_timestamp::Config for Runtime {}
 
 parameter_types! {
-	pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+	/// Relay Chain `TransactionByteFee` / 10
+	pub const TransactionByteFee: Balance = MILLICENTS;
+	pub const DepositPerItem: Balance = deposit(1, 0);
+	pub const DepositPerByte: Balance = deposit(0, 1);
 }
 
 // Implements the types required for the transaction payment pallet.
-#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
+	type OperationalFeeMultiplier = ConstU8<5>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -325,6 +333,8 @@ impl pallet_revive::Config for Runtime {
 	type ChainId = ConstU64<420_420_420>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Currency = Balances;
+	type DepositPerItem = DepositPerItem;
+	type DepositPerByte = DepositPerByte;
 	type NativeToEthRatio = ConstU32<1_000_000>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;

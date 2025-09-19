@@ -22,6 +22,8 @@ polkadot-sdk = { workspace = true, features = [
 	"runtime",
 	"with-tracing",
 ] }
+polkadot-runtime-common = { workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
 scale-info = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 
@@ -33,6 +35,8 @@ default = ["std"]
 std = [
 	"codec/std",
 	"polkadot-sdk/std",
+	"polkadot-runtime-common/std",
+	"testnet-parachains-constants/std",
 	"scale-info/std",
 	"serde_json/std",
 ]

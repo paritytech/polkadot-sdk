@@ -18481,9 +18481,11 @@ version = "0.0.0"
 dependencies = [
  "array-bytes 6.2.2",
  "parity-scale-codec",
+ "polkadot-runtime-common",
  "polkadot-sdk",
  "scale-info",
  "serde_json",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
