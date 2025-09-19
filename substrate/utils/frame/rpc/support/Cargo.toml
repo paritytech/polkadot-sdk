@@ -29,3 +29,6 @@ jsonrpsee = { features = ["jsonrpsee-types", "ws-client"], workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }
+
+[package.metadata.cargo-udeps.ignore]
+development = ["frame-system"]

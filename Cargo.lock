@@ -4318,15 +4318,11 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-primitives-core",
- "cumulus-test-client",
- "cumulus-test-relay-sproof-builder",
- "cumulus-test-runtime",
  "futures",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
- "polkadot-node-subsystem-test-helpers",
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-client-api",
@@ -4563,7 +4559,6 @@ version = "0.7.0"
 dependencies = [
  "async-channel 1.9.0",
  "cumulus-client-cli",
- "cumulus-client-collator",
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-client-pov-recovery",
@@ -13377,7 +13372,6 @@ name = "pallet-staking-async"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",

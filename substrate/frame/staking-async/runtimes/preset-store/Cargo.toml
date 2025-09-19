@@ -24,3 +24,6 @@ std = [
 	"pallet-staking-async-ah-client/std",
 	"scale-info/std",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["pallet-staking-async-ah-client"]

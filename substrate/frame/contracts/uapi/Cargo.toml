@@ -23,3 +23,6 @@ scale-info = { features = ["derive"], optional = true, workspace = true }
 [features]
 default = ["scale"]
 scale = ["dep:codec", "scale-info"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["paste"]

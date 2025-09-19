@@ -65,3 +65,6 @@ experimental = []
 # pallets in a runtime grows. Does increase the compile time!
 tuples-96 = []
 tuples-128 = []
+
+[package.metadata.cargo-udeps.ignore]
+development = ["frame-benchmarking", "pretty_assertions"]
