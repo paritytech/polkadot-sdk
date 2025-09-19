@@ -28,12 +28,12 @@ mod macros;
 mod arithmetic;
 /// Bitwise operations (AND, OR, XOR, NOT, etc.).
 mod bitwise;
-// /// Block information instructions (COINBASE, TIMESTAMP, etc.).
-// mod block_info;
+/// Block information instructions (COINBASE, TIMESTAMP, etc.).
+mod block_info;
 // /// Contract operations (CALL, CREATE, DELEGATECALL, etc.).
 // mod contract;
-// /// Control flow instructions (JUMP, JUMPI, REVERT, etc.).
-// mod control;
+/// Control flow instructions (JUMP, JUMPI, REVERT, etc.).
+mod control;
 // /// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
 // mod host;
 /// Signed 256-bit integer operations.

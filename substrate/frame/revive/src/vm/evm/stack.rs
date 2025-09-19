@@ -19,11 +19,35 @@
 
 use crate::vm::evm::interpreter::HaltReason;
 use alloc::vec::Vec;
-use sp_core::U256;
+use sp_core::{H160, H256, U256};
 
 /// EVM stack implementation using sp_core types
 #[derive(Debug, Clone)]
 pub struct Stack(Vec<U256>);
+
+/// A trait for converting types into an unsigned 256-bit integer (`U256`).
+pub trait ToU256 {
+	/// Converts `self` into a `U256`.
+	fn to_u256(self) -> U256;
+}
+
+impl ToU256 for U256 {
+	fn to_u256(self) -> U256 {
+		self
+	}
+}
+
+impl ToU256 for u64 {
+	fn to_u256(self) -> U256 {
+		self.into()
+	}
+}
+
+impl ToU256 for H160 {
+	fn to_u256(self) -> U256 {
+		U256::from_big_endian(H256::from(self).as_ref())
+	}
+}
 
 impl Stack {
 	/// Create a new empty stack
@@ -33,11 +57,11 @@ impl Stack {
 
 	/// Push a value onto the stack
 	/// Returns Ok(()) if successful, Err(HaltReason::StackOverflow) if stack would overflow
-	pub fn push(&mut self, value: U256) -> Result<(), HaltReason> {
+	pub fn push(&mut self, value: impl ToU256) -> Result<(), HaltReason> {
 		if self.0.len() >= 1024 {
 			Err(HaltReason::StackOverflow)
 		} else {
-			self.0.push(value);
+			self.0.push(value.to_u256());
 			Ok(())
 		}
 	}

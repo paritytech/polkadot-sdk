@@ -17,7 +17,10 @@
 
 use super::i256::i256_cmp;
 use crate::{
-	vm::{evm::Interpreter, Ext},
+	vm::{
+		evm::{instructions::bits::Bits, Interpreter},
+		Ext,
+	},
 	U256,
 };
 use core::cmp::Ordering;
@@ -174,407 +177,531 @@ pub fn shr<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResu
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn sar<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
-	todo!()
-	// interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
-	// let ([op1], op2) = interpreter.stack.popn_top()?;
-	//
-	// let shift = as_usize_saturated!(op1);
-	// *op2 = if shift < 256 {
-	// 	op2.arithmetic_shr(shift)
-	// } else if op2.bit(255) {
-	// 	U256::MAX
-	// } else {
-	// 	U256::zero()
-	// };
-	// Ok(())
+	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
+	let ([op1], op2) = interpreter.stack.popn_top()?;
+
+	let shift = as_usize_saturated!(op1);
+	*op2 = if shift < 256 {
+		op2.arithmetic_shr(shift)
+	} else if op2.bit(255) {
+		U256::MAX
+	} else {
+		U256::zero()
+	};
+	Ok(())
 }
 
-// #[cfg(test)]
-// mod tests {
-// 	use super::{byte, clz, sar, shl, shr};
-// 	use revm::{
-// 		interpreter::{host::DummyHost, InstructionContext},
-// 		primitives::{hardfork::SpecId, uint, U256},
-// 	};
-//
-// 	pub fn test_interpreter() -> revm::interpreter::Interpreter<
-// 		crate::vm::evm::EVMInterpreter<'static, crate::exec::mock_ext::MockExt<crate::tests::Test>>,
-// 	> {
-// 		use crate::tests::Test;
-// 		use revm::{
-// 			interpreter::{
-// 				interpreter::{RuntimeFlags, SharedMemory},
-// 				Interpreter, Stack,
-// 			},
-// 			primitives::hardfork::SpecId,
-// 		};
-//
-// 		let mock_ext = Box::leak(Box::new(crate::exec::mock_ext::MockExt::<Test>::new()));
-//
-// 		Interpreter {
-// 			gas: revm::interpreter::Gas::new(0),
-// 			bytecode: Default::default(),
-// 			stack: Stack::new(),
-// 			return_data: Default::default(),
-// 			memory: SharedMemory::new(),
-// 			input: crate::vm::evm::EVMInputs::default(),
-// 			runtime_flag: RuntimeFlags { is_static: false, spec_id: SpecId::default() },
-// 			extend: mock_ext,
-// 		}
-// 	}
-//
-// 	#[test]
-// 	fn test_shift_left() {
-// 		let mut interpreter = test_interpreter();
-//
-// 		struct TestCase {
-// 			value: U256,
-// 			shift: U256,
-// 			expected: U256,
-// 		}
-//
-// 		uint! {
-// 			let test_cases = [
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 					shift: 0x00_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 					shift: 0x01_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000002_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 					shift: 0xff_U256,
-// 					expected: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 					shift: 0x0100_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 					shift: 0x0101_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0x00_U256,
-// 					expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				},
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0x01_U256,
-// 					expected: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe_U256,
-// 				},
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0xff_U256,
-// 					expected: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0x0100_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 					shift: 0x01_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0x01_U256,
-// 					expected: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe_U256,
-// 				},
-// 			];
-// 		}
-//
-// 		for test in test_cases {
-// 			push!(interpreter, test.value);
-// 			push!(interpreter, test.shift);
-// 			let context =
-// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-// 			shl(context);
-// 			let res = interpreter.stack.pop().unwrap();
-// 			assert_eq!(res, test.expected);
-// 		}
-// 	}
-//
-// 	#[test]
-// 	fn test_logical_shift_right() {
-// 		let mut interpreter = test_interpreter();
-//
-// 		struct TestCase {
-// 			value: U256,
-// 			shift: U256,
-// 			expected: U256,
-// 		}
-//
-// 		uint! {
-// 			let test_cases = [
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 					shift: 0x00_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 					shift: 0x01_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 					shift: 0x01_U256,
-// 					expected: 0x4000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 					shift: 0xff_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 					shift: 0x0100_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 					shift: 0x0101_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0x00_U256,
-// 					expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				},
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0x01_U256,
-// 					expected: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				},
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0xff_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 				},
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					shift: 0x0100_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 					shift: 0x01_U256,
-// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				},
-// 			];
-// 		}
-//
-// 		for test in test_cases {
-// 			push!(interpreter, test.value);
-// 			push!(interpreter, test.shift);
-// 			let context =
-// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-// 			shr(context);
-// 			let res = interpreter.stack.pop().unwrap();
-// 			assert_eq!(res, test.expected);
-// 		}
-// 	}
-//
-// 	#[test]
-// 	fn test_arithmetic_shift_right() {
-// 		let mut interpreter = test_interpreter();
-//
-// 		struct TestCase {
-// 			value: U256,
-// 			shift: U256,
-// 			expected: U256,
-// 		}
-//
-// 		uint! {
-// 		let test_cases = [
-// 			TestCase {
-// 				value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 				shift: 0x00_U256,
-// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 				shift: 0x01_U256,
-// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				shift: 0x01_U256,
-// 				expected: 0xc000000000000000000000000000000000000000000000000000000000000000_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				shift: 0xff_U256,
-// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				shift: 0x0100_U256,
-// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				shift: 0x0101_U256,
-// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 			},
-// 			TestCase {
-// 				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				shift: 0x00_U256,
-// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 			},
-// 			TestCase {
-// 				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				shift: 0x01_U256,
-// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 			},
-// 			TestCase {
-// 				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				shift: 0xff_U256,
-// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 			},
-// 			TestCase {
-// 				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				shift: 0x0100_U256,
-// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				shift: 0x01_U256,
-// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x4000000000000000000000000000000000000000000000000000000000000000_U256,
-// 				shift: 0xfe_U256,
-// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				shift: 0xf8_U256,
-// 				expected: 0x000000000000000000000000000000000000000000000000000000000000007f_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				shift: 0xfe_U256,
-// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				shift: 0xff_U256,
-// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 			},
-// 			TestCase {
-// 				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 				shift: 0x0100_U256,
-// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-// 			},
-// 		];
-// 			}
-//
-// 		for test in test_cases {
-// 			push!(interpreter, test.value);
-// 			push!(interpreter, test.shift);
-// 			let context =
-// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-// 			sar(context);
-// 			let res = interpreter.stack.pop().unwrap();
-// 			assert_eq!(res, test.expected);
-// 		}
-// 	}
-//
-// 	#[test]
-// 	fn test_byte() {
-// 		struct TestCase {
-// 			input: U256,
-// 			index: usize,
-// 			expected: U256,
-// 		}
-//
-// 		let mut interpreter = test_interpreter();
-//
-// 		let input_value = U256::from(0x1234567890abcdef1234567890abcdef_u128);
-// 		let test_cases = (0..32)
-// 			.map(|i| {
-// 				let byte_pos = 31 - i;
-//
-// 				let shift_amount = U256::from(byte_pos * 8);
-// 				let byte_value = (input_value >> shift_amount) & U256::from(0xFF);
-// 				TestCase { input: input_value, index: i, expected: byte_value }
-// 			})
-// 			.collect::<Vec<_>>();
-//
-// 		for test in test_cases.iter() {
-// 			push!(interpreter, test.input);
-// 			push!(interpreter, U256::from(test.index));
-// 			let context =
-// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-// 			byte(context);
-// 			let res = interpreter.stack.pop().unwrap();
-// 			assert_eq!(res, test.expected, "Failed at index: {}", test.index);
-// 		}
-// 	}
-//
-// 	#[test]
-// 	fn test_clz() {
-// 		let mut interpreter = test_interpreter();
-// 		interpreter.runtime_flag.spec_id = SpecId::OSAKA;
-//
-// 		struct TestCase {
-// 			value: U256,
-// 			expected: U256,
-// 		}
-//
-// 		uint! {
-// 			let test_cases = [
-// 				TestCase { value: 0x0_U256, expected: 256_U256 },
-// 				TestCase { value: 0x1_U256, expected: 255_U256 },
-// 				TestCase { value: 0x2_U256, expected: 254_U256 },
-// 				TestCase { value: 0x3_U256, expected: 254_U256 },
-// 				TestCase { value: 0x4_U256, expected: 253_U256 },
-// 				TestCase { value: 0x7_U256, expected: 253_U256 },
-// 				TestCase { value: 0x8_U256, expected: 252_U256 },
-// 				TestCase { value: 0xff_U256, expected: 248_U256 },
-// 				TestCase { value: 0x100_U256, expected: 247_U256 },
-// 				TestCase { value: 0xffff_U256, expected: 240_U256 },
-// 				TestCase {
-// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256, // U256::MAX
-// 					expected: 0_U256,
-// 				},
-// 				TestCase {
-// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256, // 1 << 255
-// 					expected: 0_U256,
-// 				},
-// 				TestCase { // Smallest value with 1 leading zero
-// 					value: 0x4000000000000000000000000000000000000000000000000000000000000000_U256, // 1 << 254
-// 					expected: 1_U256,
-// 				},
-// 				TestCase { // Value just below 1 << 255
-// 					value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-// 					expected: 1_U256,
-// 				},
-// 			];
-// 		}
-//
-// 		for test in test_cases {
-// 			push!(interpreter, test.value);
-// 			let context =
-// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-// 			clz(context);
-// 			let res = interpreter.stack.pop().unwrap();
-// 			assert_eq!(
-// 				res, test.expected,
-// 				"CLZ for value {:#x} failed. Expected: {}, Got: {}",
-// 				test.value, test.expected, res
-// 			);
-// 		}
-// 	}
-// }
+#[cfg(test)]
+mod tests {
+	use super::{byte, clz, sar, shl, shr};
+	use crate::{
+		tests::Test,
+		vm::evm::{Bytecode, Interpreter},
+	};
+	use alloy_core::hex;
+	use sp_core::U256;
+	use sp_runtime::DispatchResult;
+
+	macro_rules! test_interpreter {
+		($interpreter: ident) => {
+			let mut mock_ext = crate::exec::mock_ext::MockExt::<Test>::new();
+			let mut $interpreter = Interpreter::new(Default::default(), vec![], &mut mock_ext);
+		};
+	}
+
+	#[test]
+	fn test_shift_left() -> DispatchResult {
+		struct TestCase {
+			value: U256,
+			shift: U256,
+			expected: U256,
+		}
+
+		let test_cases = [
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("00")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000002"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("ff")),
+				expected: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("0100")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("0101")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("00")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("ff")),
+				expected: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("0100")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+				)),
+			},
+		];
+
+		test_interpreter!(interpreter);
+		for test in test_cases {
+			interpreter.stack.push(test.value)?;
+			interpreter.stack.push(test.shift)?;
+			shl(&mut interpreter)?;
+			let res = interpreter.stack.pop().unwrap();
+			assert_eq!(res, test.expected);
+		}
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_logical_shift_right() -> DispatchResult {
+		struct TestCase {
+			value: U256,
+			shift: U256,
+			expected: U256,
+		}
+
+		let test_cases = [
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("00")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"4000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("ff")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("0100")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("0101")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("00")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("ff")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("0100")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+		];
+
+		test_interpreter!(interpreter);
+		for test in test_cases {
+			interpreter.stack.push(test.value)?;
+			interpreter.stack.push(test.shift)?;
+			shr(&mut interpreter)?;
+			let res = interpreter.stack.pop().unwrap();
+			assert_eq!(res, test.expected);
+		}
+		Ok(())
+	}
+
+	#[test]
+	fn test_arithmetic_shift_right() -> DispatchResult {
+		struct TestCase {
+			value: U256,
+			shift: U256,
+			expected: U256,
+		}
+
+		let test_cases = [
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("00")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"c000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("ff")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("0100")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("0101")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("00")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("ff")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("0100")),
+				expected: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("01")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"4000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				shift: U256::from_big_endian(&hex!("fe")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("f8")),
+				expected: U256::from_big_endian(&hex!(
+					"000000000000000000000000000000000000000000000000000000000000007f"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("fe")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000001"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("ff")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				shift: U256::from_big_endian(&hex!("0100")),
+				expected: U256::from_big_endian(&hex!(
+					"0000000000000000000000000000000000000000000000000000000000000000"
+				)),
+			},
+		];
+
+		test_interpreter!(interpreter);
+		for test in test_cases {
+			interpreter.stack.push(test.value)?;
+			interpreter.stack.push(test.shift)?;
+			sar(&mut interpreter)?;
+			let res = interpreter.stack.pop().unwrap();
+			assert_eq!(res, test.expected);
+		}
+		Ok(())
+	}
+
+	#[test]
+	fn test_byte() -> DispatchResult {
+		struct TestCase {
+			input: U256,
+			index: usize,
+			expected: U256,
+		}
+
+		let input_value = U256::from_big_endian(&hex!("1234567890abcdef1234567890abcdef"));
+		let test_cases = (0..32)
+			.map(|i| {
+				let byte_pos = 31 - i;
+				let shift_amount = U256::from(byte_pos * 8);
+				let byte_value = (input_value >> shift_amount) & U256::from(0xFF);
+				TestCase { input: input_value, index: i, expected: byte_value }
+			})
+			.collect::<Vec<_>>();
+
+		test_interpreter!(interpreter);
+		for test in test_cases.iter() {
+			interpreter.stack.push(test.input)?;
+			interpreter.stack.push(U256::from(test.index))?;
+			byte(&mut interpreter)?;
+			let res = interpreter.stack.pop().unwrap();
+			assert_eq!(res, test.expected, "Failed at index: {}", test.index);
+		}
+		Ok(())
+	}
+
+	#[test]
+	fn test_clz() -> DispatchResult {
+		struct TestCase {
+			value: U256,
+			expected: U256,
+		}
+
+		let test_cases = [
+			TestCase { value: U256::from_big_endian(&hex!("00")), expected: U256::from(256) },
+			TestCase { value: U256::from_big_endian(&hex!("01")), expected: U256::from(255) },
+			TestCase { value: U256::from_big_endian(&hex!("02")), expected: U256::from(254) },
+			TestCase { value: U256::from_big_endian(&hex!("03")), expected: U256::from(254) },
+			TestCase { value: U256::from_big_endian(&hex!("04")), expected: U256::from(253) },
+			TestCase { value: U256::from_big_endian(&hex!("07")), expected: U256::from(253) },
+			TestCase { value: U256::from_big_endian(&hex!("08")), expected: U256::from(252) },
+			TestCase { value: U256::from_big_endian(&hex!("ff")), expected: U256::from(248) },
+			TestCase { value: U256::from_big_endian(&hex!("0100")), expected: U256::from(247) },
+			TestCase { value: U256::from_big_endian(&hex!("ffff")), expected: U256::from(240) },
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				expected: U256::from(0),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"8000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				expected: U256::from(0),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"4000000000000000000000000000000000000000000000000000000000000000"
+				)),
+				expected: U256::from(1),
+			},
+			TestCase {
+				value: U256::from_big_endian(&hex!(
+					"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+				)),
+				expected: U256::from(1),
+			},
+		];
+
+		test_interpreter!(interpreter);
+		for test in test_cases.iter() {
+			interpreter.stack.push(test.value)?;
+			clz(&mut interpreter)?;
+			let res = interpreter.stack.pop().unwrap();
+			assert_eq!(
+				res, test.expected,
+				"CLZ for value {:#x} failed. Expected: {}, Got: {}",
+				test.value, test.expected, res
+			);
+		}
+		Ok(())
+	}
+}

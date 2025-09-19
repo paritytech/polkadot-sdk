@@ -68,6 +68,10 @@ impl Memory {
 		}
 	}
 
+	pub fn slice_len(&self, offset: usize, len: usize) -> &[u8] {
+		self.0.get(offset..offset.saturating_add(len)).unwrap_or(&[])
+	}
+
 	/// Copy data within memory from src to dst
 	pub fn copy(&mut self, dst: usize, src: usize, len: usize) {
 		if len == 0 {

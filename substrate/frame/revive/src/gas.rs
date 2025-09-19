@@ -231,6 +231,15 @@ impl<T: Config> GasMeter<T> {
 		Ok(())
 	}
 
+	/// Charge the specified amount of EVM gas.
+	pub fn charge_evm<Tok: Token<T>>(
+		&mut self,
+		token: Tok,
+	) -> Result<ChargedAmount, DispatchError> {
+		self.charge_evm_gas(1)?;
+		self.charge(token)
+	}
+
 	/// Adjust a previously charged amount down to its actual amount.
 	///
 	/// This is when a maximum a priori amount was charged and then should be partially
