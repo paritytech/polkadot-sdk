@@ -18,10 +18,10 @@ env:
   TOOLCHAIN: nightly-2025-05-09
 
 jobs:
-  # isdraft:
-  #   uses: ./.github/workflows/reusable-isdraft.yml
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    # needs: isdraft
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
   check-semver:
     runs-on: ubuntu-latest
