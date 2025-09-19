@@ -1471,7 +1471,8 @@ where
 		use frame_support::traits::fungible::{Inspect, Mutate};
 		let who: T::AccountId = frame_benchmarking::account(seed, index, 777);
 		whitelist!(who);
-		let balance = T::Currency::minimum_balance() * 1_0000_0000u32.into();
+		let max_deposit = signed::Pallet::<T>::deposit_for(who.clone(), T::Pages::get());
+		let balance = max_deposit.saturating_add(T::Currency::minimum_balance());
 		T::Currency::mint_into(&who, balance).unwrap();
 		who
 	}

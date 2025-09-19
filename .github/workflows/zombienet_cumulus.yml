@@ -65,9 +65,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         if: ${{ matrix.test.needs-wasm-binary }}
         with:
           name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}

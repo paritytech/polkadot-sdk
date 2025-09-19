@@ -187,7 +187,7 @@ jobs:
       ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       #
       # Set changes
@@ -351,7 +351,7 @@ jobs:
       POLKADOT_PR_ARTIFACTS_URL: ${{ steps.get_artifacts_url.outputs.POLKADOT_PR_ARTIFACTS_URL }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - name: Wait until "Build and push images" workflow is done
         id: wait_build
         env:
