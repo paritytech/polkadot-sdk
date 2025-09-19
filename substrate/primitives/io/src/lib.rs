@@ -1272,6 +1272,24 @@ pub trait Crypto {
 		Ok(res)
 	}
 
+	/// Recover an Ethereum address from a SECP256k1 ECDSA signature.
+	///
+	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
+	/// - `msg` is the blake2-256 hash of the message.
+	///
+	/// Returns `Err` if the signature is bad, otherwise the 20-bytes address.
+	///
+	/// It can handle non-standard overflowing signatures.
+	fn secp256k1_ecdsa_recover_address(
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+	) -> AllocateAndReturnByCodec<Result<[u8; 20], EcdsaVerifyError>> {
+		let mut addr = [0; 20];
+		let pk = secp256k1_ecdsa_recover(sig, msg)?;
+		addr.copy_from_slice(&sp_crypto_hashing::keccak_256(&pk[..])[12..]);
+		Ok(addr)
+	}
+
 	/// Verify and recover a SECP256k1 ECDSA signature.
 	///
 	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.

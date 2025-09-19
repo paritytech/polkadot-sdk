@@ -167,8 +167,9 @@ impl TransactionSigned {
 
 		let hash = keccak_256(&bytes);
 		let mut addr = H160::default();
-		let pk = secp256k1_ecdsa_recover(&signature, &hash).map_err(|_| ())?;
-		addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
+		addr.assign_from_slice(
+			&secp256k1_ecdsa_recover_address(&signature, &hash).map_err(|_| ())?,
+		);
 		Ok(addr)
 	}
 }
