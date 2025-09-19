@@ -192,6 +192,7 @@ jobs:
 
             echo "Signing package with pgpkms (via AWS KMS)..."
             cp .github/workflows/rpmmacros $HOME/.rpmmacros
+            cat $HOME/.rpmmacros
             rpm --addsign "$rpmname"
 
             echo "Copying signed package to local repo..."
