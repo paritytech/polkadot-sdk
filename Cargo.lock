@@ -11652,7 +11652,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
