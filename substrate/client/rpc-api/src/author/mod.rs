@@ -58,10 +58,10 @@ pub trait AuthorApi<Hash, BlockHash> {
 	/// Generate new session keys and returns the corresponding public keys.
 	///
 	/// The `owner` should be something that can be used on chain for verifying the ownership of the
-	/// generated keys using the returned `proof`. For example `owner` could be set to the account
+	/// generated keys using the returned `proof`. For example, `owner` could be set to the account
 	/// id of the account registering the returned public session keys. The actual data to pass for
 	/// `owner` depends on the runtime logic verifying the `proof`.
-	#[method(name = "author_rotateKeysWithOwner")]
+	#[method(name = "author_rotateKeysWithOwner", with_extensions)]
 	fn rotate_keys_with_owner(&self, owner: Bytes) -> Result<GeneratedSessionKeys, Error>;
 
 	/// Checks if the keystore has private keys for the given session public keys.

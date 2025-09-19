@@ -33,27 +33,7 @@ use polkadot_sdk::{
 		deps::sp_genesis_builder,
 		runtime::{apis, prelude::*},
 	},
-<<<<<<< HEAD
-	prelude::*,
-	runtime::{
-		apis::{
-			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-			ExtrinsicInclusionMode, OpaqueGeneratedSessionKeys, OpaqueMetadata,
-		},
-		prelude::*,
-	},
-||||||| feacf2f3f9f
-	prelude::*,
-	runtime::{
-		apis::{
-			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-			ExtrinsicInclusionMode, OpaqueMetadata,
-		},
-		prelude::*,
-	},
-=======
 	*,
->>>>>>> origin/master
 };
 
 /// Provides getters for genesis configuration presets.
