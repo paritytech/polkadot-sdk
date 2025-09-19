@@ -114,11 +114,8 @@ jobs:
       - name: Run cargo-udeps (workspace)
         id: required
         run: |
-          if command -v forklift >/dev/null 2>&1; then
-            forklift cargo +nightly udeps --workspace --all-features --all-targets --exclude polkadot-zombienet-sdk-tests
-          else
-            cargo +nightly udeps --workspace --all-features --all-targets --exclude polkadot-zombienet-sdk-tests
-          fi
+          cargo install cargo-udeps --locked
+          cargo +nightly udeps --workspace --all-features --all-targets --exclude polkadot-zombienet-sdk-tests
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
