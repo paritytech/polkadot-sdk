@@ -36,7 +36,7 @@ jobs:
       RUST_BACKTRACE: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: script
         run: |
@@ -60,7 +60,7 @@ jobs:
       RUST_BACKTRACE: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         run: |
           cd substrate/frame/examples/offchain-worker/
@@ -85,7 +85,7 @@ jobs:
       RUN_UI_TESTS: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         run: |
           cargo version
@@ -108,7 +108,7 @@ jobs:
       WASM_BUILD_NO_COLOR: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         run: |
           # build runtime
@@ -133,7 +133,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           # if branch is master, use the branch, otherwise set empty string, so it uses the current context
           # either PR (including forks) or merge group (main repo)
@@ -154,7 +154,7 @@ jobs:
           forklift cargo run --locked --release -p node-bench -- $BENCH_NODE_IMPORT --json | tee $ARTIFACTS_DIR/bench_transfer_keep_alive.json
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           path: ./artifacts
           name: cargo-check-benches-${{ matrix.branch }}-${{ github.sha }}
@@ -167,17 +167,17 @@ jobs:
     needs: [preflight, cargo-check-benches]
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Download artifact (master run)
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         continue-on-error: true
         with:
           name: cargo-check-benches-master-${{ github.sha }}
           path: ./artifacts/master
 
       - name: Download artifact (current run)
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         continue-on-error: true
         with:
           name: cargo-check-benches-current-${{ github.sha }}
@@ -221,7 +221,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Run tests
         id: tests
@@ -238,7 +238,7 @@ jobs:
 
       - name: Upload artifacts if failed
         if: ${{ steps.tests.outcome != 'success' }}
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: node-metrics-failed
           path: ./artifacts
@@ -254,7 +254,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: script
         run: |
@@ -270,7 +270,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: script
         run: |
@@ -332,7 +332,7 @@ jobs:
         index: [1, 2, 3, 4, 5, 6, 7] # 7 parallel jobs
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Check Rust
         run: |
@@ -353,7 +353,7 @@ jobs:
     env:
       SKIP_WASM_BUILD: 1
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set rust version from env file
         run: |
           RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
@@ -362,7 +362,7 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+        uses: actions-rust-lang/setup-rust-toolchain@2fcdc490d667999e01ddbbf0f2823181beef6b39 # v1.15.0
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
