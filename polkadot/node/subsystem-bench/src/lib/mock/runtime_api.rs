@@ -59,6 +59,7 @@ pub struct RuntimeApiState {
 pub enum MockRuntimeApiCoreState {
 	Occupied,
 	Scheduled,
+    All,
 	#[allow(dead_code)]
 	Free,
 }
@@ -224,44 +225,101 @@ impl MockRuntimeApi {
 							block_hash,
 							RuntimeApiRequest::AvailabilityCores(sender),
 						) => {
-							let candidate_hashes = self
-								.state
-								.candidate_hashes
-								.get(&block_hash)
-								.expect("Relay chain block hashes are generated at test start");
+                            let candidate_hashes = self
+                                .state
+                                .candidate_hashes
+                                .get(&block_hash)
+                                .expect("Relay chain block hashes are generated at test start");
 
-							// All cores are always occupied.
-							let cores = candidate_hashes
-								.iter()
-								.enumerate()
-								.map(|(index, candidate_receipt)| {
-									// Ensure test breaks if badly configured.
-									assert!(index < validator_group_count);
+                            use MockRuntimeApiCoreState::*;
 
-									use MockRuntimeApiCoreState::*;
-									match self.core_state {
-										Occupied => CoreState::Occupied(OccupiedCore {
-											next_up_on_available: None,
-											occupied_since: 0,
-											time_out_at: 0,
-											next_up_on_time_out: None,
-											availability: BitVec::default(),
-											group_responsible: GroupIndex(index as u32),
-											candidate_hash: candidate_receipt.hash(),
-											candidate_descriptor: candidate_receipt
-												.descriptor
-												.clone(),
-										}),
-										Scheduled => CoreState::Scheduled(ScheduledCore {
-											para_id: (index + 1).into(),
-											collator: None,
-										}),
-										Free => todo!(),
-									}
-								})
-								.collect::<Vec<_>>();
+                            // Determine number of cores from session info
+                            let n_cores = self.session_info().n_cores as usize;
 
-							let _ = sender.send(Ok(cores));
+                            let cores = match self.core_state {
+                                Occupied | Scheduled | Free => {
+                                    // Backwards-compatible behavior: length equals number of candidates
+                                    candidate_hashes
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(index, candidate_receipt)| {
+                                            assert!(index < validator_group_count);
+                                            match self.core_state {
+                                                Occupied => CoreState::Occupied(OccupiedCore {
+                                                    next_up_on_available: None,
+                                                    occupied_since: 0,
+                                                    time_out_at: 0,
+                                                    next_up_on_time_out: None,
+                                                    availability: BitVec::default(),
+                                                    group_responsible: GroupIndex(index as u32),
+                                                    candidate_hash: candidate_receipt.hash(),
+                                                    candidate_descriptor: candidate_receipt
+                                                        .descriptor
+                                                        .clone(),
+                                                }),
+                                                Scheduled => CoreState::Scheduled(ScheduledCore {
+                                                    para_id: (index + 1).into(),
+                                                    collator: None,
+                                                }),
+                                                Free => CoreState::Free,
+                                                All => unreachable!(),
+                                            }
+                                        })
+                                        .collect::<Vec<_>>()
+                                }
+                                All => {
+                                    // New behavior: return a vector of length n_cores containing a
+                                    // realistic mix of occupied, scheduled, and free cores.
+                                    let mut cores = vec![CoreState::Free; n_cores];
+
+                                    // 1) Mark cores with current candidates as Occupied (with next_up_on_available if any)
+                                    for (index, candidate_receipt) in candidate_hashes.iter().enumerate() {
+                                        assert!(index < n_cores);
+                                        let next_up = self
+                                            .state
+                                            .claim_queue
+                                            .get(&CoreIndex(index as u32))
+                                            .and_then(|q| q.front().copied())
+                                            .map(|para_id| ScheduledCore { para_id, collator: None });
+
+                                        cores[index] = CoreState::Occupied(OccupiedCore {
+                                            next_up_on_available: None,
+                                            occupied_since: 0,
+                                            time_out_at: 0,
+                                            next_up_on_time_out: None,
+                                            availability: BitVec::default(),
+                                            group_responsible: GroupIndex(index as u32),
+                                            candidate_hash: candidate_receipt.hash(),
+                                            candidate_descriptor: candidate_receipt.descriptor.clone(),
+                                        });
+
+                                        if let Some(scheduled) = next_up {
+                                            if let CoreState::Occupied(ref mut occ) = cores[index] {
+                                                occ.next_up_on_available = Some(scheduled);
+                                            }
+                                        }
+                                    }
+
+                                    // 2) For remaining cores, provide Scheduled entries if present in claim_queue
+                                    for core_index in 0..n_cores {
+                                        if matches!(cores[core_index], CoreState::Free) {
+                                            let key = CoreIndex(core_index as u32);
+                                            if let Some(queue) = self.state.claim_queue.get(&key) {
+                                                if let Some(para_id) = queue.front() {
+                                                    cores[core_index] = CoreState::Scheduled(ScheduledCore {
+                                                        para_id: *para_id,
+                                                        collator: None,
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    cores
+                                }
+                            };
+
+                            let _ = sender.send(Ok(cores));
 						},
 						RuntimeApiMessage::Request(
 							_request,

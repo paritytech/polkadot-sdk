@@ -362,13 +362,12 @@ impl Requester {
 			task.remove_leaves(&obsolete_leaves);
 			let live = task.is_live();
 			if !live {
-				if self.early_candidates.contains(candidate_hash) &&
-					!self.early_candidates_onchain.contains(candidate_hash)
-				{
-					self.metrics.on_early_candidate_never_onchain();
-				}
-				self.early_candidates.remove(candidate_hash);
-				self.early_candidates_onchain.remove(candidate_hash);
+            if self.early_candidates.contains(candidate_hash) &&
+                !self.early_candidates_onchain.contains(candidate_hash)
+            {
+                self.metrics.on_early_candidate_never_onchain();
+            }
+			// TODO: figure out when to remove entries from early tracking sets.
 			}
 			live
 		})
@@ -395,12 +394,21 @@ impl Requester {
 				// Just book keeping - we are already requesting that chunk:
 				e.add_leaf(leaf);
 				// If this candidate was fetched early and now appears on the slow path, mark it.
-				if matches!(origin, FetchOrigin::Slow) &&
-					self.early_candidates.contains(&core.candidate_hash)
-				{
+				if matches!(origin, FetchOrigin::Slow) && self.early_candidates.contains(&core.candidate_hash) {
 					self.early_candidates_onchain.insert(core.candidate_hash);
+					self.metrics.on_early_candidate_skipped_on_slow();
 				}
 			} else {
+                // If we are on the slow path and this candidate was already fetched early (even
+                // if the task has completed), skip starting a duplicate fetch and record it.
+                if matches!(origin, FetchOrigin::Slow) &&
+                    (self.early_candidates.contains(&core.candidate_hash) ||
+                     self.early_candidates_onchain.contains(&core.candidate_hash))
+                {
+                    self.metrics.on_early_candidate_skipped_on_slow();
+                    self.early_candidates_onchain.insert(core.candidate_hash);
+                    continue;
+                }
 				let tx = self.tx.clone();
 				let metrics = self.metrics.clone();
 

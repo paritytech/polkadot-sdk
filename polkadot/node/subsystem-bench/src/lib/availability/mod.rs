@@ -18,11 +18,14 @@ use crate::{
 	availability::av_store_helpers::new_av_store,
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies},
-	mock::{
+    display,
+    mock::{
 		av_store::{MockAvailabilityStore, NetworkAvailabilityState},
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::{default_node_features, MockRuntimeApi, MockRuntimeApiCoreState},
+        runtime_api::{default_node_features, MockRuntimeApi, MockRuntimeApiCoreState},
+        prospective_parachains::MockProspectiveParachains,
+        candidate_backing::MockCandidateBacking,
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
@@ -49,7 +52,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::messages::{AvailabilityStoreMessage, NetworkBridgeEvent};
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
-use polkadot_primitives::{Block, CoreIndex, GroupIndex, Hash};
+use polkadot_primitives::{Block, CoreIndex, GroupIndex, Hash, PersistedValidationData, HeadData};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
 use std::{ops::Sub, sync::Arc, time::Instant};
 use strum::Display;
@@ -124,6 +127,8 @@ fn build_overseer_for_availability_write(
 	chain_api: MockChainApi,
 	availability_store: AvailabilityStoreSubsystem,
 	bitfield_distribution: BitfieldDistribution,
+    mock_prospective_parachains: MockProspectiveParachains,
+    mock_candidate_backing: MockCandidateBacking,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
@@ -137,6 +142,8 @@ fn build_overseer_for_availability_write(
 		.replace_network_bridge_rx(|_| network_bridge_rx)
 		.replace_chain_api(|_| chain_api)
 		.replace_bitfield_distribution(|_| bitfield_distribution)
+        .replace_prospective_parachains(|_| mock_prospective_parachains)
+        .replace_candidate_backing(|_| mock_candidate_backing)
 		// This is needed to test own chunk recovery for `n_cores`.
 		.replace_availability_distribution(|_| availability_distribution);
 
@@ -207,18 +214,17 @@ pub fn prepare_test(
 	let network_bridge_rx =
 		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_v2_cfg));
 
-	let runtime_api = MockRuntimeApi::new(
-		state.config.clone(),
-		state.test_authorities.clone(),
-		state.candidate_receipts.clone(),
-		Default::default(),
-		Default::default(),
-		0,
-		MockRuntimeApiCoreState::Occupied,
-	);
-
-	let (overseer, overseer_handle) = match &mode {
+    let (overseer, overseer_handle) = match &mode {
 		TestDataAvailability::Read(options) => {
+            let runtime_api = MockRuntimeApi::new(
+                state.config.clone(),
+                state.test_authorities.clone(),
+                state.candidate_receipts.clone(),
+                Default::default(),
+                Default::default(),
+                0,
+                MockRuntimeApiCoreState::Occupied,
+            );
 			let subsystem = match options.strategy {
 				Strategy::FullFromBackers =>
 					AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
@@ -249,7 +255,7 @@ pub fn prepare_test(
 				state.candidate_hash_to_core_index.clone(),
 			);
 
-			build_overseer_for_availability_read(
+            build_overseer_for_availability_read(
 				dependencies.task_manager.spawn_handle(),
 				runtime_api,
 				av_store,
@@ -258,7 +264,34 @@ pub fn prepare_test(
 				&dependencies,
 			)
 		},
-		TestDataAvailability::Write => {
+        TestDataAvailability::Write => {
+            let runtime_api = MockRuntimeApi::new(
+                state.config.clone(),
+                state.test_authorities.clone(),
+                state.candidate_receipts.clone(),
+                Default::default(),
+                Default::default(),
+                0,
+                MockRuntimeApiCoreState::All,
+            );
+            // Initialize mocks used by early path
+            let mock_prospective_parachains = MockProspectiveParachains::new().with_test_state(state);
+            let mock_candidate_backing = MockCandidateBacking::from_state(
+                state.config.clone(),
+                state
+                    .test_authorities
+                    .validator_pairs
+                    .get(0)
+                    .expect("at least one validator").clone(),
+                PersistedValidationData {
+                    parent_head: HeadData(vec![]),
+                    relay_parent_number: 0,
+                    max_pov_size: 0,
+                    relay_parent_storage_root: Default::default(),
+                },
+                vec![],
+                state,
+            );
 			let availability_distribution = AvailabilityDistributionSubsystem::new(
 				state.test_authorities.keyring.keystore(),
 				IncomingRequestReceivers {
@@ -282,6 +315,8 @@ pub fn prepare_test(
 				chain_api,
 				new_av_store(&dependencies),
 				bitfield_distribution,
+                mock_prospective_parachains,
+                mock_candidate_backing,
 				&dependencies,
 			)
 		},
@@ -499,6 +534,18 @@ pub async fn benchmark_availability_write(
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
+
+	// TODO: for debugging purposes, remove this.
+    // Print early vs slow candidate fetch counters to help understand requester behavior
+    let metrics = display::parse_metrics(env.registry());
+    let early = metrics.sum_by("polkadot_parachain_early_candidates_fetched_total");
+    let slow = metrics.sum_by("polkadot_parachain_slow_candidates_fetched_total");
+    let never_onchain = metrics.sum_by("polkadot_parachain_early_candidates_never_onchain_total");
+    let skipped_on_slow = metrics.sum_by("polkadot_parachain_early_candidates_skipped_on_slow_total");
+    println!(
+        "Early vs slow candidate fetches: early = {:.0}, slow = {:.0}, early_never_onchain = {:.0}, skipped_on_slow = {:.0}",
+        early, slow, never_onchain, skipped_on_slow
+    );
 
 	env.stop().await;
 	env.collect_resource_usage(

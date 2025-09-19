@@ -22,13 +22,33 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::Hash;
+use std::collections::HashMap;
 
-pub struct MockProspectiveParachains {}
+use crate::availability::TestState;
+
+pub struct MockProspectiveParachains {
+    // Map relay parent -> candidate hashes (in order) used by the bench
+    per_relay_parent_candidates: HashMap<Hash, Vec<polkadot_primitives::CandidateHash>>,
+    state: Option<TestState>,
+}
 
 impl MockProspectiveParachains {
-	pub fn new() -> Self {
-		Self {}
-	}
+    pub fn new() -> Self {
+        Self { per_relay_parent_candidates: HashMap::new(), state: None }
+    }
+
+    // Initialize from TestState so we can answer GetBackableCandidates
+    pub fn with_test_state(mut self, state: &TestState) -> Self {
+        for (relay_hash, receipts) in state.candidate_receipts.iter() {
+            let hashes = receipts
+                .iter()
+                .map(|r| -> polkadot_primitives::CandidateHash { r.hash() })
+                .collect::<Vec<_>>();
+            self.per_relay_parent_candidates.insert(*relay_hash, hashes);
+        }
+        self.state = Some(state.clone());
+        self
+    }
 }
 
 #[overseer::subsystem(ProspectiveParachains, error=SubsystemError, prefix=self::overseer)]
@@ -53,6 +73,25 @@ impl MockProspectiveParachains {
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					ProspectiveParachainsMessage::GetMinimumRelayParents(_relay_parent, tx) => {
 						tx.send(vec![]).unwrap();
+					},
+                    ProspectiveParachainsMessage::GetBackableCandidates(relay_parent, para_id, count, _ancestors, tx) => {
+                        // Return up to `count` candidate hashes for the NEXT block's candidates of this para.
+                        let mut response = Vec::new();
+                        if let Some(state) = &self.state {
+                            // find index of current relay_parent in block_infos
+                            if let Some((idx, _)) = state.block_infos.iter().enumerate().find(|(_, bi)| bi.hash == relay_parent) {
+                                let next_idx = ((idx + 1) % state.block_infos.len()) as usize;
+                                let next_hash = state.block_infos[next_idx].hash;
+                                if let Some(receipts) = state.candidate_receipts.get(&next_hash) {
+                                    for r in receipts.iter() {
+                                        if r.descriptor.para_id() == para_id && response.len() < count as usize {
+                                            response.push((r.hash(), relay_parent));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        let _ = tx.send(response);
 					},
 					ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx) => {
 						tx.send(

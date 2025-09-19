@@ -63,6 +63,10 @@ struct MetricsInner {
 	slow_candidates_fetched: Counter<U64>,
 	/// Number of early-fetched candidates that never made it on-chain.
 	early_candidates_never_onchain: Counter<U64>,
+
+	/// Number of candidates fetched early that later appeared on slow path, implying we skipped a
+	/// duplicate fetch when they became occupied.
+	early_candidates_skipped_on_slow: Counter<U64>,
 }
 
 impl Metrics {
@@ -124,6 +128,13 @@ impl Metrics {
 	pub fn on_early_candidate_never_onchain(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.early_candidates_never_onchain.inc()
+		}
+	}
+
+	/// Increment early candidates that later appeared on slow path (duplicate fetch skipped).
+	pub fn on_early_candidate_skipped_on_slow(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.early_candidates_skipped_on_slow.inc()
 		}
 	}
 }
@@ -196,6 +207,13 @@ impl metrics::Metrics for Metrics {
 				Counter::new(
 					"polkadot_parachain_early_candidates_never_onchain_total",
 					"Number of early-fetched candidates that never made it on-chain.",
+				)?,
+				registry,
+			)?,
+			early_candidates_skipped_on_slow: prometheus::register(
+				Counter::new(
+					"polkadot_parachain_early_candidates_skipped_on_slow_total",
+					"Number of early-fetched candidates that later appeared on the slow path (duplicate fetch skipped).",
 				)?,
 				registry,
 			)?,
