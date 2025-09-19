@@ -19,6 +19,8 @@ libc = { workspace = true }
 nix = { features = ["resource", "sched"], workspace = true }
 thiserror = { workspace = true }
 
+tokio = { version = "1", features = ["net", "io-util", "process", "time"] }
+
 codec = { features = ["derive"], workspace = true }
 
 polkadot-node-primitives = { workspace = true, default-features = true }

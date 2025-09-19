@@ -54,15 +54,17 @@ use polkadot_node_core_pvf_common::{
 	},
 	worker_dir, ArtifactChecksum,
 };
+// Use common aliases to stay in sync with decl_worker_main!
+use polkadot_node_core_pvf_common::worker::{
+	Endpoint as WorkerEndpoint, // PathBuf (UDS) or SocketAddr (TCP under x-shadow)
+	WorkerStream as Stream,     // blocking stream on worker side
+};
 use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{ExecutorParams, PersistedValidationData};
 use std::{
 	io::{self, Read},
-	os::{
-		fd::{AsRawFd, FromRawFd},
-		unix::net::UnixStream,
-	},
+	os::fd::{AsRawFd, FromRawFd},
 	path::PathBuf,
 	process,
 	sync::{mpsc::channel, Arc},
@@ -79,7 +81,7 @@ use std::{
 pub const EXECUTE_WORKER_THREAD_NUMBER: u32 = 3;
 
 /// Receives a handshake with information specific to the execute worker.
-fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
+fn recv_execute_handshake(stream: &mut Stream) -> io::Result<Handshake> {
 	let handshake_enc = framed_recv_blocking(stream)?;
 	let handshake = Handshake::decode(&mut &handshake_enc[..]).map_err(|_| {
 		io::Error::new(
@@ -91,7 +93,7 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 }
 
 fn recv_request(
-	stream: &mut UnixStream,
+	stream: &mut Stream,
 ) -> io::Result<(PersistedValidationData, PoV, Duration, ArtifactChecksum)> {
 	let request_bytes = framed_recv_blocking(stream)?;
 	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
@@ -118,7 +120,7 @@ macro_rules! map_and_send_err {
 ///
 /// # Parameters
 ///
-/// - `socket_path`: specifies the path to the socket used to communicate with the host.
+/// - `endpoint`: specifies the endpoint to the socket used to communicate with the host.
 ///
 /// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
@@ -128,14 +130,14 @@ macro_rules! map_and_send_err {
 ///
 /// - `worker_version`: see above
 pub fn worker_entrypoint(
-	socket_path: PathBuf,
+	endpoint: WorkerEndpoint,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
 ) {
 	run_worker(
 		WorkerKind::Execute,
-		socket_path,
+		endpoint,
 		worker_dir_path,
 		node_version,
 		worker_version,

@@ -15819,6 +15819,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "tempfile",
  "thiserror 1.0.65",
+ "tokio",
  "tracing-gum",
 ]
 

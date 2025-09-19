@@ -53,14 +53,16 @@ use polkadot_node_core_pvf_common::{
 	},
 	worker_dir, ProcessTime,
 };
+// Use common aliases to stay in sync with decl_worker_main!
+use polkadot_node_core_pvf_common::worker::{
+	Endpoint as WorkerEndpoint, // PathBuf (UDS) or SocketAddr (TCP under x-shadow)
+	WorkerStream as Stream,     // blocking stream on worker side
+};
 use polkadot_primitives::ExecutorParams;
 use std::{
 	fs,
 	io::{self, Read},
-	os::{
-		fd::{AsRawFd, FromRawFd, RawFd},
-		unix::net::UnixStream,
-	},
+	os::fd::{AsRawFd, FromRawFd, RawFd},
 	path::{Path, PathBuf},
 	process,
 	sync::{mpsc::channel, Arc},
@@ -114,7 +116,7 @@ pub struct PrepareOutcome {
 }
 
 /// Get a worker request.
-fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
+fn recv_request(stream: &mut Stream) -> io::Result<PvfPrepData> {
 	let pvf = framed_recv_blocking(stream)?;
 	let pvf = PvfPrepData::decode(&mut &pvf[..]).map_err(|e| {
 		io::Error::new(
@@ -171,7 +173,7 @@ fn end_memory_tracking() -> isize {
 ///
 /// # Parameters
 ///
-/// - `socket_path`: specifies the path to the socket used to communicate with the host.
+/// - `endpoint`: specifies the endpoint to the socket used to communicate with the host.
 ///
 /// - `worker_dir_path`: specifies the path to the worker-specific temporary directory.
 ///
@@ -202,14 +204,14 @@ fn end_memory_tracking() -> isize {
 /// 8. Send the result of preparation back to the host, including the checksum of the artifact. If
 ///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 pub fn worker_entrypoint(
-	socket_path: PathBuf,
+	endpoint: WorkerEndpoint,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
 ) {
 	run_worker(
 		WorkerKind::Prepare,
-		socket_path,
+        endpoint,
 		worker_dir_path,
 		node_version,
 		worker_version,

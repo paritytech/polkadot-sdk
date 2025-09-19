@@ -24,26 +24,26 @@ license-file = ["LICENSE", "0"]
 # https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html
 maintainer-scripts = "scripts/packaging/deb-maintainer-scripts"
 assets = [
-	[
-		"target/release/polkadot",
-		"/usr/bin/",
-		"755",
-	],
-	[
-		"target/release/polkadot-prepare-worker",
-		"/usr/lib/polkadot/",
-		"755",
-	],
-	[
-		"target/release/polkadot-execute-worker",
-		"/usr/lib/polkadot/",
-		"755",
-	],
-	[
-		"scripts/packaging/polkadot.service",
-		"/lib/systemd/system/",
-		"644",
-	],
+    [
+        "target/release/polkadot",
+        "/usr/bin/",
+        "755",
+    ],
+    [
+        "target/release/polkadot-prepare-worker",
+        "/usr/lib/polkadot/",
+        "755",
+    ],
+    [
+        "target/release/polkadot-execute-worker",
+        "/usr/lib/polkadot/",
+        "755",
+    ],
+    [
+        "scripts/packaging/polkadot.service",
+        "/lib/systemd/system/",
+        "644",
+    ],
 ]
 conf-files = ["/etc/default/polkadot"]
 
@@ -100,22 +100,23 @@ fast-runtime = ["polkadot-cli/fast-runtime"]
 runtime-metrics = ["polkadot-cli/runtime-metrics"]
 pyroscope = ["polkadot-cli/pyroscope"]
 jemalloc-allocator = [
-	"dep:tikv-jemallocator",
-	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
-	"polkadot-node-core-pvf/jemalloc-allocator",
-	"polkadot-overseer/jemalloc-allocator",
+    "dep:tikv-jemallocator",
+    "polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
+    "polkadot-node-core-pvf/jemalloc-allocator",
+    "polkadot-overseer/jemalloc-allocator",
 ]
 x-shadow = [
-    "polkadot-node-core-pvf-prepare-worker/x-shadow",
-    "polkadot-node-core-pvf/x-shadow",
     "polkadot-overseer/x-shadow",
+    "polkadot-node-core-pvf-prepare-worker/x-shadow",
+    "polkadot-node-core-pvf-execute-worker/x-shadow",
+    "polkadot-node-core-pvf/x-shadow",
     "polkadot-cli/x-shadow"
 ]
 
 # Generate the metadata hash needed for CheckMetadataHash
 # in the builtin test runtimes (westend and rococo).
 metadata-hash = [
-	"polkadot-cli/metadata-hash",
+    "polkadot-cli/metadata-hash",
 ]
 
 # Enables timeout-based tests supposed to be run only in CI environment as they may be flaky

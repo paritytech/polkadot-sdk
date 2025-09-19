@@ -30,14 +30,35 @@ use std::{
 	fmt::{self},
 	fs::File,
 	io::{self, Read, Write},
-	os::{
-		fd::{AsRawFd, FromRawFd, RawFd},
-		unix::net::UnixStream,
-	},
+	os::fd::{AsRawFd, FromRawFd, RawFd},
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
+
+// ===== Unified endpoint & transport aliases =====
+// Address used to bind/connect host<->worker
+#[cfg(not(feature = "x-shadow"))]
+pub type Endpoint = std::path::PathBuf;
+#[cfg(feature = "x-shadow")]
+pub type Endpoint = std::net::SocketAddr;
+
+// Async transport (host side, tokio)
+#[cfg(feature = "x-shadow")]
+pub use tokio::net::TcpStream as HostStream;
+#[cfg(not(feature = "x-shadow"))]
+pub use tokio::net::UnixStream as HostStream;
+
+#[cfg(feature = "x-shadow")]
+pub use tokio::net::TcpListener as HostListener;
+#[cfg(not(feature = "x-shadow"))]
+pub use tokio::net::UnixListener as HostListener;
+
+// Blocking transport (worker side, std)
+#[cfg(not(feature = "x-shadow"))]
+pub type WorkerStream = std::os::unix::net::UnixStream;
+#[cfg(feature = "x-shadow")]
+pub type WorkerStream = std::net::TcpStream;
 
 /// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
 /// spawning the desired worker.
@@ -157,15 +178,23 @@ macro_rules! decl_worker_main {
 				},
 			}
 
-			let mut socket_path = None;
+			let mut endpoint = None;
 			let mut worker_dir_path = None;
 			let mut node_version = None;
 
 			let mut i = 2;
 			while i < args.len() {
 				match args[i].as_ref() {
+					// UDS (default build)
+					#[cfg(not(feature = "x-shadow"))]
 					"--socket-path" => {
-						socket_path = Some(args[i + 1].as_str());
+						endpoint = Some(args[i + 1].as_str());
+						i += 1
+					},
+					// TCP (x-shadow build)
+					#[cfg(feature = "x-shadow")]
+					"--socket-addr" => {
+						endpoint = Some(args[i + 1].as_str());
 						i += 1
 					},
 					"--worker-dir-path" => {
@@ -180,14 +209,23 @@ macro_rules! decl_worker_main {
 				}
 				i += 1;
 			}
-			let socket_path = socket_path.expect("the --socket-path argument is required");
+			// Require the appropriate argument depending on build feature.
+			#[cfg(not(feature = "x-shadow"))]
+			let endpoint = endpoint.expect("the --socket-path argument is required");
+			#[cfg(feature = "x-shadow")]
+			let endpoint = endpoint.expect("the --socket-addr argument is required");
 			let worker_dir_path =
 				worker_dir_path.expect("the --worker-dir-path argument is required");
 
-			let socket_path = std::path::Path::new(socket_path).to_owned();
+			// Build endpoint according to transport
+			#[cfg(not(feature = "x-shadow"))]
+			let endpoint = std::path::Path::new(endpoint).to_owned();
+			#[cfg(feature = "x-shadow")]
+			let endpoint: std::net::SocketAddr =
+				endpoint.parse().expect("invalid --socket-addr, expected IP:PORT");
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 
-			$entrypoint(socket_path, worker_dir_path, node_version, Some($worker_version));
+			$entrypoint(endpoint, worker_dir_path, node_version, Some($worker_version));
 		}
 	};
 }
@@ -309,13 +347,13 @@ pub struct WorkerInfo {
 /// to securely handle each incoming request.
 pub fn run_worker<F>(
 	worker_kind: WorkerKind,
-	socket_path: PathBuf,
+	endpoint: Endpoint,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
 	mut event_loop: F,
 ) where
-	F: FnMut(UnixStream, &WorkerInfo, SecurityStatus) -> io::Result<Never>,
+	F: FnMut(WorkerStream, &WorkerInfo, SecurityStatus) -> io::Result<Never>,
 {
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 	let mut worker_info = WorkerInfo {
@@ -327,7 +365,7 @@ pub fn run_worker<F>(
 	gum::debug!(
 		target: LOG_TARGET,
 		?worker_info,
-		?socket_path,
+		?endpoint,
 		"starting pvf worker ({})",
 		worker_info.kind
 	);
@@ -358,12 +396,17 @@ pub fn run_worker<F>(
 		},
 	}
 
-	// Connect to the socket.
-	let stream = || -> io::Result<UnixStream> {
-		let stream = UnixStream::connect(&socket_path)?;
-		let _ = std::fs::remove_file(&socket_path);
+	// Connect to the host, transport-specific.
+	// UDS: connect to path and remove the socket file afterwards (best-effort).
+	// TCP: connect to addr.
+	#[cfg(not(feature = "x-shadow"))]
+	let stream = || -> io::Result<WorkerStream> {
+		let stream = WorkerStream::connect(&endpoint)?;
+		let _ = std::fs::remove_file(&endpoint);
 		Ok(stream)
 	}();
+	#[cfg(feature = "x-shadow")]
+	let stream = || -> io::Result<WorkerStream> { WorkerStream::connect(endpoint) }();
 	let mut stream = match stream {
 		Ok(ok) => ok,
 		Err(err) => worker_shutdown_error(worker_info, &err.to_string()),
@@ -538,7 +581,7 @@ fn kill_parent_node_in_emergency() {
 }
 
 /// Receives a handshake with information for the worker.
-fn recv_worker_handshake(stream: &mut UnixStream) -> io::Result<WorkerHandshake> {
+fn recv_worker_handshake(stream: &mut WorkerStream) -> io::Result<WorkerHandshake> {
 	let worker_handshake = framed_recv_blocking(stream)?;
 	let worker_handshake = WorkerHandshake::decode(&mut &worker_handshake[..]).map_err(|e| {
 		io::Error::new(
@@ -585,7 +628,7 @@ where
 }
 
 pub fn send_result<T, E>(
-	stream: &mut UnixStream,
+	stream: &mut WorkerStream,
 	result: Result<T, E>,
 	worker_info: &WorkerInfo,
 ) -> io::Result<()>

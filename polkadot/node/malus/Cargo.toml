@@ -61,3 +61,5 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 [features]
 default = []
 fast-runtime = ["polkadot-cli/fast-runtime"]
+x-shadow = ["polkadot-node-core-pvf-common/x-shadow"]
+
