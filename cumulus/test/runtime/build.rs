@@ -49,7 +49,7 @@ fn main() {
 
 	WasmBuilder::new()
 		.with_current_project()
-		.enable_feature("pov-bundling")
+		.enable_feature("block-bundling")
 		.enable_feature("experimental-ump-signals")
 		.import_memory()
 		.set_file_name("wasm_binary_block_bundling.rs")

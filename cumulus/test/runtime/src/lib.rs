@@ -120,7 +120,7 @@ impl_opaque_keys! {
 pub const PARACHAIN_ID: u32 = 100;
 
 #[cfg(all(
-	any(feature = "elastic-scaling-500ms", feature = "pov-bundling"),
+	any(feature = "elastic-scaling-500ms", feature = "block-bundling"),
 	not(any(feature = "elastic-scaling", feature = "relay-parent-offset"))
 ))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
@@ -131,7 +131,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 #[cfg(not(any(
 	feature = "elastic-scaling",
 	feature = "elastic-scaling-500ms",
-	feature = "pov-bundling",
+	feature = "block-bundling",
 	feature = "relay-parent-offset"
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
@@ -573,7 +573,7 @@ impl_runtime_apis! {
 		}
 
 		fn block_rate() -> sp_block_builder::BlockRate {
-			if cfg!(feature = "pov-bundling") {
+			if cfg!(feature = "block-bundling") {
 				sp_block_builder::BlockRate {
 					block_time: sp_block_builder::BlockTime::Regularly { every: core::time::Duration::from_millis(500) },
 					block_building_time: core::time::Duration::from_millis(500),

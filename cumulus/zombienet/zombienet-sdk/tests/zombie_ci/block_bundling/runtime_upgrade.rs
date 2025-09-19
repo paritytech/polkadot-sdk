@@ -179,7 +179,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("pov-bundling")
+				.with_chain("block-bundling")
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),

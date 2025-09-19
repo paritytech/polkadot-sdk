@@ -103,8 +103,8 @@ relay-parent-offset = []
 elastic-scaling = []
 # A runtime with low slot duration of 500ms for low-latency testing with 12 cores.
 elastic-scaling-500ms = []
-# A runtime pov-bundling.
-pov-bundling = []
+# A runtime that uses block-bundling.
+block-bundling = []
 # A runtime with 6s slot duration which sends RFC-103 compatible UMP signals.
 experimental-ump-signals = [
 	"cumulus-pallet-parachain-system/experimental-ump-signals",
