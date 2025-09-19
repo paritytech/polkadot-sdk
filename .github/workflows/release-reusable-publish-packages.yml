@@ -187,7 +187,7 @@ jobs:
               -D "_signature gpg" \
               -D "_gpg_name ${PGP_KMS_HASH}" \
               -D "__gpg $HOME/.local/bin/pgpkms" \
-              -D "__gpg_sign_cmd %{__gpg} pgpkms sign --input %{__plaintext_filename}" \
+              -D "__gpg_sign_cmd %{__gpg} pgpkms sign --input %{__plaintext_filename} --output %{__signature_filename}" \
               --addsign "$rpmname"
 
             echo "Copying signed package to local repo..."
