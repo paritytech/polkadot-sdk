@@ -113,7 +113,7 @@ jobs:
       COMMIT_SHA_SHORT: ${{ steps.set_vars.outputs.COMMIT_SHA_SHORT }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       #
       # Set changes
@@ -207,7 +207,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Info rust
         run: |

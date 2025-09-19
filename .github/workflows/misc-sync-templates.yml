@@ -47,7 +47,7 @@ jobs:
             runtime_wasm_path: parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm
             relay_chain: 'rococo-local'
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
           with:
             ref: "${{ github.event.inputs.stable_release_branch }}"
 
@@ -80,7 +80,7 @@ jobs:
             cp dev_chain_spec.json artifacts-${{ matrix.template }}/dev_chain_spec.json
 
         - name: Upload template directory
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
           with:
             name: artifacts-${{ matrix.template }}
             path: artifacts-${{ matrix.template }}/dev_chain_spec.json
@@ -103,25 +103,25 @@ jobs:
         run: |
           git config --global user.name "Template Bot"
           git config --global user.email "163342540+paritytech-polkadotsdk-templatebot[bot]@users.noreply.github.com"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           path: polkadot-sdk
           ref: "${{ github.event.inputs.stable_release_branch }}"
       - name: Download template artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: artifacts-${{ matrix.template }}
           path: templates/${{ matrix.template }}/
         if: matrix.template != 'solochain'
       - name: Generate a token for the template repository
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         with:
           owner: "paritytech"
           repositories: "polkadot-sdk-${{ matrix.template }}-template"
           app-id: ${{ secrets.TEMPLATE_APP_ID }}
           private-key: ${{ secrets.TEMPLATE_APP_KEY }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           repository: "paritytech/polkadot-sdk-${{ matrix.template }}-template"
           path: "${{ env.template-path }}"

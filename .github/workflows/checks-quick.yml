@@ -115,7 +115,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: Setup Node.js
-        uses: actions/setup-node@v4.1.0
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
@@ -192,7 +192,7 @@ jobs:
       options: --user root
     steps:
       - name: Fetch latest code
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - name: Check
         run: |
           set +e
@@ -212,7 +212,7 @@ jobs:
     needs: isdraft
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Install prerequisites
         run: |
