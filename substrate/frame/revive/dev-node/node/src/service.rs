@@ -57,6 +57,49 @@ pub type Service = sc_service::PartialComponents<
 
 pub static NEXT_TIMESTAMP: LazyLock<Arc<AtomicU64>> = LazyLock::new(|| Arc::new(AtomicU64::new(0)));
 
+/// Creates the timestamp inherent data provider with 3-priority system:
+/// 1. timestamp_delta_override (from engine_createBlock)
+/// 2. explicit timestamp (from evm_setNextBlockTimestamp)
+/// 3. auto-increment fallback
+fn create_timestamp_provider(
+	delta_for_inherent: SharedDelta,
+	next_timestamp_ref: Arc<AtomicU64>,
+) -> impl Fn(Hash, ()) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<sp_timestamp::InherentDataProvider, Box<dyn std::error::Error + Send + Sync>>> + Send>> + Send + Clone {
+	move |_parent_hash, ()| {
+		let delta_for_inherent = delta_for_inherent.clone();
+		let next_timestamp_ref = next_timestamp_ref.clone();
+
+		Box::pin(async move {
+			// Priority 1: Check if timestamp_delta was provided via engine_createBlock
+			let delta_ms_guard = delta_for_inherent.lock().unwrap();
+			if let Some(override_delta_ms) = *delta_ms_guard {
+				// Use the immediate timestamp delta (already in milliseconds)
+				drop(delta_ms_guard);
+				*delta_for_inherent.lock().unwrap() = None; // Clear after use
+				NEXT_TIMESTAMP.store(override_delta_ms, Ordering::SeqCst);
+				return Ok(sp_timestamp::InherentDataProvider::new(override_delta_ms.into()));
+			}
+			drop(delta_ms_guard);
+
+			// Priority 2: Check if a specific timestamp was set via evm_setNextBlockTimestamp RPC
+			let explicit_timestamp_ms = next_timestamp_ref.load(Ordering::SeqCst);
+			if explicit_timestamp_ms > 0 {
+				// Use the explicitly set timestamp and reset it to prevent reuse
+				next_timestamp_ref.store(0, Ordering::SeqCst);
+				// Update the global timestamp counter to match the explicit timestamp
+				// so subsequent auto-increments start from the correct base
+				NEXT_TIMESTAMP.store(explicit_timestamp_ms, Ordering::SeqCst);
+				return Ok(sp_timestamp::InherentDataProvider::new(explicit_timestamp_ms.into()));
+			}
+
+			// Priority 3: Fall back to auto-increment logic
+			let default_delta = 1000; // Default to 1 second
+			let next_timestamp = NEXT_TIMESTAMP.fetch_add(default_delta, Ordering::SeqCst) + default_delta;
+			Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
+		})
+	}
+}
+
 pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	let telemetry = config
 		.telemetry_endpoints
@@ -188,20 +231,17 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 	let timestamp_delta_override: SharedDelta = Arc::new(Mutex::new(None));
 	let delta_for_inherent = timestamp_delta_override.clone();
 
+	// Shared timestamp state between RPC and consensus for evm_setNextBlockTimestamp
+	let next_timestamp = Arc::new(AtomicU64::new(0));
+
 	match consensus {
 		Consensus::InstantSeal => {
 			consensus_type = Consensus::InstantSeal;
 
-			let create_inherent_data_providers = move |_, ()| {
-				let delta_for_inherent = delta_for_inherent.clone();
-				async move {
-					let delta_ms = delta_for_inherent.lock().unwrap().unwrap_or(1000); // Default to 6 seconds
-
-					let next_timestamp =
-						NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
-					Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
-				}
-			};
+			let create_inherent_data_providers = create_timestamp_provider(
+				delta_for_inherent.clone(),
+				next_timestamp.clone(),
+			);
 
 			let mut client_mut = client.clone();
 			let seal_params = SealBlockParams {
@@ -219,8 +259,8 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			};
 			seal_block(seal_params).await;
 
-			/// This is needed to finish opening both channels, otherwise block production won't start
-			/// until we send an rpc call to create a block.
+			// This is needed to finish opening both channels, otherwise block production won't start
+			// until we send an rpc call to create a block.
 			let command = sc_consensus_manual_seal::EngineCommand::SealNewBlock {
 				sender: None,
 				parent_hash: None,
@@ -274,9 +314,10 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				select_chain: select_chain.clone(),
 				commands_stream: Box::pin(manual_trigger_stream),
 				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
+				create_inherent_data_providers: create_timestamp_provider(
+					delta_for_inherent.clone(),
+					next_timestamp.clone(),
+				),
 			};
 
 			task_manager.spawn_essential_handle().spawn_blocking(
@@ -286,16 +327,6 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			);
 		},
 		Consensus::ManualSeal(None) => {
-			let create_inherent_data_providers = move |_, ()| {
-				let delta_for_inherent = delta_for_inherent.clone();
-				async move {
-					let delta_ms = delta_for_inherent.lock().unwrap().unwrap_or(1000); // Default to 6 seconds
-					let next_timestamp =
-						NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
-					Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
-				}
-			};
-
 			consensus_type = Consensus::ManualSeal(None);
 
 			let params = sc_consensus_manual_seal::ManualSealParams {
@@ -306,7 +337,10 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				select_chain: select_chain.clone(),
 				commands_stream: Box::pin(manual_trigger_stream),
 				consensus_data_provider: None,
-				create_inherent_data_providers,
+				create_inherent_data_providers: create_timestamp_provider(
+					delta_for_inherent.clone(),
+					next_timestamp.clone(),
+				),
 			};
 
 			task_manager.spawn_essential_handle().spawn_blocking(
@@ -325,7 +359,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 		let pool = transaction_pool.clone();
 		let sink = sink.clone();
 		let timestamp_delta = timestamp_delta_override.clone(); // <-- include this
-		let next_timestamp = NEXT_TIMESTAMP.clone();
+		let next_timestamp_for_rpc = next_timestamp.clone();
 
 		Box::new(move |_| {
 			let deps = crate::rpc::FullDeps {
@@ -335,7 +369,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				manual_seal_sink: sink.clone(),
 				consensus_type: consensus_type.clone(),
 				timestamp_delta: timestamp_delta.clone(),
-				next_timestamp: next_timestamp.clone(),
+				next_timestamp: next_timestamp_for_rpc.clone(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})

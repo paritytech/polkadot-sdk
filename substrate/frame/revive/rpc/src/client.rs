@@ -787,6 +787,10 @@ impl Client {
 			let res: CreatedBlock<H256> =
 				self.rpc_client.request("engine_createBlock", params).await.unwrap();
 
+			// dirty workaround to fix race condition from hardhat time helpers
+			// as it mines and re-requests a block too fast before it propagates
+			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
 			latest_block = Some(res);
 		}
 
@@ -813,6 +817,10 @@ impl Client {
 		let params = rpc_params![true, true, None::<H256>, None::<u64>];
 		let latest_block: CreatedBlock<H256> =
 			self.rpc_client.request("engine_createBlock", params).await.unwrap();
+
+		// dirty workaround to fix race condition from hardhat time helpers
+		// as it mines and re-requests a block too fast before it propagates
+		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
 		Ok(latest_block)
 	}
@@ -1092,6 +1100,13 @@ impl Client {
 	pub async fn set_next_block_timestamp(&self, next_timestamp: U256) -> Result<(), ClientError> {
 		if next_timestamp.is_zero() {
 			return Err(ClientError::ConversionFailed);
+		}
+
+		// Validate that the new timestamp is in the future
+		let current_block = self.latest_block().await;
+		let current_timestamp = extract_block_timestamp(&current_block).await.unwrap_or_default();
+		if next_timestamp <= current_timestamp.into() {
+			return Err(ClientError::ConversionFailed); // Timestamp must be greater than current
 		}
 
 		let next_timestamp = next_timestamp.as_u64();
