@@ -1638,4 +1638,13 @@ mod tests {
 			}
 		});
 	}
+
+	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
+		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::BlockInterval {
+			cumulus_primitives_core::BlockInterval {
+				number_of_blocks: 1,
+				block_time: core::time::Duration::from_secs(2),
+			}
+		}
+	}
 }

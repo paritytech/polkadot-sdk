@@ -1140,6 +1140,15 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
+		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::BlockInterval {
+			cumulus_primitives_core::BlockInterval {
+				number_of_blocks: 1,
+				block_time: core::time::Duration::from_secs(2),
+			}
+		}
+	}
+
 	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
 		fn validate_statement(
 			_source: StatementSource,
