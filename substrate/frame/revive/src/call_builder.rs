@@ -390,7 +390,7 @@ pub struct VmBinaryModule {
 impl VmBinaryModule {
 	/// Return a contract code that does nothing.
 	pub fn dummy() -> Self {
-		Self::new(bench_fixtures::DUMMY.to_vec())
+		Self::new(bench_fixtures::dummy().to_vec())
 	}
 
 	fn new(code: Vec<u8>) -> Self {
