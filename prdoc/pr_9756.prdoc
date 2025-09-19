@@ -1,0 +1,19 @@
+title: 'FRAME: Register `on_initialize` after each pallet'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Before this pull request, FRAME was executing all pallets `on_initialize` and then register the weight, including the weight of `on_runtime_upgrade`. Thus, other pallets were not aware on how much weight was already used when they were executing their `on_initialize` code. As some pallets are doing some work in `on_initialize`, they need to be aware of how much weight is still left.
+    To register the weight after each `on_initialize` call, a new trait is added. This new trait is implemented for tuples of types that implement `OnInitialize` and then it registers the weight after each call to `on_initialize`.
+
+    `pallet-scheduler` is changed to take the remaining weight into account and to not just assume that its configured weight is always available.
+crates:
+- name: frame-support
+  bump: patch
+- name: frame-executive
+  bump: patch
+- name: pallet-scheduler
+  bump: patch
+- name: frame-system
+  bump: patch
+- name: sp-weights
+  bump: patch
