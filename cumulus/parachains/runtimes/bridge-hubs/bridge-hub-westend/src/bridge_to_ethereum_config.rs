@@ -335,7 +335,7 @@ pub mod benchmark_helpers {
 	impl<T: snowbridge_pallet_inbound_queue_v2::Config> InboundQueueBenchmarkHelperV2<T> for Runtime {
 		fn initialize_storage() -> EventFixture {
 			let message = make_register_token_message();
-			
+
 			assert_ok!(EthereumBeaconClient::store_finalized_header(
 				message.beacon_header,
 				message.block_roots_root,
