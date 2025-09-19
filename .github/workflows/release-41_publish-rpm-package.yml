@@ -1,6 +1,6 @@
-name: Release - Publish polkadot deb package
+name: Release - Publish polkadot RPM package
 
-# This workflow publishes the polkadot Debian package by calling a reusable workflow.
+# This workflow publishes the polkadot RPM package by calling a reusable workflow.
 on:
   workflow_dispatch:
     inputs:
@@ -10,7 +10,7 @@ on:
         required: true
         type: string
       distribution:
-        description: Distribution where to publish deb package (release, staging, stable2407, etc)
+        description: Distribution where to publish RPM package (release, staging, stable2407, etc)
         default: staging
         required: true
         type: string
@@ -21,15 +21,13 @@ jobs:
     with:
       tag: ${{ inputs.tag }}
       distribution: ${{ inputs.distribution }}
-      package_type: 'deb'
+      package_type: 'rpm'
       aws_repo_base_path: "s3://releases-package-repos"
       cloudfront_distribution_id: "E36FKEYWDXAZYJ"
     secrets:
       upstream_content_sync_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
       aws_release_access_key_id: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       aws_release_secret_access_key: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-      aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       pgp_kms_key: ${{ secrets.PGP_KMS_KEY }}
       pgp_kms_hash: ${{ secrets.PGP_KMS_HASH }}
       aws_default_region: ${{ secrets.AWS_DEFAULT_REGION }}
