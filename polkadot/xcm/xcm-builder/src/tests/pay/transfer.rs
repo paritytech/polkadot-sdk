@@ -23,7 +23,6 @@ use frame_support::{
 	assert_ok, parameter_types,
 	traits::{
 		fungible::Mutate, fungibles::Mutate as FungiblesMutate,
-		tokens::transfer::PaysRemoteFeeWithMaybeDefault,
 	},
 };
 use xcm::{
@@ -44,7 +43,6 @@ parameter_types! {
 }
 
 type TestTransferOverXcm = TransferOverXcm<
-	ConstantRelayTokenDefaultFee,
 	AliasesIntoAccountId32<AnyNetwork, AccountId>,
 	TestTransferOverXcmHelper,
 >;
@@ -59,16 +57,6 @@ type TestTransferOverXcmHelper = TransferOverXcmHelper<
 	LocatableAssetKindConverter,
 	AliasesIntoAccountId32<AnyNetwork, AccountId>,
 >;
-
-struct ConstantRelayTokenDefaultFee;
-
-impl GetDefaultRemoteFee for ConstantRelayTokenDefaultFee {
-	type Asset = Asset;
-
-	fn get_default_remote_fee() -> Self::Asset {
-		Asset { id: AssetId(RelayLocation::get()), fun: Fungible(500_000_000_000_u128) }
-	}
-}
 
 fn fungible_amount(asset: Asset) -> u128 {
 	let Asset { id: _, ref fun } = asset;
@@ -112,7 +100,7 @@ fn transfer_over_xcm_works() {
 			&recipient,
 			asset_kind.clone(),
 			transfer_amount,
-			PaysRemoteFeeWithMaybeDefault::Yes { fee_asset: fee_asset.clone() }
+			Some(fee_asset.clone())
 		));
 
 		let expected_message = remote_transfer_xcm(
@@ -129,56 +117,6 @@ fn transfer_over_xcm_works() {
 		assert_eq!(
 			mock::Assets::balance(1, &SenderAccountOnTarget::get()),
 			INITIAL_BALANCE - transfer_amount - fungible_amount(fee_asset.into())
-		);
-	});
-}
-
-#[test]
-fn transfer_over_xcm_works_with_default_fee() {
-	let recipient = AccountId::new([5u8; 32]);
-
-	// transact the parents native asset on parachain 1000.
-	let asset_kind = AssetKind {
-		destination: (Parent, Parachain(1000)).into(),
-		asset_id: RelayLocation::get().into(),
-	};
-	let transfer_amount = INITIAL_BALANCE / 10;
-
-	new_test_ext().execute_with(|| {
-		// The parachain's native token
-		mock::Assets::set_balance(0, &SenderAccountOnTarget::get(), INITIAL_BALANCE);
-		// The relaychain's native token
-		mock::Assets::set_balance(1, &SenderAccountOnTarget::get(), INITIAL_BALANCE);
-		mock::Balances::set_balance(&SenderAccountOnTarget::get(), INITIAL_BALANCE);
-
-		// Check starting balance
-		assert_eq!(mock::Assets::balance(0, &recipient), 0);
-		assert_eq!(mock::Assets::balance(1, &recipient), 0);
-
-		assert_ok!(TestTransferOverXcm::transfer(
-			&SenderAccount::get(),
-			&recipient,
-			asset_kind.clone(),
-			transfer_amount,
-			PaysRemoteFeeWithMaybeDefault::YesWithDefault
-		));
-
-		let fee_asset = ConstantRelayTokenDefaultFee::get_default_remote_fee();
-
-		let expected_message = remote_transfer_xcm(
-			recipient.clone(),
-			(asset_kind.asset_id, transfer_amount).into(),
-			fee_asset.clone(),
-		);
-		assert_send_and_execute_msg(expected_message);
-
-		assert_eq!(mock::Assets::balance(1, &recipient), transfer_amount);
-
-		// The mock trader does not refund any weight. Hence, the balance is exactly the
-		// initial amount minus what we withdrew for transferring and paying the remote fees.
-		assert_eq!(
-			mock::Assets::balance(1, &SenderAccountOnTarget::get()),
-			INITIAL_BALANCE - transfer_amount - fungible_amount(fee_asset)
 		);
 	});
 }

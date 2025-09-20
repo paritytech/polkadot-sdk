@@ -20,42 +20,7 @@
 use core::fmt::Debug;
 use frame_support::traits::tokens::PaymentStatus;
 use scale_info::TypeInfo;
-use sp_debug_derive::RuntimeDebug;
 use sp_runtime::codec::{FullCodec, MaxEncodedLen};
-
-/// Defines if the sender have to pay remote XCM execution fees, which
-/// has a variant that will tell the calling site to derive a default.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
-pub enum PaysRemoteFeeWithMaybeDefault<RemoteFeeAsset> {
-	/// No remote XCM execution fees have to be paid.
-	No,
-	/// Pays fees and will use the [`GetDefaultRemoteFee`] trait to derive the fees.
-	YesWithDefault,
-	/// Defines that remote execution fees have to be paid.
-	Yes { fee_asset: RemoteFeeAsset },
-}
-
-/// Defines if the sender have to pay remote XCM execution fees.
-#[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]
-pub enum PaysRemoteFee<RemoteFeeAsset> {
-	/// No remote XCM execution fees have to be paid.
-	No,
-	/// Defines that remote execution fees have to be paid.
-	Yes { fee_asset: RemoteFeeAsset },
-}
-
-/// Abstraction to get a default remote xcm execution fee.
-///
-/// This might come from some pallet's storage value that is frequently
-/// updated with the result of a dry-run execution to make sure that the
-/// fee is sensible.
-pub trait GetDefaultRemoteFee {
-	/// The asset type use the pay the fees with.
-	type Asset;
-
-	/// Gets the default fee.
-	fn get_default_remote_fee() -> Self::Asset;
-}
 
 /// Is intended to be implemented using a `fungible` impl, but can also be implemented with
 /// XCM/Asset and made generic over assets.
@@ -94,7 +59,7 @@ pub trait Transfer {
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
-		remote_fee: PaysRemoteFeeWithMaybeDefault<Self::RemoteFeeAsset>,
+		remote_fee: Option<Self::RemoteFeeAsset>,
 	) -> Result<Self::Id, Self::Error>;
 
 	/// Check how a payment has proceeded. `id` must have been previously returned by `pay` for

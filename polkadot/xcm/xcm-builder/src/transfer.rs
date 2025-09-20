@@ -21,7 +21,6 @@ use alloc::vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::traits::{
 	tokens::{
-		transfer::{PaysRemoteFee, PaysRemoteFeeWithMaybeDefault},
 		PaymentStatus,
 	},
 	Get,
@@ -49,14 +48,16 @@ const LOG_TARGET: &str = "xcm::transfer_over_xcm";
 ///
 /// The low-level XCM construction and configuration is handled by the generic
 /// [`TransferOverXcmHelper`] type.
-pub struct TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>(
-	PhantomData<(DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper)>,
+///
+/// **NOTE**: It is assumed that the origin location has free execution on the remote chain
+/// the `remote_fee` is `None.
+pub struct TransferOverXcm<TransactorRefToLocation, TransferOverXcmHelper>(
+	PhantomData<(TransactorRefToLocation, TransferOverXcmHelper)>,
 );
 
-impl<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper> Transfer
-	for TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>
+impl<TransactorRefToLocation, TransferOverXcmHelper> Transfer
+	for TransferOverXcm<TransactorRefToLocation, TransferOverXcmHelper>
 where
-	DefaultRemoteFee: GetDefaultRemoteFee<Asset = Asset>,
 	TransferOverXcmHelper: TransferOverXcmHelperT<Balance = u128, QueryId = QueryId>,
 	TransactorRefToLocation: for<'a> TryConvert<&'a TransferOverXcmHelper::Beneficiary, Location>,
 {
@@ -74,19 +75,12 @@ where
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
-		remote_fee: PaysRemoteFeeWithMaybeDefault<Self::RemoteFeeAsset>,
+		remote_fee: Option<Self::RemoteFeeAsset>,
 	) -> Result<Self::Id, Self::Error> {
 		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert `Sender` to location");
 			Error::InvalidLocation
 		})?;
-
-		let remote_fee = match remote_fee {
-			PaysRemoteFeeWithMaybeDefault::YesWithDefault =>
-				PaysRemoteFee::Yes { fee_asset: DefaultRemoteFee::get_default_remote_fee() },
-			PaysRemoteFeeWithMaybeDefault::Yes { fee_asset } => PaysRemoteFee::Yes { fee_asset },
-			PaysRemoteFeeWithMaybeDefault::No => PaysRemoteFee::No,
-		};
 
 		TransferOverXcmHelper::send_remote_transfer_xcm(
 			from_location.clone(),
@@ -155,7 +149,7 @@ pub trait TransferOverXcmHelperT {
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
-		remote_fee: PaysRemoteFee<Asset>,
+		remote_fee: Option<Asset>,
 	) -> Result<QueryId, Error>;
 
 	fn check_transfer(id: Self::QueryId) -> PaymentStatus;
@@ -204,7 +198,7 @@ impl<
 		to: &Beneficiary,
 		asset_kind: AssetKind,
 		amount: Self::Balance,
-		remote_fee: PaysRemoteFee<Asset>,
+		remote_fee: Option<Asset>,
 	) -> Result<QueryId, Error> {
 		let locatable = Self::locatable_asset_id(asset_kind)?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
@@ -223,7 +217,7 @@ impl<
 		);
 
 		let message = match remote_fee {
-			PaysRemoteFee::No => remote_transfer_xcm_free_execution(
+			None => remote_transfer_xcm_free_execution(
 				from_location.clone(),
 				origin_location_on_remote,
 				beneficiary,
@@ -231,7 +225,7 @@ impl<
 				amount,
 				query_id,
 			)?,
-			PaysRemoteFee::Yes { fee_asset } => remote_transfer_xcm_paying_fees(
+			Some(fee_asset) => remote_transfer_xcm_paying_fees(
 				from_location.clone(),
 				origin_location_on_remote,
 				beneficiary,

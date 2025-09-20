@@ -19,7 +19,7 @@
 use crate::{transfer::TransferOverXcmHelperT, TransferOverXcmHelper};
 use core::marker::PhantomData;
 use frame_support::traits::{
-	tokens::{transfer::PaysRemoteFee, Pay, PaymentStatus},
+	tokens::{Pay, PaymentStatus},
 	Get,
 };
 use sp_runtime::traits::TryConvert;
@@ -103,7 +103,7 @@ where
 			who,
 			asset_kind,
 			amount,
-			PaysRemoteFee::No,
+			None,
 		)
 	}
 
