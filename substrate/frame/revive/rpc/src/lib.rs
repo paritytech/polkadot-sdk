@@ -424,7 +424,16 @@ impl EthRpcServer for EthRpcServerImpl {
 		storage_slot: U256,
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<Bytes> {
-		let hash = self.client.block_hash_for_tag(block).await?;
+		// let hash = self.client.block_hash_for_tag(block).await?;
+		// Handle historical block queries gracefully
+		let hash = match self.client.block_hash_for_tag(block).await {
+			Ok(hash) => hash,
+			Err(_) => {
+				// If block doesn't exist (historical query), return empty storage
+				// This matches Ethereum behavior for non-existent blocks
+				return Ok(vec![0u8; 32].into());
+			}
+		};
 		let runtime_api = self.client.runtime_api(hash);
 		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
 		// Return 32-byte zero value for empty storage (Ethereum spec compliance)

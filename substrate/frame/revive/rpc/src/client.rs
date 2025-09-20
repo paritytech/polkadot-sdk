@@ -776,22 +776,31 @@ impl Client {
 		let number_of_blocks = number_of_blocks.unwrap_or("0x1".into()).as_u64();
 		let mut latest_block: Option<CreatedBlock<H256>> = None;
 
-		for i in 0..number_of_blocks {
-			let interval: Option<u64> = match (i, interval) {
-				(0, _) => None,
-				(_, Some(time)) => Some(time.as_u64()),
-				_ => None,
-			};
+		// Optimized mining: No waiting between blocks with archive mode (--state-pruning archive)
+		if let Some(interval_seconds) = interval {
+			// Interval mining: Calculate timestamps and mine efficiently
+			let current_block = self.latest_block().await;
+			let base_timestamp = extract_block_timestamp(&current_block).await.unwrap_or_default();
+			let interval_u64 = interval_seconds.as_u64();
 
-			let params = rpc_params![true, true, None::<H256>, interval];
-			let res: CreatedBlock<H256> =
-				self.rpc_client.request("engine_createBlock", params).await.unwrap();
+			for i in 0..number_of_blocks {
+				// First block: base + 1, subsequent blocks: base + 1 + (i * interval)
+				let target_timestamp = if i == 0 {
+					base_timestamp + 1
+				} else {
+					base_timestamp + 1 + (i * interval_u64)
+				};
 
-			// dirty workaround to fix race condition from hardhat time helpers
-			// as it mines and re-requests a block too fast before it propagates
-			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-			latest_block = Some(res);
+				// Mine with specific timestamp - no delays needed between blocks
+				let res = self.evm_mine(Some(U256::from(target_timestamp))).await?;
+				latest_block = Some(res);
+			}
+		} else {
+			// No interval: Mine blocks efficiently without delays
+			for _i in 0..number_of_blocks {
+				let res = self.evm_mine(None).await?;
+				latest_block = Some(res);
+			}
 		}
 
 		let mut blocks_sub = self.api.blocks().subscribe_finalized().await.unwrap();
@@ -802,6 +811,10 @@ impl Client {
 				break;
 			}
 		}
+
+		// Small delay only for the final block to ensure it's available for immediate latest() calls
+		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
 		Ok(latest_block.unwrap())
 	}
 
@@ -817,10 +830,6 @@ impl Client {
 		let params = rpc_params![true, true, None::<H256>, None::<u64>];
 		let latest_block: CreatedBlock<H256> =
 			self.rpc_client.request("engine_createBlock", params).await.unwrap();
-
-		// dirty workaround to fix race condition from hardhat time helpers
-		// as it mines and re-requests a block too fast before it propagates
-		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
 		Ok(latest_block)
 	}
@@ -1130,6 +1139,8 @@ impl Client {
 
 		let new_timestamp = current_timestamp.saturating_add(increase_by);
 
+		// Set the timestamp for the next block to be mined
+		// Note: Don't mine here - let the subsequent mine() call apply the timestamp
 		self.set_next_block_timestamp(U256::from(new_timestamp)).await?;
 
 		Ok(U256::from(new_timestamp))
@@ -1315,3 +1326,4 @@ impl Client {
 		Ok(Some(result))
 	}
 }
+
