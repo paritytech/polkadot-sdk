@@ -19,17 +19,12 @@
 use crate::LocatableAssetId;
 use alloc::vec;
 use core::{fmt::Debug, marker::PhantomData};
-use frame_support::traits::{
-	tokens::{
-		PaymentStatus,
-	},
-	Get,
-};
+use frame_support::traits::Get;
 use sp_runtime::traits::TryConvert;
 use xcm::{latest::Error, opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{FeeManager, FeeReason, QueryHandler, QueryResponseStatus};
 
-pub use frame_support::traits::tokens::transfer::{GetDefaultRemoteFee, Transfer};
+pub use frame_support::traits::tokens::transfer::{Transfer, TransferStatus};
 
 const LOG_TARGET: &str = "xcm::transfer_over_xcm";
 
@@ -91,7 +86,7 @@ where
 		)
 	}
 
-	fn check_transfer(id: Self::Id) -> PaymentStatus {
+	fn check_transfer(id: Self::Id) -> TransferStatus {
 		TransferOverXcmHelper::check_transfer(id)
 	}
 
@@ -152,7 +147,7 @@ pub trait TransferOverXcmHelperT {
 		remote_fee: Option<Asset>,
 	) -> Result<QueryId, Error>;
 
-	fn check_transfer(id: Self::QueryId) -> PaymentStatus;
+	fn check_transfer(id: Self::QueryId) -> TransferStatus;
 	/// Ensure that a call to `send_remote_transfer_xcm` with the given parameters will be
 	/// successful if done immediately after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -247,16 +242,16 @@ impl<
 		Ok(query_id)
 	}
 
-	fn check_transfer(id: Self::QueryId) -> PaymentStatus {
+	fn check_transfer(id: Self::QueryId) -> TransferStatus {
 		use QueryResponseStatus::*;
 		match Querier::take_response(id) {
 			Ready { response, .. } => match response {
-				Response::ExecutionResult(None) => PaymentStatus::Success,
-				Response::ExecutionResult(Some(_)) => PaymentStatus::Failure,
-				_ => PaymentStatus::Unknown,
+				Response::ExecutionResult(None) => TransferStatus::Success,
+				Response::ExecutionResult(Some(_)) => TransferStatus::Failure,
+				_ => TransferStatus::Unknown,
 			},
-			Pending { .. } => PaymentStatus::InProgress,
-			NotFound | UnexpectedVersion => PaymentStatus::Unknown,
+			Pending { .. } => TransferStatus::InProgress,
+			NotFound | UnexpectedVersion => TransferStatus::Unknown,
 		}
 	}
 

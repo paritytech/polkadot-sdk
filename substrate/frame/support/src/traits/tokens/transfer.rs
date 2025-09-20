@@ -17,9 +17,11 @@
 
 //! The transfer trait and associated types
 
+use crate::pallet_prelude::{Decode, Encode};
 use core::fmt::Debug;
 use frame_support::traits::tokens::PaymentStatus;
 use scale_info::TypeInfo;
+use sp_debug_derive::RuntimeDebug;
 use sp_runtime::codec::{FullCodec, MaxEncodedLen};
 
 /// Is intended to be implemented using a `fungible` impl, but can also be implemented with
@@ -77,4 +79,18 @@ pub trait Transfer {
 	/// or `Failure`.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id);
+}
+
+/// Status for making a payment via the `Pay::pay` trait function.
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+pub enum TransferStatus {
+	/// Payment is in progress. Nothing to report yet.
+	InProgress,
+	/// Payment status is unknowable. It may already have reported the result, or if not then
+	/// it will never be reported successful or failed.
+	Unknown,
+	/// Payment happened successfully.
+	Success,
+	/// Payment failed. It may safely be retried.
+	Failure,
 }

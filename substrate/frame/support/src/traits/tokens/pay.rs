@@ -17,10 +17,10 @@
 
 //! The Pay trait and associated types.
 
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use codec::{FullCodec, MaxEncodedLen};
 use core::fmt::Debug;
 use scale_info::TypeInfo;
-use sp_core::{RuntimeDebug, TypedGet};
+use sp_core::TypedGet;
 use sp_runtime::DispatchError;
 
 use super::{fungible, fungibles, Balance, Preservation::Expendable};
@@ -66,18 +66,7 @@ pub trait Pay {
 }
 
 /// Status for making a payment via the `Pay::pay` trait function.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
-pub enum PaymentStatus {
-	/// Payment is in progress. Nothing to report yet.
-	InProgress,
-	/// Payment status is unknowable. It may already have reported the result, or if not then
-	/// it will never be reported successful or failed.
-	Unknown,
-	/// Payment happened successfully.
-	Success,
-	/// Payment failed. It may safely be retried.
-	Failure,
-}
+pub type PaymentStatus = super::transfer::TransferStatus;
 
 /// Simple implementation of `Pay` which makes a payment from a "pot" - i.e. a single account.
 pub struct PayFromAccount<F, A>(core::marker::PhantomData<(F, A)>);
