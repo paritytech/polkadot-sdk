@@ -1238,7 +1238,7 @@ impl<T: Config> OnQueueChanged<T::AggregateMessageOrigin> for Pallet<T> {
 		let para: ParaId = match origin.try_into() {
 			Ok(id) => id,
 			Err(_) => {
-				log::warn!(target: LOG_TARGET, "on_queue_changed: non paraId origin, ignoring");
+				log::debug!(target: LOG_TARGET, "on_queue_changed: non paraId origin, ignoring");
 				return;
 			}
 		};
