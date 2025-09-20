@@ -143,7 +143,7 @@ pub use transactional::FrameTransactionalProcessor;
 pub use universal_exports::UnpaidLocalExporter;
 
 mod transfer;
-pub use transfer::{TransferStatus, Transfer, TransferOverXcm, TransferOverXcmHelper};
+pub use transfer::{Transfer, TransferOverXcm, TransferOverXcmHelper, TransferStatus};
 
 mod universal_exports;
 pub use universal_exports::{

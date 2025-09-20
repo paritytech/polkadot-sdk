@@ -21,9 +21,7 @@ use super::{mock::*, *};
 use crate::AliasesIntoAccountId32;
 use frame_support::{
 	assert_ok, parameter_types,
-	traits::{
-		fungible::Mutate, fungibles::Mutate as FungiblesMutate,
-	},
+	traits::{fungible::Mutate, fungibles::Mutate as FungiblesMutate},
 };
 use xcm::{
 	latest::{InteriorLocation, Junctions::X2, Xcm},
@@ -42,10 +40,8 @@ parameter_types! {
 	pub Timeout: BlockNumber = 5; // 5 blocks
 }
 
-type TestTransferOverXcm = TransferOverXcm<
-	AliasesIntoAccountId32<AnyNetwork, AccountId>,
-	TestTransferOverXcmHelper,
->;
+type TestTransferOverXcm =
+	TransferOverXcm<AliasesIntoAccountId32<AnyNetwork, AccountId>, TestTransferOverXcmHelper>;
 
 type TestTransferOverXcmHelper = TransferOverXcmHelper<
 	TestMessageSender,
