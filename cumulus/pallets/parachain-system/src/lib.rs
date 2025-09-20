@@ -108,6 +108,7 @@ pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
+use crate::parachain_inherent::AbridgedInboundMessagesSizeInfo;
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
@@ -1144,7 +1145,7 @@ impl<T: Config> Pallet<T> {
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		downward_messages.check_enough_messages_included("DMQ");
+		downward_messages.check_enough_messages_included("DMQ", None);
 
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
@@ -1190,6 +1191,26 @@ impl<T: Config> Pallet<T> {
 		weight_used
 	}
 
+	fn get_ingress_channel_or_panic(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		sender: ParaId,
+	) -> &cumulus_primitives_core::AbridgedHrmpChannel {
+		let maybe_channel_idx =
+			ingress_channels.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender);
+		let Ok(channel_idx) = maybe_channel_idx else {
+			panic!(
+				"One of the messages submitted by the collator was sent from a sender ({}) \
+				that doesn't have a channel opened to this parachain",
+				<ParaId as Into<u32>>::into(sender)
+			)
+		};
+
+		ingress_channels
+			.get(channel_idx)
+			.map(|(_, channel)| channel)
+			.expect("Channel index was just calculated and is correct; qed")
+	}
+
 	fn check_hrmp_mcq_heads(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
 		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
@@ -1223,17 +1244,8 @@ impl<T: Config> Pallet<T> {
 		}
 		*maybe_prev_msg_metadata = Some(msg_metadata);
 
-		// Check that the message is sent from an existing channel. The channel exists
-		// if its MQC head is present in `vfp.hrmp_mqc_heads`.
-		let sender = msg_metadata.1;
-		let maybe_channel_idx =
-			ingress_channels.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender);
-		assert!(
-			maybe_channel_idx.is_ok(),
-			"One of the messages submitted by the collator was sent from a sender ({}) \
-					that doesn't have a channel opened to this parachain",
-			<ParaId as Into<u32>>::into(sender)
-		);
+		// Check that the message is sent from an existing channel.
+		let _ = Self::get_ingress_channel_or_panic(ingress_channels, msg_metadata.1);
 	}
 
 	/// Process all inbound horizontal messages relayed by the collator.
@@ -1251,11 +1263,21 @@ impl<T: Config> Pallet<T> {
 		horizontal_messages: AbridgedInboundHrmpMessages,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
-		// First, check the HRMP advancement rule.
-		horizontal_messages.check_enough_messages_included("HRMP");
-
-		let (messages, hashed_messages) = horizontal_messages.messages();
 		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
+		let (messages, hashed_messages) = horizontal_messages.messages();
+
+		// First, check the HRMP advancement rule.
+		let first_hashed_msg_channel = hashed_messages
+			.first()
+			.map(|(sender, _msg)| *sender)
+			.map(|sender| Self::get_ingress_channel_or_panic(ingress_channels, sender));
+		horizontal_messages.check_enough_messages_included(
+			"HRMP",
+			first_hashed_msg_channel.map(|channel| AbridgedInboundMessagesSizeInfo {
+				max_full_messages_size: Self::messages_collection_size_limit(),
+				first_hashed_msg_max_size: channel.max_message_size as usize,
+			}),
+		);
 
 		if messages.is_empty() {
 			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
