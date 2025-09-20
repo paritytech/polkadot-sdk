@@ -99,7 +99,7 @@ pub trait Transfer {
 
 	/// Check how a payment has proceeded. `id` must have been previously returned by `pay` for
 	/// the result of this call to be meaningful.
-	fn check_payment(id: Self::Id) -> PaymentStatus;
+	fn check_transfer(id: Self::Id) -> PaymentStatus;
 	/// Ensure that a call to pay with the given parameters will be successful if done immediately
 	/// after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]

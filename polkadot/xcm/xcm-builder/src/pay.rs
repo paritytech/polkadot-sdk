@@ -108,7 +108,7 @@ where
 	}
 
 	fn check_payment(id: Self::Id) -> PaymentStatus {
-		TransferOverXcmHelper::check_payment(id)
+		TransferOverXcmHelper::check_transfer(id)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

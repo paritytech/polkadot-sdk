@@ -97,8 +97,8 @@ where
 		)
 	}
 
-	fn check_payment(id: Self::Id) -> PaymentStatus {
-		TransferOverXcmHelper::check_payment(id)
+	fn check_transfer(id: Self::Id) -> PaymentStatus {
+		TransferOverXcmHelper::check_transfer(id)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -158,7 +158,7 @@ pub trait TransferOverXcmHelperT {
 		remote_fee: PaysRemoteFee<Asset>,
 	) -> Result<QueryId, Error>;
 
-	fn check_payment(id: Self::QueryId) -> PaymentStatus;
+	fn check_transfer(id: Self::QueryId) -> PaymentStatus;
 	/// Ensure that a call to `send_remote_transfer_xcm` with the given parameters will be
 	/// successful if done immediately after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -253,7 +253,7 @@ impl<
 		Ok(query_id)
 	}
 
-	fn check_payment(id: Self::QueryId) -> PaymentStatus {
+	fn check_transfer(id: Self::QueryId) -> PaymentStatus {
 		use QueryResponseStatus::*;
 		match Querier::take_response(id) {
 			Ready { response, .. } => match response {
