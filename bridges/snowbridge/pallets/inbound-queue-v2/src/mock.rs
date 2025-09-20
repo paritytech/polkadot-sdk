@@ -23,6 +23,8 @@ pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_inbound_queue_primitives::EventFixture;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -75,7 +77,7 @@ const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305
 impl<T: Config> BenchmarkHelper<T> for Test {
 	// not implemented since the MockVerifier is used for tests
 	fn initialize_storage() -> EventFixture {
-		EventFixture::default()
+		make_register_token_message()
 	}
 }
 
