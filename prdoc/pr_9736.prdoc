@@ -1,0 +1,12 @@
+title: '[pallet-revive] fix tracing collect'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix tracing collection
+
+    collect_trace should take `self` instead of `&mut self`, to avoid reusing the tracer state when tracing multiple transactions in a block.
+
+    Fix https://github.com/paritytech/contract-issues/issues/156https://github.com/paritytech/contract-issues/issues/156
+crates:
+- name: pallet-revive
+  bump: patch
