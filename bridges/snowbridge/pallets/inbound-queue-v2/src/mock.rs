@@ -24,7 +24,7 @@ pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_inbound_queue_primitives::EventFixture;
 #[cfg(feature = "runtime-benchmarks")]
-use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message;
 
 frame_support::construct_runtime!(
 	pub enum Test
