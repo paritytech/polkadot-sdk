@@ -3920,9 +3920,8 @@ fn mapped_address_works() {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// without a mapping everything will be send to the fallback account
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.native_value(100)
-			.build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
@@ -3948,9 +3947,8 @@ fn recovery_works() {
 
 		// eve puts her AccountId20 as argument to terminate but forgot to register
 		// her AccountId32 first so now the funds are trapped in her fallback account
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.native_value(100)
-			.build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
