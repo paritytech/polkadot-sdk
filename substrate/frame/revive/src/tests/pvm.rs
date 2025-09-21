@@ -543,6 +543,15 @@ fn instantiate_unique_trie_id() {
 
 #[test]
 fn instantiate_unique_trie_id2() {
+	{
+		use alloy_core::hex;
+		use sp_io::hashing::keccak_256;
+		let fn_sig: &str = "terminate()";
+		let output: [u8; 32] = keccak_256(fn_sig.as_bytes());
+		let selector = [output[0], output[1], output[2], output[3]];
+		println!("selector: {:?}", selector);
+		println!("selector: 0x{}", hex::encode(selector));
+	}
 	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
 	let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
 
@@ -572,6 +581,8 @@ fn instantiate_unique_trie_id2() {
 		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
 
 		let result = builder::bare_call(factory.addr).data(input_data).build();
+
+		println!("result: {:?}", result);
 
 		assert!(result.result.is_ok());
 

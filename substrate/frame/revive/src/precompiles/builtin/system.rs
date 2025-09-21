@@ -104,7 +104,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 		input: &Self::Interface,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		log::info!("called precompile call_with_info");
+		log::info!(">>>>>>>>>>>>>called precompile call_with_info");
 		use ISystem::ISystemCalls;
 		match input {
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
@@ -190,17 +190,6 @@ mod tests {
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_256.json"));
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_128.json"));
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-to_account_id.json"));
-	}
-
-	#[test]
-	fn print_selector() {
-		use crate::precompiles::alloy::hex;
-		let unmapped_address = H160::zero();
-		println!(
-			"generated sel (sol!): {:02x?}",
-			ISystem::terminateCall { beneficiary: unmapped_address.0.into() }
-		);
-		println!("SYSTEM base_address = 0x{}", hex::encode(<System<Test>>::MATCHER.base_address()));
 	}
 
 	#[test]
