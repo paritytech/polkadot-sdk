@@ -47,7 +47,7 @@ jobs:
             runtime_wasm_path: parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm
             relay_chain: 'rococo-local'
     steps:
-        - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
           with:
             ref: "${{ github.event.inputs.stable_release_branch }}"
 
@@ -103,12 +103,12 @@ jobs:
         run: |
           git config --global user.name "Template Bot"
           git config --global user.email "163342540+paritytech-polkadotsdk-templatebot[bot]@users.noreply.github.com"
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           path: polkadot-sdk
           ref: "${{ github.event.inputs.stable_release_branch }}"
       - name: Download template artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: artifacts-${{ matrix.template }}
           path: templates/${{ matrix.template }}/
@@ -121,7 +121,7 @@ jobs:
           repositories: "polkadot-sdk-${{ matrix.template }}-template"
           app-id: ${{ secrets.TEMPLATE_APP_ID }}
           private-key: ${{ secrets.TEMPLATE_APP_KEY }}
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: "paritytech/polkadot-sdk-${{ matrix.template }}-template"
           path: "${{ env.template-path }}"
