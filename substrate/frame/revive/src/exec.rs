@@ -1701,73 +1701,6 @@ where
 		Some(System::<T>::block_hash(&block_number).into())
 	}
 
-	// fn destroy_contract(
-	// 	&mut self,
-	// 	contract_address: &H160,
-	// 	contract_info: &ContractInfo<T>,
-	// 	beneficiary_address: &H160,
-	// ) -> Result<CodeRemoved, DispatchError> {
-	// 	log::info!(
-	// 		target: LOG_TARGET,
-	// 		"Destroying contract: {:?} for beneficiary: {:?}",
-	// 		contract_address,
-	// 		beneficiary_address
-	// 	);
-
-	// 	// derive account ids
-	// 	let contract_account = T::AddressMapper::to_account_id(contract_address);
-	// 	let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
-
-	// 	// refund storage deposit accounting if any (use provided ContractInfo)
-	// 	let deposit_to_refund = contract_info.total_deposit();
-	// 	if !deposit_to_refund.is_zero() {
-	// 		let _ = self
-	// 			.storage_meter
-	// 			.record_charge(&StorageDeposit::Refund(deposit_to_refund))
-	// 			.unwrap_or_else(|_| {
-	// 				log::debug!(
-	// 					target: LOG_TARGET,
-	// 					"Failed to refund storage deposit during deferred destruction"
-	// 				);
-	// 			});
-	// 	}
-
-	// 	// transfer balance (including dust) to beneficiary
-	// 	{
-	// 		let raw_value: U256 = self.account_balance(&contract_account);
-	//         log::info!(
-	//             target: LOG_TARGET,
-	//             "Transferring balance of BalanceWithDust {{ value: {:?}, dust: 0 }} (raw: {:?})
-	// from {:?} to {:?}",             raw_value,
-	//             raw_value,
-	//             contract_address,
-	//             beneficiary_address
-	//         );
-	// 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
-	// 		    .map_err(|e| {
-	// 				log::error!("exec.rs destroy_contract() contract_address: {contract_address:?},
-	// beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
-	// 				Error::<T>::BalanceConversionFailed
-	// 			})?;
-	// 		if !value.is_zero() {
-	// 			transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
-	// 		}
-	// 	}
-
-	// 	if !self.contracts_created.contains(&contract_account) {
-	// 		return Ok(CodeRemoved::No);
-	// 	}
-
-	// 	// mark trie for deletion and remove on-chain entries
-	// 	contract_info.queue_trie_for_deletion();
-	// 	AccountInfoOf::<T>::remove(contract_address);
-	// 	ImmutableDataOf::<T>::remove(contract_address);
-
-	// 	// decrement code refcount and return result
-	// 	let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-	// 	log::info!(target: LOG_TARGET, "Contract destroyed: {:?}", contract_address);
-	// 	Ok(removed)
-	// }
 	fn destroy_contract(
 		&mut self,
 		contract_address: &H160,
@@ -1805,23 +1738,21 @@ where
 				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
 			}
 		}
+		if self.contracts_created.contains(&contract_account) {
+			// Use the original termination logic for storage cleanup
+			self.first_frame.nested_storage.terminate(contract_info, beneficiary_account);
 
-		// Use the original termination logic for storage cleanup
-		self.first_frame.nested_storage.terminate(contract_info, beneficiary_account);
+			// Clean up on-chain storage
+			contract_info.queue_trie_for_deletion();
+			AccountInfoOf::<T>::remove(contract_address);
+			ImmutableDataOf::<T>::remove(contract_address);
 
-		// Clean up on-chain storage
-		contract_info.queue_trie_for_deletion();
-		AccountInfoOf::<T>::remove(contract_address);
-		ImmutableDataOf::<T>::remove(contract_address);
-
-		// Decrement code refcount
-		let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-
-		{
-			let raw_value: U256 = self.account_balance(&contract_account);
-			log::info!(target: LOG_TARGET, "Contract destroyed: {:?}, remaining balance: {:?}", contract_address, raw_value);
+			// Decrement code refcount
+			let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+			Ok(removed)
+		} else {
+			Ok(CodeRemoved::No)
 		}
-		Ok(removed)
 	}
 }
 
@@ -2360,10 +2291,11 @@ where
 			}
 			T::AddressMapper::to_address(&frame.account_id)
 		};
-		if allow_from_outside_tx || true {
+		if allow_from_outside_tx {
 			// Pretend the contract was created in the current tx
 			let account_id = self.top_frame_mut().account_id.clone();
 			self.contracts_created.insert(account_id);
+			log::info!("allow_from_outside_tx: inserted contract_address: {:?}", contract_address);
 		}
 
 		{
