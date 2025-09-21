@@ -543,54 +543,52 @@ fn instantiate_unique_trie_id() {
 
 #[test]
 fn instantiate_unique_trie_id2() {
-    let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
-    let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
+	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
+	let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
 
-    ExtBuilder::default().build().execute_with(|| {
-        let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-        
-        // Upload both contracts
-        assert_ok!(Contracts::upload_code(
-            RuntimeOrigin::signed(ALICE),
-            selfdestruct_binary,
-            deposit_limit::<Test>(),
-        ));
-        
-        assert_ok!(Contracts::upload_code(
-            RuntimeOrigin::signed(ALICE),
-            factory_binary,
-            deposit_limit::<Test>(),
-        ));
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-        // Deploy factory
-        let factory = builder::bare_instantiate(Code::Existing(factory_code_hash))
-            .native_value(100_000)
-            .build_and_unwrap_contract();
-        
-        // Call factory
-        let mut input_data = Vec::new();
-        input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
-        
-        let result = builder::bare_call(factory.addr)
-            .data(input_data)
-            .build();
-        
+		// Upload both contracts
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			selfdestruct_binary,
+			deposit_limit::<Test>(),
+		));
+
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			factory_binary,
+			deposit_limit::<Test>(),
+		));
+
+		// Deploy factory
+		let factory = builder::bare_instantiate(Code::Existing(factory_code_hash))
+			.native_value(100_000)
+			.build_and_unwrap_contract();
+
+		// Call factory
+		let mut input_data = Vec::new();
+		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
+
+		let result = builder::bare_call(factory.addr).data(input_data).build();
+
 		assert!(result.result.is_ok());
-        
-        // Extract the returned contract address
-        let returned_data = result.result.unwrap().data;
+
+		// Extract the returned contract address
+		let returned_data = result.result.unwrap().data;
 		assert!(returned_data.len() >= 20, "Returned data too short to contain address");
 		let mut contract_addr_bytes = [0u8; 20];
 		contract_addr_bytes.copy_from_slice(&returned_data[0..20]);
 		let contract_addr = H160::from(contract_addr_bytes);
-		
+
 		// Now get the trie_id from the test side (if contract still exists)
 		if let Some(contract_info) = get_contract_checked(&contract_addr) {
 			println!("Contract still exists, trie_id: {:?}", contract_info.trie_id);
 		} else {
 			println!("Contract was destroyed (EIP-6780 working correctly)");
 		}
-    });
+	});
 }
 
 #[test]
@@ -1094,18 +1092,24 @@ fn self_destruct_works() {
 
 		println!("contract addr: {:?}", contract.addr);
 		println!("contract account_id: {:?}", contract.account_id);
-		println!("contract balance: {:?}", <Test as Config>::Currency::total_balance(&contract.account_id));
-        // Use the contract address (H160) to check the balance, not the account_id
-        let contract_account = <Test as Config>::AddressMapper::to_account_id(&contract.addr);
-        println!("contract balance: {:?}", <Test as Config>::Currency::total_balance(&contract_account));
+		println!(
+			"contract balance: {:?}",
+			<Test as Config>::Currency::total_balance(&contract.account_id)
+		);
+		// Use the contract address (H160) to check the balance, not the account_id
+		let contract_account = <Test as Config>::AddressMapper::to_account_id(&contract.addr);
+		println!(
+			"contract balance: {:?}",
+			<Test as Config>::Currency::total_balance(&contract_account)
+		);
 
 		println!("contract_account: {contract_account:?}");
 		println!("contract.account_id: {:?}", contract.account_id);
 
-        // Check that account is gone
-        assert!(get_contract_checked(&contract.addr).is_none());
-        assert_eq!(<Test as Config>::Currency::total_balance(&contract_account), 0);
-		
+		// Check that account is gone
+		assert!(get_contract_checked(&contract.addr).is_none());
+		assert_eq!(<Test as Config>::Currency::total_balance(&contract_account), 0);
+
 		// Check that account is gone
 		assert!(get_contract_checked(&contract.addr).is_none());
 		assert_eq!(<Test as Config>::Currency::total_balance(&contract.account_id), 0);
@@ -3916,8 +3920,7 @@ fn mapped_address_works() {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// without a mapping everything will be send to the fallback account
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone()))
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
 			.native_value(100)
 			.build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
@@ -3945,8 +3948,7 @@ fn recovery_works() {
 
 		// eve puts her AccountId20 as argument to terminate but forgot to register
 		// her AccountId32 first so now the funds are trapped in her fallback account
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone()))
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
 			.native_value(100)
 			.build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);

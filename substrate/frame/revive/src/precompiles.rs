@@ -292,12 +292,12 @@ pub(crate) struct Instance<E> {
 
 // Provide a custom Debug impl that omits the function pointer.
 impl<E> core::fmt::Debug for Instance<E> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Instance")
-            .field("has_contract_info", &self.has_contract_info)
-            .field("address", &self.address)
-            .finish()
-    }
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("Instance")
+			.field("has_contract_info", &self.has_contract_info)
+			.field("address", &self.address)
+			.finish()
+	}
 }
 
 impl<E> Instance<E> {

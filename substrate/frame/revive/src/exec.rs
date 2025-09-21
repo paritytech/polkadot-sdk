@@ -436,7 +436,11 @@ pub trait PrecompileExt: sealing::Sealed {
 	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 
-	fn terminate(&mut self, beneficiary: &H160, allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError>;
+	fn terminate(
+		&mut self,
+		beneficiary: &H160,
+		allow_from_outside_tx: bool,
+	) -> Result<CodeRemoved, DispatchError>;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1303,7 +1307,10 @@ where
 			//    Pre-compiles itself cannot delegate call.
 			if let Some(precompile) = executable.as_precompile() {
 				log::info!("exec.rs run() executing precompile...");
-				log::info!("exec.rs run() precompile.has_contract_info(): {}", precompile.has_contract_info());
+				log::info!(
+					"exec.rs run() precompile.has_contract_info(): {}",
+					precompile.has_contract_info()
+				);
 				if precompile.has_contract_info() &&
 					frame.delegate.is_none() &&
 					!<System<T>>::account_exists(account_id)
@@ -1514,24 +1521,32 @@ where
 			}
 		} else {
 			// TODO: iterate contracts_to_be_destroyed and destroy each contract
-			let contracts_to_destroy: Vec<(H160, ContractInfo<T>, H160)> = self.contracts_to_be_destroyed.iter().cloned().collect();
+			let contracts_to_destroy: Vec<(H160, ContractInfo<T>, H160)> =
+				self.contracts_to_be_destroyed.iter().cloned().collect();
 			log::info!("contracts_to_destroy: {contracts_to_destroy:?}");
 			for (contract_address, contract_info, beneficiary) in contracts_to_destroy {
-
 				let contract_account = T::AddressMapper::to_account_id(&contract_address);
 				let beneficiary_account = T::AddressMapper::to_account_id(&beneficiary);
 
 				let raw_value: U256 = self.account_balance(&beneficiary_account);
-				log::info!("before beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}");
+				log::info!(
+					"before beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}"
+				);
 				let raw_value: U256 = self.account_balance(&contract_account);
-				log::info!("before contract_account: {contract_account:?}, raw_value: {raw_value:?}");
+				log::info!(
+					"before contract_account: {contract_account:?}, raw_value: {raw_value:?}"
+				);
 
 				self.destroy_contract(&contract_address, &contract_info, &beneficiary);
 
 				let raw_value: U256 = self.account_balance(&beneficiary_account);
-				log::info!("after beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}");
+				log::info!(
+					"after beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}"
+				);
 				let raw_value: U256 = self.account_balance(&contract_account);
-				log::info!("after contract_account: {contract_account:?}, raw_value: {raw_value:?}");
+				log::info!(
+					"after contract_account: {contract_account:?}, raw_value: {raw_value:?}"
+				);
 			}
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
@@ -1571,11 +1586,12 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> DispatchResult {
-        let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
-            .map_err(|e| {
-				log::error!("exec.rs transfer() from: {from:?}, to: {to:?}, value: {value:?}, error: {e:?}");
-				Error::<T>::BalanceConversionFailed
-			})?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value).map_err(|e| {
+			log::error!(
+				"exec.rs transfer() from: {from:?}, to: {to:?}, value: {value:?}, error: {e:?}"
+			);
+			Error::<T>::BalanceConversionFailed
+		})?;
 		if value.is_zero() {
 			return Ok(());
 		}
@@ -1684,7 +1700,7 @@ where
 		}
 		Some(System::<T>::block_hash(&block_number).into())
 	}
-	
+
 	// fn destroy_contract(
 	// 	&mut self,
 	// 	contract_address: &H160,
@@ -1701,7 +1717,6 @@ where
 	// 	// derive account ids
 	// 	let contract_account = T::AddressMapper::to_account_id(contract_address);
 	// 	let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
-
 
 	// 	// refund storage deposit accounting if any (use provided ContractInfo)
 	// 	let deposit_to_refund = contract_info.total_deposit();
@@ -1720,17 +1735,18 @@ where
 	// 	// transfer balance (including dust) to beneficiary
 	// 	{
 	// 		let raw_value: U256 = self.account_balance(&contract_account);
-    //         log::info!(
-    //             target: LOG_TARGET,
-    //             "Transferring balance of BalanceWithDust {{ value: {:?}, dust: 0 }} (raw: {:?}) from {:?} to {:?}",
-    //             raw_value,
-    //             raw_value,
-    //             contract_address,
-    //             beneficiary_address
-    //         );
+	//         log::info!(
+	//             target: LOG_TARGET,
+	//             "Transferring balance of BalanceWithDust {{ value: {:?}, dust: 0 }} (raw: {:?})
+	// from {:?} to {:?}",             raw_value,
+	//             raw_value,
+	//             contract_address,
+	//             beneficiary_address
+	//         );
 	// 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
 	// 		    .map_err(|e| {
-	// 				log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
+	// 				log::error!("exec.rs destroy_contract() contract_address: {contract_address:?},
+	// beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
 	// 				Error::<T>::BalanceConversionFailed
 	// 			})?;
 	// 		if !value.is_zero() {
@@ -1753,60 +1769,60 @@ where
 	// 	Ok(removed)
 	// }
 	fn destroy_contract(
-        &mut self,
-        contract_address: &H160,
-        contract_info: &ContractInfo<T>,
-        beneficiary_address: &H160,
-    ) -> Result<CodeRemoved, DispatchError> {
-        log::info!(
-            target: LOG_TARGET,
-            "Destroying contract: {:?} for beneficiary: {:?}",
-            contract_address,
-            beneficiary_address
-        );
+		&mut self,
+		contract_address: &H160,
+		contract_info: &ContractInfo<T>,
+		beneficiary_address: &H160,
+	) -> Result<CodeRemoved, DispatchError> {
+		log::info!(
+			target: LOG_TARGET,
+			"Destroying contract: {:?} for beneficiary: {:?}",
+			contract_address,
+			beneficiary_address
+		);
 
-        // derive account ids
-        let contract_account = T::AddressMapper::to_account_id(contract_address);
-        let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
+		// derive account ids
+		let contract_account = T::AddressMapper::to_account_id(contract_address);
+		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
-        // Transfer ALL balance to beneficiary (this should drain the account completely)
-        {
-            let raw_value: U256 = self.account_balance(&contract_account);
-            log::info!(
-                target: LOG_TARGET,
-                "Transferring balance of BalanceWithDust {{ value: {:?}, dust: 0 }} (raw: {:?}) from {:?} to {:?}",
-                raw_value,
-                raw_value,
-                contract_address,
-                beneficiary_address
-            );
-            let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
+		// Transfer ALL balance to beneficiary (this should drain the account completely)
+		{
+			let raw_value: U256 = self.account_balance(&contract_account);
+			log::info!(
+				target: LOG_TARGET,
+				"Transferring balance of BalanceWithDust {{ value: {:?}, dust: 0 }} (raw: {:?}) from {:?} to {:?}",
+				raw_value,
+				raw_value,
+				contract_address,
+				beneficiary_address
+			);
+			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
                 .map_err(|e| {
                     log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
                     Error::<T>::BalanceConversionFailed
                 })?;
-            if !value.is_zero() {
-                transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
-            }
-        }
-        
-        // Use the original termination logic for storage cleanup
-        self.first_frame.nested_storage.terminate(contract_info, beneficiary_account);
-
-        // Clean up on-chain storage
-        contract_info.queue_trie_for_deletion();
-        AccountInfoOf::<T>::remove(contract_address);
-        ImmutableDataOf::<T>::remove(contract_address);
-
-        // Decrement code refcount
-        let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-        
-		{
-            let raw_value: U256 = self.account_balance(&contract_account);
-        	log::info!(target: LOG_TARGET, "Contract destroyed: {:?}, remaining balance: {:?}", contract_address, raw_value);
+			if !value.is_zero() {
+				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
+			}
 		}
-        Ok(removed)
-    }
+
+		// Use the original termination logic for storage cleanup
+		self.first_frame.nested_storage.terminate(contract_info, beneficiary_account);
+
+		// Clean up on-chain storage
+		contract_info.queue_trie_for_deletion();
+		AccountInfoOf::<T>::remove(contract_address);
+		ImmutableDataOf::<T>::remove(contract_address);
+
+		// Decrement code refcount
+		let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+
+		{
+			let raw_value: U256 = self.account_balance(&contract_account);
+			log::info!(target: LOG_TARGET, "Contract destroyed: {:?}, remaining balance: {:?}", contract_address, raw_value);
+		}
+		Ok(removed)
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -2048,7 +2064,10 @@ where
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
-				log::info!("exec.rs call fallback dest: {:02x?}", T::AddressMapper::to_fallback_account_id(dest_addr));
+				log::info!(
+					"exec.rs call fallback dest: {:02x?}",
+					T::AddressMapper::to_fallback_account_id(dest_addr)
+				);
 				T::AddressMapper::to_fallback_account_id(dest_addr)
 			} else {
 				T::AddressMapper::to_account_id(dest_addr)
@@ -2325,7 +2344,11 @@ where
 		&mut self.top_frame_mut().last_frame_output
 	}
 
-	fn terminate(&mut self, beneficiary: &H160, allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError> {
+	fn terminate(
+		&mut self,
+		beneficiary: &H160,
+		allow_from_outside_tx: bool,
+	) -> Result<CodeRemoved, DispatchError> {
 		log::info!("called terminate {:?} {}", beneficiary, allow_from_outside_tx);
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into());
@@ -2345,7 +2368,11 @@ where
 
 		{
 			let contract_info = self.top_frame_mut().terminate();
-			self.contracts_to_be_destroyed.insert((contract_address, contract_info.clone(), *beneficiary));
+			self.contracts_to_be_destroyed.insert((
+				contract_address,
+				contract_info.clone(),
+				*beneficiary,
+			));
 		}
 		Ok(CodeRemoved::Yes)
 	}

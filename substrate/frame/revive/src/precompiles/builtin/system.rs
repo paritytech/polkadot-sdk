@@ -17,11 +17,10 @@
 
 use crate::{
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, ExtWithInfo},
 	vm::RuntimeCosts,
 	Config, H160,
 };
-use crate::precompiles::ExtWithInfo;
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
 use codec::Encode;
@@ -43,7 +42,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-				log::info!(">>>>>>>>>>>>>called precompile call");
+		log::info!(">>>>>>>>>>>>>called precompile call");
 		use ISystem::ISystemCalls;
 		match input {
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
@@ -90,24 +89,24 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
 			},
-            // terminate requires contract info; route to call_with_info by returning an error here
-            ISystemCalls::terminate(_) => {
+			// terminate requires contract info; route to call_with_info by returning an error here
+			ISystemCalls::terminate(_) => {
 				log::error!("system.rs precompile call() for terminate is not implemented");
 				unimplemented!("not implemented")
 			},
-        }
+		}
 		// Ok(Vec::new())
 	}
 
-    // implement the contract-info aware entrypoint
-    fn call_with_info(
-        _address: &[u8; 20],
-        input: &Self::Interface,
-        env: &mut impl ExtWithInfo<T = Self::T>,
-    ) -> Result<Vec<u8>, Error> {
-				log::info!("called precompile call_with_info");
-        use ISystem::ISystemCalls;
-        match input {
+	// implement the contract-info aware entrypoint
+	fn call_with_info(
+		_address: &[u8; 20],
+		input: &Self::Interface,
+		env: &mut impl ExtWithInfo<T = Self::T>,
+	) -> Result<Vec<u8>, Error> {
+		log::info!("called precompile call_with_info");
+		use ISystem::ISystemCalls;
+		match input {
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
@@ -152,20 +151,21 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
 			},
-            ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
+			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
 				log::info!("called precompile terminate {:?}", beneficiary);
-                // charge termination cost
-                env.gas_meter_mut().charge(RuntimeCosts::Terminate{ code_removed: true })?;
-                // beneficiary is 20 bytes; convert to H160
-                let h160 = H160::from_slice(beneficiary.as_slice());
-                // call into exec layer to terminate the contract; allow_from_outside_tx = true
-                // `terminate` returns Result<CodeRemoved, DispatchError>, `?` will convert via From if available.
-                env.terminate(&h160, true)?;
-                Ok(Vec::new())
-            },
-        }
+				// charge termination cost
+				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
+				// beneficiary is 20 bytes; convert to H160
+				let h160 = H160::from_slice(beneficiary.as_slice());
+				// call into exec layer to terminate the contract; allow_from_outside_tx = true
+				// `terminate` returns Result<CodeRemoved, DispatchError>, `?` will convert via From
+				// if available.
+				env.terminate(&h160, true)?;
+				Ok(Vec::new())
+			},
+		}
 		// Ok(Vec::new())
-    }
+	}
 }
 
 #[cfg(test)]
@@ -196,8 +196,11 @@ mod tests {
 	fn print_selector() {
 		use crate::precompiles::alloy::hex;
 		let unmapped_address = H160::zero();
-    	println!("generated sel (sol!): {:02x?}", ISystem::terminateCall{beneficiary: unmapped_address.0.into(),});
-    println!("SYSTEM base_address = 0x{}", hex::encode(<System<Test>>::MATCHER.base_address()));
+		println!(
+			"generated sel (sol!): {:02x?}",
+			ISystem::terminateCall { beneficiary: unmapped_address.0.into() }
+		);
+		println!("SYSTEM base_address = 0x{}", hex::encode(<System<Test>>::MATCHER.base_address()));
 	}
 
 	#[test]
