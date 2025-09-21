@@ -92,7 +92,9 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			// terminate requires contract info; route to call_with_info by returning an error here
 			ISystemCalls::terminate(_) => {
 				log::error!("system.rs precompile call() for terminate is not implemented");
-				unimplemented!("not implemented")
+				// unimplemented!("not implemented")
+				// do nothing, just wait for the log to show up. Still debugging.
+				Ok(Vec::new())
 			},
 		}
 		// Ok(Vec::new())
