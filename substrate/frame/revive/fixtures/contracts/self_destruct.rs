@@ -54,36 +54,7 @@ pub extern "C" fn call() {
 		)
 		.unwrap();
 	} else {
-		// // Try to terminate and give balance to django.
+		// Try to terminate and give balance to django.
 		api::terminate(&DJANGO_FALLBACK);
-
-
-		// // Call the system terminate precompile instead of the host helper.
-		// // Build calldata: 4-byte selector + 32-byte ABI-encoded address (right-aligned).
-		// // Compute the selector as keccak256("terminate(address)")[:4] and put it in TERMINATE_SELECTOR.
-		// // Set SYSTEM_PRECOMPILE_ADDR to the 20-byte builtin address you registered for the System builtin.
-		// const TERMINATE_SELECTOR: [u8; 4] = [0x0b, 0x0c, 0x0d, 0x0e];
-		// const SYSTEM_PRECOMPILE_ADDR: [u8; 20] = [
-		// 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		// 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x00,
-		// ];
-
-		// let mut calldata = [0u8; 4 + 32];
-		// calldata[0..4].copy_from_slice(&TERMINATE_SELECTOR);
-		// // ABI encode address: right-align into 32 bytes (pad with 12 leading zeros).
-		// calldata[4 + 12..4 + 32].copy_from_slice(&DJANGO_FALLBACK);
-
-		// // call the precompile (allow reentry if needed)
-		// api::call(
-		// 	uapi::CallFlags::ALLOW_REENTRY,
-		// 	&SYSTEM_PRECOMPILE_ADDR,
-		// 	u64::MAX,
-		// 	u64::MAX,
-		// 	&[u8::MAX; 32], // deposit_limit (use appropriate value for your runtime)
-		// 	&[0u8; 32],     // value
-		// 	&calldata,
-		// 	None,
-		// )
-		// .unwrap();
 	}
 }

@@ -31,13 +31,6 @@ pub extern "C" fn call() {
         None,
         Some(&salt),
     ).unwrap();
-    // let mut contract_info_buffer = [0u8; 128];
-    // let mut contract_info_slice = &mut contract_info_buffer[..];
-    // api::contract_info(&addr, &mut contract_info_slice).unwrap();
-    
-    // // Extract trie_id from the returned data (first 32 bytes)
-    // let mut trie_id = [0u8; 32];
-    // trie_id.copy_from_slice(&contract_info_slice[0..32]);
     
     api::call(
         uapi::CallFlags::empty(),
