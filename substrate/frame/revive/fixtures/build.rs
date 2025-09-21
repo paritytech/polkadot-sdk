@@ -217,7 +217,7 @@ fn compile_with_standard_json(
 		"sources": {},
 		"settings": {
 			"optimizer": {
-				"enabled": true,
+				"enabled": false,
 				"runs": 200
 			},
 			"outputSelection":
@@ -344,12 +344,19 @@ fn compile_solidity_contracts(
 		return Ok(());
 	}
 
+	let evm_only = vec!["HostEvmOnly"];
+	let solidity_entries_pvm: Vec<_> = solidity_entries
+		.iter()
+		.cloned()
+		.filter(|entry| !evm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
+		.collect();
+
 	// Compile with solc for EVM bytecode
 	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries)?;
 	extract_and_write_bytecode(&json, out_dir, ".sol.bin")?;
 
 	// Compile with resolc for PVM bytecode
-	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries)?;
+	let json = compile_with_standard_json("resolc", contracts_dir, &solidity_entries_pvm)?;
 	extract_and_write_bytecode(&json, out_dir, ".resolc.polkavm")?;
 
 	Ok(())
@@ -463,7 +470,7 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 	// Generate sol! macros for Solidity contracts
 	for entry in entries.iter().filter(|e| matches!(e.contract_type, ContractType::Solidity)) {
 		let relative_path = format!("contracts/{}", entry.path().split('/').last().unwrap());
-		writeln!(file, r#"alloy_core::sol!("{}");"#, relative_path)
+		writeln!(file, r#"#[cfg(feature = "std")] alloy_core::sol!("{}");"#, relative_path)
 			.context("Failed to write sol! macro to fixture_location.rs")?;
 	}
 
