@@ -72,7 +72,7 @@ pub mod pallet {
 	}
 
 	/// Tracks which parachains have published data.
-	/// 
+	///
 	/// Maps parachain ID to a boolean indicating whether they have a child trie.
 	/// The actual child trie info is derived deterministically from the ParaId.
 	#[pallet::storage]
@@ -81,6 +81,16 @@ pub mod pallet {
 		Blake2_128Concat,
 		ParaId,
 		bool,
+		ValueQuery,
+	>;
+
+	/// Tracks all published keys per parachain.
+	#[pallet::storage]
+	pub type PublishedKeys<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		ParaId,
+		BoundedBTreeSet<BoundedVec<u8, T::MaxKeyLength>, T::MaxPublishItems>,
 		ValueQuery,
 	>;
 
@@ -125,10 +135,21 @@ pub mod pallet {
 			// All validation passed, now get or create child trie info for this publisher
 			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
 
-			// Store each key-value pair in the child trie
+			// Get current published keys set for tracking
+			let mut published_keys = PublishedKeys::<T>::get(origin_para_id);
+
+			// Store each key-value pair in the child trie and track the key
 			for (key, value) in data {
 				frame_support::storage::child::put(&child_info, &key, &value);
+
+				// Track the key for enumeration (convert to BoundedVec)
+				if let Ok(bounded_key) = BoundedVec::try_from(key) {
+					let _ = published_keys.try_insert(bounded_key);
+				}
 			}
+
+			// Update the published keys storage
+			PublishedKeys::<T>::insert(origin_para_id, published_keys);
 
 			Ok(())
 		}
@@ -172,6 +193,25 @@ pub mod pallet {
 			} else {
 				None
 			}
+		}
+
+		/// Get all published data for a parachain.
+		pub fn get_all_published_data(para_id: ParaId) -> Vec<(Vec<u8>, Vec<u8>)> {
+			if !PublisherExists::<T>::get(para_id) {
+				return Vec::new();
+			}
+
+			let child_info = Self::derive_child_info(para_id);
+			let published_keys = PublishedKeys::<T>::get(para_id);
+
+			published_keys
+				.into_iter()
+				.filter_map(|bounded_key| {
+					let key: Vec<u8> = bounded_key.into();
+					frame_support::storage::child::get(&child_info, &key)
+						.map(|value| (key, value))
+				})
+				.collect()
 		}
 	}
 }
