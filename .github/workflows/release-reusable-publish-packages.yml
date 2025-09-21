@@ -192,10 +192,11 @@ jobs:
             echo "hello world" > testfile.txt
             /home/runner/.local/bin/pgpkms sign --input testfile.txt --output testfile.sig
             ls -l testfile*
-            
+
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
             echo "Signing package with pgpkms (via AWS KMS)..."
+            chmod +x .github/scripts/pgpkms-gpg-wrapper.sh
             cp .github/workflows/rpmmacros $HOME/.rpmmacros
 
             echo "Dumping rpm gpg-related macros..."
