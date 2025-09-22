@@ -1,0 +1,10 @@
+title: Elastic scaling runtime upgrade test
+doc:
+- audience: Todo
+  description: |-
+    Closes https://github.com/paritytech/polkadot-sdk/issues/7259.
+
+    TODO
+    - [ ] prdoc
+    - [ ] upgrade from sync backing
+crates: []
