@@ -64,13 +64,11 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-version = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
-trie-root = { workspace = true }
 
 [dev-dependencies]
 alloy-consensus = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-ethereum = { version = "0.18.2", default-features = false, features = ["with-scale"] }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
@@ -92,7 +90,6 @@ std = [
 	"codec/std",
 	"environmental/std",
 	"ethereum-types/std",
-	"ethereum/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -129,7 +126,6 @@ std = [
 	"sp-runtime/std",
 	"sp-version/std",
 	"subxt-signer",
-	"trie-root/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

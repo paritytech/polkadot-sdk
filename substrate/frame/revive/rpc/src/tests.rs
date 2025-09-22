@@ -29,7 +29,7 @@ use clap::Parser;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
-	evm::{Account, BlockTag, TransactionUnsigned, U256},
+	evm::{Account, BlockTag, U256},
 };
 use static_init::dynamic;
 use std::{sync::Arc, thread};
@@ -265,12 +265,7 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 	let err = TransactionBuilder::new(&client)
 		.value(U256::from(1_000_000_000_000u128))
 		.to(ethan.address())
-		.mutate(|tx| match tx {
-			TransactionUnsigned::TransactionLegacyUnsigned(tx) => tx.chain_id = Some(42u32.into()),
-			TransactionUnsigned::Transaction1559Unsigned(tx) => tx.chain_id = 42u32.into(),
-			TransactionUnsigned::Transaction2930Unsigned(tx) => tx.chain_id = 42u32.into(),
-			TransactionUnsigned::Transaction4844Unsigned(tx) => tx.chain_id = 42u32.into(),
-		})
+		.mutate(|tx| tx.chain_id = Some(42u32.into()))
 		.send()
 		.await
 		.unwrap_err();
