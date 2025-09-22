@@ -1,10 +1,7 @@
-title: Added pallet-root-offences to Westend RC runtime
+title: Added pallet-root-offences to Westend relay-chain runtime
 doc:
 - audience: Runtime Dev
-  description: "Needed to let us test a manual slash on Westend relay-chain and see\
-    \ what happens in terms of UI, indexers etc on the revamped [PJS's staking async\
-    \ page](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwestend-asset-hub-rpc.polkadot.io#/staking-async)\
-    \ \U0001F37F "
+  description: "Needed to let us test a manual slash on Westend relay-chain."
 crates:
 - name: westend-runtime
   bump: major
