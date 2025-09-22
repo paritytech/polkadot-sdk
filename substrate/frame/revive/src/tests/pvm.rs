@@ -1066,19 +1066,11 @@ fn cannot_self_destruct_while_live() {
 
 #[test]
 fn self_destruct_works() {
-	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
 	let (binary, code_hash) = compile_module("self_destruct").unwrap();
 	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
 		let min_balance = Contracts::min_balance();
-
-		// Upload both contracts
-		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			factory_binary,
-			deposit_limit::<Test>(),
-		));
 
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(binary))
@@ -1112,8 +1104,6 @@ fn self_destruct_works() {
 
 		// Check that the Alice is missing Django's benefit. Within ALICE's total balance
 		// there's also the code upload deposit held.
-		println!("alice balance: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
-		println!("expected balance: {:?}", 1_000_000 - (100_000 + min_balance));
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&ALICE),
 			1_000_000 - (100_000 + min_balance)

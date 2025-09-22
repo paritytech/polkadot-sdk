@@ -21,7 +21,7 @@ use crate::{
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{evm::U256Converter, Ext},
-	DispatchError, Key, RuntimeCosts,
+	DispatchError, Key, RuntimeCosts, LOG_TARGET,
 };
 use revm::{
 	interpreter::{interpreter_types::StackTr, InstructionResult},
@@ -255,24 +255,19 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	// TODO: for now this instruction is not supported
-	context.interpreter.halt(InstructionResult::NotActivated);
-
-	// Check if we're in a static context
-	// require_non_staticcall!(context.interpreter);
 	popn!([beneficiary], context.interpreter);
 	let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
 	let dispatch_result = context.interpreter.extend.terminate(&h160, false);
 
-	// match dispatch_result {
-	// 	Ok(_) => {
-	// 		context.interpreter.halt(InstructionResult::SelfDestruct);
-	// 		return;
-	// 	},
-	// 	Err(e) => {
-	// 		log::debug!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
-	// 		context.interpreter.halt(InstructionResult::FatalExternalError);
-	// 		return;
-	// 	},
-	// }
+	match dispatch_result {
+		Ok(_) => {
+			context.interpreter.halt(InstructionResult::SelfDestruct);
+			return;
+		},
+		Err(e) => {
+			log::error!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
+			context.interpreter.halt(InstructionResult::FatalExternalError);
+			return;
+		},
+	}
 }
