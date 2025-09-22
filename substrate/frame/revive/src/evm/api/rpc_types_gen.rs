@@ -480,6 +480,26 @@ impl Default for HashesOrTransactionInfos {
 		HashesOrTransactionInfos::Hashes(Default::default())
 	}
 }
+impl HashesOrTransactionInfos {
+	pub fn push_hash(&mut self, hash: H256) {
+		match self {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes.push(hash),
+			_ => {},
+		}
+	}
+
+	pub fn len(&self) -> usize {
+		match self {
+			HashesOrTransactionInfos::Hashes(v) => v.len(),
+			HashesOrTransactionInfos::TransactionInfos(v) => v.len(),
+		}
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+}
+
 /// log
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]

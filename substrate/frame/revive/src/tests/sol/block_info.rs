@@ -70,7 +70,7 @@ fn block_author_works() {
 				.data(BlockInfo::BlockInfoCalls::coinbase(BlockInfo::coinbaseCall {}).abi_encode())
 				.build_and_unwrap_result();
 			assert_eq!(
-				Contracts::block_author().unwrap(),
+				Contracts::block_author(),
 				// Padding is used into the 32 bytes
 				H160::from_slice(&result.data[12..])
 			);
