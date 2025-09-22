@@ -77,7 +77,9 @@ pub fn encode_bool(value: bool, out: &mut [u8]) {
 ///
 /// The returned layout will be
 ///
-///     "[offset (32 bytes)] [len (32 bytes)] [data (padded to 32)]"
+/// ```no_compile
+/// [offset (32 bytes)] [len (32 bytes)] [data (padded to 32)]
+/// ```
 ///
 /// The `out` byte array needs to be able to hold (in the worst case)
 /// 95 bytes more than `input.len()`. This is because we write the
