@@ -17,10 +17,10 @@
 
 //! Helper utilities around pre-compiles.
 //!
-//! This file also contains a bunch of function for Solidity type encoding
+//! This file contains a number of functions for Solidity type encoding
 //! and decoding. Notably these implementations don't require an allocator,
 //! which is why they are here in the first place (e.g. `alloy-core` requires
-//! an allocator for the Solidity `bytes` type.
+//! an allocator for the Solidity `bytes` type).
 
 /// Returns the Solidity selector for `fn_sig`.
 ///
