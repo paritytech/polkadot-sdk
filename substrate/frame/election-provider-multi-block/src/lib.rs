@@ -195,6 +195,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
 use crate::signed::{CalculateBaseDeposit, CalculatePageDeposit};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
