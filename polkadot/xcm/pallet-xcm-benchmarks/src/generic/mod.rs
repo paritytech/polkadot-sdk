@@ -27,8 +27,7 @@ pub mod pallet {
 	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	use sp_runtime::traits::Dispatchable;
 	use xcm::latest::{
-		Asset, Assets, Instruction, InteriorLocation, Junction, Location, NetworkId, Response,
-		WeightLimit, Xcm,
+		Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response, WeightLimit,
 	};
 
 	#[pallet::config]
@@ -104,7 +103,7 @@ pub mod pallet {
 		/// acceptance and rejection cases.
 		///
 		/// If set to `Err`, benchmarks which rely on a `barrier_check` will be skipped.
-		fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError>;
+		fn worst_case_for_not_passing_barrier() -> Result<<Self as Config<I>>::RuntimeCall, BenchmarkError>;
 
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///

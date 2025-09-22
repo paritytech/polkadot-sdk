@@ -194,8 +194,8 @@ impl generic::Config for Test {
 		Ok((origin, target))
 	}
 
-	fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-		Ok(Xcm(vec![]))
+	fn worst_case_for_not_passing_barrier() -> Result<<Self as generic::Config>::RuntimeCall, BenchmarkError> {
+		Ok(vec![].into())
 	}
 }
 

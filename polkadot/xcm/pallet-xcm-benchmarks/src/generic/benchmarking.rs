@@ -963,13 +963,14 @@ mod benchmarks {
 
 	#[benchmark]
 	fn barrier_check() -> Result<(), BenchmarkError> {
-		let xcm = T::worst_case_for_not_passing_barrier().map_err(|_| BenchmarkError::Skip)?;
+		let instruments =
+			T::worst_case_for_not_passing_barrier().map_err(|_| BenchmarkError::Skip)?;
 
 		let mut executor = new_executor::<T>(Default::default());
 
 		#[block]
 		{
-			let _ = executor.bench_process(xcm);
+			let _ = executor.bench_process(Xcm(instruments.into()));
 		}
 		let err = executor.error().expect("Error should exist after barrier rejection");
 		assert_eq!(err.1, xcm::latest::Error::Barrier);
