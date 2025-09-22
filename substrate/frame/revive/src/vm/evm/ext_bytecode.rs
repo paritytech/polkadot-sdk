@@ -37,6 +37,10 @@ impl ExtBytecode {
 	fn is_end(&self) -> bool {
 		self.instruction_pointer.is_null()
 	}
+
+	pub fn bytecode_slice(&self) -> &[u8] {
+		self.base.original_byte_slice()
+	}
 }
 
 impl Jumps for ExtBytecode {

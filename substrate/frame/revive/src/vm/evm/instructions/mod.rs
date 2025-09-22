@@ -34,16 +34,14 @@ mod contract;
 mod control;
 /// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
 mod host;
-// /// Signed 256-bit integer operations.
-// mod i256;
-// /// Memory operations (MLOAD, MSTORE, MSIZE, etc.).
-// mod memory;
-// /// Stack operations (PUSH, POP, DUP, SWAP, etc.).
-// mod stack;
-// /// System information instructions (ADDRESS, CALLER, etc.).
-// mod system;
-// /// Transaction information instructions (ORIGIN, GASPRICE, etc.).
-// mod tx_info;
+/// Memory operations (MLOAD, MSTORE, MSIZE, etc.).
+mod memory;
+/// Stack operations (PUSH, POP, DUP, SWAP, etc.).
+mod stack;
+/// System information instructions (ADDRESS, CALLER, etc.).
+mod system;
+/// Transaction information instructions (ORIGIN, GASPRICE, etc.).
+mod tx_info;
 /// Utility functions and helpers for instruction implementation.
 mod utility;
 //
