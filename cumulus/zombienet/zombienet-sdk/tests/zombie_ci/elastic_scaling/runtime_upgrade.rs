@@ -5,15 +5,15 @@ use anyhow::anyhow;
 use serde_json::json;
 use std::time::Duration;
 
-use crate::utils::{assign_cores, initialize_network, runtime_upgrade};
+use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_throughput, assign_cores, runtime_upgrade, wait_for_upgrade,
+};
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
-use zombienet_configuration::types::AssetLocation;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
 	NetworkConfig, NetworkConfigBuilder,
 };
 
@@ -23,23 +23,6 @@ const WASM_WITH_ELASTIC_SCALING: &str =
 
 const WASM_WITH_ELASTIC_SCALING_12S_SLOT: &str =
 	"/tmp/wasm_binary_elastic_scaling_12s_slot.rs.compact.compressed.wasm";
-
-async fn wait_for_upgrade(
-	client: OnlineClient<PolkadotConfig>,
-	expected_version: u32,
-) -> Result<(), anyhow::Error> {
-	let updater = client.updater();
-	let mut update_stream = updater.runtime_updates().await?;
-
-	while let Some(Ok(update)) = update_stream.next().await {
-		let version = update.runtime_version().spec_version;
-		log::info!("Update runtime spec version {version}");
-		if version == expected_version {
-			break;
-		}
-	}
-	Ok(())
-}
 
 // This test ensures that we can upgrade the parachain's runtime to support elastic scaling
 // and that the parachain produces 3 blocks per slot after the upgrade.

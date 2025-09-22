@@ -3,9 +3,9 @@
 
 use anyhow::anyhow;
 
-use crate::utils::{assign_cores, initialize_network};
+use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{

@@ -4,15 +4,16 @@
 use anyhow::anyhow;
 use std::{sync::Arc, time::Duration};
 
-use crate::utils::{assign_cores, initialize_network, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
-use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_is_registered, assert_para_throughput, assign_cores,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
 };
 

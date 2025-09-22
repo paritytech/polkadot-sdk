@@ -4,15 +4,12 @@
 use anyhow::anyhow;
 use std::time::Duration;
 
-use crate::utils::{assign_cores, initialize_network, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
+use cumulus_zombienet_sdk_helpers::assign_cores;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
-	NetworkConfig, NetworkConfigBuilder,
-};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID_1: u32 = 2100;
 const PARA_ID_2: u32 = 2000;

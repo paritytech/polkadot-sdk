@@ -9,11 +9,10 @@ use cumulus_zombienet_sdk_helpers::assert_relay_parent_offset;
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
-use crate::utils::assign_cores;
+use cumulus_zombienet_sdk_helpers::assign_cores;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
