@@ -922,14 +922,18 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						match ChannelSignal::decode(&mut data) {
 							Ok(ChannelSignal::Suspend) => {
 								if meter.try_consume(T::WeightInfo::suspend_channel()).is_err() {
-									defensive!("Not enough weight to process suspend signal - dropping");
+									defensive!(
+										"Not enough weight to process suspend signal - dropping"
+									);
 									break
 								}
 								Self::suspend_channel(sender)
 							},
 							Ok(ChannelSignal::Resume) => {
 								if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
-									defensive!("Not enough weight to process resume signal - dropping");
+									defensive!(
+										"Not enough weight to process resume signal - dropping"
+									);
 									break
 								}
 								Self::resume_channel(sender)
