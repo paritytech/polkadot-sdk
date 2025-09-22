@@ -2563,8 +2563,18 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				}
 
 				fn barrier_check() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-					// TODO: implement a benchmark for barrier check
-					Err(BenchmarkError::Skip)
+					let xcm =
+						Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
+							Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
+								Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![
+									SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
+										Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]),
+									)]))])),
+								]))]))]),
+							)]))]))]),
+						)]))]))]);
+
+					Ok(xcm)
 				}
 			}
 

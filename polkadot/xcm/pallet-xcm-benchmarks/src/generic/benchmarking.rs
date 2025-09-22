@@ -969,7 +969,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			executor.bench_process(xcm)?;
+			let _ = executor.bench_process(xcm);
 		}
 		let err = executor.error().expect("Error should exist after barrier rejection");
 		assert_eq!(err, xcm::latest::Error::Barrier);
