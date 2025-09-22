@@ -559,7 +559,7 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub(crate) type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
+	pub(crate) type BlockHash<T: Config> = StorageMap<_, Identity, U256, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
