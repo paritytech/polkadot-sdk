@@ -963,7 +963,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn barrier_check() -> Result<(), BenchmarkError> {
-		let xmc = T::barrier_check().map_err(|_| BenchmarkError::Skip)?;
+		let xcm = T::worst_case_for_not_passing_barrier().map_err(|_| BenchmarkError::Skip)?;
 
 		let mut executor = new_executor::<T>(Default::default());
 

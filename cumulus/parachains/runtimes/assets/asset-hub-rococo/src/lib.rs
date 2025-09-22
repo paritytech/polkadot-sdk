@@ -2016,7 +2016,7 @@ impl_runtime_apis! {
 					))
 				}
 
-				fn barrier_check() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+				fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 			}

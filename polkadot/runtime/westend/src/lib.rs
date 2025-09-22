@@ -3072,7 +3072,7 @@ sp_api::impl_runtime_apis! {
 					Ok((origin, target))
 				}
 
-				fn barrier_check() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+				fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 			}
