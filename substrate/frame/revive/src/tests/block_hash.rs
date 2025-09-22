@@ -141,7 +141,7 @@ fn events_are_captured() {
 			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 		];
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
-		const EXPECTED_GAS: u64 = 7735804;
+		const EXPECTED_GAS: u64 = 7203594;
 
 		let logs = vec![AlloyLog::new_unchecked(
 			contract.0.into(),
