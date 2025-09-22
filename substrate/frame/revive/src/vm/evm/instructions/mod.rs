@@ -32,8 +32,8 @@ mod block_info;
 mod contract;
 /// Control flow instructions (JUMP, JUMPI, REVERT, etc.).
 mod control;
-// /// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
-// mod host;
+/// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
+mod host;
 // /// Signed 256-bit integer operations.
 // mod i256;
 // /// Memory operations (MLOAD, MSTORE, MSIZE, etc.).

@@ -32,10 +32,20 @@ impl Memory {
 	}
 
 	/// Get a slice of memory for the given range
+	/// TODO same as slice_mut?
 	pub fn slice(&self, range: Range<usize>) -> &[u8] {
 		let end = core::cmp::min(range.end, self.0.len());
 		let start = core::cmp::min(range.start, end);
 		&self.0[start..end]
+	}
+
+	/// Returns a byte slice of the memory region at the given offset.
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
+	pub fn slice_mut(&mut self, offset: usize, len: usize) -> &mut [u8] {
+		&mut self.0[offset..offset + len]
 	}
 
 	/// Get the current memory size in bytes
