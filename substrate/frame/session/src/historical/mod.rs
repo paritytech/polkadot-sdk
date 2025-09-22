@@ -41,7 +41,7 @@ use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
+	LayoutV0, MemoryDB, RandomState, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
 };
 
 use frame_support::{
@@ -264,7 +264,7 @@ impl<T: Config> ProvingTrie<T> {
 	where
 		I: IntoIterator<Item = (T::ValidatorId, T::FullIdentification)>,
 	{
-		let mut db = MemoryDB::default();
+		let mut db = MemoryDB::with_hasher(RandomState::default());
 		let mut root = Default::default();
 
 		{

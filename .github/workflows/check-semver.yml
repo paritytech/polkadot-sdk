@@ -1,6 +1,10 @@
 name: Check semver
 
 on:
+  # for cache
+  push:
+    branches:
+      - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   workflow_dispatch:
@@ -11,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TOOLCHAIN: nightly-2024-11-19
+  TOOLCHAIN: nightly-2025-05-09
 
 jobs:
   isdraft:
@@ -26,7 +30,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
         with:
           fetch-depth: 2
 
@@ -66,9 +70,9 @@ jobs:
           echo "PRDOC_EXTRA_ARGS=--max-bump minor" >> $GITHUB_ENV
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
-          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Rust compilation prerequisites
         run: |
@@ -78,10 +82,11 @@ jobs:
 
       - name: Install parity-publish
         # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.4 --locked -q
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.6 --locked -q
 
       - name: Get original PR number
         shell: bash
+        if: ${{ github.ref != 'refs/heads/master' }}
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
@@ -100,6 +105,7 @@ jobs:
           echo "PR_NUMBER=$original_pr_number" >> $GITHUB_ENV
 
       - name: Check semver
+        if: ${{ github.ref != 'refs/heads/master' }}
         env:
           PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
           PR: ${{ env.PR_NUMBER }}
@@ -128,10 +134,10 @@ jobs:
 
             exit 1
           fi
-          
+
           # Only enforce SemVer restrictions for backports targeting stable branches
-          if [[ "$BASE_BRANCH" != stable* ]]; then
-              echo "ℹ️ Branch '$BASE_BRANCH' is not a stable branch. Skipping SemVer backport-specific enforcements."
+          if [[ "$BASE_BRANCH" != stable* && "$BASE_BRANCH" != unstable* ]]; then
+              echo "ℹ️ Branch '$BASE_BRANCH' is not a (un)stable branch. Skipping SemVer backport-specific enforcements."
               exit 0
           fi
 

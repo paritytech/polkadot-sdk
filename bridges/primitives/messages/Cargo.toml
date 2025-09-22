@@ -26,7 +26,6 @@ sp-io = { workspace = true }
 sp-std = { workspace = true }
 
 [dev-dependencies]
-bp-runtime = { workspace = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 

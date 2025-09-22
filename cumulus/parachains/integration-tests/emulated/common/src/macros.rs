@@ -39,7 +39,7 @@ pub use xcm::{
 	},
 };
 
-pub use xcm_executor::traits::DropAssets;
+pub use xcm_executor::traits::{DropAssets, TransferType};
 
 // Cumulus
 pub use asset_test_utils;
@@ -851,16 +851,20 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 				// Give some initial funds.
 				<Balances as $crate::macros::Mutate<_>>::set_balance(&who, initial_balance);
 
-				let call = RuntimeCall::PolkadotXcm($crate::macros::pallet_xcm::Call::transfer_assets {
-					dest: Box::new($crate::macros::VersionedLocation::from($destination)),
-					beneficiary: Box::new($crate::macros::VersionedLocation::from($crate::macros::Junction::AccountId32 {
+				let beneficiary: $crate::macros::Location = $crate::macros::Junction::AccountId32 {
 						id: who.clone().into(),
 						network: None,
-					})),
+					}.into();
+
+				let call = RuntimeCall::PolkadotXcm($crate::macros::pallet_xcm::Call::transfer_assets_using_type_and_then {
+					dest: Box::new($crate::macros::VersionedLocation::from($destination)),
 					assets: Box::new($crate::macros::VersionedAssets::from(vec![
 						($crate::macros::Parent, transfer_amount).into(),
 					])),
-					fee_asset_item: 0,
+					assets_transfer_type: Box::new($crate::macros::TransferType::LocalReserve),
+					remote_fees_id: Box::new($crate::macros::VersionedAssetId::from($crate::macros::Parent)),
+					fees_transfer_type: Box::new($crate::macros::TransferType::LocalReserve),
+					custom_xcm_on_dest: Box::new($crate::macros::VersionedXcm::<()>::from($crate::macros::Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build())),
 					weight_limit: $crate::macros::Unlimited,
 				});
 				let origin = OriginCaller::system($crate::macros::RawOrigin::Signed(who));

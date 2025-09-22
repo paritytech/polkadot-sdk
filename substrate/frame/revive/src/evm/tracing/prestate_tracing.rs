@@ -17,7 +17,7 @@
 use crate::{
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	BalanceOf, Bounded, Code, Config, ContractInfoOf, ExecReturnValue, Key, MomentOf, Pallet,
+	AccountInfo, BalanceOf, Bounded, Code, Config, ExecReturnValue, Key, MomentOf, Pallet,
 	PristineCode, Weight,
 };
 use alloc::{collections::BTreeMap, vec::Vec};
@@ -63,9 +63,8 @@ where
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(&mut self) -> PrestateTrace {
-		let trace = core::mem::take(&mut self.trace);
-		let (mut pre, mut post) = trace;
+	pub fn collect_trace(self) -> PrestateTrace {
+		let (mut pre, mut post) = self.trace;
 		let include_code = !self.config.disable_code;
 
 		let is_empty = |info: &PrestateTraceInfo| {
@@ -140,7 +139,7 @@ where
 {
 	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
-		let code_hash = ContractInfoOf::<T>::get(address)?.code_hash;
+		let code_hash = AccountInfo::<T>::load_contract(address)?.code_hash;
 		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
 		return Some(code.into())
 	}

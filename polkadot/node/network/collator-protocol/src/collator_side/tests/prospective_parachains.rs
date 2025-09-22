@@ -44,6 +44,16 @@ pub(super) async fn update_view(
 	.await;
 
 	for _ in 0..activated {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => {
+				tx.send(Ok(test_state.current_session_index())).unwrap();
+			}
+		);
+
 		// obtain the claim queue schedule.
 		let (leaf_hash, leaf_number) = assert_matches!(
 			overseer_recv(virtual_overseer).await,
