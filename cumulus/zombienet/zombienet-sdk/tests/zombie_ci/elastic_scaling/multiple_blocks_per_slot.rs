@@ -5,10 +5,7 @@ use anyhow::anyhow;
 
 use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
-	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -47,17 +44,7 @@ async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error>
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 5).await?;
 
-	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID)]);
-
-	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&relay_client,
-		&assign_cores_call,
-		&dev::alice(),
-		60u64,
-	)
-	.await;
-	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
-	log::info!("2 more cores assigned to each parachain");
+	assign_cores(&relay_node, PARA_ID, vec![2, 3]).await?;
 
 	assert_para_throughput(
 		&relay_client,
@@ -67,15 +54,7 @@ async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error>
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 20).await?;
 
-	let assign_cores_call = create_assign_core_call(&[(4, PARA_ID), (5, PARA_ID), (6, PARA_ID)]);
-	// Assign two extra cores to each parachain.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-	log::info!("3 more cores assigned to each parachain");
+	assign_cores(&relay_node, PARA_ID, vec![4, 5, 6]).await?;
 
 	assert_para_throughput(
 		&relay_client,

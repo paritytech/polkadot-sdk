@@ -6,10 +6,7 @@ use std::{sync::Arc, time::Duration};
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
-use cumulus_zombienet_sdk_helpers::{
-	assert_para_is_registered, assert_para_throughput, create_assign_core_call,
-	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-};
+use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -42,19 +39,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	log::info!("Checking if collator-elastic is up");
 	assert!(collator_elastic.wait_until_is_up(60u64).await.is_ok());
 
-	log::info!("Assigning cores for the parachain");
-	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
-
-	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
-	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&relay_client,
-		&assign_cores_call,
-		&dev::alice(),
-		60u64,
-	)
-	.await;
-	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
-	log::info!("2 more cores assigned to the parachain");
+	assign_cores(&alice, PARA_ID, vec![0, 1]).await?;
 
 	log::info!("Waiting 20 blocks to register parachain");
 	// Wait 20 blocks and register parachain. This part is important for pov-recovery.
