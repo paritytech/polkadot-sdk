@@ -787,6 +787,10 @@ fn transfer_with_dust<T: Config>(
 ) -> DispatchResult {
 	let (value, dust) = value.deconstruct();
 
+	log::info!(
+		"exec.rs transfer_with_dust: value: {value:?}, dust: {dust:?}, from: {from:?}, to: {to:?}"
+	);
+
 	fn transfer_balance<T: Config>(
 		from: &AccountIdOf<T>,
 		to: &AccountIdOf<T>,
@@ -1733,19 +1737,13 @@ where
 		// Transfer ALL balance to beneficiary (this should drain the account completely)
 		{
 			let raw_value: U256 = self.account_balance(&contract_account);
-			log::info!(
-				target: LOG_TARGET,
-				"Transferring balance of BalanceWithDust {{ value: {:?}, dust: 0 }} (raw: {:?}) from {:?} to {:?}",
-				raw_value,
-				raw_value,
-				contract_address,
-				beneficiary_address
-			);
+			log::info!("exec.rs destroy_contract raw_value: {raw_value:?}");
 			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
                 .map_err(|e| {
                     log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
                     Error::<T>::BalanceConversionFailed
                 })?;
+			log::info!("exec.rs destroy_contract value: {value:?}");
 			if !value.is_zero() {
 				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
 			}

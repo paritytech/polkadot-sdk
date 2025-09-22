@@ -1072,9 +1072,11 @@ fn self_destruct_works() {
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
 		let min_balance = Contracts::min_balance();
 
+		let initial_contract_balance = 100_000;
+
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(binary))
-			.native_value(100_000)
+			.native_value(initial_contract_balance)
 			.build_and_unwrap_contract();
 
 		let hold_balance = contract_base_deposit(&contract.addr);
@@ -1099,7 +1101,7 @@ fn self_destruct_works() {
 		// Check that the beneficiary (django) got remaining balance.
 		assert_eq!(
 			<Test as Config>::Currency::free_balance(DJANGO_FALLBACK),
-			1_000_000 + 100_000 + min_balance
+			1_000_000 + initial_contract_balance + min_balance
 		);
 
 		// Check that the Alice is missing Django's benefit. Within ALICE's total balance
@@ -1112,6 +1114,15 @@ fn self_destruct_works() {
 		pretty_assertions::assert_eq!(
 			System::events(),
 			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+						from: contract.account_id.clone(),
+						to: DJANGO_FALLBACK,
+						amount: initial_contract_balance,
+					}),
+					topics: vec![],
+				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
@@ -1148,7 +1159,7 @@ fn self_destruct_works() {
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 						from: contract.account_id.clone(),
 						to: DJANGO_FALLBACK,
-						amount: 100_000 + min_balance,
+						amount: min_balance,
 					}),
 					topics: vec![],
 				},
