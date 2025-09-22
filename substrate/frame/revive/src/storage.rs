@@ -455,7 +455,6 @@ impl<T: Config> ContractInfo<T> {
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
