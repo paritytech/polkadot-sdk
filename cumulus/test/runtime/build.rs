@@ -18,7 +18,10 @@
 fn main() {
 	use substrate_wasm_builder::WasmBuilder;
 
-	WasmBuilder::build_using_defaults();
+	WasmBuilder::init_with_defaults()
+		.enable_feature("async-backing")
+		.import_memory()
+		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("increment-spec-version")

@@ -56,6 +56,11 @@ pub mod sync_backing {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));
 }
 
+pub mod async_backing {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+}
+
 mod genesis_config_presets;
 mod test_pallet;
 
@@ -118,42 +123,31 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(all(
-	feature = "elastic-scaling-multi-block-slot",
-	not(any(
-		feature = "elastic-scaling",
-		feature = "elastic-scaling-500ms",
-		feature = "relay-parent-offset"
-	))
-))]
+#[cfg(all(feature = "elastic-scaling-multi-block-slot",))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
 
-#[cfg(all(
-	feature = "elastic-scaling-500ms",
-	not(any(
-		feature = "elastic-scaling",
-		feature = "elastic-scaling-multi-block-slot",
-		feature = "relay-parent-offset"
-	))
-))]
+#[cfg(feature = "elastic-scaling-500ms")]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 
-#[cfg(any(feature = "elastic-scaling", feature = "relay-parent-offset"))]
+#[cfg(any(feature = "elastic-scaling", feature = "relay-parent-offset",))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
 #[cfg(not(any(
 	feature = "elastic-scaling",
 	feature = "elastic-scaling-500ms",
 	feature = "elastic-scaling-multi-block-slot",
-	feature = "relay-parent-offset"
+	feature = "relay-parent-offset",
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+
+#[cfg(feature = "async-backing")]
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 
 #[cfg(feature = "sync-backing")]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
-#[cfg(not(feature = "sync-backing"))]
+#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
 
 #[cfg(feature = "sync-backing")]
@@ -174,7 +168,7 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 // details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
 // Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
 
-#[cfg(not(feature = "increment-spec-version"))]
+#[cfg(all(not(feature = "increment-spec-version"), not(feature = "elastic-scaling")))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -188,7 +182,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 1,
 };
 
-#[cfg(feature = "increment-spec-version")]
+#[cfg(any(feature = "increment-spec-version", feature = "elastic-scaling"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -276,7 +270,6 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type SingleBlockMigrations = TestOnRuntimeUpgrade;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -464,6 +457,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	TestOnRuntimeUpgrade,
 >;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
