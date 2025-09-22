@@ -929,7 +929,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							},
 							Ok(ChannelSignal::Resume) => {
 								if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
-									defensive!("Not enough weight to process signal - dropping");
+									defensive!("Not enough weight to process resume signal - dropping");
 									break
 								}
 								Self::resume_channel(sender)
