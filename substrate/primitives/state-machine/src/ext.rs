@@ -380,22 +380,6 @@ where
 			return
 		}
 
-		// If the `key` doesn't exist yet in the overlay, we will fetch it at least once from the
-		// backend. This is quite important when collecting storage proofs. If we don't load/try
-		// to load the `key` here it will happen when calculating the `storage_root` (more precise
-		// it will load the trie nodes required to access the `key`), meaning that calculating
-		// the `storage_root` would increase the storage proof. This would break logic like the
-		// storage reclaim that expects that the storage proof size is final after executing a
-		// transaction and not influences `storage_root` later. Otherwise blocks may overshoot the
-		// maximum storage proof size.
-		//
-		// For chains that do no record storage proofs, the assumption is that the trie nodes to
-		// reach the key will be stored in the trie cache. As we learned above, it will these
-		// nodes will be touched any way when calculating the `storage_root`.
-		if self.overlay.storage(&key).is_none() {
-			self.backend.storage_hash(&key).expect(EXT_NOT_ALLOWED_TO_FAIL);
-		}
-
 		// NOTE: be careful about touching the key names – used outside substrate!
 		trace!(
 			target: "state",
@@ -420,22 +404,6 @@ where
 		key: StorageKey,
 		value: Option<StorageValue>,
 	) {
-		// If the `key` doesn't exist yet in the overlay, we will fetch it at least once from the
-		// backend. This is quite important when collecting storage proofs. If we don't load/try
-		// to load the `key` here it will happen when calculating the `storage_root` (more precise
-		// it will load the trie nodes required to access the `key`), meaning that calculating
-		// the `storage_root` would increase the storage proof. This would break logic like the
-		// storage reclaim that expects that the storage proof size is final after executing a
-		// transaction and not influences `storage_root` later. Otherwise blocks may overshoot the
-		// maximum storage proof size.
-		//
-		// For chains that do no record storage proofs, the assumption is that the trie nodes to
-		// reach the key will be stored in the trie cache. As we learned above, it will these
-		// nodes will be touched any way when calculating the `storage_root`.
-		if self.overlay.child_storage(child_info, &key).is_none() {
-			self.backend.child_storage(child_info, &key).expect(EXT_NOT_ALLOWED_TO_FAIL);
-		}
-
 		trace!(
 			target: "state",
 			method = "ChildPut",
@@ -889,14 +857,13 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{InMemoryBackend, TrieBackendBuilder};
+	use crate::InMemoryBackend;
 	use codec::{Decode, Encode};
 	use sp_core::{
 		map,
 		storage::{Storage, StorageChild},
 		Blake2Hasher,
 	};
-	use sp_trie::recorder::Recorder;
 
 	type TestBackend = InMemoryBackend<Blake2Hasher>;
 	type TestExt<'a> = Ext<'a, Blake2Hasher, TestBackend>;
@@ -1122,61 +1089,5 @@ mod tests {
 		drop(append);
 
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
-	}
-
-	#[test]
-	fn calculating_storage_root_should_not_change_storage_proof() {
-		let keys =
-			(0..100000u32)
-				.map(|i| (i.encode(), vec![i; 100].encode()))
-				.chain((0..1000u32).map(|i| {
-					let mut key = 1u32.encode();
-					key.extend(i.encode());
-					(key, vec![i; 100].encode())
-				}));
-
-		let child_info = ChildInfo::new_default(b"Child1");
-		let child_info = &child_info;
-
-		let backend = (
-			Storage {
-				top: keys.clone().collect(),
-				children_default: map![
-					child_info.storage_key().to_vec() => StorageChild {
-						data: keys.collect(),
-						child_info: child_info.to_owned(),
-					}
-				],
-			},
-			StateVersion::default(),
-		)
-			.into();
-
-		let recorder = Recorder::<Blake2Hasher>::default();
-
-		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
-
-		let mut overlay = Default::default();
-		let mut ext = Ext::new(&mut overlay, &backend, None);
-
-		ext.place_storage(5000u32.encode(), Some(vec![30]));
-		ext.place_storage(100000u32.encode(), Some(vec![40]));
-
-		ext.place_storage(1u32.encode(), None);
-		ext.place_storage(6000u32.encode(), None);
-
-		ext.place_child_storage(child_info, 5000u32.encode(), Some(vec![30]));
-		ext.place_child_storage(child_info, 100000u32.encode(), Some(vec![40]));
-
-		ext.place_child_storage(child_info, 1u32.encode(), None);
-		ext.place_child_storage(child_info, 6000u32.encode(), None);
-
-		let size_before = recorder.estimate_encoded_size();
-		ext.storage_root(StateVersion::V1);
-		let size_after = recorder.estimate_encoded_size();
-
-		// TODO: https://github.com/paritytech/polkadot-sdk/issues/6020
-		// When the issue is fixed properly, `size_before == size_after`.
-		assert!(size_before < size_after && size_before + 50 > size_after);
 	}
 }
