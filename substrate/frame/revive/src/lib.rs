@@ -2156,7 +2156,7 @@ sp_api::decl_runtime_apis! {
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
-		fn block_author() -> Option<H160>;
+		fn block_author() -> H160;
 
 		/// Get the H160 address associated to this account id
 		fn address(account_id: AccountId) -> H160;
@@ -2202,8 +2202,8 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::evm_balance(&address)
 				}
 
-				fn block_author() -> Option<$crate::H160> {
-					Some($crate::Pallet::<Self>::block_author())
+				fn block_author() -> $crate::H160 {
+					$crate::Pallet::<Self>::block_author()
 				}
 
 				fn block_gas_limit() -> $crate::U256 {
