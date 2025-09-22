@@ -964,17 +964,16 @@ mod benchmarks {
 	#[benchmark]
 	fn barrier_check() -> Result<(), BenchmarkError> {
 		// TODO: implement a benchmark for barrier check
-		let (origin, target) = T::alias_origin().map_err(|_| BenchmarkError::Skip)?;
+		let instructions = T::barrier_check().map_err(|_| BenchmarkError::Skip)?;
 
-		let mut executor = new_executor::<T>(origin);
+		let mut executor = new_executor::<T>(Default::default());
 
-		let instruction = Instruction::AliasOrigin(target.clone());
-		let xcm = Xcm(vec![instruction]);
+		let xcm = Xcm(instructions);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
 		}
-		assert_eq!(executor.origin(), &Some(target));
+		// TODO: add verification that barrier check was done
 		Ok(())
 	}
 

@@ -2684,7 +2684,7 @@ sp_api::impl_runtime_apis! {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn barrier_check() -> Result<<Self as Config<I>>::RuntimeCall, BenchmarkError> {
+				fn barrier_check() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 			}

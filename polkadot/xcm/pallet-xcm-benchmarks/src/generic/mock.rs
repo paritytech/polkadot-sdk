@@ -194,9 +194,8 @@ impl generic::Config for Test {
 		Ok((origin, target))
 	}
 
-	fn barrier_check() -> Result<<Self as generic::Config>::RuntimeCall, BenchmarkError> {
-		// TODO: implement a benchmark for barrier check
-		Err(BenchmarkError::Skip)
+	fn barrier_check() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+		Ok(Xcm(vec![]))
 	}
 }
 
