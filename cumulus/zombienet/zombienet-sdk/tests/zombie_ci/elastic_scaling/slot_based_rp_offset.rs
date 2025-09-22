@@ -74,6 +74,8 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
+	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
 	let para_node_rp_offset = network.get_node("collator-rp-offset")?;
 
 	let para_client = para_node_rp_offset.wait_client().await?;
