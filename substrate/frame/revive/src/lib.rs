@@ -734,8 +734,6 @@ pub mod pallet {
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
-			// If we cannot fetch the block author there's nothing we can do.
-			// Finding the block author traverses the digest logs.
 			let block_author = Self::block_author();
 
 			// Weights are accounted for in the `on_initialize`.
