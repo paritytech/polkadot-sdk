@@ -52,7 +52,7 @@ fn extract_parachain_id<'a>(
 }
 
 #[derive(Debug)]
-pub(crate) struct ChainSpecLoader;
+pub struct ChainSpecLoader;
 
 impl LoadSpec for ChainSpecLoader {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String> {
@@ -269,7 +269,7 @@ impl LegacyRuntime {
 }
 
 #[derive(Debug)]
-pub(crate) struct RuntimeResolver;
+pub struct RuntimeResolver;
 
 impl RuntimeResolverT for RuntimeResolver {
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
