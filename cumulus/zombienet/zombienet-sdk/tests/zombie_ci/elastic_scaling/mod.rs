@@ -3,6 +3,6 @@
 
 mod multiple_blocks_per_slot;
 mod pov_recovery;
+mod runtime_upgrade;
 mod slot_based_authoring;
 mod slot_based_rp_offset;
-mod elastic_scaling_mixed_collators;
