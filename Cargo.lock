@@ -27163,6 +27163,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-recovery",
  "pallet-referenda",
+ "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
  "pallet-session",
