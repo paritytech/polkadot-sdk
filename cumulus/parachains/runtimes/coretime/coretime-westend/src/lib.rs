@@ -1170,7 +1170,7 @@ impl_runtime_apis! {
 					Ok((origin, target))
 				}
 
-				fn worst_case_for_not_passing_barrier() -> Result<RuntimeCall, BenchmarkError> {
+				fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> { {
 					Err(BenchmarkError::Skip)
 				}
 			}
