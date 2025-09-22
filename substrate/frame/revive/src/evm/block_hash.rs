@@ -599,7 +599,7 @@ impl EthereumBlockBuilder {
 		let tx_hashes = core::mem::replace(&mut self.tx_hashes, Vec::new());
 		let gas_info = core::mem::replace(&mut self.gas_info, Vec::new());
 
-		let block = Block {
+		let mut block = Block {
 			number: block_number,
 			parent_hash,
 			timestamp,
@@ -619,6 +619,8 @@ impl EthereumBlockBuilder {
 		};
 
 		let block_hash = block.header_hash();
+		block.hash = block_hash;
+
 		(block_hash, block, gas_info)
 	}
 
