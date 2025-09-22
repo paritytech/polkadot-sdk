@@ -7,6 +7,7 @@
 // Removed AES-GCM import - using simple XOR for performance testing
 use anyhow::anyhow;
 use codec::{Decode, Encode};
+use futures::future::try_join_all;
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_keyring::Sr25519Keyring;
 use sp_statement_store::{Statement, Topic};
@@ -34,7 +35,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		rpcs.push(rpc);
 	}
 
-	let mut participants: Vec<_> = [
+	let participants: Vec<_> = [
 		Sr25519Keyring::Alice,
 		Sr25519Keyring::Bob,
 		Sr25519Keyring::Charlie,
@@ -48,87 +49,12 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	.map(|((idx, keyring), rpc)| Participant::new(keyring, idx as u32, rpc))
 	.collect();
 
-	println!("=== Session keys exchange ===");
+	let handles: Vec<_> = participants
+		.into_iter()
+		.map(|mut participant| tokio::spawn(async move { participant.run().await }))
+		.collect();
 
-	// Send session keys
-	for participant in &mut participants {
-		participant.send_session_key().await?;
-	}
-
-	// Receive session keys
-	for participant in &mut participants {
-		participant.receive_session_keys().await?;
-	}
-
-	println!("=== Symmetric keys exchange ===");
-
-	// Send symmetric keys
-	for participant in &mut participants {
-		participant.send_symmetric_keys().await?;
-	}
-
-	// Receive symmetric keys from other participants
-	for participant in &mut participants {
-		participant.receive_symmetric_keys().await?;
-	}
-
-	println!("=== Symmetric key acknowledgments ===");
-
-	// Send acknowledgments for received symmetric keys
-	for participant in &mut participants {
-		participant.send_symmetric_key_acknowledgments().await?;
-	}
-
-	// Receive acknowledgments from others
-	for participant in &mut participants {
-		participant.receive_symmetric_key_acknowledgments().await?;
-	}
-
-	for i in 0..MESSAGE_COUNT {
-		println!("=== Req/res exchange round {} ===", i + 1);
-
-		// Send request
-		for participant in &mut participants {
-			participant.send_requests().await?;
-		}
-
-		// Receive request
-		for participant in &mut participants {
-			participant.receive_requests().await?;
-		}
-
-		// Send request acknowledgments
-		for participant in &mut participants {
-			participant.send_request_acknowledgments().await?;
-		}
-
-		// Receive request acknowledgments
-		for participant in &mut participants {
-			participant.receive_request_acknowledgments().await?;
-		}
-
-		// Send response
-		for participant in &mut participants {
-			participant.send_responses().await?;
-		}
-
-		// Receive response
-		for participant in &mut participants {
-			participant.receive_responses().await?;
-		}
-
-		// Send response acknowledgments
-		for participant in &mut participants {
-			participant.send_response_acknowledgments().await?;
-		}
-
-		// Receive response acknowledgments
-		for participant in &mut participants {
-			participant.receive_response_acknowledgments().await?;
-		}
-
-		println!("All messages in the round processed");
-	}
+	try_join_all(handles).await?;
 
 	Ok(())
 }
@@ -778,6 +704,40 @@ impl Participant {
 					}
 				}
 			}
+		}
+
+		Ok(())
+	}
+
+	async fn run(&mut self) -> Result<(), anyhow::Error> {
+		println!("=== Session keys exchange ===");
+
+		self.send_session_key().await?;
+		self.receive_session_keys().await?;
+
+		println!("=== Symmetric keys exchange ===");
+
+		self.send_symmetric_keys().await?;
+		self.receive_symmetric_keys().await?;
+
+		println!("=== Symmetric key acknowledgments ===");
+
+		self.send_symmetric_key_acknowledgments().await?;
+		self.receive_symmetric_key_acknowledgments().await?;
+
+		for i in 0..MESSAGE_COUNT {
+			println!("=== Req/res exchange round {} ===", i + 1);
+
+			self.send_requests().await?;
+			self.receive_requests().await?;
+			self.send_request_acknowledgments().await?;
+			self.receive_request_acknowledgments().await?;
+			self.send_responses().await?;
+			self.receive_responses().await?;
+			self.send_response_acknowledgments().await?;
+			self.receive_response_acknowledgments().await?;
+
+			println!("All messages in the round processed");
 		}
 
 		Ok(())
