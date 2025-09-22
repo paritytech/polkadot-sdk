@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	evm::{runtime::GAS_PRICE, TransactionLegacyUnsigned, TransactionUnsigned},
+	evm::{block_storage, runtime::GAS_PRICE, TransactionLegacyUnsigned, TransactionUnsigned},
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
 	precompiles::{
@@ -2716,9 +2716,9 @@ mod benchmarks {
 				);
 
 				// Store transaction
-				let _ = eth_block_storage::with_ethereum_context(|| {
+				let _ = block_storage::with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
-						eth_block_storage::get_receipt_details().unwrap_or_default();
+						block_storage::get_receipt_details().unwrap_or_default();
 
 					let block_builder_ir = EthBlockBuilderIR::<T>::get();
 					let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
@@ -2782,9 +2782,8 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = eth_block_storage::with_ethereum_context(|| {
-			let (encoded_logs, bloom) =
-				eth_block_storage::get_receipt_details().unwrap_or_default();
+		let _ = block_storage::with_ethereum_context(|| {
+			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
@@ -2802,7 +2801,7 @@ mod benchmarks {
 
 		// Create e events with minimal data to isolate event count overhead
 		for _ in 0..e {
-			eth_block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
+			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
 		}
 
 		#[block]
@@ -2845,9 +2844,8 @@ mod benchmarks {
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		let _ = eth_block_storage::with_ethereum_context(|| {
-			let (encoded_logs, bloom) =
-				eth_block_storage::get_receipt_details().unwrap_or_default();
+		let _ = block_storage::with_ethereum_context(|| {
+			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
@@ -2886,7 +2884,7 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		eth_block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
 
 		#[block]
 		{
