@@ -22,25 +22,25 @@ use crate::{
 	FixedU128, Perbill,
 };
 use core::ops::Sub;
-use num_traits::One;
+use num_traits::{One, CheckedDiv};
 use scale_info::TypeInfo;
-use sp_arithmetic::{traits::Saturating, FixedPointNumber};
+use sp_arithmetic::{traits::{Saturating, Bounded}, FixedPointNumber};
 
 /// The step type for the stepped curve.
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
-pub enum Step<V> {
+pub enum Step<Y> {
 	/// Increase the value by a percentage of the current value at each step.
-	PctInc(Perbill),
+	PctInc { pct: FixedU128 },
 	/// Decrease the value by a percentage of the current value at each step.
-	PctDec(Perbill),
+	PctDec { pct: FixedU128 },
 	/// Increment by a constant value at each step.
-	Add(V),
+	Add { amount: Y },
 	/// Decrement by a constant value at each step.
-	Subtract(V),
+	Subtract { amount: Y },
 	/// Move towards a desired value by a percentage of the remaining difference at each step.
 	///
 	/// Step size will be (target_total - current_value) * pct.
-	RemainingPct(V, Perbill),
+	RemainingPct { target: Y, pct: Perbill },
 }
 
 /// A stepped curve.
@@ -48,26 +48,23 @@ pub enum Step<V> {
 /// Steps every `period` from the `initial_value` as defined by `step`.
 /// First step from `initial_value` takes place at `start` + `period`.
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
-pub struct SteppedCurve<P, V> {
+pub struct SteppedCurve<X, Y> {
 	/// The starting point for the curve.
-	pub start: P,
+	pub start: X,
 	/// An optional point at which the curve ends. If `None`, the curve continues indefinitely.
-	pub end: Option<P>,
+	pub end: Option<X>,
 	/// The initial value of the curve at the `start` point.
-	pub initial_value: V,
+	pub initial_value: Y,
 	/// The change to apply at the end of each `period`.
-	pub step: Step<V>,
+	pub step: Step<Y>,
 	/// The duration of each step.
-	pub period: P,
+	pub period: X,
 }
 
-impl<P, V> SteppedCurve<P, V>
-where
-	P: AtLeast32BitUnsigned + Copy,
-	V: AtLeast32BitUnsigned + Copy + From<P>,
+impl SteppedCurve<FixedU128, FixedU128>
 {
 	/// Creates a new `SteppedCurve`.
-	pub fn new(start: P, end: Option<P>, initial_value: V, step: Step<V>, period: P) -> Self {
+	pub fn new(start: FixedU128, end: Option<FixedU128>, initial_value: FixedU128, step: Step<FixedU128>, period: FixedU128) -> Self {
 		Self { start, end, initial_value, step, period }
 	}
 
@@ -75,29 +72,34 @@ where
 	/// If no step has occured, will return 0.
 	///
 	/// Ex. In period 4, the last step taken was 10 -> 7, it would return 3.
-	pub fn last_step_size(&self, point: P) -> V {
+	pub fn last_step_size(&self, point: FixedU128) -> FixedU128 {
+		// Already ended.
+		if let Some(end_point) = self.end {
+			if end_point < start {
+				return FixedU128::zero();
+			}
+		}
+
 		// No step taken yet.
-		if point < self.start {
-			return V::zero();
+		if point <= self.start {
+			return FixedU128::zero();
 		}
 
 		// If the period is zero, the value never changes.
 		if self.period.is_zero() {
-			return V::zero();
+			return FixedU128::zero();
 		}
 
-		// Determine the effective point for calculation, capped by the end point if it exists.
-		let _effective_point = self.end.map_or(point, |e| point.min(e));
-
 		// Calculate how many full periods have passed.
-		let num_periods = (point - self.start) / self.period;
+		let num_periods = (point - self.start).checked_div(self.period).unwrap_or(FixedU128::max_value());
 
-		if num_periods.is_zero() {
-			return V::zero();
+		// Full period has not passed.
+		if num_periods < FixedU128::one() {
+			return FixedU128::zero();
 		}
 
 		// Points for calculating step difference.
-		let prev_period_point = self.start + (num_periods - P::one()) * self.period;
+		let prev_period_point = self.start + (num_periods - FixedU128::one()) * self.period;
 		let curr_period_point = self.start + num_periods * self.period;
 
 		// Evaluate the curve at those two points.
@@ -112,11 +114,18 @@ where
 	}
 
 	/// Evaluate the curve at a given point.
-	pub fn evaluate(&self, point: P) -> V {
+	pub fn evaluate(&self, point: FixedU128) -> FixedU128 {
 		let initial = self.initial_value;
 
+		// Already ended.
+		if let Some(end_point) = self.end {
+			if end_point < start {
+				return initial;
+			}
+		}
+
 		// If the point is before the curve starts, return the initial value.
-		if point < self.start {
+		if point <= self.start {
 			return initial;
 		}
 
@@ -128,60 +137,53 @@ where
 		// Determine the effective point for calculation, capped by the end point if it exists.
 		let effective_point = self.end.map_or(point, |e| point.min(e));
 
-		// Calculate how many full periods have passed, capped by usize.
-		let num_periods = (effective_point - self.start) / self.period;
+		// Calculate how many full periods have passed.
+		let num_periods = (effective_point - self.start).checked_div(self.period).unwrap_or(FixedU128::max_value());
 		let num_periods_usize = num_periods.saturated_into::<usize>();
+		let num_periods_floor = FixedU128::saturating_from_integer(num_periods_usize);
 
-		if num_periods.is_zero() {
+		// No periods have passed.
+		if num_periods_usize.is_zero() {
 			return initial;
 		}
 
 		match self.step {
-			Step::Add(step_value) => {
+			Step::Add{ amount: step_value } => {
 				// Initial_value + num_periods * step_value.
-				let total_step = step_value.saturating_mul(num_periods.saturated_into::<V>());
+				let total_step = step_value.saturating_mul(num_periods_floor);
 				initial.saturating_add(total_step)
 			},
-			Step::Subtract(step_value) => {
+			Step::Subtract{ amount: step_value } => {
 				// Initial_value - num_periods * step_value.
-				let total_step = step_value.saturating_mul(num_periods.saturated_into::<V>());
+				let total_step = step_value.saturating_mul(num_periods_floor);
 				initial.saturating_sub(total_step)
 			},
-			Step::PctInc(percent) => {
+			Step::PctInc{ pct: percent } => {
 				// Initial_value * (1 + percent) ^ num_periods.
-				let mut ratio = FixedU128::from(percent);
-				ratio = FixedU128::one().saturating_add(ratio);
+				let ratio = FixedU128::one().saturating_add(percent);
 				let scale = ratio.saturating_pow(num_periods_usize);
-				let initial_fp = FixedU128::saturating_from_integer(initial);
-				let res = initial_fp.saturating_mul(scale);
-				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
+				initial.saturating_mul(scale)
 			},
-			Step::PctDec(percent) => {
+			Step::PctDec{ pct: percent } => {
 				// Initial_value * (1 - percent) ^ num_periods.
-				let mut ratio = FixedU128::from(percent);
-				ratio = FixedU128::one().saturating_sub(ratio);
+				let ratio = FixedU128::one().saturating_sub(percent);
 				let scale = ratio.saturating_pow(num_periods_usize);
-				let initial_fp = FixedU128::saturating_from_integer(initial);
-				let res = initial_fp.saturating_mul(scale);
-				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
+				initial.saturating_mul(scale)
 			},
-			Step::RemainingPct(asymptote, percent) => {
-				// asymptote +/- diff(asymptote, initial_value) * (1-percent)^num_periods.
+			Step::RemainingPct{ target: asymptote, pct: percent } => {
+				// Asymptote +/- diff(asymptote, initial_value) * (1-percent)^num_periods.
 				let ratio = FixedU128::one().saturating_sub(FixedU128::from(percent));
 				let scale = ratio.saturating_pow(num_periods_usize);
 
-				let initial_fp = FixedU128::saturating_from_integer(initial);
-				let asymptote_fp = FixedU128::saturating_from_integer(asymptote);
-
 				let res = if initial >= asymptote {
-					let diff = initial_fp.saturating_sub(asymptote_fp);
-					asymptote_fp.saturating_add(diff.saturating_mul(scale))
+					let diff = initial.saturating_sub(asymptote);
+					asymptote.saturating_add(diff.saturating_mul(scale))
 				} else {
-					let diff = asymptote_fp.saturating_sub(initial_fp);
-					asymptote_fp.saturating_sub(diff.saturating_mul(scale))
+					let diff = asymptote.saturating_sub(initial);
+					asymptote.saturating_sub(diff.saturating_mul(scale))
 				};
 
-				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
+				res
 			},
 		}
 	}
@@ -272,16 +274,37 @@ where
 	result_divisor_part.saturating_add(result_remainder_part)
 }
 
+// asymptote converges
+// increase becomes 0
+// sums to asympote
+// huge number of periods
+// fractional works for each
+// greater than 1 percentages work
+
 #[test]
 fn stepped_curve_works() {
 	// Curve with defined end.
 	let curve_with_end = SteppedCurve::new(10u32, Some(20u32), 100u32, Step::Add(100u32), 2u32);
 	assert_eq!(curve_with_end.evaluate(20u32), 600u32);
-	assert_eq!(curve_with_end.evaluate(30u32), 600u32);
+	assert_eq!(curve_with_end.evaluate(22u32), 600u32);
 	assert_eq!(curve_with_end.last_step_size(10u32), 0u32);
 	assert_eq!(curve_with_end.last_step_size(20u32), 100u32);
 	assert_eq!(curve_with_end.last_step_size(22u32), 0u32);
 	assert_eq!(curve_with_end.last_step_size(30u32), 0u32);
+
+	// End is less than start.
+	let end_less_than_start = SteppedCurve::new(10u32, Some(0u32), 100u32, Step::Add(100u32), 2u32);
+	assert_eq!(curve_with_end.evaluate(10u32), 100u32);
+	assert_eq!(curve_with_end.evaluate(12u32), 100u32);
+	assert_eq!(curve_with_end.last_step_size(10u32), 0u32);
+	assert_eq!(curve_with_end.last_step_size(20u32), 0u32);
+
+	// End is start.
+	let end_is_start = SteppedCurve::new(10u32, Some(10u32), 100u32, Step::Add(100u32), 2u32);
+	assert_eq!(curve_with_end.evaluate(10u32), 100u32);
+	assert_eq!(curve_with_end.evaluate(12u32), 100u32);
+	assert_eq!(curve_with_end.last_step_size(10u32), 0u32);
+	assert_eq!(curve_with_end.last_step_size(20u32), 0u32);
 
 	// Zero period curve.
 	let zero_period_curve = SteppedCurve::new(10u32, None, 100u32, Step::Add(100u32), 0u32);
