@@ -1707,6 +1707,8 @@ where
 		// Transfer ALL balance to beneficiary (this should drain the account completely)
 		{
 			let raw_value: U256 = self.account_balance(&contract_account);
+			let raw_value: U256 = self.account_balance(&contract_account);
+			log::info!("destroy_contract: contract balance before transfer: {:?}", raw_value);
 			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
                 .map_err(|e| {
                     log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");

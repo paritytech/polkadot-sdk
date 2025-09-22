@@ -20,12 +20,14 @@ pub extern "C" fn call() {
     
     let mut addr = [0u8; 20];
     let salt = [1u8; 32];
-    
+        // Send 100,000 units when creating the contract
+    let mut value_bytes = [0u8; 32];
+    value_bytes[..4].copy_from_slice(&100_000u32.to_le_bytes()[..4]);
     api::instantiate(
         u64::MAX,
         u64::MAX,
         &[u8::MAX; 32],
-        &[0u8; 32],
+        &value_bytes, //&[0u8; 32],
         code_hash,
         Some(&mut addr),
         None,
