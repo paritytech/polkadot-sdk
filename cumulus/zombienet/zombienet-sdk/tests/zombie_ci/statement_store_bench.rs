@@ -391,16 +391,32 @@ impl Participant {
 		&self,
 		topics: Vec<Topic>,
 	) -> Result<Vec<Statement>, anyhow::Error> {
-		let statements: Vec<Bytes> =
-			self.rpc.request("statement_broadcastsStatement", rpc_params![topics]).await?;
+		const MAX_RETRIES: usize = 3;
+		const RETRY_DELAY_MS: u64 = 100;
 
-		let mut decoded_statements = Vec::new();
-		for statement_bytes in &statements {
-			let statement = Statement::decode(&mut &statement_bytes[..])?;
-			decoded_statements.push(statement);
+		for _ in 0..MAX_RETRIES {
+			let statements: Vec<Bytes> = self
+				.rpc
+				.request("statement_broadcastsStatement", rpc_params![topics.clone()])
+				.await?;
+
+			if statements.len() >= 1 {
+				let mut decoded_statements = Vec::new();
+				for statement_bytes in &statements {
+					let statement = Statement::decode(&mut &statement_bytes[..])?;
+					decoded_statements.push(statement);
+				}
+
+				return Ok(decoded_statements);
+			}
+
+			tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
 		}
 
-		Ok(decoded_statements)
+		return Err(anyhow::anyhow!(
+			"Failed to get expected statements after {} retries",
+			MAX_RETRIES
+		));
 	}
 
 	fn public_key_statement(&self) -> Statement {
