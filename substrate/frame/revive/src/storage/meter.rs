@@ -373,9 +373,9 @@ where
 				Origin::Signed(o) => o,
 			};
 			let try_charge = || {
-				// TODO: should we match refund and charges to optimize balance transfers?
-				// e.g. CHARGE(ALICE, BOB) and REFUND(BOB, CHARLIE) can be optimized to
-				// CHARGE(ALICE, CHARLIE) in case contract created and terminated in the same tx.
+				// TODO: can we match refund and charges to optimize balance transfers?
+				// e.g. CHARGE(ALICE, BOB) and REFUND(BOB, CHARLIE) can be optimized so that the
+				// charge takes place before the refund?
 				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
 				{
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
