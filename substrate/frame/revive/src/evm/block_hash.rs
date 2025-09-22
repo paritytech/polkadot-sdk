@@ -301,7 +301,7 @@ impl IncrementalHashBuilder {
 	}
 }
 
-/// Accumulate receipts into a stream of RLP encoded bytes.
+/// Accumulate events (logs) into a stream of RLP encoded bytes.
 /// This is a very straight forward implementation that RLP encodes logs as they are added.
 ///
 /// The main goal is to generate the RLP-encoded representation of receipts

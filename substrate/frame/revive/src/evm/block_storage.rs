@@ -25,11 +25,8 @@ use environmental::environmental;
 /// The maximum number of block hashes to keep in the history.
 pub const BLOCK_HASH_COUNT: u32 = 256;
 
-// The events emitted by this pallet while executing the current inflight transaction.
-//
-// The events are needed to reconstruct the receipt root hash, as they represent the
-// logs emitted by the contract. The events are consumed when the transaction is
-// completed. To minimize the amount of used memory, the events are RLP encoded directly.
+// Accumulates the receipt's events (logs) for the current transaction
+// that are needed to construct the final transaction receipt.
 environmental!(receipt: AccumulateReceipt);
 
 /// Capture the Ethereum log for the current transaction.
