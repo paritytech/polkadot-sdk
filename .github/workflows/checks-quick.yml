@@ -48,7 +48,7 @@ jobs:
         run: |
           cd substrate/
           ../.gitlab/ensure-deps.sh
-  check-rust-feature-propagation:
+  check-zepter:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [preflight]
@@ -242,7 +242,7 @@ jobs:
     needs:
       - fmt
       - check-dependency-rules
-      - check-rust-feature-propagation
+      - check-zepter
       - test-rust-features
       - check-toml-format
       - check-workspace

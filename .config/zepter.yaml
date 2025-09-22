@@ -8,6 +8,7 @@ version:
 workflows:
   check:
     - [
+        'lint',
         # Check that `A` activates the features of `B`.
         'propagate-feature',
         # These are the features to check:
@@ -30,6 +31,7 @@ workflows:
         '--quiet',
       ]
     - [
+        'lint',
         # Check that dependencies are not duplicated between normal and dev sections.
         'duplicate-deps',
         '--offline',
