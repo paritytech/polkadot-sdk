@@ -943,7 +943,7 @@ pallet-asset-conversion-tx-payment = { path = "substrate/frame/transaction-payme
 pallet-asset-rate = { path = "substrate/frame/asset-rate", default-features = false }
 pallet-asset-rewards = { path = "substrate/frame/asset-rewards", default-features = false }
 pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
-pallet-assets = { path = "substrate/frame/assets", default-features = false }
+pallet-assets = { path = "substrate/frame/assets", default-features = false, features = ["precompiles"] }
 pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
 pallet-assets-holder = { path = "substrate/frame/assets-holder", default-features = false }
 pallet-atomic-swap = { default-features = false, path = "substrate/frame/atomic-swap" }

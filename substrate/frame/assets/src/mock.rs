@@ -20,6 +20,7 @@
 use super::*;
 use crate as pallet_assets;
 
+#[cfg(feature = "precompiles")]
 use crate::precompiles::{InlineIdConfig, ERC20};
 use codec::Encode;
 use frame_support::{
@@ -31,6 +32,16 @@ use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+#[cfg(not(feature = "precompiles"))]
+construct_runtime!(
+	pub enum Test
+	{
+		System: frame_system,
+		Balances: pallet_balances,
+		Assets: pallet_assets,
+	}
+);
+#[cfg(feature = "precompiles")]
 construct_runtime!(
 	pub enum Test
 	{
@@ -56,6 +67,7 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+#[cfg(feature = "precompiles")]
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
