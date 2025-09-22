@@ -71,11 +71,19 @@ pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H
 /// available in no-std environments (runtime benchmarks).
 pub mod bench {
 	use alloc::vec::Vec;
-	pub const DUMMY: &[u8] = fixture!("dummy");
-	pub const NOOP: &[u8] = fixture!("noop");
+	pub const DUMMY: Option<&[u8]> = fixture!("dummy");
+	pub const NOOP: Option<&[u8]> = fixture!("noop");
+
+	pub fn dummy() -> &'static [u8] {
+		DUMMY.expect("`DUMMY` fixture not available, remove `SKIP_PALLET_REVIVE_FIXTURES` env variable to compile them.")
+	}
+
+	pub fn noop() -> &'static [u8] {
+		NOOP.expect("`NOOP` fixture not available, remove `SKIP_PALLET_REVIVE_FIXTURES` env variable to compile them.")
+	}
 
 	pub fn dummy_unique(replace_with: u32) -> Vec<u8> {
-		let mut dummy = DUMMY.to_vec();
+		let mut dummy = dummy().to_vec();
 		let idx = dummy
 			.windows(4)
 			.position(|w| w == &[0xDE, 0xAD, 0xBE, 0xEF])
