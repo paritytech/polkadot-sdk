@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 alloy-consensus = { workspace = true, default-features = false }
-alloy-core = { workspace = true, features = ["sol-types", "rlp"] }
+alloy-core = { workspace = true, features = ["rlp", "sol-types"] }
 alloy-trie = { workspace = true, default-features = false }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true, features = ["from", "try_into"] }
@@ -86,6 +86,7 @@ default = ["std"]
 std = [
 	"alloy-consensus/std",
 	"alloy-core/std",
+	"alloy-trie/std",
 	"codec/std",
 	"environmental/std",
 	"ethereum-types/std",
