@@ -334,23 +334,7 @@ impl Participant {
 			.collect();
 
 		for sender_idx in pending_acks {
-			let ack = StatementAcknowledge::SymmetricKeyReceived { sender_idx: self.idx };
-			let ack_data = ack.encode();
-
-			if let Some(sender_session_key) = self.session_keys.get(&sender_idx) {
-				let mut statement = Statement::new();
-
-				let topic0 = topic_ack();
-				let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
-				let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
-
-				statement.set_topic(0, topic0);
-				statement.set_topic(1, topic1);
-				statement.set_channel(channel);
-				statement.set_priority(self.submit_counter);
-				statement.set_plain_data(ack_data);
-				statement.sign_sr25519_private(&self.keyring.pair());
-
+			if let Some(statement) = self.create_symmetric_key_ack_statement(sender_idx) {
 				self.statement_submit(statement).await?;
 				self.pending_symmetric_key_acks.insert(sender_idx, true);
 			}
@@ -536,6 +520,72 @@ impl Participant {
 		Some(statement)
 	}
 
+	fn create_symmetric_key_ack_statement(&self, sender_idx: u32) -> Option<Statement> {
+		let sender_session_key = self.session_keys.get(&sender_idx)?;
+
+		let ack = StatementAcknowledge::SymmetricKeyReceived { sender_idx: self.idx };
+		let ack_data = ack.encode();
+
+		let mut statement = Statement::new();
+
+		let topic0 = topic_ack();
+		let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
+		let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
+
+		statement.set_topic(0, topic0);
+		statement.set_topic(1, topic1);
+		statement.set_channel(channel);
+		statement.set_priority(self.submit_counter);
+		statement.set_plain_data(ack_data);
+		statement.sign_sr25519_private(&self.keyring.pair());
+
+		Some(statement)
+	}
+
+	fn create_request_ack_statement(&self, sender_idx: u32, request_id: u32) -> Option<Statement> {
+		let sender_session_key = self.session_keys.get(&sender_idx)?;
+
+		let ack = StatementAcknowledge::RequestReceived { sender_idx: self.idx, request_id };
+		let ack_data = ack.encode();
+
+		let mut statement = Statement::new();
+
+		let topic0 = topic_ack();
+		let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
+		let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
+
+		statement.set_topic(0, topic0);
+		statement.set_topic(1, topic1);
+		statement.set_channel(channel);
+		statement.set_priority(self.submit_counter);
+		statement.set_plain_data(ack_data);
+		statement.sign_sr25519_private(&self.keyring.pair());
+
+		Some(statement)
+	}
+
+	fn create_response_ack_statement(&self, sender_idx: u32, request_id: u32) -> Option<Statement> {
+		let sender_session_key = self.session_keys.get(&sender_idx)?;
+
+		let ack = StatementAcknowledge::ResponseReceived { sender_idx: self.idx, request_id };
+		let ack_data = ack.encode();
+
+		let mut statement = Statement::new();
+
+		let topic0 = topic_ack();
+		let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
+		let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
+
+		statement.set_topic(0, topic0);
+		statement.set_topic(1, topic1);
+		statement.set_channel(channel);
+		statement.set_priority(self.submit_counter);
+		statement.set_plain_data(ack_data);
+		statement.sign_sr25519_private(&self.keyring.pair());
+
+		Some(statement)
+	}
+
 	async fn send_requests(&mut self) -> Result<(), anyhow::Error> {
 		let group_members = self.group_members.clone();
 		for receiver_idx in group_members {
@@ -598,25 +648,8 @@ impl Participant {
 			.collect();
 
 		for (sender_idx, request_id) in pending_acks {
-			let ack = StatementAcknowledge::RequestReceived { sender_idx: self.idx, request_id };
-			let ack_data = ack.encode();
-
-			if let Some(sender_session_key) = self.session_keys.get(&sender_idx) {
-				let mut statement = Statement::new();
-
-				let topic0 = topic_ack();
-				let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
-				let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
-
-				statement.set_topic(0, topic0);
-				statement.set_topic(1, topic1);
-				statement.set_channel(channel);
-				statement.set_priority(self.submit_counter);
-				statement.set_plain_data(ack_data);
-				statement.sign_sr25519_private(&self.keyring.pair());
-
+			if let Some(statement) = self.create_request_ack_statement(sender_idx, request_id) {
 				self.statement_submit(statement).await?;
-				// Mark acknowledgment as sent
 				self.pending_request_acks.insert((sender_idx, request_id), true);
 			}
 		}
@@ -695,25 +728,8 @@ impl Participant {
 			.collect();
 
 		for (sender_idx, request_id) in pending_acks {
-			let ack = StatementAcknowledge::ResponseReceived { sender_idx: self.idx, request_id };
-			let ack_data = ack.encode();
-
-			if let Some(sender_session_key) = self.session_keys.get(&sender_idx) {
-				let mut statement = Statement::new();
-
-				let topic0 = topic_ack();
-				let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
-				let channel = channel_pair(&self.session_key.public(), sender_session_key, 0);
-
-				statement.set_topic(0, topic0);
-				statement.set_topic(1, topic1);
-				statement.set_channel(channel);
-				statement.set_priority(self.submit_counter);
-				statement.set_plain_data(ack_data);
-				statement.sign_sr25519_private(&self.keyring.pair());
-
+			if let Some(statement) = self.create_response_ack_statement(sender_idx, request_id) {
 				self.statement_submit(statement).await?;
-				// Mark acknowledgment as sent
 				self.pending_response_acks.insert((sender_idx, request_id), true);
 			}
 		}
