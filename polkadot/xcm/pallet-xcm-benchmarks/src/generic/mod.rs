@@ -103,7 +103,8 @@ pub mod pallet {
 		/// acceptance and rejection cases.
 		///
 		/// If set to `Err`, benchmarks which rely on a `barrier_check` will be skipped.
-		fn worst_case_for_not_passing_barrier() -> Result<<Self as Config<I>>::RuntimeCall, BenchmarkError>;
+		fn worst_case_for_not_passing_barrier(
+		) -> Result<<Self as Config<I>>::RuntimeCall, BenchmarkError>;
 
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///
