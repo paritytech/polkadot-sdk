@@ -158,13 +158,24 @@ pub fn create_benchmarking_transfer_extrinsics(
 	let set_validation_data_extrinsic = extrinsic_set_validation_data(parent_header);
 	extrinsics.push(set_validation_data_extrinsic);
 
+	let use_transfer_all = std::env::var("BLOCK_PRODUCTION_TRANSFER_ALL").is_ok();
+
 	for (src, dst) in src_accounts.iter().zip(dst_accounts.iter()) {
-		let extrinsic: UncheckedExtrinsic = construct_extrinsic(
-			client,
+		let call = if use_transfer_all {
+			BalancesCall::transfer_all {
+				dest: MultiAddress::Id(AccountId::from(dst.public())),
+				keep_alive: false,
+			}
+		} else {
 			BalancesCall::transfer_keep_alive {
 				dest: MultiAddress::Id(AccountId::from(dst.public())),
 				value: 10000,
-			},
+			}
+		};
+
+		let extrinsic: UncheckedExtrinsic = construct_extrinsic(
+			client,
+			call,
 			src.clone(),
 			Some(0),
 		);
