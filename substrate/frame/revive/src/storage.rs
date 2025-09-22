@@ -152,7 +152,7 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 
 impl<T: Config> AccountInfo<T> {
 	/// Returns true if the account is a contract.
-	fn is_contract(address: &H160) -> bool {
+	pub fn is_contract(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
 		matches!(info.account_type, AccountType::Contract(_))
 	}
@@ -556,7 +556,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// Note:
 	/// we use the delete counter to get the next value to read from the queue and thus don't pay
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
-	fn next(&mut self) -> Option<DeletionQueueEntry<T>> {
+	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
 			return None
 		}

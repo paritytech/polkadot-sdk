@@ -4,9 +4,6 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
-# Disabled, occasionally fails
-# Takes too much CPU when spawning all nodes at the same time
-# Re-enable when https://github.com/paritytech/zombienet-sdk/issues/371 is implemented
 - job-name: "zombienet-cumulus-0002-pov_recovery"
   test-filter: "zombie_ci::pov_recovery::pov_recovery"
   runner-type: "large"
@@ -31,9 +28,6 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
-# Disabled, occasionally fails
-# Takes too much CPU when spawning all nodes at the same time
-# Re-enable when https://github.com/paritytech/zombienet-sdk/issues/371 is implemented
 - job-name: "zombienet-cumulus-0006-rpc_collator_builds_blocks"
   test-filter: "zombie_ci::rpc_collator_build_blocks::rpc_collator_builds_blocks"
   runner-type: "large"
