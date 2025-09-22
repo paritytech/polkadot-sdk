@@ -77,7 +77,7 @@ pub fn encode_bool(value: bool, out: &mut [u8]) {
 ///
 /// The returned layout will be
 ///
-///     `[offset (32 bytes)] [len (32 bytes)] [data (padded to 32)]`
+///     [offset (32 bytes)] [len (32 bytes)] [data (padded to 32)]
 ///
 /// The `out` byte array needs to be able to hold (in the worst case)
 /// 95 bytes more than `input.len()`. This is because we write the
@@ -89,7 +89,7 @@ pub fn encode_bool(value: bool, out: &mut [u8]) {
 ///   * We pad the input to a multiple of 32 → between 0 and 31 extra bytes.
 pub fn encode_bytes(input: &[u8], out: &mut [u8]) -> usize {
 	let len = input.len();
-	let padded_len = ((len + 31) / 32) * 32;
+	let padded_len = ((len + 31).div_ceil(32)) * 32;
 
 	// out_len = 32 + padded_len
 	//         = 32 + ceil(input_len / 32) * 32
