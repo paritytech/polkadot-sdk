@@ -592,7 +592,7 @@ impl EthereumBlockBuilder {
 		timestamp: U256,
 		block_author: H160,
 		gas_limit: U256,
-	) -> (H256, Block, Vec<ReceiptGasInfo>) {
+	) -> (Block, Vec<ReceiptGasInfo>) {
 		let transactions_root = Self::compute_trie_root(&mut self.transaction_root_builder);
 		let receipts_root = Self::compute_trie_root(&mut self.receipts_root_builder);
 
@@ -621,7 +621,7 @@ impl EthereumBlockBuilder {
 		let block_hash = block.header_hash();
 		block.hash = block_hash;
 
-		(block_hash, block, gas_info)
+		(block, gas_info)
 	}
 
 	fn compute_trie_root(builder: &mut Option<IncrementalHashBuilder>) -> H256 {
@@ -834,7 +834,7 @@ mod test {
 				block.miner,
 				Default::default(),
 			)
-			.1;
+			.0;
 
 		assert_eq!(built_block.gas_used, block.gas_used);
 		assert_eq!(built_block.logs_bloom, block.logs_bloom);

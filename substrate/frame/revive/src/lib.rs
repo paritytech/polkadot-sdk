@@ -750,11 +750,16 @@ pub mod pallet {
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			EthBlockBuilderIR::<T>::kill();
 
-			let (block_hash, block, receipt_data) = EthereumBlockBuilder::from_ir(block_builder_ir)
-				.build(eth_block_num, parent_hash, T::Time::now().into(), block_author, gas_limit);
+			let (block, receipt_data) = EthereumBlockBuilder::from_ir(block_builder_ir).build(
+				eth_block_num,
+				parent_hash,
+				T::Time::now().into(),
+				block_author,
+				gas_limit,
+			);
 
 			// Put the block hash into storage.
-			BlockHash::<T>::insert(eth_block_num, block_hash);
+			BlockHash::<T>::insert(eth_block_num, block.hash);
 
 			// Prune older block hashes.
 			let block_hash_count = block_storage::BLOCK_HASH_COUNT;
