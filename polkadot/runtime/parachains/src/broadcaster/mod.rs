@@ -108,12 +108,19 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Process a publish operation from a parachain.
-		/// 
+		///
 		/// Stores the provided key-value pairs in the publisher's child trie.
 		pub fn handle_publish(
 			origin_para_id: ParaId,
 			data: Vec<(Vec<u8>, Vec<u8>)>,
 		) -> DispatchResult {
+			log::info!(
+				target: "broadcaster::publish",
+				"📡 Publishing data from parachain {:?}: {} items",
+				origin_para_id,
+				data.len()
+			);
+
 			// Validate input limits first before making any changes
 			ensure!(
 				data.len() <= T::MaxPublishItems::get() as usize,
@@ -140,6 +147,15 @@ pub mod pallet {
 
 			// Store each key-value pair in the child trie and track the key
 			for (key, value) in data {
+				log::debug!(
+					target: "broadcaster::publish",
+					"📝 Storing key {:?} ({}B) -> value ({}B) for parachain {:?}",
+					key,
+					key.len(),
+					value.len(),
+					origin_para_id
+				);
+
 				frame_support::storage::child::put(&child_info, &key, &value);
 
 				// Track the key for enumeration (convert to BoundedVec)
@@ -150,6 +166,13 @@ pub mod pallet {
 
 			// Update the published keys storage
 			PublishedKeys::<T>::insert(origin_para_id, published_keys);
+
+			log::info!(
+				target: "broadcaster::publish",
+				"✅ Successfully published data for parachain {:?}, total keys: {}",
+				origin_para_id,
+				PublishedKeys::<T>::get(origin_para_id).len()
+			);
 
 			Ok(())
 		}
@@ -197,21 +220,57 @@ pub mod pallet {
 
 		/// Get all published data for a parachain.
 		pub fn get_all_published_data(para_id: ParaId) -> Vec<(Vec<u8>, Vec<u8>)> {
+			log::debug!(
+				target: "broadcaster::query",
+				"🔍 get_all_published_data() called for parachain {:?}",
+				para_id
+			);
+
 			if !PublisherExists::<T>::get(para_id) {
+				log::debug!(
+					target: "broadcaster::query",
+					"❌ Parachain {:?} has no published data",
+					para_id
+				);
 				return Vec::new();
 			}
 
 			let child_info = Self::derive_child_info(para_id);
 			let published_keys = PublishedKeys::<T>::get(para_id);
 
-			published_keys
+			let data: Vec<(Vec<u8>, Vec<u8>)> = published_keys
 				.into_iter()
 				.filter_map(|bounded_key| {
 					let key: Vec<u8> = bounded_key.into();
 					frame_support::storage::child::get(&child_info, &key)
 						.map(|value| (key, value))
 				})
-				.collect()
+				.collect();
+
+			log::debug!(
+				target: "broadcaster::query",
+				"📦 Returning {} data items for parachain {:?}",
+				data.len(),
+				para_id
+			);
+
+			data
+		}
+
+		/// Get list of all parachains that have published data.
+		pub fn get_all_publishers() -> Vec<ParaId> {
+			let publishers: Vec<ParaId> = PublisherExists::<T>::iter()
+				.filter_map(|(para_id, exists)| if exists { Some(para_id) } else { None })
+				.collect();
+
+			log::debug!(
+				target: "broadcaster::query",
+				"🔍 get_all_publishers() returning {} publishers: {:?}",
+				publishers.len(),
+				publishers
+			);
+
+			publishers
 		}
 	}
 }

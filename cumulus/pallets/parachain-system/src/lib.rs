@@ -630,6 +630,7 @@ pub mod pallet {
 				horizontal_messages,
 				relay_parent_descendants,
 				collator_peer_id: _,
+				published_data,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -734,6 +735,14 @@ pub mod pallet {
 			<RelayStateProof<T>>::put(relay_chain_state);
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
+
+			// Process published data from the broadcaster pallet
+			log::info!(
+				target: "parachain_system::inherent",
+				"📨 Received inherent with published_data containing {} publishers",
+				published_data.len()
+			);
+			Self::process_published_data(&published_data);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
@@ -972,6 +981,30 @@ pub mod pallet {
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+	/// Published data from parachains available through the broadcaster pallet.
+	/// Double map: Publisher ParaId -> Key -> Value
+	#[pallet::storage]
+	pub type PublishedData<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ParaId,           // Publisher
+		Blake2_128Concat,
+		Vec<u8>,          // Key
+		Vec<u8>,          // Value
+		OptionQuery,
+	>;
+
+	/// Root hash of published data for each publisher.
+	/// This can be used for efficient verification without reading all data.
+	#[pallet::storage]
+	pub type PublishedDataRoot<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		ParaId,           // Publisher
+		T::Hash,          // Root hash of published data
+		OptionQuery,
+	>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
@@ -1300,6 +1333,63 @@ impl<T: Config> Pallet<T> {
 		HrmpWatermark::<T>::put(hrmp_watermark.unwrap_or(relay_parent_number));
 
 		weight_used
+	}
+
+	/// Process published data from the broadcaster pallet and store it in parachain storage.
+	fn process_published_data(
+		published_data: &BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
+	) {
+		log::info!(
+			target: "parachain_system::published_data",
+			"📨 Processing published data from {} publishers",
+			published_data.len()
+		);
+
+		if published_data.is_empty() {
+			log::debug!(
+				target: "parachain_system::published_data",
+				"🕳️ No published data to process"
+			);
+			return;
+		}
+
+		// Store new published data (we'll clear per-publisher rather than all data)
+		for (publisher, data_entries) in published_data {
+			log::info!(
+				target: "parachain_system::published_data",
+				"📦 Processing {} data items from publisher parachain {:?}",
+				data_entries.len(),
+				publisher
+			);
+
+			// Clear existing data for this publisher
+			let _ = PublishedData::<T>::remove_prefix(publisher, None);
+
+			// Store new data for this publisher
+			for (key, value) in data_entries {
+				log::debug!(
+					target: "parachain_system::published_data",
+					"💾 Storing key {:?} ({}B) -> value ({}B) from publisher {:?}",
+					key,
+					key.len(),
+					value.len(),
+					publisher
+				);
+				PublishedData::<T>::insert(publisher, key, value);
+			}
+
+			log::info!(
+				target: "parachain_system::published_data",
+				"✅ Successfully stored {} items from publisher {:?}",
+				data_entries.len(),
+				publisher
+			);
+		}
+
+		log::info!(
+			target: "parachain_system::published_data",
+			"🎯 Finished processing published data from all publishers"
+		);
 	}
 
 	/// Drop blocks from the unincluded segment with respect to the latest parachain head.

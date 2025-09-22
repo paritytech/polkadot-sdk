@@ -16,12 +16,13 @@
 
 //! Client side code for generating the parachain inherent.
 
-use codec::Decode;
+use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{self, Block as RelayBlock, Hash as PHash, HrmpChannelId},
 	ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
+use std::collections::BTreeMap;
 
 mod mock;
 
@@ -147,6 +148,107 @@ async fn collect_relay_storage_proof(
 		.ok()
 }
 
+/// Collect published data from all publishers in the broadcaster pallet.
+async fn collect_published_data(
+	relay_chain_interface: &impl RelayChainInterface,
+	relay_parent: PHash,
+) -> Option<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
+	tracing::info!(
+		target: LOG_TARGET,
+		relay_parent = ?relay_parent,
+		"🔍 Collecting published data from broadcaster pallet"
+	);
+
+	// Get all publishers that have published data
+	let publishers: Vec<ParaId> = cumulus_relay_chain_interface::call_runtime_api(
+		relay_chain_interface,
+		"BroadcasterApi_get_all_publishers",
+		relay_parent,
+		(),
+	)
+	.await
+	.map_err(|e| {
+		tracing::error!(
+			target: LOG_TARGET,
+			relay_parent = ?relay_parent,
+			error = ?e,
+			"Cannot obtain the list of publishers.",
+		);
+	})
+	.ok()?;
+
+	tracing::info!(
+		target: LOG_TARGET,
+		relay_parent = ?relay_parent,
+		publishers = ?publishers,
+		"📋 Found {} publishers with data",
+		publishers.len()
+	);
+
+	let mut published_data = BTreeMap::new();
+
+	// Fetch all published data for each publisher
+	for publisher in publishers {
+		tracing::debug!(
+			target: LOG_TARGET,
+			relay_parent = ?relay_parent,
+			para_id = ?publisher,
+			"📦 Fetching published data for parachain {:?}",
+			publisher
+		);
+
+		let data: Vec<(Vec<u8>, Vec<u8>)> = cumulus_relay_chain_interface::call_runtime_api(
+			relay_chain_interface,
+			"BroadcasterApi_get_all_published_data",
+			relay_parent,
+			publisher,
+		)
+		.await
+		.map_err(|e| {
+			tracing::error!(
+				target: LOG_TARGET,
+				relay_parent = ?relay_parent,
+				para_id = ?publisher,
+				error = ?e,
+				"Cannot obtain published data for publisher.",
+			);
+		})
+		.ok()
+		.unwrap_or_default();
+
+		if !data.is_empty() {
+			tracing::info!(
+				target: LOG_TARGET,
+				relay_parent = ?relay_parent,
+				para_id = ?publisher,
+				items = data.len(),
+				"✅ Collected {} data items from parachain {:?}",
+				data.len(),
+				publisher
+			);
+			published_data.insert(publisher, data);
+		} else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				relay_parent = ?relay_parent,
+				para_id = ?publisher,
+				"🕳️ No data found for parachain {:?}",
+				publisher
+			);
+		}
+	}
+
+	tracing::info!(
+		target: LOG_TARGET,
+		relay_parent = ?relay_parent,
+		total_publishers = published_data.len(),
+		"🎯 Collected published data from {} publishers",
+		published_data.len()
+	);
+
+	Some(published_data)
+}
+
 pub struct ParachainInherentDataProvider;
 
 impl ParachainInherentDataProvider {
@@ -202,6 +304,14 @@ impl ParachainInherentDataProvider {
 			})
 			.ok()?;
 
+		// Fetch published data from all publishers via broadcaster pallet
+		let published_data = collect_published_data(
+			relay_chain_interface,
+			relay_parent,
+		)
+		.await
+		.unwrap_or_default();
+
 		Some(ParachainInherentData {
 			downward_messages,
 			horizontal_messages,
@@ -209,6 +319,7 @@ impl ParachainInherentDataProvider {
 			relay_chain_state,
 			relay_parent_descendants,
 			collator_peer_id: None,
+			published_data,
 		})
 	}
 }

@@ -2741,6 +2741,14 @@ sp_api::impl_runtime_apis! {
 		fn get_publisher_child_root(para_id: polkadot_primitives::Id) -> Option<Vec<u8>> {
 			Broadcaster::get_publisher_child_root(para_id)
 		}
+
+		fn get_all_published_data(para_id: polkadot_primitives::Id) -> Vec<(Vec<u8>, Vec<u8>)> {
+			Broadcaster::get_all_published_data(para_id)
+		}
+
+		fn get_all_publishers() -> Vec<polkadot_primitives::Id> {
+			Broadcaster::get_all_publishers()
+		}
 	}
 }
 

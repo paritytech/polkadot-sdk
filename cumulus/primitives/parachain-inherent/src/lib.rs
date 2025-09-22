@@ -120,6 +120,9 @@ pub struct ParachainInherentData {
 	/// Contains the collator peer ID, which is later sent by the parachain to the
 	/// relay chain via a UMP signal to promote the reputation of the given peer ID.
 	pub collator_peer_id: Option<ApprovedPeerId>,
+	/// Published data from the broadcaster pallet on the relay chain.
+	/// Key: Publisher ParaId, Value: Vector of (key, value) pairs published by that parachain.
+	pub published_data: BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
 }
 
 // Upgrades the ParachainInherentData v0 to the newest format.
@@ -132,6 +135,7 @@ impl Into<ParachainInherentData> for v0::ParachainInherentData {
 			horizontal_messages: self.horizontal_messages,
 			relay_parent_descendants: Vec::new(),
 			collator_peer_id: None,
+			published_data: BTreeMap::new(),
 		}
 	}
 }
