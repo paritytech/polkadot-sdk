@@ -19,6 +19,7 @@ use zombienet_sdk::{
 };
 
 const GROUP_SIZE: u32 = 6;
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 2;
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
 const MESSAGE_COUNT: usize = 2;
 
@@ -28,12 +29,13 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	info!("Starting statement store benchmark with {} participants", GROUP_SIZE);
 	let network = spawn_network().await?;
-	let mut rpcs = Vec::with_capacity(GROUP_SIZE as usize);
+
+	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
+	let mut rpcs = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 
 	info!("Establishing RPC connections to collator nodes");
-	for i in 0..GROUP_SIZE as usize {
+	for i in 0..(PARTICIPANT_SIZE) as usize {
 		debug!("Connecting to RPC for participant {}", i);
 		let rpc = get_rpc(&network, "charlie").await?;
 		rpcs.push(rpc);
