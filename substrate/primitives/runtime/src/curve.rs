@@ -22,7 +22,7 @@ use crate::{
 	FixedU128, Perbill,
 };
 use core::ops::Sub;
-use num_traits::{One, CheckedDiv};
+use num_traits::{One, CheckedDiv, Zero};
 use scale_info::TypeInfo;
 use sp_arithmetic::{traits::{Saturating, Bounded}, FixedPointNumber};
 
@@ -30,17 +30,34 @@ use sp_arithmetic::{traits::{Saturating, Bounded}, FixedPointNumber};
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
 pub enum Step<Y> {
 	/// Increase the value by a percentage of the current value at each step.
-	PctInc { pct: FixedU128 },
+	PctInc { 
+		/// The percentage to increase by.
+		pct: FixedU128 
+	},
 	/// Decrease the value by a percentage of the current value at each step.
-	PctDec { pct: FixedU128 },
+	PctDec { 
+		/// The percentage to decrease by.
+		pct: FixedU128 
+	},
 	/// Increment by a constant value at each step.
-	Add { amount: Y },
+	Add {
+		/// The amount to add.
+		amount: Y 
+	},
 	/// Decrement by a constant value at each step.
-	Subtract { amount: Y },
+	Subtract { 
+		/// The amount to substract.
+		amount: Y 
+	},
 	/// Move towards a desired value by a percentage of the remaining difference at each step.
 	///
 	/// Step size will be (target_total - current_value) * pct.
-	RemainingPct { target: Y, pct: Perbill },
+	RemainingPct { 
+		/// The asymptote the curve will move towards.
+		target: Y,
+		/// The percentage closer to the `target` at each step.
+		pct: Perbill
+	},
 }
 
 /// A stepped curve.
@@ -75,7 +92,7 @@ impl SteppedCurve<FixedU128, FixedU128>
 	pub fn last_step_size(&self, point: FixedU128) -> FixedU128 {
 		// Already ended.
 		if let Some(end_point) = self.end {
-			if end_point < start {
+			if end_point < self.start {
 				return FixedU128::zero();
 			}
 		}
@@ -91,7 +108,7 @@ impl SteppedCurve<FixedU128, FixedU128>
 		}
 
 		// Calculate how many full periods have passed.
-		let num_periods = (point - self.start).checked_div(self.period).unwrap_or(FixedU128::max_value());
+		let num_periods = (point - self.start).checked_div(&self.period).unwrap_or(FixedU128::max_value());
 
 		// Full period has not passed.
 		if num_periods < FixedU128::one() {
@@ -119,7 +136,7 @@ impl SteppedCurve<FixedU128, FixedU128>
 
 		// Already ended.
 		if let Some(end_point) = self.end {
-			if end_point < start {
+			if end_point < self.start {
 				return initial;
 			}
 		}
@@ -138,8 +155,8 @@ impl SteppedCurve<FixedU128, FixedU128>
 		let effective_point = self.end.map_or(point, |e| point.min(e));
 
 		// Calculate how many full periods have passed.
-		let num_periods = (effective_point - self.start).checked_div(self.period).unwrap_or(FixedU128::max_value());
-		let num_periods_usize = num_periods.saturated_into::<usize>();
+		let num_periods = (effective_point - self.start).checked_div(&self.period).unwrap_or(FixedU128::max_value());
+		let num_periods_usize = (num_periods.into_inner() / FixedU128::DIV).saturated_into::<usize>();
 		let num_periods_floor = FixedU128::saturating_from_integer(num_periods_usize);
 
 		// No periods have passed.
