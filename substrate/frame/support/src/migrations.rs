@@ -504,7 +504,10 @@ pub trait SteppedMigration {
 		None
 	}
 
-	/// The prefixes that are being migrated.
+	/// This function is optional and provides information to the migration framework
+	/// to know which storage prefixes are being migrated. It can be helpful to let
+	/// chain explorers know which part of the state is possibly in a state where it
+	/// cannot be read correctly.
 	fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
 		core::iter::empty()
 	}
@@ -895,11 +898,9 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	}
 
 	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
-		if n == 0 {
-			Some(Ok(T::migrating_prefixes().into_iter().collect()))
-		} else {
-			None
-		}
+		n.is_zero()
+			.then(|| Ok(T::migrating_prefixes().into_iter().collect()))
+			.defensive_proof("nth_migrating_prefixes should only be called with n==0")
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -1278,7 +1279,6 @@ mod tests {
 			M0::nth_migrating_prefixes(0),
 			Some(Ok(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
 		);
-		assert_eq!(M0::nth_migrating_prefixes(1), None);
 
 		// Test migration with no prefixes
 		assert_eq!(M3::nth_migrating_prefixes(0), Some(Ok(Vec::new())));
