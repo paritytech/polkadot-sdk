@@ -212,6 +212,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		&mut self,
 		_beneficiary: &H160,
 		_allow_from_outside_tx: bool,
+		target_address: Option<&H160>,
 	) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate")
 	}

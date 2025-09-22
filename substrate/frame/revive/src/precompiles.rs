@@ -290,23 +290,12 @@ pub(crate) struct Instance<E> {
 	function: fn(&[u8; 20], Vec<u8>, &mut E) -> Result<Vec<u8>, Error>,
 }
 
-// Provide a custom Debug impl that omits the function pointer.
-impl<E> core::fmt::Debug for Instance<E> {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		f.debug_struct("Instance")
-			.field("has_contract_info", &self.has_contract_info)
-			.field("address", &self.address)
-			.finish()
-	}
-}
-
 impl<E> Instance<E> {
 	pub fn has_contract_info(&self) -> bool {
 		self.has_contract_info
 	}
 
 	pub fn call(&self, input: Vec<u8>, env: &mut E) -> ExecResult {
-		log::info!("precompiles.rs |Instance::call. input: {input:?}, address: {:?}", self.address);
 		let result = (self.function)(&self.address, input, env);
 		match result {
 			Ok(data) => Ok(ExecReturnValue { flags: ReturnFlags::empty(), data }),

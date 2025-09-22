@@ -373,11 +373,14 @@ where
 				Origin::Signed(o) => o,
 			};
 			let try_charge = || {
-				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
+				// TODO: should we match refund and charges to optimize balance transfers?
+				// e.g. CHARGE(ALICE, BOB) and REFUND(BOB, CHARLIE) can be optimized to
+				// CHARGE(ALICE, CHARLIE) in case contract created and terminated in the same tx.
+				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
 				{
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
-				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
+				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
 				{
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
@@ -460,6 +463,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => return Ok(()),
 			Deposit::Charge(amount) => {
+				log::info!("meter.rs charge() CHARGE amount: {:?}", amount);
 				T::Currency::transfer_and_hold(
 					&HoldReason::StorageDepositReserve.into(),
 					origin,
@@ -471,6 +475,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 			},
 			Deposit::Refund(amount) => {
+				log::info!("meter.rs charge() REFUND amount: {:?}", amount);
 				let transferred = T::Currency::transfer_on_hold(
 					&HoldReason::StorageDepositReserve.into(),
 					contract,
@@ -480,6 +485,11 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
+				log::info!(
+					"meter.rs charge() amount: {:?}, transferred: {:?}",
+					amount,
+					transferred
+				);
 
 				if transferred < *amount {
 					// This should never happen, if it does it means that there is a bug in the

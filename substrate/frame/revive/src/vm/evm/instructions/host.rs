@@ -257,7 +257,10 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([beneficiary], context.interpreter);
 	let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
-	let dispatch_result = context.interpreter.extend.terminate(&h160, false);
+	let dispatch_result = context
+		.interpreter
+		.extend
+		.terminate(&h160, /* allow_from_outside_tx */ false, /* target_address */ None);
 
 	match dispatch_result {
 		Ok(_) => {

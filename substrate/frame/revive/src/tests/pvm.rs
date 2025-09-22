@@ -542,58 +542,6 @@ fn instantiate_unique_trie_id() {
 }
 
 #[test]
-fn instantiate_unique_trie_id2() {
-	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
-	let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Upload both contracts
-		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			selfdestruct_binary,
-			deposit_limit::<Test>(),
-		));
-
-		assert_ok!(Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			factory_binary,
-			deposit_limit::<Test>(),
-		));
-
-		// Deploy factory
-		let factory = builder::bare_instantiate(Code::Existing(factory_code_hash))
-			.native_value(100_000)
-			.build_and_unwrap_contract();
-
-		// Call factory
-		let mut input_data = Vec::new();
-		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
-
-		let result = builder::bare_call(factory.addr).data(input_data).build();
-
-		println!("result: {:?}", result);
-
-		assert!(result.result.is_ok());
-
-		// Extract the returned contract address
-		let returned_data = result.result.unwrap().data;
-		assert!(returned_data.len() >= 20, "Returned data too short to contain address");
-		let mut contract_addr_bytes = [0u8; 20];
-		contract_addr_bytes.copy_from_slice(&returned_data[0..20]);
-		let contract_addr = H160::from(contract_addr_bytes);
-
-		// Now get the trie_id from the test side (if contract still exists)
-		if let Some(contract_info) = get_contract_checked(&contract_addr) {
-			println!("Contract still exists, trie_id: {:?}", contract_info.trie_id);
-		} else {
-			println!("Contract was destroyed (EIP-6780 working correctly)");
-		}
-	});
-}
-
-#[test]
 fn storage_work() {
 	let (code, _code_hash) = compile_module("storage").unwrap();
 
@@ -1108,7 +1056,7 @@ fn self_destruct_works() {
 		// there's also the code upload deposit held.
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&ALICE),
-			1_000_000 - (100_000 + min_balance)
+			1_000_000 - (initial_contract_balance + min_balance)
 		);
 
 		pretty_assertions::assert_eq!(
@@ -1164,6 +1112,98 @@ fn self_destruct_works() {
 					topics: vec![],
 				},
 			],
+		);
+	});
+}
+
+#[test]
+fn self_destruct2_works() {
+	use crate::{ContractResult, ExecReturnValue};
+	use frame_support::traits::OnFinalize;
+	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
+	let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let initial_contract_balance = 100_000;
+
+		println!(
+			"DJANGO_FALLBACK: {:?}",
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
+		);
+
+		// Upload both contracts
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			selfdestruct_binary,
+			deposit_limit::<Test>(),
+		));
+		println!(
+			"DJANGO_FALLBACK: {:?}",
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
+		);
+
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			factory_binary,
+			deposit_limit::<Test>(),
+		));
+		println!(
+			"DJANGO_FALLBACK: {:?}",
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
+		);
+
+		// Deploy factory
+		let factory = builder::bare_instantiate(Code::Existing(factory_code_hash))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
+
+		println!(
+			"DJANGO_FALLBACK: {:?}",
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
+		);
+		let mut input_data = Vec::new();
+		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
+
+		// Call factory
+		let result = builder::bare_call(factory.addr).data(input_data.clone()).build();
+		println!(
+			"DJANGO_FALLBACK: {:?}",
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
+		);
+		assert!(result.result.is_ok());
+
+		println!(
+			"DJANGO_FALLBACK: {:?}",
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
+		);
+		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
+
+		let returned_data = result.result.unwrap().data;
+		assert!(returned_data.len() >= 20, "Returned data too short to contain address");
+		let mut contract_addr_bytes = [0u8; 20];
+		contract_addr_bytes.copy_from_slice(&returned_data[0..20]);
+		let contract_addr = H160::from(contract_addr_bytes);
+
+		// TODO: contract is not removed from storage?
+		System::on_finalize(System::block_number());
+		Contracts::on_finalize(System::block_number());
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+		initialize_block(System::block_number() + 1);
+		println!(
+			"DJANGO_FALLBACK: {:?}",
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
+		);
+		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
+
+		println!("{:?}", System::events());
+
+		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
+
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&ALICE),
+			1_000_000 - (initial_contract_balance + min_balance)
 		);
 	});
 }

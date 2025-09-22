@@ -447,6 +447,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		&mut self,
 		beneficiary: &H160,
 		allow_from_outside_tx: bool,
+		target_address: Option<&H160>,
 	) -> Result<CodeRemoved, DispatchError>;
 }
 
@@ -787,10 +788,6 @@ fn transfer_with_dust<T: Config>(
 ) -> DispatchResult {
 	let (value, dust) = value.deconstruct();
 
-	log::info!(
-		"exec.rs transfer_with_dust: value: {value:?}, dust: {dust:?}, from: {from:?}, to: {to:?}"
-	);
-
 	fn transfer_balance<T: Config>(
 		from: &AccountIdOf<T>,
 		to: &AccountIdOf<T>,
@@ -879,9 +876,7 @@ where
 		input_data: Vec<u8>,
 		skip_transfer: bool,
 	) -> ExecResult {
-		log::info!("exec.rs stack::run_call dest: {dest:?}, input_data: {input_data:?}");
 		let dest = T::AddressMapper::to_account_id(&dest);
-		log::info!("exec.rs stack::run_call dest: {dest:?}");
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
@@ -890,7 +885,6 @@ where
 			value,
 			skip_transfer,
 		)? {
-			log::info!("exec.rs stack::run_call");
 			stack
 				.run(executable, input_data, BumpNonce::Yes)
 				.map(|_| stack.first_frame.last_frame_output)
@@ -1317,11 +1311,6 @@ where
 			//  - Only when not delegate calling we are executing in the context of the pre-compile.
 			//    Pre-compiles itself cannot delegate call.
 			if let Some(precompile) = executable.as_precompile() {
-				log::info!("exec.rs run() executing precompile...");
-				log::info!(
-					"exec.rs run() precompile.has_contract_info(): {}",
-					precompile.has_contract_info()
-				);
 				if precompile.has_contract_info() &&
 					frame.delegate.is_none() &&
 					!<System<T>>::account_exists(account_id)
@@ -1343,20 +1332,9 @@ where
 				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
-				{
-					log::info!("exec.rs run before instance.call, instance: {instance:?}");
-					let result = instance.call(input_data, self);
-					log::info!("exec.rs run after instance.call, result: {result:?}");
-					result
-				}
+					instance.call(input_data, self),
 			}
 			.and_then(|output| {
-				use crate::precompiles::alloy::hex;
-				log::info!("exec.rs run() output: {:?}", output);
-				log::info!(target: LOG_TARGET, "exec.rs run() precompile returned data (hex): 0x{}", hex::encode(output.data.clone()));
-				if let Ok(s) = core::str::from_utf8(&output.data) {
-					log::info!(target: LOG_TARGET, "exec.rs run() returned data as utf8: {:?}", s);
-				}
 				if u32::try_from(output.data.len())
 					.map(|len| len > limits::CALLDATA_BYTES)
 					.unwrap_or(true)
@@ -1554,30 +1532,8 @@ where
 				// TODO: iterate contracts_to_be_destroyed and destroy each contract
 				let contracts_to_destroy: Vec<(H160, ContractInfo<T>, H160)> =
 					self.contracts_to_be_destroyed.iter().cloned().collect();
-				log::info!("contracts_to_destroy: {contracts_to_destroy:?}");
 				for (contract_address, contract_info, beneficiary) in contracts_to_destroy {
-					let contract_account = T::AddressMapper::to_account_id(&contract_address);
-					let beneficiary_account = T::AddressMapper::to_account_id(&beneficiary);
-
-					let raw_value: U256 = self.account_balance(&beneficiary_account);
-					log::info!(
-						"before beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}"
-					);
-					let raw_value: U256 = self.account_balance(&contract_account);
-					log::info!(
-						"before contract_account: {contract_account:?}, raw_value: {raw_value:?}"
-					);
-
 					self.destroy_contract(&contract_address, &contract_info, &beneficiary);
-
-					let raw_value: U256 = self.account_balance(&beneficiary_account);
-					log::info!(
-						"after beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}"
-					);
-					let raw_value: U256 = self.account_balance(&contract_account);
-					log::info!(
-						"after contract_account: {contract_account:?}, raw_value: {raw_value:?}"
-					);
 				}
 			}
 		}
@@ -1723,44 +1679,22 @@ where
 		contract_info: &ContractInfo<T>,
 		beneficiary_address: &H160,
 	) -> Result<CodeRemoved, DispatchError> {
-		log::info!(
-			target: LOG_TARGET,
-			"Destroying contract: {:?} for beneficiary: {:?}",
-			contract_address,
-			beneficiary_address
-		);
-
 		// derive account ids
+		log::info!("exec.rs destroy_contract contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, contract_info: {contract_info:?}");
 		let contract_account = T::AddressMapper::to_account_id(contract_address);
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
-		// Transfer ALL balance to beneficiary (this should drain the account completely)
-		{
-			let raw_value: U256 = self.account_balance(&contract_account);
-			log::info!("exec.rs destroy_contract raw_value: {raw_value:?}");
-			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
-                .map_err(|e| {
-                    log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
-                    Error::<T>::BalanceConversionFailed
-                })?;
-			log::info!("exec.rs destroy_contract value: {value:?}");
-			if !value.is_zero() {
-				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
-			}
-		}
-		// Only allow storage to be removed if the contract was created in the current tx.
 		if self.contracts_created.contains(&contract_account) {
 			{
-				// 1) spin up a nested meter (with “infinite” cap)
+				log::info!("created nested storage meter");
 				let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
 
-				// 2) run the refund logic into that nested meter
+				log::info!("terminating nested meter");
 				nested.terminate(contract_info, beneficiary_account.clone());
 
-				// 3) absorb it back so the two `TransferOnHold` refunds actually happen
 				{
 					let mut info = Some(contract_info.clone());
-					// self.storage_meter.absorb(nested, &contract_account, info.as_mut());
+					log::info!("absorbing nested storage meter");
 					self.storage_meter.absorb(
 						mem::take(&mut nested),
 						&contract_account,
@@ -1768,6 +1702,27 @@ where
 					);
 				}
 			}
+		}
+
+		// Transfer ALL balance to beneficiary (this should drain the account completely)
+		{
+			let raw_value: U256 = self.account_balance(&contract_account);
+			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
+                .map_err(|e| {
+                    log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
+                    Error::<T>::BalanceConversionFailed
+                })?;
+			if !value.is_zero() {
+				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
+			}
+		}
+		// Only allow storage to be removed if the contract was created in the current tx.
+		log::info!(
+			"exec.rs destroy_contract contracts_created: {:?}, contract_account: {:?}",
+			self.contracts_created,
+			contract_account
+		);
+		if self.contracts_created.contains(&contract_account) {
 			// Clean up on-chain storage
 			contract_info.queue_trie_for_deletion();
 			AccountInfoOf::<T>::remove(contract_address);
@@ -1775,8 +1730,10 @@ where
 
 			// Decrement code refcount
 			let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+			log::info!("exec.rs destroy_contract removed??");
 			Ok(removed)
 		} else {
+			log::info!("exec.rs destroy_contract NOT removed??");
 			Ok(CodeRemoved::No)
 		}
 	}
@@ -1971,6 +1928,11 @@ where
 		};
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		// Mark the contract as created in this tx.
+
+		log::info!(
+			"exec.rs instantiate() contract created account_id: {:?}",
+			self.top_frame().account_id
+		);
 		self.contracts_created.insert(self.top_frame().account_id.clone());
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
@@ -1998,7 +1960,6 @@ where
 		allows_reentry: bool,
 		read_only: bool,
 	) -> Result<(), ExecError> {
-		log::info!("exec.rs call input: {input_data:?}, dest_addr: {dest_addr:02x?}");
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
@@ -2014,15 +1975,10 @@ where
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
-				log::info!(
-					"exec.rs call fallback dest: {:02x?}",
-					T::AddressMapper::to_fallback_account_id(dest_addr)
-				);
 				T::AddressMapper::to_fallback_account_id(dest_addr)
 			} else {
 				T::AddressMapper::to_account_id(dest_addr)
 			};
-			log::info!("exec.rs call dest: {dest:02x?}");
 
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
@@ -2298,35 +2254,44 @@ where
 		&mut self,
 		beneficiary: &H160,
 		allow_from_outside_tx: bool,
+		target_address: Option<&H160>,
 	) -> Result<CodeRemoved, DispatchError> {
-		log::info!("called terminate {:?} {}", beneficiary, allow_from_outside_tx);
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
-		let contract_address = {
-			let frame = self.top_frame_mut();
-			if frame.entry_point == ExportedFunction::Constructor {
-				return Err(Error::<T>::TerminatedInConstructor.into());
-			}
-			T::AddressMapper::to_address(&frame.account_id)
-		};
-		if allow_from_outside_tx {
-			// Pretend the contract was created in the current tx
-			let account_id = self.top_frame_mut().account_id.clone();
-			self.contracts_created.insert(account_id);
-			log::info!("allow_from_outside_tx: inserted contract_address: {:?}", contract_address);
-		}
-
-		{
-			let beneficiary_account = T::AddressMapper::to_account_id(beneficiary);
-			let mut frame = self.top_frame_mut();
-			let contract_info = frame.terminate();
-			// frame.nested_storage.terminate(&contract_info, beneficiary_account.clone());
+		if let Some(target_address) = target_address {
+			// let mut frame = self.top_frame_mut();
+			// let _ = frame.terminate();
+			let contract_info = AccountInfo::<T>::load_contract(target_address)
+				.ok_or(Error::<T>::ContractNotFound)?;
 			self.contracts_to_be_destroyed.insert((
-				contract_address,
+				target_address.clone(),
 				contract_info.clone(),
 				*beneficiary,
 			));
+		} else {
+			let contract_address = {
+				let frame = self.top_frame_mut();
+				if frame.entry_point == ExportedFunction::Constructor {
+					return Err(Error::<T>::TerminatedInConstructor.into());
+				}
+				T::AddressMapper::to_address(&frame.account_id)
+			};
+			if allow_from_outside_tx {
+				// Pretend the contract was created in the current tx
+				let account_id = self.top_frame_mut().account_id.clone();
+				self.contracts_created.insert(account_id);
+			}
+
+			{
+				let mut frame = self.top_frame_mut();
+				let contract_info = frame.terminate();
+				self.contracts_to_be_destroyed.insert((
+					contract_address,
+					contract_info.clone(),
+					*beneficiary,
+				));
+			}
 		}
 		Ok(CodeRemoved::Yes)
 	}

@@ -975,7 +975,11 @@ pub mod env {
 		// changed to work with same tx creation-termination rules. In production we only allow
 		// true termination of a contract if it is called in the same tx as it was created.
 		if matches!(
-			self.ext.terminate(&beneficiary, /* allow_from_outside_tx */ true)?,
+			self.ext.terminate(
+				&beneficiary,
+				/* allow_from_outside_tx */ true,
+				/* target_address */ None
+			)?,
 			crate::CodeRemoved::No
 		) {
 			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });

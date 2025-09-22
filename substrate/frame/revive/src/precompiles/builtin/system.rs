@@ -42,7 +42,6 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		log::info!(">>>>>>>>>>>>>called precompile call");
 		use ISystem::ISystemCalls;
 		match input {
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
@@ -89,7 +88,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
 			},
-			// terminate requires contract info; route to call_with_info by returning an error here
+			// terminate requires contract info
 			ISystemCalls::terminate(_) => {
 				log::error!("system.rs precompile call() for terminate is not implemented");
 				unimplemented!("not implemented")
@@ -103,7 +102,6 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 		input: &Self::Interface,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		log::info!(">>>>>>>>>>>>>called precompile call_with_info");
 		use ISystem::ISystemCalls;
 		match input {
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
@@ -151,19 +149,20 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				Ok(res.abi_encode())
 			},
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
-				log::info!("called precompile terminate {:?}", beneficiary);
-				// charge termination cost
+				use crate::Origin;
 				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
-				// beneficiary is 20 bytes; convert to H160
 				let h160 = H160::from_slice(beneficiary.as_slice());
-				// call into exec layer to terminate the contract; allow_from_outside_tx = true
-				// `terminate` returns Result<CodeRemoved, DispatchError>, `?` will convert via From
-				// if available.
-				env.terminate(&h160, false)?;
+				let caller_account_id = match env.caller() {
+					Origin::<T>::Root => {
+						panic!("terminate precompile called from Root, expected a contract");
+					},
+					Origin::<T>::Signed(c) => c,
+				};
+				let caller_h160: H160 = T::AddressMapper::to_address(&caller_account_id);
+				env.terminate(&h160, false, Some(&caller_h160));
 				Ok(Vec::new())
 			},
 		}
-		// Ok(Vec::new())
 	}
 }
 

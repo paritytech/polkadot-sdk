@@ -1193,7 +1193,6 @@ where
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
-		log::info!("lib.rs bare_Call(). dest: {dest:?}, data: {data:?}");
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 
@@ -1209,6 +1208,7 @@ where
 				data,
 				storage_deposit_limit.is_unchecked(),
 			)?;
+			log::info!("lib.rs bare_call() origin: {origin:?}, dest: {dest:?}, storage_meter:\n{storage_meter:#?}");
 			storage_deposit = storage_meter
 				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
 				.inspect_err(|err| {
