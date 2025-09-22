@@ -2,7 +2,7 @@ version:
   format: 1
   # Minimum version of the binary that is expected to work. This is just for printing a nice error
   # message when someone tries to use an older version.
-  binary: 1.78.0
+  binary: 1.82.1
 
 # The examples in this file assume crate `A` to have a dependency on crate `B`.
 workflows:
