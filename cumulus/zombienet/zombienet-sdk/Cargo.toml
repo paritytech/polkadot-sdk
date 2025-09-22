@@ -24,6 +24,7 @@ sp-statement-store = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 codec = { workspace = true }
+url = { workspace = true }
 
 [features]
 zombie-ci = []

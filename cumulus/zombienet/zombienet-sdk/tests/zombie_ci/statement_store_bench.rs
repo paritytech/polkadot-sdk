@@ -1,25 +1,26 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Test that people-westend enables the statement store in the node and that statements are
-// propagated to peers.
-
-// Removed AES-GCM import - using simple XOR for performance testing
 use anyhow::anyhow;
 use codec::{Decode, Encode};
 use futures::future::try_join_all;
 use log::{debug, error, info};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
-use sp_keyring::Sr25519Keyring;
 use sp_statement_store::{Statement, Topic};
 use std::collections::{HashMap, HashSet};
 use zombienet_sdk::{
-	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
+	subxt::{
+		backend::rpc::RpcClient,
+		ext::{
+			jsonrpsee::{client_transport::ws::WsTransportClientBuilder, core::client::Client},
+			subxt_rpcs::rpc_params,
+		},
+	},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 2;
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 50;
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
 const MESSAGE_COUNT: usize = 2;
 
@@ -32,35 +33,12 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let network = spawn_network().await?;
 
 	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
-	let mut rpcs = Vec::with_capacity(PARTICIPANT_SIZE as usize);
+	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 
-	info!("Establishing RPC connections to collator nodes");
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		debug!("Connecting to RPC for participant {}", i);
 		let rpc = get_rpc(&network, "charlie").await?;
-		rpcs.push(rpc);
+		participants.push(Participant::new(i as u32, rpc));
 	}
-	info!("All RPC connections established");
-
-	let participants: Vec<_> = [
-		Sr25519Keyring::Alice,
-		Sr25519Keyring::Bob,
-		Sr25519Keyring::Charlie,
-		Sr25519Keyring::Dave,
-		Sr25519Keyring::Eve,
-		Sr25519Keyring::Ferdie,
-		Sr25519Keyring::AliceStash,
-		Sr25519Keyring::BobStash,
-		Sr25519Keyring::CharlieStash,
-		Sr25519Keyring::DaveStash,
-		Sr25519Keyring::EveStash,
-		Sr25519Keyring::FerdieStash,
-	]
-	.into_iter()
-	.enumerate()
-	.zip(rpcs)
-	.map(|((idx, keyring), rpc)| Participant::new(keyring, idx as u32, rpc))
-	.collect();
 
 	let handles: Vec<_> = participants
 		.into_iter()
@@ -94,6 +72,7 @@ async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 					"--force-authoring".into(),
 					"-lstatement-store=trace".into(),
 					"--enable-statement-store".into(),
+					"--rpc-max-connections=50000".into(),
 				])
 				.with_collator(|n| n.with_name("alice"))
 				.with_collator(|n| n.with_name("bob"))
@@ -123,10 +102,17 @@ async fn get_rpc(
 	network: &Network<LocalFileSystem>,
 	node: &str,
 ) -> Result<RpcClient, anyhow::Error> {
-	let collator_node = network.get_node(node)?;
-	let collator_rpc = collator_node.rpc().await?;
+	let node = network.get_node(node)?;
+	let node_url = url::Url::parse(node.ws_uri())?;
+	let (node_sender, node_receiver) = WsTransportClientBuilder::default().build(node_url).await?;
+	let client = Client::builder()
+		.request_timeout(std::time::Duration::from_secs(3600))
+		.max_buffer_capacity_per_subscription(4096 * 1024)
+		.max_concurrent_requests(2 * 1024 * 1024)
+		.build_with_tokio(node_sender, node_receiver);
+	let rpc_client = RpcClient::new(client);
 
-	Ok(collator_rpc)
+	Ok(rpc_client)
 }
 
 #[derive(Encode, Decode, Clone)]
@@ -149,7 +135,7 @@ enum StatementAcknowledge {
 }
 
 struct Participant {
-	keyring: Sr25519Keyring,
+	keyring: sr25519::Pair,
 	session_key: sr25519::Pair,
 	idx: u32,
 	group_members: Vec<u32>,
@@ -169,7 +155,9 @@ struct Participant {
 }
 
 impl Participant {
-	fn new(keyring: Sr25519Keyring, idx: u32, rpc: RpcClient) -> Self {
+	fn new(idx: u32, rpc: RpcClient) -> Self {
+		info!("Initializing participant {}", idx);
+		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
 
 		let group_start = (idx / GROUP_SIZE) * GROUP_SIZE;
@@ -183,10 +171,6 @@ impl Participant {
 				symmetric_keys.insert(other_idx, pair.public());
 			}
 		}
-
-		info!("Initializing participant {} (keyring: {:?})", idx, keyring);
-		debug!("Participant {} group members: {:?}", idx, group_members);
-		debug!("Participant {} generated {} symmetric keys", idx, symmetric_keys.len());
 
 		Self {
 			keyring,
@@ -347,8 +331,8 @@ impl Participant {
 		&self,
 		topics: Vec<Topic>,
 	) -> Result<Vec<Statement>, anyhow::Error> {
-		const MAX_RETRIES: usize = 3;
-		const RETRY_DELAY_MS: u64 = 100;
+		const MAX_RETRIES: usize = 100;
+		const BASE_DELAY_MS: u64 = 100;
 
 		for attempt in 0..MAX_RETRIES {
 			debug!(
@@ -373,11 +357,9 @@ impl Participant {
 				return Ok(decoded_statements);
 			}
 
-			debug!(
-				"Participant {} no statements found, retrying in {}ms",
-				self.idx, RETRY_DELAY_MS
-			);
-			tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
+			let delay_ms = BASE_DELAY_MS * (attempt as u64 + 1);
+			debug!("Participant {} no statements found, retrying in {}ms", self.idx, delay_ms);
+			tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
 		}
 
 		let error_msg = format!(
@@ -395,7 +377,7 @@ impl Participant {
 		statement.set_topic(0, topic_public_key());
 		statement.set_topic(1, topic_idx(self.idx));
 		statement.set_plain_data(self.session_key.public().to_vec());
-		statement.sign_sr25519_private(&self.keyring.pair());
+		statement.sign_sr25519_private(&self.keyring);
 
 		statement
 	}
@@ -426,7 +408,7 @@ impl Participant {
 		statement.set_priority(self.submit_counter);
 		statement.set_topic(0, topic);
 		statement.set_plain_data(symmetric_key.to_vec());
-		statement.sign_sr25519_private(&self.keyring.pair());
+		statement.sign_sr25519_private(&self.keyring);
 
 		Some(statement)
 	}
@@ -460,12 +442,9 @@ impl Participant {
 		statement.set_channel(channel);
 		statement.set_priority(self.submit_counter);
 		statement.set_plain_data(request_data);
-		statement.sign_sr25519_private(&self.keyring.pair());
+		statement.sign_sr25519_private(&self.keyring);
 
-		debug!(
-			"Participant {:?} created request {} to idx {}",
-			self.keyring, request_id, receiver_idx
-		);
+		debug!("Participant {:?} created request {} to idx {}", self.idx, request_id, receiver_idx);
 
 		Some(statement)
 	}
@@ -495,11 +474,11 @@ impl Participant {
 		statement.set_channel(channel);
 		statement.set_priority(self.submit_counter);
 		statement.set_plain_data(response_data);
-		statement.sign_sr25519_private(&self.keyring.pair());
+		statement.sign_sr25519_private(&self.keyring);
 
 		debug!(
 			"Participant {:?} created response for request {} to idx {}",
-			self.keyring, request_id, receiver_idx
+			self.idx, request_id, receiver_idx
 		);
 
 		Some(statement)
@@ -522,7 +501,7 @@ impl Participant {
 		statement.set_channel(channel);
 		statement.set_priority(self.submit_counter);
 		statement.set_plain_data(ack_data);
-		statement.sign_sr25519_private(&self.keyring.pair());
+		statement.sign_sr25519_private(&self.keyring);
 
 		Some(statement)
 	}
@@ -544,7 +523,7 @@ impl Participant {
 		statement.set_channel(channel);
 		statement.set_priority(self.submit_counter);
 		statement.set_plain_data(ack_data);
-		statement.sign_sr25519_private(&self.keyring.pair());
+		statement.sign_sr25519_private(&self.keyring);
 
 		Some(statement)
 	}
@@ -566,7 +545,7 @@ impl Participant {
 		statement.set_channel(channel);
 		statement.set_priority(self.submit_counter);
 		statement.set_plain_data(ack_data);
-		statement.sign_sr25519_private(&self.keyring.pair());
+		statement.sign_sr25519_private(&self.keyring);
 
 		Some(statement)
 	}

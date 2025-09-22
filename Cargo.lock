@@ -5225,6 +5225,7 @@ dependencies = [
  "sp-keyring",
  "sp-statement-store",
  "tokio",
+ "url",
  "zombienet-configuration",
  "zombienet-orchestrator",
  "zombienet-sdk",
