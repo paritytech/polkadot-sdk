@@ -55,7 +55,15 @@ pub type Service = sc_service::PartialComponents<
 	Option<Telemetry>,
 >;
 
-pub static NEXT_TIMESTAMP: LazyLock<Arc<AtomicU64>> = LazyLock::new(|| Arc::new(AtomicU64::new(0)));
+// pub static NEXT_TIMESTAMP: LazyLock<Arc<AtomicU64>> = LazyLock::new(|| Arc::new(AtomicU64::new(0)));
+pub static NEXT_TIMESTAMP: LazyLock<Arc<AtomicU64>> = LazyLock::new(|| {
+	// Initialize with current system time to ensure proper starting point
+	let now = std::time::SystemTime::now()
+	.duration_since(std::time::UNIX_EPOCH)
+	.unwrap_or_default()
+	.as_millis() as u64;
+	Arc::new(AtomicU64::new(now))
+});
 
 /// Creates the timestamp inherent data provider with 3-priority system:
 /// 1. timestamp_delta_override (from engine_createBlock)
@@ -93,7 +101,7 @@ fn create_timestamp_provider(
 			}
 
 			// Priority 3: Fall back to auto-increment logic
-			let default_delta = 1000; // Default to 1 second
+			let default_delta = 6000; // Default to 6 second
 			let next_timestamp = NEXT_TIMESTAMP.fetch_add(default_delta, Ordering::SeqCst) + default_delta;
 			Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
 		})
