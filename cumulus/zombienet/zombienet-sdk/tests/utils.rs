@@ -6,8 +6,11 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
+	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
 	LocalFileSystem, Network, NetworkConfig, NetworkNode,
 };
+
+use zombienet_configuration::types::AssetLocation;
 
 pub const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
 
@@ -25,6 +28,19 @@ pub async fn initialize_network(
 	network.detach().await;
 
 	Ok(network)
+}
+
+pub async fn runtime_upgrade(
+	network: &Network<LocalFileSystem>,
+	node: &NetworkNode,
+	para_id: u32,
+	wasm_path: &str,
+) -> Result<(), anyhow::Error> {
+	log::info!("Performing runtime upgrade for parachain {}, wasm: {}", para_id, wasm_path);
+	let para = network.parachain(para_id).unwrap();
+
+	para.perform_runtime_upgrade(node, RuntimeUpgradeOptions::new(AssetLocation::from(wasm_path)))
+		.await
 }
 
 pub async fn assign_cores(

@@ -150,9 +150,9 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 #[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
 
-#[cfg(feature = "sync-backing")]
+#[cfg(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"))]
 pub const SLOT_DURATION: u64 = 12000;
-#[cfg(not(feature = "sync-backing"))]
+#[cfg(not(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot")))]
 pub const SLOT_DURATION: u64 = 6000;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;

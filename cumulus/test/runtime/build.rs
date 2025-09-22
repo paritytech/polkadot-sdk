@@ -72,6 +72,15 @@ fn main() {
 		.import_memory()
 		.set_file_name("wasm_binary_sync_backing.rs")
 		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling-12s-slot")
+		.enable_feature("elastic-scaling")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_12s_slot.rs")
+		.build();
 }
 
 #[cfg(not(feature = "std"))]

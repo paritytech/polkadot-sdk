@@ -5,10 +5,11 @@ use anyhow::anyhow;
 use serde_json::json;
 use std::time::Duration;
 
-use crate::utils::{assign_cores, initialize_network};
+use crate::utils::{assign_cores, initialize_network, runtime_upgrade};
 
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
+use rstest::rstest;
 use zombienet_configuration::types::AssetLocation;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
@@ -19,6 +20,9 @@ use zombienet_sdk::{
 const PARA_ID: u32 = 2000;
 const WASM_WITH_ELASTIC_SCALING: &str =
 	"/tmp/wasm_binary_elastic_scaling.rs.compact.compressed.wasm";
+
+const WASM_WITH_ELASTIC_SCALING_12S_SLOT: &str =
+	"/tmp/wasm_binary_elastic_scaling_12s_slot.rs.compact.compressed.wasm";
 
 async fn wait_for_upgrade(
 	client: OnlineClient<PolkadotConfig>,
@@ -39,14 +43,19 @@ async fn wait_for_upgrade(
 
 // This test ensures that we can upgrade the parachain's runtime to support elastic scaling
 // and that the parachain produces 3 blocks per slot after the upgrade.
+
+// Covers both sync and async backing parachains.
 #[tokio::test(flavor = "multi_thread")]
-async fn elastic_scaling_runtime_upgrade() -> Result<(), anyhow::Error> {
+#[rstest]
+#[case(true)]
+#[case(false)]
+async fn elastic_scaling_runtime_upgrade(#[case] async_backing: bool) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
 	log::info!("Spawning network");
-	let config = build_network_config().await?;
+	let config = build_network_config(async_backing).await?;
 	let network = initialize_network(config).await?;
 
 	let alice = network.get_node("validator0")?;
@@ -54,13 +63,23 @@ async fn elastic_scaling_runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	assign_cores(&alice, PARA_ID, vec![0]).await?;
 
-	log::info!("Ensuring parachain makes progress making 6s blocks");
-	assert_para_throughput(
-		&alice_client,
-		20,
-		[(ParaId::from(PARA_ID), 15..21)].into_iter().collect(),
-	)
-	.await?;
+	if async_backing {
+		log::info!("Ensuring parachain makes progress making 6s blocks");
+		assert_para_throughput(
+			&alice_client,
+			20,
+			[(ParaId::from(PARA_ID), 15..21)].into_iter().collect(),
+		)
+		.await?;
+	} else {
+		log::info!("Ensuring parachain makes progress making 12s blocks");
+		assert_para_throughput(
+			&alice_client,
+			20,
+			[(ParaId::from(PARA_ID), 7..12)].into_iter().collect(),
+		)
+		.await?;
+	}
 
 	assign_cores(&alice, PARA_ID, vec![1, 2]).await?;
 	let timeout_secs: u64 = 250;
@@ -71,15 +90,10 @@ async fn elastic_scaling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		collator0_client.backend().current_runtime_version().await?.spec_version;
 	log::info!("Current runtime spec version {current_spec_version}");
 
-	log::info!("Performing runtime upgrade");
-	network
-		.parachain(PARA_ID)
-		.unwrap()
-		.perform_runtime_upgrade(
-			collator0,
-			RuntimeUpgradeOptions::new(AssetLocation::from(WASM_WITH_ELASTIC_SCALING)),
-		)
-		.await?;
+	let wasm =
+		if async_backing { WASM_WITH_ELASTIC_SCALING } else { WASM_WITH_ELASTIC_SCALING_12S_SLOT };
+
+	runtime_upgrade(&network, collator0, PARA_ID, wasm).await?;
 
 	let collator1 = network.get_node("collator0")?;
 	let collator1_client: OnlineClient<PolkadotConfig> = collator1.wait_client().await?;
@@ -114,10 +128,12 @@ async fn elastic_scaling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+async fn build_network_config(async_backing: bool) -> Result<NetworkConfig, anyhow::Error> {
 	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
+
+	let chain = if async_backing { "async-backing" } else { "sync-backing" };
 
 	// Network setup:
 	// - relaychain nodes:
@@ -152,7 +168,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
 				.onboard_as_parachain(false)
-				.with_chain("async-backing")
+				.with_chain(chain)
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|n| {
 					n.with_name("collator0").validator(true).with_args(vec![
