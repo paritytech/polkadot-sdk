@@ -93,6 +93,8 @@ const LOG_TARGET: &str = "xcmp_queue";
 const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
 /// The size of an XCM messages batch.
 pub const XCM_BATCH_SIZE: usize = 250;
+/// The maximum number of signals that we can have in an XCMP page.
+pub const MAX_SIGNALS_PER_PAGE: usize = 3;
 
 /// Constants related to delivery fee calculation
 pub mod delivery_fee_constants {
@@ -913,28 +915,36 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 			};
 
 			match format {
-				XcmpMessageFormat::Signals =>
-					while !data.is_empty() {
-						if meter
-							.try_consume(
-								T::WeightInfo::suspend_channel()
-									.max(T::WeightInfo::resume_channel()),
-							)
-							.is_err()
-						{
-							defensive!("Not enough weight to process signals - dropping");
-							break
-						}
-
+				XcmpMessageFormat::Signals => {
+					let mut signal_count = 0;
+					while !data.is_empty() && signal_count < MAX_SIGNALS_PER_PAGE {
+						signal_count += 1;
 						match ChannelSignal::decode(&mut data) {
-							Ok(ChannelSignal::Suspend) => Self::suspend_channel(sender),
-							Ok(ChannelSignal::Resume) => Self::resume_channel(sender),
+							Ok(ChannelSignal::Suspend) => {
+								if meter.try_consume(T::WeightInfo::suspend_channel()).is_err() {
+									defensive!(
+										"Not enough weight to process suspend signal - dropping"
+									);
+									break
+								}
+								Self::suspend_channel(sender)
+							},
+							Ok(ChannelSignal::Resume) => {
+								if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
+									defensive!(
+										"Not enough weight to process resume signal - dropping"
+									);
+									break
+								}
+								Self::resume_channel(sender)
+							},
 							Err(_) => {
 								defensive!("Undecodable channel signal - dropping");
 								break
 							},
 						}
-					},
+					}
+				},
 				XcmpMessageFormat::ConcatenatedVersionedXcm |
 				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
 					let encoding = match format {
