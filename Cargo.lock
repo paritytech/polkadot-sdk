@@ -13042,9 +13042,9 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
- "sp-io 30.0.0",
- "sp-state-machine 0.35.0",
- "sp-trie 29.0.0",
+ "sp-io",
+ "sp-state-machine",
+ "sp-trie",
 ]
 
 [[package]]
@@ -27180,8 +27180,8 @@ dependencies = [
  "pallet-proxy",
  "pallet-recovery",
  "pallet-referenda",
- "pallet-root-offences",
  "pallet-remote-proxy",
+ "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
  "pallet-session",
