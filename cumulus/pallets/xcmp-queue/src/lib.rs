@@ -865,27 +865,10 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 								break
 							},
 						}
-<<<<<<< HEAD
-					},
-				XcmpMessageFormat::ConcatenatedVersionedXcm => {
-					if known_xcm_senders.insert(sender) {
-=======
 					}
 				},
-				XcmpMessageFormat::ConcatenatedVersionedXcm |
-				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
-					let encoding = match format {
-						XcmpMessageFormat::ConcatenatedVersionedXcm => XcmEncoding::Simple,
-						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => XcmEncoding::Double,
-						_ => {
-							// This branch is unreachable.
-							continue
-						},
-					};
-
-					let mut is_first_sender_batch = known_xcm_senders.insert(sender);
-					if is_first_sender_batch {
->>>>>>> d97bed0 (Limit the number of signals per XCMP page (#9781))
+				XcmpMessageFormat::ConcatenatedVersionedXcm => {
+					if known_xcm_senders.insert(sender) {
 						if meter
 							.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages())
 							.is_err()
