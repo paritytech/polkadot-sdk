@@ -13142,7 +13142,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hash-db",
  "hex-literal",
  "humantime-serde",
  "impl-trait-for-tuples",
