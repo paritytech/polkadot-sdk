@@ -653,7 +653,7 @@ fn view_function_status_detailed() {
 		// Check status before upgrade
 		let prev_status = Migrations::status();
 		assert_eq!(prev_status.ongoing, MbmIsOngoing::No);
-		assert!(!prev_status.progress.is_some());
+		assert!(prev_status.progress.is_none());
 		assert_eq!(prev_status.prefixes, Vec::<Vec<u8>>::new());
 
 		Migrations::on_runtime_upgrade();

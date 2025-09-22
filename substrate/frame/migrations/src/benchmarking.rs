@@ -72,7 +72,7 @@ mod benches {
 			index: 1,
 			inner_cursor: None,
 			started_at: 0u32.into(),
-			steps_taken: 0u32.into(),
+			steps_taken: 0u32,
 		};
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
@@ -96,7 +96,7 @@ mod benches {
 			index: 0,
 			inner_cursor: None,
 			started_at: 0u32.into(),
-			steps_taken: 0u32.into(),
+			steps_taken: 0u32,
 		};
 
 		let id: IdentifierOf<T> = T::Migrations::nth_id(0).unwrap().try_into().unwrap();
@@ -124,7 +124,7 @@ mod benches {
 			index: 0,
 			inner_cursor: None,
 			started_at: 0u32.into(),
-			steps_taken: 0u32.into(),
+			steps_taken: 0u32,
 		};
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
@@ -148,7 +148,7 @@ mod benches {
 			index: 0,
 			inner_cursor: None,
 			started_at: 0u32.into(),
-			steps_taken: 0u32.into(),
+			steps_taken: 0u32,
 		};
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
@@ -171,7 +171,7 @@ mod benches {
 			index: 0,
 			inner_cursor: None,
 			started_at: 0u32.into(),
-			steps_taken: 0u32.into(),
+			steps_taken: 0u32,
 		};
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
@@ -279,7 +279,7 @@ mod benches {
 			index: u32::MAX,
 			inner_cursor: None,
 			started_at: 0u32.into(),
-			steps_taken: 0u32.into(),
+			steps_taken: 0u32,
 		})
 	}
 
