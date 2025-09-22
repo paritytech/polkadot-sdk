@@ -1197,8 +1197,6 @@ fn self_destruct2_works() {
 		);
 		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
 
-		println!("{:?}", System::events());
-
 		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
 
 		assert_eq!(
