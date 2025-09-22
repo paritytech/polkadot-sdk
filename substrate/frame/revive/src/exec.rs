@@ -1750,9 +1750,6 @@ where
 		}
 		// Only allow storage to be removed if the contract was created in the current tx.
 		if self.contracts_created.contains(&contract_account) {
-			// TODO: can we use the storage_meter from first_frame or how do we refund deposit?
-			// self.first_frame.nested_storage.terminate(contract_info,
-			// beneficiary_account.clone());
 			{
 				// 1) spin up a nested meter (with “infinite” cap)
 				let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
