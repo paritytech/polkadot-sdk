@@ -129,7 +129,6 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
-	// not implemented since the MockVerifier is used for tests
 	fn initialize_storage() -> EventFixture {
 		make_register_token_message()
 	}
