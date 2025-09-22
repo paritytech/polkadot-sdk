@@ -1066,11 +1066,19 @@ fn cannot_self_destruct_while_live() {
 
 #[test]
 fn self_destruct_works() {
+	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
 	let (binary, code_hash) = compile_module("self_destruct").unwrap();
 	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
 		let min_balance = Contracts::min_balance();
+
+		// Upload both contracts
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			factory_binary,
+			deposit_limit::<Test>(),
+		));
 
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(binary))
@@ -1092,26 +1100,6 @@ fn self_destruct_works() {
 		// Check that the code is gone
 		assert!(PristineCode::<Test>::get(&code_hash).is_none());
 
-		println!("contract addr: {:?}", contract.addr);
-		println!("contract account_id: {:?}", contract.account_id);
-		println!(
-			"contract balance: {:?}",
-			<Test as Config>::Currency::total_balance(&contract.account_id)
-		);
-		// Use the contract address (H160) to check the balance, not the account_id
-		let contract_account = <Test as Config>::AddressMapper::to_account_id(&contract.addr);
-		println!(
-			"contract balance: {:?}",
-			<Test as Config>::Currency::total_balance(&contract_account)
-		);
-
-		println!("contract_account: {contract_account:?}");
-		println!("contract.account_id: {:?}", contract.account_id);
-
-		// Check that account is gone
-		assert!(get_contract_checked(&contract.addr).is_none());
-		assert_eq!(<Test as Config>::Currency::total_balance(&contract_account), 0);
-
 		// Check that account is gone
 		assert!(get_contract_checked(&contract.addr).is_none());
 		assert_eq!(<Test as Config>::Currency::total_balance(&contract.account_id), 0);
@@ -1131,51 +1119,51 @@ fn self_destruct_works() {
 			1_000_000 - (100_000 + min_balance)
 		);
 
-		// pretty_assertions::assert_eq!(
-		// 	System::events(),
-		// 	vec![
-		// 		EventRecord {
-		// 			phase: Phase::Initialization,
-		// 			event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
-		// 				reason: <Test as Config>::RuntimeHoldReason::Contracts(
-		// 					HoldReason::CodeUploadDepositReserve,
-		// 				),
-		// 				source: Pallet::<Test>::account_id(),
-		// 				dest: ALICE,
-		// 				amount: upload_deposit,
-		// 			}),
-		// 			topics: vec![],
-		// 		},
-		// 		EventRecord {
-		// 			phase: Phase::Initialization,
-		// 			event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
-		// 				reason: <Test as Config>::RuntimeHoldReason::Contracts(
-		// 					HoldReason::StorageDepositReserve,
-		// 				),
-		// 				source: contract.account_id.clone(),
-		// 				dest: ALICE,
-		// 				amount: hold_balance,
-		// 			}),
-		// 			topics: vec![],
-		// 		},
-		// 		EventRecord {
-		// 			phase: Phase::Initialization,
-		// 			event: RuntimeEvent::System(frame_system::Event::KilledAccount {
-		// 				account: contract.account_id.clone()
-		// 			}),
-		// 			topics: vec![],
-		// 		},
-		// 		EventRecord {
-		// 			phase: Phase::Initialization,
-		// 			event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-		// 				from: contract.account_id.clone(),
-		// 				to: DJANGO_FALLBACK,
-		// 				amount: 100_000 + min_balance,
-		// 			}),
-		// 			topics: vec![],
-		// 		},
-		// 	],
-		// );
+		pretty_assertions::assert_eq!(
+			System::events(),
+			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						source: Pallet::<Test>::account_id(),
+						dest: ALICE,
+						amount: upload_deposit,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: contract.account_id.clone(),
+						dest: ALICE,
+						amount: hold_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::System(frame_system::Event::KilledAccount {
+						account: contract.account_id.clone()
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+						from: contract.account_id.clone(),
+						to: DJANGO_FALLBACK,
+						amount: 100_000 + min_balance,
+					}),
+					topics: vec![],
+				},
+			],
+		);
 	});
 }
 

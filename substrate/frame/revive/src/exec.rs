@@ -436,6 +436,13 @@ pub trait PrecompileExt: sealing::Sealed {
 	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 
+	/// Register the contract for destruction at the end of the call stack.
+	///
+	/// Transfer all funds to `beneficiary`.
+	/// Contract is deleted only if it was created in the same call stack.
+	///
+	/// This function will fail if the same contract is present on the contract
+	/// call stack.
 	fn terminate(
 		&mut self,
 		beneficiary: &H160,
@@ -1520,49 +1527,54 @@ where
 				}
 			}
 		} else {
-			// TODO: iterate contracts_to_be_destroyed and destroy each contract
-			let contracts_to_destroy: Vec<(H160, ContractInfo<T>, H160)> =
-				self.contracts_to_be_destroyed.iter().cloned().collect();
-			log::info!("contracts_to_destroy: {contracts_to_destroy:?}");
-			for (contract_address, contract_info, beneficiary) in contracts_to_destroy {
-				let contract_account = T::AddressMapper::to_account_id(&contract_address);
-				let beneficiary_account = T::AddressMapper::to_account_id(&beneficiary);
-
-				let raw_value: U256 = self.account_balance(&beneficiary_account);
-				log::info!(
-					"before beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}"
-				);
-				let raw_value: U256 = self.account_balance(&contract_account);
-				log::info!(
-					"before contract_account: {contract_account:?}, raw_value: {raw_value:?}"
+			{
+				self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
+				if !persist {
+					return;
+				}
+				let mut contract = self.first_frame.cached_contract_info.as_contract();
+				self.storage_meter.absorb(
+					mem::take(&mut self.first_frame.nested_storage),
+					&self.first_frame.account_id,
+					contract.as_deref_mut(),
 				);
 
-				self.destroy_contract(&contract_address, &contract_info, &beneficiary);
-
-				let raw_value: U256 = self.account_balance(&beneficiary_account);
-				log::info!(
-					"after beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}"
-				);
-				let raw_value: U256 = self.account_balance(&contract_account);
-				log::info!(
-					"after contract_account: {contract_account:?}, raw_value: {raw_value:?}"
-				);
+				if let Some(contract) = contract {
+					AccountInfo::<T>::insert_contract(
+						&T::AddressMapper::to_address(&self.first_frame.account_id),
+						contract.clone(),
+					);
+				}
 			}
-			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
-			if !persist {
-				return;
-			}
-			let mut contract = self.first_frame.cached_contract_info.as_contract();
-			self.storage_meter.absorb(
-				mem::take(&mut self.first_frame.nested_storage),
-				&self.first_frame.account_id,
-				contract.as_deref_mut(),
-			);
-			if let Some(contract) = contract {
-				AccountInfo::<T>::insert_contract(
-					&T::AddressMapper::to_address(&self.first_frame.account_id),
-					contract.clone(),
-				);
+			{
+				// TODO: iterate contracts_to_be_destroyed and destroy each contract
+				let contracts_to_destroy: Vec<(H160, ContractInfo<T>, H160)> =
+					self.contracts_to_be_destroyed.iter().cloned().collect();
+				log::info!("contracts_to_destroy: {contracts_to_destroy:?}");
+				for (contract_address, contract_info, beneficiary) in contracts_to_destroy {
+					let contract_account = T::AddressMapper::to_account_id(&contract_address);
+					let beneficiary_account = T::AddressMapper::to_account_id(&beneficiary);
+
+					let raw_value: U256 = self.account_balance(&beneficiary_account);
+					log::info!(
+						"before beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}"
+					);
+					let raw_value: U256 = self.account_balance(&contract_account);
+					log::info!(
+						"before contract_account: {contract_account:?}, raw_value: {raw_value:?}"
+					);
+
+					self.destroy_contract(&contract_address, &contract_info, &beneficiary);
+
+					let raw_value: U256 = self.account_balance(&beneficiary_account);
+					log::info!(
+						"after beneficiary_account: {beneficiary_account:?}, raw_value: {raw_value:?}"
+					);
+					let raw_value: U256 = self.account_balance(&contract_account);
+					log::info!(
+						"after contract_account: {contract_account:?}, raw_value: {raw_value:?}"
+					);
+				}
 			}
 		}
 	}
@@ -1738,10 +1750,29 @@ where
 				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
 			}
 		}
+		// Only allow storage to be removed if the contract was created in the current tx.
 		if self.contracts_created.contains(&contract_account) {
-			// Use the original termination logic for storage cleanup
-			self.first_frame.nested_storage.terminate(contract_info, beneficiary_account);
+			// TODO: can we use the storage_meter from first_frame or how do we refund deposit?
+			// self.first_frame.nested_storage.terminate(contract_info,
+			// beneficiary_account.clone());
+			{
+				// 1) spin up a nested meter (with “infinite” cap)
+				let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
 
+				// 2) run the refund logic into that nested meter
+				nested.terminate(contract_info, beneficiary_account.clone());
+
+				// 3) absorb it back so the two `TransferOnHold` refunds actually happen
+				{
+					let mut info = Some(contract_info.clone());
+					// self.storage_meter.absorb(nested, &contract_account, info.as_mut());
+					self.storage_meter.absorb(
+						mem::take(&mut nested),
+						&contract_account,
+						info.as_mut(),
+					);
+				}
+			}
 			// Clean up on-chain storage
 			contract_info.queue_trie_for_deletion();
 			AccountInfoOf::<T>::remove(contract_address);
@@ -1944,15 +1975,8 @@ where
 			)?
 		};
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
-		// Mark the contract as created in this transaction
-		// Get the trie_id from the newly created frame's contract info
-		if let ExecutableOrPrecompile::<T, E, Self>::Executable(_) = &executable {
-			// let trie_id = {
-			// 	let contract_info = self.top_frame_mut().contract_info();
-			// 	contract_info.trie_id.clone()
-			// };
-			// self.contracts_created.insert(trie_id);
-		}
+		// Mark the contract as created in this tx.
+		self.contracts_created.insert(self.top_frame().account_id.clone());
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
 		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)
@@ -2299,7 +2323,10 @@ where
 		}
 
 		{
-			let contract_info = self.top_frame_mut().terminate();
+			let beneficiary_account = T::AddressMapper::to_account_id(beneficiary);
+			let mut frame = self.top_frame_mut();
+			let contract_info = frame.terminate();
+			// frame.nested_storage.terminate(&contract_info, beneficiary_account.clone());
 			self.contracts_to_be_destroyed.insert((
 				contract_address,
 				contract_info.clone(),
