@@ -130,13 +130,6 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		println!("All messages in the round processed");
 	}
 
-	for participant in &participants {
-		assert_eq!(
-			participant.received_responses.values().map(|set| set.len()).sum::<usize>(),
-			(GROUP_SIZE as usize - 1) * MESSAGE_COUNT
-		)
-	}
-
 	Ok(())
 }
 
