@@ -2117,7 +2117,7 @@ where
 	}
 
 	fn block_author(&self) -> Option<H160> {
-		Contracts::<Self::T>::block_author()
+		Some(Contracts::<Self::T>::block_author())
 	}
 
 	fn gas_limit(&self) -> u64 {
