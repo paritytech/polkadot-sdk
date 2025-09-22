@@ -93,6 +93,8 @@ const LOG_TARGET: &str = "xcmp_queue";
 const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
 /// The size of an XCM messages batch.
 pub const XCM_BATCH_SIZE: usize = 250;
+/// The maximum number of signals that we can have in an XCMP page.
+pub const MAX_SIGNALS_PER_PAGE: usize = 3;
 
 /// Constants related to delivery fee calculation
 pub mod delivery_fee_constants {
@@ -641,6 +643,7 @@ impl<T: Config> Pallet<T> {
 	fn enqueue_xcmp_messages<'a>(
 		sender: ParaId,
 		xcms: &[BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>],
+		is_first_sender_batch: bool,
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
@@ -651,6 +654,7 @@ impl<T: Config> Pallet<T> {
 			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
 				batches_footprints.first_page_pos.saturated_into(),
 				batch_info,
+				is_first_sender_batch,
 			);
 
 			match meter.can_consume(required_weight) {
@@ -662,6 +666,7 @@ impl<T: Config> Pallet<T> {
 		meter.consume(T::WeightInfo::enqueue_xcmp_messages(
 			batches_footprints.first_page_pos.saturated_into(),
 			best_batch_footprint,
+			is_first_sender_batch,
 		));
 		T::XcmpQueue::enqueue_messages(
 			xcms.iter().take(best_batch_footprint.msgs_count).copied(),
@@ -910,28 +915,36 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 			};
 
 			match format {
-				XcmpMessageFormat::Signals =>
-					while !data.is_empty() {
-						if meter
-							.try_consume(
-								T::WeightInfo::suspend_channel()
-									.max(T::WeightInfo::resume_channel()),
-							)
-							.is_err()
-						{
-							defensive!("Not enough weight to process signals - dropping");
-							break
-						}
-
+				XcmpMessageFormat::Signals => {
+					let mut signal_count = 0;
+					while !data.is_empty() && signal_count < MAX_SIGNALS_PER_PAGE {
+						signal_count += 1;
 						match ChannelSignal::decode(&mut data) {
-							Ok(ChannelSignal::Suspend) => Self::suspend_channel(sender),
-							Ok(ChannelSignal::Resume) => Self::resume_channel(sender),
+							Ok(ChannelSignal::Suspend) => {
+								if meter.try_consume(T::WeightInfo::suspend_channel()).is_err() {
+									defensive!(
+										"Not enough weight to process suspend signal - dropping"
+									);
+									break
+								}
+								Self::suspend_channel(sender)
+							},
+							Ok(ChannelSignal::Resume) => {
+								if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
+									defensive!(
+										"Not enough weight to process resume signal - dropping"
+									);
+									break
+								}
+								Self::resume_channel(sender)
+							},
 							Err(_) => {
 								defensive!("Undecodable channel signal - dropping");
 								break
 							},
 						}
-					},
+					}
+				},
 				XcmpMessageFormat::ConcatenatedVersionedXcm |
 				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
 					let encoding = match format {
@@ -943,7 +956,8 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						},
 					};
 
-					if known_xcm_senders.insert(sender) {
+					let mut is_first_sender_batch = known_xcm_senders.insert(sender);
+					if is_first_sender_batch {
 						if meter
 							.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages())
 							.is_err()
@@ -978,9 +992,15 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							break;
 						}
 
-						if let Err(()) = Self::enqueue_xcmp_messages(sender, &batch, &mut meter) {
+						if let Err(()) = Self::enqueue_xcmp_messages(
+							sender,
+							&batch,
+							is_first_sender_batch,
+							&mut meter,
+						) {
 							break
 						}
+						is_first_sender_batch = false;
 					}
 				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
