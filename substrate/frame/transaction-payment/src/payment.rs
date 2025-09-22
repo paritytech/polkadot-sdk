@@ -100,7 +100,7 @@ pub trait TxCreditHold<T: Config> {
 	/// make it available to other pallets during tx application.
 	///
 	/// Is only used within a transaction. Hence changes to the encoding of this
-	/// type **wont't** require a storage migration.
+	/// type **won't** require a storage migration.
 	///
 	/// Set to `()` if your `OnChargeTransaction` impl does not store the credit.
 	type Credit: FullCodec + DecodeWithMemTracking + MaxEncodedLen + TypeInfo + SuppressedDrop;
