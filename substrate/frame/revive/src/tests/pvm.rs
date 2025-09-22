@@ -41,8 +41,8 @@ use crate::{
 	tracing::trace,
 	weights::WeightInfo,
 	AccountInfo, AccountInfoOf, BalanceWithDust, BumpNonce, Code, Config, ContractInfo,
-	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Pallet, PristineCode,
-	StorageDeposit, H160,
+	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, ImmutableDataOf,
+	Pallet, PristineCode, StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -62,7 +62,7 @@ use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::{Get, U256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{testing::H256, traits::Zero, AccountId32, DispatchError, TokenError};
+use sp_runtime::{testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, TokenError};
 
 #[test]
 fn transfer_with_dust_works() {
@@ -4990,5 +4990,30 @@ fn return_data_limit_is_enforced() {
 			let result = builder::bare_call(addr).data(return_size.encode()).build().result;
 			assert_result(result);
 		}
+	});
+}
+
+#[test]
+fn get_set_immutables_works() {
+	let (code, _code_hash) = compile_module("immutable_data").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let data = [0xfe; 8];
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.data(data.to_vec())
+			.build_and_unwrap_contract();
+
+		let contract_key_to_test = vec![1; 85];
+		// Checking non-existing keys gets created.
+		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
+		assert_eq!(immutable_data, data.to_vec());
+
+		let new_data = [0xdeu8; 8].to_vec();
+
+		Pallet::<Test>::set_immutables(addr, BoundedVec::truncate_from(new_data.clone())).unwrap();
+		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
+		assert_eq!(immutable_data, new_data);
 	});
 }
