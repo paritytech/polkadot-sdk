@@ -15,112 +15,116 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{
-	i256::{i256_div, i256_mod},
-	modular::Modular,
-};
+pub mod i256;
+use i256::{i256_div, i256_mod};
+
+mod modular;
+use modular::Modular;
+
 use crate::{
 	vm::{
-		evm::{interpreter::HaltReason, Interpreter},
+		evm::{interpreter::Halt, Interpreter},
 		Ext,
 	},
 	U256,
 };
+use core::ops::ControlFlow;
 use revm::interpreter::gas::{EXP, LOW, MID, VERYLOW};
-use sp_runtime::DispatchResult;
 
 /// Implements the ADD instruction - adds two values from stack.
-pub fn add<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn add<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.saturating_add(*op2);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the MUL instruction - multiplies two values from stack.
-pub fn mul<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn mul<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.saturating_mul(*op2);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the SUB instruction - subtracts two values from stack.
-pub fn sub<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn sub<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1.saturating_sub(*op2);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the DIV instruction - divides two values from stack.
-pub fn div<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn div<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	if !op2.is_zero() {
 		*op2 = op1 / *op2;
 	}
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the SDIV instruction.
 ///
 /// Performs signed division of two values from stack.
-pub fn sdiv<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn sdiv<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = i256_div(op1, *op2);
-	Ok(())
+	ControlFlow::Continue(())
 }
 /// Implements the MOD instruction.
 ///
 /// Pops two values from stack and pushes the remainder of their division.
-pub fn rem<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn rem<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	if !op2.is_zero() {
 		*op2 = op1 % *op2;
 	}
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the SMOD instruction.
 ///
 /// Performs signed modulo of two values from stack.
-pub fn smod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn smod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = i256_mod(op1, *op2);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the ADDMOD instruction.
 ///
 /// Pops three values from stack and pushes (a + b) % n.
-pub fn addmod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn addmod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(MID)?;
 	let ([op1, op2], op3) = interpreter.stack.popn_top()?;
 	*op3 = op1.add_mod(op2, *op3);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the MULMOD instruction.
 ///
 /// Pops three values from stack and pushes (a * b) % n.
-pub fn mulmod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn mulmod<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(MID)?;
 	let ([op1, op2], op3) = interpreter.stack.popn_top()?;
 	*op3 = op1.mul_mod(op2, *op3);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the EXP instruction - exponentiates two values from stack.
-pub fn exp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn exp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	let ([op1], op2) = interpreter.stack.popn_top()?;
-	let gas_cost = exp_cost(*op2).ok_or_else(|| crate::Error::<E::T>::OutOfGas)?;
+	let Some(gas_cost) = exp_cost(*op2) else {
+		return ControlFlow::Break(Halt::OutOfGas);
+	};
 	interpreter.ext.gas_meter_mut().charge_evm_gas(gas_cost)?;
 	*op2 = op1.pow(*op2);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the `SIGNEXTEND` opcode as defined in the Ethereum Yellow Paper.
@@ -152,7 +156,7 @@ pub fn exp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResu
 ///
 /// Similarly, if `b == 0` then the yellow paper says the output should start with all zeros,
 /// then end with bits from `b`; this is equal to `y & mask` where `&` is bitwise `AND`.
-pub fn signextend<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn signextend<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
 	let ([ext], x) = interpreter.stack.popn_top()?;
 	// For 31 we also don't need to do anything.
@@ -163,7 +167,7 @@ pub fn signextend<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> Dispa
 		let mask = (U256::from(1) << bit_index) - U256::from(1);
 		*x = if bit { *x | !mask } else { *x & mask };
 	}
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// `EXP` opcode cost calculation.

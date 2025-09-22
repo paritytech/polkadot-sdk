@@ -15,133 +15,135 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::i256::i256_cmp;
+mod bits;
+
+use super::arithmetic::i256::i256_cmp;
 use crate::{
 	vm::{
-		evm::{instructions::bits::Bits, Interpreter},
+		evm::{interpreter::Halt, Interpreter},
 		Ext,
 	},
 	U256,
 };
-use core::cmp::Ordering;
+use bits::Bits;
+use core::{cmp::Ordering, ops::ControlFlow};
 use revm::interpreter::gas::VERYLOW;
-use sp_runtime::DispatchResult;
 
 /// Implements the LT instruction - less than comparison.
-pub fn lt<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn lt<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = if op1 < *op2 { U256::one() } else { U256::zero() };
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the GT instruction - greater than comparison.
-pub fn gt<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn gt<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	*op2 = if op1 > *op2 { U256::one() } else { U256::zero() };
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the CLZ instruction - count leading zeros.
-pub fn clz<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn clz<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([], op1) = interpreter.stack.popn_top()?;
 
 	let leading_zeros = op1.leading_zeros();
 	*op1 = U256::from(leading_zeros);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the SLT instruction.
 ///
 /// Signed less than comparison of two values from stack.
-pub fn slt<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn slt<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	*op2 = if i256_cmp(&op1, op2) == Ordering::Less { U256::one() } else { U256::zero() };
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the SGT instruction.
 ///
 /// Signed greater than comparison of two values from stack.
-pub fn sgt<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn sgt<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	*op2 = if i256_cmp(&op1, op2) == Ordering::Greater { U256::one() } else { U256::zero() };
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the EQ instruction.
 ///
 /// Equality comparison of two values from stack.
-pub fn eq<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn eq<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	*op2 = if op1 == *op2 { U256::one() } else { U256::zero() };
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the ISZERO instruction.
 ///
 /// Checks if the top stack value is zero.
-pub fn iszero<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn iszero<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([], op1) = interpreter.stack.popn_top()?;
 
 	*op1 = if op1.is_zero() { U256::one() } else { U256::zero() };
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the AND instruction.
 ///
 /// Bitwise AND of two values from stack.
-pub fn bitand<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn bitand<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1 & *op2;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the OR instruction.
 ///
 /// Bitwise OR of two values from stack.
-pub fn bitor<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn bitor<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1 | *op2;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the XOR instruction.
 ///
 /// Bitwise XOR of two values from stack.
-pub fn bitxor<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn bitxor<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	*op2 = op1 ^ *op2;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the NOT instruction.
 ///
 /// Bitwise NOT (negation) of the top stack value.
-pub fn not<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn not<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([], op1) = interpreter.stack.popn_top()?;
 	*op1 = !*op1;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the BYTE instruction.
 ///
 /// Extracts a single byte from a word at a given index.
-pub fn byte<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn byte<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
@@ -152,31 +154,31 @@ pub fn byte<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchRes
 	} else {
 		U256::zero()
 	};
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// EIP-145: Bitwise shifting instructions in EVM
-pub fn shl<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn shl<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let shift = as_usize_saturated!(op1);
 	*op2 = if shift < 256 { *op2 << shift } else { U256::zero() };
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// EIP-145: Bitwise shifting instructions in EVM
-pub fn shr<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn shr<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let shift = as_usize_saturated!(op1);
 	*op2 = if shift < 256 { *op2 >> shift } else { U256::zero() };
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// EIP-145: Bitwise shifting instructions in EVM
-pub fn sar<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn sar<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
@@ -188,7 +190,7 @@ pub fn sar<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResu
 	} else {
 		U256::zero()
 	};
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 #[cfg(test)]
@@ -210,7 +212,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_shift_left() -> DispatchResult {
+	fn test_shift_left() -> ControlFlow<Halt> {
 		struct TestCase {
 			value: U256,
 			shift: U256,
@@ -328,11 +330,11 @@ mod tests {
 			assert_eq!(res, test.expected);
 		}
 
-		Ok(())
+		ControlFlow::Continue(())
 	}
 
 	#[test]
-	fn test_logical_shift_right() -> DispatchResult {
+	fn test_logical_shift_right() -> ControlFlow<Halt> {
 		struct TestCase {
 			value: U256,
 			shift: U256,
@@ -449,11 +451,11 @@ mod tests {
 			let res = interpreter.stack.pop().unwrap();
 			assert_eq!(res, test.expected);
 		}
-		Ok(())
+		ControlFlow::Continue(())
 	}
 
 	#[test]
-	fn test_arithmetic_shift_right() -> DispatchResult {
+	fn test_arithmetic_shift_right() -> ControlFlow<Halt> {
 		struct TestCase {
 			value: U256,
 			shift: U256,
@@ -615,11 +617,11 @@ mod tests {
 			let res = interpreter.stack.pop().unwrap();
 			assert_eq!(res, test.expected);
 		}
-		Ok(())
+		ControlFlow::Continue(())
 	}
 
 	#[test]
-	fn test_byte() -> DispatchResult {
+	fn test_byte() -> ControlFlow<Halt> {
 		struct TestCase {
 			input: U256,
 			index: usize,
@@ -644,11 +646,11 @@ mod tests {
 			let res = interpreter.stack.pop().unwrap();
 			assert_eq!(res, test.expected, "Failed at index: {}", test.index);
 		}
-		Ok(())
+		ControlFlow::Continue(())
 	}
 
 	#[test]
-	fn test_clz() -> DispatchResult {
+	fn test_clz() -> ControlFlow<Halt> {
 		struct TestCase {
 			value: U256,
 			expected: U256,
@@ -702,6 +704,6 @@ mod tests {
 				test.value, test.expected, res
 			);
 		}
-		Ok(())
+		ControlFlow::Continue(())
 	}
 }

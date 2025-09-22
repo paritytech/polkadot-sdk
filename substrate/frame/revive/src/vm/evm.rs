@@ -25,7 +25,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::min;
 use pallet_revive_uapi::ReturnFlags;
-use revm::{bytecode::Bytecode, interpreter::interpreter::ExtBytecode, primitives::Bytes};
+use revm::{bytecode::Bytecode, primitives::Bytes};
 use sp_core::H160;
 use sp_runtime::Weight;
 
@@ -35,6 +35,8 @@ pub mod instructions;
 mod instructions;
 
 mod interpreter;
+mod util;
+pub use interpreter::Halt;
 use interpreter::{InstructionTable, Interpreter};
 
 mod memory;
@@ -42,6 +44,9 @@ use memory::Memory;
 
 mod stack;
 use stack::Stack;
+
+mod ext_bytecode;
+use ext_bytecode::ExtBytecode;
 
 /// Hard-coded value returned by the EVM `DIFFICULTY` opcode.
 ///
@@ -171,70 +176,6 @@ fn run<'a, E: Ext>(
 	}
 }
 
-fn run_call<'a, E: Ext>(interpreter: &mut Interpreter<'a, E>, call_input: &'a [u8]) {
-	todo!()
-	// let callee: H160 = if call_input.scheme.is_delegate_call() {
-	// 	call_input.bytecode_address.0 .0.into()
-	// } else {
-	// 	call_input.target_address.0 .0.into()
-	// };
-	//
-	// let input = match &call_input.input {
-	// 	CallInput::Bytes(bytes) => bytes.to_vec(),
-	// 	CallInput::SharedBuffer(range) => interpreter.memory.global_slice(range.clone()).to_vec(),
-	// };
-	// let call_result = match call_input.scheme {
-	// 	CallScheme::Call | CallScheme::StaticCall => interpreter.extend.call(
-	// 		Weight::from_parts(call_input.gas_limit, u64::MAX),
-	// 		U256::MAX,
-	// 		&callee,
-	// 		U256::from_revm_u256(&call_input.call_value()),
-	// 		input,
-	// 		true,
-	// 		call_input.is_static,
-	// 	),
-	// 	CallScheme::CallCode => {
-	// 		unreachable!()
-	// 	},
-	// 	CallScheme::DelegateCall => interpreter.extend.delegate_call(
-	// 		Weight::from_parts(call_input.gas_limit, u64::MAX),
-	// 		U256::MAX,
-	// 		callee,
-	// 		input,
-	// 	),
-	// };
-	//
-	// let (return_data, did_revert) = {
-	// 	let return_value = interpreter.extend.last_frame_output();
-	// 	let return_data: Bytes = return_value.data.clone().into();
-	// 	(return_data, return_value.did_revert())
-	// };
-	//
-	// let mem_length = call_input.return_memory_offset.len();
-	// let mem_start = call_input.return_memory_offset.start;
-	// let returned_len = return_data.len();
-	// let target_len = min(mem_length, returned_len);
-	//
-	// interpreter.return_data.set_buffer(return_data);
-	//
-	// match call_result {
-	// 	Ok(()) => {
-	// 		// success or revert
-	// 		gas!(interpreter, RuntimeCosts::CopyToContract(target_len as u32));
-	// 		interpreter
-	// 			.memory
-	// 			.set(mem_start, &interpreter.return_data.buffer()[..target_len]);
-	// 		let _ = interpreter.stack.push(primitives::U256::from(!did_revert as u8));
-	// 	},
-	// 	Err(err) => {
-	// 		let _ = interpreter.stack.push(primitives::U256::ZERO);
-	// 		if let Some(reason) = exec_error_into_halt_reason::<E>(err) {
-	// 			interpreter.halt(reason);
-	// 		}
-	// 	},
-	// }
-}
-
 /// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
 /// NB: copied directly from revm tag v82
 #[cfg(feature = "std")]
@@ -312,51 +253,6 @@ fn run_plain_with_tracing<'a, E: Ext>(
 	// interpreter.bytecode.revert_to_previous_pointer();
 	//
 	// interpreter.take_next_action()
-}
-
-fn run_create<'a, E: Ext>(interpreter: &mut Interpreter<'a, E>, create_input: &[u8]) {
-	todo!()
-	// let value = U256::from_revm_u256(&create_input.value);
-	//
-	// let salt = match create_input.scheme {
-	// 	CreateScheme::Create => None,
-	// 	CreateScheme::Create2 { salt } => Some(salt.to_le_bytes()),
-	// 	CreateScheme::Custom { .. } => unreachable!("custom create schemes are not supported"),
-	// };
-	//
-	// let call_result = interpreter.extend.instantiate(
-	// 	Weight::from_parts(create_input.gas_limit, u64::MAX),
-	// 	U256::MAX,
-	// 	Code::Upload(create_input.init_code.to_vec()),
-	// 	value,
-	// 	vec![],
-	// 	salt.as_ref(),
-	// );
-	//
-	// let return_value = interpreter.extend.last_frame_output();
-	// let return_data: Bytes = return_value.data.clone().into();
-	//
-	// match call_result {
-	// 	Ok(address) => {
-	// 		if return_value.did_revert() {
-	// 			// Contract creation reverted — return data must be propagated
-	// 			gas!(interpreter, RuntimeCosts::CopyToContract(return_data.len() as u32));
-	// 			interpreter.return_data.set_buffer(return_data);
-	// 			let _ = interpreter.stack.push(primitives::U256::ZERO);
-	// 		} else {
-	// 			// Otherwise clear it. Note that RETURN opcode should abort.
-	// 			interpreter.return_data.clear();
-	// 			let stack_item: Address = address.0.into();
-	// 			let _ = interpreter.stack.push(stack_item.into_word().into());
-	// 		}
-	// 	},
-	// 	Err(err) => {
-	// 		let _ = interpreter.stack.push(primitives::U256::ZERO);
-	// 		if let Some(reason) = exec_error_into_halt_reason::<E>(err) {
-	// 			interpreter.halt(reason);
-	// 		}
-	// 	},
-	// }
 }
 
 // /// Conversion of a `ExecError` to `ReturnErrorCode`.

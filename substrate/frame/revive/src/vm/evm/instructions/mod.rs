@@ -19,25 +19,23 @@
 
 use super::interpreter::Interpreter;
 use crate::vm::Ext;
-mod bits;
-mod modular;
 
 #[macro_use]
 mod macros;
-// /// Arithmetic operations (ADD, SUB, MUL, DIV, etc.).
+/// Arithmetic operations (ADD, SUB, MUL, DIV, etc.).
 mod arithmetic;
 /// Bitwise operations (AND, OR, XOR, NOT, etc.).
 mod bitwise;
 /// Block information instructions (COINBASE, TIMESTAMP, etc.).
 mod block_info;
-// /// Contract operations (CALL, CREATE, DELEGATECALL, etc.).
-// mod contract;
+/// Contract operations (CALL, CREATE, DELEGATECALL, etc.).
+mod contract;
 /// Control flow instructions (JUMP, JUMPI, REVERT, etc.).
 mod control;
 // /// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
 // mod host;
-/// Signed 256-bit integer operations.
-mod i256;
+// /// Signed 256-bit integer operations.
+// mod i256;
 // /// Memory operations (MLOAD, MSTORE, MSIZE, etc.).
 // mod memory;
 // /// Stack operations (PUSH, POP, DUP, SWAP, etc.).
@@ -46,8 +44,8 @@ mod i256;
 // mod system;
 // /// Transaction information instructions (ORIGIN, GASPRICE, etc.).
 // mod tx_info;
-// /// Utility functions and helpers for instruction implementation.
-// mod utility;
+/// Utility functions and helpers for instruction implementation.
+mod utility;
 //
 // /// Returns the instruction table for the given spec.
 // pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, E>, DummyHost>;

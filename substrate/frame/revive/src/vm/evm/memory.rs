@@ -17,8 +17,9 @@
 
 //! Custom EVM memory implementation using standard Vec<u8>
 
+use crate::vm::evm::Halt;
 use alloc::vec::Vec;
-use core::ops::Range;
+use core::ops::{ControlFlow, Range};
 
 /// EVM memory implementation using standard Vec<u8> and sp_core::U256
 #[derive(Debug, Clone)]
@@ -42,12 +43,20 @@ impl Memory {
 		self.0.len()
 	}
 
-	/// Resize memory to at least the given size
-	pub fn resize(&mut self, new_size: usize) -> bool {
-		if new_size > self.0.len() {
-			self.0.resize(new_size, 0);
+	/// Resize memory to accommodate the given offset and length
+	pub fn resize(&mut self, offset: usize, len: usize) -> ControlFlow<Halt> {
+		let current_len = self.0.len();
+		let target_len = revm::interpreter::num_words(offset.saturating_add(len)) * 32;
+		if target_len as u32 > crate::limits::code::BASELINE_MEMORY_LIMIT {
+			log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={offset} target_len={target_len} current_len={current_len}");
+			return ControlFlow::Break(Halt::MemoryOOG);
 		}
-		true
+
+		if target_len > current_len {
+			self.0.resize(target_len, 0);
+		};
+
+		ControlFlow::Continue(())
 	}
 
 	/// Set memory at the given offset with the provided data

@@ -14,9 +14,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-use crate::{exec::ExecError, weights::WeightInfo, Config, Error};
-use core::marker::PhantomData;
+use crate::{exec::ExecError, vm::evm::Halt, weights::WeightInfo, Config, Error};
+use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
 	weights::Weight,
@@ -222,22 +221,22 @@ impl<T: Config> GasMeter<T> {
 	/// Charge the specified amount of EVM gas.
 	/// This is used for basic opcodes (e.g arithmetic, bitwise, ...) that don't have a dedicated
 	/// benchmark
-	pub fn charge_evm_gas(&mut self, gas: u64) -> Result<(), DispatchError> {
+
+	pub fn charge_evm_gas(&mut self, gas: u64) -> ControlFlow<Halt> {
 		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
 		self.gas_left = self
 			.gas_left
 			.checked_sub(&base_cost.saturating_mul(gas))
-			.ok_or_else(|| Error::<T>::OutOfGas)?;
-		Ok(())
+			.map_or_else(|| ControlFlow::Break(Halt::OutOfGas), ControlFlow::Continue)?;
+
+		ControlFlow::Continue(())
 	}
 
 	/// Charge the specified amount of EVM gas.
-	pub fn charge_evm<Tok: Token<T>>(
-		&mut self,
-		token: Tok,
-	) -> Result<ChargedAmount, DispatchError> {
+	pub fn charge_evm<Tok: Token<T>>(&mut self, token: Tok) -> ControlFlow<Halt, ChargedAmount> {
 		self.charge_evm_gas(1)?;
 		self.charge(token)
+			.map_or_else(|_| ControlFlow::Break(Halt::OutOfGas), ControlFlow::Continue)
 	}
 
 	/// Adjust a previously charged amount down to its actual amount.

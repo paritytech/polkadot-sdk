@@ -17,79 +17,74 @@
 
 use crate::{
 	vm::{
-		evm::{
-			interpreter::{HaltReason, OutOfGasError},
-			Interpreter,
-		},
+		evm::{interpreter::Halt, util::as_usize_or_halt_with, Interpreter},
 		Ext,
 	},
-	RuntimeCosts,
+	RuntimeCosts, U256,
 };
+use core::ops::ControlFlow;
 use revm::{
 	interpreter::{
 		gas::{BASE, HIGH, JUMPDEST, MID},
-		interpreter_action::InterpreterAction,
-		interpreter_types::{Jumps, LoopControl, StackTr},
-		InstructionResult,
+		interpreter_types::{Immediates, Jumps},
 	},
 	primitives::Bytes,
 };
-use sp_core::U256;
-use sp_runtime::DispatchResult;
 
 /// Implements the JUMP instruction.
 ///
 /// Unconditional jump to a valid destination.
-pub fn jump<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn jump<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(MID)?;
 	let [target] = interpreter.stack.popn()?;
 	jump_inner(interpreter, target)?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the JUMPI instruction.
 ///
 /// Conditional jump to a valid destination if condition is true.
-pub fn jumpi<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn jumpi<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(HIGH)?;
 	let [target, cond] = interpreter.stack.popn()?;
 
 	if !cond.is_zero() {
 		jump_inner(interpreter, target)?;
 	}
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 #[inline(always)]
 /// Internal helper function for jump operations.
 ///
 /// Validates jump target and performs the actual jump.
-fn jump_inner<E: Ext>(interpreter: &mut Interpreter<'_, E>, target: U256) -> DispatchResult {
-	let target = as_usize_checked(target).ok_or(HaltReason::InvalidJump)?;
+fn jump_inner<E: Ext>(interpreter: &mut Interpreter<'_, E>, target: U256) -> ControlFlow<Halt> {
+	let target = as_usize_or_halt_with(target, || Halt::InvalidJump)?;
+
 	if !interpreter.bytecode.is_valid_legacy_jump(target) {
-		return Err(HaltReason::InvalidJump.into());
+		return ControlFlow::Break(Halt::InvalidJump);
 	}
 	// SAFETY: `is_valid_jump` ensures that `dest` is in bounds.
 	interpreter.bytecode.absolute_jump(target);
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the JUMPDEST instruction.
 ///
 /// Marks a valid destination for jump operations.
-pub fn jumpdest<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn jumpdest<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(JUMPDEST)?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the PC instruction.
 ///
 /// Pushes the current program counter onto the stack.
-pub fn pc<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn pc<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(BASE)?;
 	// - 1 because we have already advanced the instruction pointer in `Interpreter::step`
 	interpreter.stack.push(U256::from(interpreter.bytecode.pc() - 1))?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 #[inline]
@@ -98,83 +93,47 @@ pub fn pc<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResul
 /// Handles memory data retrieval and sets the return action.
 fn return_inner<E: Ext>(
 	interpreter: &mut Interpreter<'_, E>,
-	instruction_result: InstructionResult,
-) -> DispatchResult {
+	halt: impl Fn(Vec<u8>) -> Halt,
+) -> ControlFlow<Halt> {
 	// Zero gas cost
 	let [offset, len] = interpreter.stack.popn()?;
-	let len = as_usize_checked(len).ok_or(HaltReason::OutOfGas(OutOfGasError::InvalidOperand))?;
+	let len = as_usize_or_halt_with(len, || Halt::InvalidOperandOOG)?;
+
 	// Important: Offset must be ignored if len is zeros
-	let mut output = Bytes::default();
+	let mut output = Default::default();
 	if len != 0 {
-		let offset =
-			as_usize_checked(offset).ok_or(HaltReason::OutOfGas(OutOfGasError::InvalidOperand))?;
-		resize_memory_checked(interpreter, offset, len)?;
-		output = interpreter.memory.slice_len(offset, len).to_vec().into()
+		let offset = as_usize_or_halt_with(offset, || Halt::InvalidOperandOOG)?;
+		interpreter.memory.resize(offset, len)?;
+		output = interpreter.memory.slice_len(offset, len).to_vec()
 	}
 
-	todo!();
-	// interpreter.bytecode.set_action(InterpreterAction::new_return(
-	// 	instruction_result,
-	// 	output,
-	// 	interpreter.gas,
-	// ));
-	// Ok(())
-}
-
-/// Helper function to resize memory with proper error handling
-#[inline]
-fn resize_memory_checked<E: Ext>(
-	interpreter: &mut Interpreter<'_, E>,
-	offset: usize,
-	len: usize,
-) -> DispatchResult {
-	let current_len = interpreter.memory.size();
-	let target_len = revm::interpreter::num_words(offset.saturating_add(len)) * 32;
-	if target_len as u32 > crate::limits::code::BASELINE_MEMORY_LIMIT {
-		log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={} target_len={target_len} current_len={current_len}", offset);
-		return Err(HaltReason::OutOfGas(OutOfGasError::Memory).into());
-	}
-
-	if target_len > current_len {
-		interpreter.memory.resize(target_len);
-	}
-	Ok(())
+	ControlFlow::Break(halt(output))
 }
 
 /// Implements the RETURN instruction.
 ///
 /// Halts execution and returns data from memory.
-pub fn ret<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
-	return_inner(interpreter, InstructionResult::Return)
+pub fn ret<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	return_inner(interpreter, Halt::Return)
 }
 
 /// EIP-140: REVERT instruction
-pub fn revert<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
-	return_inner(interpreter, InstructionResult::Revert)
+pub fn revert<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	return_inner(interpreter, Halt::Revert)
 }
 
 /// Stop opcode. This opcode halts the execution.
-pub fn stop<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
-	return_inner(interpreter, InstructionResult::Stop)
+pub fn stop<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	return_inner(interpreter, |_| Halt::Stop)
 }
 
 /// Invalid opcode. This opcode halts the execution.
-pub fn invalid<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn invalid<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().consume_all();
-	Err(HaltReason::InvalidFEOpcode.into())
+	ControlFlow::Break(Halt::InvalidFEOpcode)
 }
 
 /// Unknown opcode. This opcode halts the execution.
-pub fn unknown<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
-	Err(HaltReason::OpcodeNotFound.into())
-}
-
-/// Helper function to convert U256 to usize, checking for overflow
-fn as_usize_checked(value: U256) -> Option<usize> {
-	let limbs = value.0;
-	if (limbs[0] > usize::MAX as u64) | (limbs[1] != 0) | (limbs[2] != 0) | (limbs[3] != 0) {
-		None
-	} else {
-		Some(limbs[0] as usize)
-	}
+pub fn unknown<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	ControlFlow::Break(Halt::OpcodeNotFound)
 }

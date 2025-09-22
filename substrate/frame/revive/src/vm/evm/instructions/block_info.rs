@@ -17,80 +17,81 @@
 
 use crate::{
 	vm::{
-		evm::{interpreter::HaltReason, Interpreter, BASE_FEE, DIFFICULTY},
+		evm::{interpreter::Halt, Interpreter, BASE_FEE, DIFFICULTY},
 		Ext,
 	},
 	RuntimeCosts,
 };
+use core::ops::ControlFlow;
 
 use revm::{interpreter::gas::BASE, primitives::Address};
 use sp_core::{H160, U256};
 use sp_runtime::DispatchResult;
 
 /// EIP-1344: ChainID opcode
-pub fn chainid<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn chainid<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(BASE)?;
 	interpreter.stack.push(interpreter.ext.chain_id())?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the COINBASE instruction.
 ///
 /// Pushes the current block's beneficiary address onto the stack.
-pub fn coinbase<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn coinbase<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm(RuntimeCosts::BlockAuthor)?;
 	let coinbase = interpreter.ext.block_author().unwrap_or(H160::zero());
 	interpreter.stack.push(coinbase)?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the TIMESTAMP instruction.
 ///
 /// Pushes the current block's timestamp onto the stack.
-pub fn timestamp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn timestamp<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm(RuntimeCosts::Now)?;
 	let timestamp = interpreter.ext.now();
 	interpreter.stack.push(timestamp)?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the NUMBER instruction.
 ///
 /// Pushes the current block number onto the stack.
-pub fn block_number<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn block_number<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm(RuntimeCosts::BlockNumber)?;
 	let block_number = interpreter.ext.block_number();
 	interpreter.stack.push(block_number)?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the DIFFICULTY/PREVRANDAO instruction.
 ///
 /// Pushes the block difficulty (pre-merge) or prevrandao (post-merge) onto the stack.
-pub fn difficulty<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn difficulty<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(BASE)?;
 	interpreter.stack.push(U256::from(DIFFICULTY))?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// Implements the GASLIMIT instruction.
 ///
 /// Pushes the current block's gas limit onto the stack.
-pub fn gaslimit<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn gaslimit<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm(RuntimeCosts::GasLimit)?;
 	let gas_limit = interpreter.ext.gas_limit();
 	interpreter.stack.push(U256::from(gas_limit))?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// EIP-3198: BASEFEE opcode
-pub fn basefee<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
+pub fn basefee<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm(RuntimeCosts::BaseFee)?;
 	interpreter.stack.push(BASE_FEE)?;
-	Ok(())
+	ControlFlow::Continue(())
 }
 
 /// EIP-7516: BLOBBASEFEE opcode is not supported
-pub fn blob_basefee<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> DispatchResult {
-	Err(HaltReason::NotActivated.into())
+pub fn blob_basefee<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	ControlFlow::Break(Halt::NotActivated)
 }
