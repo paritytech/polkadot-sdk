@@ -225,7 +225,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn unapplied_slashes(
 		&self,
 		_: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError> {
 		todo!("Not required for tests")
 	}
 

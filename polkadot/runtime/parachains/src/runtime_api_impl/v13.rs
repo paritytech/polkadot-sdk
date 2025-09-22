@@ -375,6 +375,21 @@ pub fn session_executor_params<T: session_info::Config>(
 
 /// Implementation of `unapplied_slashes` runtime API
 pub fn unapplied_slashes<T: disputes::slashing::Config>(
+) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
+	disputes::slashing::Pallet::<T>::unapplied_slashes()
+		.into_iter()
+		.filter_map(|(session, candidate_hash, pending_slash)| {
+			let legacy_pending_slash = slashing::LegacyPendingSlashes {
+				keys: pending_slash.keys,
+				kind: pending_slash.kind.try_into().ok()?,
+			};
+			Some((session, candidate_hash, legacy_pending_slash))
+		})
+		.collect()
+}
+
+/// Implementation of `unapplied_slashes_v2` runtime API
+pub fn unapplied_slashes_v2<T: disputes::slashing::Config>(
 ) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
 	disputes::slashing::Pallet::<T>::unapplied_slashes()
 }
