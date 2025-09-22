@@ -261,6 +261,7 @@ impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 	type Pages = T::Pages;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Pallet::<T>::phase_transition(Phase::Emergency);
@@ -306,6 +307,7 @@ impl<T: Config> ElectionProvider for Continue<T> {
 	type Pages = T::Pages;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("'Continue' fallback will do nothing")
@@ -1469,7 +1471,8 @@ where
 		use frame_support::traits::fungible::{Inspect, Mutate};
 		let who: T::AccountId = frame_benchmarking::account(seed, index, 777);
 		whitelist!(who);
-		let balance = T::Currency::minimum_balance() * 1_0000_0000u32.into();
+		let max_deposit = signed::Pallet::<T>::deposit_for(who.clone(), T::Pages::get());
+		let balance = max_deposit.saturating_add(T::Currency::minimum_balance());
 		T::Currency::mint_into(&who, balance).unwrap();
 		who
 	}
@@ -1521,6 +1524,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Pages = T::Pages;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		match Self::status() {
@@ -1603,7 +1607,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		}
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
 		Self::create_targets_snapshot();

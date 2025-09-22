@@ -17,14 +17,16 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{H160, U256};
+use crate::{BalanceOf, Config, H160, U256};
 use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
+use sp_arithmetic::traits::Bounded;
+use sp_core::Get;
 use sp_runtime::{
-	traits::{Saturating, Zero},
+	traits::{One, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
 
@@ -49,6 +51,15 @@ impl<T> DepositLimit<T> {
 impl<T> From<T> for DepositLimit<T> {
 	fn from(value: T) -> Self {
 		Self::Balance(value)
+	}
+}
+
+impl<T: Bounded + Copy> DepositLimit<T> {
+	pub fn limit(&self) -> T {
+		match self {
+			Self::UnsafeOnlyForDryRun => T::max_value(),
+			Self::Balance(limit) => *limit,
+		}
 	}
 }
 
@@ -108,12 +119,77 @@ pub enum EthTransactError {
 	Message(String),
 }
 
-/// Precision used for converting between Native and EVM balances.
-pub enum ConversionPrecision {
-	/// Exact conversion without any rounding.
-	Exact,
-	/// Conversion that rounds up to the nearest whole number.
-	RoundUp,
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+/// Error encountered while creating a BalanceWithDust from a U256 balance.
+pub enum BalanceConversionError {
+	/// Error encountered while creating the main balance value.
+	Value,
+	/// Error encountered while creating the dust value.
+	Dust,
+}
+
+/// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
+/// in the native currency
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
+pub struct BalanceWithDust<Balance> {
+	/// The value expressed in the native currency
+	value: Balance,
+	/// The dust, representing up to 1 unit of the native currency.
+	/// The dust is bounded between 0 and `crate::Config::NativeToEthRatio`
+	dust: u32,
+}
+
+impl<Balance> From<Balance> for BalanceWithDust<Balance> {
+	fn from(value: Balance) -> Self {
+		Self { value, dust: 0 }
+	}
+}
+
+impl<Balance> BalanceWithDust<Balance> {
+	/// Deconstructs the `BalanceWithDust` into its components.
+	pub fn deconstruct(self) -> (Balance, u32) {
+		(self.value, self.dust)
+	}
+
+	/// Creates a new `BalanceWithDust` with the given value and dust.
+	pub fn new_unchecked<T: Config>(value: Balance, dust: u32) -> Self {
+		debug_assert!(dust < T::NativeToEthRatio::get());
+		Self { value, dust }
+	}
+
+	/// Creates a new `BalanceWithDust` from the given EVM value.
+	pub fn from_value<T: Config>(
+		value: U256,
+	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError>
+	where
+		BalanceOf<T>: TryFrom<U256>,
+	{
+		if value.is_zero() {
+			return Ok(Default::default())
+		}
+
+		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
+		let value = quotient.try_into().map_err(|_| BalanceConversionError::Value)?;
+		let dust = remainder.try_into().map_err(|_| BalanceConversionError::Dust)?;
+
+		Ok(BalanceWithDust { value, dust })
+	}
+}
+
+impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
+	/// Returns true if both the value and dust are zero.
+	pub fn is_zero(&self) -> bool {
+		self.value.is_zero() && self.dust == 0
+	}
+
+	/// Returns the Balance rounded to the nearest whole unit if the dust is non-zero.
+	pub fn into_rounded_balance(self) -> Balance {
+		if self.dust == 0 {
+			self.value
+		} else {
+			self.value.saturating_add(Balance::one())
+		}
+	}
 }
 
 /// Result type of a `bare_code_upload` call.
@@ -290,5 +366,14 @@ pub enum BumpNonce {
 	/// Do not increment the nonce after contract instantiation
 	No,
 	/// Increment the nonce after contract instantiation
+	Yes,
+}
+
+/// Indicates whether the code was removed after the last refcount was decremented.
+#[must_use = "You must handle whether the code was removed or not."]
+pub enum CodeRemoved {
+	/// The code was not removed. (refcount > 0)
+	No,
+	/// The code was removed. (refcount == 0)
 	Yes,
 }

@@ -352,8 +352,8 @@ mod test {
 				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap(),
 			);
 
-			let from = 1;
-			let to = 2;
+			let from = 123456789;
+			let to = 987654321;
 
 			Balances::make_free_balance_be(&from, 100);
 			Balances::make_free_balance_be(&to, 100);
@@ -367,9 +367,9 @@ mod test {
 				IERC20::transferCall { to: to_addr.0.into(), value: U256::from(10) }.abi_encode();
 
 			pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed(from),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -396,16 +396,18 @@ mod test {
 			let asset_addr =
 				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
 
-			Balances::make_free_balance_be(&1, 100);
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
-			assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset_id, 1, 1000));
+			let owner = 123456789;
+
+			Balances::make_free_balance_be(&owner, 100);
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
 
 			let data = IERC20::totalSupplyCall {}.abi_encode();
 
 			let data = pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed(owner),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -426,17 +428,19 @@ mod test {
 			let asset_addr =
 				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
 
-			Balances::make_free_balance_be(&1, 100);
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
-			assert_ok!(Assets::mint(RuntimeOrigin::signed(1), asset_id, 1, 1000));
+			let owner = 123456789;
 
-			let account = <Test as pallet_revive::Config>::AddressMapper::to_address(&1).0.into();
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
+
+			let account =
+				<Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into();
 			let data = IERC20::balanceOfCall { account }.abi_encode();
 
 			let data = pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed(owner),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -460,9 +464,9 @@ mod test {
 				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap(),
 			);
 
-			let owner = 1;
-			let spender = 2;
-			let other = 3;
+			let owner = 123456789;
+			let spender = 987654321;
+			let other = 1122334455;
 
 			Balances::make_free_balance_be(&owner, 100);
 			Balances::make_free_balance_be(&spender, 100);
@@ -482,7 +486,7 @@ mod test {
 			pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(owner),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -506,7 +510,7 @@ mod test {
 			let data = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(owner),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -528,7 +532,7 @@ mod test {
 			pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(spender),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,

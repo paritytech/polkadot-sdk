@@ -330,7 +330,7 @@ impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Lo
 	for AssetFromChain<AssetLocation, Origin>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "AssetFromChain asset: {:?}, origin: {:?}", asset, origin);
+		tracing::trace!(target: "xcm::contains", ?asset, ?origin, "AssetFromChain");
 		*origin == Origin::get() &&
 			matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
 	}

@@ -1,0 +1,8 @@
+title: Rewrite validator disabling test with zombienet-sdk
+
+doc:
+  - audience: Node Dev
+    description: |-
+      Migrate validator disabling test to the new version of zombienet
+
+crates: []

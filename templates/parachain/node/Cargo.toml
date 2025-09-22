@@ -10,6 +10,9 @@ edition.workspace = true
 publish = false
 build = "build.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 clap = { features = ["derive"], workspace = true }
 color-print = { workspace = true }

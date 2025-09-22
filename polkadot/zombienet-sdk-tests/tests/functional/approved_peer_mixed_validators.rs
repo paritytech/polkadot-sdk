@@ -9,7 +9,7 @@
 use anyhow::anyhow;
 use tokio::time::Duration;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_finalized_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -109,7 +109,7 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 
 	// The min throughput for para 2000 is going to be lower, but it depends on how the old
 	// validators are distributed into backing groups.
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		15,
 		[(ParaId::from(2000), 6..15), (ParaId::from(2001), 11..16)]
