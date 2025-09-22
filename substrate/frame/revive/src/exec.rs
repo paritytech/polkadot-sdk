@@ -2189,6 +2189,16 @@ where
 	}
 }
 
+/// Returns true if the address has a precompile contract, else false.
+pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
+{
+	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
+}
+
 mod sealing {
 	use super::*;
 
