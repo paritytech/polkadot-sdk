@@ -8,6 +8,7 @@
 use anyhow::anyhow;
 use codec::{Decode, Encode};
 use futures::future::try_join_all;
+use log::{debug, error, info};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_keyring::Sr25519Keyring;
 use sp_statement_store::{Statement, Topic};
@@ -27,13 +28,17 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	info!("Starting statement store benchmark with {} participants", GROUP_SIZE);
 	let network = spawn_network().await?;
 	let mut rpcs = Vec::with_capacity(GROUP_SIZE as usize);
 
-	for _ in 0..GROUP_SIZE as usize {
+	info!("Establishing RPC connections to collator nodes");
+	for i in 0..GROUP_SIZE as usize {
+		debug!("Connecting to RPC for participant {}", i);
 		let rpc = get_rpc(&network, "charlie").await?;
 		rpcs.push(rpc);
 	}
+	info!("All RPC connections established");
 
 	let participants: Vec<_> = [
 		Sr25519Keyring::Alice,
@@ -42,6 +47,12 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		Sr25519Keyring::Dave,
 		Sr25519Keyring::Eve,
 		Sr25519Keyring::Ferdie,
+		Sr25519Keyring::AliceStash,
+		Sr25519Keyring::BobStash,
+		Sr25519Keyring::CharlieStash,
+		Sr25519Keyring::DaveStash,
+		Sr25519Keyring::EveStash,
+		Sr25519Keyring::FerdieStash,
 	]
 	.into_iter()
 	.enumerate()
@@ -54,7 +65,9 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		.map(|mut participant| tokio::spawn(async move { participant.run().await }))
 		.collect();
 
+	info!("Waiting for all participants to complete benchmark");
 	try_join_all(handles).await?;
+	info!("Statement store benchmark completed successfully");
 
 	Ok(())
 }
@@ -169,6 +182,10 @@ impl Participant {
 			}
 		}
 
+		info!("Initializing participant {} (keyring: {:?})", idx, keyring);
+		debug!("Participant {} group members: {:?}", idx, group_members);
+		debug!("Participant {} generated {} symmetric keys", idx, symmetric_keys.len());
+
 		Self {
 			keyring,
 			session_key,
@@ -191,6 +208,7 @@ impl Participant {
 	}
 
 	async fn send_session_key(&mut self) -> Result<(), anyhow::Error> {
+		debug!("Participant {} sending session key", self.idx);
 		let statement = self.public_key_statement();
 		self.statement_submit(statement).await
 	}
@@ -208,14 +226,21 @@ impl Participant {
 		}
 
 		assert_eq!(self.session_keys.len(), self.group_members.len());
+		info!("Participant {} received {} session keys", self.idx, self.session_keys.len());
 
 		Ok(())
 	}
 
 	async fn send_symmetric_keys(&mut self) -> Result<(), anyhow::Error> {
 		let group_members = self.group_members.clone();
+		debug!(
+			"Participant {} sending symmetric keys to {} members",
+			self.idx,
+			group_members.len()
+		);
 		for receiver_idx in group_members {
 			let Some(statement) = self.symmetric_key_statement(receiver_idx) else { continue };
+			debug!("Participant {} sending symmetric key to {}", self.idx, receiver_idx);
 			self.statement_submit(statement).await?;
 			self.symmetric_key_acks.insert(receiver_idx, false);
 		}
@@ -240,6 +265,7 @@ impl Participant {
 		}
 
 		assert_eq!(self.symmetric_keys.len(), self.group_members.len());
+		info!("Participant {} received {} symmetric keys", self.idx, self.symmetric_keys.len());
 
 		Ok(())
 	}
@@ -286,6 +312,10 @@ impl Participant {
 							sender_idx: ack_sender_idx,
 						} =>
 							if ack_sender_idx == receiver_idx {
+								debug!(
+									"Participant {} received symmetric key ack from {}",
+									self.idx, receiver_idx
+								);
 								// Mark acknowledgment as received
 								self.symmetric_key_acks.insert(receiver_idx, true);
 							},
@@ -300,6 +330,11 @@ impl Participant {
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
+		debug!(
+			"Participant {} submitting statement (counter: {})",
+			self.idx,
+			self.submit_counter + 1
+		);
 		let _: () = self.rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
 		self.submit_counter += 1;
 
@@ -313,13 +348,20 @@ impl Participant {
 		const MAX_RETRIES: usize = 3;
 		const RETRY_DELAY_MS: u64 = 100;
 
-		for _ in 0..MAX_RETRIES {
+		for attempt in 0..MAX_RETRIES {
+			debug!(
+				"Participant {} querying statements (attempt {}/{})",
+				self.idx,
+				attempt + 1,
+				MAX_RETRIES
+			);
 			let statements: Vec<Bytes> = self
 				.rpc
 				.request("statement_broadcastsStatement", rpc_params![topics.clone()])
 				.await?;
 
 			if statements.len() >= 1 {
+				debug!("Participant {} received {} statements", self.idx, statements.len());
 				let mut decoded_statements = Vec::new();
 				for statement_bytes in &statements {
 					let statement = Statement::decode(&mut &statement_bytes[..])?;
@@ -329,13 +371,19 @@ impl Participant {
 				return Ok(decoded_statements);
 			}
 
+			debug!(
+				"Participant {} no statements found, retrying in {}ms",
+				self.idx, RETRY_DELAY_MS
+			);
 			tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
 		}
 
-		return Err(anyhow::anyhow!(
-			"Failed to get expected statements after {} retries",
-			MAX_RETRIES
-		));
+		let error_msg = format!(
+			"Participant {} failed to get expected statements after {} retries",
+			self.idx, MAX_RETRIES
+		);
+		error!("{}", error_msg);
+		return Err(anyhow::anyhow!(error_msg));
 	}
 
 	fn public_key_statement(&self) -> Statement {
@@ -412,7 +460,7 @@ impl Participant {
 		statement.set_plain_data(request_data);
 		statement.sign_sr25519_private(&self.keyring.pair());
 
-		println!(
+		debug!(
 			"Participant {:?} created request {} to idx {}",
 			self.keyring, request_id, receiver_idx
 		);
@@ -447,7 +495,7 @@ impl Participant {
 		statement.set_plain_data(response_data);
 		statement.sign_sr25519_private(&self.keyring.pair());
 
-		println!(
+		debug!(
 			"Participant {:?} created response for request {} to idx {}",
 			self.keyring, request_id, receiver_idx
 		);
@@ -547,6 +595,10 @@ impl Participant {
 
 				if !self.has_processed_request(sender_idx, req.request_id) {
 					assert!(!self.has_pending_response(sender_idx));
+					debug!(
+						"Participant {} received request {} from {}",
+						self.idx, req.request_id, sender_idx
+					);
 					self.pending_responses.insert(sender_idx, Some(req.request_id));
 					// Mark that we received a request and need to send acknowledgment
 					self.pending_request_acks.insert((sender_idx, req.request_id), false);
@@ -566,6 +618,10 @@ impl Participant {
 					.create_response_statement(req_id, receiver_idx)
 					.expect("Receiver must present");
 				self.statement_submit(statement).await?;
+				debug!(
+					"Participant {} sent response for request {} to {}",
+					self.idx, req_id, receiver_idx
+				);
 				self.processed_requests.entry(receiver_idx).or_default().insert(req_id);
 				// Track that we sent a response and are waiting for acknowledgment
 				self.response_acks.insert((receiver_idx, req_id), false);
@@ -617,6 +673,10 @@ impl Participant {
 							request_id: ack_request_id,
 						} =>
 							if ack_sender_idx == receiver_idx && ack_request_id == request_id {
+								debug!(
+									"Participant {} received request ack for {} from {}",
+									self.idx, request_id, receiver_idx
+								);
 								// Mark acknowledgment as received
 								self.request_acks.insert((receiver_idx, request_id), true);
 							},
@@ -645,6 +705,10 @@ impl Participant {
 					.get(&sender_idx)
 					.map_or(false, |ress| ress.contains(&res.request_id))
 				{
+					debug!(
+						"Participant {} received response for request {} from {}",
+						self.idx, res.request_id, sender_idx
+					);
 					self.received_responses.entry(sender_idx).or_default().insert(res.request_id);
 					// Mark that we received a response and need to send acknowledgment
 					self.pending_response_acks.insert((sender_idx, res.request_id), false);
@@ -697,6 +761,10 @@ impl Participant {
 							request_id: ack_request_id,
 						} =>
 							if ack_sender_idx == receiver_idx && ack_request_id == request_id {
+								debug!(
+									"Participant {} received response ack for {} from {}",
+									self.idx, request_id, receiver_idx
+								);
 								// Mark acknowledgment as received
 								self.response_acks.insert((receiver_idx, request_id), true);
 							},
@@ -710,23 +778,23 @@ impl Participant {
 	}
 
 	async fn run(&mut self) -> Result<(), anyhow::Error> {
-		println!("=== Session keys exchange ===");
+		info!("=== [{}] Session keys exchange ===", self.idx);
 
 		self.send_session_key().await?;
 		self.receive_session_keys().await?;
 
-		println!("=== Symmetric keys exchange ===");
+		info!("=== [{}] Symmetric keys exchange ===", self.idx);
 
 		self.send_symmetric_keys().await?;
 		self.receive_symmetric_keys().await?;
 
-		println!("=== Symmetric key acknowledgments ===");
+		info!("=== [{}] Symmetric key acknowledgments ===", self.idx);
 
 		self.send_symmetric_key_acknowledgments().await?;
 		self.receive_symmetric_key_acknowledgments().await?;
 
 		for i in 0..MESSAGE_COUNT {
-			println!("=== Req/res exchange round {} ===", i + 1);
+			info!("=== [{}] Req/res exchange round {} ===", self.idx, i + 1);
 
 			self.send_requests().await?;
 			self.receive_requests().await?;
@@ -737,7 +805,7 @@ impl Participant {
 			self.send_response_acknowledgments().await?;
 			self.receive_response_acknowledgments().await?;
 
-			println!("All messages in the round processed");
+			info!("[{}] All messages in the round processed", self.idx);
 		}
 
 		Ok(())
