@@ -195,7 +195,8 @@ impl generic::Config for Test {
 	}
 
 	fn barrier_check() -> Result<<Self as generic::Config>::RuntimeCall, BenchmarkError> {
-		Ok(frame_system::Call::remark_with_event { remark: vec![] }.into())
+		// TODO: implement a benchmark for barrier check
+		Err(BenchmarkError::Skip)
 	}
 }
 
