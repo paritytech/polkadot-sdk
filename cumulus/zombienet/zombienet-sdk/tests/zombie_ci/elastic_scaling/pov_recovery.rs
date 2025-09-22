@@ -4,7 +4,7 @@
 use anyhow::anyhow;
 use std::{sync::Arc, time::Duration};
 
-use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
+use crate::utils::{assign_cores, initialize_network, BEST_BLOCK_METRIC};
 
 use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
@@ -51,6 +51,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		.is_ok());
 
 	log::info!("Registering parachain para_id = {PARA_ID}");
+	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 	network.register_parachain(PARA_ID).await?;
 
 	log::info!("Ensuring parachain is registered within 30 blocks");

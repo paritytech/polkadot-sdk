@@ -3,14 +3,13 @@
 
 use anyhow::anyhow;
 
-use crate::utils::initialize_network;
+use crate::utils::{assign_cores, initialize_network};
 
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
 
@@ -35,7 +34,6 @@ async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error>
 	let para_node_elastic = network.get_node("collator-1")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 	assert_para_throughput(
 		&relay_client,
 		10,
