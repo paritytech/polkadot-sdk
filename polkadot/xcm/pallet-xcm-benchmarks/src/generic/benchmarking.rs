@@ -963,17 +963,16 @@ mod benchmarks {
 
 	#[benchmark]
 	fn barrier_check() -> Result<(), BenchmarkError> {
-		// TODO: implement a benchmark for barrier check
-		let instructions = T::barrier_check().map_err(|_| BenchmarkError::Skip)?;
+		let xmc = T::barrier_check().map_err(|_| BenchmarkError::Skip)?;
 
 		let mut executor = new_executor::<T>(Default::default());
 
-		let xcm = Xcm(instructions);
 		#[block]
 		{
 			executor.bench_process(xcm)?;
 		}
-		// TODO: add verification that barrier check was done
+		let err = executor.error().expect("Error should exist after barrier rejection");
+		assert_eq!(err, xcm::latest::Error::Barrier);
 		Ok(())
 	}
 
