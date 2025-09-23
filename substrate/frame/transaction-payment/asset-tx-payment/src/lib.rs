@@ -384,7 +384,7 @@ where
 		};
 
 		match initial_payment {
-			InitialPayment::Native(already_withdrawn) => {
+			InitialPayment::Native(liquidity_info) => {
 				// Take into account the weight used by this extension before calculating the
 				// refund.
 				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_native();
@@ -395,7 +395,7 @@ where
 					pallet_transaction_payment::Pre::Charge {
 						tip,
 						who,
-						imbalance: already_withdrawn,
+						liquidity_info,
 					},
 					info,
 					&actual_post_info,

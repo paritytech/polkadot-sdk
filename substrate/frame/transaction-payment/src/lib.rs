@@ -599,7 +599,7 @@ impl<T: Config> Pallet<T> {
 		Self::compute_fee_details(len, &dispatch_info, tip)
 	}
 
-	/// Compute the final fee value for a particular transaction.
+	/// Compute the final fee value (including tip) for a particular transaction.
 	pub fn compute_fee(
 		len: u32,
 		info: &DispatchInfoOf<T::RuntimeCall>,
@@ -808,7 +808,7 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: BalanceOf<T>,
+		fee_with_tip: BalanceOf<T>,
 	) -> Result<
 		(
 			BalanceOf<T>,
@@ -819,9 +819,13 @@ where
 		let tip = self.0;
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
-			who, call, info, fee, tip,
+			who,
+			call,
+			info,
+			fee_with_tip,
+			tip,
 		)
-		.map(|i| (fee, i))
+		.map(|liquidity_info| (fee_with_tip, liquidity_info))
 	}
 
 	fn can_withdraw_fee(
@@ -832,12 +836,16 @@ where
 		len: usize,
 	) -> Result<BalanceOf<T>, TransactionValidityError> {
 		let tip = self.0;
-		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+		let fee_with_tip = Pallet::<T>::compute_fee(len as u32, info, tip);
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
-			who, call, info, fee, tip,
+			who,
+			call,
+			info,
+			fee_with_tip,
+			tip,
 		)?;
-		Ok(fee)
+		Ok(fee_with_tip)
 	}
 
 	/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
@@ -857,7 +865,7 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		tip: BalanceOf<T>,
-		final_fee: BalanceOf<T>,
+		final_fee_with_tip: BalanceOf<T>,
 	) -> TransactionPriority {
 		// Calculate how many such extrinsics we could fit into an empty block and take the
 		// limiting factor.
@@ -906,7 +914,7 @@ where
 				// enough to prevent a possible spam attack by sending invalid operational
 				// extrinsics which push away regular transactions from the pool.
 				let fee_multiplier = T::OperationalFeeMultiplier::get().saturated_into();
-				let virtual_tip = final_fee.saturating_mul(fee_multiplier);
+				let virtual_tip = final_fee_with_tip.saturating_mul(fee_multiplier);
 				let scaled_virtual_tip = max_reward(virtual_tip);
 
 				scaled_tip.saturating_add(scaled_virtual_tip)
@@ -935,7 +943,7 @@ pub enum Val<T: Config> {
 		// who paid the fee
 		who: T::AccountId,
 		// transaction fee
-		fee: BalanceOf<T>,
+		fee_with_tip: BalanceOf<T>,
 	},
 	NoCharge,
 }
@@ -947,8 +955,9 @@ pub enum Pre<T: Config> {
 		tip: BalanceOf<T>,
 		// who paid the fee
 		who: T::AccountId,
-		// imbalance resulting from withdrawing the fee
-		imbalance: <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+		// implementation defined type that is passed into the post charge function
+		liquidity_info:
+			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	},
 	NoCharge {
 		// weight initially estimated by the extension, to be refunded
@@ -960,7 +969,7 @@ impl<T: Config> core::fmt::Debug for Pre<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
-			Pre::Charge { tip, who, imbalance: _ } => {
+			Pre::Charge { tip, who, liquidity_info: _ } => {
 				write!(f, "Charge {{ tip: {:?}, who: {:?}, imbalance: <stripped> }}", tip, who)
 			},
 			Pre::NoCharge { refund } => write!(f, "NoCharge {{ refund: {:?} }}", refund),
@@ -1002,14 +1011,14 @@ where
 		let Ok(who) = frame_system::ensure_signed(origin.clone()) else {
 			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
 		};
-		let final_fee = self.can_withdraw_fee(&who, call, info, len)?;
+		let fee_with_tip = self.can_withdraw_fee(&who, call, info, len)?;
 		let tip = self.0;
 		Ok((
 			ValidTransaction {
-				priority: Self::get_priority(info, len, tip, final_fee),
+				priority: Self::get_priority(info, len, tip, fee_with_tip),
 				..Default::default()
 			},
-			Val::Charge { tip: self.0, who, fee: final_fee },
+			Val::Charge { tip: self.0, who, fee_with_tip },
 			origin,
 		))
 	}
@@ -1023,10 +1032,11 @@ where
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
-			Val::Charge { tip, who, fee } => {
+			Val::Charge { tip, who, fee_with_tip } => {
 				// Mutating call to `withdraw_fee` to actually charge for the transaction.
-				let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
-				Ok(Pre::Charge { tip, who, imbalance })
+				let (_fee_with_tip, liquidity_info) =
+					self.withdraw_fee(&who, call, info, fee_with_tip)?;
+				Ok(Pre::Charge { tip, who, liquidity_info })
 			},
 			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
 		}
@@ -1039,18 +1049,28 @@ where
 		len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		let (tip, who, imbalance) = match pre {
-			Pre::Charge { tip, who, imbalance } => (tip, who, imbalance),
+		let (tip, who, liquidity_info) = match pre {
+			Pre::Charge { tip, who, liquidity_info } => (tip, who, liquidity_info),
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
 				return Ok(refund)
 			},
 		};
-		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
+		let actual_fee_with_tip =
+			Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(
-			&who, info, &post_info, actual_fee, tip, imbalance,
+			&who,
+			info,
+			&post_info,
+			actual_fee_with_tip,
+			tip,
+			liquidity_info,
 		)?;
-		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
+		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid {
+			who,
+			actual_fee: actual_fee_with_tip,
+			tip,
+		});
 		Ok(Weight::zero())
 	}
 }
