@@ -46,7 +46,8 @@ use sp_runtime::{
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	FixedPointNumber, FixedU128, OpaqueExtrinsic, RuntimeDebug, SaturatedConversion, Weight,
+	FixedPointNumber, FixedU128, OpaqueExtrinsic, RuntimeDebug, SaturatedConversion, Saturating,
+	Weight,
 };
 
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
@@ -400,26 +401,43 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		let extrinsic_fee = <Self::Config as Config>::FeeInfo::tx_fee(encoded_len as u32, &call);
-
 		// the fee as signed off by the eth wallet. we cannot consume more.
 		let eth_fee = effective_gas_price.saturating_mul(gas) /
 			<Self::Config as Config>::NativeToEthRatio::get();
 
-		// this is the fee left after accounting for the extrinsic itself
-		// the rest if for the weight and storage deposit limit
-		let remaining_fee = eth_fee.checked_sub(extrinsic_fee.into()).ok_or_else(|| {
-			log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the extrinsic base fee. eth_fee={eth_fee:?} extrinsic_fee={extrinsic_fee:?}");
-			InvalidTransaction::Payment
-		})?;
-
 		let weight_limit = {
-			let remaining_unadjusted_fee =
-				<Self::Config as Config>::FeeInfo::next_fee_multiplier_reciprocal()
-					.saturating_mul_int(<BalanceOf<Self::Config>>::saturated_from(remaining_fee));
-			let weight_limit =
-				<Self::Config as Config>::FeeInfo::fee_to_weight(remaining_unadjusted_fee);
+			let extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&call);
+			let mut info = call.get_dispatch_info();
+			info.extension_weight = extension_weight;
+
+			let fixed_fee = <Self::Config as Config>::FeeInfo::weight_to_fee(
+				<Self::Config as frame_system::Config>::BlockWeights::get()
+					.get(info.class)
+					.base_extrinsic,
+			)
+			.saturating_add(<Self::Config as Config>::FeeInfo::length_to_fee(encoded_len as u32));
+
+			let remaining_fee = {
+				let adjusted = eth_fee.checked_sub(fixed_fee.into()).ok_or_else(|| {
+					log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover base and len fee. eth_fee={eth_fee:?} fixed_fee={fixed_fee:?}");
+					InvalidTransaction::Payment
+				})?;
+				let unadjusted =
+					<Self::Config as Config>::FeeInfo::next_fee_multiplier_reciprocal()
+						.saturating_mul_int(<BalanceOf<Self::Config>>::saturated_from(adjusted));
+				unadjusted
+			};
+
+			let weight_limit = <Self::Config as Config>::FeeInfo::fee_to_weight(remaining_fee)
+				.checked_sub(&info.total_weight()).ok_or_else(|| {
+					log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight of the extrinsic.");
+					InvalidTransaction::Payment
+				})?;
+
 			call.set_weight_limit(weight_limit);
+			info = call.get_dispatch_info();
+			info.extension_weight = extension_weight;
+
 			let factor = FixedU128::from_rational(3, 4);
 			let max_weight = <Self::Config as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
@@ -431,8 +449,7 @@ pub trait EthExtra {
 				factor.saturating_mul_int(max_weight.ref_time()),
 				factor.saturating_mul_int(max_weight.proof_size()),
 			);
-			let mut info = call.get_dispatch_info();
-			info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&call);
+
 			let overweight_by = info.total_weight().saturating_sub(max_weight);
 			let capped_weight = weight_limit.saturating_sub(overweight_by);
 			call.set_weight_limit(capped_weight);
@@ -443,7 +460,10 @@ pub trait EthExtra {
 		let tx_fee = <Self::Config as Config>::FeeInfo::tx_fee(encoded_len as u32, &call);
 
 		// the leftover we make available to the deposit collection system
-		let storage_deposit = eth_fee.saturating_sub(tx_fee.into()).saturated_into();
+		let storage_deposit = eth_fee.checked_sub(tx_fee.into()).ok_or_else(|| {
+			log::error!(target: LOG_TARGET, "The eth_fee={eth_fee:?} is smaller than the tx_fee={tx_fee:?}. This is a bug.");
+			InvalidTransaction::Payment
+		})?.saturated_into();
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
 					storage_deposit,
@@ -464,7 +484,6 @@ pub trait EthExtra {
 		log::debug!(target: LOG_TARGET, "\
 			Created checked Ethereum transaction with: \
 			gas={gas} \
-			extrinsic_fee={extrinsic_fee:?} \
 			weight_limit={weight_limit} \
 			additional_storage_deposit_held={storage_deposit:?} \
 			effective_gas_price={effective_gas_price} \
@@ -494,7 +513,7 @@ mod test {
 		tests::{
 			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, UncheckedExtrinsic,
 		},
-		Weight,
+		EthTransactInfo, Weight,
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
@@ -520,6 +539,7 @@ mod test {
 	struct UncheckedExtrinsicBuilder {
 		tx: GenericTransaction,
 		before_validate: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
+		dry_run: Option<EthTransactInfo<BalanceOf<Test>>>,
 	}
 
 	impl UncheckedExtrinsicBuilder {
@@ -532,6 +552,7 @@ mod test {
 					..Default::default()
 				},
 				before_validate: None,
+				dry_run: None,
 			}
 		}
 
@@ -542,12 +563,12 @@ mod test {
 
 		fn estimate_gas(&mut self) {
 			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone(), Weight::MAX);
-
 			self.tx.gas_price = Some(<Pallet<Test>>::evm_gas_price());
 
 			match dry_run {
 				Ok(dry_run) => {
 					self.tx.gas = Some(dry_run.eth_gas);
+					self.dry_run = Some(dry_run);
 				},
 				Err(err) => {
 					log::debug!(target: LOG_TARGET, "Failed to estimate gas: {:?}", err);
@@ -577,7 +598,8 @@ mod test {
 
 		fn check(
 			self,
-		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction), TransactionValidityError> {
+		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction, Weight), TransactionValidityError>
+		{
 			self.mutate_estimate_and_check(Box::new(|_| ()))
 		}
 
@@ -585,7 +607,8 @@ mod test {
 		fn mutate_estimate_and_check(
 			mut self,
 			f: Box<dyn FnOnce(&mut GenericTransaction) -> ()>,
-		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction), TransactionValidityError> {
+		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction, Weight), TransactionValidityError>
+		{
 			ExtBuilder::default().build().execute_with(|| self.estimate_gas());
 			f(&mut self.tx);
 			ExtBuilder::default().build().execute_with(|| {
@@ -620,7 +643,7 @@ mod test {
 					0,
 				)?;
 
-				Ok((result.function, extra, tx))
+				Ok((result.function, extra, tx, self.dry_run.unwrap().gas_required))
 			})
 		}
 	}
@@ -628,44 +651,65 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (call, _, tx) = builder.check().unwrap();
-		let effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let (call, _, tx, gas_required) = builder.check().unwrap();
+		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
 
-		assert_eq!(
-			call,
-			crate::Call::eth_call::<Test> {
-				dest: tx.to.unwrap(),
-				value: tx.value.unwrap_or_default().as_u64().into(),
-				data: tx.input.to_vec(),
-				// its a transfer to a non contract: does not use any gas
-				gas_limit: Zero::zero(),
-				storage_deposit_limit: <BalanceOf<Test>>::max_value(),
-				effective_gas_price: effective_gas_price.into(),
-			}
-			.into()
-		);
+		match call {
+			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
+				dest,
+				value,
+				data,
+				gas_limit,
+				storage_deposit_limit,
+				effective_gas_price,
+			}) if dest == tx.to.unwrap() &&
+				value == tx.value.unwrap_or_default().as_u64().into() &&
+				data == tx.input.to_vec() &&
+				storage_deposit_limit == <BalanceOf<Test>>::max_value() &&
+				effective_gas_price == expected_effective_gas_price.into() =>
+			{
+				assert!(
+					gas_limit.all_gte(gas_required),
+					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
+				);
+			},
+			_ => panic!("Call does not match."),
+		}
 	}
 
 	#[test]
 	fn check_eth_transact_instantiate_works() {
-		let (code, _) = compile_module("dummy").unwrap();
-		let data = vec![];
-		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
-		let (call, _, tx) = builder.check().unwrap();
-		let effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let (expected_code, _) = compile_module("dummy").unwrap();
+		let expected_data = vec![];
+		let builder = UncheckedExtrinsicBuilder::instantiate_with(
+			expected_code.clone(),
+			expected_data.clone(),
+		);
+		let (call, _, tx, gas_required) = builder.check().unwrap();
+		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
+		let expected_value = tx.value.unwrap_or_default().as_u64().into();
 
-		assert_eq!(
-			call,
-			crate::Call::eth_instantiate_with_code::<Test> {
-				value: tx.value.unwrap_or_default().as_u64().into(),
+		match call {
+			RuntimeCall::Contracts(crate::Call::eth_instantiate_with_code::<Test> {
+				value,
 				code,
 				data,
-				gas_limit: Weight::from_parts(54753, 0),
-				storage_deposit_limit: <BalanceOf<Test>>::max_value(),
-				effective_gas_price: effective_gas_price.into(),
-			}
-			.into()
-		);
+				gas_limit,
+				storage_deposit_limit,
+				effective_gas_price,
+			}) if value == expected_value &&
+				code == expected_code &&
+				data == expected_data &&
+				storage_deposit_limit == <BalanceOf<Test>>::max_value() &&
+				effective_gas_price == expected_effective_gas_price.into() =>
+			{
+				assert!(
+					gas_limit.all_gte(gas_required),
+					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
+				);
+			},
+			_ => panic!("Call does not match."),
+		}
 	}
 
 	#[test]
@@ -747,7 +791,7 @@ mod test {
 		let (code, _) = compile_module("dummy").unwrap();
 		// create some dummy data to increase the gas fee
 		let data = vec![42u8; crate::limits::CALLDATA_BYTES as usize];
-		let (_, extra, _tx) =
+		let (_, extra, _tx, _gas_required) =
 			UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.mutate_estimate_and_check(Box::new(|tx| {
 					tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
@@ -765,7 +809,7 @@ mod test {
 
 		let builder =
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
-		let (call, _, _) = builder.check().unwrap();
+		let (call, _, _, _) = builder.check().unwrap();
 
 		assert_eq!(call, remark);
 	}

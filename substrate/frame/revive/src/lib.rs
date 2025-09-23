@@ -1441,7 +1441,7 @@ where
 					let dispatch_call: CallOf<T> = crate::Call::<T>::eth_call {
 						dest,
 						value,
-						gas_limit: Zero::zero(),
+						gas_limit: result.gas_required,
 						storage_deposit_limit: Zero::zero(),
 						data: input.clone(),
 						effective_gas_price,
@@ -1492,7 +1492,7 @@ where
 				};
 				let dispatch_call: CallOf<T> = crate::Call::<T>::eth_instantiate_with_code {
 					value,
-					gas_limit: Zero::zero(),
+					gas_limit: result.gas_required,
 					storage_deposit_limit: Zero::zero(),
 					code,
 					data,
@@ -1509,24 +1509,22 @@ where
 
 		let eth_transact_call =
 			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-		let extrinsic_fee: U256 =
+		let transaction_fee: U256 =
 			T::FeeInfo::unadjusted_tx_fee(eth_transact_call.into(), &dispatch_call).into();
-		let gas_limit = Self::evm_gas_from_weight(weight_limit);
 		let storage_deposit =
 			T::FeeInfo::next_fee_multiplier_reciprocal().saturating_mul_int(result.storage_deposit);
 
-		// It is important that we add the gas_limit here and not calculate it via the extrinsic.
-		// Otherwise it is possible that gas_limit does not influence the weight of the extrinsic
-		// and hence yields zero when decoding it.
-		let eth_gas: U256 = extrinsic_fee
-			.saturating_add(gas_limit)
+		// We add `2` to account for one potential rounding error in each of the terms.
+		// Returning a larger value here just increases the the pre-dispatch weight.
+		let eth_gas: U256 = transaction_fee
 			.saturating_add(storage_deposit.into())
+			.saturating_add(2_u32.into())
 			.into();
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \
 			weight_limit={weight_limit:?}: \
-			(extrinsic_fee={extrinsic_fee:?}) + (gas_limit={gas_limit:?}) + (storage_deposit={storage_deposit:?}) = (eth_gas={eth_gas:?})\
+			(transaction_fee={transaction_fee:?}) + (storage_deposit={storage_deposit:?}) = (eth_gas={eth_gas:?})\
 			",
 
 		);
