@@ -105,6 +105,7 @@ pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
+type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -1320,7 +1321,7 @@ where
 		gas_limit: Weight,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
-		<T as Config>::RuntimeCall: From<crate::Call<T>>,
+		CallOf<T>: From<crate::Call<T>>,
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
@@ -1385,18 +1386,18 @@ where
 			// A contract call.
 			Some(dest) => {
 				if dest == RUNTIME_PALLETS_ADDR {
-					let Ok(dispatch_call) = <T as Config>::RuntimeCall::decode(&mut &input[..])
-					else {
+					let Ok(dispatch_call) = <CallOf<T>>::decode(&mut &input[..]) else {
 						return Err(EthTransactError::Message(format!(
 							"Failed to decode pallet-call {input:?}"
 						)));
 					};
 
-					if let Err(err) =
+					if let Err(result) =
 						dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
 					{
 						return Err(EthTransactError::Message(format!(
-							"Failed to dispatch call: {err:?}"
+							"Failed to dispatch call: {:?}",
+							result.error,
 						)));
 					};
 
@@ -1437,7 +1438,7 @@ where
 						data,
 						eth_gas: Default::default(),
 					};
-					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_call {
+					let dispatch_call: CallOf<T> = crate::Call::<T>::eth_call {
 						dest,
 						value,
 						gas_limit: Zero::zero(),
@@ -1489,16 +1490,15 @@ where
 					data: returned_data,
 					eth_gas: Default::default(),
 				};
-				let dispatch_call: <T as Config>::RuntimeCall =
-					crate::Call::<T>::eth_instantiate_with_code {
-						value,
-						gas_limit: Zero::zero(),
-						storage_deposit_limit: Zero::zero(),
-						code,
-						data,
-						effective_gas_price,
-					}
-					.into();
+				let dispatch_call: CallOf<T> = crate::Call::<T>::eth_instantiate_with_code {
+					value,
+					gas_limit: Zero::zero(),
+					storage_deposit_limit: Zero::zero(),
+					code,
+					data,
+					effective_gas_price,
+				}
+				.into();
 				(result.gas_required, result, dispatch_call)
 			},
 		};
@@ -1510,7 +1510,7 @@ where
 		let eth_transact_call =
 			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
 		let extrinsic_fee: U256 =
-			T::FeeInfo::unadjusted_tx_fee(eth_transact_call.into(), dispatch_call).into();
+			T::FeeInfo::unadjusted_tx_fee(eth_transact_call.into(), &dispatch_call).into();
 		let gas_limit = Self::evm_gas_from_weight(weight_limit);
 		let storage_deposit =
 			T::FeeInfo::next_fee_multiplier_reciprocal().saturating_mul_int(result.storage_deposit);

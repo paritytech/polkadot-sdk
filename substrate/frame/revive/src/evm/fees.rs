@@ -19,7 +19,7 @@
 
 use crate::{
 	evm::{runtime::EthExtra, OnChargeTransactionBalanceOf},
-	BalanceOf, Config, IsType,
+	BalanceOf, CallOf, Config,
 };
 use codec::Encode;
 use core::marker::PhantomData;
@@ -106,14 +106,14 @@ pub trait InfoT<T: Config>: seal::Sealed {
 
 	/// Calculate the fee of a transaction divided by the next fee multiplier.
 	fn unadjusted_tx_fee(
-		_eth_transact_call: <T as Config>::RuntimeCall,
-		_dispatch_call: <T as Config>::RuntimeCall,
+		_eth_transact_call: CallOf<T>,
+		_dispatch_call: &CallOf<T>,
 	) -> BalanceOf<T> {
 		Zero::zero()
 	}
 
 	/// Calculate the fee of a transaction including the next fee multiplier adjustment.
-	fn tx_fee(_len: u32, _dispatch_info: &DispatchInfo) -> BalanceOf<T> {
+	fn tx_fee(_len: u32, _call: &CallOf<T>) -> BalanceOf<T> {
 		Zero::zero()
 	}
 
@@ -166,11 +166,9 @@ impl<const P: u128, const Q: u128, T: Config> WeightToFee for BlockRatioFee<P, Q
 impl<Address, Signature, E: EthExtra> InfoT<E::Config> for Info<Address, Signature, E>
 where
 	BalanceOf<E::Config>: From<OnChargeTransactionBalanceOf<E::Config>>,
-	<E::Config as SysConfig>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-	<<E::Config as SysConfig>::Block as BlockT>::Extrinsic: From<
-		UncheckedExtrinsic<Address, <E::Config as Config>::RuntimeCall, Signature, E::Extension>,
-	>,
-	<E::Config as Config>::RuntimeCall: IsType<<E::Config as SysConfig>::RuntimeCall>,
+	CallOf<E::Config>: Dispatchable<Info = DispatchInfo>,
+	<<E::Config as SysConfig>::Block as BlockT>::Extrinsic:
+		From<UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>,
 	<E::Config as TxConfig>::WeightToFee: BlockRatioWeightToFee<T = E::Config>,
 	<<E::Config as TxConfig>::OnChargeTransaction as TxCreditHold<E::Config>>::Credit:
 		SuppressedDrop<Inner = CreditOf<E::Config>>,
@@ -198,29 +196,22 @@ where
 	}
 
 	fn unadjusted_tx_fee(
-		eth_transact_call: <E::Config as Config>::RuntimeCall,
-		dispatch_call: <E::Config as Config>::RuntimeCall,
+		eth_transact_call: CallOf<E::Config>,
+		dispatch_call: &CallOf<E::Config>,
 	) -> BalanceOf<E::Config> {
-		// Get the dispatch info of the actual call dispatched
-		let mut dispatch_info = dispatch_call.get_dispatch_info();
-		dispatch_info.extension_weight =
-			E::get_eth_extension(0u32.into(), 0u32.into()).weight(dispatch_call.into_ref());
-
-		// Build the extrinsic
 		let uxt: <<E::Config as SysConfig>::Block as BlockT>::Extrinsic =
 			UncheckedExtrinsic::new_bare(eth_transact_call).into();
 
 		// We need to divide because the eth wallet will multiply with the gas price
-		let fee = TxPallet::<E::Config>::compute_fee(
-			uxt.encoded_size() as u32,
-			&dispatch_info,
-			0u32.into(),
-		);
+		let fee = Self::tx_fee(uxt.encoded_size() as u32, dispatch_call);
 		Self::next_fee_multiplier_reciprocal().saturating_mul_int(fee.into())
 	}
 
-	fn tx_fee(len: u32, dispatch_info: &DispatchInfo) -> BalanceOf<E::Config> {
-		TxPallet::<E::Config>::compute_fee(len, dispatch_info, 0u32.into()).into()
+	fn tx_fee(len: u32, call: &CallOf<E::Config>) -> BalanceOf<E::Config> {
+		let mut dispatch_info = call.get_dispatch_info();
+		dispatch_info.extension_weight =
+			E::get_eth_extension(0u32.into(), 0u32.into()).weight(call);
+		TxPallet::<E::Config>::compute_fee(len, &dispatch_info, 0u32.into()).into()
 	}
 
 	fn weight_to_fee(weight: Weight) -> BalanceOf<E::Config> {

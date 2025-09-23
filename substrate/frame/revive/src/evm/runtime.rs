@@ -21,7 +21,7 @@ use crate::{
 		fees::InfoT,
 	},
 	vm::pvm::extract_code_and_data,
-	AccountIdOf, AddressMapper, BalanceOf, Config, DispatchClass, MomentOf, Pallet, Zero,
+	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, DispatchClass, MomentOf, Pallet, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
@@ -48,8 +48,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	FixedPointNumber, FixedU128, OpaqueExtrinsic, RuntimeDebug, SaturatedConversion, Weight,
 };
-
-type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
 pub trait SetWeightLimit {
@@ -397,14 +395,12 @@ pub trait EthExtra {
 			call
 		};
 
-		let mut info = call.get_dispatch_info();
 		let nonce = tx.nonce.unwrap_or_default().try_into().map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
 			InvalidTransaction::Call
 		})?;
 
-		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&call);
-		let extrinsic_fee = <Self::Config as Config>::FeeInfo::tx_fee(encoded_len as u32, &info);
+		let extrinsic_fee = <Self::Config as Config>::FeeInfo::tx_fee(encoded_len as u32, &call);
 
 		// the fee as signed off by the eth wallet. we cannot consume more.
 		let eth_fee = effective_gas_price.saturating_mul(gas) /
@@ -444,9 +440,7 @@ pub trait EthExtra {
 		};
 
 		// the overall fee of the extrinsic including the gas limit
-		let mut info = call.get_dispatch_info();
-		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&call);
-		let tx_fee = <Self::Config as Config>::FeeInfo::tx_fee(encoded_len as u32, &info);
+		let tx_fee = <Self::Config as Config>::FeeInfo::tx_fee(encoded_len as u32, &call);
 
 		// the leftover we make available to the deposit collection system
 		let storage_deposit = eth_fee.saturating_sub(tx_fee.into()).saturated_into();
