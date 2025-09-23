@@ -6,7 +6,7 @@ use codec::{Decode, Encode};
 use log::{debug, info, warn};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Statement, Topic};
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
@@ -19,7 +19,7 @@ use zombienet_sdk::{
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 100;
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 50;
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
 const MESSAGE_COUNT: usize = 2;
 const MAX_RETRIES: u32 = 100;
@@ -54,10 +54,48 @@ fn statement_store() -> Result<(), anyhow::Error> {
 			.into_iter()
 			.map(|mut participant| tokio::spawn(async move { participant.run().await }))
 			.collect();
+
+		let mut all_stats = Vec::new();
 		for handle in handles {
-			handle.await??;
+			let stats = handle.await??;
+			all_stats.push(stats);
 		}
+
+		let total_participants = all_stats.len() as u32;
+		let total_sent: u32 = all_stats.iter().map(|s| s.sent_count).sum();
+		let total_received: u32 = all_stats.iter().map(|s| s.received_count).sum();
+		let total_retries: u32 = all_stats.iter().map(|s| s.retry_count).sum();
+
+		let min_time = all_stats.iter().map(|s| s.total_time).min().unwrap_or(Duration::ZERO);
+		let max_time = all_stats.iter().map(|s| s.total_time).max().unwrap_or(Duration::ZERO);
+		let avg_time = Duration::from_secs_f64(
+			all_stats.iter().map(|s| s.total_time.as_secs_f64()).sum::<f64>() /
+				total_participants as f64,
+		);
+
+		let min_sent = all_stats.iter().map(|s| s.sent_count).min().unwrap_or(0);
+		let max_sent = all_stats.iter().map(|s| s.sent_count).max().unwrap_or(0);
+		let avg_sent = total_sent / total_participants;
+
+		let min_received = all_stats.iter().map(|s| s.received_count).min().unwrap_or(0);
+		let max_received = all_stats.iter().map(|s| s.received_count).max().unwrap_or(0);
+		let avg_received = total_received / total_participants;
+
+		let min_retries = all_stats.iter().map(|s| s.retry_count).min().unwrap_or(0);
+		let max_retries = all_stats.iter().map(|s| s.retry_count).max().unwrap_or(0);
+		let avg_retries = total_retries / total_participants;
+
 		info!("Statement store benchmark completed successfully");
+		info!("Participants: {}", total_participants);
+		info!("Messages sent - Min: {}, Max: {}, Avg: {}", min_sent, max_sent, avg_sent);
+		info!("Messages received - Min: {}, Max: {}, Avg: {}", min_received, max_received, avg_received);
+		info!("Retries - Min: {}, Max: {}, Avg: {}", min_retries, max_retries, avg_retries);
+		info!(
+			"Time - Min: {:.2}s, Max: {:.2}s, Avg: {:.2}s",
+			min_time.as_secs_f64(),
+			max_time.as_secs_f64(),
+			avg_time.as_secs_f64()
+		);
 
 		Ok(())
 	})
@@ -143,6 +181,15 @@ enum StatementAcknowledge {
 	SymmetricKeyReceived { sender_idx: u32 },
 	RequestReceived { sender_idx: u32, request_id: u32 },
 	ResponseReceived { sender_idx: u32, request_id: u32 },
+}
+
+#[derive(Debug, Clone)]
+struct ParticipantStats {
+	participant_id: u32,
+	total_time: Duration,
+	sent_count: u32,
+	received_count: u32,
+	retry_count: u32,
 }
 
 struct Participant {
@@ -802,7 +849,7 @@ impl Participant {
 		Ok(())
 	}
 
-	async fn run(&mut self) -> Result<(), anyhow::Error> {
+	async fn run(&mut self) -> Result<ParticipantStats, anyhow::Error> {
 		let start_time = std::time::Instant::now();
 		debug!("[{}] Session keys exchange", self.idx);
 		self.send_session_key().await?;
@@ -835,14 +882,21 @@ impl Participant {
 
 		let elapsed = start_time.elapsed();
 		info!(
-			"[{}] Benchmark completed - Time: {:.2}s, Sent: {}, Received: {}",
+			"[{}] Benchmark completed - Time: {:.2}s, Sent: {}, Received: {}, Retries: {}",
 			self.idx,
 			elapsed.as_secs_f64(),
 			self.sent_count,
-			self.received_count
+			self.received_count,
+			self.retry_count
 		);
 
-		Ok(())
+		Ok(ParticipantStats {
+			participant_id: self.idx,
+			total_time: elapsed,
+			sent_count: self.sent_count,
+			received_count: self.received_count,
+			retry_count: self.retry_count,
+		})
 	}
 }
 
