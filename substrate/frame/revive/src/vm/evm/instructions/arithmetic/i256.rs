@@ -34,20 +34,12 @@ pub enum Sign {
 
 #[cfg(test)]
 /// The maximum positive value for a 256-bit signed integer.
-pub const MAX_POSITIVE_VALUE: U256 = U256([
-	0xffffffffffffffff,
-	0xffffffffffffffff,
-	0xffffffffffffffff,
-	0x7fffffffffffffff,
-]);
+pub const MAX_POSITIVE_VALUE: U256 =
+	U256([0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0x7fffffffffffffff]);
 
 /// The minimum negative value for a 256-bit signed integer.
-pub const MIN_NEGATIVE_VALUE: U256 = U256([
-	0x0000000000000000,
-	0x0000000000000000,
-	0x0000000000000000,
-	0x8000000000000000,
-]);
+pub const MIN_NEGATIVE_VALUE: U256 =
+	U256([0x0000000000000000, 0x0000000000000000, 0x0000000000000000, 0x8000000000000000]);
 
 const FLIPH_BITMASK_U64: u64 = 0x7FFF_FFFF_FFFF_FFFF;
 
@@ -76,12 +68,7 @@ pub fn i256_sign_compl(val: &mut U256) -> Sign {
 fn u256_remove_sign(val: &mut U256) {
 	// Clear the sign bit by masking the highest bit
 	let limbs = val.0;
-	*val = U256([
-		limbs[0],
-		limbs[1],
-		limbs[2],
-		limbs[3] & FLIPH_BITMASK_U64,
-	]);
+	*val = U256([limbs[0], limbs[1], limbs[2], limbs[3] & FLIPH_BITMASK_U64]);
 }
 
 /// Computes the two's complement of a U256 value in place.
@@ -180,7 +167,10 @@ mod tests {
 		assert_eq!(i256_div(MIN_NEGATIVE_VALUE, neg_one), MIN_NEGATIVE_VALUE);
 		assert_eq!(i256_div(MIN_NEGATIVE_VALUE, U256::from(1)), MIN_NEGATIVE_VALUE);
 		assert_eq!(i256_div(MAX_POSITIVE_VALUE, U256::from(1)), MAX_POSITIVE_VALUE);
-		assert_eq!(i256_div(MAX_POSITIVE_VALUE, neg_one), (!MAX_POSITIVE_VALUE).overflowing_add(U256::from(1)).0);
+		assert_eq!(
+			i256_div(MAX_POSITIVE_VALUE, neg_one),
+			(!MAX_POSITIVE_VALUE).overflowing_add(U256::from(1)).0
+		);
 		assert_eq!(i256_div(U256::from(100), neg_one), U256::from(100).overflowing_neg().0);
 		assert_eq!(i256_div(U256::from(100), U256::from(2)), U256::from(50));
 	}

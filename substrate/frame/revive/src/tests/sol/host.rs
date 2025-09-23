@@ -347,7 +347,12 @@ fn sload_works() {
 
 			{
 				let result = builder::bare_call(addr)
-					.data(Host::HostCalls::sloadOp(Host::sloadOpCall { slot: primitives::U256::from_be_bytes(index.to_big_endian()) }).abi_encode())
+					.data(
+						Host::HostCalls::sloadOp(Host::sloadOpCall {
+							slot: primitives::U256::from_be_bytes(index.to_big_endian()),
+						})
+						.abi_encode(),
+					)
 					.build_and_unwrap_result();
 				assert!(!result.did_revert(), "test reverted");
 				let result = U256::from_big_endian(&result.data);

@@ -23,10 +23,9 @@ use crate::{
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		ExtBuilder, Test,
 	},
-	Code, Config, PristineCode,
+	Code, Config, PristineCode, U256,
 };
 use alloy_core::{primitives, sol_types::SolInterface};
-use crate::U256;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
@@ -89,14 +88,13 @@ fn basic_evm_flow_works() {
 
 			let result = builder::bare_call(addr)
 				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: primitives::U256::from(10u64) })
-						.abi_encode(),
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
+						n: primitives::U256::from(10u64),
+					})
+					.abi_encode(),
 				)
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(55u32),
-				U256::from_big_endian(&result.data)
-			);
+			assert_eq!(U256::from(55u32), U256::from_big_endian(&result.data));
 		}
 
 		// init code is not stored
@@ -141,16 +139,15 @@ fn basic_evm_flow_tracing_works() {
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
 				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: primitives::U256::from(10u64) })
-						.abi_encode(),
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
+						n: primitives::U256::from(10u64),
+					})
+					.abi_encode(),
 				)
 				.build_and_unwrap_result()
 		});
 
-		assert_eq!(
-			crate::U256::from(55u32),
-			crate::U256::from_big_endian(&result.data)
-		);
+		assert_eq!(crate::U256::from(55u32), crate::U256::from_big_endian(&result.data));
 
 		assert_eq!(
 			call_tracer.collect_trace().unwrap(),
@@ -158,9 +155,11 @@ fn basic_evm_flow_tracing_works() {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
 				to: addr,
-				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: primitives::U256::from(10u64) })
-					.abi_encode()
-					.into(),
+				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
+					n: primitives::U256::from(10u64)
+				})
+				.abi_encode()
+				.into(),
 				output: result.data.into(),
 				value: Some(crate::U256::zero()),
 				..Default::default()

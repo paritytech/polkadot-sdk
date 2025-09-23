@@ -21,8 +21,10 @@ use crate::{
 	tests::{builder, ExtBuilder, Test},
 	Code, Config, Error, ExecReturnValue, LOG_TARGET, U256,
 };
-use alloy_core::primitives;
-use alloy_core::sol_types::{SolCall, SolInterface};
+use alloy_core::{
+	primitives,
+	sol_types::{SolCall, SolInterface},
+};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Memory};
 use pallet_revive_uapi::ReturnFlags;
@@ -41,7 +43,9 @@ fn memory_limit_works() {
 			(
 				// Writing 1 byte from 0 to the limit - 1 should work.
 				Memory::expandMemoryCall {
-					memorySize: primitives::U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT - 1),
+					memorySize: primitives::U256::from(
+						crate::limits::code::BASELINE_MEMORY_LIMIT - 1,
+					),
 				},
 				Ok(ExecReturnValue { data: vec![0u8; 32], flags: ReturnFlags::empty() }),
 			),

@@ -48,10 +48,7 @@ fn block_number_works() {
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(42u32),
-				U256::from_big_endian(&result.data)
-			);
+			assert_eq!(U256::from(42u32), U256::from_big_endian(&result.data));
 		});
 	}
 }

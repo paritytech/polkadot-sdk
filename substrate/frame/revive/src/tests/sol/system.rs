@@ -22,8 +22,7 @@ use crate::{
 	tests::{builder, Contracts, ExtBuilder, Test},
 	Code, Config, U256,
 };
-use alloy_core::primitives;
-use alloy_core::sol_types::SolCall;
+use alloy_core::{primitives, sol_types::SolCall};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
 	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
@@ -234,7 +233,11 @@ fn returndatasize_works() {
 				.data(
 					SystemFixture::returndatasizeCall {
 						_callee: callee_addr.0.into(),
-						_data: Callee::echoCall { _data: primitives::U256::from_be_bytes(magic_number.to_big_endian()) }.abi_encode().into(),
+						_data: Callee::echoCall {
+							_data: primitives::U256::from_be_bytes(magic_number.to_big_endian()),
+						}
+						.abi_encode()
+						.into(),
 						_gas: primitives::U256::MAX,
 					}
 					.abi_encode(),
@@ -268,7 +271,11 @@ fn returndatacopy_works() {
 				.data(
 					SystemFixture::returndatacopyCall {
 						_callee: callee_addr.0.into(),
-						_data: Callee::echoCall { _data: primitives::U256::from_be_bytes(magic_number.to_big_endian()) }.abi_encode().into(),
+						_data: Callee::echoCall {
+							_data: primitives::U256::from_be_bytes(magic_number.to_big_endian()),
+						}
+						.abi_encode()
+						.into(),
 						_gas: primitives::U256::MAX,
 						destOffset: primitives::U256::ZERO,
 						offset: primitives::U256::ZERO,

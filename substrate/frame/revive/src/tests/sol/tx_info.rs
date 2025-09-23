@@ -48,10 +48,7 @@ fn gasprice_works() {
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(GAS_PRICE),
-				U256::from_big_endian(&result.data)
-			);
+			assert_eq!(U256::from(GAS_PRICE), U256::from_big_endian(&result.data));
 		});
 	}
 }

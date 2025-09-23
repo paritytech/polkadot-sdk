@@ -1,7 +1,4 @@
-use crate::{
-	vm::evm::interpreter::Halt,
-	U256,
-};
+use crate::{vm::evm::interpreter::Halt, U256};
 use core::ops::ControlFlow;
 
 /// Helper function to convert U256 to usize, checking for overflow
