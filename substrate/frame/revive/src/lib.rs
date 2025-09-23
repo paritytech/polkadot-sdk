@@ -278,6 +278,10 @@ pub mod pallet {
 		/// Only valid value is `()`. See [`GasEncoder`].
 		#[pallet::no_default_bounds]
 		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
+
+		/// Allows unlimited ETH contract size if true
+		#[pallet::constant]
+		type AllowUnlimitedEthContractSize: Get<bool>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -350,6 +354,7 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
+			type AllowUnlimitedEthContractSize = ConstBool<false>;
 		}
 	}
 

@@ -484,6 +484,8 @@ fn ext_builder_with_genesis_config_works() {
 	let config = GenesisConfig::<Test> {
 		mapped_accounts: vec![EVE],
 		accounts: vec![eoa.clone(), pvm_contract.clone(), evm_contract.clone()],
+		..Default::default()
+
 	};
 
 	// Genesis serialization works

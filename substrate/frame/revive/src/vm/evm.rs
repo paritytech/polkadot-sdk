@@ -39,7 +39,7 @@ use revm::{
 	},
 	primitives::{self, hardfork::SpecId, Address, Bytes},
 };
-use sp_core::H160;
+use sp_core::{H160, Get};
 use sp_runtime::Weight;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -63,7 +63,7 @@ pub(crate) const BASE_FEE: U256 = U256::zero();
 impl<T: Config> ContractBlob<T> {
 	/// Create a new contract from EVM init code.
 	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE && !T::AllowUnlimitedEthContractSize::get() {
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
@@ -97,7 +97,7 @@ impl<T: Config> ContractBlob<T> {
 		code: Vec<u8>,
 		owner: AccountIdOf<T>,
 	) -> Result<Self, DispatchError> {
-		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE {
+		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE && !T::AllowUnlimitedEthContractSize::get() {
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
