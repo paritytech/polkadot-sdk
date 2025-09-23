@@ -19,7 +19,7 @@ use zombienet_sdk::{
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 50;
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 100;
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
 const MESSAGE_COUNT: usize = 2;
 const MAX_RETRIES: u32 = 100;
@@ -148,7 +148,8 @@ struct Participant {
 	received_req: HashMap<(u32, u32), bool>,
 	sent_res: HashMap<(u32, u32), bool>,
 	received_res: HashMap<(u32, u32), bool>,
-	submit_counter: u32,
+	sent_count: u32,
+	received_count: u32,
 	pending_res: HashMap<u32, Option<u32>>,
 	retry_count: u32,
 	rpc: RpcClient,
@@ -186,7 +187,8 @@ impl Participant {
 			sent_res: HashMap::new(),
 			received_res: HashMap::new(),
 			pending_res: HashMap::new(),
-			submit_counter: 0,
+			sent_count: 0,
+			received_count: 0,
 			retry_count: 0,
 			rpc,
 		}
@@ -362,19 +364,15 @@ impl Participant {
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
-		debug!(
-			"Participant {} submitting statement (counter: {})",
-			self.idx,
-			self.submit_counter + 1
-		);
+		debug!("Participant {} submitting statement (counter: {})", self.idx, self.sent_count + 1);
 		let _: () = self.rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
-		self.submit_counter += 1;
+		self.sent_count += 1;
 
 		Ok(())
 	}
 
 	async fn statement_broadcasts_statement(
-		&self,
+		&mut self,
 		topics: Vec<Topic>,
 	) -> Result<Vec<Statement>, anyhow::Error> {
 		let statements: Vec<Bytes> =
@@ -386,13 +384,15 @@ impl Participant {
 			decoded_statements.push(statement);
 		}
 
+		self.received_count += decoded_statements.len() as u32;
+
 		Ok(decoded_statements)
 	}
 
 	fn public_key_statement(&self) -> Statement {
 		let mut statement = Statement::new();
 		statement.set_channel([0u8; 32]);
-		statement.set_priority(self.submit_counter);
+		statement.set_priority(self.sent_count);
 		statement.set_topic(0, topic_public_key());
 		statement.set_topic(1, topic_idx(self.idx));
 		statement.set_plain_data(self.session_key.public().to_vec());
@@ -414,7 +414,7 @@ impl Participant {
 		let channel = channel_pair(&self.session_key.public(), receiver_session_key);
 
 		statement.set_channel(channel);
-		statement.set_priority(self.submit_counter);
+		statement.set_priority(self.sent_count);
 		statement.set_topic(0, topic);
 		statement.set_plain_data(symmetric_key.to_vec());
 		statement.sign_sr25519_private(&self.keyring);
@@ -429,7 +429,7 @@ impl Participant {
 			return None
 		};
 
-		let request_id = self.submit_counter;
+		let request_id = self.sent_count;
 
 		// Create 5KiB payload
 		let mut data = vec![0u8; MESSAGE_SIZE];
@@ -448,7 +448,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
-		statement.set_priority(self.submit_counter);
+		statement.set_priority(self.sent_count);
 		statement.set_plain_data(request_data);
 		statement.sign_sr25519_private(&self.keyring);
 
@@ -480,7 +480,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
-		statement.set_priority(self.submit_counter);
+		statement.set_priority(self.sent_count);
 		statement.set_plain_data(response_data);
 		statement.sign_sr25519_private(&self.keyring);
 
@@ -507,7 +507,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
-		statement.set_priority(self.submit_counter);
+		statement.set_priority(self.sent_count);
 		statement.set_plain_data(ack_data);
 		statement.sign_sr25519_private(&self.keyring);
 
@@ -529,7 +529,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
-		statement.set_priority(self.submit_counter);
+		statement.set_priority(self.sent_count);
 		statement.set_plain_data(ack_data);
 		statement.sign_sr25519_private(&self.keyring);
 
@@ -551,7 +551,7 @@ impl Participant {
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
 		statement.set_channel(channel);
-		statement.set_priority(self.submit_counter);
+		statement.set_priority(self.sent_count);
 		statement.set_plain_data(ack_data);
 		statement.sign_sr25519_private(&self.keyring);
 
@@ -793,6 +793,7 @@ impl Participant {
 	}
 
 	async fn run(&mut self) -> Result<(), anyhow::Error> {
+		let start_time = std::time::Instant::now();
 		debug!("[{}] Session keys exchange", self.idx);
 		self.send_session_key().await?;
 		self.receive_session_keys().await?;
@@ -821,6 +822,15 @@ impl Participant {
 			self.send_response_acknowledgments().await?;
 			self.receive_response_acknowledgments().await?;
 		}
+
+		let elapsed = start_time.elapsed();
+		info!(
+			"[{}] Benchmark completed - Time: {:.2}s, Sent: {}, Received: {}",
+			self.idx,
+			elapsed.as_secs_f64(),
+			self.sent_count,
+			self.received_count
+		);
 
 		Ok(())
 	}
