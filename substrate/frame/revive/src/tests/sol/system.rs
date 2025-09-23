@@ -20,9 +20,9 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, Contracts, ExtBuilder, Test},
-	Code, Config,
+	Code, Config, U256,
 };
-use alloy_core::{primitives::U256, sol_types::SolCall};
+use alloy_core::{primitives, sol_types::SolCall};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
 	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
@@ -107,7 +107,7 @@ fn callvalue_works() {
 				.data(SystemFixture::callvalueCall {}.abi_encode())
 				.build_and_unwrap_result();
 
-			let returned_val = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+			let returned_val = U256::from_big_endian(&result.data);
 			assert_eq!(U256::from(value), returned_val);
 		});
 	}
@@ -124,13 +124,13 @@ fn calldataload_works() {
 
 			let result = builder::bare_call(addr)
 				.data(
-						SystemFixture::calldataloadCall { offset: U256::from(4u32) } /* skip selector */
+						SystemFixture::calldataloadCall { offset: primitives::U256::from(4u32) } /* skip selector */
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
 
 			// Call calldataload(offset=4) → returns the argument "4"
-			let returned = U256::from_be_bytes::<32>(result.data.as_slice().try_into().unwrap());
+			let returned = U256::from_big_endian(result.data.as_slice().try_into().unwrap());
 			assert_eq!(U256::from(4u32), returned);
 		});
 	}
@@ -151,7 +151,7 @@ fn calldatasize_works() {
 				.build_and_unwrap_result();
 
 			// ABI encodes: 4 (selector) + 0 (no args) = 4
-			let returned = U256::from_be_bytes::<32>(result.data.as_slice().try_into().unwrap());
+			let returned = U256::from_big_endian(result.data.as_slice().try_into().unwrap());
 			assert_eq!(returned, U256::from(4u32));
 		});
 	}
@@ -167,9 +167,9 @@ fn calldatacopy_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 			let call_data = SystemFixture::calldatacopyCall {
-				destOffset: U256::from(0u32), // unused
-				offset: U256::from(4u32),     // skip selector
-				size: U256::from(64u32),      // copy destOffset + offset
+				destOffset: primitives::U256::from(0u32), // unused
+				offset: primitives::U256::from(4u32),     // skip selector
+				size: primitives::U256::from(64u32),      // copy destOffset + offset
 			}
 			.abi_encode();
 
@@ -204,8 +204,7 @@ fn codesize_works() {
 			// Now fetch the actual *runtime* code size from storage
 			let code = Contracts::code(&addr);
 
-			let returned_size =
-				U256::from_be_bytes::<32>(result.data.as_slice().try_into().unwrap());
+			let returned_size = U256::from_big_endian(result.data.as_slice().try_into().unwrap());
 			let expected_size = U256::from(code.len());
 
 			assert_eq!(expected_size, returned_size);
@@ -234,14 +233,18 @@ fn returndatasize_works() {
 				.data(
 					SystemFixture::returndatasizeCall {
 						_callee: callee_addr.0.into(),
-						_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
-						_gas: U256::MAX,
+						_data: Callee::echoCall {
+							_data: primitives::U256::from_be_bytes(magic_number.to_big_endian()),
+						}
+						.abi_encode()
+						.into(),
+						_gas: primitives::U256::MAX,
 					}
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
 
-			let size = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+			let size = U256::from_big_endian(&result.data);
 			// Always 32 bytes for a single uint256
 			assert_eq!(U256::from(32), size);
 		});
@@ -268,11 +271,15 @@ fn returndatacopy_works() {
 				.data(
 					SystemFixture::returndatacopyCall {
 						_callee: callee_addr.0.into(),
-						_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
-						_gas: U256::MAX,
-						destOffset: U256::ZERO,
-						offset: U256::ZERO,
-						size: U256::from(32u32),
+						_data: Callee::echoCall {
+							_data: primitives::U256::from_be_bytes(magic_number.to_big_endian()),
+						}
+						.abi_encode()
+						.into(),
+						_gas: primitives::U256::MAX,
+						destOffset: primitives::U256::ZERO,
+						offset: primitives::U256::ZERO,
+						size: primitives::U256::from(32u32),
 					}
 					.abi_encode(),
 				)
@@ -280,7 +287,7 @@ fn returndatacopy_works() {
 
 			let result =
 				SystemFixture::returndatacopyCall::abi_decode_returns(&result.data).unwrap();
-			assert_eq!(magic_number, U256::from_be_bytes::<32>(result.as_ref().try_into().unwrap()))
+			assert_eq!(magic_number, U256::from_big_endian(result.as_ref().try_into().unwrap()))
 		});
 	}
 }

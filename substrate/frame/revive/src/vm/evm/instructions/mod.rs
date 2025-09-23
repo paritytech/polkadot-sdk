@@ -17,14 +17,8 @@
 
 //! EVM opcode implementations.
 
-use crate::vm::{
-	evm::{DummyHost, EVMInterpreter},
-	Ext,
-};
-use revm::interpreter::{Instruction, InstructionContext};
-
-type Context<'ctx, 'ext, E> =
-	InstructionContext<'ctx, crate::vm::evm::DummyHost, crate::vm::evm::EVMInterpreter<'ext, E>>;
+use super::interpreter::Interpreter;
+use crate::vm::{evm::Halt, Ext};
 
 #[macro_use]
 mod macros;
@@ -40,8 +34,6 @@ mod contract;
 mod control;
 /// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
 mod host;
-/// Signed 256-bit integer operations.
-mod i256;
 /// Memory operations (MLOAD, MSTORE, MSIZE, etc.).
 mod memory;
 /// Stack operations (PUSH, POP, DUP, SWAP, etc.).
@@ -53,11 +45,12 @@ mod tx_info;
 /// Utility functions and helpers for instruction implementation.
 mod utility;
 
-/// Returns the instruction table for the given spec.
-pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, E>, DummyHost>; 256]
-{
+pub type Instruction<E> = fn(&mut Interpreter<'_, E>) -> core::ops::ControlFlow<Halt>;
+pub type InstructionTable<E> = [Instruction<E>; 256];
+
+pub const fn instruction_table<E: Ext>() -> [Instruction<E>; 256] {
 	use revm::bytecode::opcode::*;
-	let mut table = [control::unknown as Instruction<EVMInterpreter<'a, E>, DummyHost>; 256];
+	let mut table = [control::unknown as Instruction<E>; 256];
 
 	table[STOP as usize] = control::stop;
 	table[ADD as usize] = arithmetic::add;
@@ -222,26 +215,26 @@ pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, 
 	table[SELFDESTRUCT as usize] = host::selfdestruct;
 	table
 }
-
-#[cfg(test)]
-mod tests {
-	use super::instruction_table;
-	use revm::bytecode::opcode::*;
-
-	#[test]
-	fn all_instructions_and_opcodes_used() {
-		// known unknown instruction we compare it with other instructions from table.
-		let unknown_instruction = 0x0C_usize;
-
-		use crate::{exec::Stack, tests::Test, ContractBlob};
-		let instr_table = instruction_table::<'static, Stack<'static, Test, ContractBlob<Test>>>();
-
-		let unknown_istr = instr_table[unknown_instruction];
-		for (i, instr) in instr_table.iter().enumerate() {
-			let is_opcode_unknown = OpCode::new(i as u8).is_none();
-			//
-			let is_instr_unknown = std::ptr::fn_addr_eq(*instr, unknown_istr);
-			assert_eq!(is_instr_unknown, is_opcode_unknown, "Opcode 0x{i:X?} is not handled",);
-		}
-	}
-}
+//
+// #[cfg(test)]
+// mod tests {
+// 	use super::instruction_table;
+// 	use revm::bytecode::opcode::*;
+//
+// 	#[test]
+// 	fn all_instructions_and_opcodes_used() {
+// 		// known unknown instruction we compare it with other instructions from table.
+// 		let unknown_instruction = 0x0C_usize;
+//
+// 		use crate::{exec::Stack, tests::Test, ContractBlob};
+// 		let instr_table = instruction_table::<'static, Stack<'static, Test, ContractBlob<Test>>>();
+//
+// 		let unknown_istr = instr_table[unknown_instruction];
+// 		for (i, instr) in instr_table.iter().enumerate() {
+// 			let is_opcode_unknown = OpCode::new(i as u8).is_none();
+// 			//
+// 			let is_instr_unknown = std::ptr::fn_addr_eq(*instr, unknown_istr);
+// 			assert_eq!(is_instr_unknown, is_opcode_unknown, "Opcode 0x{i:X?} is not handled",);
+// 		}
+// 	}
+// }

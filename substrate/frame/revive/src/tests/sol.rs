@@ -23,9 +23,9 @@ use crate::{
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		ExtBuilder, Test,
 	},
-	Code, Config, PristineCode,
+	Code, Config, PristineCode, U256,
 };
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::{primitives, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
@@ -88,14 +88,13 @@ fn basic_evm_flow_works() {
 
 			let result = builder::bare_call(addr)
 				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
-						.abi_encode(),
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
+						n: primitives::U256::from(10u64),
+					})
+					.abi_encode(),
 				)
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(55u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
+			assert_eq!(U256::from(55u32), U256::from_big_endian(&result.data));
 		}
 
 		// init code is not stored
@@ -140,16 +139,15 @@ fn basic_evm_flow_tracing_works() {
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
 				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
-						.abi_encode(),
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
+						n: primitives::U256::from(10u64),
+					})
+					.abi_encode(),
 				)
 				.build_and_unwrap_result()
 		});
 
-		assert_eq!(
-			U256::from(55u32),
-			U256::from_be_bytes::<32>(result.data.clone().try_into().unwrap())
-		);
+		assert_eq!(crate::U256::from(55u32), crate::U256::from_big_endian(&result.data));
 
 		assert_eq!(
 			call_tracer.collect_trace().unwrap(),
@@ -157,9 +155,11 @@ fn basic_evm_flow_tracing_works() {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
 				to: addr,
-				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
-					.abi_encode()
-					.into(),
+				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
+					n: primitives::U256::from(10u64)
+				})
+				.abi_encode()
+				.into(),
 				output: result.data.into(),
 				value: Some(crate::U256::zero()),
 				..Default::default()
@@ -195,8 +195,10 @@ fn opcode_tracing_works() {
 		let _result = trace(&mut tracer, || {
 			builder::bare_call(addr)
 				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(3u64) })
-						.abi_encode(),
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
+						n: primitives::U256::from(3u64),
+					})
+					.abi_encode(),
 				)
 				.build_and_unwrap_result()
 		});
@@ -208,7 +210,7 @@ fn opcode_tracing_works() {
 		let expected_trace = OpcodeTrace {
 			gas: actual_trace.gas, // Use actual gas since it varies
 			failed: false,
-			return_value: crate::evm::Bytes(U256::from(2).to_be_bytes_vec()), // fib(3) = 2
+			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()), // fib(3) = 2
 			struct_logs: vec![
 				OpcodeStep {
 					pc: 0,
@@ -228,7 +230,7 @@ fn opcode_tracing_works() {
 					gas: sp_core::U256::from(0u64),
 					gas_cost: sp_core::U256::from(0u64),
 					depth: 1,
-					stack: vec![crate::evm::Bytes(U256::from(0x80).to_be_bytes_vec())],
+					stack: vec![crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec())],
 					memory: vec![],
 					storage: None,
 					return_data: crate::evm::Bytes::default(),
@@ -241,8 +243,8 @@ fn opcode_tracing_works() {
 					gas_cost: sp_core::U256::from(0u64),
 					depth: 1,
 					stack: vec![
-						crate::evm::Bytes(U256::from(0x80).to_be_bytes_vec()),
-						crate::evm::Bytes(U256::from(0x40).to_be_bytes_vec()),
+						crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec()),
+						crate::evm::Bytes(U256::from(0x40).to_big_endian().to_vec()),
 					],
 					memory: vec![],
 					storage: None,
@@ -267,7 +269,7 @@ fn opcode_tracing_works() {
 					gas: sp_core::U256::from(0u64),
 					gas_cost: sp_core::U256::from(0u64),
 					depth: 1,
-					stack: vec![crate::evm::Bytes(U256::from(0).to_be_bytes_vec())],
+					stack: vec![crate::evm::Bytes(U256::from(0).to_big_endian().to_vec())],
 					memory: vec![],
 					storage: None,
 					return_data: crate::evm::Bytes::default(),

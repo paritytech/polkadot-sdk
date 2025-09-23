@@ -15,7 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
+use crate::{
+	primitives::ExecReturnValue,
+	vm::evm::{Memory, Stack},
+	Code, DispatchError, Key, Weight,
+};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -53,8 +57,8 @@ pub trait Tracing {
 		_pc: u64,
 		_opcode: u8,
 		_gas_before: Weight,
-		_stack: &revm::interpreter::Stack,
-		_memory: &revm::interpreter::SharedMemory,
+		_stack: &Stack,
+		_memory: &Memory,
 		_last_frame_output: &crate::ExecReturnValue,
 	) {
 	}

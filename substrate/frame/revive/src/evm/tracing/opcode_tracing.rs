@@ -16,6 +16,7 @@
 // limitations under the License.
 use crate::{
 	evm::{tracing::Tracing, Bytes, OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
+	vm::evm::{Memory, Stack},
 	DispatchError, ExecReturnValue, Key, Weight,
 };
 use alloc::{
@@ -24,7 +25,6 @@ use alloc::{
 	string::{String, ToString},
 	vec::Vec,
 };
-use revm::interpreter::interpreter_types::MemoryTr;
 use sp_core::{H160, U256};
 
 /// A tracer that traces opcode execution step-by-step.
@@ -124,8 +124,8 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		pc: u64,
 		opcode: u8,
 		gas_before: Weight,
-		stack: &revm::interpreter::Stack,
-		memory: &revm::interpreter::SharedMemory,
+		stack: &Stack,
+		memory: &Memory,
 		last_frame_output: &crate::ExecReturnValue,
 	) {
 		// Check step limit - if exceeded, don't record anything
@@ -135,12 +135,11 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 
 		// Extract stack data if enabled
 		let stack_data = if !self.config.disable_stack {
-			// Get actual stack values using the data() method
-			let stack_values = stack.data();
+			let stack_values = &stack.0;
 			let mut stack_bytes = Vec::new();
 
 			for value in stack_values.iter() {
-				let bytes = value.to_be_bytes_vec();
+				let bytes = value.to_big_endian().to_vec();
 				stack_bytes.push(crate::evm::Bytes(bytes));
 			}
 
@@ -164,7 +163,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 				for i in 0..words_to_read {
 					// Use get_word to read 32 bytes directly
 					let word = memory.get_word(i * 32);
-					memory_bytes.push(crate::evm::Bytes(word.0.to_vec()));
+					memory_bytes.push(crate::evm::Bytes(word.to_vec()));
 				}
 
 				memory_bytes

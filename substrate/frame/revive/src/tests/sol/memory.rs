@@ -19,11 +19,10 @@ use crate::{
 	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config, Error, ExecReturnValue, LOG_TARGET,
+	Code, Config, Error, ExecReturnValue, LOG_TARGET, U256,
 };
-
 use alloy_core::{
-	primitives::U256,
+	primitives,
 	sol_types::{SolCall, SolInterface},
 };
 use frame_support::traits::fungible::Mutate;
@@ -44,14 +43,16 @@ fn memory_limit_works() {
 			(
 				// Writing 1 byte from 0 to the limit - 1 should work.
 				Memory::expandMemoryCall {
-					memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT - 1),
+					memorySize: primitives::U256::from(
+						crate::limits::code::BASELINE_MEMORY_LIMIT - 1,
+					),
 				},
 				Ok(ExecReturnValue { data: vec![0u8; 32], flags: ReturnFlags::empty() }),
 			),
 			(
 				// Writing 1 byte from the limit should revert.
 				Memory::expandMemoryCall {
-					memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
+					memorySize: primitives::U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
 				},
 				Err(<Error<Test>>::OutOfGas.into()),
 			),
@@ -104,14 +105,14 @@ fn msize_works() {
 			let result = builder::bare_call(addr)
 				.data(
 					Memory::MemoryCalls::testMsize(Memory::testMsizeCall {
-						offset: U256::from(512),
+						offset: primitives::U256::from(512),
 					})
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
 			assert!(!result.did_revert(), "test reverted");
 			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				U256::from_big_endian(&result.data),
 				U256::from(offset + 32),
 				"memory test should return {}",
 				offset + 32
@@ -135,17 +136,17 @@ fn mcopy_works() {
 			let result = builder::bare_call(addr)
 				.data(
 					Memory::MemoryCalls::testMcopy(Memory::testMcopyCall {
-						dstOffset: U256::from(512),
-						offset: U256::from(0),
-						size: U256::from(32),
-						value: expected_value,
+						dstOffset: primitives::U256::from(512),
+						offset: primitives::U256::from(0),
+						size: primitives::U256::from(32),
+						value: primitives::U256::from_be_bytes(expected_value.to_big_endian()),
 					})
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
 			assert!(!result.did_revert(), "test reverted");
 			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				U256::from_big_endian(&result.data),
 				expected_value,
 				"memory test should return {expected_value}"
 			);
