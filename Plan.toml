@@ -1460,8 +1460,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/election-provider-multi-block
 name = "pallet-election-provider-multi-block"
-from = "0.3.0"
-to = "0.3.1"
+from = "0.3.1"
+to = "0.3.2"
 bump = "patch"
 reason = "changed"
 
@@ -2964,9 +2964,9 @@ reason = "changed"
 [[crate]]
 # cumulus/pallets/xcmp-queue
 name = "cumulus-pallet-xcmp-queue"
-from = "0.22.0"
-to = "0.22.1"
-bump = "patch"
+from = "0.22.1"
+to = "0.22.2"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
