@@ -22,41 +22,44 @@ use crate::{
 	FixedU128, Perbill,
 };
 use core::ops::Sub;
-use num_traits::{One, CheckedDiv, Zero};
+use num_traits::{CheckedDiv, One, Zero};
 use scale_info::TypeInfo;
-use sp_arithmetic::{traits::{Saturating, Bounded}, FixedPointNumber};
+use sp_arithmetic::{
+	traits::{Bounded, Saturating},
+	FixedPointNumber,
+};
 
 /// The step type for the stepped curve.
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
 pub enum Step<Y> {
 	/// Increase the value by a percentage of the current value at each step.
-	PctInc { 
+	PctInc {
 		/// The percentage to increase by.
-		pct: FixedU128 
+		pct: FixedU128,
 	},
 	/// Decrease the value by a percentage of the current value at each step.
-	PctDec { 
+	PctDec {
 		/// The percentage to decrease by.
-		pct: FixedU128 
+		pct: FixedU128,
 	},
 	/// Increment by a constant value at each step.
 	Add {
 		/// The amount to add.
-		amount: Y 
+		amount: Y,
 	},
 	/// Decrement by a constant value at each step.
-	Subtract { 
+	Subtract {
 		/// The amount to substract.
-		amount: Y 
+		amount: Y,
 	},
 	/// Move towards a desired value by a percentage of the remaining difference at each step.
 	///
 	/// Step size will be (target_total - current_value) * pct.
-	RemainingPct { 
+	RemainingPct {
 		/// The asymptote the curve will move towards.
 		target: Y,
 		/// The percentage closer to the `target` at each step.
-		pct: Perbill
+		pct: Perbill,
 	},
 }
 
@@ -78,10 +81,15 @@ pub struct SteppedCurve<X, Y> {
 	pub period: X,
 }
 
-impl SteppedCurve<FixedU128, FixedU128>
-{
+impl SteppedCurve<FixedU128, FixedU128> {
 	/// Creates a new `SteppedCurve`.
-	pub fn new(start: FixedU128, end: Option<FixedU128>, initial_value: FixedU128, step: Step<FixedU128>, period: FixedU128) -> Self {
+	pub fn new(
+		start: FixedU128,
+		end: Option<FixedU128>,
+		initial_value: FixedU128,
+		step: Step<FixedU128>,
+		period: FixedU128,
+	) -> Self {
 		Self { start, end, initial_value, step, period }
 	}
 
@@ -108,7 +116,8 @@ impl SteppedCurve<FixedU128, FixedU128>
 		}
 
 		// Calculate how many full periods have passed.
-		let num_periods = (point - self.start).checked_div(&self.period).unwrap_or(FixedU128::max_value());
+		let num_periods =
+			(point - self.start).checked_div(&self.period).unwrap_or(FixedU128::max_value());
 
 		// Full period has not passed.
 		if num_periods < FixedU128::one() {
@@ -131,7 +140,7 @@ impl SteppedCurve<FixedU128, FixedU128>
 	}
 
 	/// Evaluate the curve at a given point.
-	/// 
+	///
 	/// Number of steps capped at `usize`.
 	pub fn evaluate(&self, point: FixedU128) -> FixedU128 {
 		let initial = self.initial_value;
@@ -157,8 +166,11 @@ impl SteppedCurve<FixedU128, FixedU128>
 		let effective_point = self.end.map_or(point, |e| point.min(e));
 
 		// Calculate how many full periods have passed.
-		let num_periods = (effective_point - self.start).checked_div(&self.period).unwrap_or(FixedU128::max_value());
-		let num_periods_usize = (num_periods.into_inner() / FixedU128::DIV).saturated_into::<usize>();
+		let num_periods = (effective_point - self.start)
+			.checked_div(&self.period)
+			.unwrap_or(FixedU128::max_value());
+		let num_periods_usize =
+			(num_periods.into_inner() / FixedU128::DIV).saturated_into::<usize>();
 		let num_periods_floor = FixedU128::saturating_from_integer(num_periods_usize);
 
 		// No periods have passed.
@@ -167,29 +179,29 @@ impl SteppedCurve<FixedU128, FixedU128>
 		}
 
 		match self.step {
-			Step::Add{ amount: step_value } => {
+			Step::Add { amount: step_value } => {
 				// Initial_value + num_periods * step_value.
 				let total_step = step_value.saturating_mul(num_periods_floor);
 				initial.saturating_add(total_step)
 			},
-			Step::Subtract{ amount: step_value } => {
+			Step::Subtract { amount: step_value } => {
 				// Initial_value - num_periods * step_value.
 				let total_step = step_value.saturating_mul(num_periods_floor);
 				initial.saturating_sub(total_step)
 			},
-			Step::PctInc{ pct: percent } => {
+			Step::PctInc { pct: percent } => {
 				// Initial_value * (1 + percent) ^ num_periods.
 				let ratio = FixedU128::one().saturating_add(percent);
 				let scale = ratio.saturating_pow(num_periods_usize);
 				initial.saturating_mul(scale)
 			},
-			Step::PctDec{ pct: percent } => {
+			Step::PctDec { pct: percent } => {
 				// Initial_value * (1 - percent) ^ num_periods.
 				let ratio = FixedU128::one().saturating_sub(percent);
 				let scale = ratio.saturating_pow(num_periods_usize);
 				initial.saturating_mul(scale)
 			},
-			Step::RemainingPct{ target: asymptote, pct: percent } => {
+			Step::RemainingPct { target: asymptote, pct: percent } => {
 				// Asymptote +/- diff(asymptote, initial_value) * (1-percent)^num_periods.
 				let ratio = FixedU128::one().saturating_sub(FixedU128::from(percent));
 				let scale = ratio.saturating_pow(num_periods_usize);
@@ -296,240 +308,240 @@ where
 #[test]
 fn stepped_curve_works() {
 	// u32 to Fixed.
-    fn uf(n: u32) -> FixedU128 {
-        FixedU128::saturating_from_integer(n)
-    }
+	fn uf(n: u32) -> FixedU128 {
+		FixedU128::saturating_from_integer(n)
+	}
 
 	// Fixed to u32.
-    fn fu(n: FixedU128) -> u32 {
-        n.saturating_mul_int(1u32)
-    }
+	fn fu(n: FixedU128) -> u32 {
+		n.saturating_mul_int(1u32)
+	}
 
 	// Curve with defined end.
-    let curve_with_end = SteppedCurve::new(uf(10), Some(uf(20)), uf(100), Step::Add { amount: uf(100) }, uf(2));
-    assert_eq!(fu(curve_with_end.evaluate(uf(20))), 600);
-    assert_eq!(fu(curve_with_end.evaluate(uf(22))), 600);
-    assert_eq!(fu(curve_with_end.last_step_size(uf(10))), 0);
-    assert_eq!(fu(curve_with_end.last_step_size(uf(20))), 100);
-    assert_eq!(fu(curve_with_end.last_step_size(uf(22))), 0);
-    assert_eq!(fu(curve_with_end.last_step_size(uf(30))), 0);
+	let curve_with_end =
+		SteppedCurve::new(uf(10), Some(uf(20)), uf(100), Step::Add { amount: uf(100) }, uf(2));
+	assert_eq!(fu(curve_with_end.evaluate(uf(20))), 600);
+	assert_eq!(fu(curve_with_end.evaluate(uf(22))), 600);
+	assert_eq!(fu(curve_with_end.last_step_size(uf(10))), 0);
+	assert_eq!(fu(curve_with_end.last_step_size(uf(20))), 100);
+	assert_eq!(fu(curve_with_end.last_step_size(uf(22))), 0);
+	assert_eq!(fu(curve_with_end.last_step_size(uf(30))), 0);
 
-    // End is less than start.
-    let end_less_than_start = SteppedCurve::new(uf(10), Some(uf(0)), uf(100), Step::Add { amount: uf(100) }, uf(2));
-    assert_eq!(fu(end_less_than_start.evaluate(uf(10))), 100);
-    assert_eq!(fu(end_less_than_start.evaluate(uf(12))), 100);
-    assert_eq!(fu(end_less_than_start.last_step_size(uf(10))), 0);
-    assert_eq!(fu(end_less_than_start.last_step_size(uf(20))), 0);
+	// End is less than start.
+	let end_less_than_start =
+		SteppedCurve::new(uf(10), Some(uf(0)), uf(100), Step::Add { amount: uf(100) }, uf(2));
+	assert_eq!(fu(end_less_than_start.evaluate(uf(10))), 100);
+	assert_eq!(fu(end_less_than_start.evaluate(uf(12))), 100);
+	assert_eq!(fu(end_less_than_start.last_step_size(uf(10))), 0);
+	assert_eq!(fu(end_less_than_start.last_step_size(uf(20))), 0);
 
-    // End is start.
-    let end_is_start = SteppedCurve::new(uf(10), Some(uf(10)), uf(100), Step::Add { amount: uf(100) }, uf(2));
-    assert_eq!(fu(end_is_start.evaluate(uf(10))), 100);
-    assert_eq!(fu(end_is_start.evaluate(uf(12))), 100);
-    assert_eq!(fu(end_is_start.last_step_size(uf(10))), 0);
-    assert_eq!(fu(end_is_start.last_step_size(uf(20))), 0);
+	// End is start.
+	let end_is_start =
+		SteppedCurve::new(uf(10), Some(uf(10)), uf(100), Step::Add { amount: uf(100) }, uf(2));
+	assert_eq!(fu(end_is_start.evaluate(uf(10))), 100);
+	assert_eq!(fu(end_is_start.evaluate(uf(12))), 100);
+	assert_eq!(fu(end_is_start.last_step_size(uf(10))), 0);
+	assert_eq!(fu(end_is_start.last_step_size(uf(20))), 0);
 
-    // Zero period curve.
-    let zero_period_curve = SteppedCurve::new(uf(10), None, uf(100), Step::Add { amount: uf(100) }, uf(0));
-    assert_eq!(fu(zero_period_curve.evaluate(uf(5))), 100);
-    assert_eq!(fu(zero_period_curve.evaluate(uf(11))), 100);
-    assert_eq!(fu(zero_period_curve.evaluate(uf(12))), 100);
-    assert_eq!(fu(zero_period_curve.evaluate(uf(20))), 100);
-    assert_eq!(fu(zero_period_curve.last_step_size(uf(20))), 0);
+	// Zero period curve.
+	let zero_period_curve =
+		SteppedCurve::new(uf(10), None, uf(100), Step::Add { amount: uf(100) }, uf(0));
+	assert_eq!(fu(zero_period_curve.evaluate(uf(5))), 100);
+	assert_eq!(fu(zero_period_curve.evaluate(uf(11))), 100);
+	assert_eq!(fu(zero_period_curve.evaluate(uf(12))), 100);
+	assert_eq!(fu(zero_period_curve.evaluate(uf(20))), 100);
+	assert_eq!(fu(zero_period_curve.last_step_size(uf(20))), 0);
 
-    // Step::Add.
-    let add_curve = SteppedCurve::new(uf(10), None, uf(100), Step::Add { amount: uf(100) }, uf(2));
-    assert_eq!(fu(add_curve.evaluate(uf(5))), 100);
-    assert_eq!(fu(add_curve.evaluate(uf(11))), 100);
-    assert_eq!(fu(add_curve.evaluate(uf(12))), 200);
-    assert_eq!(fu(add_curve.evaluate(uf(20))), 600);
-    assert_eq!(fu(add_curve.evaluate(uf(u32::MAX))), u32::MAX);
-    assert_eq!(fu(add_curve.last_step_size(uf(11))), 0);
-    assert_eq!(fu(add_curve.last_step_size(uf(12))), 100);
-    assert_eq!(fu(add_curve.last_step_size(uf(20))), 100);
+	// Step::Add.
+	let add_curve = SteppedCurve::new(uf(10), None, uf(100), Step::Add { amount: uf(100) }, uf(2));
+	assert_eq!(fu(add_curve.evaluate(uf(5))), 100);
+	assert_eq!(fu(add_curve.evaluate(uf(11))), 100);
+	assert_eq!(fu(add_curve.evaluate(uf(12))), 200);
+	assert_eq!(fu(add_curve.evaluate(uf(20))), 600);
+	assert_eq!(fu(add_curve.evaluate(uf(u32::MAX))), u32::MAX);
+	assert_eq!(fu(add_curve.last_step_size(uf(11))), 0);
+	assert_eq!(fu(add_curve.last_step_size(uf(12))), 100);
+	assert_eq!(fu(add_curve.last_step_size(uf(20))), 100);
 
-    // Step::Subtract.
-    let subtract_curve = SteppedCurve::new(uf(10), None, uf(1000), Step::Subtract { amount: uf(100) }, uf(2));
-    assert_eq!(fu(subtract_curve.evaluate(uf(5))), 1000);
-    assert_eq!(fu(subtract_curve.evaluate(uf(11))), 1000);
-    assert_eq!(fu(subtract_curve.evaluate(uf(12))), 900);
-    assert_eq!(fu(subtract_curve.evaluate(uf(20))), 500);
-    assert_eq!(fu(subtract_curve.evaluate(uf(u32::MAX))), u32::MIN);
-    assert_eq!(fu(subtract_curve.last_step_size(uf(11))), 0);
-    assert_eq!(fu(subtract_curve.last_step_size(uf(12))), 100);
-    assert_eq!(fu(subtract_curve.last_step_size(uf(20))), 100);
+	// Step::Subtract.
+	let subtract_curve =
+		SteppedCurve::new(uf(10), None, uf(1000), Step::Subtract { amount: uf(100) }, uf(2));
+	assert_eq!(fu(subtract_curve.evaluate(uf(5))), 1000);
+	assert_eq!(fu(subtract_curve.evaluate(uf(11))), 1000);
+	assert_eq!(fu(subtract_curve.evaluate(uf(12))), 900);
+	assert_eq!(fu(subtract_curve.evaluate(uf(20))), 500);
+	assert_eq!(fu(subtract_curve.evaluate(uf(u32::MAX))), u32::MIN);
+	assert_eq!(fu(subtract_curve.last_step_size(uf(11))), 0);
+	assert_eq!(fu(subtract_curve.last_step_size(uf(12))), 100);
+	assert_eq!(fu(subtract_curve.last_step_size(uf(20))), 100);
 
-    // Step::PctInc.
-    let pct_inc_curve = SteppedCurve::new(
-        uf(10),
-        None,
-        uf(1000),
-        Step::PctInc { pct: FixedU128::from_rational(1, 10) },
-        uf(2),
-    );
-    assert_eq!(fu(pct_inc_curve.evaluate(uf(5))), 1000);
-    assert_eq!(fu(pct_inc_curve.evaluate(uf(11))), 1000);
-    assert_eq!(fu(pct_inc_curve.evaluate(uf(12))), 1100);
-    assert_eq!(fu(pct_inc_curve.evaluate(uf(20))), 1610);
-    assert_eq!(fu(pct_inc_curve.evaluate(uf(u32::MAX))), u32::MAX);
-    assert_eq!(fu(pct_inc_curve.last_step_size(uf(11))), 0);
-    assert_eq!(fu(pct_inc_curve.last_step_size(uf(12))), 100);
-    assert_eq!(fu(pct_inc_curve.last_step_size(uf(20))), 146);
-    assert_eq!(fu(pct_inc_curve.last_step_size(uf(u32::MAX))), 0);
+	// Step::PctInc.
+	let pct_inc_curve = SteppedCurve::new(
+		uf(10),
+		None,
+		uf(1000),
+		Step::PctInc { pct: FixedU128::from_rational(1, 10) },
+		uf(2),
+	);
+	assert_eq!(fu(pct_inc_curve.evaluate(uf(5))), 1000);
+	assert_eq!(fu(pct_inc_curve.evaluate(uf(11))), 1000);
+	assert_eq!(fu(pct_inc_curve.evaluate(uf(12))), 1100);
+	assert_eq!(fu(pct_inc_curve.evaluate(uf(20))), 1610);
+	assert_eq!(fu(pct_inc_curve.evaluate(uf(u32::MAX))), u32::MAX);
+	assert_eq!(fu(pct_inc_curve.last_step_size(uf(11))), 0);
+	assert_eq!(fu(pct_inc_curve.last_step_size(uf(12))), 100);
+	assert_eq!(fu(pct_inc_curve.last_step_size(uf(20))), 146);
+	assert_eq!(fu(pct_inc_curve.last_step_size(uf(u32::MAX))), 0);
 
-    // Step::PctDec.
-    let pct_dec_curve = SteppedCurve::new(
-        uf(10),
-        None,
-        uf(1000),
-        Step::PctDec { pct: FixedU128::from_rational(1, 10) },
-        uf(2),
-    );
-    assert_eq!(fu(pct_dec_curve.evaluate(uf(5))), 1000);
-    assert_eq!(fu(pct_dec_curve.evaluate(uf(11))), 1000);
-    assert_eq!(fu(pct_dec_curve.evaluate(uf(12))), 900);
-    assert_eq!(fu(pct_dec_curve.evaluate(uf(20))), 590);
-    assert_eq!(fu(pct_dec_curve.evaluate(uf(u32::MAX))), u32::MIN);
-    assert_eq!(fu(pct_dec_curve.last_step_size(uf(11))), 0);
-    assert_eq!(fu(pct_dec_curve.last_step_size(uf(12))), 100);
-    assert_eq!(fu(pct_dec_curve.last_step_size(uf(20))), 65);
-    assert_eq!(fu(pct_dec_curve.last_step_size(uf(u32::MAX))), 0);
+	// Step::PctDec.
+	let pct_dec_curve = SteppedCurve::new(
+		uf(10),
+		None,
+		uf(1000),
+		Step::PctDec { pct: FixedU128::from_rational(1, 10) },
+		uf(2),
+	);
+	assert_eq!(fu(pct_dec_curve.evaluate(uf(5))), 1000);
+	assert_eq!(fu(pct_dec_curve.evaluate(uf(11))), 1000);
+	assert_eq!(fu(pct_dec_curve.evaluate(uf(12))), 900);
+	assert_eq!(fu(pct_dec_curve.evaluate(uf(20))), 590);
+	assert_eq!(fu(pct_dec_curve.evaluate(uf(u32::MAX))), u32::MIN);
+	assert_eq!(fu(pct_dec_curve.last_step_size(uf(11))), 0);
+	assert_eq!(fu(pct_dec_curve.last_step_size(uf(12))), 100);
+	assert_eq!(fu(pct_dec_curve.last_step_size(uf(20))), 65);
+	assert_eq!(fu(pct_dec_curve.last_step_size(uf(u32::MAX))), 0);
 
-    // Step::RemainingPct increasing.
-    let asymptotic_increasing = SteppedCurve::new(
-        uf(10),
-        None,
-        uf(0),
-        Step::RemainingPct { target: uf(1000), pct: Perbill::from_percent(10) },
-        uf(2),
-    );
-    assert_eq!(fu(asymptotic_increasing.evaluate(uf(5))), 0);
-    assert_eq!(fu(asymptotic_increasing.evaluate(uf(11))), 0);
-    assert_eq!(fu(asymptotic_increasing.evaluate(uf(12))), 100);
-    assert_eq!(fu(asymptotic_increasing.evaluate(uf(14))), 190);
-    assert_eq!(fu(asymptotic_increasing.evaluate(uf(16))), 271);
-    assert_eq!(fu(asymptotic_increasing.evaluate(uf(u32::MAX))), 1000);
-    assert_eq!(fu(asymptotic_increasing.last_step_size(uf(5))), 0);
-    assert_eq!(fu(asymptotic_increasing.last_step_size(uf(11))), 0);
-    assert_eq!(fu(asymptotic_increasing.last_step_size(uf(12))), 100);
-    assert_eq!(fu(asymptotic_increasing.last_step_size(uf(14))), 90);
-    assert_eq!(fu(asymptotic_increasing.last_step_size(uf(16))), 81);
-    assert_eq!(fu(asymptotic_increasing.last_step_size(uf(u32::MAX))), 0);
+	// Step::RemainingPct increasing.
+	let asymptotic_increasing = SteppedCurve::new(
+		uf(10),
+		None,
+		uf(0),
+		Step::RemainingPct { target: uf(1000), pct: Perbill::from_percent(10) },
+		uf(2),
+	);
+	assert_eq!(fu(asymptotic_increasing.evaluate(uf(5))), 0);
+	assert_eq!(fu(asymptotic_increasing.evaluate(uf(11))), 0);
+	assert_eq!(fu(asymptotic_increasing.evaluate(uf(12))), 100);
+	assert_eq!(fu(asymptotic_increasing.evaluate(uf(14))), 190);
+	assert_eq!(fu(asymptotic_increasing.evaluate(uf(16))), 271);
+	assert_eq!(fu(asymptotic_increasing.evaluate(uf(u32::MAX))), 1000);
+	assert_eq!(fu(asymptotic_increasing.last_step_size(uf(5))), 0);
+	assert_eq!(fu(asymptotic_increasing.last_step_size(uf(11))), 0);
+	assert_eq!(fu(asymptotic_increasing.last_step_size(uf(12))), 100);
+	assert_eq!(fu(asymptotic_increasing.last_step_size(uf(14))), 90);
+	assert_eq!(fu(asymptotic_increasing.last_step_size(uf(16))), 81);
+	assert_eq!(fu(asymptotic_increasing.last_step_size(uf(u32::MAX))), 0);
 
-    // Step::RemainingPct decreasing.
-    let asymptotic_decreasing = SteppedCurve::new(
-        uf(10),
-        None,
-        uf(1000),
-        Step::RemainingPct { target: uf(0), pct: Perbill::from_percent(10) },
-        uf(2),
-    );
-    assert_eq!(fu(asymptotic_decreasing.evaluate(uf(5))), 1000);
-    assert_eq!(fu(asymptotic_decreasing.evaluate(uf(11))), 1000);
-    assert_eq!(fu(asymptotic_decreasing.evaluate(uf(12))), 900);
-    assert_eq!(fu(asymptotic_decreasing.evaluate(uf(14))), 810);
-    assert_eq!(fu(asymptotic_decreasing.evaluate(uf(16))), 729);
-    assert_eq!(fu(asymptotic_decreasing.evaluate(uf(u32::MAX))), 0);
-    assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(5))), 0);
-    assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(11))), 0);
-    assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(12))), 100);
-    assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(14))), 90);
-    assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(16))), 81);
-    assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(u32::MAX))), 0);
+	// Step::RemainingPct decreasing.
+	let asymptotic_decreasing = SteppedCurve::new(
+		uf(10),
+		None,
+		uf(1000),
+		Step::RemainingPct { target: uf(0), pct: Perbill::from_percent(10) },
+		uf(2),
+	);
+	assert_eq!(fu(asymptotic_decreasing.evaluate(uf(5))), 1000);
+	assert_eq!(fu(asymptotic_decreasing.evaluate(uf(11))), 1000);
+	assert_eq!(fu(asymptotic_decreasing.evaluate(uf(12))), 900);
+	assert_eq!(fu(asymptotic_decreasing.evaluate(uf(14))), 810);
+	assert_eq!(fu(asymptotic_decreasing.evaluate(uf(16))), 729);
+	assert_eq!(fu(asymptotic_decreasing.evaluate(uf(u32::MAX))), 0);
+	assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(5))), 0);
+	assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(11))), 0);
+	assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(12))), 100);
+	assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(14))), 90);
+	assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(16))), 81);
+	assert_eq!(fu(asymptotic_decreasing.last_step_size(uf(u32::MAX))), 0);
 
-    // Step::RemainingPct stable.
-    let asymptotic_stable = SteppedCurve::new(
-        uf(10),
-        None,
-        uf(1000),
-        Step::RemainingPct { target: uf(1000), pct: Perbill::from_percent(10) },
-        uf(2),
-    );
-    assert_eq!(fu(asymptotic_stable.evaluate(uf(5))), 1000);
-    assert_eq!(fu(asymptotic_stable.evaluate(uf(12))), 1000);
-    assert_eq!(fu(asymptotic_stable.evaluate(uf(20))), 1000);
-    assert_eq!(fu(asymptotic_stable.last_step_size(uf(5))), 0);
-    assert_eq!(fu(asymptotic_stable.last_step_size(uf(12))), 0);
-    assert_eq!(fu(asymptotic_stable.last_step_size(uf(20))), 0);
+	// Step::RemainingPct stable.
+	let asymptotic_stable = SteppedCurve::new(
+		uf(10),
+		None,
+		uf(1000),
+		Step::RemainingPct { target: uf(1000), pct: Perbill::from_percent(10) },
+		uf(2),
+	);
+	assert_eq!(fu(asymptotic_stable.evaluate(uf(5))), 1000);
+	assert_eq!(fu(asymptotic_stable.evaluate(uf(12))), 1000);
+	assert_eq!(fu(asymptotic_stable.evaluate(uf(20))), 1000);
+	assert_eq!(fu(asymptotic_stable.last_step_size(uf(5))), 0);
+	assert_eq!(fu(asymptotic_stable.last_step_size(uf(12))), 0);
+	assert_eq!(fu(asymptotic_stable.last_step_size(uf(20))), 0);
 
-    // Step::RemainingPct capped end.
-    let asymptotic_with_end = SteppedCurve::new(
-        uf(10),
-        Some(uf(14)),
-        uf(0),
-        Step::RemainingPct { target: uf(1000), pct: Perbill::from_percent(10) },
-        uf(2),
-    );
-    assert_eq!(fu(asymptotic_with_end.evaluate(uf(5))), 0);
-    assert_eq!(fu(asymptotic_with_end.evaluate(uf(11))), 0);
-    assert_eq!(fu(asymptotic_with_end.evaluate(uf(12))), 100);
-    assert_eq!(fu(asymptotic_with_end.evaluate(uf(14))), 190);
-    assert_eq!(fu(asymptotic_with_end.evaluate(uf(16))), 190);
-    assert_eq!(fu(asymptotic_with_end.last_step_size(uf(5))), 0);
-    assert_eq!(fu(asymptotic_with_end.last_step_size(uf(11))), 0);
-    assert_eq!(fu(asymptotic_with_end.last_step_size(uf(12))), 100);
-    assert_eq!(fu(asymptotic_with_end.last_step_size(uf(14))), 90);
-    assert_eq!(fu(asymptotic_with_end.last_step_size(uf(16))), 0);
-    assert_eq!(fu(asymptotic_with_end.last_step_size(uf(18))), 0);
+	// Step::RemainingPct capped end.
+	let asymptotic_with_end = SteppedCurve::new(
+		uf(10),
+		Some(uf(14)),
+		uf(0),
+		Step::RemainingPct { target: uf(1000), pct: Perbill::from_percent(10) },
+		uf(2),
+	);
+	assert_eq!(fu(asymptotic_with_end.evaluate(uf(5))), 0);
+	assert_eq!(fu(asymptotic_with_end.evaluate(uf(11))), 0);
+	assert_eq!(fu(asymptotic_with_end.evaluate(uf(12))), 100);
+	assert_eq!(fu(asymptotic_with_end.evaluate(uf(14))), 190);
+	assert_eq!(fu(asymptotic_with_end.evaluate(uf(16))), 190);
+	assert_eq!(fu(asymptotic_with_end.last_step_size(uf(5))), 0);
+	assert_eq!(fu(asymptotic_with_end.last_step_size(uf(11))), 0);
+	assert_eq!(fu(asymptotic_with_end.last_step_size(uf(12))), 100);
+	assert_eq!(fu(asymptotic_with_end.last_step_size(uf(14))), 90);
+	assert_eq!(fu(asymptotic_with_end.last_step_size(uf(16))), 0);
+	assert_eq!(fu(asymptotic_with_end.last_step_size(uf(18))), 0);
 
 	// Converges on asymptote.
-    let asymptote_converges = SteppedCurve::new(
-        uf(10),
-        None,
-        uf(0),
-        Step::RemainingPct {
-            target: uf(1000),
-            pct: Perbill::from_percent(10),
-        },
-        uf(2),
-    );
-    let final_value = asymptotic_increasing.evaluate(uf(u32::MAX));
+	let asymptote_converges = SteppedCurve::new(
+		uf(10),
+		None,
+		uf(0),
+		Step::RemainingPct { target: uf(1000), pct: Perbill::from_percent(10) },
+		uf(2),
+	);
+	let final_value = asymptotic_increasing.evaluate(uf(u32::MAX));
 	assert!(final_value == uf(1000));
 
 	// Cumulative step sizes sum correctly.
 	let target = uf(1000);
-    let cumulative_curve = SteppedCurve::new(
-        uf(0),
-        None,
-        uf(0),
-        Step::RemainingPct { target, pct: Perbill::from_percent(10) },
-        uf(1),
-    );
-    let mut sum = uf(0);
-    for i in 1..=1000 {
-        sum = sum.saturating_add(cumulative_curve.last_step_size(uf(i)));
-    }
+	let cumulative_curve = SteppedCurve::new(
+		uf(0),
+		None,
+		uf(0),
+		Step::RemainingPct { target, pct: Perbill::from_percent(10) },
+		uf(1),
+	);
+	let mut sum = uf(0);
+	for i in 1..=1000 {
+		sum = sum.saturating_add(cumulative_curve.last_step_size(uf(i)));
+	}
 	assert!(sum == uf(1000));
 
-    // Fractional add.
-    let fractional_add_curve = SteppedCurve::new(
-        uf(1),
-        None,
-        uf(10),
-        Step::Add { amount: FixedU128::from_float(2.5) },
-        FixedU128::from_float(0.5),
-    );
-    assert_eq!(fractional_add_curve.evaluate(FixedU128::from_float(3.5)), FixedU128::from_float(22.50));
+	// Fractional add.
+	let fractional_add_curve = SteppedCurve::new(
+		uf(1),
+		None,
+		uf(10),
+		Step::Add { amount: FixedU128::from_float(2.5) },
+		FixedU128::from_float(0.5),
+	);
+	assert_eq!(
+		fractional_add_curve.evaluate(FixedU128::from_float(3.5)),
+		FixedU128::from_float(22.50)
+	);
 
-    // PctInc over 1.
-    let rapid_inc_curve = SteppedCurve::new(
-        uf(0),
-        None,
-        uf(100),
-        Step::PctInc { pct: FixedU128::from_rational(15, 10) },
-        uf(1),
-    );
-    assert_eq!(rapid_inc_curve.evaluate(uf(1)), uf(250));
-    assert_eq!(rapid_inc_curve.evaluate(uf(2)), uf(625));
+	// PctInc over 1.
+	let rapid_inc_curve = SteppedCurve::new(
+		uf(0),
+		None,
+		uf(100),
+		Step::PctInc { pct: FixedU128::from_rational(15, 10) },
+		uf(1),
+	);
+	assert_eq!(rapid_inc_curve.evaluate(uf(1)), uf(250));
+	assert_eq!(rapid_inc_curve.evaluate(uf(2)), uf(625));
 
-    // PctDec over 1.
-    let over_decrease_curve = SteppedCurve::new(
-        uf(0),
-        None,
-        uf(100),
-        Step::PctDec { pct: uf(2) },
-        uf(1),
-    );
-    assert_eq!(over_decrease_curve.evaluate(uf(1)), uf(0));
+	// PctDec over 1.
+	let over_decrease_curve =
+		SteppedCurve::new(uf(0), None, uf(100), Step::PctDec { pct: uf(2) }, uf(1));
+	assert_eq!(over_decrease_curve.evaluate(uf(1)), uf(0));
 }
 
 #[test]
