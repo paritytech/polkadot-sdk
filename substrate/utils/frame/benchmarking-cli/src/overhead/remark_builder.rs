@@ -16,14 +16,15 @@
 // limitations under the License.
 
 use crate::extrinsic::ExtrinsicBuilder;
-use codec::Decode;
+use codec::{Decode, Encode};
 use sc_client_api::UsageProvider;
 use sp_api::{ApiExt, Core, Metadata, ProvideRuntimeApi};
 use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
 use std::sync::Arc;
 use subxt::{
 	client::RuntimeVersion as SubxtRuntimeVersion,
-	config::substrate::SubstrateExtrinsicParamsBuilder, Config, OfflineClient, SubstrateConfig,
+	config::{substrate::SubstrateExtrinsicParamsBuilder, HashFor},
+	Config, OfflineClient, SubstrateConfig,
 };
 
 pub type SubstrateRemarkBuilder = DynamicRemarkBuilder<SubstrateConfig>;
@@ -34,14 +35,14 @@ pub struct DynamicRemarkBuilder<C: Config> {
 	offline_client: OfflineClient<C>,
 }
 
-impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
+impl<C: Config> DynamicRemarkBuilder<C> {
 	/// Initializes a new remark builder from a client.
 	///
 	/// This will first fetch metadata and runtime version from the runtime and then
 	/// construct an offline client that provides the extrinsics.
 	pub fn new_from_client<Client, Block>(client: Arc<Client>) -> sc_cli::Result<Self>
 	where
-		Block: BlockT<Hash = sp_core::H256>,
+		Block: BlockT,
 		Client: UsageProvider<Block> + ProvideRuntimeApi<Block>,
 		Client::Api: Metadata<Block> + Core<Block>,
 	{
@@ -60,9 +61,6 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 
 			let latest = supported_metadata_versions
 				.into_iter()
-				// TODO: Subxt doesn't support V16 metadata until v0.42.0, so don't try
-				// to fetch it here until we update to that version.
-				.filter(|v| *v != u32::MAX && *v < 16)
 				.max()
 				.ok_or("No stable metadata versions supported".to_string())?;
 
@@ -81,7 +79,8 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 			transaction_version: version.transaction_version,
 		};
 		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())?;
-		let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
+		let genesis = HashFor::<C>::decode(&mut &genesis.encode()[..])
+			.map_err(|_| "Incompatible hash types?")?;
 
 		Ok(Self { offline_client: OfflineClient::new(genesis, runtime_version, metadata) })
 	}
@@ -91,7 +90,7 @@ impl<C: Config> DynamicRemarkBuilder<C> {
 	/// Constructs a new remark builder.
 	pub fn new(
 		metadata: subxt::Metadata,
-		genesis_hash: C::Hash,
+		genesis_hash: HashFor<C>,
 		runtime_version: SubxtRuntimeVersion,
 	) -> Self {
 		Self { offline_client: OfflineClient::new(genesis_hash, runtime_version, metadata) }
