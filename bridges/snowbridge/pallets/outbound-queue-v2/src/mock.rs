@@ -117,6 +117,7 @@ impl crate::Config for Test {
 	type EthereumNetwork = EthereumNetwork;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = DefaultMyRewardKind;
+	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type AggregateMessageOrigin = AggregateMessageOrigin;

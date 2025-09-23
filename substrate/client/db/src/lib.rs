@@ -56,7 +56,7 @@ use crate::{
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
-	utils::{meta_keys, read_db, read_meta, DatabaseType, Meta},
+	utils::{meta_keys, read_db, read_meta, remove_from_db, DatabaseType, Meta},
 };
 use codec::{Decode, Encode};
 use hash_db::Prefix;
@@ -2326,7 +2326,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						"Error reverting to {hash_to_revert}. Block header not found.",
 					))
 				})?;
-				let removed_hash = removed.hash();
+				let removed_hash = hash_to_revert;
 
 				let prev_number = number_to_revert.saturating_sub(One::one());
 				let prev_hash =
@@ -2360,12 +2360,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
 									if !number_to_revert.is_zero() &&
-										self.have_state_at(
-											prev_hash,
-											number_to_revert - One::one(),
-										) {
+										self.have_state_at(prev_hash, prev_number)
+									{
 										let lookup_key = utils::number_and_hash_to_lookup_key(
-											number_to_revert - One::one(),
+											prev_number,
 											prev_hash,
 										)?;
 										transaction.set_from_vec(
@@ -2380,15 +2378,28 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 								}
 							}
 						}
+
 						transaction.set_from_vec(columns::META, meta_keys::BEST_BLOCK, key);
-						transaction.remove(columns::KEY_LOOKUP, removed.hash().as_ref());
+						transaction.remove(columns::KEY_LOOKUP, removed_hash.as_ref());
 						children::remove_children(
 							&mut transaction,
 							columns::META,
 							meta_keys::CHILDREN_PREFIX,
 							hash_to_revert,
 						);
+						self.prune_block(&mut transaction, BlockId::Hash(removed_hash))?;
+						remove_from_db::<Block>(
+							&mut transaction,
+							&*self.storage.db,
+							columns::KEY_LOOKUP,
+							columns::HEADER,
+							BlockId::Hash(removed_hash),
+						)?;
+
 						self.storage.db.commit(transaction)?;
+
+						// Clean the cache
+						self.blockchain.remove_header_metadata(removed_hash);
 
 						let is_best = number_to_revert < best_number;
 
@@ -2413,7 +2424,23 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			let mut transaction = Transaction::new();
 			let mut leaves = self.blockchain.leaves.write();
 
-			leaves.revert(hash_to_revert, number_to_revert);
+			leaves.revert(hash_to_revert, number_to_revert).into_iter().try_for_each(
+				|(h, _)| {
+					self.blockchain.remove_header_metadata(h);
+					transaction.remove(columns::KEY_LOOKUP, h.as_ref());
+
+					self.prune_block(&mut transaction, BlockId::Hash(h))?;
+					remove_from_db::<Block>(
+						&mut transaction,
+						&*self.storage.db,
+						columns::KEY_LOOKUP,
+						columns::HEADER,
+						BlockId::Hash(h),
+					)?;
+
+					Ok::<_, ClientError>(())
+				},
+			)?;
 			leaves.prepare_transaction(&mut transaction, columns::META, meta_keys::LEAF_PREFIX);
 			self.storage.db.commit(transaction)?;
 
@@ -2639,7 +2666,7 @@ impl<Block: BlockT> sc_client_api::backend::LocalBackend<Block> for Backend<Bloc
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::columns;
+	use crate::{columns, utils::number_and_hash_to_lookup_key};
 	use hash_db::{HashDB, EMPTY_PREFIX};
 	use sc_client_api::{
 		backend::{Backend as BTrait, BlockImportOperation as Op},
@@ -4358,10 +4385,34 @@ pub(crate) mod tests {
 		assert_eq!(3, backend.revert(1, false).unwrap().0);
 
 		assert!(backend.have_state_at(block1, 1));
-		assert!(!backend.have_state_at(block2, 2));
-		assert!(!backend.have_state_at(block3, 3));
-		assert!(!backend.have_state_at(block4, 4));
-		assert!(!backend.have_state_at(block3_fork, 3));
+
+		let ensure_pruned = |hash, number: u32| {
+			assert_eq!(
+				backend.blockchain.status(hash).unwrap(),
+				sc_client_api::blockchain::BlockStatus::Unknown
+			);
+			assert!(
+				backend
+					.blockchain
+					.db
+					.get(columns::BODY, &number_and_hash_to_lookup_key(number, hash).unwrap())
+					.is_none(),
+				"{number}"
+			);
+			assert!(
+				backend
+					.blockchain
+					.db
+					.get(columns::HEADER, &number_and_hash_to_lookup_key(number, hash).unwrap())
+					.is_none(),
+				"{number}"
+			);
+		};
+
+		ensure_pruned(block2, 2);
+		ensure_pruned(block3, 3);
+		ensure_pruned(block4, 4);
+		ensure_pruned(block3_fork, 3);
 
 		assert_eq!(backend.blockchain.leaves().unwrap(), vec![block1]);
 		assert_eq!(1, backend.blockchain.leaves.read().highest_leaf().unwrap().0);
