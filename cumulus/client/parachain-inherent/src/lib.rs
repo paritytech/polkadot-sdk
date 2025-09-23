@@ -151,102 +151,49 @@ async fn collect_relay_storage_proof(
 		.ok()
 }
 
-/// Collect published data from all publishers in the broadcaster pallet.
+/// Collect published data from subscribed publishers for a specific parachain.
 async fn collect_published_data(
 	relay_chain_interface: &impl RelayChainInterface,
 	relay_parent: PHash,
+	subscriber_para_id: ParaId,
 ) -> Option<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
 	tracing::info!(
 		target: LOG_TARGET,
 		relay_parent = ?relay_parent,
-		"🔍 Collecting published data from broadcaster pallet"
+		subscriber = ?subscriber_para_id,
+		"🔍 Collecting subscribed published data from broadcaster pallet"
 	);
 
-	// Get all publishers that have published data
-	let publishers: Vec<ParaId> = cumulus_relay_chain_interface::call_runtime_api(
+	// Get all published data that the subscriber is subscribed to
+	let published_data: BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> = cumulus_relay_chain_interface::call_runtime_api(
 		relay_chain_interface,
-		"BroadcasterApi_get_all_publishers",
+		"BroadcasterApi_get_subscribed_data",
 		relay_parent,
-		(),
+		subscriber_para_id,
 	)
 	.await
 	.map_err(|e| {
 		tracing::error!(
 			target: LOG_TARGET,
 			relay_parent = ?relay_parent,
+			subscriber = ?subscriber_para_id,
 			error = ?e,
-			"Cannot obtain the list of publishers.",
+			"Cannot obtain subscribed published data.",
 		);
 	})
 	.ok()?;
 
+	let total_items: usize = published_data.values().map(|v| v.len()).sum();
 	tracing::info!(
 		target: LOG_TARGET,
 		relay_parent = ?relay_parent,
-		publishers = ?publishers,
-		"📋 Found {} publishers with data",
-		publishers.len()
-	);
-
-	let mut published_data = BTreeMap::new();
-
-	// Fetch all published data for each publisher
-	for publisher in publishers {
-		tracing::debug!(
-			target: LOG_TARGET,
-			relay_parent = ?relay_parent,
-			para_id = ?publisher,
-			"📦 Fetching published data for parachain {:?}",
-			publisher
-		);
-
-		let data: Vec<(Vec<u8>, Vec<u8>)> = cumulus_relay_chain_interface::call_runtime_api(
-			relay_chain_interface,
-			"BroadcasterApi_get_all_published_data",
-			relay_parent,
-			publisher,
-		)
-		.await
-		.map_err(|e| {
-			tracing::error!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent,
-				para_id = ?publisher,
-				error = ?e,
-				"Cannot obtain published data for publisher.",
-			);
-		})
-		.ok()
-		.unwrap_or_default();
-
-		if !data.is_empty() {
-			tracing::info!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent,
-				para_id = ?publisher,
-				items = data.len(),
-				"✅ Collected {} data items from parachain {:?}",
-				data.len(),
-				publisher
-			);
-			published_data.insert(publisher, data);
-		} else {
-			tracing::debug!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent,
-				para_id = ?publisher,
-				"🕳️ No data found for parachain {:?}",
-				publisher
-			);
-		}
-	}
-
-	tracing::info!(
-		target: LOG_TARGET,
-		relay_parent = ?relay_parent,
-		total_publishers = published_data.len(),
-		"🎯 Collected published data from {} publishers",
-		published_data.len()
+		subscriber = ?subscriber_para_id,
+		publishers = published_data.len(),
+		total_items = total_items,
+		"🎯 Collected {} items from {} subscribed publishers for parachain {:?}",
+		total_items,
+		published_data.len(),
+		subscriber_para_id
 	);
 
 	Some(published_data)
@@ -307,10 +254,11 @@ impl ParachainInherentDataProvider {
 			})
 			.ok()?;
 
-		// Fetch published data from all publishers via broadcaster pallet
+		// Fetch published data from subscribed publishers via broadcaster pallet
 		let published_data = collect_published_data(
 			relay_chain_interface,
 			relay_parent,
+			para_id,
 		)
 		.await
 		.unwrap_or_default();

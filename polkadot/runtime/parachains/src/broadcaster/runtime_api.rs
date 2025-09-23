@@ -16,7 +16,7 @@
 
 //! Runtime API definition for the broadcaster pallet.
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use polkadot_primitives::Id as ParaId;
 
 sp_api::decl_runtime_apis! {
@@ -38,5 +38,10 @@ sp_api::decl_runtime_apis! {
 		/// Get list of all parachains that have published data.
 		/// Returns empty vec if no parachains have published data.
 		fn get_all_publishers() -> Vec<ParaId>;
+
+		/// Get published data from all parachains that the subscriber is subscribed to.
+		/// Returns a map of Publisher ParaId -> published data.
+		/// Only includes publishers that have actual data and are subscribed to.
+		fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>;
 	}
 }

@@ -2751,6 +2751,10 @@ sp_api::impl_runtime_apis! {
 		fn get_all_publishers() -> Vec<polkadot_primitives::Id> {
 			Broadcaster::get_all_publishers()
 		}
+
+		fn get_subscribed_data(subscriber_para_id: polkadot_primitives::Id) -> alloc::collections::BTreeMap<polkadot_primitives::Id, Vec<(Vec<u8>, Vec<u8>)>> {
+			Broadcaster::get_subscribed_data(subscriber_para_id)
+		}
 	}
 }
 

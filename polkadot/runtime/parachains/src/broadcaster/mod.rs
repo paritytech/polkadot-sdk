@@ -19,7 +19,7 @@
 //! This pallet provides a publish-subscribe mechanism for parachains to share data
 //! efficiently through the relay chain storage using child tries per publisher.
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	storage::child::ChildInfo,
@@ -395,6 +395,56 @@ pub mod pallet {
 		/// Check if a parachain is subscribed to a publisher.
 		pub fn is_subscribed(subscriber: ParaId, publisher: ParaId) -> bool {
 			Subscriptions::<T>::get(subscriber).contains(&publisher)
+		}
+
+		/// Get published data from all parachains that the subscriber is subscribed to.
+		/// Returns a map of Publisher ParaId -> published data.
+		/// Only includes publishers that have actual data and are subscribed to.
+		pub fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
+			log::debug!(
+				target: "broadcaster::query",
+				"🔍 get_subscribed_data() called for subscriber {:?}",
+				subscriber_para_id
+			);
+
+			let subscriptions = Self::get_subscriptions(subscriber_para_id);
+			let mut result = BTreeMap::new();
+
+			log::debug!(
+				target: "broadcaster::query",
+				"📋 Subscriber {:?} has {} subscriptions: {:?}",
+				subscriber_para_id,
+				subscriptions.len(),
+				subscriptions
+			);
+
+			for publisher in subscriptions {
+				let data = Self::get_all_published_data(publisher);
+				if !data.is_empty() {
+					log::debug!(
+						target: "broadcaster::query",
+						"📦 Including {} data items from publisher {:?}",
+						data.len(),
+						publisher
+					);
+					result.insert(publisher, data);
+				} else {
+					log::debug!(
+						target: "broadcaster::query",
+						"🕳️ No data found for subscribed publisher {:?}",
+						publisher
+					);
+				}
+			}
+
+			log::debug!(
+				target: "broadcaster::query",
+				"✅ Returning subscribed data from {} publishers for subscriber {:?}",
+				result.len(),
+				subscriber_para_id
+			);
+
+			result
 		}
 	}
 }
