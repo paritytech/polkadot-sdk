@@ -3,7 +3,7 @@
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
-use log::{debug, info};
+use log::{debug, info, warn};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Statement, Topic};
 use std::collections::HashMap;
@@ -156,7 +156,7 @@ struct Participant {
 
 impl Participant {
 	fn new(idx: u32, rpc: RpcClient) -> Self {
-		info!("Initializing participant {}", idx);
+		debug!("Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
 
@@ -198,6 +198,9 @@ impl Participant {
 		}
 
 		self.retry_count += 1;
+		if self.retry_count % 10 == 0 {
+			warn!("[{}] Retry attempt {}", self.idx, self.retry_count);
+		}
 		tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
 
 		Ok(())
@@ -790,44 +793,32 @@ impl Participant {
 	}
 
 	async fn run(&mut self) -> Result<(), anyhow::Error> {
-		info!("[{}] Session keys exchange", self.idx);
+		debug!("[{}] Session keys exchange", self.idx);
 		self.send_session_key().await?;
 		self.receive_session_keys().await?;
 
-		info!("[{}] Symmetric keys exchange", self.idx);
+		debug!("[{}] Symmetric keys exchange", self.idx);
 		self.send_symmetric_keys().await?;
 		self.receive_symmetric_keys().await?;
 
-		info!("[{}] Symmetric key acknowledgments", self.idx);
+		debug!("[{}] Symmetric key acknowledgments", self.idx);
 		self.send_symmetric_key_acknowledgments().await?;
 		self.receive_symmetric_key_acknowledgments().await?;
 
-		info!("[{}] Preparation finished", self.idx);
+		debug!("[{}] Preparation finished", self.idx);
 		for round in 0..MESSAGE_COUNT {
-			info!("[{}] Req/res exchange round {}", self.idx, round + 1);
+			debug!("[{}] Req/res exchange round {}", self.idx, round + 1);
 
-			info!("[{}] Send requests", self.idx);
 			self.send_requests(round).await?;
-
-			info!("[{}] Receive requests", self.idx);
 			self.receive_requests(round).await?;
 
-			info!("[{}] Send request acks", self.idx);
 			self.send_request_acknowledgments().await?;
-
-			info!("[{}] Receive request acks", self.idx);
 			self.receive_request_acknowledgments().await?;
 
-			info!("[{}] Send responses", self.idx);
 			self.send_responses(round).await?;
-
-			info!("[{}] Receive responses", self.idx);
 			self.receive_responses(round).await?;
 
-			info!("[{}] Send response acks", self.idx);
 			self.send_response_acknowledgments().await?;
-
-			info!("[{}] Receive response acks", self.idx);
 			self.receive_response_acknowledgments().await?;
 		}
 
