@@ -79,44 +79,6 @@
 //! /// Executive: handles dispatch to the various modules.
 //! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem>;
 //! ```
-//!
-//! ### Custom `OnRuntimeUpgrade` logic
-//!
-//! You can add custom logic that should be called in your runtime on a runtime upgrade. This is
-//! done by setting an optional generic parameter. The custom logic will be called before
-//! the on runtime upgrade logic of all modules is called.
-//!
-//! ```
-//! # use sp_runtime::generic;
-//! # use frame_executive as executive;
-//! # pub struct UncheckedExtrinsic {};
-//! # pub struct Header {};
-//! # type Context = frame_system::ChainContext<Runtime>;
-//! # pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-//! # pub type Balances = u64;
-//! # pub type AllPalletsWithSystem = u64;
-//! # pub enum Runtime {};
-//! # use sp_runtime::transaction_validity::{
-//! #    TransactionValidity, UnknownTransaction, TransactionSource,
-//! # };
-//! # use sp_runtime::traits::ValidateUnsigned;
-//! # impl ValidateUnsigned for Runtime {
-//! #     type Call = ();
-//! #
-//! #     fn validate_unsigned(_source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
-//! #         UnknownTransaction::NoUnsignedValidator.into()
-//! #     }
-//! # }
-//! struct CustomOnRuntimeUpgrade;
-//! impl frame_support::traits::OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
-//!     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-//!         // Do whatever you want.
-//!         frame_support::weights::Weight::zero()
-//!     }
-//! }
-//!
-//! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, CustomOnRuntimeUpgrade>;
-//! ```
 
 #[cfg(doc)]
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -165,6 +127,7 @@ use frame_support::{
 		OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents, PostTransactions, PreInherents,
 	},
 	weights::{Weight, WeightMeter},
+	MAX_EXTRINSIC_DEPTH,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
@@ -229,15 +192,19 @@ impl core::fmt::Debug for ExecutiveError {
 /// - `UnsignedValidator`: The unsigned transaction validator of the runtime.
 /// - `AllPalletsWithSystem`: Tuple that contains all pallets including frame system pallet. Will be
 ///   used to call hooks e.g. `on_initialize`.
-/// - `OnRuntimeUpgrade`: Custom logic that should be called after a runtime upgrade. Modules are
-///   already called by `AllPalletsWithSystem`. It will be called before all modules will be called.
+/// - [**DEPRECATED** `OnRuntimeUpgrade`]: This parameter is deprecated and will be removed after
+///   September 2026. Use type `SingleBlockMigrations` in frame_system::Config instead.
+#[allow(deprecated)]
 pub struct Executive<
 	System,
 	Block,
 	Context,
 	UnsignedValidator,
 	AllPalletsWithSystem,
-	OnRuntimeUpgrade = (),
+	#[deprecated(
+		note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
+		Use type `SingleBlockMigrations` in frame_system::Config instead."
+	)] OnRuntimeUpgrade = (),
 >(
 	PhantomData<(
 		System,
@@ -249,6 +216,10 @@ pub struct Executive<
 	)>,
 );
 
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
+#[allow(deprecated)]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
@@ -287,6 +258,10 @@ where
 	}
 }
 
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
+#[allow(deprecated)]
 #[cfg(feature = "try-runtime")]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
@@ -423,10 +398,15 @@ where
 	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
+
 		let try_on_runtime_upgrade_weight =
-			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
-				checks.pre_and_post(),
-			)?;
+			<(
+				COnRuntimeUpgrade,
+				<System as frame_system::Config>::SingleBlockMigrations,
+				// We want to run the migrations before we call into the pallets as they may
+				// access any state that would then not be migrated.
+				AllPalletsWithSystem,
+			) as OnRuntimeUpgrade>::try_on_runtime_upgrade(checks.pre_and_post())?;
 
 		frame_system::LastRuntimeUpgrade::<System>::put(
 			frame_system::LastRuntimeUpgradeInfo::from(
@@ -487,6 +467,10 @@ where
 	}
 }
 
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
+#[allow(deprecated)]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
@@ -792,7 +776,13 @@ where
 		let encoded = uxt.encode();
 		let encoded_len = encoded.len();
 		sp_tracing::enter_span!(sp_tracing::info_span!("apply_extrinsic",
-				ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
+			ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
+
+		let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
+			MAX_EXTRINSIC_DEPTH,
+			&mut &encoded[..],
+		)
+		.map_err(|_| InvalidTransaction::Call)?;
 
 		// Verify that the signature is good.
 		let xt = check(uxt, &Context::default())?;
@@ -883,9 +873,15 @@ where
 
 		enter_span! { sp_tracing::Level::TRACE, "validate_transaction" };
 
-		let encoded_len = within_span! { sp_tracing::Level::TRACE, "using_encoded";
-			uxt.using_encoded(|d| d.len())
+		let encoded = within_span! { sp_tracing::Level::TRACE, "using_encoded";
+			uxt.encode()
 		};
+
+		let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
+			MAX_EXTRINSIC_DEPTH,
+			&mut &encoded[..],
+		)
+		.map_err(|_| InvalidTransaction::Call)?;
 
 		let xt = within_span! { sp_tracing::Level::TRACE, "check";
 			uxt.check(&Default::default())
@@ -901,7 +897,7 @@ where
 
 		within_span! {
 			sp_tracing::Level::TRACE, "validate";
-			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded_len)
+			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded.len())
 		}
 	}
 

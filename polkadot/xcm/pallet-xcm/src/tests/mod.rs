@@ -23,6 +23,7 @@ use crate::{
 	migration::data::NeedsMigration,
 	mock::*,
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
+	xcm_helpers::find_xcm_sent_message_id,
 	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
 	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
 	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
@@ -45,6 +46,7 @@ use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
+use xcm_simulator::fake_message_hash;
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -656,7 +658,10 @@ fn trapped_assets_can_be_claimed() {
 				]))),
 				weight
 			),
-			Error::<Test>::LocalExecutionIncomplete
+			Error::<Test>::LocalExecutionIncompleteWithError {
+				index: 0,
+				error: XcmError::UnknownClaim.into()
+			}
 		);
 	});
 }
@@ -752,7 +757,12 @@ fn incomplete_execute_reverts_side_effects() {
 					),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
-				error: sp_runtime::DispatchError::from(Error::<Test>::LocalExecutionIncomplete)
+				error: sp_runtime::DispatchError::from(
+					Error::<Test>::LocalExecutionIncompleteWithError {
+						index: 3,
+						error: XcmError::FailedToTransactAsset("").into()
+					}
+				)
 			})
 		);
 	});
@@ -1036,79 +1046,81 @@ fn subscription_side_upgrades_work_without_notify() {
 
 #[test]
 fn subscriber_side_subscription_works() {
-	new_test_ext_with_balances_and_xcm_version(vec![], Some(XCM_VERSION)).execute_with(|| {
-		let remote: Location = Parachain(1000).into();
-		assert_ok!(XcmPallet::force_subscribe_version_notify(
-			RuntimeOrigin::root(),
-			Box::new(remote.clone().into()),
-		));
-		assert_eq!(XcmPallet::get_version_for(&remote), None);
-		take_sent_xcm();
+	new_test_ext_with_balances_and_xcm_version(vec![], Some(XCM_VERSION), vec![]).execute_with(
+		|| {
+			let remote: Location = Parachain(1000).into();
+			assert_ok!(XcmPallet::force_subscribe_version_notify(
+				RuntimeOrigin::root(),
+				Box::new(remote.clone().into()),
+			));
+			assert_eq!(XcmPallet::get_version_for(&remote), None);
+			take_sent_xcm();
 
-		// Assume subscription target is working ok.
+			// Assume subscription target is working ok.
 
-		let weight = BaseXcmWeight::get();
-		let message = Xcm(vec![
-			// Remote supports XCM v3
-			QueryResponse {
-				query_id: 0,
-				max_weight: Weight::zero(),
-				response: Response::Version(3),
-				querier: None,
-			},
-		]);
-		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
-			remote.clone(),
-			message,
-			&mut hash,
-			weight,
-			Weight::zero(),
-		);
-		assert_eq!(r, Outcome::Complete { used: weight });
-		assert_eq!(take_sent_xcm(), vec![]);
-		assert_eq!(XcmPallet::get_version_for(&remote), Some(3));
+			let weight = BaseXcmWeight::get();
+			let message = Xcm(vec![
+				// Remote supports XCM v3
+				QueryResponse {
+					query_id: 0,
+					max_weight: Weight::zero(),
+					response: Response::Version(3),
+					querier: None,
+				},
+			]);
+			let mut hash = fake_message_hash(&message);
+			let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+				remote.clone(),
+				message,
+				&mut hash,
+				weight,
+				Weight::zero(),
+			);
+			assert_eq!(r, Outcome::Complete { used: weight });
+			assert_eq!(take_sent_xcm(), vec![]);
+			assert_eq!(XcmPallet::get_version_for(&remote), Some(3));
 
-		// This message will be sent as v3.
-		let v4_msg = xcm::v4::Xcm::<()>(vec![xcm::v4::Instruction::Trap(0)]);
-		assert_eq!(
-			XcmPallet::wrap_version(&remote, v4_msg.clone()),
-			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::Trap(0)])))
-		);
+			// This message will be sent as v3.
+			let v4_msg = xcm::v4::Xcm::<()>(vec![xcm::v4::Instruction::Trap(0)]);
+			assert_eq!(
+				XcmPallet::wrap_version(&remote, v4_msg.clone()),
+				Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::Trap(0)])))
+			);
 
-		let message = Xcm(vec![
-			// Remote upgraded to XCM v4
-			QueryResponse {
-				query_id: 0,
-				max_weight: Weight::zero(),
-				response: Response::Version(4),
-				querier: None,
-			},
-		]);
-		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
-			remote.clone(),
-			message,
-			&mut hash,
-			weight,
-			Weight::zero(),
-		);
-		assert_eq!(r, Outcome::Complete { used: weight });
-		assert_eq!(take_sent_xcm(), vec![]);
-		assert_eq!(XcmPallet::get_version_for(&remote), Some(4));
+			let message = Xcm(vec![
+				// Remote upgraded to XCM v4
+				QueryResponse {
+					query_id: 0,
+					max_weight: Weight::zero(),
+					response: Response::Version(4),
+					querier: None,
+				},
+			]);
+			let mut hash = fake_message_hash(&message);
+			let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+				remote.clone(),
+				message,
+				&mut hash,
+				weight,
+				Weight::zero(),
+			);
+			assert_eq!(r, Outcome::Complete { used: weight });
+			assert_eq!(take_sent_xcm(), vec![]);
+			assert_eq!(XcmPallet::get_version_for(&remote), Some(4));
 
-		// This message is now sent as v4.
-		assert_eq!(
-			XcmPallet::wrap_version(&remote, v4_msg.clone()),
-			Ok(VersionedXcm::from(v4_msg))
-		);
-	});
+			// This message is now sent as v4.
+			assert_eq!(
+				XcmPallet::wrap_version(&remote, v4_msg.clone()),
+				Ok(VersionedXcm::from(v4_msg))
+			);
+		},
+	);
 }
 
 /// We should auto-subscribe when we don't know the remote's version.
 #[test]
 fn auto_subscription_works() {
-	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
+	new_test_ext_with_balances_and_xcm_version(vec![], None, vec![]).execute_with(|| {
 		let remote_v3: Location = Parachain(1000).into();
 		let remote_v4: Location = Parachain(1001).into();
 
@@ -1300,77 +1312,92 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 
 #[test]
 fn get_and_wrap_version_works() {
-	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
-		let remote_a: Location = Parachain(1000).into();
-		let remote_b: Location = Parachain(1001).into();
-		let remote_c: Location = Parachain(1002).into();
+	let remote_a: Location = Parachain(1000).into();
+	let remote_b: Location = Parachain(1001).into();
+	let remote_c: Location = Parachain(1002).into();
+	let remote_d: Location = Parachain(1003).into();
 
-		// no `safe_xcm_version` version at `GenesisConfig`
-		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+	new_test_ext_with_balances_and_xcm_version(vec![], None, vec![(remote_d.clone(), XCM_VERSION)])
+		.execute_with(|| {
+			// Versioned XCM location for `remote_d` was set in the genesis state
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
 
-		// set default XCM version (a.k.a. `safe_xcm_version`)
-		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(1)));
-		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+			// no `safe_xcm_version` version at `GenesisConfig`
+			assert_eq!(XcmPallet::get_version_for(&remote_a), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
+			assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		// set XCM version only for `remote_a`
-		assert_ok!(XcmPallet::force_xcm_version(
-			RuntimeOrigin::root(),
-			Box::new(remote_a.clone()),
-			XCM_VERSION
-		));
-		assert_eq!(XcmPallet::get_version_for(&remote_a), Some(XCM_VERSION));
-		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+			// set default XCM version (a.k.a. `safe_xcm_version`)
+			assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(1)));
+			assert_eq!(XcmPallet::get_version_for(&remote_a), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
+			assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		let xcm = Xcm::<()>::default();
+			// set XCM version only for `remote_a`
+			assert_ok!(XcmPallet::force_xcm_version(
+				RuntimeOrigin::root(),
+				Box::new(remote_a.clone()),
+				XCM_VERSION
+			));
+			assert_eq!(XcmPallet::get_version_for(&remote_a), Some(XCM_VERSION));
+			assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
+			assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		// wrap version - works because remote_a has `XCM_VERSION`
-		assert_eq!(
-			XcmPallet::wrap_version(&remote_a, xcm.clone()),
-			Ok(VersionedXcm::from(xcm.clone()))
-		);
-		// does not work because remote_b has unknown version and default is set to 1, and
-		// `XCM_VERSION` cannot be wrapped to the `1`
-		assert_eq!(XcmPallet::wrap_version(&remote_b, xcm.clone()), Err(()));
-		assert_eq!(
-			VersionDiscoveryQueue::<Test>::get().into_inner(),
-			vec![(remote_b.clone().into(), 1)]
-		);
+			let xcm = Xcm::<()>::default();
 
-		// set default to the `XCM_VERSION`
-		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(XCM_VERSION)));
-		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			// wrap version - works because remote_a has `XCM_VERSION`
+			assert_eq!(
+				XcmPallet::wrap_version(&remote_a, xcm.clone()),
+				Ok(VersionedXcm::from(xcm.clone()))
+			);
+			// does not work because remote_b has unknown version and default is set to 1, and
+			// `XCM_VERSION` cannot be wrapped to the `1`
+			assert_eq!(XcmPallet::wrap_version(&remote_b, xcm.clone()), Err(()));
+			assert_eq!(
+				VersionDiscoveryQueue::<Test>::get().into_inner(),
+				vec![(remote_b.clone().into(), 1)]
+			);
 
-		// now works, because default is `XCM_VERSION`
-		assert_eq!(
-			XcmPallet::wrap_version(&remote_b, xcm.clone()),
-			Ok(VersionedXcm::from(xcm.clone()))
-		);
-		assert_eq!(
-			VersionDiscoveryQueue::<Test>::get().into_inner(),
-			vec![(remote_b.clone().into(), 2)]
-		);
+			// set default to the `XCM_VERSION`
+			assert_ok!(XcmPallet::force_default_xcm_version(
+				RuntimeOrigin::root(),
+				Some(XCM_VERSION)
+			));
+			assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
 
-		// change remote_c to `1`
-		assert_ok!(XcmPallet::force_xcm_version(
-			RuntimeOrigin::root(),
-			Box::new(remote_c.clone()),
-			1
-		));
+			// now works, because default is `XCM_VERSION`
+			assert_eq!(
+				XcmPallet::wrap_version(&remote_b, xcm.clone()),
+				Ok(VersionedXcm::from(xcm.clone()))
+			);
+			assert_eq!(
+				VersionDiscoveryQueue::<Test>::get().into_inner(),
+				vec![(remote_b.clone().into(), 2)]
+			);
 
-		// does not work because remote_c has `1` and default is `XCM_VERSION` which cannot be
-		// wrapped to the `1`
-		assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
-	})
+			// change remote_c to `1`
+			assert_ok!(XcmPallet::force_xcm_version(
+				RuntimeOrigin::root(),
+				Box::new(remote_c.clone()),
+				1
+			));
+
+			// does not work because remote_c has `1` and default is `XCM_VERSION` which cannot be
+			// wrapped to the `1`
+			assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
+			assert_eq!(
+				VersionDiscoveryQueue::<Test>::get().into_inner(),
+				vec![(remote_b.into(), 2)]
+			);
+		})
 }
 
 #[test]
@@ -1679,17 +1706,18 @@ fn execute_initiate_transfer_and_check_sent_event() {
 			);
 			assert_ok!(result);
 
+			let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				SetTopic(sent_msg_id),
 			]);
 			assert!(log_capture
 				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
 
 			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-			let sent_msg_id = fake_message_hash(&sent_message);
 			assert_eq!(
 				last_events(2),
 				vec![
@@ -1738,7 +1766,7 @@ fn deliver_failure_with_expect_error() {
 			assert!(result.is_err());
 
 			// Check logs for send attempt and failure
-			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented)))])"));
+			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented))), SetTopic("));
 			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
 		})
 	});

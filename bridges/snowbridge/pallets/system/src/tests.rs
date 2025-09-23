@@ -269,7 +269,6 @@ fn register_all_tokens_succeeds() {
 				Default::default()
 			));
 
-			assert_eq!(NativeToForeignId::<Test>::get(tc.reanchored.clone()), Some(tc.foreign));
 			assert_eq!(ForeignToNativeId::<Test>::get(tc.foreign), Some(tc.reanchored.clone()));
 
 			System::assert_last_event(RuntimeEvent::EthereumSystem(Event::<Test>::RegisterToken {
@@ -300,4 +299,72 @@ fn register_ethereum_native_token_fails() {
 			Error::<Test>::LocationConversionFailed
 		);
 	});
+}
+
+#[test]
+fn check_pna_token_id_compatibility() {
+	let test_cases = vec![
+		// DOT
+		RegisterTokenTestCase {
+			native: Location::parent(),
+			reanchored: Location::new(1, GlobalConsensus(Polkadot)),
+			foreign: hex!("4e241583d94b5d48a27a22064cd49b2ed6f5231d2d950e432f9b7c2e0ade52b2")
+				.into(),
+		},
+		// GLMR (Some Polkadot parachain currency)
+		RegisterTokenTestCase {
+			native: Location::new(1, [Parachain(2004)]),
+			reanchored: Location::new(1, [GlobalConsensus(Polkadot), Parachain(2004)]),
+			foreign: hex!("34c08fc90409b6924f0e8eabb7c2aaa0c749e23e31adad9f6d217b577737fafb")
+				.into(),
+		},
+		// USDT
+		RegisterTokenTestCase {
+			native: Location::new(1, [Parachain(1000), PalletInstance(50), GeneralIndex(1984)]),
+			reanchored: Location::new(
+				1,
+				[
+					GlobalConsensus(Polkadot),
+					Parachain(1000),
+					PalletInstance(50),
+					GeneralIndex(1984),
+				],
+			),
+			foreign: hex!("14b0579be12d7d7f9971f1d4b41f0e88384b9b74799b0150d4aa6cd01afb4444")
+				.into(),
+		},
+		// KSM
+		RegisterTokenTestCase {
+			native: Location::new(2, [GlobalConsensus(Kusama)]),
+			reanchored: Location::new(1, [GlobalConsensus(Kusama)]),
+			foreign: hex!("03b6054d0c576dd8391e34e1609cf398f68050c23009d19ce93c000922bcd852")
+				.into(),
+		},
+		// KAR (Some Kusama parachain currency)
+		RegisterTokenTestCase {
+			native: Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
+			reanchored: Location::new(1, [GlobalConsensus(Kusama), Parachain(2000)]),
+			foreign: hex!("d3e39ad6ea4cee68c9741181e94098823b2ea34a467577d0875c036f0fce5be0")
+				.into(),
+		},
+	];
+	for tc in test_cases.iter() {
+		new_test_ext(true).execute_with(|| {
+			let origin = RuntimeOrigin::root();
+			let versioned_location: VersionedLocation = tc.native.clone().into();
+
+			assert_ok!(EthereumSystem::register_token(
+				origin,
+				Box::new(versioned_location),
+				Default::default()
+			));
+
+			assert_eq!(ForeignToNativeId::<Test>::get(tc.foreign), Some(tc.reanchored.clone()));
+
+			System::assert_last_event(RuntimeEvent::EthereumSystem(Event::<Test>::RegisterToken {
+				location: tc.reanchored.clone().into(),
+				foreign_token_id: tc.foreign,
+			}));
+		});
+	}
 }

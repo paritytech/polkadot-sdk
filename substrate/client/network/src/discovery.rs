@@ -46,7 +46,13 @@
 //! active mechanism that asks nodes for the addresses they are listening on. Whenever we learn
 //! of a node's address, you must call `add_self_reported_address`.
 
-use crate::{config::ProtocolId, utils::LruHashSet};
+use crate::{
+	config::{
+		ProtocolId, KADEMLIA_MAX_PROVIDER_KEYS, KADEMLIA_PROVIDER_RECORD_TTL,
+		KADEMLIA_PROVIDER_REPUBLISH_INTERVAL,
+	},
+	utils::LruHashSet,
+};
 
 use array_bytes::bytes2hex;
 use futures::prelude::*;
@@ -56,7 +62,7 @@ use libp2p::{
 	core::{transport::PortUse, Endpoint, Multiaddr},
 	kad::{
 		self,
-		store::{MemoryStore, RecordStore},
+		store::{MemoryStore, MemoryStoreConfig, RecordStore},
 		Behaviour as Kademlia, BucketInserts, Config as KademliaConfig, Event as KademliaEvent,
 		Event, GetClosestPeersError, GetClosestPeersOk, GetProvidersError, GetProvidersOk,
 		GetRecordOk, PeerRecord, QueryId, QueryResult, Quorum, Record, RecordKey,
@@ -239,7 +245,18 @@ impl DiscoveryConfig {
 			// auto-insertion and instead add peers manually.
 			config.set_kbucket_inserts(BucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
-			let store = MemoryStore::new(local_peer_id);
+
+			config.set_provider_record_ttl(Some(KADEMLIA_PROVIDER_RECORD_TTL));
+			config.set_provider_publication_interval(Some(KADEMLIA_PROVIDER_REPUBLISH_INTERVAL));
+
+			let store = MemoryStore::with_config(
+				local_peer_id,
+				MemoryStoreConfig {
+					max_provided_keys: KADEMLIA_MAX_PROVIDER_KEYS,
+					..Default::default()
+				},
+			);
+
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
 			kad.set_mode(Some(kad::Mode::Server));
 
@@ -838,9 +855,14 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
 				self.kademlia.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
 			},
+			FromSwarm::NewExternalAddrOfPeer(e) => {
+				self.kademlia.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
+				self.mdns.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
+			},
 			event => {
 				debug!(target: LOG_TARGET, "New unknown `FromSwarm` libp2p event: {event:?}");
 				self.kademlia.on_swarm_event(event);
+				self.mdns.on_swarm_event(event);
 			},
 		}
 	}
@@ -1303,26 +1325,26 @@ fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
 
 #[cfg(test)]
 mod tests {
-	use super::{
-		kademlia_protocol_name, legacy_kademlia_protocol_name, DiscoveryConfig, DiscoveryOut,
-	};
+	use super::{kademlia_protocol_name, legacy_kademlia_protocol_name, DiscoveryConfig};
 	use crate::config::ProtocolId;
-	use futures::prelude::*;
-	use libp2p::{
-		core::{
-			transport::{MemoryTransport, Transport},
-			upgrade,
-		},
-		identity::Keypair,
-		noise,
-		swarm::{Swarm, SwarmEvent},
-		yamux, Multiaddr,
-	};
+	use libp2p::{identity::Keypair, Multiaddr};
 	use sp_core::hash::H256;
-	use std::{collections::HashSet, task::Poll, time::Duration};
 
+	#[cfg(ignore_flaky_test)] // https://github.com/paritytech/polkadot-sdk/issues/48
 	#[tokio::test]
 	async fn discovery_working() {
+		use super::DiscoveryOut;
+		use futures::prelude::*;
+		use libp2p::{
+			core::{
+				transport::{MemoryTransport, Transport},
+				upgrade,
+			},
+			noise,
+			swarm::{Swarm, SwarmEvent},
+			yamux,
+		};
+		use std::{collections::HashSet, task::Poll, time::Duration};
 		let mut first_swarm_peer_id_and_addr = None;
 
 		let genesis_hash = H256::from_low_u64_be(1);

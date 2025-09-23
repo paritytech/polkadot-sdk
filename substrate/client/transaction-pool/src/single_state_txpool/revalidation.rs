@@ -18,7 +18,9 @@
 
 //! Pool periodic revalidation.
 
-use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, ValidatedTransaction};
+use crate::graph::{
+	BlockHash, ChainApi, ExtrinsicHash, ValidateTransactionPriority, ValidatedTransaction,
+};
 use futures::prelude::*;
 use indexmap::IndexMap;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -99,8 +101,13 @@ async fn batch_revalidate<Api: ChainApi>(
 
 	let validation_results = futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
 		pool.validated_pool().ready_by_hash(&ext_hash).map(|ext| {
-			api.validate_transaction(at, ext.source.clone().into(), ext.data.clone())
-				.map(move |validation_result| (validation_result, ext_hash, ext))
+			api.validate_transaction(
+				at,
+				ext.source.clone().into(),
+				ext.data.clone(),
+				ValidateTransactionPriority::Submitted,
+			)
+			.map(move |validation_result| (validation_result, ext_hash, ext))
 		})
 	}))
 	.await;
@@ -458,14 +465,14 @@ mod tests {
 		let unknown_block = H256::repeat_byte(0x13);
 
 		let source = TimedTransactionSource::new_external(false);
-		let uxt_hashes =
-			block_on(pool.submit_at(
-				&han_of_block0,
-				vec![(source.clone(), uxt0.into()), (source, uxt1.into())],
-			))
-			.into_iter()
-			.map(|r| r.expect("Should be valid").hash())
-			.collect::<Vec<_>>();
+		let uxt_hashes = block_on(pool.submit_at(
+			&han_of_block0,
+			vec![(source.clone(), uxt0.into()), (source, uxt1.into())],
+			ValidateTransactionPriority::Submitted,
+		))
+		.into_iter()
+		.map(|r| r.expect("Should be valid").hash())
+		.collect::<Vec<_>>();
 
 		assert_eq!(api.validation_requests().len(), 2);
 		assert_eq!(pool.validated_pool().status().ready, 2);

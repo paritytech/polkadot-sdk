@@ -36,9 +36,9 @@ default = ["std"]
 with-tracing = ["codec/derive", "codec/full"]
 std = [
 	"codec/std",
+	"regex",
 	"tracing-core/std",
 	"tracing-subscriber",
 	"tracing/std",
 	"with-tracing",
 ]
-test-utils = ["regex", "regex/std", "std"]

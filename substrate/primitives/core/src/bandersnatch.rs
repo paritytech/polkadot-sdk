@@ -22,9 +22,12 @@
 
 #[cfg(feature = "full_crypto")]
 use crate::crypto::VrfSecret;
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
+use crate::{
+	crypto::{
+		ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+		PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
+	},
+	proof_of_possession::NonAggregatable,
 };
 use alloc::{vec, vec::Vec};
 use ark_vrf::{
@@ -66,6 +69,9 @@ impl CryptoType for Public {
 /// Bandersnatch Schnorr signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
 
+/// Proof of Possession is the same as Signature for Bandersnatch
+pub type ProofOfPossession = Signature;
+
 impl CryptoType for Signature {
 	type Pair = Pair;
 }
@@ -94,6 +100,7 @@ impl TraitPair for Pair {
 	type Seed = Seed;
 	type Public = Public;
 	type Signature = Signature;
+	type ProofOfPossession = Signature;
 
 	/// Make a new key pair from secret seed material.
 	///
@@ -185,6 +192,8 @@ impl TraitPair for Pair {
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
+
+impl NonAggregatable for Pair {}
 
 /// Bandersnatch VRF types and operations.
 pub mod vrf {
@@ -592,7 +601,10 @@ pub mod ring_vrf {
 #[cfg(test)]
 mod tests {
 	use super::{ring_vrf::*, vrf::*, *};
-	use crate::crypto::{VrfPublic, VrfSecret, DEV_PHRASE};
+	use crate::{
+		crypto::{VrfPublic, VrfSecret, DEV_PHRASE},
+		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	};
 
 	const TEST_SEED: &[u8; SEED_SERIALIZED_SIZE] = &[0xcb; SEED_SERIALIZED_SIZE];
 	const TEST_RING_SIZE: usize = 16;
@@ -857,5 +869,21 @@ mod tests {
 		let vd2 = RingVerifierKey::decode(&mut enc1.as_slice()).unwrap();
 		let enc2 = vd2.encode();
 		assert_eq!(enc1, enc2);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let owner = b"owner";
+		let not_owner = b"not owner";
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let proof_of_possession = pair.generate_proof_of_possession(owner);
+		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
+		assert!(!Pair::verify_proof_of_possession(
+			owner,
+			&proof_of_possession,
+			&other_pair.public()
+		));
+		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
 	}
 }

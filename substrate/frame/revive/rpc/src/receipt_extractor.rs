@@ -164,7 +164,6 @@ impl ReceiptExtractor {
 			None
 		};
 
-		log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
 		let receipt = ReceiptInfo::new(
 			block_hash,
 			block_number,
@@ -202,7 +201,11 @@ impl ReceiptExtractor {
 		});
 
 		stream::iter(extrinsics)
-			.map(|(ext, call)| async move { self.extract_from_extrinsic(block, ext, call).await })
+			.map(|(ext, call)| async move {
+				self.extract_from_extrinsic(block, ext, call).await.inspect_err(|err| {
+					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
+				})
+			})
 			.buffer_unordered(10)
 			.collect::<Vec<Result<_, _>>>()
 			.await

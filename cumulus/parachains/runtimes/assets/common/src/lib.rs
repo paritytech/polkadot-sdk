@@ -17,11 +17,13 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks;
+mod erc20_transactor;
 pub mod foreign_creators;
 pub mod fungible_conversion;
 pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
+pub use erc20_transactor::ERC20Transactor;
 
 extern crate alloc;
 extern crate core;
@@ -30,13 +32,15 @@ use crate::matching::{LocalLocationPattern, ParentLocation};
 use alloc::vec::Vec;
 use codec::{Decode, EncodeLike};
 use core::{cmp::PartialEq, marker::PhantomData};
-use frame_support::traits::{Equals, EverythingBut};
+use frame_support::traits::{Contains, Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
-use sp_runtime::traits::TryConvertInto;
+use sp_core::H160;
+use sp_runtime::traits::{MaybeEquivalence, TryConvertInto};
 use xcm::prelude::*;
 use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
 };
+use xcm_executor::traits::JustTry;
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
@@ -123,6 +127,36 @@ pub type ForeignAssetsConvertedConcreteId<
 	LocationToAssetIdConverter,
 	BalanceConverter,
 >;
+
+/// `Contains<Location>` implementation that matches locations with no parents,
+/// a `PalletInstance` and an `AccountKey20` junction.
+pub struct IsLocalAccountKey20;
+impl Contains<Location> for IsLocalAccountKey20 {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [AccountKey20 { .. }]))
+	}
+}
+
+/// Fallible converter from a location to a `H160` that matches any location ending with
+/// an `AccountKey20` junction.
+pub struct AccountKey20ToH160;
+impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
+	fn convert(location: &Location) -> Option<H160> {
+		match location.unpack() {
+			(0, [AccountKey20 { key, .. }]) => Some((*key).into()),
+			_ => None,
+		}
+	}
+
+	fn convert_back(key: &H160) -> Option<Location> {
+		Some(Location::new(0, [AccountKey20 { key: (*key).into(), network: None }]))
+	}
+}
+
+/// [`xcm_executor::traits::MatchesFungibles`] implementation that matches
+/// ERC20 tokens.
+pub type ERC20Matcher =
+	MatchedConvertedConcreteId<H160, u128, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
 
 pub type AssetIdForPoolAssets = u32;
 

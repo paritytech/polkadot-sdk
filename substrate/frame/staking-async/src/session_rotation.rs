@@ -93,7 +93,7 @@ use sp_staking::{
 /// All of the following storage items must be controlled by this type:
 ///
 /// [`ErasValidatorPrefs`]
-/// [`ErasClaimedRewards`]
+/// [`ClaimedRewards`]
 /// [`ErasStakersPaged`]
 /// [`ErasStakersOverview`]
 /// [`ErasValidatorReward`]
@@ -102,28 +102,8 @@ use sp_staking::{
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Eras<T> {
-	/// Prune all associated information with the given era.
-	///
-	/// Implementation note: ATM this is deleting all the information in one go, yet it can very
-	/// well be done lazily.
-	pub(crate) fn prune_era(era: EraIndex) {
-		crate::log!(debug, "Pruning era {:?}", era);
-		let mut cursor = <ErasValidatorPrefs<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasClaimedRewards<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasStakersPaged<T>>::clear_prefix((era,), u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasStakersOverview<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-
-		<ErasValidatorReward<T>>::remove(era);
-		<ErasRewardPoints<T>>::remove(era);
-		<ErasTotalStake<T>>::remove(era);
-	}
-
 	pub(crate) fn set_validator_prefs(era: EraIndex, stash: &T::AccountId, prefs: ValidatorPrefs) {
-		debug_assert_eq!(era, Rotator::<T>::planning_era(), "we only set prefs for planning era");
+		debug_assert_eq!(era, Rotator::<T>::planned_era(), "we only set prefs for planning era");
 		<ErasValidatorPrefs<T>>::insert(era, stash, prefs);
 	}
 
@@ -140,7 +120,7 @@ impl<T: Config> Eras<T> {
 	pub(crate) fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
 		<ErasStakersOverview<T>>::get(&era, validator)
 			.map(|overview| {
-				ErasClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
+				ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
 			})
 			.unwrap_or(false)
 	}
@@ -212,7 +192,7 @@ impl<T: Config> Eras<T> {
 		// Find next claimable page of paged exposure.
 		let page_count = Self::exposure_page_count(era, validator);
 		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
-		let claimed_pages = ErasClaimedRewards::<T>::get(era, validator);
+		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
 	}
@@ -220,7 +200,7 @@ impl<T: Config> Eras<T> {
 	/// Creates an entry to track validator reward has been claimed for a given era and page.
 	/// Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
-		let mut claimed_pages = ErasClaimedRewards::<T>::get(era, validator).into_inner();
+		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator).into_inner();
 
 		// this should never be called if the reward has already been claimed
 		if claimed_pages.contains(&page) {
@@ -231,7 +211,7 @@ impl<T: Config> Eras<T> {
 
 		// add page to claimed entries
 		claimed_pages.push(page);
-		ErasClaimedRewards::<T>::insert(
+		ClaimedRewards::<T>::insert(
 			era,
 			validator,
 			WeakBoundedVec::<_, _>::force_from(claimed_pages, Some("set_rewards_as_claimed")),
@@ -342,7 +322,7 @@ impl<T: Config> Eras<T> {
 
 	/// Check if the rewards for the given era and page index have been claimed.
 	pub(crate) fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
-		ErasClaimedRewards::<T>::get(era, validator).contains(&page)
+		ClaimedRewards::<T>::get(era, validator).contains(&page)
 	}
 
 	/// Add reward points to validators using their stash account ID.
@@ -356,12 +336,12 @@ impl<T: Config> Eras<T> {
 						Some(individual) => individual.saturating_accrue(points),
 						None => {
 							// not much we can do -- validators should always be less than
-							// `MaxValidatorCount`.
+							// `MaxValidatorSet`.
 							let _ =
 								era_rewards.individual.try_insert(validator, points).defensive();
 						},
 					}
-					era_rewards.total += points;
+					era_rewards.total.saturating_accrue(points);
 				}
 			});
 		}
@@ -372,10 +352,11 @@ impl<T: Config> Eras<T> {
 	}
 }
 
-#[cfg(any(feature = "try-runtime", test))]
+#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+#[allow(unused)]
 impl<T: Config> Eras<T> {
-	/// Ensure the given era is present, i.e. has not been pruned yet.
-	pub(crate) fn era_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+	/// Ensure the given era's data is fully present (all storage intact and not being pruned).
+	pub(crate) fn era_fully_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// these two are only set if we have some validators in an era.
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
 		// note: we don't check `ErasStakersPaged` as a validator can have no backers.
@@ -407,7 +388,22 @@ impl<T: Config> Eras<T> {
 		}
 	}
 
-	/// Ensure the given era has indeed been already pruned.
+	/// Check if the given era is currently being pruned.
+	pub(crate) fn era_pruning_in_progress(era: EraIndex) -> bool {
+		EraPruningState::<T>::contains_key(era)
+	}
+
+	/// Ensure the given era is either absent or currently being pruned.
+	pub(crate) fn era_absent_or_pruning(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+		if Self::era_pruning_in_progress(era) {
+			Ok(())
+		} else {
+			Self::era_absent(era)
+		}
+	}
+
+	/// Ensure the given era has indeed been already pruned. This is called by the main pallet in
+	/// do_prune_era_step.
 	pub(crate) fn era_absent(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// check double+ maps
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
@@ -420,21 +416,13 @@ impl<T: Config> Eras<T> {
 		let e4 = ErasTotalStake::<T>::contains_key(era);
 
 		// these two are only populated conditionally, so we only check them for lack of existence
-		let e6 = ErasClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
+		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
 
-		assert!(
-			vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]),
-			"era info absence not consistent for era {}: {}, {}, {}, {}, {}, {}, {}",
-			era,
-			e0,
-			e1,
-			e2,
-			e3,
-			e4,
-			e6,
-			e7
-		);
+		// Check if era info is consistent - if not, era is in partial pruning state
+		if !vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]) {
+			return Err("era info absence not consistent - partial pruning state".into());
+		}
 
 		if !e0 {
 			Ok(())
@@ -449,15 +437,18 @@ impl<T: Config> Eras<T> {
 		// we max with 1 as in active era 0 we don't do an election and therefore we don't have some
 		// of the maps populated.
 		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
-		let maybe_first_pruned_era =
-			active_era.saturating_sub(T::HistoryDepth::get()).checked_sub(One::one());
 
 		for e in oldest_present_era..=active_era {
-			Self::era_present(e)?
+			Self::era_fully_present(e)?
 		}
-		if let Some(first_pruned_era) = maybe_first_pruned_era {
-			Self::era_absent(first_pruned_era)?;
-		}
+
+		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
+		// pruning
+		ensure!(
+			(1..oldest_present_era).all(|e| Self::era_absent_or_pruning(e).is_ok()),
+			"All old eras must be either fully pruned or marked for pruning"
+		);
+
 		Ok(())
 	}
 }
@@ -492,26 +483,58 @@ impl<T: Config> Rotator<T> {
 
 	#[cfg(any(feature = "try-runtime", test))]
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		// planned era can always be at most one more than active era
-		let planned = Self::planning_era();
-		let active = Self::active_era();
-		ensure!(
-			planned == active || planned == active + 1,
-			"planned era is always equal or one more than active"
-		);
+		// Check planned era vs active era relationship
+		let active_era = ActiveEra::<T>::get();
+		let planned_era = CurrentEra::<T>::get();
 
-		// bonded eras must always be the range [active - bonding_duration .. active_era]
 		let bonded = BondedEras::<T>::get();
-		ensure!(
-			bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
-				(active.saturating_sub(T::BondingDuration::get())..=active).collect::<Vec<_>>(),
-			"BondedEras range incorrect"
-		);
+
+		match (&active_era, &planned_era) {
+			(None, None) => {
+				// Uninitialized state - both should be None
+				ensure!(bonded.is_empty(), "BondedEras must be empty when ActiveEra is None");
+			},
+			(Some(active), Some(planned)) => {
+				// Normal state - planned can be at most one more than active
+				ensure!(
+					*planned == active.index || *planned == active.index + 1,
+					"planned era is always equal or one more than active"
+				);
+
+				// If we have an active era, bonded eras must always be the range
+				// [active - bonding_duration .. active_era]
+				ensure!(
+					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
+						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
+							.collect::<Vec<_>>(),
+					"BondedEras range incorrect"
+				);
+			},
+			_ => {
+				ensure!(false, "ActiveEra and CurrentEra must both be None or both be Some");
+			},
+		}
 
 		Ok(())
 	}
 
-	pub fn planning_era() -> EraIndex {
+	#[cfg(any(feature = "try-runtime", feature = "std", feature = "runtime-benchmarks", test))]
+	pub fn assert_election_ongoing() {
+		assert!(Self::is_planning().is_some(), "planning era must exist");
+		assert!(
+			T::ElectionProvider::status().is_ok(),
+			"Election provider must be in a good state during election"
+		);
+	}
+
+	/// Latest era that was planned.
+	///
+	/// The returned value does not necessarily indicate that planning for the era with this index
+	/// is underway, but rather the last era that was planned. If `Self::active_era()` is equal to
+	/// this value, it means that the era is currently active and no new era is planned.
+	///
+	/// See [`Self::is_planning()`] to only get the next index if planning in progress.
+	pub fn planned_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(0)
 	}
 
@@ -519,20 +542,38 @@ impl<T: Config> Rotator<T> {
 		ActiveEra::<T>::get().map(|a| a.index).defensive_unwrap_or(0)
 	}
 
+	/// Next era that is planned to be started.
+	///
+	/// Returns None if no era is planned.
+	pub fn is_planning() -> Option<EraIndex> {
+		let (active, planned) = (Self::active_era(), Self::planned_era());
+		if planned.defensive_saturating_sub(active) > 1 {
+			defensive!("planned era must always be equal or one more than active");
+		}
+
+		(planned > active).then_some(planned)
+	}
+
 	/// End the session and start the next one.
-	pub(crate) fn end_session(end_index: SessionIndex, activation_timestamp: Option<(u64, u32)>) {
+	pub(crate) fn end_session(
+		end_index: SessionIndex,
+		activation_timestamp: Option<(u64, u32)>,
+	) -> Weight {
+		// baseline weight for processing the relay chain session report
+		let weight = T::WeightInfo::rc_on_session_report();
+
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
-			return;
+			return weight;
 		};
-		let current_planned_era = Self::planning_era();
+		let current_planned_era = Self::is_planning();
 		let starting = end_index + 1;
 		// the session after the starting session.
 		let planning = starting + 1;
 
 		log!(
 			info,
-			"Session: end {:?}, start {:?} (ts: {:?}), plan {:?}",
+			"Session: end {:?}, start {:?} (ts: {:?}), planning {:?}",
 			end_index,
 			starting,
 			activation_timestamp,
@@ -541,7 +582,7 @@ impl<T: Config> Rotator<T> {
 		log!(info, "Era: active {:?}, planned {:?}", active_era.index, current_planned_era);
 
 		match activation_timestamp {
-			Some((time, id)) if id == current_planned_era => {
+			Some((time, id)) if Some(id) == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
 				Self::start_era(active_era, starting, time);
 			},
@@ -549,15 +590,17 @@ impl<T: Config> Rotator<T> {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
 				crate::log!(
 					warn,
-					"received wrong ID with activation timestamp. Got {}, expected {}",
+					"received wrong ID with activation timestamp. Got {}, expected {:?}",
 					id,
 					current_planned_era
 				);
+				Pallet::<T>::deposit_event(Event::Unexpected(
+					UnexpectedKind::UnknownValidatorActivation,
+				));
 			},
 			None => (),
 		}
 
-		let active_era = Self::active_era();
 		// check if we should plan new era.
 		let should_plan_era = match ForceEra::<T>::get() {
 			// see if it's good time to plan a new era.
@@ -573,7 +616,9 @@ impl<T: Config> Rotator<T> {
 			Forcing::ForceNone => false,
 		};
 
-		let has_pending_era = active_era < current_planned_era;
+		// Note: we call `planning_era` again, as a new era might have started since we checked
+		// it last.
+		let has_pending_era = Self::is_planning().is_some();
 		match (should_plan_era, has_pending_era) {
 			(false, _) => {
 				// nothing to consider
@@ -587,7 +632,7 @@ impl<T: Config> Rotator<T> {
 				// now.
 				crate::log!(
 					debug,
-					"time to plan a new era {}, but waiting for the activation of the previous.",
+					"time to plan a new era {:?}, but waiting for the activation of the previous.",
 					current_planned_era
 				);
 			},
@@ -596,8 +641,10 @@ impl<T: Config> Rotator<T> {
 		Pallet::<T>::deposit_event(Event::SessionRotated {
 			starting_session: starting,
 			active_era: Self::active_era(),
-			planned_era: Self::planning_era(),
+			planned_era: Self::planned_era(),
 		});
+
+		weight
 	}
 
 	pub(crate) fn start_era(
@@ -617,8 +664,14 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
-		// discard old era information that is no longer needed.
-		Self::cleanup_old_era(starting_era);
+		// cleanup election state
+		EraElectionPlanner::<T>::cleanup();
+
+		// Mark ancient era for lazy pruning instead of immediately pruning it.
+		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			log!(debug, "Marking era {:?} for lazy pruning", old_era);
+			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
+		}
 	}
 
 	fn start_era_inc_active_era(start_timestamp: u64) {
@@ -670,7 +723,30 @@ impl<T: Config> Rotator<T> {
 
 	fn end_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
 		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
-		let era_duration = new_era_start.saturating_sub(previous_era_start);
+		let uncapped_era_duration = new_era_start.saturating_sub(previous_era_start);
+
+		// maybe cap the era duration to the maximum allowed by the runtime.
+		let cap = T::MaxEraDuration::get();
+		let era_duration = if cap == 0 {
+			// if the cap is zero (not set), we don't cap the era duration.
+			uncapped_era_duration
+		} else if uncapped_era_duration > cap {
+			Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded));
+
+			// if the cap is set, and era duration exceeds the cap, we cap the era duration to the
+			// maximum allowed.
+			log!(
+				warn,
+				"capping era duration for era {:?} from {:?} to max allowed {:?}",
+				ending_era.index,
+				uncapped_era_duration,
+				cap
+			);
+			cap
+		} else {
+			uncapped_era_duration
+		};
+
 		Self::end_era_compute_payout(ending_era, era_duration);
 	}
 
@@ -710,7 +786,7 @@ impl<T: Config> Rotator<T> {
 	/// The newly planned era is targeted to activate in the next session.
 	fn plan_new_era() {
 		let _ = CurrentEra::<T>::try_mutate(|x| {
-			log!(debug, "Planning new era: {:?}, sending election start signal", x.unwrap_or(0));
+			log!(info, "Planning new era: {:?}, sending election start signal", x.unwrap_or(0));
 			let could_start_election = EraElectionPlanner::<T>::plan_new_election();
 			*x = Some(x.unwrap_or(0) + 1);
 			could_start_election
@@ -725,8 +801,7 @@ impl<T: Config> Rotator<T> {
 		let era_start_session = Self::active_era_start_session_index();
 
 		// progress of the active era in sessions.
-		let session_progress =
-			start_session.saturating_add(1).defensive_saturating_sub(era_start_session);
+		let session_progress = start_session.defensive_saturating_sub(era_start_session);
 
 		log!(
 			debug,
@@ -735,16 +810,6 @@ impl<T: Config> Rotator<T> {
 			target_plan_era_session
 		);
 		session_progress >= target_plan_era_session
-	}
-
-	fn cleanup_old_era(starting_era: EraIndex) {
-		EraElectionPlanner::<T>::cleanup();
-
-		// discard the ancient era info.
-		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
-			log!(debug, "Removing era information for {:?}", old_era);
-			Eras::<T>::prune_era(old_era);
-		}
 	}
 }
 
@@ -823,19 +888,17 @@ impl<T: Config> EraElectionPlanner<T> {
 				use pallet_staking_async_rc_client::RcClientInterface;
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
+				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
 
 				crate::log!(
 					info,
-					"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
+					"Sending new validator set of size {:?} to RC. ID: {:?}, prune_up_to: {:?}",
+					rc_validators.len(),
 					id,
 					prune_up_to
 				);
 
-				T::RcClientInterface::validator_set(
-					ElectableStashes::<T>::take().into_iter().collect(),
-					id,
-					prune_up_to,
-				);
+				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
 		}
 	}
@@ -897,7 +960,7 @@ impl<T: Config> EraElectionPlanner<T> {
 	pub(crate) fn do_elect_paged_inner(
 		mut supports: BoundedSupportsOf<T::ElectionProvider>,
 	) -> Result<usize, usize> {
-		let planning_era = Rotator::<T>::planning_era();
+		let planning_era = Rotator::<T>::planned_era();
 
 		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
 			Ok(added) => {
@@ -968,7 +1031,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		}
 
 		log!(
-			info,
+			debug,
 			"stored a page of stakers with {:?} validators and {:?} total backers for era {:?}",
 			elected_stashes.len(),
 			total_backers,

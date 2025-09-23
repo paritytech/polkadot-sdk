@@ -22,9 +22,11 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError,
+use crate::{
+	crypto::{CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError},
+	proof_of_possession::NonAggregatable,
 };
+
 use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]
 use schnorrkel::signing_context;
@@ -135,6 +137,9 @@ impl<'de> Deserialize<'de> for Public {
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Sr25519Tag>;
 
+/// Proof of Possession is the same as Signature for sr25519
+pub type ProofOfPossession = Signature;
+
 #[cfg(feature = "full_crypto")]
 impl From<schnorrkel::Signature> for Signature {
 	fn from(s: schnorrkel::Signature) -> Signature {
@@ -202,6 +207,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	/// Get the public key.
 	fn public(&self) -> Public {
@@ -295,6 +301,8 @@ impl CryptoType for Signature {
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
+
+impl NonAggregatable for Pair {}
 
 /// Schnorrkel VRF related types and operations.
 pub mod vrf {
@@ -587,6 +595,7 @@ mod tests {
 	use super::{vrf::*, *};
 	use crate::{
 		crypto::{Ss58Codec, VrfPublic, VrfSecret, DEV_ADDRESS, DEV_PHRASE},
+		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 		ByteArray as _,
 	};
 	use serde_json;
@@ -914,5 +923,21 @@ mod tests {
 
 		assert!(public.vrf_verify(&data, &signature2));
 		assert_eq!(signature.pre_output, signature2.pre_output);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let owner = b"owner";
+		let not_owner = b"not owner";
+
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let proof_of_possession = pair.generate_proof_of_possession(owner);
+		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
+		assert_eq!(
+			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
+			false
+		);
+		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
 	}
 }

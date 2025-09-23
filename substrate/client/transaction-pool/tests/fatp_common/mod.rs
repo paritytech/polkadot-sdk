@@ -146,7 +146,7 @@ impl TestPoolBuilder {
 			.map(|blocks| blocks[0].0.header.hash())
 			.expect("there is block 0. qed");
 
-		let (pool, txpool_task) = if self.use_default_limits {
+		let (pool, [txpool_task, blocking_task]) = if self.use_default_limits {
 			ForkAwareTxPool::new_test(
 				api.clone(),
 				genesis_hash,
@@ -167,6 +167,7 @@ impl TestPoolBuilder {
 
 		let thread_pool = futures::executor::ThreadPool::new().unwrap();
 		thread_pool.spawn_ok(txpool_task);
+		thread_pool.spawn_ok(blocking_task);
 
 		(pool, api, thread_pool)
 	}
@@ -195,6 +196,20 @@ macro_rules! assert_pool_status {
 			assert_eq!(status.future, $future, "future");
 		}
 	}
+}
+
+#[macro_export]
+macro_rules! assert_ready_at_light_iterator {
+	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
+		let ready_iterator = $pool.ready_at_light($hash).now_or_never().unwrap();
+		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
+		let output: Vec<_> = ready_iterator.collect();
+		tracing::debug!(target: LOG_TARGET, ?expected, "expected");
+		tracing::debug!(target: LOG_TARGET, ?output, "output");
+		let output = output.into_iter().map(|t|t.hash).collect::<Vec<_>>();
+		assert_eq!(expected.len(), output.len());
+		assert_eq!(output,expected);
+	}};
 }
 
 #[macro_export]

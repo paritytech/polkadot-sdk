@@ -49,10 +49,7 @@ use snowbridge_inbound_queue_primitives::{
 };
 use sp_core::H160;
 use sp_std::prelude::*;
-use xcm::latest::SendError;
-
-#[cfg(feature = "runtime-benchmarks")]
-use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
+use xcm::{latest::SendError, prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *}};
 
 pub use pallet::*;
 
@@ -69,12 +66,15 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	use snowbridge_inbound_queue_primitives::EventFixture;
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T> {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+		fn initialize_storage() -> EventFixture;
 	}
 
 	#[pallet::config]
@@ -231,13 +231,11 @@ pub mod pallet {
 					MessageProcessorError::SendMessage(e) => Error::<T>::from(e).into(),
 				})?;
 
-			// Pay relayer reward if needed
-			if !relayer_fee.is_zero() {
-				T::RewardPayment::register_reward(
-					&relayer,
-					T::DefaultRewardKind::get(),
-					relayer_fee,
-				);
+			// Pay relayer reward
+			let tip = Tips::<T>::take(nonce).unwrap_or_default();
+			let total_tip = relayer_fee.saturating_add(tip);
+			if total_tip > 0 {
+				T::RewardPayment::register_reward(&relayer, T::DefaultRewardKind::get(), total_tip);
 			}
 
 			// Emit event with the message_id

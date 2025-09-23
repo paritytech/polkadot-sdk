@@ -1189,11 +1189,15 @@ impl<T: Config> Pallet<T> {
 		}
 
 		if let Some(last_watermark) = HrmpWatermarks::<T>::get(&recipient) {
-			if new_hrmp_watermark <= last_watermark {
+			if new_hrmp_watermark < last_watermark {
 				return Err(HrmpWatermarkAcceptanceErr::AdvancementRule {
 					new_watermark: new_hrmp_watermark,
 					last_watermark,
 				})
+			}
+
+			if new_hrmp_watermark == last_watermark {
+				return Ok(())
 			}
 		}
 
@@ -1215,10 +1219,19 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns HRMP watermarks of previously sent messages to a given para.
 	pub(crate) fn valid_watermarks(recipient: ParaId) -> Vec<BlockNumberFor<T>> {
-		HrmpChannelDigests::<T>::get(&recipient)
+		let mut valid_watermarks: Vec<_> = HrmpChannelDigests::<T>::get(&recipient)
 			.into_iter()
 			.map(|(block_no, _)| block_no)
-			.collect()
+			.collect();
+
+		// The current watermark will remain valid until updated.
+		if let Some(last_watermark) = HrmpWatermarks::<T>::get(&recipient) {
+			if valid_watermarks.first().map_or(false, |w| w > &last_watermark) {
+				valid_watermarks.insert(0, last_watermark);
+			}
+		}
+
+		valid_watermarks
 	}
 
 	pub(crate) fn check_outbound_hrmp(

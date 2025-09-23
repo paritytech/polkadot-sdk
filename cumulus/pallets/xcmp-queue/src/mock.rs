@@ -15,12 +15,13 @@
 
 use super::*;
 use crate as xcmp_queue;
+use alloc::collections::BTreeMap;
 use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything, OriginTrait},
+	traits::{BatchesFootprints, ConstU32, Everything, OriginTrait},
 	BoundedSlice,
 };
 use frame_system::EnsureRoot;
@@ -104,7 +105,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Test>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 parameter_types! {
@@ -138,6 +139,7 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 
 parameter_types! {
 	pub static EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
+	pub static FirstPagePos: BTreeMap<ParaId, usize> = Default::default();
 }
 
 /// An `EnqueueMessage` implementation that puts all messages in thread-local storage.
@@ -193,24 +195,19 @@ impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalSt
 		origin: ParaId,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Vec<BatchFootprint> {
+	) -> BatchesFootprints {
 		// Let's consider that we add one message per page
 		let footprint = Self::footprint(origin);
-		let mut batches_footprints = vec![];
-		let mut new_pages_count = 0;
-		let mut total_size = 0;
+		let mut batches_footprints = BatchesFootprints {
+			first_page_pos: *FirstPagePos::get().entry(origin).or_default(),
+			footprints: vec![],
+		};
 		for (idx, msg) in msgs.enumerate() {
-			new_pages_count += 1;
-			if footprint.pages + new_pages_count > total_pages_limit {
+			if footprint.pages + idx as u32 + 1 > total_pages_limit {
 				break;
 			}
 
-			total_size += msg.len();
-			batches_footprints.push(BatchFootprint {
-				msgs_count: idx + 1,
-				size_in_bytes: total_size,
-				new_pages_count,
-			})
+			batches_footprints.push(msg.into(), true);
 		}
 		batches_footprints
 	}
@@ -291,8 +288,6 @@ pub(crate) fn mk_page() -> Vec<u8> {
 			0 => versioned_xcm(older_xcm_version).encode(),
 			1 => versioned_xcm(newer_xcm_version).encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
-			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
-			// instead.
 			_ => unreachable!(),
 		});
 	}

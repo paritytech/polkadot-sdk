@@ -17,9 +17,12 @@
 
 //! Simple ECDSA secp256k1 API.
 
-use crate::crypto::{
-	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
-	SecretStringError, SignatureBytes,
+use crate::{
+	crypto::{
+		CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
+		SecretStringError, SignatureBytes,
+	},
+	proof_of_possession::NonAggregatable,
 };
 
 #[cfg(not(feature = "std"))]
@@ -99,6 +102,9 @@ impl From<Pair> for Public {
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaTag>;
 
+/// Proof of Possession is the same as Signature for ecdsa
+pub type ProofOfPossession = Signature;
+
 impl Signature {
 	/// Recover the public key from this signature and a message.
 	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
@@ -164,6 +170,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.
@@ -326,12 +333,17 @@ impl CryptoType for Pair {
 	type Pair = Pair;
 }
 
+impl NonAggregatable for Pair {}
+
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::crypto::{
-		set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
-		Ss58Codec, DEV_PHRASE,
+	use crate::{
+		crypto::{
+			set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
+			Ss58Codec, DEV_PHRASE,
+		},
+		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	};
 	use serde_json;
 
@@ -628,5 +640,20 @@ mod test {
 		let msg = sp_crypto_hashing::blake2_256(b"this is a different message");
 		let key = sig.recover_prehashed(&msg).unwrap();
 		assert_ne!(pair.public(), key);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let owner = b"owner";
+		let not_owner = b"not owner";
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let proof_of_possession = pair.generate_proof_of_possession(owner);
+		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
+		assert_eq!(
+			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
+			false
+		);
+		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
 	}
 }

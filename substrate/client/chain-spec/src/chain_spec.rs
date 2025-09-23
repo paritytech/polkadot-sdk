@@ -795,6 +795,7 @@ pub fn set_code_substitute_in_json_chain_spec(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use pretty_assertions::assert_eq;
 	use serde_json::{from_str, json, Value};
 	use sp_application_crypto::Ss58Codec;
 	use sp_core::storage::well_known_keys;
@@ -1018,7 +1019,7 @@ mod tests {
 		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
 
 		assert_eq!(actual, expected);
-		assert_eq!(actual_raw, expected_raw);
+		assert_eq!(expected_raw, actual_raw);
 	}
 
 	#[test]
@@ -1049,7 +1050,7 @@ mod tests {
 		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
 
 		assert_eq!(actual, expected);
-		assert_eq!(actual_raw, expected_raw);
+		assert_eq!(expected_raw, actual_raw);
 	}
 
 	#[test]

@@ -56,11 +56,8 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	vstaging::{
-		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	},
-	Id as ParaId, SessionIndex,
+	CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Id as ParaId, SessionIndex,
 };
 
 use cumulus_primitives_core::ParachainBlockData;
@@ -530,6 +527,8 @@ where
 		}
 
 		self.parachain_import_queue
+			// Use `ConsensusBroadcast` to inform the import pipeline that this blocks needs to be
+			// imported.
 			.import_blocks(BlockOrigin::ConsensusBroadcast, incoming_blocks);
 	}
 

@@ -66,7 +66,7 @@ mod tests;
 const THRESHOLD_FACTOR: u32 = 2;
 
 /// An error sending a downward message.
-#[cfg_attr(test, derive(Debug))]
+#[derive(Debug)]
 pub enum QueueDownwardMessageError {
 	/// The message being sent exceeds the configured max message size.
 	ExceedsMaxMessageSize,

@@ -7,13 +7,15 @@
 use anyhow::anyhow;
 use tokio::time::Duration;
 
-use cumulus_zombienet_sdk_helpers::{assert_finalized_para_throughput, create_assign_core_call};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, create_assign_core_call};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfigBuilder,
+};
 
 const VALIDATOR_COUNT: u8 = 3;
 
@@ -97,12 +99,8 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 
 	log::info!("2 more cores assigned to parachain-2000");
 
-	assert_finalized_para_throughput(
-		&relay_client,
-		15,
-		[(ParaId::from(2000), 40..46)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2000), 40..46)].into_iter().collect())
+		.await?;
 
 	let log_line_options = LogLineCountOptions::new(
 		|n| n == 1,
@@ -117,7 +115,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 	// at least once. This ensures that all validators have had a chance to detect the malicious
 	// behavior.
 	for i in 0..VALIDATOR_COUNT {
-		let validator_name = &format!("validator-{}", i);
+		let validator_name = &format!("validator-{i}");
 		let validator_node = network.get_node(validator_name)?;
 		let result = validator_node
 			.wait_log_line_count_with_timeout(
@@ -127,7 +125,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 			)
 			.await?;
 
-		assert!(result.success(), "Expected log not found for {}", validator_name,);
+		assert!(result.success(), "Expected log not found for {validator_name}",);
 	}
 
 	log::info!("Test finished successfully");

@@ -33,12 +33,15 @@ pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
+	vm::RuntimeCosts,
+	AddressMapper,
 };
 pub use alloy_core as alloy;
+pub use sp_core::{H160, H256, U256};
 
 use crate::{
 	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError,
+	Error as CrateError, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
@@ -47,9 +50,15 @@ use pallet_revive_uapi::ReturnFlags;
 use sp_runtime::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub(crate) use builtin::{IBenchmarking, NoInfo as BenchmarkNoInfo, WithInfo as BenchmarkWithInfo};
+pub(crate) use builtin::{
+	IBenchmarking, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
+	WithInfo as BenchmarkWithInfo,
+};
 
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";
+
+/// A minimal EVM bytecode to be returned when a pre-compile is queried for its code.
+pub(crate) const EVM_REVERT: [u8; 5] = sp_core::hex2array!("60006000fd");
 
 /// The composition of all available pre-compiles.
 ///
@@ -137,9 +146,7 @@ impl<T: Config> From<CrateError<T>> for Error {
 /// # Warning
 ///
 /// Pre-compiles are unmetered code. Hence they have to charge an appropriate amount of weight
-/// themselves. Generally, their first line of code should be a call to
-/// `env.gas_meter_mut().charge()`. For that you need to implement [`Token`] on a type of your
-/// choosing.
+/// themselves. Generally, their first line of code should be a call to `env.charge(weight)`.
 pub trait Precompile {
 	/// Your runtime.
 	type T: Config;
@@ -226,6 +233,7 @@ pub(crate) trait BuiltinPrecompile {
 	type Interface: SolInterface;
 	const MATCHER: BuiltinAddressMatcher;
 	const HAS_CONTRACT_INFO: bool;
+	const CODE: &[u8] = &EVM_REVERT;
 
 	fn call(
 		_address: &[u8; 20],
@@ -244,7 +252,7 @@ pub(crate) trait BuiltinPrecompile {
 	}
 }
 
-/// A low level pre-compile that does use Solidity ABI.
+/// A low level pre-compile that does not use Solidity ABI.
 ///
 /// It is used to implement the original Ethereum pre-compiles which do not
 /// use Solidity ABI but just encode inputs and outputs packed in memory.
@@ -255,6 +263,7 @@ pub(crate) trait PrimitivePrecompile {
 	type T: Config;
 	const MATCHER: BuiltinAddressMatcher;
 	const HAS_CONTRACT_INFO: bool;
+	const CODE: &[u8] = &[];
 
 	fn call(
 		_address: &[u8; 20],
@@ -314,6 +323,13 @@ pub(crate) trait Precompiles<T: Config> {
 	/// range by accident.
 	const USES_EXTERNAL_RANGE: bool;
 
+	/// Returns the code of the pre-compile.
+	///
+	/// Just used when queried by `EXTCODESIZE` or the RPC. It is just
+	/// a bogus code that is never executed. Returns None if no pre-compile
+	/// exists at the specified address.
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]>;
+
 	/// Get a reference to a specific pre-compile.
 	///
 	/// Returns `None` if no pre-compile exists at `address`.
@@ -347,14 +363,18 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	type T = <Self as BuiltinPrecompile>::T;
 	const MATCHER: BuiltinAddressMatcher = P::MATCHER;
 	const HAS_CONTRACT_INFO: bool = P::HAS_CONTRACT_INFO;
+	const CODE: &[u8] = P::CODE;
 
 	fn call(
 		address: &[u8; 20],
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode(&input, true)
-			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+		let call =
+			<Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "`abi_decode_validate` for pre-compile failed: {err:?}");
+				Error::Panic(PanicKind::ResourceError)
+			})?;
 		<Self as BuiltinPrecompile>::call(address, &call, env)
 	}
 
@@ -363,8 +383,11 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode(&input, true)
-			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "`abi_decode_validate` for pre-compile (with info) failed: {err:?}");
+				Error::Panic(PanicKind::ResourceError)
+			})?;
 		<Self as BuiltinPrecompile>::call_with_info(address, &call, env)
 	}
 }
@@ -397,24 +420,40 @@ impl<T: Config> Precompiles<T> for Tuple {
 		uses_external
 	};
 
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]> {
+		for_tuples!(
+			#(
+				if Tuple::MATCHER.matches(address) {
+					return Some(Tuple::CODE)
+				}
+			)*
+		);
+		None
+	}
+
 	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
-		let mut has_contract_info = false;
-		let mut function: Option<fn(&[u8; 20], Vec<u8>, &mut E) -> Result<Vec<u8>, Error>> = None;
+		let mut instance: Option<Instance<E>> = None;
 		for_tuples!(
 			#(
 				if Tuple::MATCHER.matches(address) {
 					if Tuple::HAS_CONTRACT_INFO {
-						has_contract_info = true;
-						function = Some(Tuple::call_with_info);
+						instance = Some(Instance {
+							address: *address,
+							has_contract_info: true,
+							function: Tuple::call_with_info,
+						})
 					} else {
-						has_contract_info = false;
-						function = Some(Tuple::call);
+						instance = Some(Instance {
+							address: *address,
+							has_contract_info: false,
+							function: Tuple::call,
+						})
 					}
 				}
 			)*
 		);
-		function.map(|function| Instance { has_contract_info, address: *address, function })
+		instance
 	}
 }
 
@@ -426,6 +465,10 @@ impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
 		);
 	};
 	const USES_EXTERNAL_RANGE: bool = { <T as Config>::Precompiles::USES_EXTERNAL_RANGE };
+
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]> {
+		<Builtin<T>>::code(address).or_else(|| <T as Config>::Precompiles::code(address))
+	}
 
 	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
@@ -540,7 +583,7 @@ impl BuiltinAddressMatcher {
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
 	pub use crate::{
-		call_builder::{CallSetup, Contract, WasmModule},
+		call_builder::{CallSetup, Contract, VmBinaryModule},
 		BalanceOf, MomentOf,
 	};
 	pub use sp_core::{H256, U256};

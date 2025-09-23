@@ -16,14 +16,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::error::Error;
+use log::{info, warn};
 use sc_network::{multiaddr::Protocol, Multiaddr};
 use sc_network_types::PeerId;
+use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId;
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use sp_runtime::DeserializeOwned;
+use std::{
+	collections::{hash_map::Entry, HashMap, HashSet},
+	fs::File,
+	io::{self, BufReader, Write},
+	path::Path,
+};
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
-pub(super) struct AddrCache {
+#[derive(Default, Clone, PartialEq, Debug)]
+pub(crate) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
 	/// are similar to a bi-directional map.
@@ -35,12 +45,114 @@ pub(super) struct AddrCache {
 	peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
 }
 
+impl Serialize for AddrCache {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		SerializeAddrCache::from(self.clone()).serialize(serializer)
+	}
+}
+
+impl<'de> Deserialize<'de> for AddrCache {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		SerializeAddrCache::deserialize(deserializer).map(Into::into)
+	}
+}
+
+/// A storage and serialization time optimized version of `AddrCache`
+/// which contains the bare minimum info to reconstruct the AddrCache. We
+/// rely on the fact that the `peer_id_to_authority_ids` can be reconstructed from
+/// the `authority_id_to_addresses` field.
+///
+/// Benchmarks show that this is about 2x faster to serialize and about 4x faster to deserialize
+/// compared to the full `AddrCache`.
+///
+/// Storage wise it is about half the size of the full `AddrCache`.
+///
+/// This is used to persist the `AddrCache` to disk and load it back.
+///
+/// AddrCache impl of Serialize and Deserialize "piggybacks" on this struct.
+#[derive(Serialize, Deserialize)]
+struct SerializeAddrCache {
+	authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
+}
+
+impl From<SerializeAddrCache> for AddrCache {
+	fn from(value: SerializeAddrCache) -> Self {
+		let mut peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>> = HashMap::new();
+
+		for (authority_id, addresses) in &value.authority_id_to_addresses {
+			for peer_id in addresses_to_peer_ids(addresses) {
+				peer_id_to_authority_ids
+					.entry(peer_id)
+					.or_insert_with(HashSet::new)
+					.insert(authority_id.clone());
+			}
+		}
+
+		AddrCache {
+			authority_id_to_addresses: value.authority_id_to_addresses,
+			peer_id_to_authority_ids,
+		}
+	}
+}
+impl From<AddrCache> for SerializeAddrCache {
+	fn from(value: AddrCache) -> Self {
+		Self { authority_id_to_addresses: value.authority_id_to_addresses }
+	}
+}
+
+fn write_to_file(path: impl AsRef<Path>, contents: &str) -> io::Result<()> {
+	let path = path.as_ref();
+	let mut file = File::create(path)?;
+	file.write_all(contents.as_bytes())?;
+	file.flush()?;
+	Ok(())
+}
+
+impl TryFrom<&Path> for AddrCache {
+	type Error = Error;
+
+	fn try_from(path: &Path) -> Result<Self, Self::Error> {
+		// Try to load from the cache file if it exists and is valid.
+		load_from_file::<AddrCache>(&path).map_err(|e| {
+			Error::EncodingDecodingAddrCache(format!(
+				"Failed to load AddrCache from file: {}, error: {:?}",
+				path.display(),
+				e
+			))
+		})
+	}
+}
 impl AddrCache {
 	pub fn new() -> Self {
-		AddrCache {
-			authority_id_to_addresses: HashMap::new(),
-			peer_id_to_authority_ids: HashMap::new(),
+		AddrCache::default()
+	}
+
+	fn serialize(&self) -> Option<String> {
+		serde_json::to_string_pretty(self).inspect_err(|e| {
+			warn!(target: super::LOG_TARGET, "Failed to serialize AddrCache to JSON: {} => skip persisting it.", e);
+		}).ok()
+	}
+
+	fn persist(path: impl AsRef<Path>, serialized_cache: String) {
+		match write_to_file(path.as_ref(), &serialized_cache) {
+			Err(err) => {
+				warn!(target: super::LOG_TARGET, "Failed to persist AddrCache on disk at path: {}, error: {}", path.as_ref().display(), err);
+			},
+			Ok(_) => {
+				info!(target: super::LOG_TARGET, "Successfully persisted AddrCache on disk");
+			},
 		}
+	}
+
+	pub fn serialize_and_persist(&self, path: impl AsRef<Path>) {
+		let Some(serialized) = self.serialize() else { return };
+		Self::persist(path, serialized);
 	}
 
 	/// Inserts the given [`AuthorityId`] and [`Vec<Multiaddr>`] pair for future lookups by
@@ -56,7 +168,6 @@ impl AddrCache {
 				authority_id,
 				addresses,
 			);
-
 			return
 		} else if peer_ids.len() > 1 {
 			log::warn!(
@@ -172,8 +283,21 @@ fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 	addresses.iter().filter_map(peer_id_from_multiaddr).collect::<HashSet<_>>()
 }
 
+fn load_from_file<T: DeserializeOwned>(path: impl AsRef<Path>) -> io::Result<T> {
+	let file = File::open(path)?;
+	let reader = BufReader::new(file);
+
+	serde_json::from_reader(reader).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+}
+
 #[cfg(test)]
 mod tests {
+
+	use std::{
+		thread::sleep,
+		time::{Duration, Instant},
+	};
+
 	use super::*;
 
 	use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
@@ -281,6 +405,12 @@ mod tests {
 	}
 
 	#[test]
+	fn test_from_to_serializable() {
+		let serializable = SerializeAddrCache::from(AddrCache::sample());
+		let roundtripped = AddrCache::from(serializable);
+		assert_eq!(roundtripped, AddrCache::sample())
+	}
+	#[test]
 	fn keeps_consistency_between_authority_id_and_peer_id() {
 		fn property(
 			authority1: TestAuthorityId,
@@ -380,5 +510,166 @@ mod tests {
 			&HashSet::from([addr]),
 			addr_cache.get_addresses_by_authority_id(&authority_id1).unwrap()
 		);
+	}
+
+	impl AddrCache {
+		pub fn sample() -> Self {
+			let mut addr_cache = AddrCache::new();
+
+			let peer_id = PeerId::from_multihash(
+				Multihash::wrap(Code::Sha2_256.into(), &[0xab; 32]).unwrap(),
+			)
+			.unwrap();
+			let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
+			let authority_id0 = AuthorityPair::from_seed(&[0xaa; 32]).public();
+			let authority_id1 = AuthorityPair::from_seed(&[0xbb; 32]).public();
+
+			addr_cache.insert(authority_id0.clone(), vec![addr.clone()]);
+			addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
+			addr_cache
+		}
+	}
+
+	#[test]
+	fn serde_json() {
+		let sample = || AddrCache::sample();
+		let serializable = AddrCache::from(sample());
+		let json = serde_json::to_string(&serializable).expect("Serialization should not fail");
+		let deserialized = serde_json::from_str::<AddrCache>(&json).unwrap();
+		let from_serializable = AddrCache::try_from(deserialized).unwrap();
+		assert_eq!(sample(), from_serializable);
+	}
+
+	#[test]
+	fn deserialize_from_json() {
+		let json = r#"
+		{
+		  "authority_id_to_addresses": {
+		    "5FjfMGrqw9ck5XZaPVTKm2RE5cbwoVUfXvSGZY7KCUEFtdr7": [
+		      "/p2p/QmZtnFaddFtzGNT8BxdHVbQrhSFdq1pWxud5z4fA4kxfDt"
+		    ],
+		    "5DiQDBQvjFkmUF3C8a7ape5rpRPoajmMj44Q9CTGPfVBaa6U": [
+		      "/p2p/QmZtnFaddFtzGNT8BxdHVbQrhSFdq1pWxud5z4fA4kxfDt"
+		    ]
+		  }
+		}
+		"#;
+		let deserialized = serde_json::from_str::<AddrCache>(json).unwrap();
+		assert_eq!(deserialized, AddrCache::sample())
+	}
+
+	fn serialize_and_write_to_file<T: Serialize>(
+		path: impl AsRef<Path>,
+		contents: &T,
+	) -> io::Result<()> {
+		let serialized = serde_json::to_string_pretty(contents).unwrap();
+		write_to_file(path, &serialized)
+	}
+
+	#[test]
+	fn test_load_cache_from_disc() {
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("cache.json");
+		let sample = AddrCache::sample();
+		assert_eq!(sample.num_authority_ids(), 2);
+		serialize_and_write_to_file(&path, &sample).unwrap();
+		sleep(Duration::from_millis(10)); // Ensure file is written before loading
+		let cache = AddrCache::try_from(path.as_path()).unwrap();
+		assert_eq!(cache.num_authority_ids(), 2);
+	}
+
+	fn create_cache(authority_id_count: u64, multiaddr_per_authority_count: u64) -> AddrCache {
+		let mut addr_cache = AddrCache::new();
+
+		for i in 0..authority_id_count {
+			let seed = &mut [0xab as u8; 32];
+			let i_bytes = i.to_le_bytes();
+			seed[0..8].copy_from_slice(&i_bytes);
+
+			let authority_id = AuthorityPair::from_seed(seed).public();
+			let multi_addresses = (0..multiaddr_per_authority_count)
+				.map(|j| {
+					let mut digest = [0xab; 32];
+					let j_bytes = j.to_le_bytes();
+					digest[0..8].copy_from_slice(&j_bytes);
+					let peer_id = PeerId::from_multihash(
+						Multihash::wrap(Code::Sha2_256.into(), &digest).unwrap(),
+					)
+					.unwrap();
+					Multiaddr::empty().with(Protocol::P2p(peer_id.into()))
+				})
+				.collect::<Vec<_>>();
+
+			assert_eq!(multi_addresses.len(), multiaddr_per_authority_count as usize);
+			addr_cache.insert(authority_id.clone(), multi_addresses);
+		}
+		assert_eq!(addr_cache.authority_id_to_addresses.len(), authority_id_count as usize);
+
+		addr_cache
+	}
+
+	/// This test is ignored by default as it takes a long time to run.
+	#[test]
+	#[ignore]
+	fn addr_cache_measure_serde_performance() {
+		let addr_cache = create_cache(1000, 5);
+
+		/// A replica of `AddrCache` that is serializable and deserializable
+		/// without any optimizations.
+		#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
+		pub(crate) struct NaiveSerdeAddrCache {
+			authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
+			peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
+		}
+		impl From<AddrCache> for NaiveSerdeAddrCache {
+			fn from(value: AddrCache) -> Self {
+				Self {
+					authority_id_to_addresses: value.authority_id_to_addresses,
+					peer_id_to_authority_ids: value.peer_id_to_authority_ids,
+				}
+			}
+		}
+
+		let naive = NaiveSerdeAddrCache::from(addr_cache.clone());
+		let storage_optimized = addr_cache.clone();
+
+		fn measure_clone<T: Clone>(data: &T) -> Duration {
+			let start = Instant::now();
+			let _ = data.clone();
+			start.elapsed()
+		}
+		fn measure_serialize<T: Serialize>(data: &T) -> (Duration, String) {
+			let start = Instant::now();
+			let json = serde_json::to_string_pretty(data).unwrap();
+			(start.elapsed(), json)
+		}
+		fn measure_deserialize<T: DeserializeOwned>(json: String) -> (Duration, T) {
+			let start = Instant::now();
+			let value = serde_json::from_str(&json).unwrap();
+			(start.elapsed(), value)
+		}
+
+		let serialize_naive = measure_serialize(&naive);
+		let serialize_storage_optimized = measure_serialize(&storage_optimized);
+		println!("CLONE: Naive took: {} ms", measure_clone(&naive).as_millis());
+		println!(
+			"CLONE: Storage optimized took: {} ms",
+			measure_clone(&storage_optimized).as_millis()
+		);
+		println!("SERIALIZE: Naive took: {} ms", serialize_naive.0.as_millis());
+		println!(
+			"SERIALIZE: Storage optimized took: {} ms",
+			serialize_storage_optimized.0.as_millis()
+		);
+		let deserialize_naive = measure_deserialize::<NaiveSerdeAddrCache>(serialize_naive.1);
+		let deserialize_storage_optimized =
+			measure_deserialize::<AddrCache>(serialize_storage_optimized.1);
+		println!("DESERIALIZE: Naive took: {} ms", deserialize_naive.0.as_millis());
+		println!(
+			"DESERIALIZE: Storage optimized took: {} ms",
+			deserialize_storage_optimized.0.as_millis()
+		);
+		assert_eq!(deserialize_naive.1, naive);
+		assert_eq!(deserialize_storage_optimized.1, storage_optimized);
 	}
 }

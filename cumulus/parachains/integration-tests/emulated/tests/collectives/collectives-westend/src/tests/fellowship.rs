@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use codec::Encode;
 use collectives_fellowship::pallet_fellowship_origins::Origin::Fellows as FellowsOrigin;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};

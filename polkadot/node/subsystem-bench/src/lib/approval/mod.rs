@@ -66,9 +66,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	BlockNumber, CandidateIndex, Hash, Header, Slot, ValidatorId, ValidatorIndex,
-	ASSIGNMENT_KEY_TYPE_ID,
+	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceiptV2 as CandidateReceipt, Hash,
+	Header, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
@@ -851,11 +850,7 @@ fn build_overseer(
 		network_interface.subsystem_sender(),
 		state.test_authorities.clone(),
 	);
-	let mock_rx_bridge = MockNetworkBridgeRx::new(
-		network_receiver,
-		None,
-		state.options.approval_voting_parallel_enabled,
-	);
+	let mock_rx_bridge = MockNetworkBridgeRx::new(network_receiver, None);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let task_handle = spawn_task_handle.clone();
 	let dummy = dummy_builder!(task_handle, overseer_metrics)
@@ -1042,7 +1037,7 @@ pub async fn bench_approvals_run(
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!("Block time {}", format!("{:?}ms", block_time).cyan());
+		gum::info!("Block time {}", format!("{block_time:?}ms").cyan());
 
 		system_clock
 			.wait(slot_number_to_tick(SLOT_DURATION_MILLIS, current_slot + 1))
@@ -1170,7 +1165,7 @@ pub async fn bench_approvals_run(
 	let duration: u128 = start_marker.elapsed().as_millis();
 	gum::info!(
 		"All blocks processed in {} total_sent_messages_to_node {} total_sent_messages_from_node {} num_unique_messages {}",
-		format!("{:?}ms", duration).cyan(),
+		format!("{duration:?}ms").cyan(),
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_sent_messages_from_node.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)

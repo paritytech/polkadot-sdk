@@ -16,9 +16,13 @@
 mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
-use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
+use crate::{
+	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding},
+	Runtime,
+};
 use alloc::vec::Vec;
-use frame_support::weights::Weight;
+use assets_common::IsLocalAccountKey20;
+use frame_support::{traits::Contains, weights::Weight};
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
 use sp_runtime::BoundedVec;
@@ -54,9 +58,33 @@ impl WeighAssets for AssetFilter {
 	}
 }
 
+trait WeighAsset {
+	/// Return one worst-case estimate: `weight`, or another.
+	fn weigh_asset(&self, weight: Weight) -> Weight;
+}
+
+impl WeighAsset for Asset {
+	fn weigh_asset(&self, weight: Weight) -> Weight {
+		// If the asset is a smart contract ERC20, then we know the gas limit,
+		// else we return the weight that was passed in, that's already
+		// the worst case for non-ERC20 assets.
+		if IsLocalAccountKey20::contains(&self.id.0) {
+			ERC20TransferGasLimit::get()
+		} else {
+			weight
+		}
+	}
+}
+
 impl WeighAssets for Assets {
 	fn weigh_assets(&self, weight: Weight) -> Weight {
-		weight.saturating_mul(self.inner().iter().count() as u64)
+		// We start with zero.
+		let mut final_weight = Weight::zero();
+		// For each asset, we add weight depending on the type of asset.
+		for asset in self.inner().iter() {
+			final_weight = final_weight.saturating_add(asset.weigh_asset(weight));
+		}
+		final_weight
 	}
 }
 

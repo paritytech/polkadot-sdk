@@ -10,7 +10,7 @@ use frame_support::ensure;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::MaybeEquivalence, MultiAddress};
+use sp_runtime::{traits::MaybeConvert, MultiAddress};
 use sp_std::prelude::*;
 use xcm::{
 	prelude::{Junction::*, *},
@@ -103,7 +103,7 @@ where
 	CreateAssetDeposit: Get<u128>,
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueueLocation: Get<InteriorLocation>,
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
 	AssetHubFromEthereum: Get<Location>,
@@ -163,7 +163,7 @@ where
 					assets.push(AssetTransfer::ReserveDeposit(asset));
 				},
 				EthereumAsset::ForeignTokenERC20 { token_id, value } => {
-					let asset_loc = ConvertAssetId::convert(&token_id)
+					let asset_loc = ConvertAssetId::maybe_convert(*token_id)
 						.ok_or(ConvertMessageError::InvalidAsset)?;
 					let reanchored_asset_loc = asset_loc
 						.reanchored(&AssetHubFromEthereum::get(), &EthereumUniversalLocation::get())
@@ -329,7 +329,7 @@ where
 	CreateAssetDeposit: Get<u128>,
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueueLocation: Get<InteriorLocation>,
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
 	AssetHubFromEthereum: Get<Location>,
@@ -402,7 +402,6 @@ mod tests {
 		add_location_override, reanchor_to_ethereum, LocationIdConvert,
 	};
 	use sp_core::{H160, H256};
-	use sp_runtime::traits::MaybeEquivalence;
 	const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
 
 	parameter_types! {
@@ -420,11 +419,8 @@ mod tests {
 	}
 
 	pub struct MockFailedTokenConvert;
-	impl MaybeEquivalence<TokenId, Location> for MockFailedTokenConvert {
-		fn convert(_id: &TokenId) -> Option<Location> {
-			None
-		}
-		fn convert_back(_loc: &Location) -> Option<TokenId> {
+	impl MaybeConvert<TokenId, Location> for MockFailedTokenConvert {
+		fn maybe_convert(_id: TokenId) -> Option<Location> {
 			None
 		}
 	}

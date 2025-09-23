@@ -9,6 +9,11 @@
 
 BIN=$1
 PACKAGE=${2:-$BIN}
+# must be given as feature1,feature2,feature3...
+FEATURES=$3
+if [ -n "$FEATURES" ]; then
+  FEATURES="--features ${FEATURES}"
+fi
 
 PROFILE=${PROFILE:-production}
 ARTIFACTS=/artifacts/$BIN
@@ -17,7 +22,7 @@ echo "Artifacts will be copied into $ARTIFACTS"
 mkdir -p "$ARTIFACTS"
 
 git log --pretty=oneline -n 1
-time cargo build --profile $PROFILE --locked --verbose --bin $BIN --package $PACKAGE
+time cargo build --profile $PROFILE --locked --verbose --bin $BIN --package $PACKAGE $FEATURES
 
 echo "Artifact target: $ARTIFACTS"
 

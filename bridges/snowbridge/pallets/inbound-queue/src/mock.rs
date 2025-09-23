@@ -13,7 +13,7 @@ use snowbridge_core::{
 use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
+	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
@@ -22,6 +22,11 @@ use xcm::{
 	prelude::*,
 };
 use xcm_executor::AssetsInHolding;
+
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_inbound_queue_primitives::EventFixture;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 
 use crate::{self as inbound_queue};
 
@@ -124,8 +129,9 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
-	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: BeaconHeader, _: H256) {}
+	fn initialize_storage() -> EventFixture {
+		make_register_token_message()
+	}
 }
 
 // Mock XCM sender that always succeeds
@@ -214,12 +220,9 @@ impl TransactAsset for SuccessfulTransactor {
 }
 
 pub struct MockTokenIdConvert;
-impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-	fn convert(_id: &TokenId) -> Option<Location> {
+impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
+	fn maybe_convert(_id: TokenId) -> Option<Location> {
 		Some(Location::parent())
-	}
-	fn convert_back(_loc: &Location) -> Option<TokenId> {
-		None
 	}
 }
 

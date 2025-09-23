@@ -21,8 +21,8 @@ use codec::{Decode, Encode, Joiner};
 use futures::executor::block_on;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
-	in_mem, BlockBackend, BlockchainEvents, ExecutorProvider, FinalityNotifications, HeaderBackend,
-	StorageProvider,
+	in_mem, Backend as BackendT, BlockBackend, BlockchainEvents, ExecutorProvider,
+	FinalityNotifications, HeaderBackend, StorageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, DatabaseSource, PruningMode};
 use sc_consensus::{
@@ -1749,7 +1749,6 @@ fn respects_block_rules() {
 }
 
 #[test]
-// FIXME: https://github.com/paritytech/polkadot-sdk/issues/48
 fn returns_status_for_pruned_blocks() {
 	use sp_consensus::BlockStatus;
 	sp_tracing::try_init_simple();
@@ -1771,7 +1770,7 @@ fn returns_status_for_pruned_blocks() {
 		.unwrap(),
 	);
 
-	let client = TestClientBuilder::with_backend(backend).build();
+	let client = TestClientBuilder::with_backend(backend.clone()).build();
 
 	let a1 = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -1814,6 +1813,18 @@ fn returns_status_for_pruned_blocks() {
 	assert_eq!(client.block_status(check_block_a1.hash).unwrap(), BlockStatus::Unknown);
 
 	block_on(client.import_as_final(BlockOrigin::Own, a1.clone())).unwrap();
+	// This is a a hack.
+	// There is a race condition between:
+	// a) The pruning logic triggered by `import_as_final`
+	// b) A background worker that is receiving messages about unpinning blocks.
+	// In CI and high-cpu environments it can happen that the worker has not processed the unpin
+	// messages at pruning-time. Then we are stuck in the old status. In production this is not a
+	// problem, the block will be pruned next time. However for this test we want to have
+	// determinism, so we do the job of the unpin worker synchronously right here.
+	// We need to unpin twice, because the import and finality notification will each increase the
+	// pinning ref counter by one.
+	backend.unpin_block(a1.hash());
+	backend.unpin_block(a1.hash());
 
 	assert_eq!(
 		block_on(client.check_block(check_block_a1.clone())).unwrap(),
@@ -1830,6 +1841,8 @@ fn returns_status_for_pruned_blocks() {
 		.unwrap()
 		.block;
 	block_on(client.import_as_final(BlockOrigin::Own, a2.clone())).unwrap();
+	backend.unpin_block(a2.hash());
+	backend.unpin_block(a2.hash());
 
 	let check_block_a2 = BlockCheckParams {
 		hash: a2.hash(),
@@ -1861,6 +1874,8 @@ fn returns_status_for_pruned_blocks() {
 		.block;
 
 	block_on(client.import_as_final(BlockOrigin::Own, a3.clone())).unwrap();
+	backend.unpin_block(a3.hash());
+	backend.unpin_block(a3.hash());
 	let check_block_a3 = BlockCheckParams {
 		hash: a3.hash(),
 		number: 2,

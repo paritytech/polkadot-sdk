@@ -893,6 +893,86 @@ fn cancel_pending_open_channel_request() {
 }
 
 #[test]
+fn watermark_can_remain_the_same() {
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+	let para_c = 3000.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_channel_max_message_size = 20;
+	genesis.hrmp_channel_max_total_size = 20;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain(para_a);
+		register_parachain(para_b);
+		register_parachain(para_c);
+
+		run_to_block(3, Some(vec![2, 3]));
+		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
+		Hrmp::accept_open_channel(para_b, para_a).unwrap();
+		Hrmp::init_open_channel(para_c, para_b, 2, 20).unwrap();
+		Hrmp::accept_open_channel(para_b, para_c).unwrap();
+
+		// Update watermark
+		assert!(Hrmp::check_hrmp_watermark(para_b, 3, 3).is_ok());
+		let _ = Hrmp::prune_hrmp(para_b, 3);
+
+		// On Block 6:
+		// A sends 1 message to B
+		run_to_block(6, Some(vec![6]));
+		assert!(channel_exists(para_a, para_b));
+		let msgs: HorizontalMessages =
+			vec![OutboundHrmpMessage { recipient: para_b, data: b"HRMP message from A".to_vec() }]
+				.try_into()
+				.unwrap();
+		let config = configuration::ActiveConfig::<Test>::get();
+		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
+		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
+		Hrmp::assert_storage_consistency_exhaustive();
+		// C sends 1 message to B
+		assert!(channel_exists(para_c, para_b));
+		let msgs: HorizontalMessages =
+			vec![OutboundHrmpMessage { recipient: para_b, data: b"HRMP message from C".to_vec() }]
+				.try_into()
+				.unwrap();
+		let config = configuration::ActiveConfig::<Test>::get();
+		assert!(Hrmp::check_outbound_hrmp(&config, para_c, &msgs).is_ok());
+		let _ = Hrmp::queue_outbound_hrmp(para_c, msgs);
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Check that a smaller HRMP watermark is not accepted
+		assert!(matches!(
+			Hrmp::check_hrmp_watermark(para_b, 6, 2),
+			Err(HrmpWatermarkAcceptanceErr::AdvancementRule {
+				new_watermark: 2,
+				last_watermark: 3
+			})
+		));
+
+		// Check that an HRMP watermark representing a relay chain block that doesn't contain
+		// any message is not accepted
+		assert!(matches!(
+			Hrmp::check_hrmp_watermark(para_b, 6, 5),
+			Err(HrmpWatermarkAcceptanceErr::LandsOnBlockWithNoMessages { new_watermark: 5 })
+		));
+
+		// On block 7:
+		// B receives the messages, but can process only the one sent by A.
+		// B keeps the old watermark.
+		run_to_block(7, None);
+		assert!(Hrmp::check_hrmp_watermark(para_b, 7, 3).is_ok());
+		let _ = Hrmp::prune_hrmp(para_b, 5);
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// On block 8:
+		// B can also process the message sent by C. B sets the watermark to 6.
+		run_to_block(8, None);
+		assert!(Hrmp::check_hrmp_watermark(para_b, 7, 6).is_ok());
+		let _ = Hrmp::prune_hrmp(para_b, 6);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
 fn watermark_maxed_out_at_relay_parent() {
 	let para_a = 2032.into();
 	let para_b = 2064.into();
@@ -920,6 +1000,15 @@ fn watermark_maxed_out_at_relay_parent() {
 		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
 		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Check that an HRMP watermark greater than the relay parent is not accepted
+		assert!(matches!(
+			Hrmp::check_hrmp_watermark(para_b, 6, 7),
+			Err(HrmpWatermarkAcceptanceErr::AheadRelayParent {
+				new_watermark: 7,
+				relay_chain_parent_number: 6,
+			})
+		));
 
 		// On block 8:
 		// B receives the message sent by A. B sets the watermark to 7.

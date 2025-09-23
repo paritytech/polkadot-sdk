@@ -17,7 +17,7 @@
 
 use crate::{
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
-	wasm::RuntimeCosts,
+	vm::RuntimeCosts,
 	Config,
 };
 use alloc::vec::Vec;

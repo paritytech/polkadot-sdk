@@ -32,6 +32,10 @@ construct_runtime! {
 		System: frame_system,
 		Balances: pallet_balances,
 
+		// NOTE: the validator set is given by pallet-staking to rc-client on-init, and rc-client
+		// will not send it immediately, but rather store it and sends it over on its own next
+		// on-init call. Yet, because staking comes first here, its on-init is called before
+		// rc-client, so under normal conditions, the message is sent immediately.
 		Staking: pallet_staking_async,
 		RcClient: pallet_staking_async_rc_client,
 
@@ -83,11 +87,10 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
 /// Use the given `end_index` as the first session report, and increment as per needed.
 pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<AccountId> {
 	// receive enough session reports, such that we plan a new era
-	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planning_era();
+	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era();
 	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
 
-	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planning_era() == planned_era
-	{
+	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == planned_era {
 		let report = SessionReport {
 			end_index,
 			activation_timestamp: None,
@@ -122,7 +125,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 							leftover: false,
 							// arbitrary, feel free to change if test setup updates
 							new_validator_set: vec![3, 5, 6, 8],
-							prune_up_to: None,
+							prune_up_to: active_era.checked_sub(BondingDuration::get()),
 						})
 					)
 				);
@@ -195,11 +198,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }
@@ -270,7 +273,7 @@ impl multi_block::Config for Runtime {
 	type Verifier = MultiBlockVerifier;
 	type AreWeDone = multi_block::ProceedRegardlessOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
-	type WeightInfo = multi_block::weights::AllZeroWeights;
+	type WeightInfo = ();
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -280,12 +283,13 @@ impl multi_block::verifier::Config for Runtime {
 
 	type SolutionDataProvider = MultiBlockSigned;
 	type SolutionImprovementThreshold = ();
-	type WeightInfo = multi_block::weights::AllZeroWeights;
+	type WeightInfo = ();
 }
 
 impl multi_block::unsigned::Config for Runtime {
 	type MinerPages = ConstU32<1>;
-	type WeightInfo = multi_block::weights::AllZeroWeights;
+	type WeightInfo = ();
+	type OffchainStorage = ConstBool<true>;
 	type MinerTxPriority = ConstU64<{ u64::MAX }>;
 	type OffchainRepeat = ();
 	type OffchainSolver = SequentialPhragmen<AccountId, Perbill>;
@@ -299,25 +303,24 @@ parameter_types! {
 }
 
 impl multi_block::signed::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
-
 	type Currency = Balances;
-
 	type EjectGraceRatio = ();
 	type BailoutGraceRatio = ();
+	type InvulnerableDeposit = ();
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
 	type EstimateCallFee = ConstU32<1>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
-	type WeightInfo = multi_block::weights::AllZeroWeights;
+	type WeightInfo = ();
 }
 
 parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
-	pub static PlanningEraOffset: u32 = 1;
+	pub static PlanningEraOffset: u32 = 2;
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -342,11 +345,12 @@ impl pallet_staking_async::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
+	type MaxEraDuration = ();
+	type MaxPruningItems = MaxPruningItems;
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();
 
-	type MaxDisabledValidators = MaxValidators;
 	type MaxValidatorSet = MaxValidators;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxInvulnerables = MaxValidators;
@@ -365,13 +369,33 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
+	type MaxValidatorSetRetries = ConstU32<3>;
+}
+
+parameter_types! {
+	pub static NextRelayDeliveryFails: bool = false;
 }
 
 pub struct DeliverToRelay;
+
+impl DeliverToRelay {
+	fn ensure_delivery_guard() -> Result<(), ()> {
+		// `::take` will set it back to the default value, `false`.
+		if NextRelayDeliveryFails::take() {
+			Err(())
+		} else {
+			Ok(())
+		}
+	}
+}
+
 impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 	type AccountId = AccountId;
 
-	fn validator_set(report: pallet_staking_async_rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(
+		report: pallet_staking_async_rc_client::ValidatorSetReport<Self::AccountId>,
+	) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
 			LocalQueue::set(Some(local_queue));
@@ -386,6 +410,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 				.unwrap();
 			});
 		}
+		Ok(())
 	}
 }
 
