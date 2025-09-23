@@ -17,6 +17,7 @@
 
 use crate::{
 	assert_refcount,
+	evm::OpcodeTrace,
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
@@ -29,7 +30,6 @@ use alloy_core::{primitives, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
-
 use revm::bytecode::opcode::*;
 
 mod arithmetic;
@@ -171,10 +171,9 @@ fn basic_evm_flow_tracing_works() {
 #[test]
 fn opcode_tracing_works() {
 	use crate::{
-		evm::{OpcodeTrace, OpcodeTracer, OpcodeTracerConfig},
+		evm::{OpcodeTracer, OpcodeTracerConfig},
 		tracing::trace,
 	};
-	use revm::bytecode::opcode::*;
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
@@ -187,7 +186,7 @@ fn opcode_tracing_works() {
 			disable_stack: false,
 			disable_storage: true,
 			enable_return_data: true,
-			limit: Some(5),
+			limit: None,
 			memory_word_limit: 16,
 		};
 
