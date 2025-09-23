@@ -20,7 +20,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	evm::{block_storage, runtime::GAS_PRICE, TransactionLegacyUnsigned, TransactionUnsigned},
+	evm::{
+		block_storage, runtime::GAS_PRICE, TransactionLegacyUnsigned, TransactionSigned,
+		TransactionUnsigned,
+	},
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
 	precompiles::{
@@ -38,7 +41,7 @@ use crate::{
 		evm::{instructions::instruction_table, EVMInterpreter},
 		pvm,
 	},
-	Pallet as Contracts, TransactionSigned, *,
+	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
 use alloy_core::sol_types::{SolInterface, SolValue};
