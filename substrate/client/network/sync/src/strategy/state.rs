@@ -273,6 +273,16 @@ impl<B: BlockT> StateStrategy<B> {
 			.collect::<Vec<_>>();
 
 		if !results.is_empty() {
+			// TODO This is the problem. The problem is that here, a block is being processed coming
+			// from warp sync, and being mistakenly marked as processed by the state sync strategy.
+			// TODO The solution could be to track blocks in the warp sync (e.g. where an import
+			// action is emitted, update the target hash/target block number of the warp sync) and
+			// have an on_blocks_processed function in warp sync exactly the same as this one. And
+			// then only mark warp sync as succeeded once all blocks are processed (i.e. once the
+			// target block is processed, same as what this function does). And in fact you should
+			// call that function at the same place where this function is being called. And that's
+			// gg
+			log::info!("XXX State sync processed target block");
 			// We processed the target block
 			results.iter().filter_map(|result| result.as_ref().err()).for_each(|e| {
 				error!(
