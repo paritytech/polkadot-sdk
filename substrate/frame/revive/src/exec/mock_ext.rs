@@ -132,6 +132,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::deposit_event")
 	}
 
+	fn increment_emitted_events(&mut self) -> Result<(), DispatchError> {
+		panic!("MockExt::increment_emitted_events")
+	}
+
 	fn block_number(&self) -> U256 {
 		panic!("MockExt::block_number")
 	}

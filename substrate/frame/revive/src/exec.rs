@@ -381,6 +381,11 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// There should not be any duplicates in `topics`.
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
 
+	/// Increment the emitted events counter and check if the limit is exceeded.
+	///
+	/// Returns an error if the maximum number of events has been reached.
+	fn increment_emitted_events(&mut self) -> Result<(), DispatchError>;
+
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
 
@@ -539,6 +544,11 @@ pub struct Stack<'a, T: Config, E> {
 	/// Whether or not actual transfer of funds should be performed.
 	/// This is set to `true` exclusively when we simulate a call through eth_transact.
 	skip_transfer: bool,
+	/// The number of emitted events.
+	///
+	/// When this reaches the maximum allowed number of events, no further events
+	/// can be emitted, and the transaction will fail.
+	emitted_events: u32,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -934,6 +944,7 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			skip_transfer,
+			emitted_events: 0,
 			_phantom: Default::default(),
 		};
 
@@ -2107,6 +2118,16 @@ where
 		block_storage::capture_ethereum_log(&contract, &data, &topics);
 
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
+	}
+
+	fn increment_emitted_events(&mut self) -> Result<(), DispatchError> {
+		self.emitted_events = self.emitted_events.saturating_add(1);
+
+		if self.emitted_events > limits::NUM_EMITTED_EVENTS {
+			return Err(Error::<T>::TooManyEmittedEvents.into());
+		}
+
+		Ok(())
 	}
 
 	fn block_number(&self) -> U256 {

@@ -230,6 +230,13 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 	}
 
 	gas!(context.interpreter, RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 });
+
+	// Check and increment the emitted events counter
+	if let Err(_) = context.interpreter.extend.increment_emitted_events() {
+		context.interpreter.halt(revm::interpreter::InstructionResult::Revert);
+		return;
+	}
+
 	let data = if len == 0 {
 		Bytes::new()
 	} else {
