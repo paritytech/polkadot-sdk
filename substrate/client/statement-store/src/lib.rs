@@ -24,7 +24,8 @@
 //! Constraint management.
 //!
 //! Each time a new statement is inserted into the store, it is first validated with the runtime
-//! Validation function computes `global_priority`, 'max_count' and `max_size` for a statement.
+//! Validation function computes `max_count` and `max_size` for a statement and the store assigned
+//! the current timestamp as `global_priority`.
 //! The following constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
@@ -73,6 +74,9 @@ use std::{
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
 const CURRENT_VERSION: u32 = 1;
+
+const KEY_NEXT_GLOBAL_PRIO: &[u8] = b"next_global_priority";
+const META_GP_PREFIX: &[u8] = b"gp/";
 
 const LOG_TARGET: &str = "statement-store";
 
@@ -159,6 +163,12 @@ struct Index {
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	options: Options,
 	total_size: usize,
+	// global priority -> (statement hash, statement size)
+	global_by_order: BTreeMap<u64, (Hash, usize)>,
+	// statement hash -> global priority
+	global_of: HashMap<Hash, u64>,
+	// monotonic counter
+	next_global_priority: u64,
 }
 
 struct ClientWrapper<Block, Client> {
@@ -248,6 +258,43 @@ impl Index {
 		account_info
 			.by_priority
 			.insert(PriorityKey { hash, priority }, (statement.channel(), statement.data_len()));
+		let gp = self.next_global_priority;
+		self.next_global_priority = self.next_global_priority.saturating_add(1);
+		// TODO: size is data len or statement len??
+		self.global_by_order.insert(gp, (hash, statement.data_len()));
+		self.global_of.insert(hash, gp);
+	}
+
+	fn attach_global_priority(&mut self, hash: Hash, size: usize) -> u64 {
+		let gp = self.next_global_priority;
+		self.next_global_priority = self.next_global_priority.saturating_add(1);
+		self.global_by_order.insert(gp, (hash, size));
+		self.global_of.insert(hash, gp);
+		gp
+	}
+
+	/// Evict the N oldest / M bytes oldest.
+	/// Skips any hashes already in `skip` (e.g., those evicted due to per-account constraints).
+	fn evict_oldest_until(
+		&mut self,
+		mut need_count: usize,
+		mut need_bytes: usize,
+		skip: &HashSet<Hash>,
+		current_time: u64,
+	) -> HashSet<Hash> {
+		let mut evicted = HashSet::new();
+		for (&gp, &(h, sz)) in self.global_by_order.iter() {
+			if need_count == 0 && need_bytes == 0 {
+				break;
+			}
+			if skip.contains(&h) {
+				continue;
+			}
+			need_count = need_count.saturating_sub(1);
+			need_bytes = need_bytes.saturating_sub(sz);
+			evicted.insert(h);
+		}
+		evicted
 	}
 
 	fn query(&self, hash: &Hash) -> IndexQuery {
@@ -358,6 +405,11 @@ impl Index {
 					account_rec.remove_entry();
 				}
 			}
+			if let Some(gp) = self.global_of.remove(hash) {
+				self.global_by_order.remove(&gp);
+			} else {
+				log::error!(target: LOG_TARGET, "Missing global priority for statement {:?}", HexDisplay::from(hash));
+			}
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
 			true
 		} else {
@@ -452,13 +504,35 @@ impl Index {
 				would_free_size += len;
 			}
 		}
-		// Now check global constraints as well.
-		if !((self.total_size - would_free_size + statement_len <= self.options.max_total_size) &&
-			self.entries.len() + 1 - evicted.len() <= self.options.max_total_statements)
+
+		// Now handle global constraints as well. If we would exceed, evict the oldest to make room.
+		{
+			let projected_size =
+				self.total_size.saturating_sub(would_free_size).saturating_add(statement_len);
+			let projected_count = (self.entries.len() + 1).saturating_sub(evicted.len());
+
+			let mut need_count = projected_count.saturating_sub(self.options.max_total_statements);
+			let mut need_bytes = projected_size.saturating_sub(self.options.max_total_size);
+			if need_count > 0 || need_bytes > 0 {
+				let extra = self.evict_oldest_until(need_count, need_bytes, &evicted, current_time);
+				if !extra.is_empty() {
+					would_free_size +=
+						extra.iter().filter_map(|h| self.entries.get(h).map(|e| e.2)).sum::<usize>();
+				}
+				evicted.extend(extra);
+			}
+		}
+
+		// After global eviction, re-check feasibility. If still over, ignore.
+		let projected_size =
+			self.total_size.saturating_sub(would_free_size).saturating_add(statement_len);
+		let projected_count = self.entries.len() + 1 - evicted.len();
+		if projected_size > self.options.max_total_size ||
+			projected_count > self.options.max_total_statements
 		{
 			log::debug!(
 				target: LOG_TARGET,
-				"Ignored statement {} because the store is full (size={}, count={})",
+				"Ignored statement {} because the store is full even after eviction (size={}, count={})",
 				HexDisplay::from(&hash),
 				self.total_size,
 				self.entries.len(),
@@ -585,45 +659,83 @@ impl Store {
 	fn populate(&self) -> Result<()> {
 		{
 			let mut index = self.index.write();
+			// 1) Load active statements and per-account indexes.
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					let statement = item.value;
 					if let Ok(statement) = Statement::decode(&mut statement.as_slice()) {
 						let hash = statement.hash();
-						log::trace!(
-							target: LOG_TARGET,
-							"Statement loaded {:?}",
-							HexDisplay::from(&hash)
-						);
+						log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
 						if let Some(account_id) = statement.account_id() {
 							index.insert_new(hash, account_id, &statement);
 						} else {
-							log::debug!(
-								target: LOG_TARGET,
-								"Error decoding statement loaded from the DB: {:?}",
-								HexDisplay::from(&hash)
-							);
+							log::debug!(target: LOG_TARGET, "Error decoding statement loaded from the DB: {:?}", HexDisplay::from(&hash));
 						}
 					}
 					true
 				})
-				.map_err(|e| Error::Db(e.to_string()))?;
+			.map_err(|e| Error::Db(e.to_string()))?;
+			// 2) Load expired set
 			self.db
 				.iter_column_while(col::EXPIRED, |item| {
 					let expired_info = item.value;
 					if let Ok((hash, timestamp)) =
 						<(Hash, u64)>::decode(&mut expired_info.as_slice())
 					{
-						log::trace!(
-							target: LOG_TARGET,
-							"Statement loaded (expired): {:?}",
-							HexDisplay::from(&hash)
-						);
+						log::trace!(target: LOG_TARGET, "Statement loaded (expired): {:?}", HexDisplay::from(&hash));
 						index.insert_expired(hash, timestamp);
 					}
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
+			// 3) Rebuild global priority maps.
+			// Read next_global_priority if present.
+			if let Some(val) = self
+				.db
+				.get(col::META, KEY_NEXT_GLOBAL_PRIO)
+				.map_err(|e| Error::Db(e.to_string()))?
+			{
+				index.next_global_priority = u64::decode(&mut val.as_slice()).unwrap_or(0);
+			}
+			// For each active statement, attach a gp from META if present, otherwise assign now.
+			let mut commit: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
+			// Build a sorted list of (maybe gp, hash, size) so that if we must assign, we do it
+			// deterministically. Here we just iterate in DB order; gp assignment is only needed
+			// once during upgrade.
+			for (hash, (_acct, _prio, size)) in index.entries.clone().into_iter() {
+				let mut meta_key = Vec::with_capacity(META_GP_PREFIX.len() + 32);
+				meta_key.extend_from_slice(META_GP_PREFIX);
+				meta_key.extend_from_slice(hash.as_ref());
+				match self.db.get(col::META, &meta_key).map_err(|e| Error::Db(e.to_string()))? {
+					Some(v) => {
+						if let Ok(gp) = u64::decode(&mut v.as_slice()) {
+							index.global_by_order.insert(gp, (hash, size));
+							index.global_of.insert(hash, gp);
+							if gp >= index.next_global_priority {
+								index.next_global_priority = gp.saturating_add(1);
+							}
+						} else {
+							// malformed; assign anew
+							let gp = index.attach_global_priority(hash, size);
+							commit.push((col::META, meta_key, Some(gp.encode())));
+						}
+					},
+					None => {
+						// First run after upgrade: assign gp now and persist.
+						let gp = index.attach_global_priority(hash, size);
+						commit.push((col::META, meta_key, Some(gp.encode())));
+					},
+				}
+			}
+			// Ensure KEY_NEXT_GLOBAL_PRIO is present/updated.
+			commit.push((
+				col::META,
+				KEY_NEXT_GLOBAL_PRIO.to_vec(),
+				Some(index.next_global_priority.encode()),
+			));
+			if !commit.is_empty() {
+				self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
+			}
 		}
 
 		self.maintain();
@@ -922,9 +1034,29 @@ impl StatementStore for Store {
 				};
 
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
+			let meta_key_new = {
+				let mut k = Vec::with_capacity(META_GP_PREFIX.len() + 32);
+				k.extend_from_slice(META_GP_PREFIX);
+				k.extend_from_slice(hash.as_ref());
+				k
+			};
+			commit.push((col::META, meta_key_new, Some(gp.encode())));
+			commit.push((
+				col::META,
+				KEY_NEXT_GLOBAL_PRIO.to_vec(),
+				Some(index.next_global_priority.encode()),
+			));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
 				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				// remove gp/<hash>
+				let meta_key = {
+					let mut k = Vec::with_capacity(META_GP_PREFIX.len() + 32);
+					k.extend_from_slice(META_GP_PREFIX);
+					k.extend_from_slice(hash.as_ref());
+					k
+				};
+				commit.push((col::META, meta_key, None));
 			}
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
@@ -948,9 +1080,16 @@ impl StatementStore for Store {
 		{
 			let mut index = self.index.write();
 			if index.make_expired(hash, current_time) {
+				let meta_key = {
+					let mut k = Vec::with_capacity(META_GP_PREFIX.len() + 32);
+					k.extend_from_slice(META_GP_PREFIX);
+					k.extend_from_slice(hash.as_ref());
+					k
+				};
 				let commit = [
 					(col::STATEMENTS, hash.to_vec(), None),
 					(col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())),
+					(col::META, meta_key, None),
 				];
 				if let Err(e) = self.db.commit(commit) {
 					log::debug!(
