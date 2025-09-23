@@ -3113,7 +3113,7 @@ impl<T: Config> Pallet<T> {
 		xcm: VersionedXcm<RuntimeCall>,
 	) -> Result<XcmDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
-		Runtime: frame_system::Config,
+		Runtime: Config<RuntimeCall = RuntimeCall>,
 		Router: InspectMessageQueues,
 		XcmConfig: xcm_executor::Config<RuntimeCall = RuntimeCall>,
 	{
@@ -3138,7 +3138,7 @@ impl<T: Config> Pallet<T> {
 		Router::clear_messages();
 		frame_system::Pallet::<Runtime>::reset_events();
 
-		let result = xcm_executor::XcmExecutor::<XcmConfig>::prepare_and_execute(
+		let result = <Runtime as Config>::XcmExecutor::prepare_and_execute(
 			origin_location,
 			xcm,
 			&mut hash,
