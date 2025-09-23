@@ -42,7 +42,7 @@ async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error>
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 5).await?;
 
-	assign_cores(&relay_node, PARA_ID, vec![2, 3]).await?;
+	assign_cores(relay_node, PARA_ID, vec![2, 3]).await?;
 
 	assert_para_throughput(
 		&relay_client,
@@ -52,7 +52,7 @@ async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error>
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 20).await?;
 
-	assign_cores(&relay_node, PARA_ID, vec![4, 5, 6]).await?;
+	assign_cores(relay_node, PARA_ID, vec![4, 5, 6]).await?;
 
 	assert_para_throughput(
 		&relay_client,

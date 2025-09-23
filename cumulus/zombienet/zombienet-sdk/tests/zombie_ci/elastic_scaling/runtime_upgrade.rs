@@ -44,7 +44,7 @@ async fn elastic_scaling_runtime_upgrade(#[case] async_backing: bool) -> Result<
 	let alice = network.get_node("validator0")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
-	assign_cores(&alice, PARA_ID, vec![0]).await?;
+	assign_cores(alice, PARA_ID, vec![0]).await?;
 
 	if async_backing {
 		log::info!("Ensuring parachain makes progress making 6s blocks");
@@ -64,7 +64,7 @@ async fn elastic_scaling_runtime_upgrade(#[case] async_backing: bool) -> Result<
 		.await?;
 	}
 
-	assign_cores(&alice, PARA_ID, vec![1, 2]).await?;
+	assign_cores(alice, PARA_ID, vec![1, 2]).await?;
 	let timeout_secs: u64 = 250;
 	let collator0 = network.get_node("collator0")?;
 	let collator0_client: OnlineClient<PolkadotConfig> = collator0.wait_client().await?;
@@ -78,7 +78,7 @@ async fn elastic_scaling_runtime_upgrade(#[case] async_backing: bool) -> Result<
 
 	runtime_upgrade(&network, collator0, PARA_ID, wasm).await?;
 
-	let collator1 = network.get_node("collator0")?;
+	let collator1 = network.get_node("collator1")?;
 	let collator1_client: OnlineClient<PolkadotConfig> = collator1.wait_client().await?;
 	let expected_spec_version = current_spec_version + 1;
 

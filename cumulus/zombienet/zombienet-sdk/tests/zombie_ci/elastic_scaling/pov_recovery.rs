@@ -40,7 +40,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	log::info!("Checking if collator-elastic is up");
 	assert!(collator_elastic.wait_until_is_up(60u64).await.is_ok());
 
-	assign_cores(&alice, PARA_ID, vec![0, 1]).await?;
+	assign_cores(alice, PARA_ID, vec![0, 1]).await?;
 
 	log::info!("Waiting 20 blocks to register parachain");
 	// Wait 20 blocks and register parachain. This part is important for pov-recovery.

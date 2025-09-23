@@ -37,7 +37,7 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	log::info!("Checking if collator-single-core is up");
 	assert!(collator_single_core.wait_until_is_up(60u64).await.is_ok());
 
-	assign_cores(&alice, PARA_ID_1, vec![0, 1]).await?;
+	assign_cores(alice, PARA_ID_1, vec![0, 1]).await?;
 
 	for (node, block_cnt) in [(collator_single_core, 20.0), (collator_elastic, 40.0)] {
 		log::info!("Checking block production for {}", node.name());
