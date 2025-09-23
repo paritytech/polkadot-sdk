@@ -1741,6 +1741,12 @@ impl pallet_root_testing::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 }
 
+impl pallet_root_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = StakingAhClient;
+	type ReportOffence = Offences;
+}
+
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -2016,6 +2022,10 @@ mod runtime {
 
 	#[runtime::pallet_index(104)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
+
+	// Root offences pallet
+	#[runtime::pallet_index(105)]
+	pub type RootOffences = pallet_root_offences;
 
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
