@@ -385,7 +385,6 @@ where
 				.into_iter()
 				.coalesce(|mut a, mut b| {
 					if a.contract != b.contract {
-						log::info!("meter.rs");
 						return Err((a, b));
 					}
 					if matches!(a.amount, Deposit::Charge(_)) &&
@@ -395,13 +394,11 @@ where
 					{
 						if a.amount >= b.amount {
 							a.amount = a.amount.saturating_add(&b.amount);
-							log::info!(
-								"meter.rs coalesce: Charge(a) a >= b, a.amount: {:?}",
-								a.amount
-							);
+							log::info!("meter.rs coalesce: a >= b, a.amount: {:?}", a.amount);
 							return Ok(a);
 						} else {
 							b.amount = b.amount.saturating_add(&a.amount);
+							log::info!("meter.rs coalesce: a < b, b.amount: {:?}", b.amount);
 							return Ok(b);
 						}
 					}
