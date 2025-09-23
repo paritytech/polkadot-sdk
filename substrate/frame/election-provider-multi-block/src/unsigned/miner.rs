@@ -1023,7 +1023,6 @@ mod trimming {
 			);
 
 			assert_eq!(solution.solution_pages.encoded_size(), 105);
-
 			load_mock_signed_and_start(solution);
 			let supports = roll_to_full_verification();
 

@@ -361,10 +361,9 @@ impl<T: crate::Config> Phase<T> {
 			// Done. Wait for export to start.
 			Self::Done => Self::Done,
 
-			// Export
-			Self::Export(0) => Self::Off,
-			Self::Export(non_zero_left) =>
-				Self::Export(non_zero_left.defensive_saturating_sub(One::one())),
+			// Export never moves forward via this function, and is always manually set in `elect`
+			// code path.
+			Self::Export(x) => Self::Export(x),
 		}
 	}
 

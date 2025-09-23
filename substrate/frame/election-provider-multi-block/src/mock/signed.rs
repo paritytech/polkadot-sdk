@@ -71,6 +71,7 @@ parameter_types! {
 	pub static InvulnerableDeposit: Balance = 7;
 	pub static SignedMaxSubmissions: u32 = 3;
 	pub static SignedRewardBase: Balance = 3;
+	// TODO: fully remove; now all pallets get on-init-ed at the master pallet.
 	pub static SignedPhaseSwitch: SignedSwitch = SignedSwitch::Real;
 	pub static BailoutGraceRatio: Perbill = Perbill::from_percent(20);
 	pub static EjectGraceRatio: Perbill = Perbill::from_percent(20);

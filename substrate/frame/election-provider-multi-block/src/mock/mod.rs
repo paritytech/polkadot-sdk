@@ -229,6 +229,7 @@ impl crate::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type Pages = Pages;
 	type AreWeDone = AreWeDone;
+	type Signed = Runtime;
 	type OnRoundRotation = CleanRound<Self>;
 }
 

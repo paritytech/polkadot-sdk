@@ -195,6 +195,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::verifier::AsynchronousVerifier;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -203,6 +204,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, EnsureOrigin},
+	weights::WeightMeter,
 	DebugNoBound, Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
@@ -581,6 +583,9 @@ pub mod pallet {
 				AccountId = Self::AccountId,
 			> + verifier::AsynchronousVerifier;
 
+		/// Interface signed pallet's interface.
+		type Signed: crate::signed::Config;
+
 		/// The origin that can perform administration operations on this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -659,51 +664,29 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			let current_phase = CurrentPhase::<T>::get();
-			let weight1 = match current_phase {
-				Phase::Snapshot(x) if x == T::Pages::get() => {
-					// create the target snapshot
-					Self::create_targets_snapshot();
-					T::WeightInfo::on_initialize_into_snapshot_msp()
-				},
-				Phase::Snapshot(x) => {
-					// create voter snapshot
-					Self::create_voters_snapshot_paged(x);
-					T::WeightInfo::on_initialize_into_snapshot_rest()
-				},
-				_ => T::WeightInfo::on_initialize_nothing(),
-			};
+			let current_phase = Self::current_phase();
+			let next_phase = current_phase.next();
+			let (worst_case_weight, exec) = Self::meta_per_block(current_phase.clone());
 
-			// Only transition if not in Export phase
-			if !matches!(current_phase, Phase::Export(_)) {
-				let next_phase = current_phase.next();
+			// TODO: check weight
+			let adjusted_weight = exec();
+			Self::phase_transition(next_phase);
 
-				let weight2 = match next_phase {
-					Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
-					Phase::SignedValidation(_) =>
-						T::WeightInfo::on_initialize_into_signed_validation(),
-					Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
-					_ => T::WeightInfo::on_initialize_nothing(),
-				};
-
-				Self::phase_transition(next_phase);
-
-				// bit messy, but for now this works best.
-				#[cfg(test)]
-				{
-					let test_election_start: BlockNumberFor<T> =
-						(crate::mock::ElectionStart::get() as u32).into();
-					if _now == test_election_start {
-						crate::log!(info, "TESTING: Starting election at block {}", _now);
-						crate::mock::MultiBlock::start().unwrap();
-					}
+			// NOTE: why in here? bc it is more accessible, for example `roll_to_with_ocw`.
+			#[cfg(test)]
+			{
+				if _now > 200u32.into() {
+					panic!("looping to death");
 				}
-
-				weight1 + weight2
-			} else {
-				// If in Export phase, do nothing.
-				weight1
+				let test_election_start: BlockNumberFor<T> =
+					(crate::mock::ElectionStart::get() as u32).into();
+				if _now == test_election_start {
+					crate::log!(info, "TESTING: Starting election at block {}", _now);
+					crate::mock::MultiBlock::start().unwrap();
+				}
 			}
+
+			adjusted_weight.unwrap_or(worst_case_weight)
 		}
 
 		fn integrity_test() {
@@ -1066,8 +1049,9 @@ pub mod pallet {
 				Phase::Off => Self::ensure_snapshot(false, T::Pages::get()),
 
 				// we will star the snapshot in the next phase.
-				Phase::Snapshot(p) if p == T::Pages::get() =>
-					Self::ensure_snapshot(false, T::Pages::get()),
+				// TODO:
+				// Phase::Snapshot(p) if p == T::Pages::get() =>
+				// 	Self::ensure_snapshot(false, T::Pages::get()),
 				// we are mid voter snapshot.
 				Phase::Snapshot(p) if p < T::Pages::get() && p > 0 =>
 					Self::ensure_snapshot(true, T::Pages::get() - p - 1),
@@ -1195,6 +1179,67 @@ impl<T: Config> Pallet<T> {
 	/// Based on the contract of `ElectionDataProvider`, this is the last page that is filled.
 	fn lsp() -> PageIndex {
 		Zero::zero()
+	}
+
+	// before doing anything, check what is our current phase, what is the next phase, and
+	// return a closure of what ought to happen. Later on, `execute_fn` can return an
+	// adjusted weight as well.
+	fn meta_per_block(current_phase: Phase<T>) -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+		type ExecuteFn = Box<dyn Fn() -> Option<Weight>>;
+		let noop: (Weight, ExecuteFn) = (Weight::default(), Box::new(|| None));
+
+		match current_phase {
+			Phase::Snapshot(x) if x == T::Pages::get() => {
+				// first snapshot
+				let exec: ExecuteFn = Box::new(|| {
+					Self::create_targets_snapshot();
+					None
+				});
+				(T::WeightInfo::on_initialize_into_snapshot_msp(), exec)
+			},
+
+			Phase::Snapshot(x) => {
+				// rest of the snapshot, incl last one.
+				let exec: ExecuteFn = Box::new(move || {
+					Self::create_voters_snapshot_paged(x);
+					None
+				});
+				(T::WeightInfo::on_initialize_into_snapshot_rest(), exec)
+			},
+			Phase::Signed(x) => {
+				if x.is_zero() {
+					// Signed pallet should prep the best winner, and send the start signal, if some
+					// exists.
+					let maybe_leader =
+						crate::signed::Submissions::<T::Signed>::leader(Self::round());
+					log!(
+						debug,
+						"signed validation is starting, sending validation start signal? {:?}",
+						maybe_leader.is_some()
+					);
+
+					if maybe_leader.is_some() {
+						let exec: ExecuteFn = Box::new(|| {
+							// defensive: signed phase has just began, verifier should be in a
+							// clear state and ready to accept a solution. Moreover, if we have
+							// a leader, their score should be present, and pass the
+							// `ensure_score_quality` (TODO: we actually don't check the minimum
+							// score in signed.).
+							let _ = T::Verifier::start().defensive();
+							None
+						});
+						(T::WeightInfo::on_initialize_into_signed_validation(), exec)
+					} else {
+						noop
+					}
+				} else {
+					noop
+				}
+			},
+			Phase::SignedValidation(_) => T::Verifier::on_init_execute_fn(),
+			Phase::Unsigned(_) | Phase::Off | Phase::Emergency | Phase::Done | Phase::Export(_) =>
+				noop,
+		}
 	}
 
 	/// Return the `length` most significant pages.
@@ -1490,6 +1535,7 @@ where
 			verifier::Pallet::<T>::on_initialize(i);
 			unsigned::Pallet::<T>::on_initialize(i);
 
+			// TODO: remove as not sensible anymore.
 			if with_signed {
 				signed::Pallet::<T>::on_initialize(i);
 			}
@@ -2325,21 +2371,21 @@ mod election_provider {
 
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
-			assert_eq!(<Runtime as crate::Config>::Verifier::status(), verifier::Status::Nothing);
+			assert_eq!(
+				<Runtime as crate::Config>::Verifier::status(),
+				verifier::Status::Ongoing(2)
+			);
 
 			// next block, signed will start the verifier, although nothing is verified yet.
 			roll_next();
 			assert_eq!(
 				<Runtime as crate::Config>::Verifier::status(),
-				verifier::Status::Ongoing(2)
+				verifier::Status::Ongoing(1)
 			);
-			assert_eq!(verifier_events(), vec![]);
-
-			// proceed until it is fully verified.
-			roll_next();
 			assert_eq!(verifier_events(), vec![verifier::Event::Verified(2, 2)]);
 
 			roll_next();
+
 			assert_eq!(
 				verifier_events(),
 				vec![verifier::Event::Verified(2, 2), verifier::Event::Verified(1, 2)]

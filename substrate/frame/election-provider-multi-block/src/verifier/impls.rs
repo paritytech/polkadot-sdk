@@ -612,10 +612,6 @@ pub(crate) mod pallet {
 			assert!(T::MaxBackersPerWinner::get() <= T::MaxBackersPerWinnerFinal::get());
 		}
 
-		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			Self::do_on_initialize()
-		}
-
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state(_now)
@@ -624,75 +620,97 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	fn do_on_initialize() -> Weight {
+	fn do_on_init_execute_fn() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
-			let page_solution =
-				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
+			let worst_case_weight = VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
+				.max(VerifierWeightsOf::<T>::on_initialize_valid_terminal())
+				.max(VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(T::Pages::get()))
+				.max(VerifierWeightsOf::<T>::on_initialize_invalid_terminal());
+			let execute = Box::new(move || {
+				{
+					let page_solution =
+						<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
+					let maybe_supports =
+						Self::feasibility_check_page_inner(page_solution, current_page);
 
-			let maybe_supports = Self::feasibility_check_page_inner(page_solution, current_page);
+					sublog!(
+						debug,
+						"verifier",
+						"verified page {} of a solution, outcome = {:?}",
+						current_page,
+						maybe_supports.as_ref().map(|s| s.len())
+					);
+					let actual_weight = match maybe_supports {
+						Ok(supports) => {
+							Self::deposit_event(Event::<T>::Verified(
+								current_page,
+								supports.len() as u32,
+							));
+							QueuedSolution::<T>::set_invalid_page(current_page, supports);
 
-			sublog!(
-				debug,
-				"verifier",
-				"verified page {} of a solution, outcome = {:?}",
-				current_page,
-				maybe_supports.as_ref().map(|s| s.len())
-			);
+							if current_page > crate::Pallet::<T>::lsp() {
+								// not last page, just tick forward.
+								StatusStorage::<T>::put(Status::Ongoing(
+									current_page.saturating_sub(1),
+								));
+								VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
+							} else {
+								// last page, finalize everything. Get the claimed score.
+								let claimed_score = T::SolutionDataProvider::get_score();
 
-			match maybe_supports {
-				Ok(supports) => {
-					Self::deposit_event(Event::<T>::Verified(current_page, supports.len() as u32));
-					QueuedSolution::<T>::set_invalid_page(current_page, supports);
+								// in both cases of the following match, we are back to the nothing
+								// state.
+								StatusStorage::<T>::put(Status::Nothing);
 
-					if current_page > crate::Pallet::<T>::lsp() {
-						// not last page, just tick forward.
-						StatusStorage::<T>::put(Status::Ongoing(current_page.saturating_sub(1)));
-						VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
-					} else {
-						// last page, finalize everything. Get the claimed score.
-						let claimed_score = T::SolutionDataProvider::get_score();
+								match Self::finalize_async_verification(claimed_score) {
+									Ok(_) => {
+										T::SolutionDataProvider::report_result(
+											VerificationResult::Queued,
+										);
+										VerifierWeightsOf::<T>::on_initialize_valid_terminal()
+									},
+									Err(_) => {
+										T::SolutionDataProvider::report_result(
+											VerificationResult::Rejected,
+										);
+										// In case of any of the errors, kill the solution.
+										QueuedSolution::<T>::clear_invalid_and_backings();
+										VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
+									},
+								}
+							}
+						},
+						Err(err) => {
+							// the page solution was invalid.
+							Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
 
-						// in both cases of the following match, we are back to the nothing state.
-						StatusStorage::<T>::put(Status::Nothing);
+							sublog!(warn, "verifier", "Clearing any ongoing unverified solution.");
+							// Clear any ongoing solution that has not been verified, regardless of
+							// the current state.
+							QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
 
-						match Self::finalize_async_verification(claimed_score) {
-							Ok(_) => {
-								T::SolutionDataProvider::report_result(VerificationResult::Queued);
-								VerifierWeightsOf::<T>::on_initialize_valid_terminal()
-							},
-							Err(_) => {
+							// we also mutate the status back to doing nothing.
+							let was_ongoing =
+								matches!(StatusStorage::<T>::get(), Status::Ongoing(_));
+							StatusStorage::<T>::put(Status::Nothing);
+
+							if was_ongoing {
 								T::SolutionDataProvider::report_result(
 									VerificationResult::Rejected,
 								);
-								// In case of any of the errors, kill the solution.
-								QueuedSolution::<T>::clear_invalid_and_backings();
-								VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
-							},
-						}
-					}
-				},
-				Err(err) => {
-					// the page solution was invalid.
-					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
+							}
+							let wasted_pages = T::Pages::get().saturating_sub(current_page);
+							VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
+						},
+					};
 
-					sublog!(warn, "verifier", "Clearing any ongoing unverified solutions.");
-					// Clear any ongoing solution that has not been verified, regardless of the
-					// current state.
-					QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
+					Some(actual_weight)
+				}
+			});
 
-					// we also mutate the status back to doing nothing.
-					let was_ongoing = matches!(StatusStorage::<T>::get(), Status::Ongoing(_));
-					StatusStorage::<T>::put(Status::Nothing);
-
-					if was_ongoing {
-						T::SolutionDataProvider::report_result(VerificationResult::Rejected);
-					}
-					let wasted_pages = T::Pages::get().saturating_sub(current_page);
-					VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
-				},
-			}
+			(worst_case_weight, execute)
 		} else {
-			T::DbWeight::get().reads(1)
+			(T::DbWeight::get().reads(1), Box::new(|| None))
 		}
 	}
 
@@ -989,6 +1007,10 @@ impl<T: Config> Verifier for Pallet<T> {
 	) {
 		Self::deposit_event(Event::<T>::Queued(score, QueuedSolution::<T>::queued_score()));
 		QueuedSolution::<T>::force_set_single_page_valid(page, partial_supports, score);
+	}
+
+	fn on_init_execute_fn() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+		Self::do_on_init_execute_fn()
 	}
 }
 

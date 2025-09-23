@@ -81,6 +81,7 @@ use impls::SupportsOfVerifier;
 pub use impls::{feasibility_check_page_inner_with_snapshot, pallet::*, Status};
 use sp_core::Get;
 use sp_npos_elections::ElectionScore;
+use sp_runtime::Weight;
 use sp_std::{fmt::Debug, prelude::*};
 
 /// Errors that can happen in the feasibility check.
@@ -213,6 +214,9 @@ pub trait Verifier {
 		page: PageIndex,
 		score: ElectionScore,
 	);
+
+	/// What this pallet has to be doing on-init.
+	fn on_init_execute_fn() -> (Weight, Box<dyn Fn() -> Option<Weight>>);
 }
 
 /// Simple enum to encapsulate the result of the verification of a candidate solution.
