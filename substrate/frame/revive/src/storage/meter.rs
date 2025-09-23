@@ -366,22 +366,57 @@ where
 		origin: &Origin<T>,
 		skip_transfer: bool,
 	) -> Result<DepositOf<T>, DispatchError> {
+		use itertools::Itertools;
 		if !skip_transfer {
 			// Only refund or charge deposit if the origin is not root.
 			let origin = match origin {
 				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
 				Origin::Signed(o) => o,
 			};
+			let mut sorted_charges = self.charges.clone();
+			sorted_charges.sort_by(|a, b| {
+				a.contract.cmp(&b.contract).then_with(|| {
+					// Refund first: Deposit::Charge => true, Deposit::Refund => false
+					matches!(a.amount, Deposit::Charge(_))
+						.cmp(&matches!(b.amount, Deposit::Charge(_)))
+				})
+			});
+			let coalesced: Vec<Charge<T>> = sorted_charges
+				.into_iter()
+				.coalesce(|mut a, mut b| {
+					if a.contract != b.contract {
+						log::info!("meter.rs");
+						return Err((a, b));
+					}
+					if matches!(a.amount, Deposit::Charge(_)) &&
+						matches!(b.amount, Deposit::Refund(_)) ||
+						matches!(a.amount, Deposit::Refund(_)) &&
+							matches!(b.amount, Deposit::Charge(_))
+					{
+						if a.amount >= b.amount {
+							a.amount = a.amount.saturating_add(&b.amount);
+							log::info!(
+								"meter.rs coalesce: Charge(a) a >= b, a.amount: {:?}",
+								a.amount
+							);
+							return Ok(a);
+						} else {
+							b.amount = b.amount.saturating_add(&a.amount);
+							return Ok(b);
+						}
+					}
+					return Err((a, b));
+				})
+				.collect();
+			log::info!("meter.rs coalesced: {:#?}", coalesced);
 			let try_charge = || {
 				// TODO: can we match refund and charges to optimize balance transfers?
 				// e.g. CHARGE(ALICE, BOB) and REFUND(BOB, CHARLIE) can be optimized so that the
 				// charge takes place before the refund?
-				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
-				{
+				for charge in coalesced.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
-				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
-				{
+				for charge in coalesced.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
 				Ok(())
