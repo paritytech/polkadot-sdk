@@ -77,8 +77,8 @@ const CURRENT_VERSION: u32 = 1;
 const LOG_TARGET: &str = "statement-store";
 
 const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
-const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 8192;
-const DEFAULT_MAX_TOTAL_SIZE: usize = 64 * 1024 * 1024;
+const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4_000_000;
+const DEFAULT_MAX_TOTAL_SIZE: usize = 10 * 1024 * 1024 * 1024;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
