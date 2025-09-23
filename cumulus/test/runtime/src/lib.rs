@@ -270,6 +270,8 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SingleBlockMigrations = SingleBlockMigrations;
+
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -457,14 +459,14 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	TestOnRuntimeUpgrade,
 >;
+
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
-pub struct TestOnRuntimeUpgrade;
+pub struct SingleBlockMigrations;
 
-impl OnRuntimeUpgrade for TestOnRuntimeUpgrade {
+impl OnRuntimeUpgrade for SingleBlockMigrations {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		assert_eq!(
 			sp_io::storage::get(test_pallet::TEST_RUNTIME_UPGRADE_KEY),
