@@ -23,8 +23,9 @@ use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	storage::child::ChildInfo,
-	traits::Get,
+	traits::{Get, ConstU32},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::Id as ParaId;
 
 pub use pallet::*;
@@ -94,6 +95,17 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Aggregated child trie roots for all publishers.
+	///
+	/// Contains (ParaId, child_trie_root) pairs for all parachains that have published data.
+	/// This is used in relay chain storage proofs to efficiently provide all publisher roots.
+	#[pallet::storage]
+	pub type PublishedDataRoots<T: Config> = StorageValue<
+		_,
+		BoundedVec<(ParaId, BoundedVec<u8, ConstU32<32>>), ConstU32<1000>>,
+		ValueQuery,
+	>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Too many items in a single publish operation
@@ -104,6 +116,18 @@ pub mod pallet {
 		ValueTooLong,
 		/// Child trie operation failed
 		ChildTrieError,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert_eq!(
+				&PublishedDataRoots::<T>::hashed_key(),
+				polkadot_primitives::well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS,
+				"`well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS` doesn't match key of `PublishedDataRoots`! \
+				Make sure that the name of the broadcaster pallet is `Broadcaster` in the runtime!",
+			);
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -167,11 +191,40 @@ pub mod pallet {
 			// Update the published keys storage
 			PublishedKeys::<T>::insert(origin_para_id, published_keys);
 
+			// Calculate and update the child trie root for this publisher
+			let child_root = frame_support::storage::child::root(&child_info,
+				sp_runtime::StateVersion::V1);
+
+			// Update the aggregated roots storage
+			let mut roots = PublishedDataRoots::<T>::get();
+
+			// Find and update existing entry or add new one
+			let mut found = false;
+			for (para_id, root_hash) in roots.iter_mut() {
+				if *para_id == origin_para_id {
+					if let Ok(bounded_root) = BoundedVec::try_from(child_root.clone()) {
+						*root_hash = bounded_root;
+					}
+					found = true;
+					break;
+				}
+			}
+
+			// If not found, add new entry
+			if !found {
+				if let Ok(bounded_root) = BoundedVec::try_from(child_root.clone()) {
+					let _ = roots.try_push((origin_para_id, bounded_root));
+				}
+			}
+
+			PublishedDataRoots::<T>::put(roots);
+
 			log::info!(
 				target: "broadcaster::publish",
-				"✅ Successfully published data for parachain {:?}, total keys: {}",
+				"✅ Successfully published data for parachain {:?}, total keys: {}, root: {:?}",
 				origin_para_id,
-				PublishedKeys::<T>::get(origin_para_id).len()
+				PublishedKeys::<T>::get(origin_para_id).len(),
+				child_root
 			);
 
 			Ok(())

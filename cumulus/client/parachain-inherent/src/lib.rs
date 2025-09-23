@@ -134,6 +134,9 @@ async fn collect_relay_storage_proof(
 		relevant_keys.push(relay_well_known_keys::NEXT_AUTHORITIES.to_vec());
 	}
 
+	// Include broadcaster published data roots
+	relevant_keys.push(relay_well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS.to_vec());
+
 	relay_chain_interface
 		.prove_read(relay_parent, &relevant_keys)
 		.await

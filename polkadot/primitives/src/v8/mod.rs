@@ -248,6 +248,13 @@ pub mod well_known_keys {
 	pub const AUTHORITIES: &[u8] =
 		&hex!["1cb6f36e027abb2091cfb5110ab5087f5e0621c4869aa60c02be9adcc98a0d1d"];
 
+	/// Published data roots from the broadcaster pallet.
+	///
+	/// The storage entry should be accessed as `Vec<(ParaId, Vec<u8>)>` encoded value
+	/// where Vec<u8> is the child trie root hash for each publisher.
+	pub const BROADCASTER_PUBLISHED_DATA_ROOTS: &[u8] =
+		&hex!["6aca18c1f7576767ccb238db4ccaedf239166324ac7ea24c870f96ab961f9654"];
+
 	/// The authorities for the next epoch.
 	///
 	/// The storage entry should be accessed as an `Vec<(AuthorityId, BabeAuthorityWeight)>` encoded

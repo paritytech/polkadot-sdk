@@ -128,13 +128,28 @@ fn handle_publish_respects_key_length_limit() {
 fn handle_publish_respects_value_length_limit() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(1000);
-		
+
 		// Create value longer than MaxValueLength=1000
 		let long_value = vec![b'v'; 1001];
 		let data = vec![(b"key".to_vec(), long_value)];
-		
+
 		let result = Broadcaster::handle_publish(para_id, data);
 		assert!(result.is_err());
 		assert!(!PublisherExists::<Test>::get(para_id));
+	});
+}
+
+#[test]
+fn get_storage_key() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let key = PublishedDataRoots::<Test>::hashed_key();
+		println!("PublishedDataRoots storage key (bytes): {:?}", key);
+
+		// Print as hex manually
+		print!("PublishedDataRoots storage key (hex): ");
+		for byte in &key {
+			print!("{:02x}", byte);
+		}
+		println!();
 	});
 }
