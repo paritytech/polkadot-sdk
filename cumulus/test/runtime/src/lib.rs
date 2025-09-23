@@ -123,13 +123,13 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(all(feature = "elastic-scaling-multi-block-slot",))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
-
 #[cfg(feature = "elastic-scaling-500ms")]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 
-#[cfg(any(feature = "elastic-scaling", feature = "relay-parent-offset",))]
+#[cfg(all(feature = "elastic-scaling-multi-block-slot", not(feature = "elastic-scaling-500ms")))]
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
+
+#[cfg(all(any(feature = "elastic-scaling", feature = "relay-parent-offset"), not(feature = "elastic-scaling-500ms"), not(feature = "elastic-scaling-multi-block-slot")))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
 #[cfg(not(any(
@@ -143,7 +143,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 #[cfg(feature = "async-backing")]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 
-#[cfg(feature = "sync-backing")]
+#[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
