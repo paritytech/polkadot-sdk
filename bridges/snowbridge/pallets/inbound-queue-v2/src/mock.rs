@@ -15,7 +15,7 @@ use snowbridge_inbound_queue_primitives::{
 };
 use sp_core::H160;
 use sp_runtime::{
-	traits::{IdentityLookup, MaybeConvert},
+	traits::{IdentityLookup, MaybeConvert, TryConvert},
 	BuildStorage,
 };
 use sp_std::{convert::From, default::Default, marker::PhantomData};

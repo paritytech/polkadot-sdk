@@ -49,7 +49,7 @@ use snowbridge_inbound_queue_primitives::{
 };
 use sp_core::H160;
 use sp_std::prelude::*;
-use xcm::{latest::SendError, prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *}};
+use xcm::latest::SendError;
 
 pub use pallet::*;
 

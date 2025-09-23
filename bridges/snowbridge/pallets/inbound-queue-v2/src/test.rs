@@ -409,7 +409,7 @@ fn inbound_tip_is_paid_out_to_relayer() {
 			Message {
 				nonce,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee,
@@ -454,7 +454,7 @@ fn relayer_fee_paid_out_when_no_tip_exists() {
 			Message {
 				nonce,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee,
@@ -500,7 +500,7 @@ fn tip_paid_out_when_no_relayer_fee() {
 			Message {
 				nonce,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee: 0,
