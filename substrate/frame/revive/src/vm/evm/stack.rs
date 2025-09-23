@@ -68,6 +68,7 @@ impl Stack {
 	}
 
 	/// Get a reference to the top stack item without removing it
+	#[cfg(test)]
 	pub fn top(&self) -> Option<&U256> {
 		self.0.last()
 	}

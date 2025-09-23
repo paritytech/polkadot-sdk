@@ -122,17 +122,10 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, input: Vec<u8>) -> E
 	let mut interpreter = Interpreter::new(ExtBytecode::new(bytecode), input, ext);
 	let table = instruction_table::<E>();
 
-	#[cfg(not(feature = "std"))]
 	let ControlFlow::Break(halt) = run_plain(&mut interpreter, &table);
-	#[cfg(feature = "std")]
-	let ControlFlow::Break(halt) = run_plain_with_tracing(&mut interpreter, &table);
-
 	interpreter.into_exec_result(halt)
 }
 
-/// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
-/// NB: copied directly from revm tag v82
-#[cfg(not(feature = "std"))]
 fn run_plain<'a, E: Ext>(
 	interpreter: &mut Interpreter<E>,
 	table: &InstructionTable<E>,
@@ -140,35 +133,6 @@ fn run_plain<'a, E: Ext>(
 	use revm::interpreter::interpreter_types::Jumps;
 	loop {
 		let opcode = interpreter.bytecode.opcode();
-		table[opcode as usize](interpreter)?;
-		interpreter.bytecode.relative_jump(1);
-	}
-}
-
-/// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
-/// NB: copied directly from revm tag v82
-#[cfg(feature = "std")]
-fn run_plain_with_tracing<'a, E: Ext>(
-	interpreter: &mut Interpreter<'a, E>,
-	table: &InstructionTable<E>,
-) -> ControlFlow<Halt, Infallible> {
-	use crate::{alloc::string::ToString, format};
-	use revm::{bytecode::OpCode, interpreter::interpreter_types::Jumps};
-	loop {
-		let opcode = interpreter.bytecode.opcode();
-		log::trace!(target: LOG_TARGET,
-			"[{pc}]: {opcode}, stacktop: {stacktop}, memory size: {memsize} {memory:?}",
-			pc = interpreter.bytecode.pc(),
-			opcode = OpCode::new(interpreter.bytecode.opcode())
-				.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
-			stacktop = interpreter.stack.top().map_or("None".to_string(), |x| format!("{:#x}", x)),
-			memsize = interpreter.memory.size(),
-			// printing at most the first 32 bytes of memory
-			memory = interpreter
-				.memory
-				.slice_len(0, core::cmp::min(32, interpreter.memory.size()))
-				.to_vec(),
-		);
 		interpreter.bytecode.relative_jump(1);
 		table[opcode as usize](interpreter)?;
 	}
