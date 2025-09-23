@@ -15492,6 +15492,8 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "sc-consensus-slots",
+ "schnellru",
  "sp-application-crypto",
  "sp-keystore",
  "thiserror 1.0.65",
