@@ -970,9 +970,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
-					Some(DiscoveryEvent::AddProviderSuccess { query_id }) => {
+					Some(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) => {
 						match self.pending_queries.remove(&query_id) {
 							Some(KadQuery::GetProviders(key, started)) => {
+								debug_assert_eq!(key, provided_key.into());
+
 								log::trace!(
 									target: LOG_TARGET,
 									"`ADD_PROVIDER` for {key:?} ({query_id:?}) succeeded",
@@ -990,11 +992,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								}
 							}
 							query => {
-								log::error!(
+								log::trace!(
 									target: LOG_TARGET,
-									"Missing/invalid pending query for `ADD_PROVIDER`: {query:?}"
+									"`ADD_PROVIDER` for key {provided_key:?} ({query_id:?}) succeeded (republishing)",
 								);
-								debug_assert!(false);
 							}
 						}
 					}
@@ -1086,9 +1087,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								}
 							},
 							None => {
-								log::warn!(
+								log::debug!(
 									target: LOG_TARGET,
-									"non-existent query failed ({query_id:?})",
+									"non-existent query (likely republishing a provider) failed ({query_id:?})",
 								);
 							}
 						}

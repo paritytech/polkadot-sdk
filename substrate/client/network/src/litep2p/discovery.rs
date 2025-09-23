@@ -188,6 +188,8 @@ pub enum DiscoveryEvent {
 	AddProviderSuccess {
 		/// Query ID.
 		query_id: QueryId,
+		/// Provided key.
+		provided_key: RecordKey,
 	},
 
 	/// Query failed.
@@ -710,7 +712,10 @@ impl Stream for Discovery {
 					"`ADD_PROVIDER` for {query_id:?} with {provided_key:?} succeeded",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::AddProviderSuccess { query_id }))
+				return Poll::Ready(Some(DiscoveryEvent::AddProviderSuccess {
+					query_id,
+					provided_key,
+				}))
 			},
 			// We do not validate incoming providers.
 			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
