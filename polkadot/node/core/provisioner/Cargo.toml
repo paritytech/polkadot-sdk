@@ -21,6 +21,8 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
+sc-consensus-slots = { workspace = true }
+schnellru = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
