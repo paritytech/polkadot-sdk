@@ -373,14 +373,17 @@ where
 				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
 				Origin::Signed(o) => o,
 			};
-			let mut sorted_charges = self.charges.clone();
-			sorted_charges.sort_by(|a, b| {
-				a.contract.cmp(&b.contract).then_with(|| {
-					// Refund first: Deposit::Charge => true, Deposit::Refund => false
-					matches!(a.amount, Deposit::Charge(_))
-						.cmp(&matches!(b.amount, Deposit::Charge(_)))
-				})
-			});
+			let sorted_charges = {
+				let mut sorted_charges = self.charges.clone();
+				sorted_charges.sort_by(|a, b| {
+					a.contract.cmp(&b.contract).then_with(|| {
+						// Refund first: Deposit::Charge => true, Deposit::Refund => false
+						matches!(a.amount, Deposit::Charge(_))
+							.cmp(&matches!(b.amount, Deposit::Charge(_)))
+					})
+				});
+				sorted_charges
+			};
 			let coalesced: Vec<Charge<T>> = sorted_charges
 				.into_iter()
 				.coalesce(|mut a, mut b| {
@@ -407,9 +410,6 @@ where
 				.collect();
 			log::info!("meter.rs coalesced: {:#?}", coalesced);
 			let try_charge = || {
-				// TODO: can we match refund and charges to optimize balance transfers?
-				// e.g. CHARGE(ALICE, BOB) and REFUND(BOB, CHARLIE) can be optimized so that the
-				// charge takes place before the refund?
 				for charge in coalesced.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
