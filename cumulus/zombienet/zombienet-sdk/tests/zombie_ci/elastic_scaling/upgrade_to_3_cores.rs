@@ -32,7 +32,7 @@ const WASM_WITH_ELASTIC_SCALING_12S_SLOT: &str =
 #[rstest]
 #[case(true)]
 #[case(false)]
-async fn elastic_scaling_runtime_upgrade(#[case] async_backing: bool) -> Result<(), anyhow::Error> {
+async fn elastic_scaling_upgrade_to_3_cores(#[case] async_backing: bool) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
