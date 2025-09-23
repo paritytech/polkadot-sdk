@@ -195,7 +195,8 @@ impl generic::Config for Test {
 	}
 
 	fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-		Ok(Xcm(vec![]))
+		// No barrier test
+		Err(BenchmarkError::Skip)
 	}
 }
 
