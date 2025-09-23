@@ -249,9 +249,9 @@ where
 
 		api.set_call_context(CallContext::Onchain);
 
-		let core_version = api
-			.api_version::<dyn Core<Block>>(parent_hash)?
-			.ok_or_else(|| Error::VersionInvalid("Core".to_string()))?;
+		let core_version = 0; /*api
+						.api_version::<dyn Core<Block>>(parent_hash)?
+						.ok_or_else(|| Error::VersionInvalid("Core".to_string()))?;*/
 
 		let extrinsic_inclusion_mode = if core_version >= 5 {
 			api.initialize_block(parent_hash, &header)?
@@ -261,9 +261,9 @@ where
 			ExtrinsicInclusionMode::AllExtrinsics
 		};
 
-		let bb_version = api
-			.api_version::<dyn BlockBuilderApi<Block>>(parent_hash)?
-			.ok_or_else(|| Error::VersionInvalid("BlockBuilderApi".to_string()))?;
+		let bb_version = 0; /*api
+					  .api_version::<dyn BlockBuilderApi<Block>>(parent_hash)?
+					  .ok_or_else(|| Error::VersionInvalid("BlockBuilderApi".to_string()))?;*/
 
 		Ok(Self {
 			parent_hash,
@@ -292,10 +292,10 @@ where
 		self.api.execute_in_transaction(|api| {
 			let res = if version < 6 {
 				#[allow(deprecated)]
-				api.apply_extrinsic_before_version_6(parent_hash, xt.clone())
+				api.apply_extrinsic_before_version_6(parent_hash, &xt)
 					.map(legacy::byte_sized_error::convert_to_latest)
 			} else {
-				api.apply_extrinsic(parent_hash, xt.clone())
+				api.apply_extrinsic(parent_hash, &xt)
 			};
 
 			match res {

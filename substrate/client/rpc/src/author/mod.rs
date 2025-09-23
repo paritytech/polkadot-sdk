@@ -123,7 +123,7 @@ where
 		runtime_api.register_extension(KeystoreExt::from(self.keystore.clone()));
 
 		runtime_api
-			.generate_session_keys(best_block_hash, None)
+			.generate_session_keys(best_block_hash, &None)
 			.map(Into::into)
 			.map_err(|api_err| Error::Client(Box::new(api_err)).into())
 	}

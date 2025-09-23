@@ -88,6 +88,19 @@ pub fn fold_fn_decl_for_client_side(
 ) {
 	replace_wild_card_parameter_names(input);
 
+	input.inputs.iter_mut().for_each(|arg| {
+		let FnArg::Typed(pattern) = arg else {
+			return;
+		};
+
+		let (_type, reference) = match *pattern.ty {
+			Type::Reference(ref reference) =>
+				(reference.elem.clone(), Some(reference.and_token.clone())),
+			_ => (pattern.ty.clone(), None),
+		};
+		pattern.ty = parse_quote!(impl #crate_::__private::EncodeLike<#_type>);
+	});
+
 	// Add `&self, at:& Block::Hash` as parameters to each function at the beginning.
 	input.inputs.insert(0, parse_quote!( __runtime_api_at_param__: #block_hash ));
 	input.inputs.insert(0, parse_quote!(&self));

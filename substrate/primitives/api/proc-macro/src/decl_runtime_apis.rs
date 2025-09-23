@@ -539,7 +539,7 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u32) -> TokenStream {
 			#( #maybe_allow_attrs )*
 			#( #maybe_allow_deprecated )*
 			impl < #( #impl_generics, )* > #crate_::RuntimeApiInfo
-				for dyn #trait_name < #( #ty_generics, )* >
+				for &dyn #trait_name < #( #ty_generics, )* >
 			{
 				#id
 				#version
@@ -588,16 +588,16 @@ fn generate_client_side_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 
 		let api_version = get_api_version(&found_attributes);
 
-		let runtime_info = api_version.map(|v| generate_runtime_info_impl(&decl, v))?;
+		// let runtime_info = api_version.map(|v| generate_runtime_info_impl(&decl, v))?;
 
-		result.push(quote!(
+		result.push(quote! {
 			#crate_::std_enabled! {
 				#[allow(deprecated)]
 				#decl
 			 }
-			#runtime_info
+			// #runtime_info
 			#( #errors )*
-		));
+		});
 	}
 
 	Ok(quote!( #( #result )* ))

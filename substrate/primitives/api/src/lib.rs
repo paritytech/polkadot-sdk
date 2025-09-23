@@ -93,7 +93,7 @@ pub mod __private {
 
 	pub use crate::*;
 	pub use alloc::vec;
-	pub use codec::{self, Decode, DecodeLimit, Encode};
+	pub use codec::{self, Decode, DecodeLimit, Encode, EncodeLike};
 	pub use core::{mem, slice};
 	pub use scale_info;
 	pub use sp_core::offchain;

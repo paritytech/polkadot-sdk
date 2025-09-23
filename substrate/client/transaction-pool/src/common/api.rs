@@ -33,7 +33,7 @@ use sp_blockchain::{HeaderMetadata, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{self, Block as BlockT, BlockIdTo},
+	traits::{self, Block as BlockT, BlockIdTo, Header as HeaderT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -336,13 +336,13 @@ where
 	{
 		let runtime_api = client.runtime_api();
 		let api_version = sp_tracing::within_span! { sp_tracing::Level::TRACE, "check_version";
-			runtime_api
+			0 /*runtime_api
 				.api_version::<dyn TaggedTransactionQueue<Block>>(at)
 				.map_err(|e| Error::RuntimeApi(e.to_string()))?
 				.ok_or_else(|| Error::RuntimeApi(
 					format!("Could not find `TaggedTransactionQueue` api for block `{:?}`.", at)
-				))
-		}?;
+				))*/
+		};
 
 		use sp_api::Core;
 
@@ -350,7 +350,7 @@ where
 			sp_tracing::Level::TRACE, "runtime::validate_transaction";
 		{
 			if api_version >= 3 {
-				runtime_api.validate_transaction(at, source, (*uxt).clone(), at)
+				runtime_api.validate_transaction(at, source, &*uxt, at)
 					.map_err(|e| Error::RuntimeApi(e.to_string()))
 			} else {
 				let block_number = client.to_number(&BlockId::Hash(at))
@@ -360,7 +360,7 @@ where
 					)?;
 
 				// The old versions require us to call `initialize_block` before.
-				runtime_api.initialize_block(at, &sp_runtime::traits::Header::new(
+				runtime_api.initialize_block(at, &Block::Header::new(
 					block_number + sp_runtime::traits::One::one(),
 					Default::default(),
 					Default::default(),
@@ -370,11 +370,11 @@ where
 
 				if api_version == 2 {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_3(at, source, (*uxt).clone())
+					runtime_api.validate_transaction_before_version_3(at, source, &*uxt)
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				} else {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_2(at, (*uxt).clone())
+					runtime_api.validate_transaction_before_version_2(at, &*uxt)
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				}
 			}

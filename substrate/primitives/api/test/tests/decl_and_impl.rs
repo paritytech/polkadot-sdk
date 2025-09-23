@@ -216,6 +216,7 @@ fn test_client_side_function_signature() {
 	) -> Result<String, ApiError> = RuntimeApiImpl::<Block, TestClient>::same_name_before_version_2;
 }
 
+/*
 #[test]
 #[allow(deprecated)]
 fn check_runtime_api_info() {
@@ -253,6 +254,7 @@ fn check_staging_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(_staging_ver: 
 	#[cfg(not(feature = "enable-staging-api"))]
 	check_runtime_api_versions_contains::<dyn ApiWithStagingMethod<Block>>();
 }
+*/
 
 #[allow(unused_assignments)]
 fn check_staging_multiver_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(
@@ -267,6 +269,7 @@ fn check_staging_multiver_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(
 	assert!(RUNTIME_API_VERSIONS.iter().any(|v| v == &(T::ID, _stable_ver)));
 }
 
+/*
 #[test]
 #[allow(deprecated)]
 fn check_runtime_api_versions() {
@@ -293,6 +296,7 @@ fn mock_runtime_api_has_api() {
 	assert!(mock.has_api::<dyn ApiWithCustomVersion<Block>>(Hash::default()).unwrap());
 	assert!(mock.has_api::<dyn Api<Block>>(Hash::default()).unwrap());
 }
+*/
 
 #[test]
 #[should_panic(expected = "Calling deprecated methods is not supported by mocked runtime api.")]

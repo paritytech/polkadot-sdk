@@ -145,23 +145,23 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 
 			fn version(
 				&self,
-				_: <#block_type as #crate_::BlockT>::Hash,
+				_: impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Hash>,
 			) -> std::result::Result<#crate_::RuntimeVersion, #crate_::ApiError> {
 				unimplemented!("`Core::version` not implemented for runtime api mocks")
 			}
 
 			fn execute_block(
 				&self,
-				_: <#block_type as #crate_::BlockT>::Hash,
-				_: #block_type,
+				_: impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Hash>,
+				_: impl #crate_::__private::EncodeLike<#block_type>,
 			) -> std::result::Result<(), #crate_::ApiError> {
 				unimplemented!("`Core::execute_block` not implemented for runtime api mocks")
 			}
 
 			fn initialize_block(
 				&self,
-				_: <#block_type as #crate_::BlockT>::Hash,
-				_: &<#block_type as #crate_::BlockT>::Header,
+				_: impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Hash>,
+				_: &impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Header>,
 			) -> std::result::Result<#crate_::__private::ExtrinsicInclusionMode, #crate_::ApiError> {
 				unimplemented!("`Core::initialize_block` not implemented for runtime api mocks")
 			}
@@ -265,7 +265,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 			let is_advanced = has_advanced_attribute(&mut input.attrs);
 			let mut errors = Vec::new();
 
-			let (mut param_names, mut param_types_and_borrows) =
+			let (mut param_names, mut param_types_and_borrows, orig_param_types) =
 				match extract_parameter_names_types_and_borrows(
 					&input.sig,
 					AllowSelfRefInParameters::YesButIgnore,
@@ -276,14 +276,23 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 							.map(|v| {
 								let ty = &v.1;
 								let borrow = &v.2;
-								(quote_spanned!(ty.span() => #borrow #ty ), v.2.is_some())
+								(
+									quote_spanned!(ty.span() => #borrow impl #crate_::__private::EncodeLike<#ty> ),
+									v.2.is_some(),
+								)
+							})
+							.collect::<Vec<_>>(),
+						res.iter()
+							.map(|v| {
+								let ty = &v.1;
+								quote_spanned!(ty.span() => #ty )
 							})
 							.collect::<Vec<_>>(),
 					),
 					Err(e) => {
 						errors.push(e.to_compile_error());
 
-						(Default::default(), Default::default())
+						(Default::default(), Default::default(), Default::default())
 					},
 				};
 
@@ -340,6 +349,10 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				{
 					// Get the error to the user (if we have one).
 					#( #errors )*
+
+					let ( #( #param_names, )* ) : ( #( #orig_param_types, )* ) =
+						#crate_::Decode::decode(&mut &#crate_::Encode::encode((#( #param_names, )*))[..])
+							.expect("Decoding the parameters should work.");
 
 					#construct_return_value
 				}
@@ -439,9 +452,17 @@ fn mock_impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStre
 		generate_runtime_api_impls(api_impls)?;
 	let api_traits = implement_common_api_traits(block_type, self_ty)?;
 
-	Ok(quote!(
+	let mock = quote!(
 		#impls
 
 		#api_traits
-	))
+	);
+
+	let mock = expander::Expander::new("mock_runtime_apis")
+		.dry(std::env::var("EXPAND_MACROS").is_err())
+		.verbose(true)
+		.write_to_out_dir(mock)
+		.expect("Does not fail because of IO in OUT_DIR; qed");
+
+	Ok(mock)
 }
