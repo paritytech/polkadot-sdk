@@ -284,7 +284,7 @@ impl IncrementalHashBuilder {
 			}
 		}
 
-		self.index += 1;
+		self.index = self.index.saturating_add(1);
 	}
 
 	/// Build the trie root hash.
@@ -406,11 +406,11 @@ impl AccumulateReceipt {
 		self.bloom.accrue_log(contract, topics);
 
 		// Determine the length of the log RLP encoding.
-		let mut topics_len = 0;
+		let mut topics_len: usize = 0;
 		for topic in topics {
 			// Topics are represented by 32 bytes. However, their encoding
 			// can produce different lengths depending on their value.
-			topics_len += rlp::Encodable::length(&topic.0);
+			topics_len = topics_len.saturating_add(rlp::Encodable::length(&topic.0));
 		}
 		// Account for the size of the list header.
 		let topics_list_header_length = topics_len + rlp::length_of_length(topics_len);

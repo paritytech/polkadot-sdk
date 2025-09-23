@@ -231,7 +231,6 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	gas!(context.interpreter, RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 });
 
-
 	let data = if len == 0 {
 		Bytes::new()
 	} else {
