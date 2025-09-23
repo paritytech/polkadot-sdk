@@ -95,7 +95,7 @@ pub trait InfoT<T: Config>: seal::Sealed {
 
 	/// The reciprocal of the next fee multiplier.
 	///
-	/// Needed when deviding a fee by the multiplier before presenting
+	/// Needed when dividing a fee by the multiplier before presenting
 	/// it to the eth wallet as gas. Needed because the wallet will multiply
 	/// it with the gas_price which includes this multiplicator.
 	fn next_fee_multiplier_reciprocal() -> FixedU128 {
@@ -104,10 +104,7 @@ pub trait InfoT<T: Config>: seal::Sealed {
 			.expect("The minimum multiplier is not 0. We check that in `integrity_test`; qed")
 	}
 
-	/// Calculate the fee of a transaction without adjusting it using the next fee multiplier.
-	///
-	/// This also devides the length fee and the base fee by the next fee multiplier
-	/// for presentation to the eth wallet.
+	/// Calculate the fee of a transaction divided by the next fee multiplier.
 	fn unadjusted_tx_fee(
 		_eth_transact_call: <T as Config>::RuntimeCall,
 		_dispatch_call: <T as Config>::RuntimeCall,
@@ -213,7 +210,7 @@ where
 		let uxt: <<E::Config as SysConfig>::Block as BlockT>::Extrinsic =
 			UncheckedExtrinsic::new_bare(eth_transact_call).into();
 
-		// We need to devide because the eth wallet will multiply with the gas price
+		// We need to divide because the eth wallet will multiply with the gas price
 		let fee = TxPallet::<E::Config>::compute_fee(
 			uxt.encoded_size() as u32,
 			&dispatch_info,
