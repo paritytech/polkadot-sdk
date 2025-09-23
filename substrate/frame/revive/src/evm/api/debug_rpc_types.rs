@@ -142,24 +142,36 @@ impl Default for PrestateTracerConfig {
 	}
 }
 
+fn zero_to_none<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let opt = Option::<u64>::deserialize(deserializer)?;
+	Ok(match opt {
+		Some(0) => None,
+		other => other,
+	})
+}
+
 /// The configuration for the opcode tracer.
 #[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
 #[serde(default, rename_all = "camelCase")]
 pub struct OpcodeTracerConfig {
-	/// Whether to enable memory capture (default: false)
+	/// Whether to enable memory capture
 	pub enable_memory: bool,
 
-	/// Whether to disable stack capture (default: false)
+	/// Whether to disable stack capture
 	pub disable_stack: bool,
 
-	/// Whether to disable storage capture (default: false)
+	/// Whether to disable storage capture
 	pub disable_storage: bool,
 
-	/// Whether to enable return data capture (default: false)
+	/// Whether to enable return data capture
 	pub enable_return_data: bool,
 
-	/// Limit number of steps captured (default: 0, no limit)
-	pub limit: u64,
+	/// Limit number of steps captured
+	#[serde(skip_serializing_if = "Option::is_none", deserialize_with = "zero_to_none")]
+	pub limit: Option<u64>,
 
 	/// Maximum number of memory words to capture per step (default: 16)
 	pub memory_word_limit: u32,
@@ -172,7 +184,7 @@ impl Default for OpcodeTracerConfig {
 			disable_stack: false,
 			disable_storage: false,
 			enable_return_data: false,
-			limit: 0,
+			limit: None,
 			memory_word_limit: 16,
 		}
 	}
@@ -204,7 +216,7 @@ fn test_tracer_config_serialization() {
 					disable_stack: false,
 					disable_storage: false,
 					enable_return_data: true,
-					limit: 0,
+					limit: None,
 					memory_word_limit: 16,
 				})),
 				timeout: None,

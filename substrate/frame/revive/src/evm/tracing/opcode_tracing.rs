@@ -129,7 +129,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		last_frame_output: &crate::ExecReturnValue,
 	) {
 		// Check step limit - if exceeded, don't record anything
-		if self.config.limit > 0 && self.step_count >= self.config.limit {
+		if self.config.limit.map(|l| self.step_count >= l).unwrap_or(false) {
 			return;
 		}
 

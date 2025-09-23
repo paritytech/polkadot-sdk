@@ -155,11 +155,9 @@ fn run<'a, E: Ext>(
 	table: &revm::interpreter::InstructionTable<EVMInterpreter<'a, E>, DummyHost>,
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
-
+	let use_opcode_tracing =
+		tracing::if_tracing(|tracer| tracer.is_opcode_tracing_enabled()).unwrap_or(false);
 	loop {
-		let use_opcode_tracing = tracing::if_tracing(|tracer| tracer.is_opcode_tracing_enabled())
-			.unwrap_or(false);
-
 		let action = if use_opcode_tracing {
 			run_with_opcode_tracing(interpreter, table, host)
 		} else {
@@ -214,7 +212,7 @@ fn run_with_opcode_tracing<'a, E: Ext>(
 		let context = InstructionContext { interpreter, host };
 		table[opcode as usize](context);
 		let gas_left = interpreter.extend.gas_meter().gas_left();
-		
+
 		tracing::if_tracing(|tracer| {
 			tracer.exit_opcode(gas_left);
 		});

@@ -187,7 +187,7 @@ fn opcode_tracing_works() {
 			disable_stack: false,
 			disable_storage: true,
 			enable_return_data: true,
-			limit: 5,
+			limit: Some(5),
 			memory_word_limit: 16,
 		};
 
