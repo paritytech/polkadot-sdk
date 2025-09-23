@@ -164,7 +164,8 @@ pub trait WeightInfo {
 	fn extcodecopy(n: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
 	fn v2_migration_step() -> Weight;
-	fn on_finalize(n: u32, p: u32, ) -> Weight;
+	fn on_finalize_per_transaction(n: u32, ) -> Weight;
+	fn on_finalize_per_transaction_data(d: u32, ) -> Weight;
 	fn on_finalize_per_event(e: u32, ) -> Weight;
 	fn on_finalize_per_event_data(d: u32, ) -> Weight;
 }
@@ -1338,21 +1339,30 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
 	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 200]`.
-	/// The range of component `p` is `[0, 1000]`.
-	fn on_finalize(n: u32, p: u32, ) -> Weight {
+	fn on_finalize_per_transaction(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3685 + n * (60 ±0) + p * (2 ±0)`
-		//  Estimated: `6815 + n * (62 ±0) + p * (2 ±0)`
+		//  Measured:  `3685 + n * (60 ±0)`
+		//  Estimated: `6815 + n * (62 ±0)`
 		// Minimum execution time: 27_174_000 picoseconds.
 		Weight::from_parts(63_904_853, 6815)
 			// Standard Error: 3_877
 			.saturating_add(Weight::from_parts(377_767, 0).saturating_mul(n.into()))
-			// Standard Error: 776
-			.saturating_add(Weight::from_parts(8_806, 0).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 62).saturating_mul(n.into()))
-			.saturating_add(Weight::from_parts(0, 2).saturating_mul(p.into()))
+	}
+	/// The range of component `d` is `[0, 1000]`.
+	fn on_finalize_per_transaction_data(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3685 + p * (2 ±0)`
+		//  Estimated: `6815 + p * (2 ±0)`
+		// Minimum execution time: 27_174_000 picoseconds.
+		Weight::from_parts(63_904_853, 6815)
+			// Standard Error: 776
+			.saturating_add(Weight::from_parts(8_806, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(Weight::from_parts(0, 2).saturating_mul(d.into()))
 	}
 	/// Storage: `System::Account` (r:1 w:0)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
@@ -2570,21 +2580,30 @@ impl WeightInfo for () {
 	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
 	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 200]`.
-	/// The range of component `p` is `[0, 1000]`.
-	fn on_finalize(n: u32, p: u32, ) -> Weight {
+	fn on_finalize_per_transaction(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3685 + n * (60 ±0) + p * (2 ±0)`
-		//  Estimated: `6815 + n * (62 ±0) + p * (2 ±0)`
+		//  Measured:  `3685 + n * (60 ±0)`
+		//  Estimated: `6815 + n * (62 ±0)`
 		// Minimum execution time: 27_174_000 picoseconds.
 		Weight::from_parts(63_904_853, 6815)
 			// Standard Error: 3_877
 			.saturating_add(Weight::from_parts(377_767, 0).saturating_mul(n.into()))
-			// Standard Error: 776
-			.saturating_add(Weight::from_parts(8_806, 0).saturating_mul(p.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 62).saturating_mul(n.into()))
-			.saturating_add(Weight::from_parts(0, 2).saturating_mul(p.into()))
+	}
+	/// The range of component `d` is `[0, 1000]`.
+	fn on_finalize_per_transaction_data(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3685 + d * (2 ±0)`
+		//  Estimated: `6815 + d * (2 ±0)`
+		// Minimum execution time: 27_174_000 picoseconds.
+		Weight::from_parts(63_904_853, 6815)
+			// Standard Error: 776
+			.saturating_add(Weight::from_parts(8_806, 0).saturating_mul(d.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(Weight::from_parts(0, 2).saturating_mul(d.into()))
 	}
 	/// Storage: `System::Account` (r:1 w:0)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
