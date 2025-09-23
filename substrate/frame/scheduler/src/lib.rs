@@ -432,7 +432,8 @@ pub mod pallet {
 		/// Execute the scheduled calls
 		fn on_initialize(_now: SystemBlockNumberFor<T>) -> Weight {
 			let now = T::BlockNumberProvider::current_block_number();
-			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
+			let mut weight_counter = frame_system::Pallet::<T>::remaining_block_weight()
+				.limit_to(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::MAX);
 			weight_counter.consumed()
 		}
