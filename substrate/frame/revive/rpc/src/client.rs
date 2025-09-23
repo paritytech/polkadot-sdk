@@ -53,6 +53,8 @@ use subxt::{
 	Config, OnlineClient,
 };
 use thiserror::Error;
+use subxt::tx::TxProgress;
+use subxt::PolkadotConfig;
 
 /// The substrate block type.
 pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
@@ -404,6 +406,13 @@ impl Client {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
 		let hash = ext.submit().await?;
 		Ok(hash)
+	}
+
+	pub async fn submit_and_watch (
+		&self,
+		call: subxt::tx::DefaultPayload<EthTransact>) -> Result<TxProgress<PolkadotConfig, OnlineClient<SrcChainConfig>>, ClientError> {
+		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
+		ext.submit_and_watch().await.map_err(ClientError::from)
 	}
 
 	/// Get an EVM transaction receipt by hash.
