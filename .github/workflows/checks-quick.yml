@@ -28,7 +28,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
       - name: Cargo fmt
         id: required
         run: cargo +nightly fmt --all -- --check
@@ -43,7 +43,7 @@ jobs:
     needs: isdraft
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
       - name: check dependency rules
         run: |
           cd substrate/
@@ -55,7 +55,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
       - name: fetch deps
         run: |
           # Pull all dependencies eagerly:
@@ -74,7 +74,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
       - name: run rust features
         run: bash .gitlab/rust-features.sh .
   check-toml-format:
@@ -84,7 +84,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
       - name: check toml format
         run: |
           taplo format --check --config .config/taplo.toml
@@ -94,7 +94,7 @@ jobs:
     needs: isdraft
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.0 (22. Sep 2023)
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: |
           sudo apt-get update && sudo apt-get install -y python3-pip python3
@@ -113,9 +113,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout sources
-        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
       - name: Setup Node.js
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
@@ -138,7 +138,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.0 (22. Sep 2023)
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: pip3 install "cargo-workspace>=1.2.4" toml
       - name: Install newer Zepter
@@ -192,7 +192,7 @@ jobs:
       options: --user root
     steps:
       - name: Fetch latest code
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Check
         run: |
           set +e
@@ -212,7 +212,7 @@ jobs:
     needs: isdraft
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install prerequisites
         run: |
@@ -226,7 +226,7 @@ jobs:
           echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+        uses: actions-rust-lang/setup-rust-toolchain@2fcdc490d667999e01ddbbf0f2823181beef6b39 # v1.15.0
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}

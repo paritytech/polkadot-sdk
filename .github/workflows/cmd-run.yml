@@ -73,7 +73,7 @@ jobs:
       - name: Comment PR (Start)
         # No need to comment on prdoc start or if --quiet
         if: ${{ github.event.inputs.is_quiet == 'false' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt')}}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -130,7 +130,7 @@ jobs:
       subweight: ${{ steps.subweight.outputs.result }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
@@ -282,14 +282,14 @@ jobs:
           private-key: ${{ secrets.CMD_BOT_APP_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           token: ${{ steps.generate_token.outputs.token }}
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: command-diff
           path: command-diff
@@ -337,7 +337,7 @@ jobs:
         # No need to comment on prdoc success or --quiet
         #TODO: return "&& !contains(github.event.comment.body, '--quiet')"
         if: ${{ github.event.inputs.is_quiet == 'false' && needs.cmd.result == 'success' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt') }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           SUBWEIGHT: "${{ needs.cmd.outputs.subweight }}"
           CMD_OUTPUT: "${{ needs.cmd.outputs.cmd_output }}"
@@ -378,7 +378,7 @@ jobs:
     steps:
       - name: Comment PR (Failure)
         if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -399,7 +399,7 @@ jobs:
 
       - name: Add 😕 reaction on failure
         if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -412,7 +412,7 @@ jobs:
 
       - name: Add 👍 reaction on success
         if: ${{ needs.cmd.result == 'success' && needs.after-cmd.result == 'success' && needs.before-cmd.result == 'success' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
