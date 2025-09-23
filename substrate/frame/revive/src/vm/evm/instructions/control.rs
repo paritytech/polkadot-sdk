@@ -62,7 +62,7 @@ fn jump_inner<E: Ext>(interpreter: &mut Interpreter<'_, E>, target: U256) -> Con
 		return ControlFlow::Break(Halt::InvalidJump);
 	}
 	// SAFETY: `is_valid_jump` ensures that `dest` is in bounds.
-	interpreter.bytecode.absolute_jump(target - 1); // pc will be increased by the interpreter loop
+	interpreter.bytecode.absolute_jump(target);
 	ControlFlow::Continue(())
 }
 

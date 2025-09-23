@@ -146,8 +146,8 @@ fn run_plain<'a, E: Ext>(
 	use revm::interpreter::interpreter_types::Jumps;
 	loop {
 		let opcode = interpreter.bytecode.opcode();
-		table[opcode as usize](interpreter)?;
 		interpreter.bytecode.relative_jump(1);
+		table[opcode as usize](interpreter)?;
 	}
 }
 
@@ -174,11 +174,13 @@ fn run_plain_with_tracing<'a, E: Ext>(
 		});
 
 		interpreter.bytecode.relative_jump(1);
-		table[opcode as usize](interpreter)?;
+		let res = table[opcode as usize](interpreter);
 
 		tracing::if_tracing(|tracer| {
 			let gas_left = interpreter.ext.gas_meter().gas_left();
 			tracer.exit_opcode(gas_left);
 		});
+
+		res?;
 	}
 }
