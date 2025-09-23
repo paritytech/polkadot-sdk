@@ -3115,7 +3115,6 @@ impl<T: Config> Pallet<T> {
 	where
 		Runtime: Config<RuntimeCall = RuntimeCall>,
 		Router: InspectMessageQueues,
-		XcmConfig: xcm_executor::Config<RuntimeCall = RuntimeCall>,
 	{
 		let origin_location: Location = origin_location.try_into().map_err(|error| {
 			tracing::error!(
