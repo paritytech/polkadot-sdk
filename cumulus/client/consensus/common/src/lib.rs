@@ -224,6 +224,10 @@ where
 
 		Ok(res)
 	}
+
+	fn name(&self) -> String {
+		format!("ParachainBlockImport -> {}", self.inner.name())
+	}
 }
 
 /// Marker trait denoting a block import type that fits the parachain requirements.

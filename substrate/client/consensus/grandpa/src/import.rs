@@ -528,6 +528,8 @@ where
 		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
+		log::info!("XXX got to grandpa block import");
+
 		let hash = block.post_hash();
 		let number = *block.header.number();
 
@@ -547,7 +549,9 @@ where
 			return self.import_state(block).await
 		}
 
-		if number <= self.inner.info().finalized_number {
+		if number <= self.inner.info().finalized_number ||
+			block.origin == BlockOrigin::ConsensusBroadcast
+		{
 			// Importing an old block. Just save justifications and authority set changes
 			if self.check_new_change(&block.header, hash).is_some() {
 				if block.justifications.is_none() {
@@ -569,7 +573,10 @@ where
 					},
 				);
 			}
-			return (&*self.inner).import_block(block).await
+			log::info!("XXX grandpa calling inner");
+			let result = (&*self.inner).import_block(block).await;
+			log::info!("XXX result from client: {:?}", result);
+			return result
 		}
 
 		// on initial sync we will restrict logging under info to avoid spam.
@@ -703,6 +710,10 @@ where
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await
+	}
+
+	fn name(&self) -> String {
+		format!("GrandpaBlockImport -> {}", self.inner.name())
 	}
 }
 

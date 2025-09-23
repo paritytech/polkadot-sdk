@@ -261,6 +261,7 @@ impl_runtime_apis! {
 			block: Block,
 			data: InherentData,
 		) -> CheckInherentsResult {
+			println!("XXX calling check_inherents from minimal runtime");
 			data.check_extrinsics(&block)
 		}
 	}

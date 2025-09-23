@@ -346,6 +346,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 	}
 
 	fn canonicalize_block(&mut self, hash: &BlockHash) -> Result<CommitSet<Key>, Error<D::Error>> {
+		log::info!("XXX canonicalizing block: {:?}", hash);
 		// NOTE: it is important that the change to `LAST_CANONICAL` (emit from
 		// `non_canonical.canonicalize`) and the insert of the new pruning journal (emit from
 		// `pruning.note_canonical`) are collected into the same `CommitSet` and are committed to
@@ -471,6 +472,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 							HaveBlock::Maybe => hint(),
 						},
 					);
+				log::info!("XXX looking for hash {hash:?}: {have_block:?}");
 				if have_block {
 					let refs = self.pinned.entry(hash.clone()).or_default();
 					if *refs == 0 {

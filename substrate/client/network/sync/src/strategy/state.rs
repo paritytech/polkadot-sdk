@@ -219,6 +219,7 @@ impl<B: BlockT> StateStrategy<B> {
 		match self.state_sync.import(response) {
 			ImportResult::Import(hash, header, state, body, justifications) => {
 				let origin = BlockOrigin::NetworkInitialSync;
+				let number = *header.number();
 				let block = IncomingBlock {
 					hash,
 					header: Some(header),
@@ -230,8 +231,10 @@ impl<B: BlockT> StateStrategy<B> {
 					import_existing: true,
 					skip_execution: true,
 					state: Some(state),
+					allow_missing_parent: false,
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
+				log::info!("XXX State sync import {number}");
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
 				Ok(())
 			},
@@ -300,6 +303,7 @@ impl<B: BlockT> StateStrategy<B> {
 		let peer_id =
 			self.schedule_next_peer(PeerState::DownloadingState, self.state_sync.target_number())?;
 		let request = self.state_sync.next_request();
+		log::info!("XXX state request for: {}", self.state_sync.target_number());
 		trace!(
 			target: LOG_TARGET,
 			"New state request to {peer_id}: {request:?}.",

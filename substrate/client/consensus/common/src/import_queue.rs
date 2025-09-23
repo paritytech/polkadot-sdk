@@ -93,6 +93,8 @@ pub struct IncomingBlock<B: BlockT> {
 	pub import_existing: bool,
 	/// Do not compute new state, but rather set it to the given set.
 	pub state: Option<ImportedState<B>>,
+	/// Always allow missing parent.
+	pub allow_missing_parent: bool,
 }
 
 /// Verify a justification of a block
@@ -341,7 +343,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 				parent_hash,
 				allow_missing_state: block.allow_missing_state,
 				import_existing: block.import_existing,
-				allow_missing_parent: block.state.is_some(),
+				allow_missing_parent: block.state.is_some() || block.allow_missing_parent,
 			})
 			.await,
 	)? {

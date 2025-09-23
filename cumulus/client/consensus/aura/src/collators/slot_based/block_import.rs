@@ -142,4 +142,8 @@ where
 
 		self.inner.import_block(params).await.map_err(Into::into)
 	}
+
+	fn name(&self) -> String {
+		format!("SlotBasedBlockImport -> {}", self.inner.name())
+	}
 }

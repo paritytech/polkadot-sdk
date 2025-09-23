@@ -1624,6 +1624,11 @@ impl<Block: BlockT> Backend<Block> {
 					})?;
 				apply_state_commit(&mut transaction, commit);
 				if number <= last_finalized_num {
+					log::info!(
+						"XXX number is less than or equal to last finalized number: {} <= {}",
+						number,
+						last_finalized_num
+					);
 					// Canonicalize in the db when re-importing existing blocks with state.
 					let commit = self.storage.state_db.canonicalize_block(&hash).map_err(
 						sp_blockchain::Error::from_state_db::<
@@ -2525,6 +2530,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		hash: Block::Hash,
 		trie_cache_context: TrieCacheContext,
 	) -> ClientResult<Self::State> {
+		log::info!("XXX calling state_at for {hash:?}");
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;

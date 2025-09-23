@@ -936,6 +936,7 @@ sp_api::impl_runtime_apis! {
 			block: Block,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
+			log::info!("XXX check_inherents from test runtime (polkadot)");
 			data.check_extrinsics(&block)
 		}
 	}

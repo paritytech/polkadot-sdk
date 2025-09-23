@@ -87,6 +87,8 @@ pub fn expand_outer_inherent(
 				use #scrate::sp_runtime::traits::{Block as _, ExtrinsicCall};
 				use #scrate::__private::{sp_inherents::Error, log};
 
+				log::info!("XXX calling check_extrinsics from runtime");
+
 				let mut result = #scrate::inherent::CheckInherentsResult::new();
 
 				// This handle assume we abort on the first fatal error.
@@ -137,6 +139,7 @@ pub fn expand_outer_inherent(
 											#pallet_names::INHERENT_IDENTIFIER, &e
 										));
 										if e.is_fatal_error() {
+											log::info!("XXX check_extrinsics returning error from runtime 1");
 											return result;
 										}
 									}
@@ -161,6 +164,7 @@ pub fn expand_outer_inherent(
 									#pallet_names::INHERENT_IDENTIFIER, &e
 								));
 								if e.is_fatal_error() {
+									log::info!("XXX check_extrinsics returning error from runtime 2");
 									return result;
 								}
 							}
@@ -171,12 +175,14 @@ pub fn expand_outer_inherent(
 								#pallet_names::INHERENT_IDENTIFIER, &e
 							));
 							if e.is_fatal_error() {
+								log::info!("XXX check_extrinsics returning error from runtime 3");
 								return result;
 							}
 						},
 					}
 				)*
 
+				log::info!("XXX check_extrinsics returning result: ok? {:?}", result.ok());
 				result
 			}
 		}
