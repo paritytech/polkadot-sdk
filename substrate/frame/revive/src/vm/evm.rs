@@ -137,8 +137,6 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, input: Vec<u8>) -> E
 	interpreter.into_exec_result(halt)
 }
 
-/// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
-/// NB: copied directly from revm tag v82
 fn run_plain<'a, E: Ext>(
 	interpreter: &mut Interpreter<E>,
 	table: &InstructionTable<E>,
@@ -151,8 +149,6 @@ fn run_plain<'a, E: Ext>(
 	}
 }
 
-/// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
-/// NB: copied directly from revm tag v82
 fn run_plain_with_tracing<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 	table: &InstructionTable<E>,
