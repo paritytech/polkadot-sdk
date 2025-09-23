@@ -424,7 +424,6 @@ impl EthRpcServer for EthRpcServerImpl {
 		storage_slot: U256,
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<Bytes> {
-		// let hash = self.client.block_hash_for_tag(block).await?;
 		// Handle historical block queries gracefully
 		let hash = match self.client.block_hash_for_tag(block).await {
 			Ok(hash) => hash,
@@ -435,10 +434,30 @@ impl EthRpcServer for EthRpcServerImpl {
 			}
 		};
 		let runtime_api = self.client.runtime_api(hash);
-		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
-		// Return 32-byte zero value for empty storage (Ethereum spec compliance)
-		// https://www.quicknode.com/docs/ethereum/eth_getStorageAt
-		Ok(bytes.unwrap_or_else(|| vec![0u8; 32]).into())
+
+		match runtime_api.get_storage(address, storage_slot.to_big_endian()).await {
+			Ok(Some(bytes)) => Ok(bytes.into()),
+			Ok(None) => {
+				// Storage slot doesn't exist, return zero storage
+				// This matches Ethereum behavior for non-existent storage slots
+				// https://www.quicknode.com/docs/ethereum/eth_getStorageAt
+				Ok(vec![0u8; 32].into())
+			}
+			Err(ClientError::ContractNotFound) => {
+				// Contract doesn't exist, return zero storage
+				// This matches Ethereum behavior for non-existent contracts
+				// https://www.quicknode.com/docs/ethereum/eth_getStorageAt
+				Ok(vec![0u8; 32].into())
+			}
+			Err(err) => {
+				// Propagate other errors (RPC errors, network issues, etc.)
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to get storage for address {address:?} at slot {storage_slot:?}: {err:?}"
+				);
+				Err(err.into())
+			}
+		}
 	}
 
 	async fn get_transaction_by_block_hash_and_index(

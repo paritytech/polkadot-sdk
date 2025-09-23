@@ -203,7 +203,8 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> u64 {
 		Some(ext.value.now / 1000)
 	}.await;
 
-	/// Ensure the timestamp is not 0, similar to EDR
+	// WARN: Dirty temporary hack to ensure the timestamp is not 0, similar to EDR
+	// Cleanup once this is solved: https://github.com/paritytech/contract-issues/issues/176
 	timestamp.unwrap_or_else(|| {
 		std::time::SystemTime::now()
 			.duration_since(std::time::UNIX_EPOCH)

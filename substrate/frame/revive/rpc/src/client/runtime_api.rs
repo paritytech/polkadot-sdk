@@ -54,19 +54,8 @@ impl RuntimeApi {
 	) -> Result<Option<Vec<u8>>, ClientError> {
 		let contract_address = contract_address.0.into();
 		let payload = subxt_client::apis().revive_api().get_storage(contract_address, key);
-		let result = self.0.call(payload).await?;
-
-		// If contract doesn't exist at the queried block, return None (empty storage)
-		// instead of throwing "Contract not found" error as specified in the Ethereum spec
-		// https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getstorageat
-		// https://www.quicknode.com/docs/ethereum/eth_getStorageAt
-		match result {
-			Ok(storage_value) => Ok(storage_value),
-			Err(_contract_access_error) => {
-				// Contract didn't exist at this historical block - return empty storage
-				Ok(None)
-			}
-		}
+		let result = self.0.call(payload).await?.map_err(|_| ClientError::ContractNotFound)?;
+		Ok(result)
 	}
 
 	/// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
