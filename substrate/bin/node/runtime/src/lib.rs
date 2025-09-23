@@ -3341,6 +3341,20 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 	}
 
+	impl polkadot_sdk::pallet_oracle_runtime_api::OracleApi<u32, u32, u128> for Runtime {
+		fn get_value(_provider_id: u32, key: u32) -> Option<u128> {
+			// ProviderId is unused in the pallet implementation; we expose current aggregated value.
+			pallet_oracle::Pallet::<Runtime>::get(&key).map(|v| v.value)
+		}
+
+		fn get_all_values(_provider_id: u32) -> Vec<(u32, Option<u128>)> {
+			pallet_oracle::Pallet::<Runtime>::get_all_values()
+				.into_iter()
+				.map(|(k, v)| (k, v.map(|tv| tv.value)))
+				.collect()
+		}
+	}
+
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
