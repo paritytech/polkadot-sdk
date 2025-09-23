@@ -27,7 +27,7 @@ use crate::{
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, TrieId, LOG_TARGET,
+	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -1688,10 +1688,11 @@ where
 		let contract_account = T::AddressMapper::to_account_id(contract_address);
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
-		if self.contracts_created.contains(&contract_account) && false {
+		if self.contracts_created.contains(&contract_account) {
 			// Transfer storage deposit to the origin of the transaction
 			let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
-			nested.terminate(contract_info, self.origin.account_id()?.clone());
+			nested.terminate(contract_info, beneficiary_account.clone());
+			// nested.terminate(contract_info, self.origin.account_id()?.clone());
 			let mut info = Some(contract_info.clone());
 			self.storage_meter
 				.absorb(mem::take(&mut nested), &contract_account, info.as_mut());

@@ -376,11 +376,11 @@ where
 				// TODO: can we match refund and charges to optimize balance transfers?
 				// e.g. CHARGE(ALICE, BOB) and REFUND(BOB, CHARLIE) can be optimized so that the
 				// charge takes place before the refund?
-				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
+				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
 				{
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
-				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
+				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
 				{
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
