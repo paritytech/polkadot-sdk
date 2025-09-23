@@ -457,7 +457,15 @@ pub mod pallet {
 			NextFeeMultiplier::<T>::mutate(|fm| {
 				*fm = T::FeeMultiplierUpdate::convert(*fm);
 			});
-			TxPaymentCredit::<T>::kill();
+
+			// We generally expect the `OnChargeTransaction` implementation to delete this value
+			// after each transaction. To make sure it is never stored between blocks we
+			// delete the value here just in case.
+			TxPaymentCredit::<T>::take().map(|credit| {
+				log::error!(target: LOG_TARGET, "The `TxPaymentCredit` was stored between blocks. This is a bug.");
+				// Converting to inner makes sure that the drop implementation is called.
+				credit.into_inner()
+			});
 		}
 
 		#[cfg(feature = "std")]
