@@ -2563,6 +2563,8 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				}
 
 				fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+					use xcm::latest::prelude::ClearOrigin;
+
 					let xcm =
 						Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
 							Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
