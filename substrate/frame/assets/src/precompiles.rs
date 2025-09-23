@@ -109,6 +109,7 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_MAX_EVENTS_REACHED: &str = "Maximum number of events reached";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -156,7 +157,8 @@ where
 			num_topic: topics.len() as u32,
 			len: topics.len() as u32,
 		})?;
-		env.deposit_event(topics, data.to_vec());
+		env.deposit_event(topics, data.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: ERR_MAX_EVENTS_REACHED.into() }))?;
 		Ok(())
 	}
 

@@ -231,11 +231,6 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	gas!(context.interpreter, RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 });
 
-	// Check and increment the emitted events counter
-	if let Err(_) = context.interpreter.extend.increment_emitted_events() {
-		context.interpreter.halt(revm::interpreter::InstructionResult::Revert);
-		return;
-	}
 
 	let data = if len == 0 {
 		Bytes::new()
@@ -255,7 +250,10 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_be_bytes())).collect();
 
-	context.interpreter.extend.deposit_event(topics, data.to_vec());
+	if let Err(_) = context.interpreter.extend.deposit_event(topics, data.to_vec()) {
+		context.interpreter.halt(revm::interpreter::InstructionResult::Revert);
+		return;
+	}
 }
 
 /// Implements the SELFDESTRUCT instruction.

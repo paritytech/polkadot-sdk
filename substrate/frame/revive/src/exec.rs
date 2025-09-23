@@ -379,12 +379,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
-
-	/// Increment the emitted events counter and check if the limit is exceeded.
 	///
 	/// Returns an error if the maximum number of events has been reached.
-	fn increment_emitted_events(&mut self) -> Result<(), DispatchError>;
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError>;
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
@@ -2108,7 +2105,14 @@ where
 		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError> {
+		// Increment the emitted events counter and check if the limit is exceeded
+		self.emitted_events = self.emitted_events.saturating_add(1);
+
+		if self.emitted_events > limits::NUM_EMITTED_EVENTS {
+			return Err(Error::<T>::TooManyEmittedEvents.into());
+		}
+
 		let contract = T::AddressMapper::to_address(self.account_id());
 		if_tracing(|tracer| {
 			tracer.log_event(contract, &topics, &data);
@@ -2118,15 +2122,6 @@ where
 		block_storage::capture_ethereum_log(&contract, &data, &topics);
 
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
-	}
-
-	fn increment_emitted_events(&mut self) -> Result<(), DispatchError> {
-		self.emitted_events = self.emitted_events.saturating_add(1);
-
-		if self.emitted_events > limits::NUM_EMITTED_EVENTS {
-			return Err(Error::<T>::TooManyEmittedEvents.into());
-		}
-
 		Ok(())
 	}
 

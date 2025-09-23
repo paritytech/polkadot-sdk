@@ -719,8 +719,6 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })?;
 
-		self.ext.increment_emitted_events()?;
-
 		if num_topic > limits::NUM_EVENT_TOPICS {
 			return Err(Error::<E::T>::TooManyTopics.into());
 		}
@@ -743,7 +741,7 @@ pub mod env {
 		};
 
 		let event_data = memory.read(data_ptr, data_len)?;
-		self.ext.deposit_event(topics, event_data);
+		self.ext.deposit_event(topics, event_data)?;
 		Ok(())
 	}
 
