@@ -64,12 +64,16 @@ pub mod pallet {
 		type MaxPublishItems: Get<u32>;
 
 		/// Maximum length of a key in bytes
-		#[pallet::constant] 
+		#[pallet::constant]
 		type MaxKeyLength: Get<u32>;
 
 		/// Maximum length of a value in bytes
 		#[pallet::constant]
 		type MaxValueLength: Get<u32>;
+
+		/// Maximum number of publishers a subscriber can subscribe to
+		#[pallet::constant]
+		type MaxSubscriptions: Get<u32>;
 	}
 
 	/// Tracks which parachains have published data.
@@ -95,6 +99,19 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Tracks subscriptions: subscriber -> list of publishers.
+	///
+	/// Maps subscriber ParaId to a bounded vector of publisher ParaIds.
+	/// Empty vec means no subscriptions.
+	#[pallet::storage]
+	pub type Subscriptions<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		ParaId,  // Subscriber
+		BoundedVec<ParaId, T::MaxSubscriptions>,  // List of publishers
+		ValueQuery,
+	>;
+
 	/// Aggregated child trie roots for all publishers.
 	///
 	/// Contains (ParaId, child_trie_root) pairs for all parachains that have published data.
@@ -112,10 +129,12 @@ pub mod pallet {
 		TooManyPublishItems,
 		/// Key length exceeds maximum allowed
 		KeyTooLong,
-		/// Value length exceeds maximum allowed  
+		/// Value length exceeds maximum allowed
 		ValueTooLong,
 		/// Child trie operation failed
 		ChildTrieError,
+		/// Too many subscriptions for this subscriber
+		TooManySubscriptions,
 	}
 
 	#[pallet::hooks]
@@ -324,6 +343,55 @@ pub mod pallet {
 			);
 
 			publishers
+		}
+
+		/// Toggle subscription: subscribe if not subscribed, unsubscribe if subscribed.
+		pub fn handle_subscribe_toggle(
+			subscriber: ParaId,
+			publisher: ParaId,
+		) -> DispatchResult {
+			log::info!(
+				target: "broadcaster::subscribe",
+				"🔄 Toggle subscription for parachain {:?} to publisher {:?}",
+				subscriber,
+				publisher
+			);
+
+			let mut subscriptions = Subscriptions::<T>::get(subscriber);
+
+			// Check if already subscribed
+			if let Some(pos) = subscriptions.iter().position(|&p| p == publisher) {
+				// Already subscribed -> unsubscribe
+				subscriptions.swap_remove(pos);
+				log::debug!(
+					target: "broadcaster::subscribe",
+					"❌ Unsubscribed: {:?} from {:?}",
+					subscriber,
+					publisher
+				);
+			} else {
+				// Not subscribed -> subscribe
+				subscriptions.try_push(publisher).map_err(|_| Error::<T>::TooManySubscriptions)?;
+				log::debug!(
+					target: "broadcaster::subscribe",
+					"✅ Subscribed: {:?} to {:?}",
+					subscriber,
+					publisher
+				);
+			}
+
+			Subscriptions::<T>::insert(subscriber, subscriptions);
+			Ok(())
+		}
+
+		/// Get all subscriptions for a parachain.
+		pub fn get_subscriptions(subscriber: ParaId) -> Vec<ParaId> {
+			Subscriptions::<T>::get(subscriber).into_inner()
+		}
+
+		/// Check if a parachain is subscribed to a publisher.
+		pub fn is_subscribed(subscriber: ParaId, publisher: ParaId) -> bool {
+			Subscriptions::<T>::get(subscriber).contains(&publisher)
 		}
 	}
 }
