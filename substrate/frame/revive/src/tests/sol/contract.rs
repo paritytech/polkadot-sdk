@@ -70,7 +70,7 @@ fn staticcall_works() {
 			assert!(result.success, "the call must succeed");
 			assert_eq!(
 				magic_number,
-				U256::from_be_bytes::<32>(result.output.as_ref().try_into().unwrap()),
+				U256::from_be_slice(result.output.as_ref()),
 				"the call must reproduce the magic number"
 			);
 
@@ -130,7 +130,7 @@ fn call_works() {
 			assert!(result.success, "the call must succeed");
 			assert_eq!(
 				magic_number,
-				U256::from_be_bytes::<32>(result.output.as_ref().try_into().unwrap()),
+				U256::from_be_slice(result.output.as_ref()),
 				"the call must reproduce the magic number"
 			);
 
@@ -348,7 +348,7 @@ fn delegatecall_works() {
 			assert!(result.success, "the call must succeed");
 			assert_eq!(
 				magic_number,
-				U256::from_be_bytes::<32>(result.output.as_ref().try_into().unwrap()),
+				U256::from_be_slice(result.output.as_ref()),
 				"the call must reproduce the magic number"
 			);
 

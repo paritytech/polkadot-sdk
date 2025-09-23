@@ -25,7 +25,8 @@ use crate::{
 	},
 	Code, Config, PristineCode,
 };
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::{primitives, sol_types::SolInterface};
+use crate::U256;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
@@ -88,13 +89,13 @@ fn basic_evm_flow_works() {
 
 			let result = builder::bare_call(addr)
 				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: primitives::U256::from(10u64) })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
 			assert_eq!(
 				U256::from(55u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+				U256::from_big_endian(&result.data)
 			);
 		}
 
@@ -140,15 +141,15 @@ fn basic_evm_flow_tracing_works() {
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
 				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: primitives::U256::from(10u64) })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result()
 		});
 
 		assert_eq!(
-			U256::from(55u32),
-			U256::from_be_bytes::<32>(result.data.clone().try_into().unwrap())
+			crate::U256::from(55u32),
+			crate::U256::from_big_endian(&result.data)
 		);
 
 		assert_eq!(
@@ -157,7 +158,7 @@ fn basic_evm_flow_tracing_works() {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
 				to: addr,
-				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: primitives::U256::from(10u64) })
 					.abi_encode()
 					.into(),
 				output: result.data.into(),
