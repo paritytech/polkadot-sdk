@@ -10,4 +10,4 @@ crates:
 - name: snowbridge-pallet-inbound-queue-v2
   bump: patch
 - name: snowbridge-test-utils
-  bump: patch
+  bump: minor
