@@ -1,6 +1,6 @@
 title: Elastic scaling runtime upgrade tests
 doc:
-- audience: Todo
+- audience: [Runtime Dev, Node Dev]
   description: |-
     Add runtime upgrade tests for sync and async backing chains
 
