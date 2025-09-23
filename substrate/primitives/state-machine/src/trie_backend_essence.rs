@@ -34,9 +34,10 @@ use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 use sp_trie::{
-	child_delta_trie_root, delta_trie_root, delta_trie_root_forget, empty_child_trie_root,
+	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descendant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descendant_value, read_trie_value,
+	read_trie_first_descendant_value, read_trie_keys_from_delta, read_trie_value,
+	remove_trie_keys_from_delta,
 	trie_types::{TrieDBBuilder, TrieError},
 	DBValue, KeySpacedDB, MerkleValue, NodeCodec, PrefixedMemoryDB, RandomState, Trie, TrieCache,
 	TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
@@ -656,47 +657,84 @@ where
 
 		(root, write_overlay)
 	}
-	/// Return the storage root after applying the given `delta`.
+
+	/// Updates the recorder's proof size by reading and recording trie nodes for a given delta.
+	///
+	/// This function performs two operations to ensure accurate proof size calculation:
+	/// 1. Reads all keys that will be inserted or updated (those with `Some` values in the delta)
+	/// 2. Removes/touches all keys that will be deleted (those with `None` values in the delta)
+	/// All accessed trie nodes are recorded by the recorder, enabling accurate proof size
+	/// estimation for block production and validation.
+	///
+	/// Note: This function does not modify the actual storage state - it only reads and records
+	/// the trie nodes that would be affected by the given delta for proof size estimation.
 	pub fn trigger_storage_root_size_estimation<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) {
-		let xxx = &self.backend_storage();
-		self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
+		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
+		let backend_storage = &self.backend_storage();
+		let mut eph = Ephemeral::new(backend_storage, &mut write_overlay);
+
+		let mut delta = delta.into_iter().collect::<Vec<_>>();
+		delta.sort();
+
+		let (keys_to_be_read, keys_to_be_removed): (Vec<_>, Vec<_>) =
+			delta.into_iter().partition(|(k, v)| v.is_some());
+
+		self.with_recorder_and_cache(None, |recorder, cache| {
 			let res = {
-				#[cfg(feature = "std")]
-				{
-					debug!(target: "trie", "using read-only overlay");
-				}
-				let mut tmp_eph2 = Ephemeral2::new(xxx);
 				match state_version {
 					StateVersion::V0 =>
-						delta_trie_root_forget::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
-							&mut tmp_eph2,
+						read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
+							&mut eph,
 							self.root,
-							delta,
+							keys_to_be_read,
 							recorder,
 							cache,
 						),
 					StateVersion::V1 =>
-						delta_trie_root_forget::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
-							&mut tmp_eph2,
+						read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+							&mut eph,
 							self.root,
-							delta,
+							keys_to_be_read,
 							recorder,
 							cache,
 						),
 				}
 			};
 
-			match res {
-				Ok(ret) => (Some(ret), ret),
-				Err(e) => {
-					warn!(target: "trie", "Failed to write to trie: {}", e);
-					(None, self.root)
-				},
-			}
+			let _ = res.inspect_err(|e| {
+				warn!(target: "trie", "Failed to read delta keys from trie: {}", e);
+			});
+		});
+
+		self.with_recorder_and_cache(None, |recorder, cache| {
+			let res = {
+				match state_version {
+					StateVersion::V0 =>
+						remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
+							&mut eph,
+							self.root,
+							keys_to_be_removed,
+							recorder,
+							cache,
+						),
+					StateVersion::V1 =>
+						remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+							&mut eph,
+							self.root,
+							keys_to_be_removed,
+							recorder,
+							cache,
+						),
+				}
+			};
+
+			let _ = res.inspect_err(|e| {
+				warn!(target: "trie", "Failed to remove delta keys from trie: {}", e);
+			});
 		});
 	}
 
@@ -757,64 +795,6 @@ where
 		(new_child_root, is_default, write_overlay)
 	}
 }
-
-pub(crate) struct TrieBackendStorageWithReadOnlyOverlay<
-	'a,
-	'b,
-	S: 'a + TrieBackendStorage<H>,
-	H: 'b + Hasher,
-> {
-	storage: &'a S,
-	overlay: Vec<Option<&'b PrefixedMemoryDB<hash_db::FoldHasher<H>>>>,
-}
-
-// impl<'a, S: 'a + HashDBRef<H>, H: 'a + Hasher> TrieBackendStorage<H>
-// 	for Option<&'a S> {
-//     fn get(&self, key: &<H as Hasher>::Out, prefix: Prefix) -> Result<Option<DBValue>> {
-// 		Ok(self.map(|x| x.get(key, prefix)))
-//     }
-// }
-//
-// impl<'a, S: 'a + HashDBRef<H>, H: 'a + Hasher> TrieBackendStorage<H>
-// 	for Vec<Option<&'a S>> {
-//     fn get(&self, key: &<H as Hasher>::Out, prefix: Prefix) -> Result<Option<DBValue>> {
-// 		Ok(self.iter().rev().find(|s| s.get(key, prefix)))
-//     }
-// }
-
-impl<'a, 'b, S: 'a + TrieBackendStorage<H>, H: 'b + Hasher> TrieBackendStorage<H>
-	for TrieBackendStorageWithReadOnlyOverlay<'a, 'b, S, H>
-{
-	fn get(&self, key: &H::Out, prefix: Prefix) -> Result<Option<DBValue>> {
-		// Ok(hash_db::HashDBRef::<H, DBValue>::get(self, key, prefix))
-		// todo!()
-		// Ok(HashDBRef::get(self.overlay, key, prefix).or_else(|| {
-		let from_overlay = self
-			.overlay
-			.iter()
-			.rev()
-			.find_map(|x| x.map(|x| HashDBRef::get(x, key, prefix)).flatten());
-		Ok(from_overlay.or_else(|| {
-			self.storage.get(key, prefix).unwrap_or_else(|e| {
-				warn!(target: "trie", "Failed to read from DB: {}", e);
-				None
-			})
-		}))
-	}
-}
-
-impl<'a, 'b, S: TrieBackendStorage<H>, H: Hasher>
-	TrieBackendStorageWithReadOnlyOverlay<'a, 'b, S, H>
-{
-	pub fn new(
-		storage: &'a S,
-		overlay: Vec<Option<&'b PrefixedMemoryDB<hash_db::FoldHasher<H>>>>,
-	) -> Self {
-		TrieBackendStorageWithReadOnlyOverlay { storage, overlay }
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 pub(crate) struct Ephemeral<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> {
 	storage: &'a S,

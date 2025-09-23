@@ -40,8 +40,8 @@ mod trie_stream;
 pub mod proof_size_extension;
 
 #[cfg(feature = "std")]
-pub use foldhash::quality::RandomState;
-// pub use std::hash::RandomState;
+// pub use foldhash::quality::RandomState;
+pub use std::hash::RandomState;
 
 #[cfg(not(feature = "std"))]
 pub use hasher_random_state::{add_extra_randomness, RandomState};
@@ -293,41 +293,79 @@ where
 	verify_proof::<L, _, _, _>(root, proof, items)
 }
 
-/// Determine a trie root given a hash DB and delta values.
-pub fn delta_trie_root_forget<L: TrieConfiguration, I, A, B, DB, V>(
+/// Removes keys from a trie based on the provided delta, recording the nodes for proof size calculation.
+///
+/// This function replicates the trie operations that would occur for the given delta, removing specified trie nodes.
+/// It is intended for calculating proof size without altering the actual trie storage apart from removals.
+pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB>(
 	db: &mut DB,
 	mut root: TrieHash<L>,
 	delta: I,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
-) -> Result<TrieHash<L>, Box<TrieError<L>>>
+) -> Result<(), Box<TrieError<L>>>
 where
 	I: IntoIterator<Item = (A, B)>,
 	A: Borrow<[u8]>,
-	B: Borrow<Option<V>>,
-	V: Borrow<[u8]>,
 	DB: hash_db::HashDB<L::Hash, trie_db::DBValue>,
 {
+	let mut removed = 0;
 	{
 		let mut trie = TrieDBMutBuilder::<L>::from_existing(db, &mut root)
 			.with_optional_cache(cache)
 			.with_optional_recorder(recorder)
-			.build();
+			.build_base();
 
-		let mut delta = delta.into_iter().collect::<Vec<_>>();
-		delta.sort_by(|l, r| l.0.borrow().cmp(r.0.borrow()));
-
-		for (key, change) in delta {
-			match change.borrow() {
-				Some(val) => trie.insert(key.borrow(), val.borrow())?,
-				None => trie.remove(key.borrow())?,
-			};
+		//todo: change not required here
+		for (key, _) in delta {
+			trie.remove(key.borrow())?;
+			removed += 1;
 		}
-
-		core::mem::forget(trie);
+	}
+	#[cfg(feature = "std")]
+	{
+		tracing::debug!(target:"durations", "remove_trie_keys_from_delta: removed:{removed}");
 	}
 
-	Ok(root)
+	Ok(())
+}
+
+/// Executes a trie node accesses based on the provided delta, recording the nodes for proof size calculation.
+///
+/// This function replicats the trie operations that would occur for the given delta, recording trie nodes accessed.
+/// It is intended for calculating proof size without altering the actual trie storage.
+pub fn read_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB>(
+	db: &mut DB,
+	root: TrieHash<L>,
+	delta: I,
+	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<(), Box<TrieError<L>>>
+where
+	I: IntoIterator<Item = (A, B)>,
+	A: Borrow<[u8]>,
+	DB: hash_db::HashDB<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let mut read = 0;
+	{
+		let trie = TrieDBBuilder::<L>::new(db, &root)
+			.with_optional_cache(cache)
+			.with_optional_recorder(recorder)
+			.build();
+
+		//todo: change not required here
+		for (key, _) in delta {
+			trie.get(key.borrow())?;
+			read += 1;
+		}
+	}
+
+	#[cfg(feature = "std")]
+	{
+		tracing::debug!(target:"durations", "read_trie_keys_from_delta: read:{read}");
+	}
+
+	Ok(())
 }
 
 pub fn delta_trie_root<L: TrieConfiguration, I, A, B, DB, V>(
