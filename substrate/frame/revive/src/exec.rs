@@ -1539,7 +1539,7 @@ where
 				for (contract_address, contract_info, beneficiary) in contracts_to_destroy {
 					let _code_removed = self
 						.destroy_contract(&contract_address, &contract_info, &beneficiary)
-						.unwrap();
+						.unwrap(); //TODO: handle error properly
 				}
 			}
 		}
