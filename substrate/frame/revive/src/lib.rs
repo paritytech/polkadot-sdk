@@ -50,7 +50,7 @@ use crate::{
 		block_storage,
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
-		TransactionSigned, TYPE_EIP1559,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -884,8 +884,7 @@ pub mod pallet {
 		///
 		/// # Parameters
 		///
-		/// * `signed_transaction`: The signed Ethereum transaction, represented as
-		///   [crate::evm::TransactionSigned], provided by the Ethereum wallet.
+		/// * `payload`: The encoded [`crate::evm::TransactionSigned`].
 		///
 		/// # Note
 		///
@@ -896,10 +895,7 @@ pub mod pallet {
 		#[allow(unused_variables)]
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::MAX)]
-		pub fn eth_transact(
-			origin: OriginFor<T>,
-			signed_transaction: TransactionSigned,
-		) -> DispatchResultWithPostInfo {
+		pub fn eth_transact(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResultWithPostInfo {
 			Err(frame_system::Error::CallFiltered::<T>.into())
 		}
 
@@ -1613,7 +1609,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						transaction_encoded: encoded_dummy_payload,
+						transaction_encoded: encoded_dummy_payload.clone(),
 					}
 					.into();
 					(result, dispatch_call)
@@ -1673,14 +1669,14 @@ where
 						storage_deposit_limit,
 						code,
 						data,
-						transaction_encoded: encoded_dummy_payload,
+						transaction_encoded: encoded_dummy_payload.clone(),
 					}
 					.into();
 				(result, dispatch_call)
 			},
 		};
 
-		let eth_transact_call = crate::Call::<T>::eth_transact { signed_transaction: dummy_signed };
+		let eth_transact_call = crate::Call::<T>::eth_transact { payload: encoded_dummy_payload };
 		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =

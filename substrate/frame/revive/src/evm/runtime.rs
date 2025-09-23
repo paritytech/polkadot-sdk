@@ -142,11 +142,8 @@ where
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
-			if let Some(crate::Call::eth_transact { signed_transaction }) =
-				self.0.function.is_sub_type()
-			{
-				let checked =
-					E::try_into_checked_extrinsic(signed_transaction.clone(), self.encoded_size())?;
+			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
+				let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
 				return Ok(checked)
 			};
 		}
@@ -273,11 +270,9 @@ pub trait EthExtra {
 	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
-	/// - `gas_limit`: The gas limit for the extrinsic
-	/// - `storage_deposit_limit`: The storage deposit limit for the extrinsic,
 	/// - `encoded_len`: The encoded length of the extrinsic.
 	fn try_into_checked_extrinsic(
-		tx: TransactionSigned,
+		payload: &[u8],
 		encoded_len: usize,
 	) -> Result<
 		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extension>,
@@ -292,6 +287,11 @@ pub trait EthExtra {
 		CallOf<Self::Config>: From<crate::Call<Self::Config>>,
 		<Self::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
+		let tx = TransactionSigned::decode(&payload).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
+			InvalidTransaction::Call
+		})?;
+
 		// Check transaction type and reject unsupported transaction types
 		match &tx {
 			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
@@ -587,7 +587,7 @@ mod test {
 				let signed_transaction =
 					account.sign_transaction(tx.clone().try_into_unsigned().unwrap());
 				let call = RuntimeCall::Contracts(crate::Call::eth_transact {
-					signed_transaction: signed_transaction.clone(),
+					payload: signed_transaction.signed_payload().clone(),
 				});
 
 				let encoded_len = call.encoded_size();

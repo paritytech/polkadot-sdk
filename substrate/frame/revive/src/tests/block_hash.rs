@@ -18,11 +18,11 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::Block,
+	evm::{Block, TransactionSigned},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderIR, EthereumBlock,
-	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned,
+	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
