@@ -194,13 +194,23 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 }
 
 /// Extract the block timestamp.
-async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
-	let extrinsics = block.extrinsics().await.ok()?;
-	let ext = extrinsics
-		.find_first::<crate::subxt_client::timestamp::calls::types::Set>()
-		.ok()??;
+async fn extract_block_timestamp(block: &SubstrateBlock) -> u64 {
+	let timestamp = async {
+		let extrinsics = block.extrinsics().await.ok()?;
+		let ext = extrinsics
+			.find_first::<crate::subxt_client::timestamp::calls::types::Set>()
+			.ok()??;
+		Some(ext.value.now / 1000)
+	}.await;
 
-	Some(ext.value.now / 1000)
+	// WARN: Dirty temporary hack to ensure the timestamp is not 0, similar to EDR
+	// Cleanup once this is solved: https://github.com/paritytech/contract-issues/issues/176
+	timestamp.unwrap_or_else(|| {
+		std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)
+			.unwrap_or_default()
+			.as_secs()
+	})
 }
 
 /// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
@@ -655,7 +665,7 @@ impl Client {
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 		let header = block.header();
 
-		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+		let timestamp = extract_block_timestamp(block).await;
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
@@ -776,21 +786,31 @@ impl Client {
 		let number_of_blocks = number_of_blocks.unwrap_or("0x1".into()).as_u64();
 		let mut latest_block: Option<CreatedBlock<H256>> = None;
 
+		let base_timestamp = if interval.is_some() {
+			let current_block = self.latest_block().await;
+			Some(extract_block_timestamp(&current_block).await)
+		} else {
+			None
+		};
+
 		for i in 0..number_of_blocks {
-			let interval: Option<u64> = match (i, interval) {
-				(0, _) => None,
-				(_, Some(time)) => Some(time.as_u64()),
-				_ => None,
-			};
+			let mut target_timestamp: Option<U256> = None;
 
-			let params = rpc_params![true, true, None::<H256>, interval];
-			let res: CreatedBlock<H256> =
-				self.rpc_client.request("engine_createBlock", params).await.unwrap();
+			// If interval is set && more then 1, calculate the target timestamp
+			if let Some(interval_seconds) = interval {
+				if interval_seconds.as_u64() > 1 {
+					let interval_u64 = interval_seconds.as_u64();
+					let base = base_timestamp.unwrap();
 
-			// dirty workaround to fix race condition from hardhat time helpers
-			// as it mines and re-requests a block too fast before it propagates
-			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+					if i == 0 {
+						target_timestamp = Some(U256::from(base + 1));
+					} else {
+						target_timestamp = Some(U256::from(base + 1 + (i * interval_u64)));
+					}
+				}
+			}
 
+			let res = self.evm_mine(target_timestamp).await?;
 			latest_block = Some(res);
 		}
 
@@ -802,6 +822,10 @@ impl Client {
 				break;
 			}
 		}
+
+		// Small delay only for the final block to ensure it's available for immediate latest() calls
+		tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
 		Ok(latest_block.unwrap())
 	}
 
@@ -817,10 +841,6 @@ impl Client {
 		let params = rpc_params![true, true, None::<H256>, None::<u64>];
 		let latest_block: CreatedBlock<H256> =
 			self.rpc_client.request("engine_createBlock", params).await.unwrap();
-
-		// dirty workaround to fix race condition from hardhat time helpers
-		// as it mines and re-requests a block too fast before it propagates
-		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
 		Ok(latest_block)
 	}
@@ -1104,7 +1124,8 @@ impl Client {
 
 		// Validate that the new timestamp is in the future
 		let current_block = self.latest_block().await;
-		let current_timestamp = extract_block_timestamp(&current_block).await.unwrap_or_default();
+		let current_timestamp = extract_block_timestamp(&current_block).await;
+
 		if next_timestamp <= current_timestamp.into() {
 			return Err(ClientError::ConversionFailed); // Timestamp must be greater than current
 		}
@@ -1126,10 +1147,12 @@ impl Client {
 		let increase_by = increase_by_seconds.as_u64();
 
 		let current_block = self.latest_block().await;
-		let current_timestamp = extract_block_timestamp(&current_block).await.unwrap_or_default();
+		let current_timestamp = extract_block_timestamp(&current_block).await;
 
 		let new_timestamp = current_timestamp.saturating_add(increase_by);
 
+		// Set the timestamp for the next block to be mined
+		// Note: Don't mine here - let the subsequent mine() call apply the timestamp
 		self.set_next_block_timestamp(U256::from(new_timestamp)).await?;
 
 		Ok(U256::from(new_timestamp))
@@ -1315,3 +1338,4 @@ impl Client {
 		Ok(Some(result))
 	}
 }
+
