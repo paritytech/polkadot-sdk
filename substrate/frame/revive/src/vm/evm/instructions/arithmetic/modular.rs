@@ -94,7 +94,7 @@ impl Modular for U256 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use proptest::{prop_assume, proptest, test_runner::Config};
+	use proptest::proptest;
 
 	#[test]
 	fn test_commutative() {

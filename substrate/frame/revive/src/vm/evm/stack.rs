@@ -67,15 +67,6 @@ impl Stack {
 		}
 	}
 
-	/// Pop a value from the stack
-	/// Returns Continue(value) if successful, Break(Halt::StackUnderflow) if stack is empty
-	pub fn pop(&mut self) -> ControlFlow<Halt, U256> {
-		match self.0.pop() {
-			Some(value) => ControlFlow::Continue(value),
-			None => ControlFlow::Break(Halt::StackUnderflow),
-		}
-	}
-
 	/// Get a reference to the top stack item without removing it
 	pub fn top(&self) -> Option<&U256> {
 		self.0.last()
@@ -87,6 +78,7 @@ impl Stack {
 	}
 
 	/// Check if stack is empty
+	#[cfg(test)]
 	pub fn is_empty(&self) -> bool {
 		self.0.is_empty()
 	}
@@ -181,9 +173,9 @@ mod tests {
 		assert_eq!(stack.len(), 1);
 
 		// Test pop
-		assert_eq!(stack.pop(), ControlFlow::Continue(U256::from(42)));
+		assert_eq!(stack.popn::<1>(), ControlFlow::Continue([U256::from(42)]));
 		assert_eq!(stack.len(), 0);
-		assert_eq!(stack.pop(), ControlFlow::Break(Halt::StackUnderflow));
+		assert_eq!(stack.popn::<1>(), ControlFlow::Break(Halt::StackUnderflow));
 	}
 
 	#[test]
@@ -191,9 +183,9 @@ mod tests {
 		let mut stack = Stack::new();
 
 		// Push some values
-		stack.push(U256::from(1));
-		stack.push(U256::from(2));
-		stack.push(U256::from(3));
+		for i in 1..=3 {
+			assert!(stack.push(U256::from(i)).is_continue());
+		}
 
 		// Pop multiple values
 		let result: ControlFlow<_, [U256; 2]> = stack.popn();
@@ -210,10 +202,9 @@ mod tests {
 		let mut stack = Stack::new();
 
 		// Push some values
-		stack.push(U256::from(1));
-		stack.push(U256::from(2));
-		stack.push(U256::from(3));
-		stack.push(U256::from(4));
+		for i in 1..=4 {
+			assert!(stack.push(U256::from(i)).is_continue());
+		}
 
 		// Pop 2 values and get mutable reference to new top
 		let result = stack.popn_top::<2>();
@@ -290,10 +281,10 @@ mod tests {
 		let mut stack = Stack::new();
 		assert!(stack.is_empty());
 
-		let _ = stack.push(U256::from(1));
+		assert!(stack.push(U256::from(1)).is_continue());
 		assert!(!stack.is_empty());
 
-		let _ = stack.pop();
+		assert!(stack.popn::<1>().is_continue());
 		assert!(stack.is_empty());
 	}
 }

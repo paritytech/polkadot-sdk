@@ -24,8 +24,8 @@ use crate::{
 	Config, U256,
 };
 use core::{ops::ControlFlow, ptr};
-use revm::interpreter::gas::{copy_cost_verylow, BASE, VERYLOW};
-use sp_core::{H160, H256};
+use revm::interpreter::gas::{BASE, VERYLOW};
+use sp_core::H256;
 use sp_io::hashing::keccak_256;
 // TODO: Fix the gas handling for the memory operations
 
@@ -219,7 +219,7 @@ pub fn memory_resize<'a, E: Ext>(
 	}
 
 	let memory_offset = as_usize_or_halt_with(memory_offset, || Halt::InvalidOperandOOG)?;
-	interpreter.memory.resize(memory_offset, len);
+	interpreter.memory.resize(memory_offset, len)?;
 
 	ControlFlow::Continue(Some(memory_offset))
 }

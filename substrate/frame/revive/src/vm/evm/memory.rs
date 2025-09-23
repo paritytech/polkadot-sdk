@@ -124,12 +124,12 @@ mod tests {
 		let mut memory = Memory::new();
 		assert_eq!(memory.size(), 0);
 
-		memory.resize(100);
-		assert_eq!(memory.size(), 100);
+		assert!(memory.resize(0, 100).is_continue());
+		assert_eq!(memory.size(), 128); // Should be word-aligned (4 words * 32 bytes)
 
 		// Resizing to smaller size should not shrink
-		memory.resize(50);
-		assert_eq!(memory.size(), 100);
+		assert!(memory.resize(0, 50).is_continue());
+		assert_eq!(memory.size(), 128); // Should stay the same
 	}
 
 	#[test]

@@ -25,7 +25,6 @@ use crate::{
 	Config, U256,
 };
 use core::ops::ControlFlow;
-use sp_core::{H160, H256};
 
 /// Implements the GASPRICE instruction.
 ///
@@ -52,6 +51,6 @@ pub fn origin<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFl
 /// Implements the BLOBHASH instruction.
 ///
 /// EIP-4844: Shard Blob Transactions - gets the hash of a transaction blob.
-pub fn blob_hash<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+pub fn blob_hash<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	ControlFlow::Break(Halt::NotActivated)
 }

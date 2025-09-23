@@ -1,4 +1,4 @@
-use core::{ops::Deref, ptr};
+use core::ops::Deref;
 use revm::{
 	bytecode::{utils::read_u16, Bytecode},
 	interpreter::interpreter_types::{Immediates, Jumps},
@@ -32,10 +32,6 @@ impl ExtBytecode {
 	pub fn new(base: Bytecode) -> Self {
 		let instruction_pointer = base.bytecode_ptr();
 		Self { base, instruction_pointer }
-	}
-
-	fn is_end(&self) -> bool {
-		self.instruction_pointer.is_null()
 	}
 
 	pub fn bytecode_slice(&self) -> &[u8] {

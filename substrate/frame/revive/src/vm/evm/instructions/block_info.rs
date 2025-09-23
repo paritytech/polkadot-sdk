@@ -23,10 +23,8 @@ use crate::{
 	RuntimeCosts,
 };
 use core::ops::ControlFlow;
-
-use revm::{interpreter::gas::BASE, primitives::Address};
+use revm::interpreter::gas::BASE;
 use sp_core::{H160, U256};
-use sp_runtime::DispatchResult;
 
 /// EIP-1344: ChainID opcode
 pub fn chainid<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
@@ -92,6 +90,6 @@ pub fn basefee<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlF
 }
 
 /// EIP-7516: BLOBBASEFEE opcode is not supported
-pub fn blob_basefee<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+pub fn blob_basefee<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	ControlFlow::Break(Halt::NotActivated)
 }

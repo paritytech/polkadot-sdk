@@ -253,7 +253,7 @@ pub fn log<'ext, const N: usize, E: Ext>(
 /// Implements the SELFDESTRUCT instruction.
 ///
 /// Halt execution and register account for later deletion.
-pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+pub fn selfdestruct<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	// TODO: for now this instruction is not supported
 	ControlFlow::Break(Halt::NotActivated)
 }

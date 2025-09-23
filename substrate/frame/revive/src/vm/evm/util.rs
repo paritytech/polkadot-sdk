@@ -1,18 +1,8 @@
 use crate::{
-	vm::{
-		evm::{interpreter::Halt, Interpreter},
-		Ext,
-	},
-	RuntimeCosts, U256,
+	vm::evm::interpreter::Halt,
+	U256,
 };
 use core::ops::ControlFlow;
-use revm::{
-	interpreter::{
-		gas::{BASE, HIGH, JUMPDEST, MID},
-		interpreter_types::{Immediates, Jumps},
-	},
-	primitives::Bytes,
-};
 
 /// Helper function to convert U256 to usize, checking for overflow
 pub fn as_usize_or_halt_with(value: U256, halt: impl Fn() -> Halt) -> ControlFlow<Halt, usize> {

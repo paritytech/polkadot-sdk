@@ -95,9 +95,12 @@ pub fn calc_call_gas<'a, E: Ext>(
 		},
 	};
 	if !value.is_zero() {
-		interpreter.ext.gas_meter_mut().charge_evm(RuntimeCosts::CallTransferSurcharge {
-			dust_transfer: Pallet::<E::T>::has_dust(value),
-		});
+		interpreter
+			.ext
+			.gas_meter_mut()
+			.charge_evm(RuntimeCosts::CallTransferSurcharge {
+				dust_transfer: Pallet::<E::T>::has_dust(value),
+			})?;
 	}
 
 	ControlFlow::Continue(u64::MAX) // TODO: Set the right gas limit

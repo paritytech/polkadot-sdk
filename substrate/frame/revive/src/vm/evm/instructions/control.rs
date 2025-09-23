@@ -20,15 +20,12 @@ use crate::{
 		evm::{interpreter::Halt, util::as_usize_or_halt_with, Interpreter},
 		Ext,
 	},
-	RuntimeCosts, U256,
+	U256,
 };
 use core::ops::ControlFlow;
-use revm::{
-	interpreter::{
-		gas::{BASE, HIGH, JUMPDEST, MID},
-		interpreter_types::{Immediates, Jumps},
-	},
-	primitives::Bytes,
+use revm::interpreter::{
+	gas::{BASE, HIGH, JUMPDEST, MID},
+	interpreter_types::Jumps,
 };
 
 /// Implements the JUMP instruction.
@@ -65,7 +62,7 @@ fn jump_inner<E: Ext>(interpreter: &mut Interpreter<'_, E>, target: U256) -> Con
 		return ControlFlow::Break(Halt::InvalidJump);
 	}
 	// SAFETY: `is_valid_jump` ensures that `dest` is in bounds.
-	interpreter.bytecode.absolute_jump(target);
+	interpreter.bytecode.absolute_jump(target - 1); // pc will be increased by the interpreter loop
 	ControlFlow::Continue(())
 }
 
@@ -134,6 +131,6 @@ pub fn invalid<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlF
 }
 
 /// Unknown opcode. This opcode halts the execution.
-pub fn unknown<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+pub fn unknown<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	ControlFlow::Break(Halt::OpcodeNotFound)
 }

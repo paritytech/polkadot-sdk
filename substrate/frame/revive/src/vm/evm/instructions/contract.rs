@@ -30,10 +30,7 @@ use core::{
 	cmp::min,
 	ops::{ControlFlow, Range},
 };
-use revm::{
-	context_interface::CreateScheme,
-	interpreter::{interpreter_action::CallScheme, interpreter_types::LoopControl},
-};
+use revm::interpreter::interpreter_action::CallScheme;
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
@@ -101,7 +98,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(
 		},
 		Err(err) => {
 			interpreter.stack.push(U256::zero())?;
-			return err.into()
+			return crate::vm::evm::interpreter::exec_error_into_halt::<E>(err)
 		},
 	}
 }
@@ -142,7 +139,7 @@ pub fn call<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow
 ///
 /// Isn't supported yet: [`solc` no longer emits it since Solidity v0.3.0 in 2016]
 /// (https://soliditylang.org/blog/2016/03/11/solidity-0.3.0-release-announcement/).
-pub fn call_code<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+pub fn call_code<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	ControlFlow::Break(Halt::NotActivated)
 }
 
@@ -244,7 +241,7 @@ fn run_call<'a, E: Ext>(
 		},
 		Err(err) => {
 			interpreter.stack.push(U256::zero())?;
-			err.into()
+			crate::vm::evm::interpreter::exec_error_into_halt::<E>(err)
 		},
 	}
 }

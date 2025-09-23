@@ -18,27 +18,12 @@
 use sp_core::U256;
 
 pub trait Bits {
-	/// Returns whether a specific bit is set.
-	///
-	/// Returns `false` if `index` exceeds the bit width of the number.
-	#[must_use]
-	fn bit(&self, index: usize) -> bool;
-
 	/// Arithmetic shift right by `rhs` bits.
 	#[must_use]
 	fn arithmetic_shr(self, rhs: usize) -> Self;
 }
 
 impl Bits for U256 {
-	fn bit(&self, index: usize) -> bool {
-		const BITS: usize = 256;
-		if index >= BITS {
-			return false;
-		}
-		let (limbs, bits) = (index / 64, index % 64);
-		self.0[limbs] & (1 << bits) != 0
-	}
-
 	fn arithmetic_shr(self, rhs: usize) -> Self {
 		const BITS: usize = 256;
 		if BITS == 0 {
@@ -56,11 +41,11 @@ impl Bits for U256 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use core::cmp::min;
-	use proptest::proptest;
 
 	// #[test]
 	// fn test_arithmetic_shr() {
+	// use proptest::proptest;
+	// use core::cmp::min;
 	// 	proptest!(|(limbs: [u64; 4], shift in 0..=258)| {
 	// 		let value = U256(limbs);
 	// 		let shifted = value.arithmetic_shr(shift);

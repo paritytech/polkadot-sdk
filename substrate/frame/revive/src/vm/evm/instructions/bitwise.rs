@@ -196,13 +196,10 @@ pub fn sar<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<
 #[cfg(test)]
 mod tests {
 	use super::{byte, clz, sar, shl, shr};
-	use crate::{
-		tests::Test,
-		vm::evm::{Bytecode, Interpreter},
-	};
+	use crate::{tests::Test, vm::evm::Interpreter};
 	use alloy_core::hex;
+	use core::ops::ControlFlow;
 	use sp_core::U256;
-	use sp_runtime::DispatchResult;
 
 	macro_rules! test_interpreter {
 		($interpreter: ident) => {
@@ -212,7 +209,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_shift_left() -> ControlFlow<Halt> {
+	fn test_shift_left() {
 		struct TestCase {
 			value: U256,
 			shift: U256,
@@ -323,18 +320,20 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases {
-			interpreter.stack.push(test.value)?;
-			interpreter.stack.push(test.shift)?;
-			shl(&mut interpreter)?;
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(res, test.expected);
+			assert!((|| {
+				interpreter.stack.push(test.value)?;
+				interpreter.stack.push(test.shift)?;
+				shl(&mut interpreter)?;
+				let [res] = interpreter.stack.popn::<1>()?;
+				assert_eq!(res, test.expected);
+				ControlFlow::Continue(())
+			})()
+			.is_continue());
 		}
-
-		ControlFlow::Continue(())
 	}
 
 	#[test]
-	fn test_logical_shift_right() -> ControlFlow<Halt> {
+	fn test_logical_shift_right() {
 		struct TestCase {
 			value: U256,
 			shift: U256,
@@ -445,17 +444,20 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases {
-			interpreter.stack.push(test.value)?;
-			interpreter.stack.push(test.shift)?;
-			shr(&mut interpreter)?;
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(res, test.expected);
+			assert!((|| {
+				interpreter.stack.push(test.value)?;
+				interpreter.stack.push(test.shift)?;
+				shr(&mut interpreter)?;
+				let [res] = interpreter.stack.popn::<1>()?;
+				assert_eq!(res, test.expected);
+				ControlFlow::Continue(())
+			})()
+			.is_continue());
 		}
-		ControlFlow::Continue(())
 	}
 
 	#[test]
-	fn test_arithmetic_shift_right() -> ControlFlow<Halt> {
+	fn test_arithmetic_shift_right() {
 		struct TestCase {
 			value: U256,
 			shift: U256,
@@ -611,17 +613,20 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases {
-			interpreter.stack.push(test.value)?;
-			interpreter.stack.push(test.shift)?;
-			sar(&mut interpreter)?;
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(res, test.expected);
+			assert!((|| {
+				interpreter.stack.push(test.value)?;
+				interpreter.stack.push(test.shift)?;
+				sar(&mut interpreter)?;
+				let [res] = interpreter.stack.popn::<1>()?;
+				assert_eq!(res, test.expected);
+				ControlFlow::Continue(())
+			})()
+			.is_continue());
 		}
-		ControlFlow::Continue(())
 	}
 
 	#[test]
-	fn test_byte() -> ControlFlow<Halt> {
+	fn test_byte() {
 		struct TestCase {
 			input: U256,
 			index: usize,
@@ -640,17 +645,20 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases.iter() {
-			interpreter.stack.push(test.input)?;
-			interpreter.stack.push(U256::from(test.index))?;
-			byte(&mut interpreter)?;
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(res, test.expected, "Failed at index: {}", test.index);
+			assert!((|| {
+				interpreter.stack.push(test.input)?;
+				interpreter.stack.push(U256::from(test.index))?;
+				byte(&mut interpreter)?;
+				let [res] = interpreter.stack.popn::<1>()?;
+				assert_eq!(res, test.expected, "Failed at index: {}", test.index);
+				ControlFlow::Continue(())
+			})()
+			.is_continue());
 		}
-		ControlFlow::Continue(())
 	}
 
 	#[test]
-	fn test_clz() -> ControlFlow<Halt> {
+	fn test_clz() {
 		struct TestCase {
 			value: U256,
 			expected: U256,
@@ -695,15 +703,18 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases.iter() {
-			interpreter.stack.push(test.value)?;
-			clz(&mut interpreter)?;
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(
-				res, test.expected,
-				"CLZ for value {:#x} failed. Expected: {}, Got: {}",
-				test.value, test.expected, res
-			);
+			assert!((|| {
+				interpreter.stack.push(test.value)?;
+				clz(&mut interpreter)?;
+				let [res] = interpreter.stack.popn::<1>()?;
+				assert_eq!(
+					res, test.expected,
+					"CLZ for value {:#x} failed. Expected: {}, Got: {}",
+					test.value, test.expected, res
+				);
+				ControlFlow::Continue(())
+			})()
+			.is_continue());
 		}
-		ControlFlow::Continue(())
 	}
 }
