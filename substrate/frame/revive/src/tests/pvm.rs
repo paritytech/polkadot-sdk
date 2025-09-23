@@ -4995,7 +4995,7 @@ fn return_data_limit_is_enforced() {
 
 #[test]
 fn get_set_storage_key_works() {
-	let (code, _code_hash) = compile_module("get_set_storage").unwrap();
+	let (code, _code_hash) = compile_module("store_call").unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -5033,7 +5033,7 @@ fn get_set_storage_key_works() {
 
 #[test]
 fn get_set_storage_var_key_works() {
-	let (code, _code_hash) = compile_module("get_set_storage").unwrap();
+	let (code, _code_hash) = compile_module("store_call").unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
