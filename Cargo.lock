@@ -4707,7 +4707,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.22.1"
+version = "0.22.2"
 dependencies = [
  "approx",
  "bounded-collections 0.3.2",
@@ -12204,7 +12204,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-block"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
