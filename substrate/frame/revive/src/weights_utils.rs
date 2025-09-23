@@ -107,8 +107,8 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		// Combines results from two linearly independent benchmarks:
 
 		// 1. Event count cost: marginal cost of one additional event
-		let per_event_cost = W::on_finalize_per_event(1)
-			.saturating_sub(W::on_finalize_per_event(0));
+		let per_event_cost =
+			W::on_finalize_per_event(1).saturating_sub(W::on_finalize_per_event(0));
 
 		// 2. Event data cost: marginal cost per byte of event data
 		let data_cost = if data_len > 0 {
