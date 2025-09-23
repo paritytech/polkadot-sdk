@@ -543,36 +543,34 @@ fn transient_storage_works() {
 #[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
 fn logs_denied_for_static_call(caller_type: FixtureType, callee_type: FixtureType) {
 	use pallet_revive_fixtures::Caller;
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
-		let (host_code, _) = compile_module_with_type("Host", callee_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let (host_code, _) = compile_module_with_type("Host", callee_type).unwrap();
 
-		ExtBuilder::default().build().execute_with(|| {
-			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-			// Deploy Host contract
-			let Contract { addr: host_addr, .. } =
-				builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+		// Deploy Host contract
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
 
-			// Deploy Caller contract
-			let Contract { addr: caller_addr, .. } =
-				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		// Deploy Caller contract
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-			// Use staticcall from Caller to Host's logOps function
-			let result = builder::bare_call(caller_addr)
-				.data(
-					Caller::CallerCalls::staticCall(Caller::staticCallCall {
-						_callee: host_addr.0.into(),
-						_data: Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode().into(),
-						_gas: U256::MAX,
-					})
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
+		// Use staticcall from Caller to Host's logOps function
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::CallerCalls::staticCall(Caller::staticCallCall {
+					_callee: host_addr.0.into(),
+					_data: Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode().into(),
+					_gas: U256::MAX,
+				})
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
 
-			let decoded_result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+		let decoded_result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
 
-			assert_eq!(decoded_result.success, false);
-		});
-	}
+		assert_eq!(decoded_result.success, false);
+	});
 }
