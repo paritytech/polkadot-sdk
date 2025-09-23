@@ -61,6 +61,7 @@ impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
 	type Currency = Balances;
 	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
+	type EVMOrigin = frame_system::EnsureNever<Self::AccountId>;
 }
 
 pub struct AssetsCallbackHandle;
