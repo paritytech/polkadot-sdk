@@ -32,7 +32,7 @@ use core::any::{Any, TypeId};
 
 use sp_storage::{ChildInfo, StateVersion, TrackedStorageKey};
 
-pub use extensions::{Extension, ExtensionStore, Extensions};
+pub use extensions::{Extension, ExtensionStore, Extensions, TransactionType};
 pub use scope_limited::{set_and_run_with_externalities, with_externalities};
 
 mod extensions;
