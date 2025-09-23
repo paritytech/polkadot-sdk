@@ -1,0 +1,7 @@
+title: use `Config::XcmExecutor` inside `dry_run_xcm`.
+doc:
+- audience: Runtime Dev
+  description: "use `Config::XcmExecutor` inside `dry_run_xcm`."
+crates:
+- name: pallet-xcm
+  bump: minor
