@@ -85,3 +85,4 @@
   runner-type: "large"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
+  needs-wasm-binary: true
