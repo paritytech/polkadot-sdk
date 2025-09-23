@@ -1,28 +1,58 @@
-//! # Oracle Module
+//! # Oracle
+//!
+//! A pallet that provides a decentralized and trustworthy way to bring external, off-chain data
+//! onto the blockchain.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
 //!
 //! ## Overview
 //!
-//! The Oracle module provides a decentralized and trustworthy way to bring
-//! external, off-chain data onto the blockchain. It allows a configurable set of
-//! oracle operators to feed data, such as prices, into the system. This data can
-//! then be used by other pallets.
+//! The Oracle pallet enables blockchain applications to access real-world data through a
+//! decentralized network of trusted data providers. It's designed to be flexible and can handle
+//! various types of external data such as cryptocurrency prices, weather data, sports scores, or
+//! any other off-chain information that needs to be brought on-chain.
 //!
-//! The module is designed to be flexible and can be configured to use different
-//! data sources and aggregation strategies.
+//! The pallet operates on a permissioned model where only authorized oracle operators can submit
+//! data. This ensures data quality and prevents spam while maintaining decentralization through
+//! multiple independent operators. The system aggregates data from multiple sources using
+//! configurable algorithms, typically taking the median to resist outliers and manipulation
+//! attempts.
 //!
 //! ### Key Concepts
 //!
-//! * **Oracle Operators**: A set of trusted accounts that are authorized to submit data to the
-//!   oracle. The module uses the `frame_support::traits::SortedMembers` trait to manage the set of
-//!   operators. This allows using pallets like `pallet-membership` to manage the oracle members.
-//! * **Data Feeds**: Operators feed data as key-value pairs. The `OracleKey` is used to identify
-//!   the data being fed (e.g., a specific currency pair), and the `OracleValue` is the data itself
-//!   (e.g., the price).
-//! * **Data Aggregation**: The module can be configured with a `CombineData` implementation to
-//!   aggregate the raw values submitted by individual operators into a single, trusted value. A
-//!   default implementation `DefaultCombineData` is provided, which takes the median of the values.
-//! * **Timestamped Data**: All data submitted to the oracle is timestamped, allowing consumers of
-//!   the data to know how fresh it is.
+//! * **Oracle Operators**: A set of trusted accounts authorized to submit data. Managed through the
+//!   [`SortedMembers`] trait, allowing integration with membership pallets.
+//! * **Data Feeds**: Key-value pairs where keys identify the data type (e.g., currency pair) and
+//!   values contain the actual data (e.g., price).
+//! * **Data Aggregation**: Configurable algorithms to combine multiple operator inputs into a
+//!   single trusted value, with median aggregation provided by default.
+//! * **Timestamped Data**: All submitted data includes timestamps for freshness tracking.
+//!
+//! ## Low Level / Implementation Details
+//!
+//! ### Design Goals
+//!
+//! The oracle system aims to provide:
+//! - **Decentralization**: Multiple independent data providers prevent single points of failure
+//! - **Data Quality**: Aggregation mechanisms filter out outliers and malicious data
+//! - **Flexibility**: Configurable data types and aggregation strategies
+//! - **Performance**: Efficient storage and retrieval of timestamped data
+//! - **Security**: Permissioned access with cryptographic verification of data integrity
+//!
+//! ### Design
+//!
+//! The pallet uses a dual-storage approach:
+//! - [`RawValues`]: Stores individual operator submissions with timestamps
+//! - [`Values`]: Stores the final aggregated values after processing
+//!
+//! This design allows for:
+//! - Historical tracking of individual operator submissions
+//! - Efficient access to final aggregated values
+//! - Clean separation between raw data and processed results
+//! - Easy integration with data aggregation algorithms
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // Disable the following two lints since they originate from an external macro (namely decl_storage)
@@ -63,7 +93,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
-/// Helper trait for benchmarking.
+/// Helper trait for benchmarking oracle operations.
 pub trait BenchmarkHelper<OracleKey, OracleValue, L: Get<u32>> {
 	/// Returns a list of `(oracle_key, oracle_value)` pairs to be used for
 	/// benchmarking.
@@ -114,41 +144,67 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// A hook to be called when new data is received.
+		///
+		/// This hook is triggered whenever an oracle operator successfully submits new data.
+		/// It allows other pallets to react to oracle updates, enabling real-time responses to
+		/// external data changes.
 		type OnNewData: OnNewData<Self::AccountId, Self::OracleKey, Self::OracleValue>;
 
-		/// The implementation to combine raw values into a single aggregated
-		/// value.
+		/// The implementation to combine raw values into a single aggregated value.
+		///
+		/// This type defines how multiple oracle operator submissions are combined into a single
+		/// trusted value. Common implementations include taking the median (to resist outliers)
+		/// or weighted averages based on operator reputation.
 		type CombineData: CombineData<Self::OracleKey, TimestampedValueOf<Self, I>>;
 
-		/// The time provider.
+		/// The time provider for timestamping oracle data.
+		///
+		/// This type provides the current timestamp used to mark when oracle data was submitted.
+		/// Timestamps are crucial for determining data freshness and preventing stale data usage.
 		type Time: Time;
 
-		/// The key type for the oracle data.
+		/// The key type for identifying oracle data feeds.
+		///
+		/// This type is used to uniquely identify different types of oracle data (e.g., currency
+		/// pairs, asset prices, weather data).
 		type OracleKey: Parameter + Member + MaxEncodedLen;
 
-		/// The value type for the oracle data.
+		/// The value type for oracle data.
+		///
+		/// This type represents the actual data submitted by oracle operators (e.g., prices,
+		/// temperatures, scores).
 		type OracleValue: Parameter + Member + Ord + MaxEncodedLen;
 
-		/// The account ID for the root operator. This account can bypass the
-		/// membership check and feed values directly.
+		/// The account ID for the root operator.
+		///
+		/// This account can bypass the oracle membership check and feed values directly,
+		/// providing a fallback mechanism for critical data feeds when regular oracle
+		/// operators are unavailable.
 		#[pallet::constant]
 		type RootOperatorAccountId: Get<Self::AccountId>;
 
 		/// The source of oracle members.
+		///
+		/// This type provides the set of accounts authorized to submit oracle data.
+		/// Typically implemented by membership pallets to allow governance-controlled
+		/// management of oracle operators.
 		type Members: SortedMembers<Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
-		/// The maximum number of members that can be stored in `HasDispatched`.
+		/// The maximum number of oracle operators that can feed data in a single block.
 		#[pallet::constant]
 		type MaxHasDispatchedSize: Get<u32>;
 
-		/// The maximum number of values that can be fed in a single extrinsic.
+		/// The maximum number of key-value pairs that can be submitted in a single extrinsic.
 		#[pallet::constant]
 		type MaxFeedValues: Get<u32>;
 
-		/// A helper trait for benchmarking.
+		/// A helper trait for benchmarking oracle operations.
+		///
+		/// Provides sample data for benchmarking the oracle pallet, allowing accurate
+		/// weight calculations and performance testing.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<
 			Self::OracleKey,
@@ -182,7 +238,15 @@ pub mod pallet {
 
 	/// The raw values for each oracle operator.
 	///
-	/// Maps `(AccountId, OracleKey)` to `TimestampedValue`.
+	/// Maps `(AccountId, OracleKey)` to `TimestampedValue` containing the operator's submitted
+	/// value along with the timestamp when it was submitted. This storage maintains the complete
+	/// history of individual operator submissions, allowing for data aggregation and audit trails.
+	///
+	/// ## Storage Economics
+	///
+	/// No storage deposits are required as this data is considered essential for the oracle's
+	/// operation and data integrity. The storage cost is borne by the blockchain as part of the
+	/// oracle infrastructure.
 	#[pallet::storage]
 	#[pallet::getter(fn raw_values)]
 	pub type RawValues<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
@@ -203,6 +267,13 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, <T as Config<I>>::OracleKey, TimestampedValueOf<T, I>>;
 
 	/// A set of accounts that have already fed data in the current block.
+	///
+	/// This storage item tracks which oracle operators have already submitted data in the
+	/// current block to enforce the "one submission per block" rule. This prevents spam and
+	/// ensures fair participation among oracle operators.
+	///
+	/// The storage is cleared at the end of each block in the `on_finalize` hook, resetting
+	/// the state for the next block.
 	#[pallet::storage]
 	pub(crate) type HasDispatched<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxHasDispatchedSize>, ValueQuery>;
@@ -225,15 +296,35 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Feed the external value.
+		/// Feeds external data values into the oracle system.
 		///
-		/// This function can be called by any authorized oracle member to feed
-		/// a list of key-value pairs. The `origin` of the transaction must be a
-		/// member of the oracle or the root operator.
+		/// ## Dispatch Origin
 		///
-		/// - `values`: A list of key-value pairs to be fed into the oracle.
+		/// The dispatch origin of this call must be a signed account that is either:
+		/// - A member of the oracle operators set (managed by [`SortedMembers`])
+		/// - The root operator account (configured via [`RootOperatorAccountId`])
 		///
-		/// Emits a `NewFeedData` event on success.
+		/// ## Details
+		///
+		/// This function allows authorized oracle operators to submit timestamped key-value pairs
+		/// into the oracle system. Each submitted value is immediately timestamped with the current
+		/// block time and stored in the [`RawValues`] storage. The system then attempts to
+		/// aggregate all raw values for each key using the configured [`CombineData`] trait
+		/// implementation, updating the final [`Values`] storage with the aggregated result.
+		///
+		/// Only one submission per oracle operator per block is allowed to prevent spam and ensure
+		/// fair participation. The function also triggers the [`OnNewData`] hook for each submitted
+		/// value, allowing other pallets to react to new oracle data.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::NoPermission`]: The sender is not authorized to feed data
+		/// - [`Error::AlreadyFeeded`]: The sender has already fed data in the current block
+		/// - [`Error::ExceedsMaxHasDispatchedSize`]: Too many operators have fed data in this block
+		///
+		/// ## Events
+		///
+		/// - [`Event::NewFeedData`]: Emitted when data is successfully fed into the oracle
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::feed_values(values.len() as u32))]
 		pub fn feed_values(
