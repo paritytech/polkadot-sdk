@@ -145,5 +145,5 @@ the Polkadot SDK documentation resources.
 
 - 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
 [Substrate StackExchange](https://substrate.stackexchange.com/).
-- 👥You can also reach out on the [Official Polkdot discord server](https://polkadot-discord.w3f.tools/)
+- 👥You can also reach out on the [Official Polkadot discord server](https://polkadot-discord.w3f.tools/)
 - 🧑Reach out on [Telegram](https://t.me/substratedevs) for more questions and discussions

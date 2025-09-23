@@ -225,6 +225,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
+	type SingleBlockMigrations = Migrations;
 }
 
 parameter_types! {
@@ -1739,6 +1740,12 @@ impl pallet_root_testing::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 }
 
+impl pallet_root_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = StakingAhClient;
+	type ReportOffence = Offences;
+}
+
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -2015,6 +2022,10 @@ mod runtime {
 	#[runtime::pallet_index(104)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
 
+	// Root offences pallet
+	#[runtime::pallet_index(105)]
+	pub type RootOffences = pallet_root_offences;
+
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
 	pub type Beefy = pallet_beefy;
@@ -2104,7 +2115,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
