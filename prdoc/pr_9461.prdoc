@@ -13,4 +13,4 @@ crates:
 - name: frame-support
   bump: major
 - name: pallet-migrations
-  bump: minor
+  bump: major
