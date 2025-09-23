@@ -25,7 +25,7 @@ use crate::Pallet as Bounties;
 
 use alloc::{borrow::Cow, vec};
 use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_support::{assert_err, assert_ok};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_core::crypto::FromEntropy;
 
@@ -36,12 +36,6 @@ pub trait ArgumentsFactory<AssetKind, Beneficiary, Balance> {
 
 	/// Factory function for a beneficiary.
 	fn create_beneficiary(seed: [u8; 32]) -> Beneficiary;
-
-	/// Conversion function from a native asset to an asset kind.
-	///
-	/// Used to convert `pallet::Config::BountyValueMinimum` amount to the asset kind amount, since
-	/// `pallet::Config::BalanceConverter` does not implement `ConversionToAssetBalance` trait.
-	fn to_asset_balance(balance: Balance, asset_id: AssetKind) -> Balance;
 }
 
 /// Implementation that expects the parameters implement the [`FromEntropy`] trait.
@@ -56,10 +50,6 @@ where
 
 	fn create_beneficiary(seed: [u8; 32]) -> Beneficiary {
 		Beneficiary::from_entropy(&mut seed.as_slice()).unwrap()
-	}
-
-	fn to_asset_balance(balance: Balance, _asset_id: AssetKind) -> Balance {
-		balance.into()
 	}
 }
 
@@ -121,20 +111,20 @@ pub fn get_payment_id<T: Config<I>, I: 'static>(
 }
 
 // Create the pre-requisite information needed to `fund_bounty`.
-fn setup_bounty<T: Config<I>, I: 'static>() -> BenchmarkBounty<T, I> {
+fn setup_bounty<T: Config<I>, I: 'static>() -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let asset_kind = <T as Config<I>>::BenchmarkHelper::create_asset_kind(SEED);
+	let min_native_value = T::BountyValueMinimum::get();
 	T::BalanceConverter::ensure_successful(asset_kind.clone());
-	let min_native_value = T::BountyValueMinimum::get().saturating_mul(100u32.into());
-	let value =
-		<T as Config<I>>::BenchmarkHelper::to_asset_balance(min_native_value, asset_kind.clone());
-	let child_value = value / 4u32.into();
+	let value = T::BalanceConverter::to_asset_balance(min_native_value, asset_kind.clone())
+		.map_err(|_| BenchmarkError::Stop("Failed to convert balance"))?;
+	let child_value = value / 2u32.into(); // so that retry works
 	let curator = account("curator", 0, SEED);
 	let child_curator = account("child-curator", 1, SEED);
 	let beneficiary =
 		<T as Config<I>>::BenchmarkHelper::create_beneficiary([(SEED).try_into().unwrap(); 32]);
 	let metadata = T::Preimages::note(Cow::from(vec![5, 6])).unwrap();
 
-	BenchmarkBounty::<T, I> {
+	Ok(BenchmarkBounty::<T, I> {
 		parent_bounty_id: 0,
 		child_bounty_id: 0,
 		curator,
@@ -144,14 +134,16 @@ fn setup_bounty<T: Config<I>, I: 'static>() -> BenchmarkBounty<T, I> {
 		child_value,
 		beneficiary,
 		metadata,
-	}
+	})
 }
 
-fn create_parent_bounty<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
-) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let mut s = setup_bounty::<T, I>();
+fn create_parent_bounty<T: Config<I>, I: 'static>() -> Result<BenchmarkBounty<T, I>, BenchmarkError>
+{
+	let mut s = setup_bounty::<T, I>()?;
 
+	let spend_origin = T::SpendOrigin::try_successful_origin().map_err(|_| {
+		BenchmarkError::Stop("SpendOrigin has no successful origin required for the benchmark")
+	})?;
 	let funding_source_account =
 		Bounties::<T, I>::funding_source_account(s.asset_kind.clone()).expect("conversion failed");
 	let parent_bounty_account =
@@ -164,10 +156,9 @@ fn create_parent_bounty<T: Config<I>, I: 'static>(
 		s.asset_kind.clone(),
 		s.value,
 	);
-	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&s.curator, 0u32.into());
 
 	Bounties::<T, I>::fund_bounty(
-		origin,
+		spend_origin,
 		Box::new(s.asset_kind.clone()),
 		s.value,
 		curator_lookup,
@@ -179,10 +170,9 @@ fn create_parent_bounty<T: Config<I>, I: 'static>(
 	Ok(s)
 }
 
-fn create_funded_bounty<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
-) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let s = create_parent_bounty::<T, I>(origin)?;
+fn create_funded_bounty<T: Config<I>, I: 'static>() -> Result<BenchmarkBounty<T, I>, BenchmarkError>
+{
+	let s = create_parent_bounty::<T, I>()?;
 
 	let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, None).expect("no payment attempt");
 	<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
@@ -194,9 +184,8 @@ fn create_funded_bounty<T: Config<I>, I: 'static>(
 }
 
 fn create_active_parent_bounty<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let s = create_funded_bounty::<T, I>(origin)?;
+	let s = create_funded_bounty::<T, I>()?;
 	let curator = s.curator.clone();
 	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&curator, s.value);
 
@@ -205,15 +194,10 @@ fn create_active_parent_bounty<T: Config<I>, I: 'static>(
 	Ok(s)
 }
 
-fn create_child_bounty<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
-) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let mut s = create_active_parent_bounty::<T, I>(origin.clone())?;
+fn create_child_bounty<T: Config<I>, I: 'static>() -> Result<BenchmarkBounty<T, I>, BenchmarkError>
+{
+	let mut s = create_active_parent_bounty::<T, I>()?;
 	let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
-	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
-		&s.child_curator,
-		0u32.into(),
-	);
 
 	Bounties::<T, I>::fund_child_bounty(
 		RawOrigin::Signed(s.curator.clone()).into(),
@@ -229,9 +213,8 @@ fn create_child_bounty<T: Config<I>, I: 'static>(
 }
 
 fn create_funded_child_bounty<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let s = create_child_bounty::<T, I>(origin)?;
+	let s = create_child_bounty::<T, I>()?;
 	let caller = account("caller", 0, SEED);
 
 	let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
@@ -247,9 +230,8 @@ fn create_funded_child_bounty<T: Config<I>, I: 'static>(
 }
 
 fn create_active_child_bounty<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let s = create_funded_child_bounty::<T, I>(origin)?;
+	let s = create_funded_child_bounty::<T, I>()?;
 	let caller = s.child_curator.clone();
 	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&caller, s.child_value);
 
@@ -263,9 +245,8 @@ fn create_active_child_bounty<T: Config<I>, I: 'static>(
 }
 
 fn create_awarded_child_bounty<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let s = create_active_child_bounty::<T, I>(origin)?;
+	let s = create_active_child_bounty::<T, I>()?;
 	let caller = s.child_curator.clone();
 	let beneficiary_lookup = T::BeneficiaryLookup::unlookup(s.beneficiary.clone());
 
@@ -302,11 +283,10 @@ pub fn set_status<T: Config<I>, I: 'static>(
 		_ => return Err(BenchmarkError::Stop("unexpected bounty status")),
 	};
 
-	let _ = pallet_bounties::Pallet::<T, I>::update_bounty_details(
+	let _ = pallet_bounties::Pallet::<T, I>::update_bounty_status(
 		parent_bounty_id,
 		child_bounty_id,
 		new_status,
-		None,
 	);
 
 	Ok(())
@@ -320,9 +300,9 @@ mod benchmarks {
 	/// a successful origin, in which case `fund_bounty` is un-callable and can use weight=0.
 	#[benchmark]
 	fn fund_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = setup_bounty::<T, I>()?;
 
-		let approve_origin =
+		let spend_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let curator_lookup = T::Lookup::unlookup(s.curator.clone());
 		let funding_source_account = Bounties::<T, I>::funding_source_account(s.asset_kind.clone())
@@ -336,13 +316,9 @@ mod benchmarks {
 			s.asset_kind.clone(),
 			s.value,
 		);
-		<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
-			&s.curator,
-			0u32.into(),
-		);
 
 		#[extrinsic_call]
-		_(approve_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.metadata);
+		_(spend_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.metadata);
 
 		let parent_bounty_id = BountyCount::<T, I>::get() - 1;
 		assert_last_event::<T, I>(Event::BountyCreated { index: parent_bounty_id }.into());
@@ -361,74 +337,50 @@ mod benchmarks {
 
 	#[benchmark]
 	fn fund_child_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_active_parent_bounty::<T, I>()?;
 		let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_active_parent_bounty::<T, I>(origin)?;
-			<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
-				&s.child_curator,
-				0u32.into(),
-			);
-			true
-		} else {
-			false
-		};
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(s.curator),
+			s.parent_bounty_id,
+			s.child_value,
+			Some(child_curator_lookup),
+			s.metadata,
+		);
 
-		#[block]
-		{
-			let res = Bounties::<T, I>::fund_child_bounty(
-				RawOrigin::Signed(s.curator).into(),
-				s.parent_bounty_id,
-				s.child_value,
-				Some(child_curator_lookup),
-				s.metadata,
-			);
-
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, crate::Error::<T, _>::InvalidIndex);
+		let child_bounty_id =
+			pallet_bounties::TotalChildBountiesPerParent::<T, I>::get(s.parent_bounty_id) - 1;
+		assert_last_event::<T, I>(
+			Event::ChildBountyCreated { index: s.parent_bounty_id, child_index: child_bounty_id }
+				.into(),
+		);
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(child_bounty_id))
+			.expect("no payment attempt");
+		assert_has_event::<T, I>(
+			Event::Paid {
+				index: s.parent_bounty_id,
+				child_index: Some(child_bounty_id),
+				payment_id,
 			}
-		}
-
-		if spend_exists {
-			let child_bounty_id =
-				pallet_bounties::TotalChildBountiesPerParent::<T, I>::get(s.parent_bounty_id) - 1;
-			assert_last_event::<T, I>(
-				Event::ChildBountyCreated {
-					index: s.parent_bounty_id,
-					child_index: child_bounty_id,
-				}
-				.into(),
-			);
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(child_bounty_id))
-				.expect("no payment attempt");
-			assert_has_event::<T, I>(
-				Event::Paid {
-					index: s.parent_bounty_id,
-					child_index: Some(child_bounty_id),
-					payment_id,
-				}
-				.into(),
-			);
-			assert_ne!(
-				<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
-				PaymentStatus::Failure
-			);
-		}
+			.into(),
+		);
+		assert_ne!(
+			<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
+			PaymentStatus::Failure
+		);
 
 		Ok(())
 	}
 
 	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	/// a successful origin, in which case `fund_bounty` is un-callable and can use weight=0.
+	/// a successful origin, in which case `propose_curator` is un-callable and can use weight=0.
 	#[benchmark]
 	fn propose_curator_parent_bounty() -> Result<(), BenchmarkError> {
-		let approve_origin =
-			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let s = create_funded_bounty::<T, I>(approve_origin.clone())?;
+		let s = create_funded_bounty::<T, I>()?;
 
+		let spend_origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::unassign_curator(
 			RawOrigin::Signed(s.curator.clone()).into(),
 			s.parent_bounty_id,
@@ -438,12 +390,12 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = Bounties::<T, I>::propose_curator(
-				approve_origin,
+			assert_ok!(Bounties::<T, I>::propose_curator(
+				spend_origin,
 				s.parent_bounty_id,
 				None,
 				curator_lookup,
-			);
+			));
 		}
 
 		assert_last_event::<T, I>(
@@ -460,619 +412,431 @@ mod benchmarks {
 
 	#[benchmark]
 	fn propose_curator_child_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_funded_child_bounty::<T, I>()?;
 		let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_funded_child_bounty::<T, I>(origin)?;
-			Bounties::<T, I>::unassign_curator(
-				RawOrigin::Signed(s.curator.clone()).into(),
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-			)?;
-			true
-		} else {
-			false
-		};
+		Bounties::<T, I>::unassign_curator(
+			RawOrigin::Signed(s.curator.clone()).into(),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+		)?;
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::propose_curator(
+			assert_ok!(Bounties::<T, I>::propose_curator(
 				RawOrigin::Signed(s.curator).into(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				child_curator_lookup,
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		assert_last_event::<T, I>(
+			Event::CuratorProposed {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				curator: s.child_curator,
 			}
-		}
-
-		if spend_exists {
-			assert_last_event::<T, I>(
-				Event::CuratorProposed {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-					curator: s.child_curator,
-				}
-				.into(),
-			);
-		}
+			.into(),
+		);
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn accept_curator() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_funded_child_bounty::<T, I>()?;
 		let caller = s.child_curator.clone();
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_funded_child_bounty::<T, I>(origin)?;
-			<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
-				&caller,
-				s.child_value,
-			);
-			true
-		} else {
-			false
-		};
+		<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&caller, s.child_value);
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::accept_curator(
+			assert_ok!(Bounties::<T, I>::accept_curator(
 				RawOrigin::Signed(caller).into(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		assert_last_event::<T, I>(
+			Event::BountyBecameActive {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				curator: s.child_curator,
 			}
-		}
-
-		if spend_exists {
-			assert_last_event::<T, I>(
-				Event::BountyBecameActive {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-					curator: s.child_curator,
-				}
-				.into(),
-			);
-		}
+			.into(),
+		);
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn unassign_curator() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
-		let caller = s.curator.clone();
+		let s = create_active_child_bounty::<T, I>()?;
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_active_child_bounty::<T, I>(origin)?;
-			true
-		} else {
-			false
-		};
+		#[extrinsic_call]
+		_(RawOrigin::Signed(s.curator), s.parent_bounty_id, Some(s.child_bounty_id));
 
-		#[block]
-		{
-			let res = Bounties::<T, I>::unassign_curator(
-				RawOrigin::Signed(caller).into(),
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-			);
-
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		assert_last_event::<T, I>(
+			Event::CuratorUnassigned {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
 			}
-		}
-
-		if spend_exists {
-			assert_last_event::<T, I>(
-				Event::CuratorUnassigned {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-				}
-				.into(),
-			);
-		}
+			.into(),
+		);
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn award_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
-		let caller = s.child_curator.clone();
+		let s = create_active_child_bounty::<T, I>()?;
 		let beneficiary_lookup = T::BeneficiaryLookup::unlookup(s.beneficiary.clone());
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_active_child_bounty::<T, I>(origin)?;
-			true
-		} else {
-			false
-		};
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(s.child_curator),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			beneficiary_lookup,
+		);
 
-		#[block]
-		{
-			let res = Bounties::<T, I>::award_bounty(
-				RawOrigin::Signed(caller).into(),
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-				beneficiary_lookup,
-			);
-
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		assert_last_event::<T, I>(
+			Event::BountyAwarded {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				beneficiary: s.beneficiary,
 			}
-		}
-
-		if spend_exists {
-			assert_last_event::<T, I>(
-				Event::BountyAwarded {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-					beneficiary: s.beneficiary,
-				}
-				.into(),
-			);
-		}
+			.into(),
+		);
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn close_parent_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
-
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_active_parent_bounty::<T, I>(origin)?;
-			true
-		} else {
-			false
-		};
+		let s = create_active_parent_bounty::<T, I>()?;
 
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[block]
 		{
-			let res =
-				Bounties::<T, I>::close_bounty(reject_origin.clone(), s.parent_bounty_id, None);
-
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
-			}
+			assert_ok!(Bounties::<T, I>::close_bounty(
+				reject_origin.clone(),
+				s.parent_bounty_id,
+				None
+			));
 		}
 
-		if spend_exists {
-			assert_last_event::<T, I>(
-				Event::BountyCanceled { index: s.parent_bounty_id, child_index: None }.into(),
-			);
-			let payment_id =
-				get_payment_id::<T, I>(s.parent_bounty_id, None).expect("no payment attempt");
-			assert_has_event::<T, I>(
-				Event::Paid { index: s.parent_bounty_id, child_index: None, payment_id }.into(),
-			);
-			assert_ne!(
-				<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
-				PaymentStatus::Failure
-			);
-			assert!(
-				Bounties::<T, I>::close_bounty(reject_origin, s.parent_bounty_id, None).is_err()
-			);
-		}
+		assert_last_event::<T, I>(
+			Event::BountyCanceled { index: s.parent_bounty_id, child_index: None }.into(),
+		);
+		let payment_id =
+			get_payment_id::<T, I>(s.parent_bounty_id, None).expect("no payment attempt");
+		assert_has_event::<T, I>(
+			Event::Paid { index: s.parent_bounty_id, child_index: None, payment_id }.into(),
+		);
+		assert_ne!(
+			<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
+			PaymentStatus::Failure
+		);
+		assert!(Bounties::<T, I>::close_bounty(reject_origin, s.parent_bounty_id, None).is_err());
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn close_child_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
-
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_active_child_bounty::<T, I>(origin)?;
-			true
-		} else {
-			false
-		};
+		let s = create_active_child_bounty::<T, I>()?;
 
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::close_bounty(
+			assert_ok!(Bounties::<T, I>::close_bounty(
 				reject_origin.clone(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		assert_last_event::<T, I>(
+			Event::BountyCanceled {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
 			}
-		}
-
-		if spend_exists {
-			assert_last_event::<T, I>(
-				Event::BountyCanceled {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-				}
-				.into(),
-			);
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			assert_has_event::<T, I>(
-				Event::Paid {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-					payment_id,
-				}
-				.into(),
-			);
-			assert_ne!(
-				<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
-				PaymentStatus::Failure
-			);
-			assert!(Bounties::<T, I>::close_bounty(
-				reject_origin,
-				s.parent_bounty_id,
-				Some(s.child_bounty_id)
-			)
-			.is_err());
-		}
+			.into(),
+		);
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no payment attempt");
+		assert_has_event::<T, I>(
+			Event::Paid {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				payment_id,
+			}
+			.into(),
+		);
+		assert_ne!(
+			<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
+			PaymentStatus::Failure
+		);
+		assert!(Bounties::<T, I>::close_bounty(
+			reject_origin,
+			s.parent_bounty_id,
+			Some(s.child_bounty_id)
+		)
+		.is_err());
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn check_status_funding() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_child_bounty::<T, I>()?;
 		let caller = s.curator.clone();
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_child_bounty::<T, I>(origin)?;
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
-			true
-		} else {
-			false
-		};
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no payment attempt");
+		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::check_status(
+			assert_ok!(Bounties::<T, I>::check_status(
 				RawOrigin::Signed(caller).into(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		assert_last_event::<T, I>(
+			Event::BountyFundingProcessed {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
 			}
-		}
-
-		if spend_exists {
-			assert_last_event::<T, I>(
-				Event::BountyFundingProcessed {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-				}
-				.into(),
-			);
-			let child_bounty =
-				pallet_bounties::ChildBounties::<T, I>::get(s.parent_bounty_id, s.child_bounty_id)
-					.expect("no bounty");
-			assert!(matches!(child_bounty.status, BountyStatus::Funded { .. }));
-		}
+			.into(),
+		);
+		let child_bounty =
+			pallet_bounties::ChildBounties::<T, I>::get(s.parent_bounty_id, s.child_bounty_id)
+				.expect("no bounty");
+		assert!(matches!(child_bounty.status, BountyStatus::Funded { .. }));
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn check_status_refund() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_active_child_bounty::<T, I>()?;
 		let caller = s.curator.clone();
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_active_child_bounty::<T, I>(origin)?;
-			Bounties::<T, I>::close_bounty(
-				RawOrigin::Signed(caller.clone()).into(),
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-			)?;
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
-			true
-		} else {
-			false
-		};
+		Bounties::<T, I>::close_bounty(
+			RawOrigin::Signed(caller.clone()).into(),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+		)?;
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no payment attempt");
+		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::check_status(
+			assert_ok!(Bounties::<T, I>::check_status(
 				RawOrigin::Signed(caller).into(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		assert_has_event::<T, I>(
+			Event::BountyRefundProcessed {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
 			}
-		}
-
-		if spend_exists {
-			assert_has_event::<T, I>(
-				Event::BountyRefundProcessed {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-				}
-				.into(),
-			);
-			let _ =
-				pallet_bounties::ChildBounties::<T, I>::get(s.parent_bounty_id, s.child_bounty_id)
-					.is_none();
-		}
+			.into(),
+		);
+		assert_eq!(
+			pallet_bounties::ChildBounties::<T, I>::get(s.parent_bounty_id, s.child_bounty_id),
+			None
+		);
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn check_status_payout() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_awarded_child_bounty::<T, I>()?;
 		let caller = s.child_curator.clone();
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_awarded_child_bounty::<T, I>(origin)?;
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
-			true
-		} else {
-			false
-		};
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no payment attempt");
+		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::check_status(
+			assert_ok!(Bounties::<T, I>::check_status(
 				RawOrigin::Signed(caller).into(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		assert_has_event::<T, I>(
+			Event::BountyPayoutProcessed {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				asset_kind: s.asset_kind,
+				value: s.child_value,
+				beneficiary: s.beneficiary,
 			}
-		}
-
-		if spend_exists {
-			assert_has_event::<T, I>(
-				Event::BountyPayoutProcessed {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-					asset_kind: s.asset_kind,
-					value: s.child_value,
-					beneficiary: s.beneficiary,
-				}
-				.into(),
-			);
-			let _ =
-				pallet_bounties::ChildBounties::<T, I>::get(s.parent_bounty_id, s.child_bounty_id)
-					.is_none();
-		}
+			.into(),
+		);
+		assert_eq!(
+			pallet_bounties::ChildBounties::<T, I>::get(s.parent_bounty_id, s.child_bounty_id),
+			None
+		);
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn retry_payment_funding() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_child_bounty::<T, I>()?;
 		let caller = s.curator.clone();
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_child_bounty::<T, I>(origin)?;
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
-			let _ = set_status::<T, I>(
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-				PaymentState::Failed,
-			);
-			true
-		} else {
-			false
-		};
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no payment attempt");
+		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
+		set_status::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), PaymentState::Failed)?;
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::retry_payment(
+			assert_ok!(Bounties::<T, I>::retry_payment(
 				RawOrigin::Signed(caller.clone()).into(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no payment attempt");
+		assert_last_event::<T, I>(
+			Event::Paid {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				payment_id,
 			}
-		}
-
-		if spend_exists {
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			assert_last_event::<T, I>(
-				Event::Paid {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-					payment_id,
-				}
-				.into(),
-			);
-			assert_ne!(
-				<T as pallet::Config<I>>::Paymaster::check_payment(payment_id),
-				PaymentStatus::Failure
-			);
-			assert!(Bounties::<T, I>::retry_payment(
-				RawOrigin::Signed(caller).into(),
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-			)
-			.is_err());
-		}
+			.into(),
+		);
+		assert_ne!(
+			<T as pallet::Config<I>>::Paymaster::check_payment(payment_id),
+			PaymentStatus::Failure
+		);
+		assert!(Bounties::<T, I>::retry_payment(
+			RawOrigin::Signed(caller).into(),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+		)
+		.is_err());
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn retry_payment_refund() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_active_child_bounty::<T, I>()?;
 		let caller = s.curator.clone();
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_active_child_bounty::<T, I>(origin)?;
-			let new_status = BountyStatus::RefundAttempted {
-				payment_status: PaymentState::Failed,
-				curator: Some(s.child_curator),
-			};
-			let _ = pallet_bounties::Pallet::<T, I>::update_bounty_details(
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-				new_status,
-				None,
-			);
-			true
-		} else {
-			false
+		let new_status = BountyStatus::RefundAttempted {
+			payment_status: PaymentState::Failed,
+			curator: Some(s.child_curator),
 		};
+		let _ = pallet_bounties::Pallet::<T, I>::update_bounty_status(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			new_status,
+		);
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::retry_payment(
+			assert_ok!(Bounties::<T, I>::retry_payment(
 				RawOrigin::Signed(caller.clone()).into(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no payment attempt");
+		assert_last_event::<T, I>(
+			Event::Paid {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				payment_id,
 			}
-		}
-
-		if spend_exists {
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			assert_last_event::<T, I>(
-				Event::Paid {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-					payment_id,
-				}
-				.into(),
-			);
-			assert_ne!(
-				<T as pallet::Config<I>>::Paymaster::check_payment(payment_id),
-				PaymentStatus::Failure
-			);
-			assert!(Bounties::<T, I>::retry_payment(
-				RawOrigin::Signed(caller).into(),
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-			)
-			.is_err());
-		}
+			.into(),
+		);
+		assert_ne!(
+			<T as pallet::Config<I>>::Paymaster::check_payment(payment_id),
+			PaymentStatus::Failure
+		);
+		assert!(Bounties::<T, I>::retry_payment(
+			RawOrigin::Signed(caller).into(),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+		)
+		.is_err());
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn retry_payment_payout() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>();
+		let s = create_active_child_bounty::<T, I>()?;
 		let caller = s.curator.clone();
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_active_child_bounty::<T, I>(origin)?;
-			let new_status = BountyStatus::PayoutAttempted {
-				payment_status: PaymentState::Failed,
-				curator: s.child_curator.clone(),
-				beneficiary: s.beneficiary.clone(),
-			};
-			let _ = pallet_bounties::Pallet::<T, I>::update_bounty_details(
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-				new_status,
-				None,
-			);
-			true
-		} else {
-			false
+		let new_status = BountyStatus::PayoutAttempted {
+			payment_status: PaymentState::Failed,
+			curator: s.child_curator.clone(),
+			beneficiary: s.beneficiary.clone(),
 		};
+		let _ = pallet_bounties::Pallet::<T, I>::update_bounty_status(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			new_status,
+		);
 
 		#[block]
 		{
-			let res = Bounties::<T, I>::retry_payment(
+			assert_ok!(Bounties::<T, I>::retry_payment(
 				RawOrigin::Signed(caller.clone()).into(),
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-			);
+			));
+		}
 
-			if spend_exists {
-				assert_ok!(res);
-			} else {
-				assert_err!(res, Error::<T, I>::InvalidIndex);
+		let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
+			.expect("no payment attempt");
+		assert_last_event::<T, I>(
+			Event::Paid {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				payment_id,
 			}
-		}
-
-		if spend_exists {
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			assert_last_event::<T, I>(
-				Event::Paid {
-					index: s.parent_bounty_id,
-					child_index: Some(s.child_bounty_id),
-					payment_id,
-				}
-				.into(),
-			);
-			assert_ne!(
-				<T as pallet::Config<I>>::Paymaster::check_payment(payment_id),
-				PaymentStatus::Failure
-			);
-			assert!(Bounties::<T, I>::retry_payment(
-				RawOrigin::Signed(caller).into(),
-				s.parent_bounty_id,
-				Some(s.child_bounty_id),
-			)
-			.is_err());
-		}
+			.into(),
+		);
+		assert_ne!(
+			<T as pallet::Config<I>>::Paymaster::check_payment(payment_id),
+			PaymentStatus::Failure
+		);
+		assert!(Bounties::<T, I>::retry_payment(
+			RawOrigin::Signed(caller).into(),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+		)
+		.is_err());
 
 		Ok(())
 	}
@@ -1081,16 +845,5 @@ mod benchmarks {
 		Pallet,
 		crate::mock::ExtBuilder::default().build(),
 		crate::mock::Test
-	}
-
-	mod no_spend_origin_tests {
-		use super::*;
-
-		impl_benchmark_test_suite!(
-			Pallet,
-			crate::mock::ExtBuilder::default().spend_origin_succesful_origin_err().build(),
-			crate::mock::Test,
-			benchmarks_path = benchmarking
-		);
 	}
 }

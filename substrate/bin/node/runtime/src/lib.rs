@@ -329,13 +329,6 @@ impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId, u1
 	fn create_beneficiary(seed: [u8; 32]) -> AccountId {
 		AccountId::from_entropy(&mut seed.as_slice()).unwrap()
 	}
-
-	fn to_asset_balance(balance: u128, asset_id: NativeOrWithId<u32>) -> u128 {
-		use frame_support::traits::tokens::ConversionToAssetBalance;
-
-		pallet_asset_rate::Pallet::<Runtime>::to_asset_balance(balance, asset_id.clone())
-			.expect("Conversion must succeed for benchmarks")
-	}
 }
 
 impl pallet_tx_pause::Config for Runtime {
