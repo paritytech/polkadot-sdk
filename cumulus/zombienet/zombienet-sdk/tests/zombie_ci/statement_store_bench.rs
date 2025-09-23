@@ -7,6 +7,7 @@ use log::{debug, info, warn};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Statement, Topic};
 use std::{collections::HashMap, time::Duration};
+use tokio::time::timeout;
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
@@ -19,19 +20,20 @@ use zombienet_sdk::{
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 50;
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 200;
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
 const MESSAGE_COUNT: usize = 2;
 const MAX_RETRIES: u32 = 100;
-const RETRY_DELAY_MS: u64 = 100;
+const RETRY_DELAY_MS: u64 = 500;
+const RECEIVE_DELAY_MS: u64 = 2000;
 
 #[test]
 fn statement_store() -> Result<(), anyhow::Error> {
 	// Create custom tokio runtime with more worker threads
 	let rt = tokio::runtime::Builder::new_multi_thread()
-		.worker_threads(num_cpus::get())
-		.max_blocking_threads(1024)
-		.thread_stack_size(2 * 1024 * 1024)
+		.worker_threads(num_cpus::get() * 2)
+		.max_blocking_threads(2024)
+		.thread_stack_size(4 * 1024 * 1024)
 		.enable_all()
 		.build()?;
 
@@ -45,8 +47,10 @@ fn statement_store() -> Result<(), anyhow::Error> {
 		info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
 		let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 
+		let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
 		for i in 0..(PARTICIPANT_SIZE) as usize {
-			let rpc = get_rpc(&network, "charlie").await?;
+			let collator_name = "charlie"; // collator_names[i % collator_names.len()];
+			let rpc = get_rpc(&network, collator_name).await?;
 			participants.push(Participant::new(i as u32, rpc));
 		}
 
@@ -88,7 +92,10 @@ fn statement_store() -> Result<(), anyhow::Error> {
 		info!("Statement store benchmark completed successfully");
 		info!("Participants: {}", total_participants);
 		info!("Messages sent - Min: {}, Max: {}, Avg: {}", min_sent, max_sent, avg_sent);
-		info!("Messages received - Min: {}, Max: {}, Avg: {}", min_received, max_received, avg_received);
+		info!(
+			"Messages received - Min: {}, Max: {}, Avg: {}",
+			min_received, max_received, avg_received
+		);
 		info!("Retries - Min: {}, Max: {}, Avg: {}", min_retries, max_retries, avg_retries);
 		info!(
 			"Time - Min: {:.2}s, Max: {:.2}s, Avg: {:.2}s",
@@ -251,7 +258,7 @@ impl Participant {
 		}
 	}
 
-	async fn sleep(&mut self) -> Result<(), anyhow::Error> {
+	async fn retry_sleep(&mut self) -> Result<(), anyhow::Error> {
 		if self.retry_count >= MAX_RETRIES {
 			return Err(anyhow!("[{}] No more retry attempts", self.idx))
 		}
@@ -265,6 +272,10 @@ impl Participant {
 		Ok(())
 	}
 
+	async fn receive_sleep(&mut self) {
+		tokio::time::sleep(tokio::time::Duration::from_millis(RECEIVE_DELAY_MS)).await;
+	}
+
 	async fn send_session_key(&mut self) -> Result<(), anyhow::Error> {
 		let statement = self.public_key_statement();
 		self.statement_submit(statement).await
@@ -272,19 +283,40 @@ impl Participant {
 
 	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
 		let group_members = self.group_members.clone();
-		for idx in group_members {
-			loop {
+		let mut pending: Vec<u32> = group_members.clone();
+
+		while !pending.is_empty() {
+			let mut completed_this_round = Vec::new();
+
+			for &idx in &pending {
 				let topics = vec![topic_public_key(), topic_idx(idx)];
-				let statements = self.statement_broadcasts_statement(topics.clone()).await?;
 
-				if let Some(statement) = statements.first() {
-					let data = statement.data().expect("Must contain session_key");
-					let session_key = sr25519::Public::from_raw(data[..].try_into()?);
-					self.session_keys.insert(idx, session_key);
-					break;
+				match timeout(
+					Duration::from_millis(RETRY_DELAY_MS),
+					self.statement_broadcasts_statement(topics),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain session_key");
+							let session_key = sr25519::Public::from_raw(data[..].try_into()?);
+							self.session_keys.insert(idx, session_key);
+							completed_this_round.push(idx);
+						}
+					},
+					_ => {
+						self.receive_sleep().await;
+					},
 				}
+			}
 
-				self.sleep().await?;
+			for completed_idx in completed_this_round {
+				pending.retain(|&x| x != completed_idx);
+			}
+
+			if !pending.is_empty() {
+				self.retry_sleep().await?;
 			}
 		}
 
@@ -316,25 +348,46 @@ impl Participant {
 
 	async fn receive_symmetric_keys(&mut self) -> Result<(), anyhow::Error> {
 		let session_keys = self.session_keys.clone();
-		for (sender_idx, sender_session_key) in session_keys {
-			// Check for symmetric keys from each group member with lower idx
-			if sender_idx < self.idx {
-				loop {
-					let topics = vec![topic_pair(&sender_session_key, &self.session_key.public())];
-					let statements = self.statement_broadcasts_statement(topics).await?;
+		let mut pending: Vec<(u32, sr25519::Public)> = session_keys
+			.into_iter()
+			.filter(|(sender_idx, _)| *sender_idx < self.idx)
+			.collect();
 
-					if let Some(statement) = statements.first() {
-						let data = statement.data().expect("Must contain symmetric key");
-						self.symmetric_keys.insert(
-							sender_idx,
-							sr25519::Public::from_raw(data.as_slice().try_into()?),
-						);
-						self.received_symmetric_key.insert(sender_idx, false);
-						break;
-					}
+		while !pending.is_empty() {
+			let mut completed_this_round = Vec::new();
 
-					self.sleep().await?;
+			for &(sender_idx, sender_session_key) in &pending {
+				let topics = vec![topic_pair(&sender_session_key, &self.session_key.public())];
+
+				match timeout(
+					Duration::from_millis(RETRY_DELAY_MS),
+					self.statement_broadcasts_statement(topics),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain symmetric key");
+							self.symmetric_keys.insert(
+								sender_idx,
+								sr25519::Public::from_raw(data.as_slice().try_into()?),
+							);
+							self.received_symmetric_key.insert(sender_idx, false);
+							completed_this_round.push((sender_idx, sender_session_key));
+						}
+					},
+					_ => {
+						self.receive_sleep().await;
+					},
 				}
+			}
+
+			for completed_item in completed_this_round {
+				pending.retain(|&x| x != completed_item);
+			}
+
+			if !pending.is_empty() {
+				self.retry_sleep().await?;
 			}
 		}
 
@@ -376,38 +429,57 @@ impl Participant {
 	}
 
 	async fn receive_symmetric_key_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let sent_keys: Vec<u32> = self
+		let mut pending: Vec<u32> = self
 			.sent_symmetric_key
 			.iter()
 			.filter(|(_, &received)| !received)
 			.map(|(&receiver_idx, _)| receiver_idx)
 			.collect();
 
-		for receiver_idx in sent_keys {
-			loop {
+		while !pending.is_empty() {
+			let mut completed_this_round = Vec::new();
+
+			for &receiver_idx in &pending {
 				let receiver_session_key =
 					self.session_keys.get(&receiver_idx).expect("Receiver already exists");
 				let topics =
 					vec![topic_ack(), topic_pair(receiver_session_key, &self.session_key.public())];
-				let statements = self.statement_broadcasts_statement(topics).await?;
 
-				if let Some(statement) = statements.first() {
-					let data = statement.data().expect("Must contain acknowledgment");
-					let ack = StatementAcknowledge::decode(&mut &data[..])?;
+				match timeout(
+					Duration::from_millis(RETRY_DELAY_MS),
+					self.statement_broadcasts_statement(topics),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain acknowledgment");
+							let ack = StatementAcknowledge::decode(&mut &data[..])?;
 
-					match ack {
-						StatementAcknowledge::SymmetricKeyReceived {
-							sender_idx: ack_sender_idx,
-						} =>
-							if ack_sender_idx == receiver_idx {
-								self.sent_symmetric_key.insert(receiver_idx, true);
-								break;
-							},
-						_ => {},
-					}
+							match ack {
+								StatementAcknowledge::SymmetricKeyReceived {
+									sender_idx: ack_sender_idx,
+								} =>
+									if ack_sender_idx == receiver_idx {
+										self.sent_symmetric_key.insert(receiver_idx, true);
+										completed_this_round.push(receiver_idx);
+									},
+								_ => {},
+							}
+						}
+					},
+					_ => {
+						self.receive_sleep().await;
+					},
 				}
+			}
 
-				self.sleep().await?;
+			for completed_idx in completed_this_round {
+				pending.retain(|&x| x != completed_idx);
+			}
+
+			if !pending.is_empty() {
+				self.retry_sleep().await?;
 			}
 		}
 
@@ -635,25 +707,47 @@ impl Participant {
 
 	async fn receive_requests(&mut self, round: usize) -> Result<(), anyhow::Error> {
 		let session_keys = self.session_keys.clone();
-		for (&sender_idx, sender_session_key) in &session_keys {
-			loop {
+		let mut pending: Vec<(u32, sr25519::Public)> =
+			session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
+
+		while !pending.is_empty() {
+			let mut completed_this_round = Vec::new();
+
+			for &(sender_idx, sender_session_key) in &pending {
 				let topics = vec![
 					blake2_256(b"request"),
 					topic_pair(&sender_session_key, &self.session_key.public()),
 				];
-				let statements = self.statement_broadcasts_statement(topics).await?;
 
-				if let Some(statement) = statements.first() {
-					let data = statement.data().expect("Must contain request");
-					let req = StatementRequest::decode(&mut &data[..])?;
-					if !self.received_req.contains_key(&(sender_idx, req.request_id)) {
-						self.received_req.insert((sender_idx, req.request_id), false);
-						self.pending_res.insert(sender_idx, Some(req.request_id));
-						break;
-					}
+				match timeout(
+					Duration::from_millis(RETRY_DELAY_MS),
+					self.statement_broadcasts_statement(topics),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain request");
+							let req = StatementRequest::decode(&mut &data[..])?;
+							if !self.received_req.contains_key(&(sender_idx, req.request_id)) {
+								self.received_req.insert((sender_idx, req.request_id), false);
+								self.pending_res.insert(sender_idx, Some(req.request_id));
+								completed_this_round.push((sender_idx, sender_session_key));
+							}
+						}
+					},
+					_ => {
+						self.receive_sleep().await;
+					},
 				}
+			}
 
-				self.sleep().await?;
+			for completed_item in completed_this_round {
+				pending.retain(|&x| x != completed_item);
+			}
+
+			if !pending.is_empty() {
+				self.retry_sleep().await?;
 			}
 		}
 
@@ -714,39 +808,59 @@ impl Participant {
 	}
 
 	async fn receive_request_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let sent_req: Vec<(u32, u32)> = self
+		let mut pending: Vec<(u32, u32)> = self
 			.sent_req
 			.iter()
 			.filter(|(_, &received)| !received)
 			.map(|(&(receiver_idx, request_id), _)| (receiver_idx, request_id))
 			.collect();
 
-		for (receiver_idx, request_id) in sent_req {
-			loop {
+		while !pending.is_empty() {
+			let mut completed_this_round = Vec::new();
+
+			for &(receiver_idx, request_id) in &pending {
 				let receiver_session_key =
 					self.session_keys.get(&receiver_idx).expect("Receiver already exists");
 				let topics =
 					vec![topic_ack(), topic_pair(receiver_session_key, &self.session_key.public())];
-				let statements = self.statement_broadcasts_statement(topics).await?;
 
-				if let Some(statement) = statements.first() {
-					let data = statement.data().expect("Must contain acknowledgment");
-					let ack = StatementAcknowledge::decode(&mut &data[..])?;
-
-					match ack {
-						StatementAcknowledge::RequestReceived {
-							sender_idx: ack_sender_idx,
-							request_id: ack_request_id,
-						} =>
-							if ack_sender_idx == receiver_idx && ack_request_id == request_id {
-								self.sent_req.insert((receiver_idx, request_id), true);
-								break;
-							},
-						_ => {},
-					}
+				match timeout(
+					Duration::from_millis(RETRY_DELAY_MS),
+					self.statement_broadcasts_statement(topics),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain acknowledgment");
+							let ack = StatementAcknowledge::decode(&mut &data[..])?;
+							match ack {
+								StatementAcknowledge::RequestReceived {
+									sender_idx: ack_sender_idx,
+									request_id: ack_request_id,
+								} =>
+									if ack_sender_idx == receiver_idx &&
+										ack_request_id == request_id
+									{
+										self.sent_req.insert((receiver_idx, request_id), true);
+										completed_this_round.push((receiver_idx, request_id));
+									},
+								_ => {},
+							}
+						}
+					},
+					_ => {
+						self.receive_sleep().await;
+					},
 				}
+			}
 
-				self.sleep().await?;
+			for completed_item in completed_this_round {
+				pending.retain(|&x| x != completed_item);
+			}
+
+			if !pending.is_empty() {
+				self.retry_sleep().await?;
 			}
 		}
 
@@ -757,24 +871,46 @@ impl Participant {
 
 	async fn receive_responses(&mut self, round: usize) -> Result<(), anyhow::Error> {
 		let session_keys = self.session_keys.clone();
-		for (&sender_idx, sender_session_key) in &session_keys {
-			loop {
+		let mut pending: Vec<(u32, sr25519::Public)> =
+			session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
+
+		while !pending.is_empty() {
+			let mut completed_this_round = Vec::new();
+
+			for &(sender_idx, sender_session_key) in &pending {
 				let topics = vec![
 					blake2_256(b"response"),
 					topic_pair(&sender_session_key, &self.session_key.public()),
 				];
-				let statements = self.statement_broadcasts_statement(topics).await?;
 
-				if let Some(statement) = statements.first() {
-					let data = statement.data().expect("Must contain response");
-					let res = StatementResponse::decode(&mut &data[..])?;
-					if !self.received_res.contains_key(&(sender_idx, res.request_id)) {
-						self.received_res.insert((sender_idx, res.request_id), false);
-						break;
-					}
+				match timeout(
+					Duration::from_millis(RETRY_DELAY_MS),
+					self.statement_broadcasts_statement(topics),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain response");
+							let res = StatementResponse::decode(&mut &data[..])?;
+							if !self.received_res.contains_key(&(sender_idx, res.request_id)) {
+								self.received_res.insert((sender_idx, res.request_id), false);
+								completed_this_round.push((sender_idx, sender_session_key));
+							}
+						}
+					},
+					_ => {
+						self.receive_sleep().await;
+					},
 				}
+			}
 
-				self.sleep().await?;
+			for completed_item in completed_this_round {
+				pending.retain(|&x| x != completed_item);
+			}
+
+			if !pending.is_empty() {
+				self.retry_sleep().await?;
 			}
 		}
 
@@ -808,39 +944,59 @@ impl Participant {
 	}
 
 	async fn receive_response_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let sent_res: Vec<(u32, u32)> = self
+		let mut pending: Vec<(u32, u32)> = self
 			.sent_res
 			.iter()
 			.filter(|(_, &received)| !received)
 			.map(|(&(receiver_idx, request_id), _)| (receiver_idx, request_id))
 			.collect();
 
-		for (receiver_idx, request_id) in sent_res {
-			loop {
+		while !pending.is_empty() {
+			let mut completed_this_round = Vec::new();
+
+			for &(receiver_idx, request_id) in &pending {
 				let receiver_session_key =
 					self.session_keys.get(&receiver_idx).expect("Receiver already exists");
 				let topics =
 					vec![topic_ack(), topic_pair(receiver_session_key, &self.session_key.public())];
-				let statements = self.statement_broadcasts_statement(topics).await?;
 
-				if let Some(statement) = statements.first() {
-					let data = statement.data().expect("Must contain acknowledgment");
-					let ack = StatementAcknowledge::decode(&mut &data[..])?;
-
-					match ack {
-						StatementAcknowledge::ResponseReceived {
-							sender_idx: ack_sender_idx,
-							request_id: ack_request_id,
-						} =>
-							if ack_sender_idx == receiver_idx && ack_request_id == request_id {
-								self.sent_res.insert((receiver_idx, request_id), true);
-								break;
-							},
-						_ => {},
-					}
+				match timeout(
+					Duration::from_millis(RETRY_DELAY_MS),
+					self.statement_broadcasts_statement(topics),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain acknowledgment");
+							let ack = StatementAcknowledge::decode(&mut &data[..])?;
+							match ack {
+								StatementAcknowledge::ResponseReceived {
+									sender_idx: ack_sender_idx,
+									request_id: ack_request_id,
+								} =>
+									if ack_sender_idx == receiver_idx &&
+										ack_request_id == request_id
+									{
+										self.sent_res.insert((receiver_idx, request_id), true);
+										completed_this_round.push((receiver_idx, request_id));
+									},
+								_ => {},
+							}
+						}
+					},
+					_ => {
+						self.retry_sleep().await?;
+					},
 				}
+			}
 
-				self.sleep().await?;
+			for completed_item in completed_this_round {
+				pending.retain(|&x| x != completed_item);
+			}
+
+			if !pending.is_empty() {
+				self.retry_sleep().await?;
 			}
 		}
 
@@ -853,14 +1009,17 @@ impl Participant {
 		let start_time = std::time::Instant::now();
 		debug!("[{}] Session keys exchange", self.idx);
 		self.send_session_key().await?;
+		self.receive_sleep().await;
 		self.receive_session_keys().await?;
 
 		debug!("[{}] Symmetric keys exchange", self.idx);
 		self.send_symmetric_keys().await?;
+		self.receive_sleep().await;
 		self.receive_symmetric_keys().await?;
 
 		debug!("[{}] Symmetric key acknowledgments", self.idx);
 		self.send_symmetric_key_acknowledgments().await?;
+		self.receive_sleep().await;
 		self.receive_symmetric_key_acknowledgments().await?;
 
 		debug!("[{}] Preparation finished", self.idx);
@@ -868,27 +1027,23 @@ impl Participant {
 			debug!("[{}] Req/res exchange round {}", self.idx, round + 1);
 
 			self.send_requests(round).await?;
+			self.receive_sleep().await;
 			self.receive_requests(round).await?;
 
 			self.send_request_acknowledgments().await?;
+			self.receive_sleep().await;
 			self.receive_request_acknowledgments().await?;
 
 			self.send_responses(round).await?;
+			self.receive_sleep().await;
 			self.receive_responses(round).await?;
 
 			self.send_response_acknowledgments().await?;
+			self.receive_sleep().await;
 			self.receive_response_acknowledgments().await?;
 		}
 
 		let elapsed = start_time.elapsed();
-		info!(
-			"[{}] Benchmark completed - Time: {:.2}s, Sent: {}, Received: {}, Retries: {}",
-			self.idx,
-			elapsed.as_secs_f64(),
-			self.sent_count,
-			self.received_count,
-			self.retry_count
-		);
 
 		Ok(ParticipantStats {
 			participant_id: self.idx,
