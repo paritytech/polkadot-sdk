@@ -392,11 +392,7 @@ where
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
-					pallet_transaction_payment::Pre::Charge {
-						tip,
-						who,
-						liquidity_info,
-					},
+					pallet_transaction_payment::Pre::Charge { tip, who, liquidity_info },
 					info,
 					&actual_post_info,
 					len,
