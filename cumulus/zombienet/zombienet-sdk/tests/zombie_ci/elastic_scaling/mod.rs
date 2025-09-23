@@ -3,6 +3,6 @@
 
 mod multiple_blocks_per_slot;
 mod pov_recovery;
-mod upgrade_to_3_cores;
 mod slot_based_authoring;
 mod slot_based_rp_offset;
+mod upgrade_to_3_cores;
