@@ -711,9 +711,11 @@ impl<T: Config> Pallet<T> {
 	/// # Warning
 	///
 	/// This is only useful if a pallet knows that the pre-dispatch weight was vastly
-	/// overestimated. Drawing too much balance will cause the signer to underpay for the
-	/// transaction. Too much means that not enough is left to pay for the fee with regard
-	/// to the post dispatch weight.
+	/// overestimated. Pallets need to make sure to leave enough balance to pay for the
+	/// transaction fees. They can do that by first drawing as much as they need and then
+	/// at the end of the transaction (when they know the post dispatch fee) return an error
+	/// in case not enough is left. The error will automatically roll back all the storage
+	/// changes done by the pallet including the balance drawn by calling this function.
 	pub fn withdraw_txfee<Balance>(amount: Balance) -> Option<CreditOf<T>>
 	where
 		CreditOf<T>: Imbalance<Balance>,
