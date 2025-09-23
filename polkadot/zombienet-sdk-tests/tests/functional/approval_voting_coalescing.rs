@@ -30,8 +30,8 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 			.with_genesis_overrides(json!({
 				"configuration": {
 					"config": {
-						"needed_approvals": 2,
-						"relay_vrf_modulo_samples": 2,
+						"needed_approvals": 4,
+						"relay_vrf_modulo_samples": 6,
 						"no_show_slots": no_show_slots,
 						"approval_voting_params": {
 							"max_approval_coalesce_count": 5
@@ -41,10 +41,10 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 			}))
 			.with_node(|node| node.with_name("validator-0"));
 
-		(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+		(1..12).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 	});
 
-	for para_id in 2000..2002 {
+	for para_id in 2000..2008 {
 		let collator_name = format!("collator-undying-{para_id}");
 		config_builder = config_builder.with_parachain(|p| {
 			p.with_id(para_id)
@@ -74,8 +74,6 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-
-	tokio::time::sleep(std::time::Duration::from_secs(10000)).await;
 
 	log::info!("Waiting for parachains to advance to block 15");
 	assert_para_throughput(
