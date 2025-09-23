@@ -23,13 +23,13 @@ use crate::{
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		ExtBuilder, Test,
 	},
-	Code, Config, PristineCode, Error
+	Code, Config, Error, PristineCode,
 };
 use alloy_core::{primitives::U256, sol_types::SolInterface};
+use frame_support::assert_err;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
-use frame_support::assert_err;
 
 use revm::bytecode::opcode::*;
 
@@ -171,14 +171,14 @@ fn basic_evm_flow_tracing_works() {
 
 #[test]
 fn eth_contract_too_large() {
-        // This contract size is higher than the allowed limit of 25kb
-        let (code, _) = compile_module_with_type("HeavyContract", FixtureType::Solc).unwrap();
+	// This contract size is higher than the allowed limit of 25kb
+	let (code, _) = compile_module_with_type("HeavyContract", FixtureType::Solc).unwrap();
 
-        ExtBuilder::default().build().execute_with(|| {
-                let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-                let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
+		let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
 
-                assert_err!(result.result, <Error<Test>>::BlobTooLarge);
-        });
+		assert_err!(result.result, <Error<Test>>::BlobTooLarge);
+	});
 }
