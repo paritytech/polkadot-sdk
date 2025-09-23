@@ -1,16 +1,23 @@
 [package]
 name = "pallet-oracle"
-description = "Oracle module that makes off-chain data available on-chain."
-license = "Apache-2.0"
 version = "1.0.0"
-edition = "2021"
 authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
+description = "FRAME oracle pallet for off-chain data"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { workspace = true }
-scale-info = { workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 
 frame-benchmarking = { workspace = true, optional = true }
@@ -21,10 +28,6 @@ sp-application-crypto = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-
-
-# [dev-dependencies]
-# sp-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -40,14 +43,14 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
-]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]
