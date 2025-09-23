@@ -2670,44 +2670,41 @@ mod benchmarks {
 		Ok((instance, origin, storage_deposit, evm_value, signer_key, current_block))
 	}
 
-	/// Benchmark the `on_finalize` hook scaling with number of transactions
-	/// and payload size.
+	/// Benchmark the `on_finalize` hook scaling with number of transactions.
 	///
 	/// This benchmark measures the marginal computational cost of adding transactions
-	/// to a block during finalization. Each transaction uses identical fixed parameters
-	/// to isolate the pure transaction processing overhead.
+	/// to a block during finalization, with fixed payload size to isolate transaction
+	/// count scaling effects.
 	///
 	/// ## Parameters:
-	/// - `n`: Number of transactions in the block
-	/// - `p`: Payload size (transaction data size in bytes)
+	/// - `n`: Number of transactions in the block (0-200)
 	///
 	/// ## Test Setup:
-	/// - Creates `n` transactions with payload size `p`
-	/// - Pre-populates `InflightTransactions::<T>` storage with test data
-	///
-	/// Note: While trie root computation is theoretically O(N log N), the computational cost
-	/// is dominated by storage I/O operations, so linear regression approximation is adequate.
+	/// - Creates `n` transactions with fixed 100-byte payloads
+	/// - Pre-populates block builder storage with test data
 	///
 	/// ## Usage:
-	/// - Fixed cost: `on_finalize(0, 0)` - cost incurred no matter what number of transactions
-	/// - Per transaction: `on_finalize(1, payload_size) - fixed_cost`
+	/// Use this with `on_finalize_per_byte` to calculate total cost:
+	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
 	#[benchmark(pov_mode = Measured)]
-	fn on_finalize(n: Linear<0, 200>, p: Linear<0, 1000>) -> Result<(), BenchmarkError> {
+	fn on_finalize_per_transaction(n: Linear<0, 200>) -> Result<(), BenchmarkError> {
 		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
-		// Pre-populate InflightTransactions with n real transactions of input size p
-		// This isolates the on_finalize processing cost from transaction execution
+		// Fixed payload size to isolate transaction count effects
+		let fixed_payload_size = 100usize;
+
+		// Pre-populate InflightTransactions with n transactions of fixed size
 		if n > 0 {
 			// Initialize block
 			let _ = Pallet::<T>::on_initialize(current_block);
 
-			// Create input data of size p for realistic transaction payloads
-			let input_data = vec![0x42u8; p as usize];
+			// Create input data of fixed size for consistent transaction payloads
+			let input_data = vec![0x42u8; fixed_payload_size];
 			let gas_used = Weight::from_parts(1_000_000, 1000);
 
 			for _ in 0..n {
-				// Create real signed transaction with input data of size p
+				// Create real signed transaction with fixed-size input data
 				let signed_transaction = create_signed_transaction::<T>(
 					&signer_key,
 					instance.address,
@@ -2738,12 +2735,84 @@ mod benchmarks {
 
 		#[block]
 		{
-			// Measure only the finalization cost with n transactions of size p
+			// Measure only the finalization cost with n transactions of fixed size
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
 		// Verify transaction count
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), n as usize);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` hook scaling with transaction payload size.
+	///
+	/// This benchmark measures the marginal computational cost of processing
+	/// larger transaction payloads during finalization, with fixed transaction count
+	/// to isolate payload size scaling effects.
+	///
+	/// ## Parameters:
+	/// - `d`: Payload size per transaction in bytes (0-1000)
+	///
+	/// ## Test Setup:
+	/// - Creates 10 transactions with payload size `d`
+	/// - Pre-populates block builder storage with test data
+	///
+	/// ## Usage:
+	/// Use this with `on_finalize_per_transaction` to calculate total cost:
+	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_transaction_data(d: Linear<0, 1000>) -> Result<(), BenchmarkError> {
+		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Fixed transaction count to isolate payload size effects
+		let fixed_tx_count = 10u32;
+
+		// Initialize block
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Create input data of variable size p for realistic transaction payloads
+		let input_data = vec![0x42u8; d as usize];
+		let gas_used = Weight::from_parts(1_000_000, 1000);
+
+		for _ in 0..fixed_tx_count {
+			// Create real signed transaction with variable-size input data
+			let signed_transaction = create_signed_transaction::<T>(
+				&signer_key,
+				instance.address,
+				evm_value,
+				input_data.clone(),
+			);
+
+			// Store transaction
+			let _ = block_storage::with_ethereum_context(|| {
+				let (encoded_logs, bloom) =
+					block_storage::get_receipt_details().unwrap_or_default();
+
+				let block_builder_ir = EthBlockBuilderIR::<T>::get();
+				let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
+
+				block_builder.process_transaction(
+					signed_transaction,
+					true,
+					gas_used,
+					encoded_logs,
+					bloom,
+				);
+
+				EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+			});
+		}
+
+		#[block]
+		{
+			// Measure only the finalization cost with fixed count, variable payload size
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), fixed_tx_count as usize);
 
 		Ok(())
 	}
