@@ -1533,11 +1533,13 @@ where
 				}
 			}
 			{
-				// TODO: iterate contracts_to_be_destroyed and destroy each contract
+				// iterate contracts_to_be_destroyed and destroy each contract
 				let contracts_to_destroy: Vec<(H160, ContractInfo<T>, H160)> =
 					self.contracts_to_be_destroyed.iter().cloned().collect();
 				for (contract_address, contract_info, beneficiary) in contracts_to_destroy {
-					self.destroy_contract(&contract_address, &contract_info, &beneficiary);
+					let _code_removed = self
+						.destroy_contract(&contract_address, &contract_info, &beneficiary)
+						.unwrap();
 				}
 			}
 		}
@@ -1688,16 +1690,6 @@ where
 		let contract_account = T::AddressMapper::to_account_id(contract_address);
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
-		if self.contracts_created.contains(&contract_account) {
-			// Transfer storage deposit to the origin of the transaction
-			let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
-			nested.terminate(contract_info, beneficiary_account.clone());
-			// nested.terminate(contract_info, self.origin.account_id()?.clone());
-			let mut info = Some(contract_info.clone());
-			self.storage_meter
-				.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
-		}
-
 		// Transfer ALL balance to beneficiary (this should drain the account completely)
 		{
 			let raw_value: U256 = self.account_balance(&contract_account);
@@ -1715,12 +1707,16 @@ where
 			log::info!("destroy_contract: contract balance after transfer: {:?}", raw_value);
 		}
 		// Only allow storage to be removed if the contract was created in the current tx.
-		log::info!(
-			"exec.rs destroy_contract contracts_created: {:?}, contract_account: {:?}",
-			self.contracts_created,
-			contract_account
-		);
 		if self.contracts_created.contains(&contract_account) {
+			{
+				// Transfer storage deposit to the origin of the transaction
+				let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
+				nested.terminate(contract_info, beneficiary_account.clone());
+				// nested.terminate(contract_info, self.origin.account_id()?.clone());
+				let mut info = Some(contract_info.clone());
+				self.storage_meter
+					.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
+			}
 			// Clean up on-chain storage
 			contract_info.queue_trie_for_deletion();
 			AccountInfoOf::<T>::remove(contract_address);
@@ -2258,12 +2254,10 @@ where
 			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
 		if let Some(target_address) = target_address {
-			// let mut frame = self.top_frame_mut();
-			// let _ = frame.terminate();
 			let contract_info = AccountInfo::<T>::load_contract(target_address)
 				.ok_or(Error::<T>::ContractNotFound)?;
 			self.contracts_to_be_destroyed.insert((
-				target_address.clone(),
+				*target_address,
 				contract_info.clone(),
 				*beneficiary,
 			));
@@ -2282,8 +2276,7 @@ where
 			}
 
 			{
-				let mut frame = self.top_frame_mut();
-				let contract_info = frame.terminate();
+				let contract_info = self.top_frame_mut().terminate();
 				self.contracts_to_be_destroyed.insert((
 					contract_address,
 					contract_info.clone(),

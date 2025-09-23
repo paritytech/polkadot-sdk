@@ -17,7 +17,7 @@
 
 use crate::{
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, ExtWithInfo},
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, ExtWithInfo, Revert},
 	vm::RuntimeCosts,
 	Config, H160,
 };
@@ -154,12 +154,14 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let h160 = H160::from_slice(beneficiary.as_slice());
 				let caller_account_id = match env.caller() {
 					Origin::<T>::Root => {
-						panic!("terminate precompile called from Root, expected a contract");
+						return Err(Error::Revert(Revert::from(
+							"Not allowed to call terminate as Root",
+						)));
 					},
 					Origin::<T>::Signed(c) => c,
 				};
 				let caller_h160: H160 = T::AddressMapper::to_address(&caller_account_id);
-				env.terminate(&h160, false, Some(&caller_h160));
+				let _ = env.terminate(&h160, false, Some(&caller_h160))?;
 				Ok(Vec::new())
 			},
 		}
