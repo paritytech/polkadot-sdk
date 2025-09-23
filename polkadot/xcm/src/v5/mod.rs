@@ -1163,6 +1163,24 @@ pub enum Instruction<Call> {
 	Publish {
 		data: PublishData
 	},
+
+	/// Toggle subscription to a publisher parachain's data.
+	///
+	/// This instruction allows parachains to subscribe/unsubscribe to data published by
+	/// other parachains through the Publish instruction. If already subscribed, this will
+	/// unsubscribe. If not subscribed, this will subscribe.
+	///
+	/// - `publisher`: The ID of the publisher parachain to toggle subscription for
+	///
+	/// Safety: Origin must be a parachain. The relay chain will validate the origin and
+	/// manage the subscription state.
+	///
+	/// Kind: *Command*
+	///
+	/// Errors:
+	/// - BadOrigin: If origin is not a valid parachain
+	/// - TooManySubscriptions: If subscriber has reached maximum subscription limit
+	Subscribe { publisher: u32 },
 }
 
 #[derive(
@@ -1266,6 +1284,7 @@ impl<Call> Instruction<Call> {
 			ExecuteWithOrigin { descendant_origin, xcm } =>
 				ExecuteWithOrigin { descendant_origin, xcm: xcm.into() },
 			Publish { data } => Publish { data },
+			Subscribe { publisher } => Subscribe { publisher },
 		}
 	}
 }
@@ -1342,6 +1361,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			ExecuteWithOrigin { descendant_origin, xcm } =>
 				W::execute_with_origin(descendant_origin, xcm),
 			Publish { data } => W::publish(data),
+			Subscribe { publisher } => W::subscribe(publisher),
 		}
 	}
 }

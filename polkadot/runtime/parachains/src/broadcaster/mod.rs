@@ -43,6 +43,9 @@ pub mod publish {
 	pub trait Publish {
 		/// Publish key-value data for a specific parachain.
 		fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult;
+
+		/// Toggle subscription to a publisher's data.
+		fn toggle_subscription(subscriber: ParaId, publisher: ParaId) -> DispatchResult;
 	}
 }
 
@@ -400,5 +403,9 @@ pub mod pallet {
 impl<T: Config> publish::Publish for Pallet<T> {
 	fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult {
 		Self::handle_publish(publisher, data)
+	}
+
+	fn toggle_subscription(subscriber: ParaId, publisher: ParaId) -> DispatchResult {
+		Self::handle_subscribe_toggle(subscriber, publisher)
 	}
 }

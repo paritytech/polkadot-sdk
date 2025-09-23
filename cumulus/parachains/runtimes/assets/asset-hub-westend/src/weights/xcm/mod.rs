@@ -303,7 +303,11 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
 	fn publish(_: &PublishData) -> Weight {
-		// TODO: Benchmark		
+		// TODO: Benchmark
+		Weight::from_parts(10_000_000, 0)
+	}
+	fn subscribe(_: &u32) -> Weight {
+		// TODO: Benchmark
 		Weight::from_parts(10_000_000, 0)
 	}
 }
