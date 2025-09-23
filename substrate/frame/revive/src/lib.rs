@@ -76,9 +76,9 @@ use frame_support::{
 	BoundedVec, RuntimeDebugNoBound,
 };
 use frame_system::{
-	ensure_signed, EnsureNever,
+	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
-	Pallet as System,
+	EnsureNever, Pallet as System,
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
@@ -1077,7 +1077,8 @@ pub mod pallet {
 		/// * `salt`: Used for the address derivation. If `Some` is supplied then `CREATE2`
 		/// 	semantics are used. If `None` then `CRATE1` is used.
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
-		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet.
+		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
+		///   is used for building the Ethereum transaction root.
 		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
