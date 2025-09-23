@@ -1492,6 +1492,7 @@ impl pallet_revive::Config for Runtime {
 	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 	type AllowEVMBytecode = ConstBool<true>;
+	type EVMOrigin = frame_system::EnsureNever<Self::AccountId>;
 }
 
 impl pallet_sudo::Config for Runtime {
