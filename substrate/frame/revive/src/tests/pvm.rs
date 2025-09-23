@@ -1186,7 +1186,6 @@ fn self_destruct2_works() {
 		contract_addr_bytes.copy_from_slice(&returned_data[0..20]);
 		let contract_addr = H160::from(contract_addr_bytes);
 
-		// TODO: contract is not removed from storage?
 		System::on_finalize(System::block_number());
 		Contracts::on_finalize(System::block_number());
 		Contracts::on_idle(System::block_number(), Weight::MAX);
@@ -1200,7 +1199,7 @@ fn self_destruct2_works() {
 		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
 
 		println!("min_balance: {}", min_balance);
-
+		assert_eq!(<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK), 100_000);
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&ALICE),
 			1_000_000 - (initial_contract_balance + min_balance)

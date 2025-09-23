@@ -788,6 +788,10 @@ fn transfer_with_dust<T: Config>(
 ) -> DispatchResult {
 	let (value, dust) = value.deconstruct();
 
+	log::info!(
+		"exec.rs transfer_with_dust: from={from:?}, to={to:?}, value={value:?}, dust={dust:?}"
+	);
+
 	fn transfer_balance<T: Config>(
 		from: &AccountIdOf<T>,
 		to: &AccountIdOf<T>,
@@ -1684,29 +1688,17 @@ where
 		let contract_account = T::AddressMapper::to_account_id(contract_address);
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
-		if self.contracts_created.contains(&contract_account) {
-			{
-				log::info!("created nested storage meter");
-				let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
-
-				log::info!("terminating nested meter");
-				nested.terminate(contract_info, beneficiary_account.clone());
-
-				{
-					let mut info = Some(contract_info.clone());
-					log::info!("absorbing nested storage meter");
-					self.storage_meter.absorb(
-						mem::take(&mut nested),
-						&contract_account,
-						info.as_mut(),
-					);
-				}
-			}
+		if self.contracts_created.contains(&contract_account) && false {
+			// Transfer storage deposit to the origin of the transaction
+			let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
+			nested.terminate(contract_info, self.origin.account_id()?.clone());
+			let mut info = Some(contract_info.clone());
+			self.storage_meter
+				.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
 		}
 
 		// Transfer ALL balance to beneficiary (this should drain the account completely)
 		{
-			let raw_value: U256 = self.account_balance(&contract_account);
 			let raw_value: U256 = self.account_balance(&contract_account);
 			log::info!("destroy_contract: contract balance before transfer: {:?}", raw_value);
 			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
@@ -1714,9 +1706,12 @@ where
                     log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
                     Error::<T>::BalanceConversionFailed
                 })?;
+			log::info!("exec.rs destroy_contract balance: {:?}", value);
 			if !value.is_zero() {
 				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
 			}
+			let raw_value: U256 = self.account_balance(&contract_account);
+			log::info!("destroy_contract: contract balance after transfer: {:?}", raw_value);
 		}
 		// Only allow storage to be removed if the contract was created in the current tx.
 		log::info!(
