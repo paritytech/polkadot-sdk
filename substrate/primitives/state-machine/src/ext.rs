@@ -29,7 +29,9 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
-use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
+use sp_externalities::{
+	Extension, ExtensionStore, Externalities, MultiRemovalResults, TransactionType,
+};
 
 use crate::{trace, warn};
 use alloc::{boxed::Box, vec::Vec};
@@ -579,15 +581,34 @@ where
 	}
 
 	fn storage_start_transaction(&mut self) {
-		self.overlay.start_transaction()
+		self.overlay.start_transaction();
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.start_transaction(TransactionType::Runtime);
+		}
 	}
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.rollback_transaction().map_err(|_| ())
+		self.overlay.rollback_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.rollback_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.commit_transaction().map_err(|_| ())
+		self.overlay.commit_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.commit_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn wipe(&mut self) {
