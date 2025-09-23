@@ -16,4 +16,4 @@ crates:
   - name: pallet-oracle-runtime-api
     bump: major
   - name: polkadot-sdk
-    bump: major
+    bump: minor
