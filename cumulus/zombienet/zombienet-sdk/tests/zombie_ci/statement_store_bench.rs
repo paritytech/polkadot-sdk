@@ -25,32 +25,42 @@ const MESSAGE_COUNT: usize = 2;
 const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 100;
 
-#[tokio::test(flavor = "multi_thread")]
-async fn statement_store() -> Result<(), anyhow::Error> {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
+#[test]
+fn statement_store() -> Result<(), anyhow::Error> {
+	// Create custom tokio runtime with more worker threads
+	let rt = tokio::runtime::Builder::new_multi_thread()
+		.worker_threads(num_cpus::get())
+		.max_blocking_threads(1024)
+		.thread_stack_size(2 * 1024 * 1024)
+		.enable_all()
+		.build()?;
 
-	let network = spawn_network().await?;
+	rt.block_on(async {
+		let _ = env_logger::try_init_from_env(
+			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+		);
 
-	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
-	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
+		let network = spawn_network().await?;
 
-	for i in 0..(PARTICIPANT_SIZE) as usize {
-		let rpc = get_rpc(&network, "charlie").await?;
-		participants.push(Participant::new(i as u32, rpc));
-	}
+		info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
+		let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 
-	let handles: Vec<_> = participants
-		.into_iter()
-		.map(|mut participant| tokio::spawn(async move { participant.run().await }))
-		.collect();
-	for handle in handles {
-		handle.await??;
-	}
-	info!("Statement store benchmark completed successfully");
+		for i in 0..(PARTICIPANT_SIZE) as usize {
+			let rpc = get_rpc(&network, "charlie").await?;
+			participants.push(Participant::new(i as u32, rpc));
+		}
 
-	Ok(())
+		let handles: Vec<_> = participants
+			.into_iter()
+			.map(|mut participant| tokio::spawn(async move { participant.run().await }))
+			.collect();
+		for handle in handles {
+			handle.await??;
+		}
+		info!("Statement store benchmark completed successfully");
+
+		Ok(())
+	})
 }
 
 async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {

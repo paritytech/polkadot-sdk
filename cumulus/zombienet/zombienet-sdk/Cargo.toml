@@ -25,6 +25,7 @@ sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 codec = { workspace = true }
 url = { workspace = true }
+num_cpus = { workspace = true }
 
 [features]
 zombie-ci = []

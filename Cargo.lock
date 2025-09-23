@@ -5217,6 +5217,7 @@ dependencies = [
  "env_logger 0.11.3",
  "futures",
  "log",
+ "num_cpus",
  "parity-scale-codec",
  "polkadot-primitives",
  "serde",
