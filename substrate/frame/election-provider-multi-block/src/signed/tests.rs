@@ -1626,7 +1626,7 @@ mod defensive_tests {
 
 	#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = "called `Result::unwrap()` on an `Err` value: Other(\"item existing in metadata but missing in sorted list.\")")]
+	#[should_panic(expected = "Defensive failure has been triggered!")]
 	fn missing_leader_storage_triggers_defensive() {
 		// Call Verifier::start and mutate storage to delete the score of the leader.
 		// This creates the scenario where score becomes unavailable during verification

@@ -216,7 +216,7 @@ pub trait Verifier {
 	);
 
 	/// What this pallet has to be doing on-init.
-	fn on_init_execute_fn() -> (Weight, Box<dyn Fn() -> Option<Weight>>);
+	fn per_block_exec() -> (Weight, Box<dyn Fn() -> Option<Weight>>);
 }
 
 /// Simple enum to encapsulate the result of the verification of a candidate solution.

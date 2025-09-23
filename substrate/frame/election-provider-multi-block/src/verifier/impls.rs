@@ -1009,7 +1009,7 @@ impl<T: Config> Verifier for Pallet<T> {
 		QueuedSolution::<T>::force_set_single_page_valid(page, partial_supports, score);
 	}
 
-	fn on_init_execute_fn() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+	fn per_block_exec() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
 		Self::do_on_init_execute_fn()
 	}
 }

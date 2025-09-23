@@ -59,20 +59,6 @@
 //! reverse, we rely on [`crate::verifier::Verifier`] trait, which is indeed part of
 //! [`crate::Config`]. This is merely an implementation opinion.
 //!
-//! ### Pallet Ordering:
-//!
-//! TODO: @kiaenigma: this needs clarification and a enforcement. Signed pallet should come first.
-//! Fixing this should yield removing `verifier_done` from the phase transition.
-//!
-//! The ordering of these pallets in a runtime should be:
-//! * parent
-//! * verifier
-//! * signed
-//! * unsigned
-//!
-//! This is critical for the phase transition to work.
-//!
-//! > This should be manually checked, there is not automated way to test it.
 //!
 //! ## Pagination
 //!
@@ -663,13 +649,41 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// [`create::types::Phase`]
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			let current_phase = Self::current_phase();
 			let next_phase = current_phase.next();
-			let (worst_case_weight, exec) = Self::meta_per_block(current_phase.clone());
+
+			let (meta_weight, meta_exec) = Self::per_block_exec(current_phase.clone());
+			let (verifier_weight, verifier_exc) = T::Verifier::per_block_exec();
+
+			// The following will combine `Self::per_block_exec` and `T::Verifier::per_block_exec`
+			// into a single set of `(Weight, Box<_>)`. Can be moved into a function if we have this
+			// pattern in more places.
+			let (combined_weight, combined_exec) = (
+				// pre-exec weight is simply addition.
+				meta_weight.saturating_add(verifier_weight),
+				// our new exec is..
+				Box::new(move || {
+					// execute both this..
+					let corrected_meta_weight = meta_exec();
+					// .. and that
+					let corrected_verifier_weight = verifier_exc();
+					// for each, if they have returned an updated weight, use that, else the
+					// pre-exec weight, and re-sum them up.
+					let final_weight = corrected_meta_weight
+						.unwrap_or(meta_weight)
+						.saturating_add(corrected_verifier_weight.unwrap_or(verifier_weight));
+					if final_weight != meta_weight.saturating_add(verifier_weight) {
+						Some(final_weight)
+					} else {
+						None
+					}
+				}),
+			);
 
 			// TODO: check weight
-			let adjusted_weight = exec();
+			let final_combined_weight = combined_exec();
 			Self::phase_transition(next_phase);
 
 			// NOTE: why in here? bc it is more accessible, for example `roll_to_with_ocw`.
@@ -686,7 +700,7 @@ pub mod pallet {
 				}
 			}
 
-			adjusted_weight.unwrap_or(worst_case_weight)
+			final_combined_weight.unwrap_or(combined_weight)
 		}
 
 		fn integrity_test() {
@@ -1181,10 +1195,33 @@ impl<T: Config> Pallet<T> {
 		Zero::zero()
 	}
 
-	// before doing anything, check what is our current phase, what is the next phase, and
-	// return a closure of what ought to happen. Later on, `execute_fn` can return an
-	// adjusted weight as well.
-	fn meta_per_block(current_phase: Phase<T>) -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+	/// The meta-phase transition logic that applies to all pallets. Includes the following:
+	///
+	/// * Creating snapshot once `ElectionProvider::start` has instructed us to do so.
+	/// * Transition into `Phase::Signed`.
+	/// * Upon last page of `Phase::Signed`, instruct the `Verifier` to start, if any solution
+	///   exists.
+	///
+	/// What it does not:
+	///
+	/// * Instruct the verifier to move forward. This happens through
+	///   [`verifier::Verifier::per_block_exec`]. On each block [`T::Verifier`] is given a chance to
+	///   do something. (Under the hood, if the `Status` is set, it will do something, regardless of
+	///   which phase we are in.)
+	/// * Move us forward if we are in either of `Phase::Done` or `Phase::Export`. These are
+	///   controlled by the caller of our `ElectionProvider` implementation, i.e. staking.
+	///
+	/// ### Type
+	///
+	/// The commonly used `(Weight, Box<dyn Fn() -> Option<Weight>>)` should be interpreted as such:
+	///
+	/// * The `Weight` is the pre-computed worst case weight of the operation that we are going to
+	///   do.
+	/// * The `Box<dyn Fn() -> Option<Weight>>` is the function that represents that the work that
+	///   will at most consume the said amount of weight.
+	///   * Optionally, it can return an updated weight that is more "accurate", based on the
+	///     execution.
+	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
 		type ExecuteFn = Box<dyn Fn() -> Option<Weight>>;
 		let noop: (Weight, ExecuteFn) = (Weight::default(), Box::new(|| None));
 
@@ -1207,38 +1244,31 @@ impl<T: Config> Pallet<T> {
 				(T::WeightInfo::on_initialize_into_snapshot_rest(), exec)
 			},
 			Phase::Signed(x) => {
-				if x.is_zero() {
-					// Signed pallet should prep the best winner, and send the start signal, if some
-					// exists.
-					let maybe_leader =
-						crate::signed::Submissions::<T::Signed>::leader(Self::round());
-					log!(
-						debug,
-						"signed validation is starting, sending validation start signal? {:?}",
-						maybe_leader.is_some()
-					);
-
-					if maybe_leader.is_some() {
-						let exec: ExecuteFn = Box::new(|| {
-							// defensive: signed phase has just began, verifier should be in a
-							// clear state and ready to accept a solution. Moreover, if we have
-							// a leader, their score should be present, and pass the
-							// `ensure_score_quality` (TODO: we actually don't check the minimum
-							// score in signed.).
-							let _ = T::Verifier::start().defensive();
-							None
-						});
-						(T::WeightInfo::on_initialize_into_signed_validation(), exec)
-					} else {
-						noop
-					}
+				// Signed pallet should prep the best winner, and send the start signal, if some
+				// exists.
+				if x.is_zero() &&
+					crate::signed::Submissions::<T::Signed>::leader(Self::round()).is_some()
+				{
+					let exec: ExecuteFn = Box::new(|| {
+						// defensive: signed phase has just began, verifier should be in a
+						// clear state and ready to accept a solution. Moreover, if we have
+						// a leader, their score should be present, and pass the
+						// `ensure_score_quality` (TODO: we actually don't check the minimum
+						// score in signed.).
+						let _ = T::Verifier::start().defensive();
+						None
+					});
+					(T::WeightInfo::on_initialize_into_signed_validation(), exec)
 				} else {
 					noop
 				}
 			},
-			Phase::SignedValidation(_) => T::Verifier::on_init_execute_fn(),
-			Phase::Unsigned(_) | Phase::Off | Phase::Emergency | Phase::Done | Phase::Export(_) =>
-				noop,
+			Phase::SignedValidation(_) |
+			Phase::Unsigned(_) |
+			Phase::Off |
+			Phase::Emergency |
+			Phase::Done |
+			Phase::Export(_) => noop,
 		}
 	}
 
