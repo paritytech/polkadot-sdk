@@ -736,6 +736,15 @@ pub mod pallet {
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
+			// Extract and store published data roots from relay chain state
+			if let Ok(Some(published_roots)) = relay_state_proof.read_published_data_roots() {
+				<PublishedDataRoots<T>>::put(published_roots);
+				log::debug!(
+					target: "parachain_system::inherent",
+					"Stored published data roots from relay chain state"
+				);
+			}
+
 			// Process published data from the broadcaster pallet
 			log::info!(
 				target: "parachain_system::inherent",
@@ -995,16 +1004,15 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Root hash of published data for each publisher.
-	/// This can be used for efficient verification without reading all data.
+	/// Data roots of published data from broadcaster pallet on relay chain.
+	/// Contains (ParaId, root_hash) pairs for all publishers, mirroring the relay chain storage.
 	#[pallet::storage]
-	pub type PublishedDataRoot<T: Config> = StorageMap<
+	pub type PublishedDataRoots<T: Config> = StorageValue<
 		_,
-		Blake2_128Concat,
-		ParaId,           // Publisher
-		T::Hash,          // Root hash of published data
-		OptionQuery,
+		Vec<(ParaId, Vec<u8>)>,  // Vector of (Publisher, Root hash)
+		ValueQuery,
 	>;
+
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
