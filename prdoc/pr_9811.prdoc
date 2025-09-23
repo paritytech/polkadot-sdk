@@ -1,10 +1,20 @@
-title: Elastic scaling runtime upgrade test
+title: Elastic scaling runtime upgrade tests
 doc:
 - audience: Todo
   description: |-
-    Closes https://github.com/paritytech/polkadot-sdk/issues/7259.
+    Add runtime upgrade tests for sync and async backing chains
 
-    TODO
-    - [ ] prdoc
-    - [ ] upgrade from sync backing
-crates: []
+crates: 
+- name: cumulus-test-runtime
+  bump: minor
+- name: cumulus-test-service
+  bump: minor
+- name: cumulus-zombienet-sdk-helpers
+  bump: minor
+- name: cumulus-zombienet-sdk-tests
+  bump: minor
+
+
+
+
+
