@@ -20,6 +20,7 @@
 
 use crate::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use pallet_revive::evm::{TransactionInfo};
 use sc_consensus_manual_seal::rpc::CreatedBlock;
 use serde::{Deserialize, Serialize};
 
@@ -59,6 +60,9 @@ pub trait HardhatRpc {
 
 	#[method(name = "hardhat_getAutomine")]
 	async fn get_automine(&self) -> RpcResult<bool>;
+
+	#[method(name = "evm_setAutomine")]
+	async fn set_automine(&self, automine: bool) -> RpcResult<bool>;
 
 	#[method(name = "hardhat_dropTransaction")]
 	async fn drop_transaction(&self, hash: H256) -> RpcResult<Option<H256>>;
@@ -105,7 +109,7 @@ pub trait HardhatRpc {
 	async fn stop_impersonate_account(&self, account: H160) -> RpcResult<Option<H160>>;
 
 	#[method(name = "eth_pendingTransactions")]
-	async fn pending_transactions(&self) -> RpcResult<Option<Vec<H256>>>;
+	async fn pending_transactions(&self) -> RpcResult<Option<Vec<TransactionInfo>>>;
 
 	#[method(name = "eth_coinbase")]
 	async fn get_coinbase(&self) -> RpcResult<Option<H160>>;
