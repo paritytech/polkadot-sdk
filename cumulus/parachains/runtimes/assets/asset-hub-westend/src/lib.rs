@@ -2565,12 +2565,11 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 
 				fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
 					use xcm::latest::prelude::{ClearOrigin, SetAppendix};
-					use  xcm_executor::RECURSION_LIMIT;
 
 					let mut nested = Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]);
-					for _ in 0..(RECURSION_LIMIT + 1) {
-        				nested = Xcm(vec![SetAppendix(nested)]);
-    				}
+					for _ in 0..=(xcm_executor::RECURSION_LIMIT + 1) {
+						nested = Xcm(vec![SetAppendix(nested)]);
+					}
 
 					tracing::info!(target: "frame::benchmark::pallet", ?nested, "TESTING");
 
