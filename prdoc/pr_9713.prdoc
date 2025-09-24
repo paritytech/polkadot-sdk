@@ -1,7 +1,5 @@
 title: 'Elastic-scaling-guide: Mention slot duration'
 doc:
 - audience: Runtime Dev
-  description: 'Follow-up to #9677 . I think it would be good to add our view on the
-    slot duration, as it is often confused with the actual block production interval.
-    This short addition should clarify things a bit.'
+  description: Update the elastic scaling guide with guidelines regarding the handling of slot durations.
 crates: []
