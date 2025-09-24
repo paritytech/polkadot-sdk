@@ -121,7 +121,7 @@ use frame_support::traits::PalletInfoAccess;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION, Xcm, Instruction, SetTopic, ClearOrigin
+	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION, Xcm, Instruction, ClearOrigin, SetAppendix
 };
 
 use xcm_runtime_apis::{
