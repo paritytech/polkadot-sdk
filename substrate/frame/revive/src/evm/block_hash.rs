@@ -735,12 +735,20 @@ mod test {
 			let block_hash: H256 = Block::compute_trie_root(&rlp_values).0.into();
 			let manual_hash = manual_trie_root_compute(rlp_values.clone());
 
-			let mut builder = IncrementalHashBuilder::new(rlp_values[0].clone());
+			let mut first_value = Some(rlp_values[0].clone());
+			let mut builder = IncrementalHashBuilder::new();
 			for rlp_value in rlp_values.iter().skip(1) {
+				if builder.should_load_first_value() {
+					let value = first_value.take().expect("First value must be present; qed");
+					builder.load_first_value(value);
+				}
 				builder.add_value(rlp_value.clone());
 
 				let ir_builder = builder.to_ir();
 				builder = IncrementalHashBuilder::from_ir(ir_builder);
+			}
+			if let Some(value) = first_value.take() {
+				builder.load_first_value(value);
 			}
 			let incremental_hash = builder.finish();
 
@@ -814,6 +822,7 @@ mod test {
 			})
 			.collect();
 
+		let mut first_values = None;
 		// Build the ethereum block incrementally.
 		let mut incremental_block = EthereumBlockBuilder::new();
 		for (signed, logs, success, gas_used) in transaction_details {
@@ -826,23 +835,29 @@ mod test {
 				accumulate_receipt.add_log(address, data, topics);
 			}
 
-			incremental_block.process_transaction(
+			if incremental_block.should_load_first_values() {
+				incremental_block.load_first_values(first_values.take());
+			}
+
+			if let Some(values) = incremental_block.process_transaction(
 				signed,
 				success,
 				gas_used.into(),
 				accumulate_receipt.encoding,
 				accumulate_receipt.bloom,
-			);
+			) {
+				first_values = Some(values);
+			}
 
 			let ir = incremental_block.to_ir();
 			incremental_block = EthereumBlockBuilder::from_ir(ir);
-
-			println!(" Otherwise size {:?}", log_size);
+			println!(" Log size {:?}", log_size);
 		}
 
 		// The block hash would differ here because we don't take into account
 		// the ommers and other fields from the substrate perspective.
 		// However, the state roots must be identical.
+		incremental_block.load_first_values(first_values.take());
 		let built_block = incremental_block
 			.build(
 				block.number,
@@ -869,9 +884,17 @@ mod test {
 		}
 		println!("Total size used by transactions: {:?}", total_size);
 
-		let mut builder = IncrementalHashBuilder::new(encoded_tx[0].clone());
+		let mut first_value = Some(encoded_tx[0].clone());
+		let mut builder = IncrementalHashBuilder::new();
 		for tx in encoded_tx.iter().skip(1) {
+			if builder.should_load_first_value() {
+				let value = first_value.take().expect("First value must be present; qed");
+				builder.load_first_value(value);
+			}
 			builder.add_value(tx.clone())
+		}
+		if let Some(value) = first_value.take() {
+			builder.load_first_value(value);
 		}
 		let incremental_hash = builder.finish();
 

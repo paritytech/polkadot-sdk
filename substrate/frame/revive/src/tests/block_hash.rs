@@ -85,8 +85,9 @@ fn transactions_are_captured() {
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
 
 		// Double check the trie root hash.
-		let builder = EthereumBlockBuilder::from_ir(block_builder);
-		let tx_root = builder.transaction_root_builder.unwrap().finish();
+		let mut builder = EthereumBlockBuilder::from_ir(block_builder);
+		builder.transaction_root_builder.load_first_value(expected_payloads[0].clone());
+		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
 		Contracts::on_finalize(0);
@@ -141,7 +142,7 @@ fn events_are_captured() {
 			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 		];
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
-		const EXPECTED_GAS: u64 = 7203594;
+		const EXPECTED_GAS: u64 = 7735804;
 
 		let logs = vec![AlloyLog::new_unchecked(
 			contract.0.into(),
@@ -158,18 +159,20 @@ fn events_are_captured() {
 		// Receipt starts with encoded tx type which is 3 for 4844 transactions.
 		let mut encoded_receipt = vec![3];
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
-		let expected_receipt_root = Block::compute_trie_root(&[encoded_receipt]);
+		let expected_receipt_root = Block::compute_trie_root(&[encoded_receipt.clone()]);
 
 		let block_builder = EthBlockBuilderIR::<Test>::get();
 		// 1 transaction captured.
 		assert_eq!(block_builder.gas_info.len(), 1);
 		assert_eq!(block_builder.gas_info, vec![ReceiptGasInfo { gas_used: EXPECTED_GAS.into() }]);
 
-		let builder = EthereumBlockBuilder::from_ir(block_builder);
-		let tx_root = builder.transaction_root_builder.unwrap().finish();
+		let mut builder = EthereumBlockBuilder::from_ir(block_builder);
+		builder.transaction_root_builder.load_first_value(expected_payloads[0].clone());
+		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
-		let receipt_root = builder.receipts_root_builder.unwrap().finish();
+		builder.receipts_root_builder.load_first_value(encoded_receipt.clone());
+		let receipt_root = builder.receipts_root_builder.finish();
 		assert_eq!(receipt_root, expected_receipt_root.0.into());
 
 		Contracts::on_finalize(0);
