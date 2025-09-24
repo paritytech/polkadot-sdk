@@ -165,7 +165,8 @@ where
 		+ Subsystem<OverseerSubsystemContext<DisputeDistributionMessage>, SubsystemError>
 		+ Subsystem<OverseerSubsystemContext<ChainSelectionMessage>, SubsystemError>
 		+ Subsystem<OverseerSubsystemContext<PvfCheckerMessage>, SubsystemError>
-		+ Subsystem<OverseerSubsystemContext<ProspectiveParachainsMessage>, SubsystemError>,
+		+ Subsystem<OverseerSubsystemContext<ProspectiveParachainsMessage>, SubsystemError>
+		+ Subsystem<OverseerSubsystemContext<ConsensusStatisticsCollectorMessage>, SubsystemError>,
 {
 	let metrics = <OverseerMetrics as MetricsTrait>::register(registry)?;
 
@@ -194,7 +195,7 @@ where
 		.dispute_distribution(subsystem.clone())
 		.chain_selection(subsystem.clone())
 		.prospective_parachains(subsystem.clone())
-		.statistics_collector(subsystem.clone())
+		.consensus_statistics_collector(subsystem.clone())
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.spawner(SpawnGlue(spawner))

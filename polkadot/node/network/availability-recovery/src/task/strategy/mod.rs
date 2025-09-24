@@ -236,7 +236,7 @@ impl State {
 	pub fn get_download_chunks_metrics(&self) -> HashMap<ValidatorIndex, u64> {
 		self.chunks_received_by
 			.iter()
-			.map(|(validator, downloaded)| (*validator, downloaded.count()))
+			.map(|(validator, downloaded)| (*validator, downloaded.len() as u64))
 			.collect()
 	}
 

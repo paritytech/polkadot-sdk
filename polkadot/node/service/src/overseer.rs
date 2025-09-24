@@ -73,8 +73,7 @@ pub use polkadot_node_core_provisioner::ProvisionerSubsystem;
 pub use polkadot_node_core_pvf_checker::PvfCheckerSubsystem;
 pub use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 pub use polkadot_statement_distribution::StatementDistributionSubsystem;
-pub use polkadot_node_core_statistics_collector::ConsensusStatisticsCollector;
-use polkadot_overseer::AllMessages::StatisticsCollector;
+pub use polkadot_node_core_consensus_statistics_collector::ConsensusStatisticsCollector;
 
 /// Arguments passed for overseer construction.
 pub struct OverseerGenArgs<'a, Spawner, RuntimeClient>

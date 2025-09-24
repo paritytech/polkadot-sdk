@@ -32,7 +32,7 @@ use crate::{metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET};
 
 use codec::Encode;
 use polkadot_node_primitives::AvailableData;
-use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, overseer, RecoveryError};
+use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, overseer, RecoveryError, Subsystem, SubsystemSender};
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash, SessionIndex};
 use sc_network::ProtocolName;
 
@@ -100,7 +100,8 @@ pub struct RecoveryTask<Sender: overseer::AvailabilityRecoverySenderTrait> {
 
 impl<Sender> RecoveryTask<Sender>
 where
-	Sender: overseer::AvailabilityRecoverySenderTrait,
+	Sender: overseer::AvailabilityRecoverySenderTrait
+		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
 {
 	/// Instantiate a new recovery task.
 	pub fn new(

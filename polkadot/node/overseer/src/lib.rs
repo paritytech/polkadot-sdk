@@ -528,6 +528,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeTxMessage,
 		RuntimeApiMessage,
 		AvailabilityStoreMessage,
+		ConsensusStatisticsCollectorMessage,
 	])]
 	availability_recovery: AvailabilityRecovery,
 
@@ -607,6 +608,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateValidationMessage,
 		ChainApiMessage,
 		ChainSelectionMessage,
+		ConsensusStatisticsCollectorMessage,
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 	])]
@@ -616,6 +618,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateValidationMessage,
 		ChainApiMessage,
 		ChainSelectionMessage,
+		ConsensusStatisticsCollectorMessage,
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
@@ -660,7 +663,7 @@ pub struct Overseer<SupportsParachains> {
 	prospective_parachains: ProspectiveParachains,
 
 	#[subsystem(ConsensusStatisticsCollectorMessage, sends: [])]
-	statistics_collector: StatisticsCollector,
+	consensus_statistics_collector: ConsensusStatisticsCollector,
 
 	/// External listeners waiting for a hash to be in the active-leave set.
 	pub activation_external_listeners: HashMap<Hash, Vec<oneshot::Sender<SubsystemResult<()>>>>,

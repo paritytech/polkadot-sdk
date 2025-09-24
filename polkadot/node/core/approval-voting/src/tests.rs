@@ -658,6 +658,7 @@ async fn import_approval(
 	candidate_hash: CandidateHash,
 	session_index: SessionIndex,
 	expect_chain_approved: bool,
+	expected_approval_validators: Vec<ValidatorIndex>,
 	signature_opt: Option<ValidatorSignature>,
 ) -> oneshot::Receiver<ApprovalCheckResult> {
 	let signature = signature_opt.unwrap_or(sign_approval(
@@ -681,7 +682,21 @@ async fn import_approval(
 		},
 	)
 	.await;
+
 	if expect_chain_approved {
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ConsensusStatisticsCollector(
+				ConsensusStatisticsCollectorMessage::CandidateApproved(
+					c_hash, b_hash, validators,
+				)
+			) => {
+				assert_eq!(b_hash, block_hash);
+				assert_eq!(c_hash, candidate_hash);
+				assert_eq!(validators, expected_approval_validators);
+			}
+		);
+
 		assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::ChainSelection(ChainSelectionMessage::Approved(b_hash)) => {
@@ -1259,6 +1274,7 @@ fn subsystem_rejects_approval_if_no_candidate_entry() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			None,
 		)
 		.await;
@@ -1300,6 +1316,7 @@ fn subsystem_rejects_approval_if_no_block_entry() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			None,
 		)
 		.await;
@@ -1365,6 +1382,7 @@ fn subsystem_rejects_approval_before_assignment() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			None,
 		)
 		.await;
@@ -1621,6 +1639,7 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 			candidate_hash,
 			session_index,
 			true,
+			vec![],
 			None,
 		)
 		.await;
@@ -1711,6 +1730,7 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			None,
 		)
 		.await;
@@ -1728,6 +1748,7 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			None,
 		)
 		.await;
@@ -1945,6 +1966,7 @@ fn test_approvals_on_fork_are_always_considered_after_no_show(
 			candidate_hash,
 			1,
 			false,
+			vec![],
 			None,
 		)
 		.await;
@@ -2339,6 +2361,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			Some(sig_a),
 		)
 		.await;
@@ -2366,6 +2389,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			candidate_hash,
 			session_index,
 			true,
+			vec![validator_index_b],
 			Some(sig_b),
 		)
 		.await;
@@ -2502,6 +2526,7 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 				*candidate_hash,
 				session_index,
 				expect_block_approved,
+				vec![validator1, validator2],
 				Some(signature),
 			)
 			.await;
@@ -2774,6 +2799,7 @@ fn approved_ancestor_test(
 				candidate_hash,
 				i as u32 + 1,
 				true,
+				vec![validator],
 				None,
 			)
 			.await;
@@ -3337,7 +3363,19 @@ where
 			assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 		}
 
+		// 10
+		// 0..10
+		// 3 * (i + 1)
+		// 0 => 3
+		// 1 => 6
+		// 2 => 9
+		// 3 => 12
 		let n_validators = validators.len();
+		let validators_collected = approvals_to_import[0..=n_validators/3]
+			.iter()
+			.map(|vidx| ValidatorIndex(vidx.clone()))
+			.collect::<Vec<ValidatorIndex>>();
+
 		for (i, &validator_index) in approvals_to_import.iter().enumerate() {
 			let expect_chain_approved = 3 * (i + 1) > n_validators;
 			let rx = import_approval(
@@ -3348,6 +3386,7 @@ where
 				candidate_hash,
 				1,
 				expect_chain_approved,
+				validators_collected.clone(),
 				Some(sign_approval(validators[validator_index as usize], candidate_hash, 1)),
 			)
 			.await;
@@ -3689,6 +3728,7 @@ fn pre_covers_dont_stall_approval() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			Some(sig_b),
 		)
 		.await;
@@ -3704,6 +3744,7 @@ fn pre_covers_dont_stall_approval() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			Some(sig_c),
 		)
 		.await;
@@ -3739,6 +3780,27 @@ fn pre_covers_dont_stall_approval() {
 		// tranche 1, and the no-show from tranche 0 should be immediately covered.
 		assert_eq!(clock.inner.lock().next_wakeup(), Some(31));
 		clock.inner.lock().set_tick(31);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ConsensusStatisticsCollector(ConsensusStatisticsCollectorMessage::CandidateApproved(
+				c_hash, b_hash, validators,
+			)) => {
+				assert_eq!(b_hash, block_hash);
+				assert_eq!(c_hash, candidate_hash);
+				assert_eq!(validators, vec![validator_index_b, validator_index_c]);
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ConsensusStatisticsCollector(ConsensusStatisticsCollectorMessage::NoShows(
+				session_idx, validators,
+			)) => {
+				assert_eq!(session_idx, 1);
+				assert_eq!(validators, vec![validator_index_a]);
+			}
+		);
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
@@ -3861,6 +3923,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			Some(sig_a),
 		)
 		.await;
@@ -3877,6 +3940,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 			candidate_hash,
 			session_index,
 			false,
+			vec![],
 			Some(sig_b),
 		)
 		.await;

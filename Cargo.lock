@@ -15412,6 +15412,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-node-core-consensus-statistics-collector"
+version = "6.0.0"
+dependencies = [
+ "assert_matches",
+ "fatality",
+ "futures",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-util",
+ "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "rand 0.8.5",
+ "rstest",
+ "sp-core 28.0.0",
+ "sp-tracing 16.0.0",
+ "thiserror 1.0.65",
+ "tracing-gum",
+]
+
+[[package]]
 name = "polkadot-node-core-dispute-coordinator"
 version = "7.0.0"
 dependencies = [
@@ -15639,27 +15660,6 @@ dependencies = [
  "sp-consensus-babe",
  "sp-core 28.0.0",
  "sp-keyring",
- "tracing-gum",
-]
-
-[[package]]
-name = "polkadot-node-core-statistics-collector"
-version = "6.0.0"
-dependencies = [
- "assert_matches",
- "fatality",
- "futures",
- "polkadot-node-primitives",
- "polkadot-node-subsystem",
- "polkadot-node-subsystem-test-helpers",
- "polkadot-node-subsystem-util",
- "polkadot-primitives",
- "polkadot-primitives-test-helpers",
- "rand 0.8.5",
- "rstest",
- "sp-core 28.0.0",
- "sp-tracing 16.0.0",
- "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -16781,6 +16781,7 @@ dependencies = [
  "polkadot-node-core-candidate-validation",
  "polkadot-node-core-chain-api",
  "polkadot-node-core-chain-selection",
+ "polkadot-node-core-consensus-statistics-collector",
  "polkadot-node-core-dispute-coordinator",
  "polkadot-node-core-parachains-inherent",
  "polkadot-node-core-prospective-parachains",
@@ -16788,7 +16789,6 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
  "polkadot-node-core-runtime-api",
- "polkadot-node-core-statistics-collector",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
