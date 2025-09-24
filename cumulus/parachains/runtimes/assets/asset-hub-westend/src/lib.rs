@@ -1192,7 +1192,6 @@ impl pallet_revive::Config for Runtime {
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
-	type EVMOrigin = frame_system::EnsureNever<Self::AccountId>;
 }
 
 parameter_types! {

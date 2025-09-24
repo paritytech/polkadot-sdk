@@ -342,7 +342,6 @@ impl pallet_revive::Config for Test {
 	type Time = Timestamp;
 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
-	type EVMOrigin = frame_system::EnsureNever<Self::AccountId>;
 }
 
 // This child parachain is a system parachain trusted to teleport native token.
