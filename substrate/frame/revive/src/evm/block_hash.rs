@@ -163,7 +163,7 @@ pub struct IncrementalHashBuilder {
 /// The intermediate representation of the [`IncrementalHashBuilder`] that can be placed into the
 /// pallets storage. This contains the minimum amount of data that is needed to serialize
 /// and deserialize the incremental hash builder.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, Debug, Default)]
 pub struct IncrementalHashBuilderIR {
 	/// The nibbles of the builder.
 	pub key: Vec<u8>,
@@ -185,17 +185,14 @@ pub struct IncrementalHashBuilderIR {
 	pub stored_in_database: bool,
 	/// Current RLP buffer.
 	pub rlp_buf: Vec<u8>,
-
 	/// The index of the current value.
 	pub index: u64,
-	/// RLP encoded value.
-	pub first_value: Option<Vec<u8>>,
 }
 
 impl IncrementalHashBuilder {
 	/// Construct the hash builder from the first value.
-	pub fn new(first_value: Vec<u8>) -> Self {
-		Self { hash_builder: HashBuilder::default(), index: 1, first_value: Some(first_value) }
+	pub fn new() -> Self {
+		Self { hash_builder: HashBuilder::default(), index: 1, first_value: None }
 	}
 
 	/// Converts the intermediate representation back into a builder.
@@ -240,11 +237,7 @@ impl IncrementalHashBuilder {
 			rlp_buf: serialized.rlp_buf,
 		};
 
-		IncrementalHashBuilder {
-			hash_builder,
-			index: serialized.index,
-			first_value: serialized.first_value,
-		}
+		IncrementalHashBuilder { hash_builder, index: serialized.index, first_value: None }
 	}
 
 	/// Converts the builder into an intermediate representation.
@@ -265,11 +258,12 @@ impl IncrementalHashBuilder {
 			stored_in_database: self.hash_builder.stored_in_database,
 			rlp_buf: self.hash_builder.rlp_buf,
 			index: self.index,
-			first_value: self.first_value,
 		}
 	}
 
 	/// Add a new value to the hash builder.
+	///
+	/// The value is returned if it should be preserved until a later time.
 	pub fn add_value(&mut self, value: Vec<u8>) {
 		let rlp_index = rlp::encode_fixed_size(&self.index);
 		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
@@ -285,6 +279,16 @@ impl IncrementalHashBuilder {
 		}
 
 		self.index = self.index.saturating_add(1);
+	}
+
+	/// Load the first value from storage.
+	pub fn load_first_value(&mut self, value: Vec<u8>) {
+		self.first_value = Some(value);
+	}
+
+	/// Check if we should load the first value from storage.
+	pub fn should_load_first_value(&self) -> bool {
+		self.index == 0x7f
 	}
 
 	/// Build the trie root hash.
@@ -470,8 +474,8 @@ const BLOOM_SIZE_BYTES: usize = 256;
 /// The intermediate representation of the Ethereum block builder.
 #[derive(Encode, Decode, TypeInfo)]
 pub struct EthereumBlockBuilderIR {
-	transaction_root_builder: Option<IncrementalHashBuilderIR>,
-	receipts_root_builder: Option<IncrementalHashBuilderIR>,
+	transaction_root_builder: IncrementalHashBuilderIR,
+	receipts_root_builder: IncrementalHashBuilderIR,
 
 	gas_used: U256,
 	pub(crate) tx_hashes: Vec<H256>,
@@ -483,8 +487,8 @@ pub struct EthereumBlockBuilderIR {
 impl Default for EthereumBlockBuilderIR {
 	fn default() -> Self {
 		Self {
-			transaction_root_builder: None,
-			receipts_root_builder: None,
+			transaction_root_builder: IncrementalHashBuilderIR::default(),
+			receipts_root_builder: IncrementalHashBuilderIR::default(),
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
 			logs_bloom: [0; BLOOM_SIZE_BYTES],
@@ -495,8 +499,8 @@ impl Default for EthereumBlockBuilderIR {
 
 /// Ethereum block builder.
 pub struct EthereumBlockBuilder {
-	pub(crate) transaction_root_builder: Option<IncrementalHashBuilder>,
-	pub(crate) receipts_root_builder: Option<IncrementalHashBuilder>,
+	pub(crate) transaction_root_builder: IncrementalHashBuilder,
+	pub(crate) receipts_root_builder: IncrementalHashBuilder,
 
 	gas_used: U256,
 	pub(crate) tx_hashes: Vec<H256>,
@@ -507,10 +511,10 @@ pub struct EthereumBlockBuilder {
 
 impl EthereumBlockBuilder {
 	/// Constructs a new [`EthereumBlockBuilder`].
-	pub const fn new() -> Self {
+	pub fn new() -> Self {
 		Self {
-			transaction_root_builder: None,
-			receipts_root_builder: None,
+			transaction_root_builder: IncrementalHashBuilder::new(),
+			receipts_root_builder: IncrementalHashBuilder::new(),
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
 			logs_bloom: LogsBloom::new(),
@@ -521,8 +525,8 @@ impl EthereumBlockBuilder {
 	/// Converts the builder into an intermediate representation.
 	pub fn to_ir(self) -> EthereumBlockBuilderIR {
 		EthereumBlockBuilderIR {
-			transaction_root_builder: self.transaction_root_builder.map(|b| b.to_ir()),
-			receipts_root_builder: self.receipts_root_builder.map(|b| b.to_ir()),
+			transaction_root_builder: self.transaction_root_builder.to_ir(),
+			receipts_root_builder: self.receipts_root_builder.to_ir(),
 			gas_used: self.gas_used,
 			tx_hashes: self.tx_hashes,
 			logs_bloom: self.logs_bloom.bloom,
@@ -533,12 +537,8 @@ impl EthereumBlockBuilder {
 	/// Converts the intermediate representation back into a builder.
 	pub fn from_ir(ir: EthereumBlockBuilderIR) -> Self {
 		Self {
-			transaction_root_builder: ir
-				.transaction_root_builder
-				.map(|b| IncrementalHashBuilder::from_ir(b)),
-			receipts_root_builder: ir
-				.receipts_root_builder
-				.map(|b| IncrementalHashBuilder::from_ir(b)),
+			transaction_root_builder: IncrementalHashBuilder::from_ir(ir.transaction_root_builder),
+			receipts_root_builder: IncrementalHashBuilder::from_ir(ir.receipts_root_builder),
 			gas_used: ir.gas_used,
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
@@ -551,7 +551,31 @@ impl EthereumBlockBuilder {
 		*self = Self::new();
 	}
 
+	/// Check if the first transaction and receipt should be loaded from storage.
+	///
+	/// This returns true if the index of the current value is 0x7f.
+	pub fn should_load_first_values(&self) -> bool {
+		self.transaction_root_builder.should_load_first_value() ||
+			self.receipts_root_builder.should_load_first_value()
+	}
+
+	/// Loads the first values from storage.
+	///
+	/// This is only needed if `should_load_first_values` returns true.
+	///
+	/// The values are expected to be identical to the first transaction and receipt and
+	/// are returned by `Self::process_transaction`.
+	pub fn load_first_values(&mut self, values: Option<(Vec<u8>, Vec<u8>)>) {
+		if let Some((tx_encoded, receipt_encoded)) = values {
+			self.transaction_root_builder.load_first_value(tx_encoded);
+			self.receipts_root_builder.load_first_value(receipt_encoded);
+		}
+	}
+
 	/// Process a single transaction at a time.
+	///
+	/// Returns the first transaction and receipt to be stored in the pallet storage.
+	/// Otherwise, returns None.
 	pub fn process_transaction(
 		&mut self,
 		transaction_encoded: Vec<u8>,
@@ -559,13 +583,12 @@ impl EthereumBlockBuilder {
 		gas_used: Weight,
 		encoded_logs: Vec<u8>,
 		receipt_bloom: LogsBloom,
-	) {
+	) -> Option<(Vec<u8>, Vec<u8>)> {
 		let tx_hash = H256(keccak_256(&transaction_encoded));
 		self.tx_hashes.push(tx_hash);
 
 		// Update the transaction trie.
 		let transaction_type = Self::extract_transaction_type(transaction_encoded.as_slice());
-		Self::add_builder_value(&mut self.transaction_root_builder, transaction_encoded);
 
 		// Update gas and logs bloom.
 		self.gas_used = self.gas_used.saturating_add(gas_used.ref_time().into());
@@ -579,9 +602,17 @@ impl EthereumBlockBuilder {
 			self.gas_used.as_u64(),
 			transaction_type,
 		);
-		Self::add_builder_value(&mut self.receipts_root_builder, encoded_receipt);
 
 		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
+
+		// The first transaction and receipt are returned to be stored in the pallet storage.
+		if self.tx_hashes.len() == 1 {
+			Some((transaction_encoded, encoded_receipt))
+		} else {
+			self.transaction_root_builder.add_value(transaction_encoded);
+			self.receipts_root_builder.add_value(encoded_receipt);
+			None
+		}
 	}
 
 	/// Build the ethereum block from provided data.
@@ -593,8 +624,8 @@ impl EthereumBlockBuilder {
 		block_author: H160,
 		gas_limit: U256,
 	) -> (Block, Vec<ReceiptGasInfo>) {
-		let transactions_root = Self::compute_trie_root(&mut self.transaction_root_builder);
-		let receipts_root = Self::compute_trie_root(&mut self.receipts_root_builder);
+		let transactions_root = self.transaction_root_builder.finish();
+		let receipts_root = self.receipts_root_builder.finish();
 
 		let tx_hashes = core::mem::replace(&mut self.tx_hashes, Vec::new());
 		let gas_info = core::mem::replace(&mut self.gas_info, Vec::new());
@@ -622,20 +653,6 @@ impl EthereumBlockBuilder {
 		block.hash = block_hash;
 
 		(block, gas_info)
-	}
-
-	fn compute_trie_root(builder: &mut Option<IncrementalHashBuilder>) -> H256 {
-		match builder {
-			Some(builder) => builder.finish(),
-			None => HashBuilder::default().root().0.into(),
-		}
-	}
-
-	fn add_builder_value(builder: &mut Option<IncrementalHashBuilder>, value: Vec<u8>) {
-		match builder {
-			Some(builder) => builder.add_value(value),
-			None => *builder = Some(IncrementalHashBuilder::new(value)),
-		}
 	}
 
 	fn extract_transaction_type(transaction_encoded: &[u8]) -> Vec<u8> {

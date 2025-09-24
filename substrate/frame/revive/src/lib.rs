@@ -577,6 +577,15 @@ pub mod pallet {
 	pub(crate) type EthBlockBuilderIR<T: Config> =
 		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
 
+	/// The first transaction and receipt of the ethereum block.
+	///
+	/// These values are moved out of the `EthBlockBuilderIR` to avoid serializing and
+	/// deserializing them on every transaction. Instead, they are loaded when needed.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type EthBlockBuilderFirstValues<T: Config> =
+		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
+
 	pub mod genesis {
 		use super::*;
 		use crate::evm::Bytes32;
@@ -748,7 +757,12 @@ pub mod pallet {
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			EthBlockBuilderIR::<T>::kill();
 
-			let (block, receipt_data) = EthereumBlockBuilder::from_ir(block_builder_ir).build(
+			// Load the first values if not already loaded.
+			let mut ethereum_block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
+			let maybe_first_values = EthBlockBuilderFirstValues::<T>::take();
+			ethereum_block_builder.load_first_values(maybe_first_values);
+
+			let (block, receipt_data) = ethereum_block_builder.build(
 				eth_block_num,
 				parent_hash,
 				T::Time::now().into(),
@@ -1987,13 +2001,24 @@ impl<T: Config> Pallet<T> {
 		let block_builder_ir = EthBlockBuilderIR::<T>::get();
 		let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
 
-		block_builder.process_transaction(
+		// The first transaction and receipt are loaded if we are processing the
+		// transaction index 0x7f. This efficiently preserves the first values without
+		// serializing / deserializing them on every transaction.
+		if block_builder.should_load_first_values() {
+			let values = EthBlockBuilderFirstValues::<T>::take();
+			block_builder.load_first_values(values);
+		}
+
+		if let Some((tx, receipt)) = block_builder.process_transaction(
 			transaction_encoded,
 			success,
 			gas_used,
 			encoded_logs,
 			bloom,
-		);
+		) {
+			// Preserve the first values into storage.
+			EthBlockBuilderFirstValues::<T>::put(Some((tx, receipt)));
+		}
 
 		EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 	}
