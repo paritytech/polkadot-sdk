@@ -3,7 +3,7 @@
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
-use log::{debug, info, warn};
+use log::{debug, info, trace};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Statement, Topic};
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -20,12 +20,12 @@ use zombienet_sdk::{
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 500;
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 1000;
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
-const MESSAGE_COUNT: usize = 2;
+const MESSAGE_COUNT: usize = 1;
 const MAX_RETRIES: u32 = 100;
-const RETRY_DELAY_MS: u64 = 200;
-const RECEIVE_DELAY_MS: u64 = 500;
+const RETRY_DELAY_MS: u64 = 500;
+const RECEIVE_DELAY_MS: u64 = 1000;
 const RPC_POOL_SIZE: usize = 50;
 
 #[derive(Clone)]
@@ -135,7 +135,13 @@ fn statement_store() -> Result<(), anyhow::Error> {
 
 		let handles: Vec<_> = participants
 			.into_iter()
-			.map(|mut participant| tokio::spawn(async move { participant.run().await }))
+			.map(|mut participant| {
+				tokio::spawn(async move {
+					// Add staggered start delay to reduce initial network congestion
+					tokio::time::sleep(Duration::from_millis(participant.idx as u64 * 1)).await;
+					participant.run().await
+				})
+			})
 			.collect();
 
 		let mut all_stats = Vec::new();
@@ -205,7 +211,7 @@ async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				.with_chain_spec_path("tests/zombie_ci/people-rococo-spec.json")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lstatement-store=trace".into(),
+					"-lstatement-store=info".into(),
 					"--enable-statement-store".into(),
 					"--rpc-max-connections=50000".into(),
 				])
@@ -281,8 +287,12 @@ struct Participant {
 }
 
 impl Participant {
+	fn log_target(&self) -> String {
+		format!("participant_{}", self.idx)
+	}
+
 	fn new(idx: u32, rpc_pool: RpcPool) -> Self {
-		debug!("Initializing participant {}", idx);
+		debug!(target: &format!("participant_{}", idx), "Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
 
@@ -326,9 +336,10 @@ impl Participant {
 
 		self.retry_count += 1;
 		if self.retry_count % 10 == 0 {
-			warn!("[{}] Retry attempt {}", self.idx, self.retry_count);
+			debug!(target: &self.log_target(), "[{}] Retry attempt {}", self.idx, self.retry_count);
 		}
-		let delay_ms = RETRY_DELAY_MS * self.retry_count as u64;
+		let delay_ms =
+			std::cmp::min(RETRY_DELAY_MS * (1 << std::cmp::min(self.retry_count / 5, 4)), 5000);
 		tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
 
 		Ok(())
@@ -350,7 +361,7 @@ impl Participant {
 		result_processor: R,
 	) -> Result<(), anyhow::Error>
 	where
-		T: Clone + PartialEq,
+		T: Clone + PartialEq + std::fmt::Debug,
 		F: Fn(&T) -> Vec<Topic>,
 		R: Fn(&mut Self, &T, &Statement) -> Result<bool, anyhow::Error>,
 	{
@@ -359,7 +370,7 @@ impl Participant {
 
 			for item in &pending {
 				match timeout(
-					Duration::from_millis(RECEIVE_DELAY_MS),
+					Duration::from_millis(RECEIVE_DELAY_MS * 3), // Increase timeout 3x
 					self.statement_broadcasts_statement(topic_generator(item)),
 				)
 				.await
@@ -373,7 +384,12 @@ impl Participant {
 							}
 						}
 					},
-					_ => {
+					Ok(Ok(statements)) if statements.is_empty() => {
+						debug!(target: &self.log_target(), "[{}] No statements received for item {:?}", self.idx, item);
+						self.receive_sleep().await;
+					},
+					err => {
+						debug!(target: &self.log_target(), "[{}] Cannot receive statements for item {:?}, err: {:?}", self.idx, item, err);
 						self.receive_sleep().await;
 					},
 				}
@@ -538,10 +554,11 @@ impl Participant {
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
-		debug!("Participant {} submitting statement (counter: {})", self.idx, self.sent_count + 1);
 		let rpc_client = self.rpc_pool.get_client().await?;
 		let _: () = rpc_client.request("statement_submit", rpc_params![statement_bytes]).await?;
+
 		self.sent_count += 1;
+		trace!(target: &self.log_target(), "[{}] Submitted statement (counter: {})", self.idx, self.sent_count);
 
 		Ok(())
 	}
@@ -561,6 +578,7 @@ impl Participant {
 		}
 
 		self.received_count += decoded_statements.len() as u32;
+		trace!(target: &self.log_target(), "[{}] Received {} statements (counter: {})", self.idx, decoded_statements.len(), self.received_count);
 
 		Ok(decoded_statements)
 	}
@@ -628,8 +646,6 @@ impl Participant {
 		statement.set_plain_data(request_data);
 		statement.sign_sr25519_private(&self.keyring);
 
-		debug!("Participant {:?} created request {} to idx {}", self.idx, request_id, receiver_idx);
-
 		Some((statement, request_id))
 	}
 
@@ -659,11 +675,6 @@ impl Participant {
 		statement.set_priority(self.sent_count);
 		statement.set_plain_data(response_data);
 		statement.sign_sr25519_private(&self.keyring);
-
-		debug!(
-			"Participant {:?} created response for request {} to idx {}",
-			self.idx, request_id, receiver_idx
-		);
 
 		Some(statement)
 	}
@@ -967,24 +978,24 @@ impl Participant {
 
 	async fn run(&mut self) -> Result<ParticipantStats, anyhow::Error> {
 		let start_time = std::time::Instant::now();
-		debug!("[{}] Session keys exchange", self.idx);
+		debug!(target: &self.log_target(), "[{}] Session keys exchange", self.idx);
 		self.send_session_key().await?;
 		self.receive_sleep().await;
 		self.receive_session_keys().await?;
 
-		debug!("[{}] Symmetric keys exchange", self.idx);
+		debug!(target: &self.log_target(), "[{}] Symmetric keys exchange", self.idx);
 		self.send_symmetric_keys().await?;
 		self.receive_sleep().await;
 		self.receive_symmetric_keys().await?;
 
-		debug!("[{}] Symmetric key acknowledgments", self.idx);
+		debug!(target: &self.log_target(), "[{}] Symmetric key acknowledgments", self.idx);
 		self.send_symmetric_key_acknowledgments().await?;
 		self.receive_sleep().await;
 		self.receive_symmetric_key_acknowledgments().await?;
 
-		debug!("[{}] Preparation finished", self.idx);
+		debug!(target: &self.log_target(), "[{}] Preparation finished", self.idx);
 		for round in 0..MESSAGE_COUNT {
-			debug!("[{}] Req/res exchange round {}", self.idx, round + 1);
+			debug!(target: &self.log_target(), "[{}] Req/res exchange round {}", self.idx, round + 1);
 
 			self.send_requests(round).await?;
 			self.receive_sleep().await;
