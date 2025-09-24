@@ -141,7 +141,8 @@
 //! ```
 //!
 //! The slot duration determines the length of each author's turn and is decoupled from the block
-//! production interval. During their slot, authors are allowed to produce multiple blocks. **The slot duration is required to be at least 6s (same as on the relay chain).**
+//! production interval. During their slot, authors are allowed to produce multiple blocks. **The
+//! slot duration is required to be at least 6s (same as on the relay chain).**
 //!
 //! **Configuration recommendations:**
 //! - For new parachains starting from genesis: use a slot duration of 24 seconds
