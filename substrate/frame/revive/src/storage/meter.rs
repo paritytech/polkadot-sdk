@@ -390,7 +390,7 @@ where
 					if a.contract != b.contract {
 						return Err((a, b));
 					}
-					a.amount.saturating_accrue(b.amount);
+					a.amount = a.amount.saturating_add(&b.amount);
 					Ok(a)
 				})
 				.collect();
@@ -702,13 +702,7 @@ mod tests {
 						Charge {
 							origin: ALICE,
 							contract: CHARLIE,
-							amount: Deposit::Refund(10),
-							state: ContractState::Alive,
-						},
-						Charge {
-							origin: ALICE,
-							contract: CHARLIE,
-							amount: Deposit::Refund(20),
+							amount: Deposit::Refund(30),
 							state: ContractState::Alive,
 						},
 						Charge {
