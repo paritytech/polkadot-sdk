@@ -152,7 +152,7 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 
 impl<T: Config> AccountInfo<T> {
 	/// Returns true if the account is a contract.
-	fn is_contract(address: &H160) -> bool {
+	pub fn is_contract(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
 		matches!(info.account_type, AccountType::Contract(_))
 	}
