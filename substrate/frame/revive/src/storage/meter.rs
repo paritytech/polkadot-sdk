@@ -390,22 +390,8 @@ where
 					if a.contract != b.contract {
 						return Err((a, b));
 					}
-					if matches!(a.amount, Deposit::Charge(_)) &&
-						matches!(b.amount, Deposit::Refund(_)) ||
-						matches!(a.amount, Deposit::Refund(_)) &&
-							matches!(b.amount, Deposit::Charge(_))
-					{
-						if a.amount >= b.amount {
-							a.amount = a.amount.saturating_add(&b.amount);
-							log::info!("meter.rs coalesce: a >= b, a.amount: {:?}", a.amount);
-							return Ok(a);
-						} else {
-							b.amount = b.amount.saturating_add(&a.amount);
-							log::info!("meter.rs coalesce: a < b, b.amount: {:?}", b.amount);
-							return Ok(b);
-						}
-					}
-					return Err((a, b));
+					a.amount.saturating_accrue(b.amount);
+					Ok(a)
 				})
 				.collect();
 			log::info!("meter.rs coalesced: {:#?}", coalesced);
