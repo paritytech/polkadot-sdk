@@ -1,4 +1,4 @@
-title: '[pallet-revive] Add set_storage/set_storage_var_key methods'
+title: Add set_storage set_storage_var_key methods
 doc:
 - audience: Runtime Dev
   description: |-
