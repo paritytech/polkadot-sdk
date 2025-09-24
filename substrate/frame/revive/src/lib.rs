@@ -1692,6 +1692,10 @@ where
 	/// If the `value` is `None`, the storage entry is deleted.
 	///
 	/// Returns an error if the contract does not exist or if the write operation fails.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
 	pub fn set_storage(address: H160, key: [u8; 32], value: Option<Vec<u8>>) -> SetStorageResult {
 		let contract_info =
 			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
