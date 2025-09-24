@@ -721,7 +721,7 @@ impl Store {
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
-			commit.push((col::META, KEY_VERSION.to_vec(), Some(2u32.to_le_bytes().to_vec())));
+			commit.push((col::META, KEY_VERSION.to_vec(), Some(CURRENT_VERSION.to_le_bytes().to_vec())));
 
 			// 3) commit the migration
 			self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
