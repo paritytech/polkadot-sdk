@@ -991,7 +991,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.observe(started.elapsed().as_secs_f64());
 								}
 							}
-							query => {
+							Some(_) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Invalid pending query for `ADD_PROVIDER`: {query_id:?}"
+								);
+								debug_assert!(false);
+							}
+							None => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`ADD_PROVIDER` for key {provided_key:?} ({query_id:?}) succeeded (republishing)",
