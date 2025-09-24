@@ -329,7 +329,7 @@ impl pallet_revive::Config for Runtime {
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
-	type AllowUnlimitedEthContractSize = ConstBool<false>;
+	type DebugEnabled = ConstBool<false>;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive!(

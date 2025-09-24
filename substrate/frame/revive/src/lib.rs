@@ -89,7 +89,7 @@ pub use crate::{
 	},
 	exec::{Key, MomentOf, Origin},
 	pallet::{genesis, *},
-	storage::{AccountInfo, ContractInfo},
+	storage::{AccountInfo, ContractInfo, DebugSettings},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -281,7 +281,7 @@ pub mod pallet {
 
 		/// Allows unlimited ETH contract size if true
 		#[pallet::constant]
-		type AllowUnlimitedEthContractSize: Get<bool>;
+		type DebugEnabled: Get<bool>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -354,7 +354,7 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
-			type AllowUnlimitedEthContractSize = ConstBool<false>;
+			type DebugEnabled = ConstBool<false>;
 		}
 	}
 
@@ -538,6 +538,10 @@ pub mod pallet {
 	/// use it with this pallet.
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
+
+	/// Debugging settings that can be configured when DebugEnabled config is true.
+	#[pallet::storage]
+	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings<T>, ValueQuery>;
 
 	pub mod genesis {
 		use super::*;
@@ -1881,6 +1885,20 @@ impl<T: Config> Pallet<T> {
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
 			.map(|code| code.into())
 			.unwrap_or_default()
+	}
+
+	/// Returns true if unlimited contract size is allowed.
+	/// This is only allowed in debug builds.
+	pub fn is_unlimited_contract_size_allowed() -> bool {
+		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().allow_unlimited_contract_size
+	}
+
+	pub fn set_unlimited_contract_size_allowed(allowed: bool) {
+		if T::DebugEnabled::get() {
+			DebugSettingsOf::<T>::mutate(|settings| {
+				settings.allow_unlimited_contract_size = allowed
+			});
+		}
 	}
 }
 

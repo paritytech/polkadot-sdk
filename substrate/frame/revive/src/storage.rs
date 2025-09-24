@@ -566,6 +566,33 @@ impl<T: Config> DeletionQueueManager<T> {
 	}
 }
 
+/// Debugging settings that can be configured when DebugEnabled config is true.
+#[derive(
+	DefaultNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(T))]
+pub struct DebugSettings<T: Config> {
+	/// Whether to allow unlimited contract size.
+	pub allow_unlimited_contract_size: bool,
+	_phantom: PhantomData<T>,
+}
+
+impl<T: Config> DebugSettings<T> {
+	/// Returns whether unlimited contract size is allowed.
+	pub fn allow_unlimited_contract_size(&self) -> bool {
+		self.allow_unlimited_contract_size
+	}
+}
+
+
 #[cfg(test)]
 impl<T: Config> DeletionQueueManager<T> {
 	pub fn from_test_values(insert_counter: u32, delete_counter: u32) -> Self {
