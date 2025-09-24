@@ -99,9 +99,7 @@ pub fn asset_instance_from(x: u32) -> AssetInstance {
 	AssetInstance::Array4(instance)
 }
 
-pub fn execute_xcm<T: Config>(
-	xcm: Xcm<<T::XcmConfig as XcmConfig>::RuntimeCall>
-) -> Outcome {
+pub fn execute_xcm<T: Config>(xcm: Xcm<<T::XcmConfig as XcmConfig>::RuntimeCall>) -> Outcome {
 	let mut hash = [0; 32];
 	let message = ExecutorOf::<T>::prepare(xcm, Weight::MAX).unwrap();
 	ExecutorOf::<T>::execute(Location::default(), message, &mut hash, Weight::MAX)

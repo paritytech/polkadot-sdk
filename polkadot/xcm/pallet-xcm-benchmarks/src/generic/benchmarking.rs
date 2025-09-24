@@ -975,12 +975,9 @@ mod benchmarks {
 
 		let err = outcome.expect("Error should exist after barrier rejection");
 		assert!(matches!(
-            err,
-            Outcome::Incomplete {
-                used: _,
-                error: InstructionError { index: 0, error: Barrier }
-            }
-        ));
+			err,
+			Outcome::Incomplete { used: _, error: InstructionError { index: 0, error: Barrier } }
+		));
 		Ok(())
 	}
 
