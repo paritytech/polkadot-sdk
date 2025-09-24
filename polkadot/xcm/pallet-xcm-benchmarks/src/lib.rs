@@ -25,7 +25,7 @@ use codec::Encode;
 use frame_benchmarking::{account, BenchmarkError};
 use xcm::latest::prelude::*;
 use xcm_builder::EnsureDelivery;
-use xcm_executor::{traits::ConvertLocation, Config as XcmConfig, WeighedMessage};
+use xcm_executor::{traits::ConvertLocation, Config as XcmConfig};
 
 pub mod fungible;
 pub mod generic;
@@ -100,12 +100,11 @@ pub fn asset_instance_from(x: u32) -> AssetInstance {
 }
 
 pub fn execute_xcm<T: Config>(
-	origin: Location,
 	xcm: Xcm<<T::XcmConfig as XcmConfig>::RuntimeCall>
 ) -> Outcome {
 	let mut hash = [0; 32];
 	let message = ExecutorOf::<T>::prepare(xcm, Weight::MAX).unwrap();
-	ExecutorOf::<T>::execute(origin, message, &mut hash, Weight::MAX)
+	ExecutorOf::<T>::execute(Location::default(), message, &mut hash, Weight::MAX)
 }
 
 pub fn new_executor<T: Config>(origin: Location) -> ExecutorOf<T> {

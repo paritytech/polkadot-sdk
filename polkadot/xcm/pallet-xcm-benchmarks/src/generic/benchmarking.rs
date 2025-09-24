@@ -966,13 +966,13 @@ mod benchmarks {
 		use xcm::latest::{prelude::Outcome, Error::Barrier};
 
 		let xcm = T::worst_case_for_not_passing_barrier().map_err(|_| BenchmarkError::Skip)?;
-
 		let mut outcome: Option<Outcome> = None;
 
 		#[block]
 		{
-			outcome = Some(execute_xcm(xcm.into()));
+			outcome = Some(execute_xcm::<T>(xcm.into()));
 		}
+
 		let err = outcome.expect("Error should exist after barrier rejection");
 		assert!(matches!(
             err,

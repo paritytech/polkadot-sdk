@@ -260,7 +260,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			?weight_credit,
 			"Executing message",
 		);
-		tracing::info!(target: "frame::benchmark::pallet", ?origin, ?xcm_weight, ?message, ?id, ?weight_credit, "TESTING");
 		let mut properties = Properties { weight_credit, message_id: None };
 
 		// We only want to record under certain conditions (mainly only during dry-running),

@@ -2571,8 +2571,6 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 						nested = Xcm(vec![SetAppendix(nested)]);
 					}
 
-					tracing::info!(target: "frame::benchmark::pallet", ?nested, "TESTING");
-
 					Ok(nested)
 				}
 			}

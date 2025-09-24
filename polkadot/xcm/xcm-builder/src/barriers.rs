@@ -611,7 +611,6 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 		properties: &mut Properties,
 	) -> Result<ControlFlow<()>, ProcessMessageError> {
 		// Initialise recursion counter for this execution context.
-		tracing::info!(target: "frame::benchmark::pallet", ?origin, ?xcm, ?max_weight, ?properties, "TESTING");
 		recursion_count::using_once(&mut 1, || {
 			// Prevent stack overflow by enforcing a recursion depth limit.
 			recursion_count::with(|count| {
