@@ -1692,6 +1692,10 @@ where
 	/// Sets immutable data of a contract
 	///
 	/// Returns an error if the contract does not exist.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
 	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
 		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
 
