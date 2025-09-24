@@ -223,8 +223,10 @@ enum IndexQuery {
 
 enum MaybeInserted {
 	Inserted {
+		/// Set of evicted statements
 		evicted: HashSet<Hash>,
-		with_gp: u64,
+		/// Statement global priority
+		stmt_gp: u64,
 	},
 	Ignored,
 }
@@ -236,7 +238,7 @@ impl Index {
 		Index { options, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement, gp: Option<u64>) {
+	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement, gp: Option<u64>) -> u64 {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -274,6 +276,7 @@ impl Index {
 		// TODO: size is data len or statement len??
 		self.global_by_order.insert(gp, (hash, statement.data_len()));
 		self.global_of.insert(hash, gp);
+		gp
 	}
 
 	/// Evict the N oldest / M bytes oldest.
@@ -283,10 +286,9 @@ impl Index {
 		mut need_count: usize,
 		mut need_bytes: usize,
 		skip: &HashSet<Hash>,
-		current_time: u64,
 	) -> HashSet<Hash> {
 		let mut evicted = HashSet::new();
-		for (&gp, &(h, sz)) in self.global_by_order.iter() {
+		for &(h, sz) in self.global_by_order.values() {
 			if need_count == 0 && need_bytes == 0 {
 				break;
 			}
@@ -514,10 +516,10 @@ impl Index {
 				self.total_size.saturating_sub(would_free_size).saturating_add(statement_len);
 			let projected_count = (self.entries.len() + 1).saturating_sub(evicted.len());
 
-			let mut need_count = projected_count.saturating_sub(self.options.max_total_statements);
-			let mut need_bytes = projected_size.saturating_sub(self.options.max_total_size);
+			let need_count = projected_count.saturating_sub(self.options.max_total_statements);
+			let need_bytes = projected_size.saturating_sub(self.options.max_total_size);
 			if need_count > 0 || need_bytes > 0 {
-				let extra = self.evict_oldest_until(need_count, need_bytes, &evicted, current_time);
+				let extra = self.evict_oldest_until(need_count, need_bytes, &evicted);
 				if !extra.is_empty() {
 					would_free_size +=
 						extra.iter().filter_map(|h| self.entries.get(h).map(|e| e.2)).sum::<usize>();
@@ -546,8 +548,11 @@ impl Index {
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		self.insert_new(hash, *account, statement, None);
-		MaybeInserted::Inserted(evicted)
+		let stmt_gp = self.insert_new(hash, *account, statement, None);
+		MaybeInserted::Inserted {
+			evicted,
+			stmt_gp,
+		}
 	}
 }
 
@@ -989,16 +994,10 @@ impl StatementStore for Store {
 			let (evicted, with_gp) =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
 					MaybeInserted::Ignored => return SubmitResult::Ignored,
-					MaybeInserted::Inserted {evicted, with_gp} => (evicted, with_gp),
+					MaybeInserted::Inserted {evicted, stmt_gp: with_gp} => (evicted, with_gp),
 				};
 
-			commit.push((col::STATEMENTS, hash.to_vec(), Some(StatementWithGP::encode((statement, with_gp)).encode())));
-			let meta_key_new = {
-				let mut k = Vec::with_capacity(META_GP_PREFIX.len() + 32);
-				k.extend_from_slice(META_GP_PREFIX);
-				k.extend_from_slice(hash.as_ref());
-				k
-			};
+			commit.push((col::STATEMENTS, hash.to_vec(), Some((&statement, with_gp).encode())));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
 				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
@@ -1025,12 +1024,6 @@ impl StatementStore for Store {
 		{
 			let mut index = self.index.write();
 			if index.make_expired(hash, current_time) {
-				let meta_key = {
-					let mut k = Vec::with_capacity(META_GP_PREFIX.len() + 32);
-					k.extend_from_slice(META_GP_PREFIX);
-					k.extend_from_slice(hash.as_ref());
-					k
-				};
 				let commit = [
 					(col::STATEMENTS, hash.to_vec(), None),
 					(col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())),
