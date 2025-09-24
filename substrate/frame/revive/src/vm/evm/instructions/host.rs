@@ -169,9 +169,10 @@ fn store_helper<'ext, E: Ext>(
 ///
 /// Stores a word to storage.
 pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	let old_bytes = context.interpreter.extend.max_value_size();
 	store_helper(
 		context,
-		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 0 },
+		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes },
 		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
 		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
 	);
@@ -180,9 +181,10 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	let old_bytes = context.interpreter.extend.max_value_size();
 	store_helper(
 		context,
-		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 },
+		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes },
 		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
 		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
 	);
