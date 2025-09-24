@@ -20,6 +20,7 @@ mod pallet_dummy;
 mod precompiles;
 mod pvm;
 mod sol;
+mod trie_roots;
 
 use crate::{
 	self as pallet_revive,
