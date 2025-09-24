@@ -1586,8 +1586,9 @@ where
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		let length_fee =
-			T::FeeInfo::length_to_fee(*T::BlockLength::get().max.get(DispatchClass::Normal));
+		let length_fee = T::FeeInfo::next_fee_multiplier_reciprocal().saturating_mul_int(
+			T::FeeInfo::length_to_fee(*T::BlockLength::get().max.get(DispatchClass::Normal)),
+		);
 
 		Self::evm_gas_from_weight(max_block_weight).saturating_add(length_fee.into())
 	}
