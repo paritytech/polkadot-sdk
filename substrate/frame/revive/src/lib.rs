@@ -1711,6 +1711,10 @@ where
 	///
 	/// Returns an error if the contract does not exist, if the key decoding fails,
 	/// or if the write operation fails.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
 	pub fn set_storage_var_key(
 		address: H160,
 		key: Vec<u8>,
