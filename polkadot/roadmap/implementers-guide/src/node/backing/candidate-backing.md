@@ -155,8 +155,8 @@ fn spawn_validation_work(candidate, parachain head, validation function) {
 
 ### Fetch PoV Block
 
-Create a `(sender, receiver)` pair. Dispatch a [`AvailabilityDistributionMessage`][ADM]`::FetchPoV{ validator_index,
-pov_hash, candidate_hash, tx, }` and listen on the passed receiver for a response. Availability distribution will send
+Create a `(sender, receiver)` pair. Dispatch a [`AvailabilityDistributionMessage`][ADM]`::FetchPoV(validator_index,
+pov_hash, candidate_hash, sender)` and listen on the passed receiver for a response. Availability distribution will send
 the request to the validator specified by `validator_index`, which might not be serving it for whatever reasons,
 therefore we need to retry with other backing validators in that case.
 
