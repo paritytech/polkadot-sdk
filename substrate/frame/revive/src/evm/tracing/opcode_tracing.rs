@@ -182,6 +182,12 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		// Create the pending opcode step (without gas cost)
 		let gas_before_mapped = (self.gas_mapper)(gas_before);
 
+		log::trace!(target: crate::LOG_TARGET,
+			"\n[{pc}]: {opcode}\nstack: {stack_data:?}\nmemory: {memory:?}",
+			opcode = revm::bytecode::OpCode::new(opcode)
+				.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
+		);
+
 		let step = OpcodeStep {
 			pc,
 			op: opcode,

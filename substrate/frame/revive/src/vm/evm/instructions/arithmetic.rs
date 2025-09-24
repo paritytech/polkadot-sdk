@@ -35,7 +35,7 @@ use revm::interpreter::gas::{EXP, LOW, MID, VERYLOW};
 pub fn add<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
-	*op2 = op1.saturating_add(*op2);
+	*op2 = op1.overflowing_add(*op2).0;
 	ControlFlow::Continue(())
 }
 
@@ -43,7 +43,7 @@ pub fn add<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<
 pub fn mul<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(LOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
-	*op2 = op1.saturating_mul(*op2);
+	*op2 = op1.overflowing_mul(*op2).0;
 	ControlFlow::Continue(())
 }
 
@@ -51,7 +51,7 @@ pub fn mul<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<
 pub fn sub<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().charge_evm_gas(VERYLOW)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
-	*op2 = op1.saturating_sub(*op2);
+	*op2 = op1.overflowing_sub(*op2).0;
 	ControlFlow::Continue(())
 }
 

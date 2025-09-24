@@ -2406,7 +2406,6 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(module);
 		let contract = setup.contract();
 
-		let address = H160([0u8; 20]);
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
 
@@ -2417,7 +2416,7 @@ mod benchmarks {
 		let _ = interpreter.stack.push(U256::from(n));
 		let _ = interpreter.stack.push(U256::from(0u32));
 		let _ = interpreter.stack.push(U256::from(0u32));
-		let _ = interpreter.stack.push(address);
+		let _ = interpreter.stack.push(contract.address);
 
 		let result;
 		#[block]

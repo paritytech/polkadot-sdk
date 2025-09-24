@@ -120,8 +120,8 @@ pub fn revert<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFl
 }
 
 /// Stop opcode. This opcode halts the execution.
-pub fn stop<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	return_inner(interpreter, |_| Halt::Stop)
+pub fn stop<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	ControlFlow::Break(Halt::Stop)
 }
 
 /// Invalid opcode. This opcode halts the execution.

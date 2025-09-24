@@ -41,7 +41,7 @@ fn memory_limit_works() {
 
 		let test_cases = [
 			(
-				// Writing 1 byte from 0 to the limit - 1 should work.
+				" Writing 1 byte from 0 to the limit - 1 should work.",
 				Memory::expandMemoryCall {
 					memorySize: primitives::U256::from(
 						crate::limits::code::BASELINE_MEMORY_LIMIT - 1,
@@ -50,7 +50,7 @@ fn memory_limit_works() {
 				Ok(ExecReturnValue { data: vec![0u8; 32], flags: ReturnFlags::empty() }),
 			),
 			(
-				// Writing 1 byte from the limit should revert.
+				"Writing 1 byte from the limit should revert.",
 				Memory::expandMemoryCall {
 					memorySize: primitives::U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
 				},
@@ -58,9 +58,9 @@ fn memory_limit_works() {
 			),
 		];
 
-		for (data, expected_result) in test_cases {
+		for (reason, data, expected_result) in test_cases {
 			let result = builder::bare_call(addr).data(data.abi_encode()).build().result;
-			assert_eq!(result, expected_result);
+			assert_eq!(result, expected_result, "{}", reason);
 		}
 	});
 }

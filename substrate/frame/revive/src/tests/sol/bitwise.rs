@@ -39,15 +39,34 @@ fn bitwise_works() {
 			let result = builder::bare_call(addr)
 				.data(Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {}).abi_encode())
 				.build_and_unwrap_result();
+
 			if result.did_revert() {
 				if let Some(revert_msg) = decode_revert_reason(&result.data) {
-					log::error!("Revert message: {}", revert_msg);
+					panic!("Revert message: {revert_msg}");
 				} else {
-					log::error!("Revert without message, raw data: {:?}", result.data);
+					panic!("Revert without message, raw data: {:?}", result.data);
 				}
 			}
-
-			assert!(!result.did_revert(), "bitwise test reverted");
 		});
 	}
+}
+
+#[test]
+fn test_me() {
+	use crate::tests::sol::revm_tracing::RevmTracer;
+	use alloy_core::sol_types::SolInterface;
+	use revm::{context::TxEnv, context_interface::TransactTo, primitives::Bytes};
+
+	let (code, _) = compile_module_with_type("Bitwise", FixtureType::Solc).unwrap();
+	let mut tracer = RevmTracer::default();
+	let addr = tracer.deploy(TxEnv { data: Bytes::from(code), ..Default::default() });
+
+	let traces = tracer.call(TxEnv {
+		kind: TransactTo::Call(addr),
+		data: Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {})
+			.abi_encode()
+			.into(),
+		..Default::default()
+	});
+	std::fs::write("/tmp/trace_ok.json", serde_json::to_string_pretty(&traces).unwrap()).unwrap();
 }

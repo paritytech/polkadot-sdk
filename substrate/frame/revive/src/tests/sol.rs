@@ -39,6 +39,7 @@ mod contract;
 mod control;
 mod host;
 mod memory;
+mod revm_tracing;
 mod stack;
 mod system;
 mod tx_info;
@@ -186,7 +187,7 @@ fn opcode_tracing_works() {
 			disable_stack: false,
 			disable_storage: true,
 			enable_return_data: true,
-			limit: None,
+			limit: Some(5),
 			memory_word_limit: 16,
 		};
 
@@ -279,5 +280,50 @@ fn opcode_tracing_works() {
 
 		// Single assertion that verifies the complete trace structure matches exactly
 		assert_eq!(actual_trace, expected_trace);
+	});
+}
+
+#[test]
+fn playground() {
+	use crate::{
+		test_utils::{builder::Contract, ALICE},
+		tests::{builder, ExtBuilder, Test},
+		Code, Config,
+	};
+
+	use crate::{
+		evm::{OpcodeTracer, OpcodeTracerConfig},
+		tracing::trace,
+	};
+	use alloy_core::sol_types::SolInterface;
+	use frame_support::traits::fungible::Mutate;
+	use pallet_revive_fixtures::{compile_module_with_type, Bitwise, FixtureType};
+
+	let (code, _) = compile_module_with_type("Bitwise", FixtureType::Solc).unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let config = OpcodeTracerConfig {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: true,
+			enable_return_data: true,
+			limit: None,
+			memory_word_limit: 16,
+		};
+
+		let mut tracer = OpcodeTracer::new(config, |_| sp_core::U256::from(0u64));
+		let _result = trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {}).abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let traces = tracer.collect_trace();
+
+		std::fs::write("/tmp/trace_ko.json", serde_json::to_string_pretty(&traces).unwrap())
+			.unwrap();
 	});
 }

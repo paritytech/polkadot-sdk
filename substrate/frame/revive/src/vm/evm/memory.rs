@@ -75,6 +75,9 @@ impl Memory {
 
 	/// Set memory at the given offset with the provided data
 	pub fn set(&mut self, offset: usize, data: &[u8]) {
+		if data.is_empty() {
+			return;
+		}
 		let end = offset.saturating_add(data.len());
 		if end > self.0.len() {
 			self.0.resize(end, 0);

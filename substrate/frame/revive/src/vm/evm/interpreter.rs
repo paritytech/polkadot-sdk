@@ -108,10 +108,9 @@ impl<'a, E: Ext> Interpreter<'a, E> {
 			Halt::SelfDestruct =>
 				Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }),
 
-			Halt::OutOfGas => Err(ExecError::from(Error::<E::T>::OutOfGas)),
+			Halt::MemoryOOG | Halt::OutOfGas => Err(ExecError::from(Error::<E::T>::OutOfGas)),
 			Halt::StackOverflow => Err(ExecError::from(Error::<E::T>::ContractTrapped)),
 			Halt::StackUnderflow => Err(ExecError::from(Error::<E::T>::ContractTrapped)),
-			Halt::MemoryOOG => Err(ExecError::from(Error::<E::T>::StaticMemoryTooLarge)),
 			Halt::InvalidOperandOOG => Err(ExecError::from(Error::<E::T>::OutOfGas)),
 
 			Halt::InvalidJump => Err(ExecError::from(Error::<E::T>::InvalidInstruction)),
