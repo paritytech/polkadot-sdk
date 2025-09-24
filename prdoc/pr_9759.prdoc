@@ -2,7 +2,7 @@ title: '[pallet-revive] Add set_storage/set_storage_var_key methods'
 doc:
 - audience: Runtime Dev
   description: |-
-    ... to be used in polkadot foundry to make sure EVM state is in sync with pallet-revive state.
+    Adds pallet revive methods for manipulating a contracts storage.
 
     Fixes: https://github.com/paritytech/foundry-polkadot/issues/275
 crates:
