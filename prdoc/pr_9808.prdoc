@@ -3,8 +3,6 @@ doc:
 - audience: Runtime Dev
   description: This PR improves weight accounting for barrier rejections.
 crates:
-- name: pallet-xcm-benchmarks
-  bump: patch
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime
@@ -24,6 +22,12 @@ crates:
 - name: people-westend-runtime
   bump: patch
 - name: rococo-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: none
+- name: pallet-staking-async-rc-runtime
+  bump: none
+- name: pallet-xcm-benchmarks
   bump: patch
 - name: westend-runtime
   bump: patch
