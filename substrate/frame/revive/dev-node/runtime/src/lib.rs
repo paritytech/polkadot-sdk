@@ -328,7 +328,6 @@ impl pallet_revive::Config for Runtime {
 	type NativeToEthRatio = ConstU32<1_000_000>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
-	type EVMOrigin = frame_system::EnsureNever<Self::AccountId>;
 	type Time = Timestamp;
 }
 

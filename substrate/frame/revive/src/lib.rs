@@ -78,7 +78,7 @@ use frame_support::{
 use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
-	EnsureNever, Pallet as System,
+	Pallet as System,
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
@@ -254,20 +254,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
-		/// Origin allowed to call EVM-only dispatchables like `eth_call` and
-		/// `eth_instantiate_with_code`.
-		///
-		/// This should be configured to prevent external extrinsics from calling these functions
-		/// directly, as they are intended to be called only through the EVM compatibility layer.
-		///
-		/// # Note
-		///
-		/// Setting this to `EnsureNever` will completely disable external access to these
-		/// functions. Setting this to a custom origin allows controlled access from specific
-		/// runtime contexts.
-		#[pallet::no_default_bounds]
-		type EVMOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
-
 		/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///
 		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
@@ -362,7 +348,6 @@ pub mod pallet {
 			type AllowEVMBytecode = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
-			type EVMOrigin = EnsureNever<Self::AccountId>;
 			type WeightInfo = ();
 			type WeightPrice = Self;
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
@@ -1098,7 +1083,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			transaction_encoded: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			T::EVMOrigin::ensure_origin(origin.clone())?;
+			ensure_signed(origin.clone())?;
 
 			block_storage::with_ethereum_context(|| {
 				let code_len = code.len() as u32;
@@ -1155,7 +1140,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			transaction_encoded: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			T::EVMOrigin::ensure_origin(origin.clone())?;
+			ensure_signed(origin.clone())?;
 
 			block_storage::with_ethereum_context(|| {
 				let mut output = Self::bare_call(
