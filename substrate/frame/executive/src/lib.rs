@@ -489,8 +489,6 @@ where
 	}
 }
 
-<<<<<<< HEAD
-=======
 /// Extension trait for [`OnInitialize`].
 ///
 /// It takes care to register the weight of each pallet directly after executing its
@@ -523,11 +521,6 @@ frame_support::impl_for_tuples_attr! {
 	}
 }
 
-/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
-/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
-/// can be safely deleted.
-#[allow(deprecated)]
->>>>>>> 19320f1 (FRAME: Register `on_initialize` after each pallet (#9756))
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
