@@ -25,7 +25,7 @@
 //!
 //! Each time a new statement is inserted into the store, it is first validated with the runtime
 //! Validation function computes `max_count` and `max_size` for a statement and the store assigned
-//! the current timestamp as `global_priority`.
+//! its `current_priority` as its position in the global insertion order.
 //! The following constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
@@ -232,6 +232,7 @@ enum MaybeInserted {
 }
 
 type StatementWithGP = (Statement, u64);
+type EncodeLikeStatementWithGP<'a> = (&'a Statement, u64);
 
 impl Index {
 	fn new(options: Options) -> Index {
@@ -273,7 +274,6 @@ impl Index {
 				gp
 			},
 		};
-		// TODO: size is data len or statement len??
 		self.global_by_order.insert(gp, (hash, statement.data_len()));
 		self.global_of.insert(hash, gp);
 		gp
@@ -991,13 +991,13 @@ impl StatementStore for Store {
 		{
 			let mut index = self.index.write();
 
-			let (evicted, with_gp) =
+			let (evicted, stmt_gp) =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
 					MaybeInserted::Ignored => return SubmitResult::Ignored,
-					MaybeInserted::Inserted {evicted, stmt_gp: with_gp} => (evicted, with_gp),
+					MaybeInserted::Inserted { evicted, stmt_gp } => (evicted, stmt_gp),
 				};
 
-			commit.push((col::STATEMENTS, hash.to_vec(), Some((&statement, with_gp).encode())));
+			commit.push((col::STATEMENTS, hash.to_vec(), Some(EncodeLikeStatementWithGP::encode(&(&statement, stmt_gp)))));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
 				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
