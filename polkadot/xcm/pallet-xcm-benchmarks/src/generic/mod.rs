@@ -100,10 +100,10 @@ pub mod pallet {
 
 		/// An XCM used to exercise the barrier logic in benchmarks.
 		///
-		/// This represents a call used to benchmark the cost of barrier evaluation in both
-		/// acceptance and rejection cases.
+		/// This represents a call used to benchmark the cost of barrier evaluation in rejection
+		/// cases.
 		///
-		/// If set to `Err`, benchmarks which rely on a `barrier_check` will be skipped.
+		/// If set to `Err`, benchmarks which rely on a barrier check will be skipped.
 		fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError>;
 
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.

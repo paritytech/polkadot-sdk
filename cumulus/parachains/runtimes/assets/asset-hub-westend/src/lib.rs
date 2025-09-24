@@ -120,9 +120,9 @@ use frame_support::traits::PalletInfoAccess;
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Assets as XcmAssets, ClearOrigin, Fungible, Here, Instruction, InteriorLocation,
-	Junction, Junction::*, Location, NetworkId, NonFungible, ParentThen, Response, SetAppendix,
-	WeightLimit, Xcm, XCM_VERSION,
+	Asset, Assets as XcmAssets, Fungible, Here, Instruction, InteriorLocation, Junction,
+	Junction::*, Location, NetworkId, NonFungible, ParentThen, Response, WeightLimit, Xcm,
+	XCM_VERSION,
 };
 
 use xcm_runtime_apis::{
@@ -2564,6 +2564,8 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				}
 
 				fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+					use xcm::latest::prelude::{ClearOrigin, SetAppendix};
+
 					let xcm =
 						Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
 							Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(
