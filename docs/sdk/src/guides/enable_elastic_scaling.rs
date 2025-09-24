@@ -141,17 +141,12 @@
 //! ```
 //!
 //! The slot duration determines the length of each author's turn and is decoupled from the block
-//! production interval. During their slot, authors are allowed to produce multiple blocks.
+//! production interval. During their slot, authors are allowed to produce multiple blocks. **The slot duration is required to be at least 6s (same as on the relay chain).**
 //!
 //! **Configuration recommendations:**
 //! - For new parachains starting from genesis: use a slot duration of 24 seconds
 //! - For existing live parachains: leave the slot duration unchanged
-//! - Minimum recommended slot duration: 6 seconds (regardless of block production interval)
 //!
-//! **Note:** Even though not recommended, it is possible to run at arbitrary slot durations. Such
-//! configurations require a custom `ConsensusHook` implementation. The assumptions made in the
-//! `ConsensusHook` implementations of `pallet-aura-ext` do not support slot durations lower than 6
-//! seconds.
 //!
 //! ## Current limitations
 //!
