@@ -10,10 +10,10 @@ crates:
 - name: frame-support
   bump: minor
 - name: frame-executive
-  bump: patch
+  bump: minor
 - name: pallet-scheduler
-  bump: patch
+  bump: minor
 - name: frame-system
   bump: minor
 - name: sp-weights
-  bump: patch
+  bump: minor
