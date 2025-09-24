@@ -337,8 +337,8 @@ pub struct ExecConfig {
 	/// This does not apply to contract initiated instantatiations. Those will always bump the
 	/// instantiating contract's nonce.
 	pub bump_nonce: bool,
-	/// If set to `true` deposits will be collected from [`T::FeeInfo::deposit_source`] instead of
-	/// free_balance.
+	/// Whether deposits will be withdrawn from the pallet_transaction_payment credit (true) or
+	/// free balance (false).
 	pub collect_deposit_from_hold: bool,
 	/// Skip all transfers (deposits, contract instantiation, value transfer).
 	///
