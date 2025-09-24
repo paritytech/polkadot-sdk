@@ -251,7 +251,7 @@ async fn assert_unapplied_slashes_request(virtual_overseer: &mut VirtualOverseer
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			_hash,
-			RuntimeApiRequest::UnappliedSlashes(tx),
+			RuntimeApiRequest::UnappliedSlashesV2(tx),
 		)) => {
 			tx.send(Ok(Vec::new())).unwrap();
 		}
