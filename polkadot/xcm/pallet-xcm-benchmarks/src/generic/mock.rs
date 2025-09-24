@@ -16,19 +16,22 @@
 
 //! A mock runtime for XCM benchmarking.
 
-use std::ops::ControlFlow;
 use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{Contains, Everything, OriginTrait},
+	traits::{Contains, Everything, OriginTrait, ProcessMessageError},
 };
-use frame_support::traits::ProcessMessageError;
 use sp_runtime::traits::TrailingZeroInput;
-use xcm_builder::{test_utils::{
-	AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
-	TestSubscriptionService, TestUniversalAliases,
-}, AliasForeignAccountId32, AllowUnpaidExecutionFrom, CreateMatcher, DenyRecursively, DenyThenTry, EnsureDecodableXcm, FrameTransactionalProcessor, MatchXcm};
+use std::ops::ControlFlow;
+use xcm_builder::{
+	test_utils::{
+		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
+		TestSubscriptionService, TestUniversalAliases,
+	},
+	AliasForeignAccountId32, AllowUnpaidExecutionFrom, CreateMatcher, DenyRecursively, DenyThenTry,
+	EnsureDecodableXcm, FrameTransactionalProcessor, MatchXcm,
+};
 use xcm_executor::traits::{ConvertOrigin, DenyExecution, Properties};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -95,7 +98,6 @@ impl DenyExecution for DenyClearOrigin {
 	}
 }
 
-
 type Aliasers = AliasForeignAccountId32<OnlyParachains>;
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -107,7 +109,8 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = AllAssetLocationsPass;
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;
-	type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowUnpaidExecutionFrom<Everything>>;
+	type Barrier =
+		DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowUnpaidExecutionFrom<Everything>>;
 	type Weigher = xcm_builder::FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type Trader = xcm_builder::FixedRateOfFungible<WeightPrice, ()>;
 	type ResponseHandler = DevNull;
