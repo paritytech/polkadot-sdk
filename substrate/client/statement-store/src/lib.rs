@@ -686,7 +686,6 @@ impl Store {
 			let mut next_gp: u64 = 0;
 			let mut commit = Vec::new();
 			let mut index = self.index.write();
-			// 1) Load active statements and per-account indexes.
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					if let Ok(statement) = Statement::decode(&mut item.value.as_slice()) {
@@ -708,7 +707,6 @@ impl Store {
 					true
 				})
 			.map_err(|e| Error::Db(e.to_string()))?;
-			// 2) Load expired set
 			self.db
 				.iter_column_while(col::EXPIRED, |item| {
 					let expired_info = item.value;
@@ -723,7 +721,6 @@ impl Store {
 				.map_err(|e| Error::Db(e.to_string()))?;
 			commit.push((col::META, KEY_VERSION.to_vec(), Some(CURRENT_VERSION.to_le_bytes().to_vec())));
 
-			// 3) commit the migration
 			self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
 			log::trace!(target: LOG_TARGET, "Completed statement store migration to version 2");
 		}
@@ -741,7 +738,6 @@ impl Store {
 	fn populate(&self) -> Result<()> {
 		{
 			let mut index = self.index.write();
-			// 1) Load active statements and per-account indexes.
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					let statement = item.value;
@@ -757,7 +753,6 @@ impl Store {
 					true
 				})
 			.map_err(|e| Error::Db(e.to_string()))?;
-			// 2) Load expired set
 			self.db
 				.iter_column_while(col::EXPIRED, |item| {
 					let expired_info = item.value;
