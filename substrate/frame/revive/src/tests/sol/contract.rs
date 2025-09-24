@@ -20,7 +20,7 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config, Error,
+	Code, Config, Error, LOG_TARGET,
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes, U256},
@@ -48,16 +48,16 @@ fn staticcall_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
+		log::info!(target: LOG_TARGET, "Callee  addr: {:?}", callee_addr);
 
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
+		log::info!(target: LOG_TARGET, "Caller  addr: {:?}", caller_addr);
 
 		let magic_number = U256::from(42);
-		log::info!("Calling callee from caller");
+		log::info!(target: LOG_TARGET, "Calling callee from caller");
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::staticCallCall {
@@ -108,16 +108,16 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
+		log::info!(target: LOG_TARGET, "Callee  addr: {:?}", callee_addr);
 
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
+		log::info!(target: LOG_TARGET, "Caller  addr: {:?}", caller_addr);
 
 		let magic_number = U256::from(42);
-		log::info!("Calling callee from caller");
+		log::info!(target: LOG_TARGET, "Calling callee from caller");
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::normalCall {
@@ -170,13 +170,13 @@ fn call_revert(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
+		log::info!(target: LOG_TARGET, "Callee  addr: {:?}", callee_addr);
 
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
+		log::info!(target: LOG_TARGET, "Caller  addr: {:?}", caller_addr);
 
 		// Call revert and assert failure
 		let result = builder::bare_call(caller_addr)
@@ -192,7 +192,7 @@ fn call_revert(caller_type: FixtureType, callee_type: FixtureType) {
 			.build_and_unwrap_result();
 		let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
 		assert!(!result.success, "Call should propagate revert");
-		log::info!("Returned data: {:?}", result.output);
+		log::info!(target: LOG_TARGET, "Returned data: {:?}", result.output);
 		assert!(result.output.len() > 0, "Returned data should contain revert message");
 
 		let data = result.output.as_ref();
@@ -227,13 +227,13 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
+		log::info!(target: LOG_TARGET, "Callee  addr: {:?}", callee_addr);
 
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
+		log::info!(target: LOG_TARGET, "Caller  addr: {:?}", caller_addr);
 
 		let result = builder::bare_call(caller_addr)
 			.data(
@@ -288,13 +288,13 @@ fn call_stop_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
+		log::info!(target: LOG_TARGET, "Callee  addr: {:?}", callee_addr);
 
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
+		log::info!(target: LOG_TARGET, "Caller  addr: {:?}", caller_addr);
 
 		let result = builder::bare_call(caller_addr)
 			.data(
@@ -330,16 +330,16 @@ fn delegatecall_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
+		log::info!(target: LOG_TARGET, "Callee  addr: {:?}", callee_addr);
 
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
+		log::info!(target: LOG_TARGET, "Caller  addr: {:?}", caller_addr);
 
 		let magic_number = U256::from(42);
-		log::info!("Calling callee.echo() from caller");
+		log::info!(target: LOG_TARGET, "Calling callee.echo() from caller");
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::delegateCall {
@@ -359,7 +359,7 @@ fn delegatecall_works(caller_type: FixtureType, callee_type: FixtureType) {
 			"the call must reproduce the magic number"
 		);
 
-		log::info!("Calling callee.whoSender() from caller");
+		log::info!(target: LOG_TARGET, "Calling callee.whoSender() from caller");
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::delegateCall {
@@ -398,7 +398,7 @@ fn create_works() {
 
 		let callee_addr = Caller::createCall::abi_decode_returns(&result.data).unwrap();
 
-		log::info!("Created  addr: {:?}", callee_addr);
+		log::info!(target: LOG_TARGET, "Created  addr: {:?}", callee_addr);
 
 		let magic_number = U256::from(42);
 
@@ -438,7 +438,7 @@ fn create2_works() {
 
 		let callee_addr = Caller::create2Call::abi_decode_returns(&result.data).unwrap();
 
-		log::info!("Created  addr: {:?}", callee_addr);
+		log::info!(target: LOG_TARGET, "Created  addr: {:?}", callee_addr);
 
 		// Compute expected CREATE2 address
 		let expected_addr = crate::address::create2(&caller_addr, &initcode, &[], &salt);
