@@ -3111,7 +3111,7 @@ impl<T: Config> Pallet<T> {
 	pub fn dry_run_xcm<Router>(
 		origin_location: VersionedLocation,
 		xcm: VersionedXcm<<Self as Config>::RuntimeCall>,
-	) -> Result<XcmDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
+	) -> Result<XcmDryRunEffects<<Self as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
 		Router: InspectMessageQueues,
 	{
@@ -3150,8 +3150,8 @@ impl<T: Config> Pallet<T> {
 					?error, "Forwarded xcms version conversion failed with error"
 				);
 			})?;
-		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
-			frame_system::Pallet::<Runtime>::read_events_no_consensus()
+		let events: Vec<<Self as frame_system::Config>::RuntimeEvent> =
+			frame_system::Pallet::<Self>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
