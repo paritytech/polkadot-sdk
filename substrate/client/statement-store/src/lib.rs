@@ -24,8 +24,8 @@
 //! Constraint management.
 //!
 //! Each time a new statement is inserted into the store, it is first validated with the runtime
-//! Validation function computes `max_count` and `max_size` for a statement and the store assigned
-//! its `current_priority` as its position in the global insertion order.
+//! Validation function computes `max_count` and `max_size` for a statement. The store then assigns
+//! the statement a `global_priority` equal to its position in the global insertion order.
 //! The following constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
@@ -239,7 +239,13 @@ impl Index {
 		Index { options, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement, gp: Option<u64>) -> u64 {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		gp: Option<u64>,
+	) -> u64 {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -521,8 +527,10 @@ impl Index {
 			if need_count > 0 || need_bytes > 0 {
 				let extra = self.evict_oldest_until(need_count, need_bytes, &evicted);
 				if !extra.is_empty() {
-					would_free_size +=
-						extra.iter().filter_map(|h| self.entries.get(h).map(|e| e.2)).sum::<usize>();
+					would_free_size += extra
+						.iter()
+						.filter_map(|h| self.entries.get(h).map(|e| e.2))
+						.sum::<usize>();
 				}
 				evicted.extend(extra);
 			}
@@ -549,10 +557,7 @@ impl Index {
 			self.make_expired(h, current_time);
 		}
 		let stmt_gp = self.insert_new(hash, *account, statement, None);
-		MaybeInserted::Inserted {
-			evicted,
-			stmt_gp,
-		}
+		MaybeInserted::Inserted { evicted, stmt_gp }
 	}
 }
 
@@ -635,24 +640,35 @@ impl Store {
 			metrics: PrometheusMetrics::new(prometheus),
 		};
 
-		let version = store.db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))
-			.and_then(|v| v.map(|v| <[u8; 4]>::try_from(v).map(|v| u32::from_le_bytes(v)).map_err(|_| Error::Db("Error reading database version".into()))).transpose())?;
+		let version = store
+			.db
+			.get(col::META, &KEY_VERSION)
+			.map_err(|e| Error::Db(e.to_string()))
+			.and_then(|v| {
+			v.map(|v| {
+				<[u8; 4]>::try_from(v)
+					.map(|v| u32::from_le_bytes(v))
+					.map_err(|_| Error::Db("Error reading database version".into()))
+			})
+			.transpose()
+		})?;
 
 		match version {
 			None => {
-				store.db.commit([(
-					col::META,
-					KEY_VERSION.to_vec(),
-					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
-				)])
-				.map_err(|e| Error::Db(e.to_string()))?;
+				store
+					.db
+					.commit([(
+						col::META,
+						KEY_VERSION.to_vec(),
+						Some(CURRENT_VERSION.to_le_bytes().to_vec()),
+					)])
+					.map_err(|e| Error::Db(e.to_string()))?;
 				store.populate()?;
 			},
 			Some(1) => store.populate_from_v1_and_migrate()?,
 			Some(CURRENT_VERSION) => store.populate()?,
-			Some(version) => {
-				return Err(Error::Db(format!("Unsupported database version: {version}")))
-			}
+			Some(version) =>
+				return Err(Error::Db(format!("Unsupported database version: {version}"))),
 		}
 
 		Ok(store)
@@ -686,7 +702,7 @@ impl Store {
 						new_value.extend_from_slice(&next_gp.encode());
 						commit.push((
 							col::STATEMENTS,
-							statement.hash(),
+							statement.hash().to_vec(),
 							Some(new_value),
 						));
 						next_gp = next_gp.saturating_add(1);
@@ -707,6 +723,7 @@ impl Store {
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
+			commit.push((col::META, KEY_VERSION.to_vec(), Some(2u32.to_le_bytes().to_vec())));
 
 			// 3) commit the migration
 			self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
@@ -772,7 +789,7 @@ impl Store {
 		index.iterate_with(key, match_all_topics, |hash| {
 			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
 				Some(entry) => {
-					if let Ok(statement) = Statement::decode(&mut entry.as_slice()) {
+					if let Ok((statement, _)) = StatementWithGP::decode(&mut entry.as_slice()) {
 						if let Some(data) = f(statement) {
 							result.push(data);
 						}
@@ -895,10 +912,10 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for h in self.index.read().entries.keys() {
+		for h in index.entries.keys() {
 			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
 			if let Some(encoded) = encoded {
-				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				if let Ok((statement, _gp)) = StatementWithGP::decode(&mut encoded.as_slice()) {
 					let hash = statement.hash();
 					result.push((hash, statement));
 				}
@@ -922,7 +939,7 @@ impl StatementStore for Store {
 						HexDisplay::from(hash)
 					);
 					Some(
-						Statement::decode(&mut entry.as_slice())
+						StatementWithGP::decode(&mut entry.as_slice())
 							.map_err(|e| Error::Decode(e.to_string()))?,
 					)
 				},
@@ -1052,7 +1069,11 @@ impl StatementStore for Store {
 					MaybeInserted::Inserted { evicted, stmt_gp } => (evicted, stmt_gp),
 				};
 
-			commit.push((col::STATEMENTS, hash.to_vec(), Some(EncodeLikeStatementWithGP::encode(&(&statement, stmt_gp)))));
+			commit.push((
+				col::STATEMENTS,
+				hash.to_vec(),
+				Some(EncodeLikeStatementWithGP::encode(&(&statement, stmt_gp))),
+			));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
 				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
