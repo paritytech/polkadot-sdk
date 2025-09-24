@@ -1694,6 +1694,54 @@ where
 		Ok(maybe_value)
 	}
 
+	/// Set storage of a specified contract under a specified key.
+	///
+	/// If the `value` is `None`, the storage entry is deleted.
+	///
+	/// Returns an error if the contract does not exist or if the write operation fails.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	pub fn set_storage(address: H160, key: [u8; 32], value: Option<Vec<u8>>) -> SetStorageResult {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		contract_info
+			.write(&Key::from_fixed(key), value, None, false)
+			.map_err(ContractAccessError::StorageWriteFailed)
+	}
+
+	/// Set the storage of a specified contract under a specified variable-sized key.
+	///
+	/// If the `value` is `None`, the storage entry is deleted.
+	///
+	/// Returns an error if the contract does not exist, if the key decoding fails,
+	/// or if the write operation fails.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	pub fn set_storage_var_key(
+		address: H160,
+		key: Vec<u8>,
+		value: Option<Vec<u8>>,
+	) -> SetStorageResult {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		contract_info
+			.write(
+				&Key::try_from_var(key)
+					.map_err(|_| ContractAccessError::KeyDecodingFailed)?
+					.into(),
+				value,
+				None,
+				false,
+			)
+			.map_err(ContractAccessError::StorageWriteFailed)
+	}
+
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	fn try_upload_pvm_code(
 		origin: T::AccountId,
