@@ -591,11 +591,7 @@ pub struct DebugSettings<T: Config> {
 }
 
 impl<T: Config> DebugSettings<T> {
-	/// Returns whether unlimited contract size is allowed.
-	pub fn allow_unlimited_contract_size(&self) -> bool {
-		self.allow_unlimited_contract_size
-	}
-
+	/// Returns true if the settings are the default ones.
 	pub fn is_default(&self) -> bool {
 		self == &Self::default()
 	}

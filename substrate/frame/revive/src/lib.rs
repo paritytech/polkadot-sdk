@@ -279,7 +279,7 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
 
-		/// Allows unlimited ETH contract size if true
+		/// Allows debug-mode configuration, such as enabling unlimited contract size.
 		#[pallet::constant]
 		type DebugEnabled: Get<bool>;
 	}
@@ -1900,22 +1900,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns true if unlimited contract size is allowed.
-	/// This is only allowed in debug builds.
 	pub fn is_unlimited_contract_size_allowed() -> bool {
 		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().allow_unlimited_contract_size
 	}
 
-	pub fn set_unlimited_contract_size_allowed(allowed: bool) -> Result<(), Error<T>> {
-		if T::DebugEnabled::get() {
-			DebugSettingsOf::<T>::mutate(|settings| {
-				settings.allow_unlimited_contract_size = allowed
-			});
-			return Ok(());
-		}
-		Err(<Error<T>>::DebugNotEnabled)
-	}
-
+	/// Set the debug settings for the pallet.
 	pub fn set_debug_settings(settings: &DebugSettings<T>) -> Result<(), Error<T>> {
+		// Only allowed if the DebugEnabled associated type is set to true.
 		if T::DebugEnabled::get() {
 			DebugSettingsOf::<T>::put(settings);
 			return Ok(());
