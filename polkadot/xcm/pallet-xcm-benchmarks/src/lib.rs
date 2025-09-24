@@ -99,11 +99,13 @@ pub fn asset_instance_from(x: u32) -> AssetInstance {
 	AssetInstance::Array4(instance)
 }
 
-pub fn execute_xcm<T: Config>(executor: ExecutorOf<T>, xcm: Xcm<RuntimeCallOf<T>>) -> Outcome {
-	let message = executor.prepare(xcm, Weight::MAX).unwrap();
-	let origin = executor.origin().clone().unwrap_or_default();
-	let mut hash = executor.topic().clone().unwrap_or_default();
-	executor.execute(origin, message, &mut hash, Weight::MAX)
+pub fn execute_xcm<T: Config>(
+	origin: Location,
+	xcm: Xcm<<T::XcmConfig as XcmConfig>::RuntimeCall>
+) -> Outcome {
+	let mut hash = [0; 32];
+	let message = ExecutorOf::<T>::prepare(xcm, Weight::MAX).unwrap();
+	ExecutorOf::<T>::execute(origin, message, &mut hash, Weight::MAX)
 }
 
 pub fn new_executor<T: Config>(origin: Location) -> ExecutorOf<T> {
