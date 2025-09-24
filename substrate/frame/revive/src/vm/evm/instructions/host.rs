@@ -202,6 +202,7 @@ pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
 			// tload always reads a word
+			log::error!(target: crate::LOG_TARGET, "tload read invalid storage value length. Expected 32.");
 			context.interpreter.halt(InstructionResult::FatalExternalError);
 			return;
 		}
