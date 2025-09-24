@@ -24,15 +24,12 @@
 //! Constraint management.
 //!
 //! Each time a new statement is inserted into the store, it is first validated with the runtime
-//! Validation function computes `max_count` and `max_size` for a statement. The store then assigns
-//! the statement a `global_priority` equal to its position in the global insertion order.
-//! The following constraints are then checked:
+//! Validation function computes `max_count` and `max_size` for a statement. The following
+//! constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
 //!   the lowest priority until a constraint is satisfied.
 //! * There may not be more than `MAX_TOTAL_STATEMENTS` total statements with `MAX_TOTAL_SIZE` size.
-//!   To satisfy this, statements are removed from the store starting with the lowest
-//!   `global_priority` until a constraint is satisfied.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
 //! statements are deleted and `Ignored` result is returned.
@@ -44,6 +41,9 @@
 //! explicitly with the `remove` function) the statement is marked as expired. Expired statements
 //! can't be added to the store for `Options::purge_after_sec` seconds. This is to prevent old
 //! statements from being propagated on the network.
+//!
+//! Statements are also removed from the store after the lapse time, configured with
+//! `Options::statement_lapse_sec`.
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
@@ -80,6 +80,7 @@ const LOG_TARGET: &str = "statement-store";
 const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
 const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 8192;
 const DEFAULT_MAX_TOTAL_SIZE: usize = 64 * 1024 * 1024;
+const DEFAULT_STATEMENT_LAPSE_SEC: u64 = 7 * 24 * 60 * 60; //7 days
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -138,6 +139,8 @@ pub struct Options {
 	max_total_size: usize,
 	/// Number of seconds for which removed statements won't be allowed to be added back in.
 	purge_after_sec: u64,
+	/// TODO
+	statement_lapse_sec: u64,
 }
 
 impl Default for Options {
@@ -146,6 +149,7 @@ impl Default for Options {
 			max_total_statements: DEFAULT_MAX_TOTAL_STATEMENTS,
 			max_total_size: DEFAULT_MAX_TOTAL_SIZE,
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
+			statement_lapse_sec: DEFAULT_STATEMENT_LAPSE_SEC,
 		}
 	}
 }
@@ -155,17 +159,13 @@ struct Index {
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
-	entries: HashMap<Hash, (AccountId, Priority, usize)>,
+	entries: HashMap<Hash, (AccountId, Priority, usize, u64)>,
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	options: Options,
 	total_size: usize,
-	// global priority -> (statement hash, statement size)
-	global_by_order: BTreeMap<u64, (Hash, usize)>,
-	// statement hash -> global priority
-	global_of: HashMap<Hash, u64>,
-	// monotonic counter
-	next_global_priority: u64,
+	// insertion time -> Vec<statement hash>
+	by_insert: BTreeMap<u64, Vec<Hash>>,
 }
 
 struct ClientWrapper<Block, Client> {
@@ -222,17 +222,12 @@ enum IndexQuery {
 }
 
 enum MaybeInserted {
-	Inserted {
-		/// Set of evicted statements
-		evicted: HashSet<Hash>,
-		/// Statement global priority
-		stmt_gp: u64,
-	},
+	Inserted(HashSet<Hash>),
 	Ignored,
 }
 
-type StatementWithGP = (Statement, u64);
-type EncodeLikeStatementWithGP<'a> = (&'a Statement, u64);
+type StatementWithTime = (Statement, u64);
+type EncodeLikeStatementWithTime<'a> = (&'a Statement, u64);
 
 impl Index {
 	fn new(options: Options) -> Index {
@@ -244,8 +239,8 @@ impl Index {
 		hash: Hash,
 		account: AccountId,
 		statement: &Statement,
-		gp: Option<u64>,
-	) -> u64 {
+		insert_time_sec: u64,
+	) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -259,7 +254,8 @@ impl Index {
 			self.topics_and_keys.insert(hash, (all_topics, key));
 		}
 		let priority = Priority(statement.priority().unwrap_or(0));
-		self.entries.insert(hash, (account, priority, statement.data_len()));
+		self.entries
+			.insert(hash, (account, priority, statement.data_len(), insert_time_sec));
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -269,43 +265,7 @@ impl Index {
 		account_info
 			.by_priority
 			.insert(PriorityKey { hash, priority }, (statement.channel(), statement.data_len()));
-		let gp = match gp {
-			Some(gp) => {
-				self.next_global_priority = self.next_global_priority.max(gp.saturating_add(1));
-				gp
-			},
-			None => {
-				let gp = self.next_global_priority;
-				self.next_global_priority = self.next_global_priority.saturating_add(1);
-				gp
-			},
-		};
-		self.global_by_order.insert(gp, (hash, statement.data_len()));
-		self.global_of.insert(hash, gp);
-		gp
-	}
-
-	/// Evict the N oldest / M bytes oldest.
-	/// Skips any hashes already in `skip` (e.g., those evicted due to per-account constraints).
-	fn evict_oldest_until(
-		&mut self,
-		mut need_count: usize,
-		mut need_bytes: usize,
-		skip: &HashSet<Hash>,
-	) -> HashSet<Hash> {
-		let mut evicted = HashSet::new();
-		for &(h, sz) in self.global_by_order.values() {
-			if need_count == 0 && need_bytes == 0 {
-				break;
-			}
-			if skip.contains(&h) {
-				continue;
-			}
-			need_count = need_count.saturating_sub(1);
-			need_bytes = need_bytes.saturating_sub(sz);
-			evicted.insert(h);
-		}
-		evicted
+		self.by_insert.entry(insert_time_sec).or_default().push(hash);
 	}
 
 	fn query(&self, hash: &Hash) -> IndexQuery {
@@ -363,23 +323,34 @@ impl Index {
 		Ok(())
 	}
 
-	fn maintain(&mut self, current_time: u64) -> Vec<Hash> {
+	fn maintain(&mut self, current_time: u64) -> (Vec<Hash>, Vec<Hash>) {
 		// Purge previously expired messages.
-		let mut purged = Vec::new();
+		let mut purged_expired = Vec::new();
 		self.expired.retain(|hash, timestamp| {
 			if *timestamp + self.options.purge_after_sec <= current_time {
-				purged.push(*hash);
+				purged_expired.push(*hash);
 				log::trace!(target: LOG_TARGET, "Purged statement {:?}", HexDisplay::from(hash));
 				false
 			} else {
 				true
 			}
 		});
-		purged
+		let mut purged_lapsed = Vec::new();
+		while let Some(insert_time_sec) = self.by_insert.keys().next().copied() {
+			if current_time < insert_time_sec.saturating_add(self.options.statement_lapse_sec) {
+				break
+			}
+
+			if let Some(mut inserted) = self.by_insert.remove(&insert_time_sec) {
+				purged_lapsed.append(&mut inserted);
+			}
+		}
+
+		(purged_expired, purged_lapsed)
 	}
 
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
-		if let Some((account, priority, len)) = self.entries.remove(hash) {
+		if let Some((account, priority, len, insert_time_sec)) = self.entries.remove(hash) {
 			self.total_size -= len;
 			if let Some((topics, key)) = self.topics_and_keys.remove(hash) {
 				for t in topics.into_iter().flatten() {
@@ -416,11 +387,7 @@ impl Index {
 					account_rec.remove_entry();
 				}
 			}
-			if let Some(gp) = self.global_of.remove(hash) {
-				self.global_by_order.remove(&gp);
-			} else {
-				log::error!(target: LOG_TARGET, "Missing global priority for statement {:?}", HexDisplay::from(hash));
-			}
+			self.by_insert.entry(insert_time_sec).and_modify(|v| v.retain(|h| h != hash));
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
 			true
 		} else {
@@ -516,36 +483,13 @@ impl Index {
 			}
 		}
 
-		// Now handle global constraints as well. If we would exceed, evict the oldest to make room.
-		{
-			let projected_size =
-				self.total_size.saturating_sub(would_free_size).saturating_add(statement_len);
-			let projected_count = (self.entries.len() + 1).saturating_sub(evicted.len());
-
-			let need_count = projected_count.saturating_sub(self.options.max_total_statements);
-			let need_bytes = projected_size.saturating_sub(self.options.max_total_size);
-			if need_count > 0 || need_bytes > 0 {
-				let extra = self.evict_oldest_until(need_count, need_bytes, &evicted);
-				if !extra.is_empty() {
-					would_free_size += extra
-						.iter()
-						.filter_map(|h| self.entries.get(h).map(|e| e.2))
-						.sum::<usize>();
-				}
-				evicted.extend(extra);
-			}
-		}
-
-		// After global eviction, re-check feasibility. If still over, ignore.
-		let projected_size =
-			self.total_size.saturating_sub(would_free_size).saturating_add(statement_len);
-		let projected_count = self.entries.len() + 1 - evicted.len();
-		if projected_size > self.options.max_total_size ||
-			projected_count > self.options.max_total_statements
+		// Now check global constraints as well.
+		if !((self.total_size - would_free_size + statement_len <= self.options.max_total_size) &&
+			self.entries.len() + 1 - evicted.len() <= self.options.max_total_statements)
 		{
 			log::debug!(
 				target: LOG_TARGET,
-				"Ignored statement {} because the store is full even after eviction (size={}, count={})",
+				"Ignored statement {} because the store is full (size={}, count={})",
 				HexDisplay::from(&hash),
 				self.total_size,
 				self.entries.len(),
@@ -556,8 +500,8 @@ impl Index {
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		let stmt_gp = self.insert_new(hash, *account, statement, None);
-		MaybeInserted::Inserted { evicted, stmt_gp }
+		self.insert_new(hash, *account, statement, current_time);
+		MaybeInserted::Inserted(evicted)
 	}
 }
 
@@ -669,7 +613,6 @@ impl Store {
 		}
 
 		store.populate()?;
-
 		Ok(store)
 	}
 
@@ -685,11 +628,11 @@ impl Store {
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					let statement = item.value;
-					if let Ok((statement, gp)) = StatementWithGP::decode(&mut statement.as_slice()) {
+					if let Ok((statement, insert_time)) = StatementWithTime::decode(&mut statement.as_slice()) {
 						let hash = statement.hash();
 						log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
 						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement, Some(gp));
+							index.insert_new(hash, account_id, &statement, insert_time);
 						} else {
 							log::debug!(target: LOG_TARGET, "Error decoding statement loaded from the DB: {:?}", HexDisplay::from(&hash));
 						}
@@ -726,7 +669,7 @@ impl Store {
 		index.iterate_with(key, match_all_topics, |hash| {
 			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
 				Some(entry) => {
-					if let Ok((statement, _)) = StatementWithGP::decode(&mut entry.as_slice()) {
+					if let Ok((statement, _)) = StatementWithTime::decode(&mut entry.as_slice()) {
 						if let Some(data) = f(statement) {
 							result.push(data);
 						}
@@ -756,11 +699,14 @@ impl Store {
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		let deleted = self.index.write().maintain(self.timestamp());
-		let deleted: Vec<_> =
-			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
-		let count = deleted.len() as u64;
-		if let Err(e) = self.db.commit(deleted) {
+		let (purged_expired, purged_lapsed) = self.index.write().maintain(self.timestamp());
+		let purged = purged_expired
+			.into_iter()
+			.map(|hash| (col::EXPIRED, hash, None))
+			.chain(purged_lapsed.into_iter().map(|hash| (col::STATEMENTS, hash, None)))
+			.collect::<Vec<_>>();
+		let count = purged.len() as u64;
+		if let Err(e) = self.db.commit(purged) {
 			log::warn!(target: LOG_TARGET, "Error writing to the statement database: {:?}", e);
 		} else {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(count));
@@ -852,7 +798,7 @@ impl StatementStore for Store {
 		for h in index.entries.keys() {
 			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
 			if let Some(encoded) = encoded {
-				if let Ok((statement, _gp)) = StatementWithGP::decode(&mut encoded.as_slice()) {
+				if let Ok((statement, _gp)) = StatementWithTime::decode(&mut encoded.as_slice()) {
 					let hash = statement.hash();
 					result.push((hash, statement));
 				}
@@ -876,7 +822,7 @@ impl StatementStore for Store {
 						HexDisplay::from(hash)
 					);
 					Some(
-						StatementWithGP::decode(&mut entry.as_slice())
+						StatementWithTime::decode(&mut entry.as_slice())
 							.map(|(stmt, _gp)| stmt)
 							.map_err(|e| Error::Decode(e.to_string()))?,
 					)
@@ -1001,16 +947,16 @@ impl StatementStore for Store {
 		{
 			let mut index = self.index.write();
 
-			let (evicted, stmt_gp) =
+			let evicted =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
 					MaybeInserted::Ignored => return SubmitResult::Ignored,
-					MaybeInserted::Inserted { evicted, stmt_gp } => (evicted, stmt_gp),
+					MaybeInserted::Inserted(evicted) => evicted,
 				};
 
 			commit.push((
 				col::STATEMENTS,
 				hash.to_vec(),
-				Some(EncodeLikeStatementWithGP::encode(&(&statement, stmt_gp))),
+				Some(EncodeLikeStatementWithTime::encode(&(&statement, current_time))),
 			));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
@@ -1059,6 +1005,9 @@ impl StatementStore for Store {
 
 #[cfg(test)]
 mod tests {
+	use super::{
+		col, EncodeLikeStatementWithTime, StatementWithTime, CURRENT_VERSION, KEY_VERSION,
+	};
 	use crate::Store;
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
@@ -1067,7 +1016,6 @@ mod tests {
 		AccountId, Channel, DecryptionKey, NetworkPriority, Proof, SignatureVerificationResult,
 		Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
-	use super::{col, KEY_VERSION, CURRENT_VERSION, StatementWithGP, EncodeLikeStatementWithGP};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
 	type Hash = sp_core::H256;
@@ -1595,83 +1543,5 @@ mod tests {
 		assert_eq!(retrieved, vec![plaintext_good]);
 	}
 
-	/// One insertion should evict **multiple** (4) oldest items when the global count cap is
-	/// tightened.
-	#[test]
-	fn evicts_multiple_oldest_when_total_count_exceeded_in_one_insert() {
-		let (store, _temp) = test_store();
-
-		let ok = SubmitResult::New(NetworkPriority::High);
-		let source = StatementSource::Network;
-
-		// Seed 5 items under a high limit so none are evicted yet.
-		let s1 = statement(10, 1, None, 10);
-		let s2 = statement(11, 1, None, 10);
-		let s3 = statement(12, 1, None, 10);
-		let s4 = statement(13, 1, None, 10);
-		let s5 = statement(14, 1, None, 10);
-		for s in [&s1, &s2, &s3, &s4, &s5] {
-			assert_eq!(store.submit(s.clone(), source), ok);
-		}
-		assert_eq!(store.index.read().entries.len(), 5);
-
-		// Tighten the global count cap to 2, then insert one more.
-		// This one insertion must evict 4 oldest (s1..s4) to reach 2 total (s5 + new).
-		store.index.write().options.max_total_statements = 2;
-		let s6 = statement(15, 1, None, 10);
-		assert_eq!(store.submit(s6.clone(), source), ok);
-
-		// Check survivors are the newest previous (s5) + the one just inserted (s6).
-		let remaining: std::collections::HashSet<_> =
-			store.statements().unwrap().into_iter().map(|(h, _)| h).collect();
-		assert_eq!(remaining.len(), 2, "should keep only two after multiple evictions");
-		assert!(remaining.contains(&s5.hash()));
-		assert!(remaining.contains(&s6.hash()));
-
-		// Exactly 4 expired (s1..s4).
-		let idx = store.index.read();
-		assert_eq!(idx.expired.len(), 4, "must have evicted four oldest in one go");
-		assert!(idx.expired.contains_key(&s1.hash()));
-		assert!(idx.expired.contains_key(&s2.hash()));
-		assert!(idx.expired.contains_key(&s3.hash()));
-		assert!(idx.expired.contains_key(&s4.hash()));
-	}
-
-	/// One insertion should evict **multiple** oldest items to satisfy the total-size cap.
-	#[test]
-	fn evicts_multiple_oldest_when_total_size_exceeded_in_one_insert() {
-		let (store, _temp) = test_store();
-
-		let ok = SubmitResult::New(NetworkPriority::High);
-		let source = StatementSource::Network;
-
-		// Seed 3×400B => total 1200B under a high size cap.
-		let s1 = statement(20, 1, None, 400);
-		let s2 = statement(21, 1, None, 400);
-		let s3 = statement(22, 1, None, 400);
-		for s in [&s1, &s2, &s3] {
-			assert_eq!(store.submit(s.clone(), source), ok);
-		}
-		assert_eq!(store.index.read().total_size, 1200);
-
-		// Tighten the global size cap to 700, then insert a 10B statement.
-		// Need to free at least 510B -> evict s1 (400) still need 110 -> evict s2 (400).
-		store.index.write().options.max_total_size = 700;
-		let s4 = statement(23, 1, None, 10);
-		assert_eq!(store.submit(s4.clone(), source), ok);
-
-		// Survivors should be the newest previous (s3) + the new one (s4).
-		let remaining: std::collections::HashSet<_> =
-			store.statements().unwrap().into_iter().map(|(h, _)| h).collect();
-		assert_eq!(remaining.len(), 2);
-		assert!(remaining.contains(&s3.hash()));
-		assert!(remaining.contains(&s4.hash()));
-
-		// Exactly two were evicted (s1, s2), and total size is 410 (400 + 10).
-		let idx = store.index.read();
-		assert_eq!(idx.expired.len(), 2, "must have evicted two oldest for size");
-		assert!(idx.expired.contains_key(&s1.hash()));
-		assert!(idx.expired.contains_key(&s2.hash()));
-		assert_eq!(idx.total_size, 410);
-	}
+	// TODO: test lapse
 }
