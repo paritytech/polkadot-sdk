@@ -621,53 +621,108 @@ impl Store {
 		statement_col.ref_counted = false;
 		statement_col.preimage = true;
 		statement_col.uniform = true;
-		let db = parity_db::Db::open_or_create(&config).map_err(|e| Error::Db(e.to_string()))?;
-		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
-			Some(version) => {
-				let version = u32::from_le_bytes(
-					version
-						.try_into()
-						.map_err(|_| Error::Db("Error reading database version".into()))?,
-				);
-				match version {
-					1 => todo!("migration"),
-					CURRENT_VERSION => (),
-					_ => {
-					return Err(Error::Db(format!("Unsupported database version: {version}")))
-					}
-				}
-			},
-			None => {
-				db.commit([(
-					col::META,
-					KEY_VERSION.to_vec(),
-					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
-				)])
-				.map_err(|e| Error::Db(e.to_string()))?;
-			},
-		}
 
 		let validator = ClientWrapper { client, _block: Default::default() };
 		let validate_fn = Box::new(move |block, source, statement| {
 			validator.validate_statement(block, source, statement)
 		});
-
 		let store = Store {
-			db,
+			db: parity_db::Db::open_or_create(&config).map_err(|e| Error::Db(e.to_string()))?,
 			index: RwLock::new(Index::new(options)),
 			validate_fn,
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 		};
-		store.populate()?;
+
+		let version = store.db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))
+			.and_then(|v| v.map(|v| <[u8; 4]>::try_from(v).map(|v| u32::from_le_bytes(v)).map_err(|_| Error::Db("Error reading database version".into()))).transpose())?;
+
+		match version {
+			None => {
+				store.db.commit([(
+					col::META,
+					KEY_VERSION.to_vec(),
+					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
+				)])
+				.map_err(|e| Error::Db(e.to_string()))?;
+				store.populate()?;
+			},
+			Some(1) => store.populate_from_v1_and_migrate()?,
+			Some(CURRENT_VERSION) => store.populate()?,
+			Some(version) => {
+				return Err(Error::Db(format!("Unsupported database version: {version}")))
+			}
+		}
+
 		Ok(store)
+	}
+
+	/// Create memory index from the data in version 1.
+	// This may be moved to a background thread if it slows startup too much.
+	// This function should only be used on startup. There should be no other DB operations when
+	// iterating the index.
+	// The DB must have no recent commit for columns STATEMENTS and EXPIRED as we use
+	// `iter_column_while`.
+	fn populate_from_v1_and_migrate(&self) -> Result<()> {
+		{
+			log::trace!(target: LOG_TARGET, "Migrating statement store from version 1 to version 2");
+			let mut next_gp = 0;
+			let mut commit = Vec::new();
+			let mut index = self.index.write();
+			// 1) Load active statements and per-account indexes.
+			self.db
+				.iter_column_while(col::STATEMENTS, |item| {
+					if let Ok(statement) = Statement::decode(&mut item.value.as_slice()) {
+						let hash = statement.hash();
+						log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
+						if let Some(account_id) = statement.account_id() {
+							index.insert_new(hash, account_id, &statement, Some(next_gp));
+						} else {
+							log::debug!(target: LOG_TARGET, "Error decoding statement loaded from the DB: {:?}", HexDisplay::from(&hash));
+						}
+
+						let mut new_value = item.value.to_vec();
+						new_value.extend_from_slice(&next_gp.encode());
+						commit.push((
+							col::STATEMENTS,
+							statement.hash(),
+							Some(new_value),
+						));
+						next_gp = next_gp.saturating_add(1);
+					}
+					true
+				})
+			.map_err(|e| Error::Db(e.to_string()))?;
+			// 2) Load expired set
+			self.db
+				.iter_column_while(col::EXPIRED, |item| {
+					let expired_info = item.value;
+					if let Ok((hash, timestamp)) =
+						<(Hash, u64)>::decode(&mut expired_info.as_slice())
+					{
+						log::trace!(target: LOG_TARGET, "Statement loaded (expired): {:?}", HexDisplay::from(&hash));
+						index.insert_expired(hash, timestamp);
+					}
+					true
+				})
+				.map_err(|e| Error::Db(e.to_string()))?;
+
+			// 3) commit the migration
+			self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
+			log::trace!(target: LOG_TARGET, "Completed statement store migration to version 2");
+		}
+
+		self.maintain();
+		Ok(())
 	}
 
 	/// Create memory index from the data.
 	// This may be moved to a background thread if it slows startup too much.
 	// This function should only be used on startup. There should be no other DB operations when
 	// iterating the index.
+	// The DB must have no recent commit for columns STATEMENTS and EXPIRED as we use
+	// `iter_column_while`.
 	fn populate(&self) -> Result<()> {
 		{
 			let mut index = self.index.write();
