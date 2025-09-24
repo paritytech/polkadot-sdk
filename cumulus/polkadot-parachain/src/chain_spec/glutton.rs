@@ -29,7 +29,7 @@ pub fn glutton_westend_config(
 
 	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: relay_chain.into() },
+		Extensions::new_with_relay_chain(relay_chain.into()),
 	)
 	.with_name(&chain_type_name(para_id, &chain_type))
 	.with_id(&chain_id(para_id, &chain_type))
@@ -39,11 +39,6 @@ pub fn glutton_westend_config(
 		ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 		_ => panic!("chain_type: {chain_type:?} not supported here!"),
 	})
-	.with_genesis_config_patch(serde_json::json!({
-		"parachainInfo": {
-			"parachainId": para_id,
-		},
-	}))
 	.build()
 }
 

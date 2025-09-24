@@ -39,6 +39,7 @@ async fn collect_relay_storage_proof(
 	relay_parent: PHash,
 	include_authorities: bool,
 	include_next_authorities: bool,
+	additional_relay_state_keys: Vec<Vec<u8>>,
 ) -> Option<sp_state_machine::StorageProof> {
 	use relay_chain::well_known_keys as relay_well_known_keys;
 
@@ -133,6 +134,13 @@ async fn collect_relay_storage_proof(
 		relevant_keys.push(relay_well_known_keys::NEXT_AUTHORITIES.to_vec());
 	}
 
+	// Add additional relay state keys
+	let unique_keys: Vec<Vec<u8>> = additional_relay_state_keys
+		.into_iter()
+		.filter(|key| !relevant_keys.contains(key))
+		.collect();
+	relevant_keys.extend(unique_keys);
+
 	relay_chain_interface
 		.prove_read(relay_parent, &relevant_keys)
 		.await
@@ -159,6 +167,7 @@ impl ParachainInherentDataProvider {
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
+		additional_relay_state_keys: Vec<Vec<u8>>,
 	) -> Option<ParachainInherentData> {
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
@@ -174,6 +183,7 @@ impl ParachainInherentDataProvider {
 			relay_parent,
 			!relay_parent_descendants.is_empty(),
 			include_next_authorities,
+			additional_relay_state_keys,
 		)
 		.await?;
 

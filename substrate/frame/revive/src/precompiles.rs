@@ -41,7 +41,7 @@ pub use sp_core::{H160, H256, U256};
 
 use crate::{
 	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError,
+	Error as CrateError, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
@@ -50,7 +50,10 @@ use pallet_revive_uapi::ReturnFlags;
 use sp_runtime::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub(crate) use builtin::{IBenchmarking, NoInfo as BenchmarkNoInfo, WithInfo as BenchmarkWithInfo};
+pub(crate) use builtin::{
+	IBenchmarking, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
+	WithInfo as BenchmarkWithInfo,
+};
 
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";
 
@@ -367,8 +370,11 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
-			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+		let call =
+			<Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "`abi_decode_validate` for pre-compile failed: {err:?}");
+				Error::Panic(PanicKind::ResourceError)
+			})?;
 		<Self as BuiltinPrecompile>::call(address, &call, env)
 	}
 
@@ -378,7 +384,10 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
-			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "`abi_decode_validate` for pre-compile (with info) failed: {err:?}");
+				Error::Panic(PanicKind::ResourceError)
+			})?;
 		<Self as BuiltinPrecompile>::call_with_info(address, &call, env)
 	}
 }

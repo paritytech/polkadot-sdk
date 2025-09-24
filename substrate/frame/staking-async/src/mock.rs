@@ -401,6 +401,7 @@ ord_parameter_types! {
 parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
 	pub static MaxEraDuration: u64 = time_per_era() * 7;
+	pub const MaxPruningItems: u32 = 100;
 }
 pub struct OneTokenPerMillisecond;
 impl EraPayout<Balance> for OneTokenPerMillisecond {
@@ -439,6 +440,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
+	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
 	type RcClientInterface = session_mock::Session;
@@ -1004,4 +1006,23 @@ pub(crate) fn restrict(who: &AccountId) {
 
 pub(crate) fn remove_from_restrict_list(who: &AccountId) {
 	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
+}
+
+pub(crate) fn era_unprocessed_offence_count(era: EraIndex) -> u32 {
+	OffenceQueue::<T>::iter_prefix_values(era).count() as u32
+}
+
+pub(crate) fn era_unapplied_slash_count(era: EraIndex) -> u32 {
+	UnappliedSlashes::<T>::iter_prefix_values(era).count() as u32
+}
+
+/// A pending slash from the previous era blocks withdrawal. Use this to apply them.
+pub(crate) fn apply_pending_slashes_from_previous_era() {
+	apply_pending_slashes_from_era(active_era() - 1);
+}
+
+pub(crate) fn apply_pending_slashes_from_era(era: EraIndex) {
+	for (key, _) in UnappliedSlashes::<T>::iter_prefix(era) {
+		assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), era, key));
+	}
 }

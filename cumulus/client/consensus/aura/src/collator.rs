@@ -137,6 +137,7 @@ where
 			relay_parent_descendants
 				.map(RelayParentData::into_inherent_descendant_list)
 				.unwrap_or_default(),
+			Vec::new(),
 		)
 		.await;
 

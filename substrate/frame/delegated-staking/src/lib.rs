@@ -131,7 +131,7 @@ pub mod migration;
 mod mock;
 #[cfg(test)]
 mod tests;
-mod types;
+pub mod types;
 
 extern crate alloc;
 

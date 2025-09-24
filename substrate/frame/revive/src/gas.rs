@@ -22,7 +22,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -219,6 +219,18 @@ impl<T: Config> GasMeter<T> {
 		Ok(ChargedAmount(amount))
 	}
 
+	/// Charge the specified amount of EVM gas.
+	/// This is used for basic opcodes (e.g arithmetic, bitwise, ...) that don't have a dedicated
+	/// benchmark
+	pub fn charge_evm_gas(&mut self, gas: u64) -> Result<(), DispatchError> {
+		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
+		self.gas_left = self
+			.gas_left
+			.checked_sub(&base_cost.saturating_mul(gas))
+			.ok_or_else(|| Error::<T>::OutOfGas)?;
+		Ok(())
+	}
+
 	/// Adjust a previously charged amount down to its actual amount.
 	///
 	/// This is when a maximum a priori amount was charged and then should be partially
@@ -311,6 +323,10 @@ impl<T: Config> GasMeter<T> {
 	#[cfg(test)]
 	pub fn tokens(&self) -> &[ErasedToken] {
 		&self.tokens
+	}
+
+	pub fn consume_all(&mut self) {
+		self.gas_left = Zero::zero();
 	}
 }
 
