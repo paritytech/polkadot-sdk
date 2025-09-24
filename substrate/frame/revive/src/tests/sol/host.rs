@@ -378,6 +378,7 @@ fn sload_error_reading_non_32_byte_value() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		{
+			// Test that reading storage value of 31 bytes results in contract trapped
 			let contract_info = test_utils::get_contract(&addr);
 			let key = Key::Fix(index.to_be_bytes());
 			contract_info
@@ -396,6 +397,7 @@ fn sload_error_reading_non_32_byte_value() {
 		}
 
 		{
+			// Test that reading storage value of 33 bytes results in contract trapped
 			let contract_info = test_utils::get_contract(&addr);
 			let key = Key::Fix(index.to_be_bytes());
 			let mut bytes = expected_value.to_be_bytes::<32>().to_vec();
