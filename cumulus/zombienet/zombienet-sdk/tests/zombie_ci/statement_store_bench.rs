@@ -6,8 +6,8 @@ use codec::{Decode, Encode};
 use log::{debug, info, warn};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Statement, Topic};
-use std::{collections::HashMap, time::Duration};
-use tokio::time::timeout;
+use std::{collections::HashMap, sync::Arc, time::Duration};
+use tokio::{sync::Mutex, time::timeout};
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
@@ -20,16 +20,94 @@ use zombienet_sdk::{
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 50;
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 500;
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
 const MESSAGE_COUNT: usize = 2;
 const MAX_RETRIES: u32 = 100;
-const RETRY_DELAY_MS: u64 = 500;
-const RECEIVE_DELAY_MS: u64 = 2000;
+const RETRY_DELAY_MS: u64 = 200;
+const RECEIVE_DELAY_MS: u64 = 500;
+const RPC_POOL_SIZE: usize = 50;
+
+#[derive(Clone)]
+struct RpcPool {
+	clients: Arc<Mutex<Vec<RpcClient>>>,
+}
+
+impl RpcPool {
+	async fn new(network: &Network<LocalFileSystem>, node: &str) -> Result<Self, anyhow::Error> {
+		let node = network.get_node(node)?;
+		let node_url = node.ws_uri().parse::<url::Url>()?;
+
+		let mut clients = Vec::new();
+		for i in 0..RPC_POOL_SIZE {
+			let rpc_client = create_rpc_client(&node_url).await?;
+			clients.push(rpc_client);
+			debug!("RPC pool: created client {}/{}", i + 1, RPC_POOL_SIZE);
+		}
+
+		debug!("RPC pool: initialized with {} clients", RPC_POOL_SIZE);
+		Ok(Self { clients: Arc::new(Mutex::new(clients)) })
+	}
+
+	async fn get_client(&self) -> Result<RpcPoolGuard, anyhow::Error> {
+		loop {
+			let mut clients = self.clients.lock().await;
+			let available_count = clients.len();
+
+			if let Some(client) = clients.pop() {
+				debug!("RPC pool: borrowed client, {} clients remaining", available_count - 1);
+				return Ok(RpcPoolGuard { client: Some(client), pool: self.clients.clone() });
+			}
+
+			drop(clients);
+			debug!("RPC pool: all {} clients in use, waiting for available client", RPC_POOL_SIZE);
+			tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
+		}
+	}
+}
+
+struct RpcPoolGuard {
+	client: Option<RpcClient>,
+	pool: Arc<Mutex<Vec<RpcClient>>>,
+}
+
+impl std::ops::Deref for RpcPoolGuard {
+	type Target = RpcClient;
+
+	fn deref(&self) -> &Self::Target {
+		self.client.as_ref().unwrap()
+	}
+}
+
+impl Drop for RpcPoolGuard {
+	fn drop(&mut self) {
+		if let Some(client) = self.client.take() {
+			let pool = self.pool.clone();
+			tokio::spawn(async move {
+				let mut clients = pool.lock().await;
+				if clients.len() < RPC_POOL_SIZE {
+					clients.push(client);
+					debug!("RPC pool: returned client, {} clients available", clients.len());
+				}
+			});
+		}
+	}
+}
+
+async fn create_rpc_client(node_url: &url::Url) -> Result<RpcClient, anyhow::Error> {
+	let (node_sender, node_receiver) =
+		WsTransportClientBuilder::default().build(node_url.clone()).await?;
+	let client = Client::builder()
+		.request_timeout(std::time::Duration::from_secs(3600))
+		.max_buffer_capacity_per_subscription(4096 * 1024)
+		.max_concurrent_requests(2 * 1024 * 1024)
+		.build_with_tokio(node_sender, node_receiver);
+	let rpc_client = RpcClient::new(client);
+	Ok(rpc_client)
+}
 
 #[test]
 fn statement_store() -> Result<(), anyhow::Error> {
-	// Create custom tokio runtime with more worker threads
 	let rt = tokio::runtime::Builder::new_multi_thread()
 		.worker_threads(num_cpus::get() * 2)
 		.max_blocking_threads(2024)
@@ -45,14 +123,14 @@ fn statement_store() -> Result<(), anyhow::Error> {
 		let network = spawn_network().await?;
 
 		info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
-		let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 
-		let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+		let collator_name = "charlie";
+		let rpc_pool = RpcPool::new(&network, collator_name).await?;
+		info!("Created RPC pool with {} connections", RPC_POOL_SIZE);
+
+		let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 		for i in 0..(PARTICIPANT_SIZE) as usize {
-			let _collator_name = collator_names[i % collator_names.len()];
-			let collator_name = "charlie"; // Overide with a single collator
-			let rpc = get_rpc(&network, collator_name).await?;
-			participants.push(Participant::new(i as u32, rpc));
+			participants.push(Participant::new(i as u32, rpc_pool.clone()));
 		}
 
 		let handles: Vec<_> = participants
@@ -155,23 +233,6 @@ async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	Ok(network)
 }
 
-async fn get_rpc(
-	network: &Network<LocalFileSystem>,
-	node: &str,
-) -> Result<RpcClient, anyhow::Error> {
-	let node = network.get_node(node)?;
-	let node_url = url::Url::parse(node.ws_uri())?;
-	let (node_sender, node_receiver) = WsTransportClientBuilder::default().build(node_url).await?;
-	let client = Client::builder()
-		.request_timeout(std::time::Duration::from_secs(3600))
-		.max_buffer_capacity_per_subscription(4096 * 1024)
-		.max_concurrent_requests(2 * 1024 * 1024)
-		.build_with_tokio(node_sender, node_receiver);
-	let rpc_client = RpcClient::new(client);
-
-	Ok(rpc_client)
-}
-
 #[derive(Encode, Decode, Debug, Clone)]
 struct StatementRequest {
 	request_id: u32,
@@ -216,11 +277,11 @@ struct Participant {
 	received_count: u32,
 	pending_res: HashMap<u32, Option<u32>>,
 	retry_count: u32,
-	rpc: RpcClient,
+	rpc_pool: RpcPool,
 }
 
 impl Participant {
-	fn new(idx: u32, rpc: RpcClient) -> Self {
+	fn new(idx: u32, rpc_pool: RpcPool) -> Self {
 		debug!("Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
@@ -254,7 +315,7 @@ impl Participant {
 			sent_count: 0,
 			received_count: 0,
 			retry_count: 0,
-			rpc,
+			rpc_pool,
 		}
 	}
 
@@ -267,7 +328,8 @@ impl Participant {
 		if self.retry_count % 10 == 0 {
 			warn!("[{}] Retry attempt {}", self.idx, self.retry_count);
 		}
-		tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
+		let delay_ms = RETRY_DELAY_MS * self.retry_count as u64;
+		tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
 
 		Ok(())
 	}
@@ -297,7 +359,7 @@ impl Participant {
 
 			for item in &pending {
 				match timeout(
-					Duration::from_millis(RETRY_DELAY_MS),
+					Duration::from_millis(RECEIVE_DELAY_MS),
 					self.statement_broadcasts_statement(topic_generator(item)),
 				)
 				.await
@@ -477,7 +539,8 @@ impl Participant {
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
 		debug!("Participant {} submitting statement (counter: {})", self.idx, self.sent_count + 1);
-		let _: () = self.rpc.request("statement_submit", rpc_params![statement_bytes]).await?;
+		let rpc_client = self.rpc_pool.get_client().await?;
+		let _: () = rpc_client.request("statement_submit", rpc_params![statement_bytes]).await?;
 		self.sent_count += 1;
 
 		Ok(())
@@ -487,8 +550,9 @@ impl Participant {
 		&mut self,
 		topics: Vec<Topic>,
 	) -> Result<Vec<Statement>, anyhow::Error> {
+		let rpc_client = self.rpc_pool.get_client().await?;
 		let statements: Vec<Bytes> =
-			self.rpc.request("statement_broadcastsStatement", rpc_params![topics]).await?;
+			rpc_client.request("statement_broadcastsStatement", rpc_params![topics]).await?;
 
 		let mut decoded_statements = Vec::new();
 		for statement_bytes in &statements {
