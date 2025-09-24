@@ -245,8 +245,9 @@ where
 		count: usize,
 		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
 	) {
-		// Only `StateStrategy` and `ChainSync` are interested in block processing notifications.
-		if let Some(ref mut state) = self.state {
+		if let Some(ref mut warp) = self.warp {
+			warp.on_blocks_processed(imported, count, results);
+		} else if let Some(ref mut state) = self.state {
 			state.on_blocks_processed(imported, count, results);
 		} else if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.on_blocks_processed(imported, count, results);

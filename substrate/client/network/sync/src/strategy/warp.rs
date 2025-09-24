@@ -18,7 +18,7 @@
 
 //! Warp syncing strategy. Bootstraps chain by downloading warp proofs and state.
 
-use sc_consensus::IncomingBlock;
+use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sp_consensus::BlockOrigin;
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
@@ -538,8 +538,6 @@ where
 			target_body: block.body,
 			target_justifications: block.justifications,
 		});
-		self.phase = Phase::Complete;
-		self.actions.push(SyncingAction::Finished);
 		Ok(())
 	}
 
@@ -766,6 +764,24 @@ where
 	#[must_use]
 	pub fn take_result(&mut self) -> Option<WarpSyncResult<B>> {
 		self.result.take()
+	}
+
+	pub fn on_blocks_processed(
+		&mut self,
+		imported: usize,
+		count: usize,
+		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
+	) {
+		trace!(target: LOG_TARGET, "Warp sync: imported {imported} of {count}.");
+
+		let Phase::TargetBlock(header) = &self.phase else {
+			panic!("XXX on_blocks_processed in non-TargetBlock phase");
+			return
+		};
+		if results.iter().any(|(r, hash)| *hash == header.hash() && r.is_ok()) {
+			self.phase = Phase::Complete;
+			self.actions.push(SyncingAction::Finished);
+		}
 	}
 }
 

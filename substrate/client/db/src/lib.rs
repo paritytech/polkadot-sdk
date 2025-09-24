@@ -1714,7 +1714,11 @@ impl<Block: BlockT> Backend<Block> {
 				}
 			}
 
-			let should_check_block_gap = !existing_header || !existing_body;
+			let should_check_block_gap = !existing_header || !existing_body || operation.create_gap;
+			log::info!(
+				"XXX should_check_block_gap for {}: {should_check_block_gap:?}",
+				*pending_block.header.number()
+			);
 
 			if should_check_block_gap {
 				let insert_new_gap =

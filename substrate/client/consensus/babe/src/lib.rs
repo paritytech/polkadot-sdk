@@ -1477,7 +1477,7 @@ where
 		let number = *block.header.number();
 		let info = self.client.info();
 
-		log::info!("XXX importing block {number}: ({:?})", block.origin);
+		log::info!("XXX importing block {number}: ({:?}) {hash:?}", block.origin);
 
 		self.check_inherents_and_equivocations(&mut block).await.map_err(|e| {
 			log::info!("XXX check inherents/equivocations failed: {:?}", e);
