@@ -50,13 +50,15 @@ The pallet exposes these weight calculation methods for runtime use:
 
 **Underlying Benchmark Functions (`WeightInfo` trait):**
 These low-level benchmarks measure raw computational costs and are used to derive the high-level weights:
-- **Base finalization**: `on_finalize(n, p)` - Measures cost of finalizing `n` transactions with `p` payload size
+- **Per-transaction overhead**: `on_finalize_per_transaction(n)` - Measures cost scaling with `n` transaction count
+- **Per-transaction data**: `on_finalize_per_transaction_data(d)` - Measures cost scaling with `d` bytes of transaction payload
 - **Per-event overhead**: `on_finalize_per_event(e)` - Measures cost scaling with `e` event count
-- **Per-data overhead**: `on_finalize_per_event_data(d)` - Measures cost scaling with `d` bytes of event data
+- **Per-event data**: `on_finalize_per_event_data(d)` - Measures cost scaling with `d` bytes of event data
 
 **Weight Derivation Methodology:**
 The high-level API methods use differential calculation to isolate marginal costs from benchmarks:
-- Per-transaction: `on_finalize(1, payload_size) - on_finalize(0, 0)`
+- Per-transaction base: `on_finalize_per_transaction(1) - on_finalize_per_transaction(0)`
+- Per-transaction byte: `on_finalize_per_transaction_data(1) - on_finalize_per_transaction_data(0)`
 - Per-event base: `on_finalize_per_event(1) - on_finalize_per_event(0)`
 - Per-byte of event data: `on_finalize_per_event_data(data_len) - on_finalize_per_event_data(0)`
 
