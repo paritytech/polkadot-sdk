@@ -95,7 +95,7 @@ use testnet_parachains_constants::westend::{
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
-	latest::prelude::{AssetId, Instruction, Xcm},
+	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
 use xcm_config::{
@@ -109,8 +109,8 @@ use frame_support::traits::PalletInfoAccess;
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	Asset, Assets as XcmAssets, Fungible, Here, Instruction, InteriorLocation, Junction,
+	Junction::*, Location, NetworkId, NonFungible, Parent, ParentThen, Response, Xcm, XCM_VERSION,
 };
 
 use xcm_runtime_apis::{
