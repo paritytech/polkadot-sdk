@@ -383,9 +383,25 @@ fn sload_error_reading_non_32_byte_value() {
 			contract_info
 				.write(&key, Some(expected_value.to_be_bytes::<32>()[..31].to_vec()), None, false)
 				.unwrap();
+
+			let result = builder::bare_call(addr)
+				.data(Host::HostCalls::sloadOp(Host::sloadOpCall { slot: index }).abi_encode())
+				.build();
+			assert!(result.result.is_err(), "test should error");
+			let err = result.result.unwrap_err();
+			let sp_runtime::DispatchError::Module(module_err) = &err else {
+				panic!("expected Module error (ContractTrapped), got {:?}", err)
+			};
+			assert_eq!(module_err.message, Some("ContractTrapped"));
 		}
 
 		{
+			let contract_info = test_utils::get_contract(&addr);
+			let key = Key::Fix(index.to_be_bytes());
+			let mut bytes = expected_value.to_be_bytes::<32>().to_vec();
+			bytes.push(0u8);
+			contract_info.write(&key, Some(bytes), None, false).unwrap();
+
 			let result = builder::bare_call(addr)
 				.data(Host::HostCalls::sloadOp(Host::sloadOpCall { slot: index }).abi_encode())
 				.build();
