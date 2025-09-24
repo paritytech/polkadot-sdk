@@ -46,8 +46,7 @@ use sp_runtime::{
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	FixedPointNumber, FixedU128, OpaqueExtrinsic, RuntimeDebug, SaturatedConversion, Saturating,
-	Weight,
+	FixedPointNumber, OpaqueExtrinsic, RuntimeDebug, SaturatedConversion, Saturating, Weight,
 };
 
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
@@ -438,7 +437,7 @@ pub trait EthExtra {
 			info = call.get_dispatch_info();
 			info.extension_weight = extension_weight;
 
-			let factor = FixedU128::from_rational(3, 4);
+			let factor = <Self::Config as Config>::MaxEthExtrinsicWeight::get();
 			let max_weight = <Self::Config as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.max_extrinsic

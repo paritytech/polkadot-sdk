@@ -79,7 +79,7 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Bounded, Convert, Dispatchable, Saturating, Zero},
-	AccountId32, DispatchError, FixedPointNumber,
+	AccountId32, DispatchError, FixedPointNumber, FixedU128,
 };
 
 pub use crate::{
@@ -268,8 +268,27 @@ pub mod pallet {
 		#[pallet::constant]
 		type NativeToEthRatio: Get<u32>;
 
+		/// Set to [`crate::evm::fees::Info`] for a production runtime.
+		///
+		/// For mock runtimes that do not need to interact with any eth compat functionality
+		/// the default value of `()` will suffice.
 		#[pallet::no_default_bounds]
 		type FeeInfo: FeeInfo<Self>;
+
+		/// The fraction the maximum extrinsic weight `eth_transact` extrinsics are capped to.
+		///
+		/// This is not a security measure but a requirement due to how we map gas to `(Weight,
+		/// StorageDeposit)`. The mapping might derive a `Weight` that is too large to fit into a
+		/// extrinsic. In this case we cap it to the limit specified here.
+		///
+		/// `eth_transact` transactions that use more weight than specified will fail with an out of
+		/// gas error during execution. Larger fractions will allow more transactions to run.
+		/// Smaller values waste less block space: Choose as small as possible and as large as
+		/// necessary.
+		///
+		///  Default: `0.5`.
+		#[pallet::constant]
+		type MaxEthExtrinsicWeight: Get<FixedU128>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -296,6 +315,7 @@ pub mod pallet {
 			pub const DepositPerItem: Balance = deposit(1, 0);
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1, 2);
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -344,6 +364,7 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type FindAuthor = ();
 			type FeeInfo = ();
+			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 		}
 	}
 

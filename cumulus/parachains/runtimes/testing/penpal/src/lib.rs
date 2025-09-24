@@ -91,7 +91,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, FixedU128,
 };
 pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
 #[cfg(feature = "std")]
@@ -806,6 +806,7 @@ parameter_types! {
 	pub const DepositPerItem: Balance = 0;
 	pub const DepositPerByte: Balance = 0;
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1,2);
 }
 
 impl pallet_revive::Config for Runtime {
@@ -830,6 +831,7 @@ impl pallet_revive::Config for Runtime {
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
+	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 }
 
 impl pallet_sudo::Config for Runtime {
