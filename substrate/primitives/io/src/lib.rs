@@ -1321,6 +1321,24 @@ pub trait Crypto {
 		Ok(pubkey.serialize_compressed())
 	}
 
+	/// Recover an Ethereum address from a SECP256k1 ECDSA signature of a 32-byte message hash.
+	///
+	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
+	/// - `msg` is typically the Keccak-256 hash of the RLP-encoded unsigned tx.
+	///
+	/// Returns `Err` if the signature is bad, otherwise the 20-byte Ethereum address
+	/// computed as keccak256(pubkey)[12..].
+	fn ethereum_recover_address(
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+	) -> AllocateAndReturnByCodec<Result<[u8; 20], EcdsaVerifyError>> {
+		let pk = secp256k1_ecdsa_recover(sig, msg)?;
+		let keccak = sp_crypto_hashing::keccak_256(&pk[..]);
+		let mut addr = [0u8; 20];
+		addr.copy_from_slice(&keccak[12..]);
+		Ok(addr)
+	}
+
 	/// Verify and recover a SECP256k1 ECDSA signature.
 	///
 	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
