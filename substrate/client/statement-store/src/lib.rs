@@ -222,7 +222,10 @@ enum IndexQuery {
 }
 
 enum MaybeInserted {
-	Inserted(HashSet<Hash>),
+	Inserted {
+		evicted: HashSet<Hash>,
+		with_gp: u64,
+	},
 	Ignored,
 }
 
@@ -271,14 +274,6 @@ impl Index {
 		// TODO: size is data len or statement len??
 		self.global_by_order.insert(gp, (hash, statement.data_len()));
 		self.global_of.insert(hash, gp);
-	}
-
-	fn attach_global_priority(&mut self, hash: Hash, size: usize) -> u64 {
-		let gp = self.next_global_priority;
-		self.next_global_priority = self.next_global_priority.saturating_add(1);
-		self.global_by_order.insert(gp, (hash, size));
-		self.global_of.insert(hash, gp);
-		gp
 	}
 
 	/// Evict the N oldest / M bytes oldest.
@@ -991,36 +986,22 @@ impl StatementStore for Store {
 		{
 			let mut index = self.index.write();
 
-			let evicted =
+			let (evicted, with_gp) =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
 					MaybeInserted::Ignored => return SubmitResult::Ignored,
-					MaybeInserted::Inserted(evicted) => evicted,
+					MaybeInserted::Inserted {evicted, with_gp} => (evicted, with_gp),
 				};
 
-			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
+			commit.push((col::STATEMENTS, hash.to_vec(), Some(StatementWithGP::encode((statement, with_gp)).encode())));
 			let meta_key_new = {
 				let mut k = Vec::with_capacity(META_GP_PREFIX.len() + 32);
 				k.extend_from_slice(META_GP_PREFIX);
 				k.extend_from_slice(hash.as_ref());
 				k
 			};
-			commit.push((col::META, meta_key_new, Some(gp.encode())));
-			commit.push((
-				col::META,
-				KEY_NEXT_GLOBAL_PRIO.to_vec(),
-				Some(index.next_global_priority.encode()),
-			));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
 				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
-				// remove gp/<hash>
-				let meta_key = {
-					let mut k = Vec::with_capacity(META_GP_PREFIX.len() + 32);
-					k.extend_from_slice(META_GP_PREFIX);
-					k.extend_from_slice(hash.as_ref());
-					k
-				};
-				commit.push((col::META, meta_key, None));
 			}
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
