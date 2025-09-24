@@ -37,6 +37,7 @@ use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound,
 };
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
@@ -577,12 +578,16 @@ impl<T: Config> DeletionQueueManager<T> {
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
+	Serialize,
+	Deserialize,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct DebugSettings<T: Config> {
 	/// Whether to allow unlimited contract size.
 	pub allow_unlimited_contract_size: bool,
-	_phantom: PhantomData<T>,
+	#[codec(skip)]
+	#[serde(skip)]
+	pub _phantom: PhantomData<T>,
 }
 
 impl<T: Config> DebugSettings<T> {
@@ -590,8 +595,11 @@ impl<T: Config> DebugSettings<T> {
 	pub fn allow_unlimited_contract_size(&self) -> bool {
 		self.allow_unlimited_contract_size
 	}
-}
 
+	pub fn is_default(&self) -> bool {
+		self == &Self::default()
+	}
+}
 
 #[cfg(test)]
 impl<T: Config> DeletionQueueManager<T> {

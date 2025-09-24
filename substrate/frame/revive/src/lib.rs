@@ -485,6 +485,8 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
+		/// The pallet is not configured to allow debug features.
+		DebugNotEnabled = 0x32,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -541,6 +543,7 @@ pub mod pallet {
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
+	#[pallet::getter(fn debug_settings)]
 	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings<T>, ValueQuery>;
 
 	pub mod genesis {
@@ -584,6 +587,10 @@ pub mod pallet {
 		/// Account entries (both EOAs and contracts)
 		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub accounts: Vec<genesis::Account<T>>,
+
+		/// Optional debugging settings applied at genesis.
+		#[serde(default, skip_serializing_if = "DebugSettings::<T>::is_default")]
+		pub debug_settings: DebugSettings<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -669,6 +676,11 @@ pub mod pallet {
 					log::error!(target: LOG_TARGET, "Failed to set EVM balance for {address:?}: {err:?}");
 				});
 			}
+
+			// Set debug settings.
+			let _ = Pallet::<T>::set_debug_settings(&self.debug_settings).inspect_err(|err| {
+				log::debug!(target: LOG_TARGET, "Failed to set debug settings: {err:?}");
+			});
 		}
 	}
 
@@ -1893,12 +1905,22 @@ impl<T: Config> Pallet<T> {
 		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().allow_unlimited_contract_size
 	}
 
-	pub fn set_unlimited_contract_size_allowed(allowed: bool) {
+	pub fn set_unlimited_contract_size_allowed(allowed: bool) -> Result<(), Error<T>> {
 		if T::DebugEnabled::get() {
 			DebugSettingsOf::<T>::mutate(|settings| {
 				settings.allow_unlimited_contract_size = allowed
 			});
+			return Ok(());
 		}
+		Err(<Error<T>>::DebugNotEnabled)
+	}
+
+	pub fn set_debug_settings(settings: &DebugSettings<T>) -> Result<(), Error<T>> {
+		if T::DebugEnabled::get() {
+			DebugSettingsOf::<T>::put(settings);
+			return Ok(());
+		}
+		Err(<Error<T>>::DebugNotEnabled)
 	}
 }
 

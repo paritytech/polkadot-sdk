@@ -23,7 +23,7 @@ use crate::{
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		ExtBuilder, Test,
 	},
-	Code, Config, Error, PristineCode,
+	Code, Config, DebugSettings, Error, GenesisConfig, PristineCode,
 };
 use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::assert_err;
@@ -174,11 +174,21 @@ fn eth_contract_too_large() {
 	// This contract size is higher than the allowed limit of 25kb
 	let (code, _) = compile_module_with_type("HeavyContract", FixtureType::Solc).unwrap();
 
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+	// Manually initialize genesis config with allow_unlimited_contract_size = true
+	let genesis_config = GenesisConfig::<Test> {
+		debug_settings: DebugSettings { allow_unlimited_contract_size: true, ..Default::default() },
+		..Default::default()
+	};
 
-		let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
+	ExtBuilder::default()
+		.genesis_config(Some(genesis_config))
+		.build()
+		.execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		assert_err!(result.result, <Error<Test>>::BlobTooLarge);
-	});
+			let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
+
+			// Even if allow_unlimited_contract_size is true, the contract is still too large unless DebugEnabled is also true.
+			assert_err!(result.result, <Error<Test>>::BlobTooLarge);
+		});
 }

@@ -39,7 +39,7 @@ use revm::{
 	},
 	primitives::{self, hardfork::SpecId, Address, Bytes},
 };
-use sp_core::{Get, H160};
+use sp_core::H160;
 use sp_runtime::Weight;
 
 #[cfg(feature = "runtime-benchmarks")]
