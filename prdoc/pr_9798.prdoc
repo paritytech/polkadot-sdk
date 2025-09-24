@@ -1,0 +1,9 @@
+title: Introduce unapplied_slashes_v2 Runtime API
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a new unapplied_slashes_v2 but keeps old unapplied_slashes
+    for backwards compat.
+crates:
+- name: pallet-migrations
+  bump: patch
