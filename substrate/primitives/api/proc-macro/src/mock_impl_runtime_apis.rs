@@ -145,14 +145,14 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 
 			fn version(
 				&self,
-				_: impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Hash>,
+				_: <#block_type as #crate_::BlockT>::Hash,
 			) -> std::result::Result<#crate_::RuntimeVersion, #crate_::ApiError> {
 				unimplemented!("`Core::version` not implemented for runtime api mocks")
 			}
 
 			fn execute_block(
 				&self,
-				_: impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Hash>,
+				_: <#block_type as #crate_::BlockT>::Hash,
 				_: impl #crate_::__private::EncodeLike<#block_type>,
 			) -> std::result::Result<(), #crate_::ApiError> {
 				unimplemented!("`Core::execute_block` not implemented for runtime api mocks")
@@ -160,8 +160,8 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 
 			fn initialize_block(
 				&self,
-				_: impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Hash>,
-				_: &impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Header>,
+				_: <#block_type as #crate_::BlockT>::Hash,
+				_: impl #crate_::__private::EncodeLike<<#block_type as #crate_::BlockT>::Header>,
 			) -> std::result::Result<#crate_::__private::ExtrinsicInclusionMode, #crate_::ApiError> {
 				unimplemented!("`Core::initialize_block` not implemented for runtime api mocks")
 			}
@@ -273,19 +273,28 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 					Ok(res) => (
 						res.iter().map(|v| v.0.clone()).collect::<Vec<_>>(),
 						res.iter()
-							.map(|v| {
+							.enumerate()
+							.map(|(i, v)| {
 								let ty = &v.1;
 								let borrow = &v.2;
-								(
-									quote_spanned!(ty.span() => #borrow impl #crate_::__private::EncodeLike<#ty> ),
-									v.2.is_some(),
-								)
+
+								// `at` parameter should not be wrapped in an `EncodeLike`
+								if is_advanced && i == 0 {
+									(quote_spanned!(ty.span() => #borrow #ty), v.2.is_some())
+								} else {
+									(
+										quote_spanned!(ty.span() => #borrow impl #crate_::__private::EncodeLike<#ty>),
+										v.2.is_some(),
+									)
+								}
 							})
 							.collect::<Vec<_>>(),
 						res.iter()
+							// skip `at` parameter
+							.skip(if is_advanced { 1 } else { 0 })
 							.map(|v| {
 								let ty = &v.1;
-								quote_spanned!(ty.span() => #ty )
+								quote_spanned!(ty.span() => #ty)
 							})
 							.collect::<Vec<_>>(),
 					),
@@ -351,7 +360,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 					#( #errors )*
 
 					let ( #( #param_names, )* ) : ( #( #orig_param_types, )* ) =
-						#crate_::Decode::decode(&mut &#crate_::Encode::encode((#( #param_names, )*))[..])
+						#crate_::Decode::decode(&mut &#crate_::Encode::encode(&(#( #param_names, )*))[..])
 							.expect("Decoding the parameters should work.");
 
 					#construct_return_value
