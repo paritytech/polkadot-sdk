@@ -658,7 +658,7 @@ where
 		(root, write_overlay)
 	}
 
-	/// Updates the recorder's proof size by reading and recording trie nodes for a given delta.
+	/// Updates the recorder's proof size by recording trie nodes for a given delta.
 	///
 	/// This function performs two operations to ensure accurate proof size calculation:
 	/// 1. Reads all keys that will be inserted or updated (those with `Some` values in the delta)
@@ -681,7 +681,7 @@ where
 		delta.sort();
 
 		let (keys_to_be_read, keys_to_be_removed): (Vec<_>, Vec<_>) =
-			delta.into_iter().partition(|(k, v)| v.is_some());
+			delta.into_iter().partition(|(_, v)| v.is_some());
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
 			let res = {
@@ -856,80 +856,6 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> HashDBRef<H, DBValue> for Eph
 		HashDB::contains(self, key, prefix)
 	}
 }
-
-////////////////////////////////////////////////////////////////////////////////
-
-pub(crate) struct Ephemeral2<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> {
-	storage: &'a S,
-	_p: PhantomData<H>,
-}
-
-impl<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> AsHashDB<H, DBValue>
-	for Ephemeral2<'a, S, H>
-{
-	fn as_hash_db<'b>(&'b self) -> &'b (dyn HashDB<H, DBValue> + 'b) {
-		self
-	}
-	fn as_hash_db_mut<'b>(&'b mut self) -> &'b mut (dyn HashDB<H, DBValue> + 'b) {
-		self
-	}
-}
-
-impl<'a, S: TrieBackendStorage<H>, H: Hasher> Ephemeral2<'a, S, H> {
-	pub fn new(storage: &'a S) -> Self {
-		Ephemeral2 { storage, _p: Default::default() }
-	}
-}
-
-impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
-	for Ephemeral2<'a, S, H>
-{
-	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
-		self.storage.get(key, prefix).unwrap_or_else(|e| {
-			warn!(target: "trie", "Failed to read from DB: {}", e);
-			None
-		})
-	}
-
-	fn contains(&self, key: &H::Out, prefix: Prefix) -> bool {
-		HashDB::get(self, key, prefix).is_some()
-	}
-
-	fn insert(&mut self, _prefix: Prefix, _value: &[u8]) -> H::Out {
-		#[cfg(feature = "std")]
-		{
-			panic!("shall not be here");
-		}
-		//todo: omg, clean this up
-		H::Out::default()
-	}
-
-	fn emplace(&mut self, _key: H::Out, _prefix: Prefix, _value: DBValue) {
-		#[cfg(feature = "std")]
-		{
-			panic!("shall not be here");
-		}
-	}
-
-	fn remove(&mut self, _key: &H::Out, _prefix: Prefix) {
-		#[cfg(feature = "std")]
-		{
-			panic!("shall not be here");
-		}
-	}
-}
-
-impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> HashDBRef<H, DBValue> for Ephemeral2<'a, S, H> {
-	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
-		HashDB::get(self, key, prefix)
-	}
-
-	fn contains(&self, key: &H::Out, prefix: Prefix) -> bool {
-		HashDB::contains(self, key, prefix)
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 /// Key-value pairs storage that is used by trie backend essence.
 pub trait TrieBackendStorage<H: Hasher>: Send + Sync {
