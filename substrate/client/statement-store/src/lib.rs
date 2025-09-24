@@ -683,7 +683,7 @@ impl Store {
 	fn populate_from_v1_and_migrate(&self) -> Result<()> {
 		{
 			log::trace!(target: LOG_TARGET, "Migrating statement store from version 1 to version 2");
-			let mut next_gp = 0;
+			let mut next_gp: u64 = 0;
 			let mut commit = Vec::new();
 			let mut index = self.index.write();
 			// 1) Load active statements and per-account indexes.
@@ -698,12 +698,10 @@ impl Store {
 							log::debug!(target: LOG_TARGET, "Error decoding statement loaded from the DB: {:?}", HexDisplay::from(&hash));
 						}
 
-						let mut new_value = item.value.to_vec();
-						new_value.extend_from_slice(&next_gp.encode());
 						commit.push((
 							col::STATEMENTS,
 							statement.hash().to_vec(),
-							Some(new_value),
+							Some((statement, next_gp).encode()),
 						));
 						next_gp = next_gp.saturating_add(1);
 					}
@@ -1130,6 +1128,7 @@ mod tests {
 		AccountId, Channel, DecryptionKey, NetworkPriority, Proof, SignatureVerificationResult,
 		Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
+	use super::{col, KEY_VERSION, CURRENT_VERSION, StatementWithGP, EncodeLikeStatementWithGP};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
 	type Hash = sp_core::H256;
@@ -1655,5 +1654,167 @@ mod tests {
 
 		// exactly one element, equal to the expected plaintext
 		assert_eq!(retrieved, vec![plaintext_good]);
+	}
+
+	/// Creates a V1 DB on disk (values are just `Statement::encode()` and meta version = 1),
+	/// opens the store to trigger migration to V2, and verifies:
+	/// - meta version bumped to 2,
+	/// - each value now decodes as `(Statement, u64)` **exactly** (no trailing bytes),
+	/// - reopening the store does not re-append `gp` (idempotent).
+	#[test]
+	fn migrates_v1_db_to_v2_once_and_sets_meta_version() {
+		sp_tracing::init_for_tests();
+		let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating temp dir");
+
+		// Prepare two on-chain statements (so `account_id()` is Some)
+		let s1 = statement(10, 1, None, 10);
+		let s2 = statement(11, 2, None, 20);
+
+		// Build a v1-shaped DB under .../db/statements (Store::new will add "statements")
+		let mut root: std::path::PathBuf = temp_dir.path().into();
+		root.push("db");
+		let mut statements_path = root.clone();
+		statements_path.push("statements");
+
+		{
+			let mut cfg = parity_db::Options::with_columns(&statements_path, col::COUNT);
+			let sc = &mut cfg.columns[col::STATEMENTS as usize];
+			sc.ref_counted = false;
+			sc.preimage = true;
+			sc.uniform = true;
+
+			let db = parity_db::Db::open_or_create(&cfg).expect("open v1 db");
+			// Write meta version = 1 and v1 statement values (plain Statement encoding)
+			db.commit([
+				(col::META, KEY_VERSION.to_vec(), Some(1u32.to_le_bytes().to_vec())),
+				(col::STATEMENTS, s1.hash().to_vec(), Some(s1.encode())),
+				(col::STATEMENTS, s2.hash().to_vec(), Some(s2.encode())),
+			])
+			.expect("seed v1 db");
+		}
+
+		{
+			// Open the v2 Store -> triggers v1->v2 migration
+			let client = std::sync::Arc::new(TestClient);
+			let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+			let store = Store::new(&root, Default::default(), client.clone(), keystore.clone(), None)
+				.expect("open store (migrates to v2)");
+
+			// Meta version must be bumped to CURRENT_VERSION (2)
+			let ver_bytes = store.db.get(col::META, KEY_VERSION).unwrap().unwrap();
+			let ver = u32::from_le_bytes(ver_bytes.try_into().unwrap());
+			assert_eq!(ver, CURRENT_VERSION);
+
+			// Values must now be SCALE-encoded (Statement, u64) *exactly* (no trailing bytes)
+			for st in [&s1, &s2] {
+				let raw = store.db.get(col::STATEMENTS, &st.hash()).unwrap().unwrap();
+				let (decoded, gp): StatementWithGP =
+					Decode::decode(&mut raw.as_slice()).expect("decode (Statement, gp)");
+				assert_eq!(decoded.hash(), st.hash(), "decoded Statement must match original");
+				// Re-encode exactly and compare: ensures there are no trailing bytes
+				let expected = EncodeLikeStatementWithGP::encode(&(st, gp));
+				assert_eq!(raw, expected, "v1->v2 migration value must be exact (no extra bytes)");
+			}
+		}
+
+		{
+			// Reopen: migration must not run again or append another gp
+			let client = std::sync::Arc::new(TestClient);
+			let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
+			let store2 = Store::new(&root, Default::default(), client, keystore, None)
+				.expect("reopen store (no-op migration)");
+			let ver2_bytes = store2.db.get(col::META, KEY_VERSION).unwrap().unwrap();
+			let ver2 = u32::from_le_bytes(ver2_bytes.try_into().unwrap());
+			assert_eq!(ver2, CURRENT_VERSION);
+
+			for st in [&s1, &s2] {
+				let raw = store2.db.get(col::STATEMENTS, &st.hash()).unwrap().unwrap();
+				let (decoded, gp): StatementWithGP =
+					Decode::decode(&mut raw.as_slice()).expect("decode (Statement, gp)");
+				let expected = EncodeLikeStatementWithGP::encode(&(st, gp));
+				assert_eq!(raw, expected, "migration must be idempotent (no re-append)");
+				assert_eq!(decoded.hash(), st.hash());
+			}
+		}
+	}
+
+	/// One insertion should evict **multiple** (4) oldest items when the global count cap is
+	/// tightened.
+	#[test]
+	fn evicts_multiple_oldest_when_total_count_exceeded_in_one_insert() {
+		let (store, _temp) = test_store();
+
+		let ok = SubmitResult::New(NetworkPriority::High);
+		let source = StatementSource::Network;
+
+		// Seed 5 items under a high limit so none are evicted yet.
+		let s1 = statement(10, 1, None, 10);
+		let s2 = statement(11, 1, None, 10);
+		let s3 = statement(12, 1, None, 10);
+		let s4 = statement(13, 1, None, 10);
+		let s5 = statement(14, 1, None, 10);
+		for s in [&s1, &s2, &s3, &s4, &s5] {
+			assert_eq!(store.submit(s.clone(), source), ok);
+		}
+		assert_eq!(store.index.read().entries.len(), 5);
+
+		// Tighten the global count cap to 2, then insert one more.
+		// This one insertion must evict 4 oldest (s1..s4) to reach 2 total (s5 + new).
+		store.index.write().options.max_total_statements = 2;
+		let s6 = statement(15, 1, None, 10);
+		assert_eq!(store.submit(s6.clone(), source), ok);
+
+		// Check survivors are the newest previous (s5) + the one just inserted (s6).
+		let remaining: std::collections::HashSet<_> =
+			store.statements().unwrap().into_iter().map(|(h, _)| h).collect();
+		assert_eq!(remaining.len(), 2, "should keep only two after multiple evictions");
+		assert!(remaining.contains(&s5.hash()));
+		assert!(remaining.contains(&s6.hash()));
+
+		// Exactly 4 expired (s1..s4).
+		let idx = store.index.read();
+		assert_eq!(idx.expired.len(), 4, "must have evicted four oldest in one go");
+		assert!(idx.expired.contains_key(&s1.hash()));
+		assert!(idx.expired.contains_key(&s2.hash()));
+		assert!(idx.expired.contains_key(&s3.hash()));
+		assert!(idx.expired.contains_key(&s4.hash()));
+	}
+
+	/// One insertion should evict **multiple** oldest items to satisfy the total-size cap.
+	#[test]
+	fn evicts_multiple_oldest_when_total_size_exceeded_in_one_insert() {
+		let (store, _temp) = test_store();
+
+		let ok = SubmitResult::New(NetworkPriority::High);
+		let source = StatementSource::Network;
+
+		// Seed 3×400B => total 1200B under a high size cap.
+		let s1 = statement(20, 1, None, 400);
+		let s2 = statement(21, 1, None, 400);
+		let s3 = statement(22, 1, None, 400);
+		for s in [&s1, &s2, &s3] {
+			assert_eq!(store.submit(s.clone(), source), ok);
+		}
+		assert_eq!(store.index.read().total_size, 1200);
+
+		// Tighten the global size cap to 700, then insert a 10B statement.
+		// Need to free at least 510B -> evict s1 (400) still need 110 -> evict s2 (400).
+		store.index.write().options.max_total_size = 700;
+		let s4 = statement(23, 1, None, 10);
+		assert_eq!(store.submit(s4.clone(), source), ok);
+
+		// Survivors should be the newest previous (s3) + the new one (s4).
+		let remaining: std::collections::HashSet<_> =
+			store.statements().unwrap().into_iter().map(|(h, _)| h).collect();
+		assert_eq!(remaining.len(), 2);
+		assert!(remaining.contains(&s3.hash()));
+		assert!(remaining.contains(&s4.hash()));
+
+		// Exactly two were evicted (s1, s2), and total size is 410 (400 + 10).
+		let idx = store.index.read();
+		assert_eq!(idx.expired.len(), 2, "must have evicted two oldest for size");
+		assert!(idx.expired.contains_key(&s1.hash()));
+		assert!(idx.expired.contains_key(&s2.hash()));
+		assert_eq!(idx.total_size, 410);
 	}
 }
