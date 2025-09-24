@@ -386,7 +386,7 @@ where
 			};
 			let coalesced: Vec<Charge<T>> = sorted_charges
 				.into_iter()
-				.coalesce(|mut a, mut b| {
+				.coalesce(|mut a, b| {
 					if a.contract != b.contract {
 						return Err((a, b));
 					}
