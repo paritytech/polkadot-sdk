@@ -3110,8 +3110,8 @@ impl<T: Config> Pallet<T> {
 	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_xcm<Router>(
 		origin_location: VersionedLocation,
-		xcm: VersionedXcm<<Self as Config>::RuntimeCall>,
-	) -> Result<XcmDryRunEffects<<Self as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
+		xcm: VersionedXcm<<T as Config>::RuntimeCall>,
+	) -> Result<XcmDryRunEffects<<T as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
 		Router: InspectMessageQueues,
 	{
@@ -3123,7 +3123,7 @@ impl<T: Config> Pallet<T> {
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
 		let xcm_version = xcm.identify_version();
-		let xcm: Xcm<<Self as Config>::RuntimeCall> = xcm.try_into().map_err(|error| {
+		let xcm: Xcm<<T as Config>::RuntimeCall> = xcm.try_into().map_err(|error| {
 			tracing::error!(
 				target: "xcm::DryRunApi::dry_run_xcm",
 				?error, "Xcm version conversion failed with error"
@@ -3134,9 +3134,9 @@ impl<T: Config> Pallet<T> {
 
 		// To make sure we only record events from current call.
 		Router::clear_messages();
-		frame_system::Pallet::<Self>::reset_events();
+		frame_system::Pallet::<T>::reset_events();
 
-		let result = <Self as Config>::XcmExecutor::prepare_and_execute(
+		let result = <T as Config>::XcmExecutor::prepare_and_execute(
 			origin_location,
 			xcm,
 			&mut hash,
@@ -3150,8 +3150,8 @@ impl<T: Config> Pallet<T> {
 					?error, "Forwarded xcms version conversion failed with error"
 				);
 			})?;
-		let events: Vec<<Self as frame_system::Config>::RuntimeEvent> =
-			frame_system::Pallet::<Self>::read_events_no_consensus()
+		let events: Vec<<T as frame_system::Config>::RuntimeEvent> =
+			frame_system::Pallet::<T>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
