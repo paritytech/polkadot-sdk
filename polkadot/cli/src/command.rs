@@ -50,17 +50,31 @@ fn get_invulnerable_ah_collators(
 	chain_spec: &Box<dyn polkadot_service::ChainSpec>,
 ) -> HashSet<PeerId> {
 	// A default set of invulnerable asset hub collators
-	const KUSAMA: [&str; 6] = [
+	const KUSAMA: [&str; 8] = [
 		"12D3KooWHNEENyCc4R3iDLLFaJiynUp9eDZp7TtS1G6DCp459vVK",
 		"12D3KooWAVqLdQEjSezy7CPEgMLMSTuyfSBdbxPGkmik5x2aL8u4",
 		"12D3KooWBxMiVQdYa5MaQjSWAu3YsfKdrs7vgX9cPk4cCwFVAXEu",
 		"12D3KooWGbRmQ9FjwkzTVTSxfUh854wxc3LUD5agjzcucDarZrNn",
 		"12D3KooWHwXftCGdp73t4BUxW3c9UKjYTvjc7tHsrinT5M8AUmXo",
 		"12D3KooWCTSAq83D99RcT64rrV5X3sGZxc9JQ8nVtd6GbZEKnDqC",
+		"12D3KooWF63ZxKtZMYs5247WQA8fcTiGJb2osXykc31cmjwNLwem",
+		"12D3KooWGowDwrXAh9cxkbPHPHuwMouFHrMcJhCVXcFS2B8vc5Ry",
 	];
 
-	if chain_spec.is_kusama() {
-		KUSAMA
+	const POLKADOT: [&str; 2] = [
+		"12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa",
+		"12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq",
+	];
+
+	let invulnerables = if chain_spec.is_kusama() {
+		KUSAMA.to_vec()
+	} else if chain_spec.is_polkadot() {
+		POLKADOT.to_vec()
+	} else {
+		vec![]
+	};
+
+	invulnerables
 			.iter()
 			.filter_map(|invuln_str| {
 				invuln_str
@@ -71,9 +85,6 @@ fn get_invulnerable_ah_collators(
 					.ok()
 			})
 			.collect()
-	} else {
-		HashSet::new()
-	}
 }
 
 impl SubstrateCli for Cli {
