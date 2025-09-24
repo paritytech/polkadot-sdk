@@ -77,8 +77,9 @@ pub struct Requester {
 
 	/// Track candidates for which we initiated early fetching.
 	early_candidates: HashSet<CandidateHash>,
-	/// Track early candidates that later appeared on the slow path (i.e., made it on-chain).
-	early_candidates_onchain: HashSet<CandidateHash>,
+
+	/// The last session index we've seen, used to detect session changes
+	last_session: Option<SessionIndex>,
 
 	/// Localized information about sessions we are currently interested in.
 	session_cache: SessionCache,
@@ -131,7 +132,7 @@ impl Requester {
 		Requester {
 			fetches: HashMap::new(),
 			early_candidates: HashSet::new(),
-			early_candidates_onchain: HashSet::new(),
+			last_session: None,
 			session_cache: SessionCache::new(),
 			tx,
 			rx,
@@ -154,6 +155,28 @@ impl Requester {
 		if let Some(leaf) = activated {
 			// Order important! We need to handle activated, prior to deactivated, otherwise we
 			// might cancel still needed jobs.
+
+			// Get the session index for this leaf
+			let current_session = runtime
+				.get_session_index_for_child(&mut ctx.sender().clone(), leaf.hash)
+				.await?;
+
+			// Check for session change or first initialization
+			match self.last_session {
+				None => {
+					// First initialization counts as a session change
+					self.handle_session_change();
+				},
+				Some(last_session) if current_session > last_session => {
+					// Session has changed, clean up early candidates
+					self.handle_session_change();
+				},
+				_ => {},
+			}
+
+			// Update our last seen session
+			self.last_session = Some(current_session);
+
 			self.start_requesting_chunks(ctx, runtime, leaf).await?;
 		}
 
@@ -303,8 +326,9 @@ impl Requester {
 					.iter()
 					.enumerate()
 					.find_map(|(idx, core_state)| match core_state {
-						CoreState::Scheduled(s) if s.para_id == candidate.descriptor.para_id() =>
-							Some(CoreIndex(idx as u32)),
+						CoreState::Scheduled(s) if s.para_id == candidate.descriptor.para_id() => {
+							Some(CoreIndex(idx as u32))
+						},
 						_ => None,
 					})
 			},
@@ -358,19 +382,21 @@ impl Requester {
 	/// Stop requesting chunks for obsolete heads.
 	fn stop_requesting_chunks(&mut self, obsolete_leaves: impl Iterator<Item = Hash>) {
 		let obsolete_leaves: HashSet<_> = obsolete_leaves.collect();
-		self.fetches.retain(|candidate_hash, task| {
+		self.fetches.retain(|_, task| {
 			task.remove_leaves(&obsolete_leaves);
-			let live = task.is_live();
-			if !live {
-            if self.early_candidates.contains(candidate_hash) &&
-                !self.early_candidates_onchain.contains(candidate_hash)
-            {
-                self.metrics.on_early_candidate_never_onchain();
-            }
-			// TODO: figure out when to remove entries from early tracking sets.
-			}
-			live
-		})
+			task.is_live()
+		});
+	}
+
+	/// Clean up early candidate tracking at session change.
+	///
+	/// Any candidates that were fetched early but never seen on chain by session change
+	/// can be considered "never made it" since backing groups change at session boundaries.
+	fn handle_session_change(&mut self) {
+		// Process all remaining early candidates that never made it on-chain
+		for _candidate_hash in self.early_candidates.drain() {
+			self.metrics.on_early_candidate_never_onchain();
+		}
 	}
 
 	/// Add candidates corresponding for a particular relay parent.
@@ -393,22 +419,17 @@ impl Requester {
 			if let Some(e) = self.fetches.get_mut(&core.candidate_hash) {
 				// Just book keeping - we are already requesting that chunk:
 				e.add_leaf(leaf);
-				// If this candidate was fetched early and now appears on the slow path, mark it.
-				if matches!(origin, FetchOrigin::Slow) && self.early_candidates.contains(&core.candidate_hash) {
-					self.early_candidates_onchain.insert(core.candidate_hash);
-					self.metrics.on_early_candidate_skipped_on_slow();
-				}
+				self.process_known_candidate(core.candidate_hash);
 			} else {
-                // If we are on the slow path and this candidate was already fetched early (even
-                // if the task has completed), skip starting a duplicate fetch and record it.
-                if matches!(origin, FetchOrigin::Slow) &&
-                    (self.early_candidates.contains(&core.candidate_hash) ||
-                     self.early_candidates_onchain.contains(&core.candidate_hash))
-                {
-                    self.metrics.on_early_candidate_skipped_on_slow();
-                    self.early_candidates_onchain.insert(core.candidate_hash);
-                    continue;
-                }
+				// If we are on the slow path and this candidate was already fetched early (even
+				// if the task has completed), skip starting a duplicate fetch and record it.
+				if matches!(origin, FetchOrigin::Slow)
+					&& self.early_candidates.contains(&core.candidate_hash)
+				{
+					self.process_known_candidate(core.candidate_hash);
+					continue;
+				}
+
 				let tx = self.tx.clone();
 				let metrics = self.metrics.clone();
 
@@ -485,6 +506,14 @@ impl Requester {
 			}
 		}
 		Ok(())
+	}
+
+	fn process_known_candidate(&mut self, candidate: CandidateHash) {
+		// Only increment skip metric if we actually remove the candidate
+		// This ensures we only count unique skips
+		if self.early_candidates.remove(&candidate) {
+			self.metrics.on_early_candidate_skipped_on_slow();
+		}
 	}
 }
 

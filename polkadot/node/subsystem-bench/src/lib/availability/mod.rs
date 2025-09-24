@@ -543,8 +543,8 @@ pub async fn benchmark_availability_write(
     let never_onchain = metrics.sum_by("polkadot_parachain_early_candidates_never_onchain_total");
     let skipped_on_slow = metrics.sum_by("polkadot_parachain_early_candidates_skipped_on_slow_total");
     println!(
-        "Early vs slow candidate fetches: early = {:.0}, slow = {:.0}, early_never_onchain = {:.0}, skipped_on_slow = {:.0}",
-        early, slow, never_onchain, skipped_on_slow
+        "Early vs slow candidate fetches: early = {:.0}, slow = {:.0}, skipped_on_slow = {:.0}, early_never_onchain = {:.0}",
+        early, slow, skipped_on_slow, never_onchain
     );
 
 	env.stop().await;

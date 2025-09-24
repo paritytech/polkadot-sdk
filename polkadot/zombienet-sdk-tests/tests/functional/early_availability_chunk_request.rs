@@ -30,7 +30,7 @@ async fn early_availability_chunk_request_test() -> Result<(), anyhow::Error> {
 						"config": {
 						 "scheduler_params": {
 							 "num_cores": 2,
-							 "group_rotation_frequency": 4
+							 "group_rotation_frequency": 8
 							}
 						}
 					}
@@ -64,16 +64,19 @@ async fn early_availability_chunk_request_test() -> Result<(), anyhow::Error> {
 
 	let early = relay_node.reports("polkadot_parachain_early_candidates_fetched_total").await?;
 	let slow = relay_node.reports("polkadot_parachain_slow_candidates_fetched_total").await?;
+	let early_got_onchain = relay_node
+		.reports("polkadot_parachain_early_candidates_skipped_on_slow_total")
+		.await?;
 	let never = relay_node
 		.reports("polkadot_parachain_early_candidates_never_onchain_total")
 		.await?;
 
 	log::info!("Early candidates fetched: {early}");
 	log::info!("Slow candidates fetched: {slow}");
+	log::info!("Early fetched candidates got onchain: {early_got_onchain}");
 	log::info!("Early candidates never onchain: {never}");
 
 	assert!(early > 0.into(), "Expected early candidates fetched > 0");
-	assert!(slow > 0.into(), "Expected slow candidates fetched > 0");
-
+	assert!(early_got_onchain > 0.into(), "Expected early fetched candidates got onchain > 0");
 	Ok(())
 }
