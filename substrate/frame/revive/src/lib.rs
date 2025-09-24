@@ -1363,6 +1363,9 @@ where
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
+			return contract_result;
+		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 
@@ -1420,6 +1423,10 @@ where
 		salt: Option<[u8; 32]>,
 		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
+		// Enforce EIP-3607 for top-level signed origins: deny signed contract addresses.
+		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
+			return contract_result;
+		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let unchecked_deposit_limit = storage_deposit_limit.is_unchecked();
@@ -1902,6 +1909,54 @@ where
 		Ok(maybe_value)
 	}
 
+	/// Set storage of a specified contract under a specified key.
+	///
+	/// If the `value` is `None`, the storage entry is deleted.
+	///
+	/// Returns an error if the contract does not exist or if the write operation fails.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	pub fn set_storage(address: H160, key: [u8; 32], value: Option<Vec<u8>>) -> SetStorageResult {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		contract_info
+			.write(&Key::from_fixed(key), value, None, false)
+			.map_err(ContractAccessError::StorageWriteFailed)
+	}
+
+	/// Set the storage of a specified contract under a specified variable-sized key.
+	///
+	/// If the `value` is `None`, the storage entry is deleted.
+	///
+	/// Returns an error if the contract does not exist, if the key decoding fails,
+	/// or if the write operation fails.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	pub fn set_storage_var_key(
+		address: H160,
+		key: Vec<u8>,
+		value: Option<Vec<u8>>,
+	) -> SetStorageResult {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		contract_info
+			.write(
+				&Key::try_from_var(key)
+					.map_err(|_| ContractAccessError::KeyDecodingFailed)?
+					.into(),
+				value,
+				None,
+				false,
+			)
+			.map_err(ContractAccessError::StorageWriteFailed)
+	}
+
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	fn try_upload_pvm_code(
 		origin: T::AccountId,
@@ -1941,6 +1996,47 @@ where
 			.into()
 			.saturating_mul(T::NativeToEthRatio::get().into())
 			.saturating_add(dust.into())
+	}
+
+	/// Ensure the origin has no code deplyoyed if it is a signed origin.
+	fn ensure_non_contract_if_signed<ReturnValue>(
+		origin: &OriginFor<T>,
+	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
+		use crate::exec::is_precompile;
+		let Ok(who) = ensure_signed(origin.clone()) else { return Ok(()) };
+		let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
+
+		// EIP_1052: precompile can never be used as EOA.
+		if is_precompile::<T, ContractBlob<T>>(&address) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject externally-signed tx from precompile account {:?}",
+				address
+			);
+			return Err(ContractResult {
+				result: Err(DispatchError::BadOrigin),
+				gas_consumed: Weight::default(),
+				gas_required: Weight::default(),
+				storage_deposit: Default::default(),
+			});
+		}
+
+		// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
+		// (account exists but no code).
+		if <AccountInfo<T>>::is_contract(&address) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject externally-signed tx from contract account {:?}",
+				address
+			);
+			return Err(ContractResult {
+				result: Err(DispatchError::BadOrigin),
+				gas_consumed: Weight::default(),
+				gas_required: Weight::default(),
+				storage_deposit: Default::default(),
+			});
+		}
+		Ok(())
 	}
 }
 

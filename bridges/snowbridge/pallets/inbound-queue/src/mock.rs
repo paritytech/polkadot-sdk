@@ -23,6 +23,11 @@ use xcm::{
 };
 use xcm_executor::AssetsInHolding;
 
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_inbound_queue_primitives::EventFixture;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+
 use crate::{self as inbound_queue};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -124,8 +129,9 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
-	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: BeaconHeader, _: H256) {}
+	fn initialize_storage() -> EventFixture {
+		make_register_token_message()
+	}
 }
 
 // Mock XCM sender that always succeeds
