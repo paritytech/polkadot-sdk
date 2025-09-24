@@ -618,13 +618,12 @@ impl Store {
 		Client::Api: ValidateStatement<Block>,
 	{
 		let mut path: std::path::PathBuf = path.into();
-		path.push("statements");
+		path.push("statements2");
 
 		let mut config = parity_db::Options::with_columns(&path, col::COUNT);
 
 		let statement_col = &mut config.columns[col::STATEMENTS as usize];
 		statement_col.ref_counted = false;
-		statement_col.preimage = true;
 		statement_col.uniform = true;
 
 		let validator = ClientWrapper { client, _block: Default::default() };
@@ -663,70 +662,15 @@ impl Store {
 						Some(CURRENT_VERSION.to_le_bytes().to_vec()),
 					)])
 					.map_err(|e| Error::Db(e.to_string()))?;
-				store.populate()?;
 			},
-			Some(1) => store.populate_from_v1_and_migrate()?,
-			Some(CURRENT_VERSION) => store.populate()?,
+			Some(CURRENT_VERSION) => (),
 			Some(version) =>
 				return Err(Error::Db(format!("Unsupported database version: {version}"))),
 		}
 
+		store.populate()?;
+
 		Ok(store)
-	}
-
-	/// Create memory index from the data in version 1.
-	// This may be moved to a background thread if it slows startup too much.
-	// This function should only be used on startup. There should be no other DB operations when
-	// iterating the index.
-	// The DB must have no recent commit for columns STATEMENTS and EXPIRED as we use
-	// `iter_column_while`.
-	fn populate_from_v1_and_migrate(&self) -> Result<()> {
-		{
-			log::trace!(target: LOG_TARGET, "Migrating statement store from version 1 to version 2");
-			let mut next_gp: u64 = 0;
-			let mut commit = Vec::new();
-			let mut index = self.index.write();
-			self.db
-				.iter_column_while(col::STATEMENTS, |item| {
-					if let Ok(statement) = Statement::decode(&mut item.value.as_slice()) {
-						let hash = statement.hash();
-						log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
-						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement, Some(next_gp));
-						} else {
-							log::debug!(target: LOG_TARGET, "Error decoding statement loaded from the DB: {:?}", HexDisplay::from(&hash));
-						}
-
-						commit.push((
-							col::STATEMENTS,
-							statement.hash().to_vec(),
-							Some((statement, next_gp).encode()),
-						));
-						next_gp = next_gp.saturating_add(1);
-					}
-					true
-				})
-			.map_err(|e| Error::Db(e.to_string()))?;
-			self.db
-				.iter_column_while(col::EXPIRED, |item| {
-					let expired_info = item.value;
-					if let Ok((hash, timestamp)) =
-						<(Hash, u64)>::decode(&mut expired_info.as_slice())
-					{
-						log::trace!(target: LOG_TARGET, "Statement loaded (expired): {:?}", HexDisplay::from(&hash));
-						index.insert_expired(hash, timestamp);
-					}
-					true
-				})
-				.map_err(|e| Error::Db(e.to_string()))?;
-			commit.push((col::META, KEY_VERSION.to_vec(), Some(CURRENT_VERSION.to_le_bytes().to_vec())));
-
-			self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
-			log::trace!(target: LOG_TARGET, "Completed statement store migration to version 2");
-		}
-
-		self.maintain();
-		Ok(())
 	}
 
 	/// Create memory index from the data.
@@ -1649,88 +1593,6 @@ mod tests {
 
 		// exactly one element, equal to the expected plaintext
 		assert_eq!(retrieved, vec![plaintext_good]);
-	}
-
-	/// Creates a V1 DB on disk (values are just `Statement::encode()` and meta version = 1),
-	/// opens the store to trigger migration to V2, and verifies:
-	/// - meta version bumped to 2,
-	/// - each value now decodes as `(Statement, u64)` **exactly** (no trailing bytes),
-	/// - reopening the store does not re-append `gp` (idempotent).
-	#[test]
-	fn migrates_v1_db_to_v2_once_and_sets_meta_version() {
-		sp_tracing::init_for_tests();
-		let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating temp dir");
-
-		// Prepare two on-chain statements (so `account_id()` is Some)
-		let s1 = statement(10, 1, None, 10);
-		let s2 = statement(11, 2, None, 20);
-
-		// Build a v1-shaped DB under .../db/statements (Store::new will add "statements")
-		let mut root: std::path::PathBuf = temp_dir.path().into();
-		root.push("db");
-		let mut statements_path = root.clone();
-		statements_path.push("statements");
-
-		{
-			let mut cfg = parity_db::Options::with_columns(&statements_path, col::COUNT);
-			let sc = &mut cfg.columns[col::STATEMENTS as usize];
-			sc.ref_counted = false;
-			sc.preimage = true;
-			sc.uniform = true;
-
-			let db = parity_db::Db::open_or_create(&cfg).expect("open v1 db");
-			// Write meta version = 1 and v1 statement values (plain Statement encoding)
-			db.commit([
-				(col::META, KEY_VERSION.to_vec(), Some(1u32.to_le_bytes().to_vec())),
-				(col::STATEMENTS, s1.hash().to_vec(), Some(s1.encode())),
-				(col::STATEMENTS, s2.hash().to_vec(), Some(s2.encode())),
-			])
-			.expect("seed v1 db");
-		}
-
-		{
-			// Open the v2 Store -> triggers v1->v2 migration
-			let client = std::sync::Arc::new(TestClient);
-			let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-			let store = Store::new(&root, Default::default(), client.clone(), keystore.clone(), None)
-				.expect("open store (migrates to v2)");
-
-			// Meta version must be bumped to CURRENT_VERSION (2)
-			let ver_bytes = store.db.get(col::META, KEY_VERSION).unwrap().unwrap();
-			let ver = u32::from_le_bytes(ver_bytes.try_into().unwrap());
-			assert_eq!(ver, CURRENT_VERSION);
-
-			// Values must now be SCALE-encoded (Statement, u64) *exactly* (no trailing bytes)
-			for st in [&s1, &s2] {
-				let raw = store.db.get(col::STATEMENTS, &st.hash()).unwrap().unwrap();
-				let (decoded, gp): StatementWithGP =
-					Decode::decode(&mut raw.as_slice()).expect("decode (Statement, gp)");
-				assert_eq!(decoded.hash(), st.hash(), "decoded Statement must match original");
-				// Re-encode exactly and compare: ensures there are no trailing bytes
-				let expected = EncodeLikeStatementWithGP::encode(&(st, gp));
-				assert_eq!(raw, expected, "v1->v2 migration value must be exact (no extra bytes)");
-			}
-		}
-
-		{
-			// Reopen: migration must not run again or append another gp
-			let client = std::sync::Arc::new(TestClient);
-			let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-			let store2 = Store::new(&root, Default::default(), client, keystore, None)
-				.expect("reopen store (no-op migration)");
-			let ver2_bytes = store2.db.get(col::META, KEY_VERSION).unwrap().unwrap();
-			let ver2 = u32::from_le_bytes(ver2_bytes.try_into().unwrap());
-			assert_eq!(ver2, CURRENT_VERSION);
-
-			for st in [&s1, &s2] {
-				let raw = store2.db.get(col::STATEMENTS, &st.hash()).unwrap().unwrap();
-				let (decoded, gp): StatementWithGP =
-					Decode::decode(&mut raw.as_slice()).expect("decode (Statement, gp)");
-				let expected = EncodeLikeStatementWithGP::encode(&(st, gp));
-				assert_eq!(raw, expected, "migration must be idempotent (no re-append)");
-				assert_eq!(decoded.hash(), st.hash());
-			}
-		}
 	}
 
 	/// One insertion should evict **multiple** (4) oldest items when the global count cap is
