@@ -73,10 +73,7 @@ use std::{
 };
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
-const CURRENT_VERSION: u32 = 1;
-
-const KEY_NEXT_GLOBAL_PRIO: &[u8] = b"next_global_priority";
-const META_GP_PREFIX: &[u8] = b"gp/";
+const CURRENT_VERSION: u32 = 2;
 
 const LOG_TARGET: &str = "statement-store";
 
@@ -229,12 +226,14 @@ enum MaybeInserted {
 	Ignored,
 }
 
+type StatementWithGP = (Statement, u64);
+
 impl Index {
 	fn new(options: Options) -> Index {
 		Index { options, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement, gp: Option<u64>) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -258,8 +257,17 @@ impl Index {
 		account_info
 			.by_priority
 			.insert(PriorityKey { hash, priority }, (statement.channel(), statement.data_len()));
-		let gp = self.next_global_priority;
-		self.next_global_priority = self.next_global_priority.saturating_add(1);
+		let gp = match gp {
+			Some(gp) => {
+				self.next_global_priority = self.next_global_priority.max(gp.saturating_add(1));
+				gp
+			},
+			None => {
+				let gp = self.next_global_priority;
+				self.next_global_priority = self.next_global_priority.saturating_add(1);
+				gp
+			},
+		};
 		// TODO: size is data len or statement len??
 		self.global_by_order.insert(gp, (hash, statement.data_len()));
 		self.global_of.insert(hash, gp);
@@ -543,7 +551,7 @@ impl Index {
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		self.insert_new(hash, *account, statement);
+		self.insert_new(hash, *account, statement, None);
 		MaybeInserted::Inserted(evicted)
 	}
 }
@@ -621,8 +629,12 @@ impl Store {
 						.try_into()
 						.map_err(|_| Error::Db("Error reading database version".into()))?,
 				);
-				if version != CURRENT_VERSION {
+				match version {
+					1 => todo!("migration"),
+					CURRENT_VERSION => (),
+					_ => {
 					return Err(Error::Db(format!("Unsupported database version: {version}")))
+					}
 				}
 			},
 			None => {
@@ -663,11 +675,11 @@ impl Store {
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					let statement = item.value;
-					if let Ok(statement) = Statement::decode(&mut statement.as_slice()) {
+					if let Ok((statement, gp)) = StatementWithGP::decode(&mut statement.as_slice()) {
 						let hash = statement.hash();
 						log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
 						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement);
+							index.insert_new(hash, account_id, &statement, Some(gp));
 						} else {
 							log::debug!(target: LOG_TARGET, "Error decoding statement loaded from the DB: {:?}", HexDisplay::from(&hash));
 						}
@@ -688,54 +700,6 @@ impl Store {
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
-			// 3) Rebuild global priority maps.
-			// Read next_global_priority if present.
-			if let Some(val) = self
-				.db
-				.get(col::META, KEY_NEXT_GLOBAL_PRIO)
-				.map_err(|e| Error::Db(e.to_string()))?
-			{
-				index.next_global_priority = u64::decode(&mut val.as_slice()).unwrap_or(0);
-			}
-			// For each active statement, attach a gp from META if present, otherwise assign now.
-			let mut commit: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
-			// Build a sorted list of (maybe gp, hash, size) so that if we must assign, we do it
-			// deterministically. Here we just iterate in DB order; gp assignment is only needed
-			// once during upgrade.
-			for (hash, (_acct, _prio, size)) in index.entries.clone().into_iter() {
-				let mut meta_key = Vec::with_capacity(META_GP_PREFIX.len() + 32);
-				meta_key.extend_from_slice(META_GP_PREFIX);
-				meta_key.extend_from_slice(hash.as_ref());
-				match self.db.get(col::META, &meta_key).map_err(|e| Error::Db(e.to_string()))? {
-					Some(v) => {
-						if let Ok(gp) = u64::decode(&mut v.as_slice()) {
-							index.global_by_order.insert(gp, (hash, size));
-							index.global_of.insert(hash, gp);
-							if gp >= index.next_global_priority {
-								index.next_global_priority = gp.saturating_add(1);
-							}
-						} else {
-							// malformed; assign anew
-							let gp = index.attach_global_priority(hash, size);
-							commit.push((col::META, meta_key, Some(gp.encode())));
-						}
-					},
-					None => {
-						// First run after upgrade: assign gp now and persist.
-						let gp = index.attach_global_priority(hash, size);
-						commit.push((col::META, meta_key, Some(gp.encode())));
-					},
-				}
-			}
-			// Ensure KEY_NEXT_GLOBAL_PRIO is present/updated.
-			commit.push((
-				col::META,
-				KEY_NEXT_GLOBAL_PRIO.to_vec(),
-				Some(index.next_global_priority.encode()),
-			));
-			if !commit.is_empty() {
-				self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
-			}
 		}
 
 		self.maintain();
@@ -1089,7 +1053,6 @@ impl StatementStore for Store {
 				let commit = [
 					(col::STATEMENTS, hash.to_vec(), None),
 					(col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())),
-					(col::META, meta_key, None),
 				];
 				if let Err(e) = self.db.commit(commit) {
 					log::debug!(
