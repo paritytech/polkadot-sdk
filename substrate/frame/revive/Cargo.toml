@@ -59,7 +59,7 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
-itertools.workspace = true
+itertools = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
