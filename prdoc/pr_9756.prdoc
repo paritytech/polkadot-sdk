@@ -8,12 +8,12 @@ doc:
     `pallet-scheduler` is changed to take the remaining weight into account and to not just assume that its configured weight is always available.
 crates:
 - name: frame-support
-  bump: patch
+  bump: minor
 - name: frame-executive
   bump: patch
 - name: pallet-scheduler
   bump: patch
 - name: frame-system
-  bump: patch
+  bump: minor
 - name: sp-weights
   bump: patch
