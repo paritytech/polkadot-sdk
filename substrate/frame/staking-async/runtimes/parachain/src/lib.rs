@@ -95,7 +95,7 @@ use testnet_parachains_constants::westend::{
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
-	latest::prelude::AssetId,
+	latest::prelude::{AssetId, Instruction, Xcm},
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
 use xcm_config::{
