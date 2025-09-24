@@ -208,16 +208,16 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::last_frame_output_mut")
 	}
 
-	fn terminate(
-		&mut self,
-		_beneficiary: &H160,
-		_allow_from_outside_tx: bool,
-		target_address: Option<&H160>,
-	) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::terminate")
-	}
 	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
 		panic!("MockExt::copy_code_slice")
+	}
+
+	fn terminate_caller(
+		&mut self,
+		_beneficiary: &H160,
+		_caller_address: &H160,
+	) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::terminate_caller")
 	}
 
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
@@ -267,6 +267,14 @@ impl<T: Config> Ext for MockExt<T> {
 		_input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::delegate_call")
+	}
+
+	fn terminate(
+		&mut self,
+		_beneficiary: &H160,
+		_allow_from_outside_tx: bool,
+	) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::terminate")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {

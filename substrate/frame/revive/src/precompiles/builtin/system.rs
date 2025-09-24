@@ -35,72 +35,12 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	type Interface = ISystem::ISystemCalls;
 	const MATCHER: BuiltinAddressMatcher =
 		BuiltinAddressMatcher::Fixed(NonZero::new(0x900).unwrap());
-	const HAS_CONTRACT_INFO: bool = true;
+	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
 		_address: &[u8; 20],
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
-	) -> Result<Vec<u8>, Error> {
-		use ISystem::ISystemCalls;
-		match input {
-			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
-				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
-				Ok(output.abi_encode())
-			},
-			ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
-				let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
-				Ok(output.abi_encode())
-			},
-			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
-				let account_id = env.to_account_id(&H160::from_slice(input.as_slice()));
-				Ok(account_id.encode().abi_encode())
-			},
-			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
-				let is_origin = env.caller_is_origin(true);
-				Ok(is_origin.abi_encode())
-			},
-			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
-				let is_root = env.caller_is_root(true);
-				Ok(is_root.abi_encode())
-			},
-			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
-				let caller = env.caller();
-				let addr = T::AddressMapper::to_address(caller.account_id()?);
-				let output = env.code_hash(&addr.into()).0.abi_encode();
-				Ok(output)
-			},
-			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::MinimumBalance)?;
-				let minimum_balance = env.minimum_balance();
-				Ok(minimum_balance.to_big_endian().abi_encode())
-			},
-			ISystemCalls::weightLeft(ISystem::weightLeftCall {}) => {
-				env.gas_meter_mut().charge(RuntimeCosts::WeightLeft)?;
-				let ref_time = env.gas_meter().gas_left().ref_time();
-				let proof_size = env.gas_meter().gas_left().proof_size();
-				let res = (ref_time, proof_size);
-				Ok(res.abi_encode())
-			},
-			// terminate requires contract info
-			ISystemCalls::terminate(_) => {
-				log::error!("system.rs precompile call() for terminate is not implemented");
-				unimplemented!("not implemented")
-			},
-		}
-	}
-
-	// implement the contract-info aware entrypoint
-	fn call_with_info(
-		_address: &[u8; 20],
-		input: &Self::Interface,
-		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
 		match input {
@@ -161,7 +101,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 					Origin::<T>::Signed(c) => c,
 				};
 				let caller_h160: H160 = T::AddressMapper::to_address(&caller_account_id);
-				let _ = env.terminate(&h160, false, Some(&caller_h160))?;
+				let _ = env.terminate_caller(&h160, &caller_h160)?;
 				Ok(Vec::new())
 			},
 		}

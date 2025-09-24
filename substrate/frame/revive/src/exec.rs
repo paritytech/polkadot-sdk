@@ -198,6 +198,19 @@ pub trait Ext: PrecompileWithInfoExt {
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError>;
 
+	/// Register the contract for destruction at the end of the call stack.
+	///
+	/// Transfer all funds to `beneficiary`.
+	/// Contract is deleted only if it was created in the same call stack.
+	///
+	/// This function will fail if the same contract is present on the contract
+	/// call stack.
+	fn terminate(
+		&mut self,
+		beneficiary: &H160,
+		allow_from_outside_tx: bool,
+	) -> Result<CodeRemoved, DispatchError>;
+
 	/// Returns the code hash of the contract being executed.
 	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
@@ -443,11 +456,10 @@ pub trait PrecompileExt: sealing::Sealed {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(
+	fn terminate_caller(
 		&mut self,
 		beneficiary: &H160,
-		allow_from_outside_tx: bool,
-		target_address: Option<&H160>,
+		caller_address: &H160,
 	) -> Result<CodeRemoved, DispatchError>;
 }
 
@@ -778,84 +790,6 @@ impl<T: Config> CachedContract<T> {
 			*self = CachedContract::Invalidated;
 		}
 	}
-}
-
-/// Function to transfer balance including the dust between accounts.
-fn transfer_with_dust<T: Config>(
-	from: &AccountIdOf<T>,
-	to: &AccountIdOf<T>,
-	value: BalanceWithDust<BalanceOf<T>>,
-) -> DispatchResult {
-	let (value, dust) = value.deconstruct();
-
-	log::info!(
-		"exec.rs transfer_with_dust: from={from:?}, to={to:?}, value={value:?}, dust={dust:?}"
-	);
-
-	fn transfer_balance<T: Config>(
-		from: &AccountIdOf<T>,
-		to: &AccountIdOf<T>,
-		value: BalanceOf<T>,
-	) -> DispatchResult {
-		T::Currency::transfer(from, to, value, Preservation::Preserve)
-		.map_err(|err| {
-			log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-			Error::<T>::TransferFailed
-		})?;
-		Ok(())
-	}
-
-	fn transfer_dust<T: Config>(
-		from: &mut AccountInfo<T>,
-		to: &mut AccountInfo<T>,
-		dust: u32,
-	) -> DispatchResult {
-		from.dust = from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-		to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-		Ok(())
-	}
-
-	if dust.is_zero() {
-		return transfer_balance::<T>(from, to, value)
-	}
-
-	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
-
-	let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
-	let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
-
-	let plank = T::NativeToEthRatio::get();
-
-	if from_info.dust < dust {
-		T::Currency::burn_from(
-			from,
-			1u32.into(),
-			Preservation::Preserve,
-			Precision::Exact,
-			Fortitude::Polite,
-		)
-		.map_err(|err| {
-			log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-			Error::<T>::TransferFailed
-		})?;
-
-		from_info.dust =
-			from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-	}
-
-	transfer_balance::<T>(from, to, value)?;
-	transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
-
-	if to_info.dust >= plank {
-		T::Currency::mint_into(to, 1u32.into())?;
-		to_info.dust = to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-	}
-
-	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-	AccountInfoOf::<T>::set(&to_addr, Some(to_info));
-
-	Ok(())
 }
 
 impl<'a, T, E> Stack<'a, T, E>
@@ -1564,6 +1498,80 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> DispatchResult {
+		fn transfer_with_dust<T: Config>(
+			from: &AccountIdOf<T>,
+			to: &AccountIdOf<T>,
+			value: BalanceWithDust<BalanceOf<T>>,
+		) -> DispatchResult {
+			let (value, dust) = value.deconstruct();
+
+			fn transfer_balance<T: Config>(
+				from: &AccountIdOf<T>,
+				to: &AccountIdOf<T>,
+				value: BalanceOf<T>,
+			) -> DispatchResult {
+				T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
+					Error::<T>::TransferFailed
+				})?;
+				Ok(())
+			}
+
+			fn transfer_dust<T: Config>(
+				from: &mut AccountInfo<T>,
+				to: &mut AccountInfo<T>,
+				dust: u32,
+			) -> DispatchResult {
+				from.dust =
+					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				Ok(())
+			}
+
+			if dust.is_zero() {
+				return transfer_balance::<T>(from, to, value)
+			}
+
+			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
+			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+
+			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
+			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
+
+			let plank = T::NativeToEthRatio::get();
+
+			if from_info.dust < dust {
+				T::Currency::burn_from(
+					from,
+					1u32.into(),
+					Preservation::Preserve,
+					Precision::Exact,
+					Fortitude::Polite,
+				)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
+					Error::<T>::TransferFailed
+				})?;
+
+				from_info.dust =
+					from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
+			}
+
+			transfer_balance::<T>(from, to, value)?;
+			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
+
+			if to_info.dust >= plank {
+				T::Currency::mint_into(to, 1u32.into())?;
+				to_info.dust =
+					to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
+			}
+
+			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
+			AccountInfoOf::<T>::set(&to_addr, Some(to_info));
+
+			Ok(())
+		}
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value).map_err(|e| {
 			log::error!(
 				"exec.rs transfer() from: {from:?}, to: {to:?}, value: {value:?}, error: {e:?}"
@@ -1691,21 +1699,22 @@ where
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
 		// Transfer ALL balance to beneficiary (this should drain the account completely)
-		{
-			let raw_value: U256 = self.account_balance(&contract_account);
-			log::info!("destroy_contract: contract balance before transfer: {:?}", raw_value);
-			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
-                .map_err(|e| {
-                    log::error!("exec.rs destroy_contract() contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value: {raw_value:?}, error: {e:?}");
-                    Error::<T>::BalanceConversionFailed
-                })?;
-			log::info!("exec.rs destroy_contract balance: {:?}", value);
-			if !value.is_zero() {
-				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
-			}
-			let raw_value: U256 = self.account_balance(&contract_account);
-			log::info!("destroy_contract: contract balance after transfer: {:?}", raw_value);
-		}
+		// {
+		// 	let raw_value: U256 = self.account_balance(&contract_account);
+		// 	log::info!("destroy_contract: contract balance before transfer: {:?}", raw_value);
+		// 	let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)
+		//         .map_err(|e| {
+		//             log::error!("exec.rs destroy_contract() contract_address:
+		// {contract_address:?}, beneficiary_address: {beneficiary_address:?}, raw_value:
+		// {raw_value:?}, error: {e:?}");             Error::<T>::BalanceConversionFailed
+		//         })?;
+		// 	log::info!("exec.rs destroy_contract balance: {:?}", value);
+		// 	if !value.is_zero() {
+		// 		transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
+		// 	}
+		// 	let raw_value: U256 = self.account_balance(&contract_account);
+		// 	log::info!("destroy_contract: contract balance after transfer: {:?}", raw_value);
+		// }
 		// Only allow storage to be removed if the contract was created in the current tx.
 		if self.contracts_created.contains(&contract_account) {
 			{
@@ -1775,6 +1784,38 @@ where
 			// Delegate-calls to non-contract accounts are considered success.
 			Ok(())
 		}
+	}
+
+	fn terminate(
+		&mut self,
+		beneficiary: &H160,
+		allow_from_outside_tx: bool,
+	) -> Result<CodeRemoved, DispatchError> {
+		if self.is_recursive() {
+			return Err(Error::<T>::TerminatedWhileReentrant.into());
+		}
+		let contract_address = {
+			let frame = self.top_frame_mut();
+			if frame.entry_point == ExportedFunction::Constructor {
+				return Err(Error::<T>::TerminatedInConstructor.into());
+			}
+			T::AddressMapper::to_address(&frame.account_id)
+		};
+		if allow_from_outside_tx {
+			// Pretend the contract was created in the current tx
+			let account_id = self.top_frame_mut().account_id.clone();
+			self.contracts_created.insert(account_id);
+		}
+
+		{
+			let contract_info = self.top_frame_mut().terminate();
+			self.contracts_to_be_destroyed.insert((
+				contract_address,
+				contract_info.clone(),
+				*beneficiary,
+			));
+		}
+		Ok(CodeRemoved::Yes)
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -2244,49 +2285,6 @@ where
 		&mut self.top_frame_mut().last_frame_output
 	}
 
-	fn terminate(
-		&mut self,
-		beneficiary: &H160,
-		allow_from_outside_tx: bool,
-		target_address: Option<&H160>,
-	) -> Result<CodeRemoved, DispatchError> {
-		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into());
-		}
-		if let Some(target_address) = target_address {
-			let contract_info = AccountInfo::<T>::load_contract(target_address)
-				.ok_or(Error::<T>::ContractNotFound)?;
-			self.contracts_to_be_destroyed.insert((
-				*target_address,
-				contract_info.clone(),
-				*beneficiary,
-			));
-		} else {
-			let contract_address = {
-				let frame = self.top_frame_mut();
-				if frame.entry_point == ExportedFunction::Constructor {
-					return Err(Error::<T>::TerminatedInConstructor.into());
-				}
-				T::AddressMapper::to_address(&frame.account_id)
-			};
-			if allow_from_outside_tx {
-				// Pretend the contract was created in the current tx
-				let account_id = self.top_frame_mut().account_id.clone();
-				self.contracts_created.insert(account_id);
-			}
-
-			{
-				let contract_info = self.top_frame_mut().terminate();
-				self.contracts_to_be_destroyed.insert((
-					contract_address,
-					contract_info.clone(),
-					*beneficiary,
-				));
-			}
-		}
-		Ok(CodeRemoved::Yes)
-	}
-
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
 		let len = buf.len();
 		if len == 0 {
@@ -2302,6 +2300,21 @@ where
 		}
 
 		buf[len..].fill(0);
+	}
+
+	fn terminate_caller(
+		&mut self,
+		beneficiary: &H160,
+		caller_address: &H160,
+	) -> Result<CodeRemoved, DispatchError> {
+		let contract_info =
+			AccountInfo::<T>::load_contract(caller_address).ok_or(Error::<T>::ContractNotFound)?;
+		self.contracts_to_be_destroyed.insert((
+			*caller_address,
+			contract_info.clone(),
+			*beneficiary,
+		));
+		Ok(CodeRemoved::Yes)
 	}
 }
 

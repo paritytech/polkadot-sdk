@@ -362,7 +362,7 @@ where
 	/// This drops the root meter in order to make sure it is only called when the whole
 	/// execution did finish.
 	pub fn try_into_deposit(
-		self,
+		mut self,
 		origin: &Origin<T>,
 		skip_transfer: bool,
 	) -> Result<DepositOf<T>, DispatchError> {
@@ -373,18 +373,15 @@ where
 				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
 				Origin::Signed(o) => o,
 			};
-			let sorted_charges = {
-				let mut sorted_charges = self.charges.clone();
-				sorted_charges.sort_by(|a, b| {
-					a.contract.cmp(&b.contract).then_with(|| {
-						// Refund first: Deposit::Charge => true, Deposit::Refund => false
-						matches!(a.amount, Deposit::Charge(_))
-							.cmp(&matches!(b.amount, Deposit::Charge(_)))
-					})
-				});
-				sorted_charges
-			};
-			let coalesced: Vec<Charge<T>> = sorted_charges
+			self.charges.sort_by(|a, b| {
+				a.contract.cmp(&b.contract).then_with(|| {
+					// Refund first: Deposit::Charge => true, Deposit::Refund => false
+					matches!(a.amount, Deposit::Charge(_))
+						.cmp(&matches!(b.amount, Deposit::Charge(_)))
+				})
+			});
+			let coalesced: Vec<Charge<T>> = self
+				.charges
 				.into_iter()
 				.coalesce(|mut a, b| {
 					if a.contract != b.contract {

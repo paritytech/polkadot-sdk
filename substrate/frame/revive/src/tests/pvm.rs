@@ -1064,15 +1064,6 @@ fn self_destruct_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: contract.account_id.clone(),
-						to: DJANGO_FALLBACK,
-						amount: initial_contract_balance,
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
@@ -1107,7 +1098,7 @@ fn self_destruct_works() {
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 						from: contract.account_id.clone(),
 						to: DJANGO_FALLBACK,
-						amount: min_balance,
+						amount: initial_contract_balance + min_balance,
 					}),
 					topics: vec![],
 				},
