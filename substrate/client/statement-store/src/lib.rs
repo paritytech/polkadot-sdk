@@ -940,6 +940,7 @@ impl StatementStore for Store {
 					);
 					Some(
 						StatementWithGP::decode(&mut entry.as_slice())
+							.map(|(stmt, _gp)| stmt)
 							.map_err(|e| Error::Decode(e.to_string()))?,
 					)
 				},
