@@ -433,6 +433,8 @@ impl Client {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
 		if self.get_automine().await? {
 			let hash = ext.submit().await?;
+			// Related to https://github.com/paritytech/hardhat-polkadot/issues/334
+			tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 			return Ok(hash);
 		} else {
 			let _ = ext.submit_and_watch().await?;
