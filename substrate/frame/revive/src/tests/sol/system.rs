@@ -31,6 +31,7 @@ use pretty_assertions::assert_eq;
 use revm::primitives::Bytes;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
+use test_case::test_case;
 
 #[test]
 fn keccak_256_works() {
@@ -213,74 +214,75 @@ fn codesize_works() {
 	}
 }
 
-#[test]
-fn returndatasize_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn returndatasize_works(caller_type: FixtureType, callee_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
 
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-			// Instantiate the callee contract, which can echo a value.
-			let Contract { addr: callee_addr, .. } =
-				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+		// Instantiate the callee contract, which can echo a value.
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let magic_number = U256::from(42);
-			let result = builder::bare_call(addr)
-				.data(
-					SystemFixture::returndatasizeCall {
-						_callee: callee_addr.0.into(),
-						_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
-						_gas: U256::MAX,
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
+		let magic_number = U256::from(42);
+		let result = builder::bare_call(addr)
+			.data(
+				SystemFixture::returndatasizeCall {
+					_callee: callee_addr.0.into(),
+					_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
+					_gas: U256::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
 
-			let size = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-			// Always 32 bytes for a single uint256
-			assert_eq!(U256::from(32), size);
-		});
-	}
+		let size = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+		// Always 32 bytes for a single uint256
+		assert_eq!(U256::from(32), size);
+	});
 }
 
-#[test]
-fn returndatacopy_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn returndatacopy_works(caller_type: FixtureType, callee_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
 
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			// Instantiate the callee contract, which can echo a value.
-			let Contract { addr: callee_addr, .. } =
-				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		// Instantiate the callee contract, which can echo a value.
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let magic_number = U256::from(42);
-			let result = builder::bare_call(addr)
-				.data(
-					SystemFixture::returndatacopyCall {
-						_callee: callee_addr.0.into(),
-						_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
-						_gas: U256::MAX,
-						destOffset: U256::ZERO,
-						offset: U256::ZERO,
-						size: U256::from(32u32),
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
+		let magic_number = U256::from(42);
+		let result = builder::bare_call(addr)
+			.data(
+				SystemFixture::returndatacopyCall {
+					_callee: callee_addr.0.into(),
+					_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
+					_gas: U256::MAX,
+					destOffset: U256::ZERO,
+					offset: U256::ZERO,
+					size: U256::from(32u32),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
 
-			let result =
-				SystemFixture::returndatacopyCall::abi_decode_returns(&result.data).unwrap();
-			assert_eq!(magic_number, U256::from_be_bytes::<32>(result.as_ref().try_into().unwrap()))
-		});
-	}
+		let result = SystemFixture::returndatacopyCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(magic_number, U256::from_be_bytes::<32>(result.as_ref().try_into().unwrap()))
+	});
 }
