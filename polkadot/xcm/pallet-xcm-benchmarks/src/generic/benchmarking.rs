@@ -977,7 +977,7 @@ mod benchmarks {
 			executor.outcome(),
 			Some(Outcome::Incomplete {
 				used: _,
-				error: InstructionError { index: 0, error: XcmError::Barrier }
+				error: InstructionError { index: 0, error: Barrier }
 			})
 		));
 		Ok(())
