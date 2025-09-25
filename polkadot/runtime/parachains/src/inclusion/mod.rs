@@ -275,18 +275,18 @@ impl From<ParaId> for AggregateMessageOrigin {
 
 #[derive(Debug)]
 pub enum ConversionError {
-    NotAPara,
+	NotAPara,
 }
 
 impl TryFrom<AggregateMessageOrigin> for ParaId {
-    type Error = ConversionError;
+	type Error = ConversionError;
 
-    fn try_from(value: AggregateMessageOrigin) -> Result<Self, Self::Error> {
-        match value {
-            AggregateMessageOrigin::Ump(UmpQueueId::Para(id)) => Ok(id),
-            _ => Err(ConversionError::NotAPara),
-        }
-    }
+	fn try_from(value: AggregateMessageOrigin) -> Result<Self, Self::Error> {
+		match value {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(id)) => Ok(id),
+			_ => Err(ConversionError::NotAPara),
+		}
+	}
 }
 
 /// The maximal length of a UMP message.
@@ -1240,7 +1240,7 @@ impl<T: Config> OnQueueChanged<T::AggregateMessageOrigin> for Pallet<T> {
 			Err(_) => {
 				log::debug!(target: LOG_TARGET, "on_queue_changed: non paraId origin, ignoring");
 				return;
-			}
+			},
 		};
 		let QueueFootprint { storage: Footprint { count, size }, .. } = fp;
 		let (count, size) = (count.saturated_into(), size.saturated_into());
