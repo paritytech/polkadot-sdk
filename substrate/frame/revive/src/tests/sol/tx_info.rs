@@ -29,54 +29,51 @@ use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, TransactionInfo};
 use pretty_assertions::assert_eq;
 use sp_core::H160;
+use test_case::test_case;
 
 /// Tests that the gasprice opcode works as expected.
-#[test]
-fn gasprice_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("TransactionInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn gasprice_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("TransactionInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(
-					TransactionInfo::TransactionInfoCalls::gasprice(
-						TransactionInfo::gaspriceCall {},
-					)
+		let result = builder::bare_call(addr)
+			.data(
+				TransactionInfo::TransactionInfoCalls::gasprice(TransactionInfo::gaspriceCall {})
 					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(GAS_PRICE),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
-		});
-	}
+			)
+			.build_and_unwrap_result();
+		assert_eq!(
+			U256::from(GAS_PRICE),
+			U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+		);
+	});
 }
 
 /// Tests that the origin opcode works as expected.
-#[test]
-fn origin_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("TransactionInfo", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn origin_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("TransactionInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(
-					TransactionInfo::TransactionInfoCalls::origin(TransactionInfo::originCall {})
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				ALICE_ADDR,
-				// Padding is used into the 32 bytes
-				H160::from_slice(&result.data[12..])
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(
+				TransactionInfo::TransactionInfoCalls::origin(TransactionInfo::originCall {})
+					.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert_eq!(
+			ALICE_ADDR,
+			// Padding is used into the 32 bytes
+			H160::from_slice(&result.data[12..])
+		);
+	});
 }
