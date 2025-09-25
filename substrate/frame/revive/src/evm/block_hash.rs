@@ -516,7 +516,45 @@ impl Default for EthereumBlockBuilderIR {
 	}
 }
 
-/// Ethereum block builder.
+/// Ethereum block builder designed to incrementally build the transaction and receipt trie roots.
+///
+/// This builder is optimized to minimize memory usage and pallet storage by leveraging the internal
+/// structure of the Ethereum trie and the RLP encoding of receipts.
+///
+/// The builder relies on the pallet storage to store the first transaction and receipt. This
+/// ensures we are reading and writing a minimal amount of data to the pallet storage. For example,
+/// if the block has less than 127 transactions, for each transaction we would have otherwise
+/// serialized and deserialized the first transaction bytes.
+///
+/// # Example
+///
+/// ```ignore
+/// // Get the intermediate representation from pallet storage.
+/// let ir = EthBlockBuilderIR::<T>::get();
+/// // Convert from the serialized from into the builder object.
+/// let mut block_builder = EthereumBlockBuilder::from_ir(ir);
+///
+/// for tx in transactions {
+/// 	// Ensure the first transaction is loaded.
+/// 	if block_builder.should_load_first_values() {
+/// 		let values = EthBlockBuilderFirstValues::<T>::take();
+/// 		block_builder.load_first_values(values);
+/// 	}
+///
+/// 	// Process the transaction.
+/// 	if let Some(first_values) = block_builder.process_transaction(..) {
+/// 		// Store the first transaction and receipt in pallet storage.
+/// 		EthBlockBuilderFirstValues::<T>::put(first_values);
+/// 	}
+/// }
+///
+/// // Either the value was previously consumed, or the block has less than 127 transactions.
+/// let values = EthBlockBuilderFirstValues::<T>::take();
+/// block_builder.load_first_values(values);
+///
+/// // Build the block.
+/// let (block, gas_info) = block_builder.build(...);
+/// ```
 pub struct EthereumBlockBuilder {
 	pub(crate) transaction_root_builder: IncrementalHashBuilder,
 	pub(crate) receipts_root_builder: IncrementalHashBuilder,
@@ -542,6 +580,8 @@ impl EthereumBlockBuilder {
 	}
 
 	/// Converts the builder into an intermediate representation.
+	///
+	/// The intermediate representation is extracted from the pallet storage.
 	pub fn to_ir(self) -> EthereumBlockBuilderIR {
 		EthereumBlockBuilderIR {
 			transaction_root_builder: self.transaction_root_builder.to_ir(),
@@ -554,6 +594,8 @@ impl EthereumBlockBuilder {
 	}
 
 	/// Converts the intermediate representation back into a builder.
+	///
+	/// The intermediate representation is placed into the pallet storage.
 	pub fn from_ir(ir: EthereumBlockBuilderIR) -> Self {
 		Self {
 			transaction_root_builder: IncrementalHashBuilder::from_ir(ir.transaction_root_builder),
@@ -563,11 +605,6 @@ impl EthereumBlockBuilder {
 			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
 			gas_info: ir.gas_info,
 		}
-	}
-
-	/// Reset the state of the block builder to accommodate for the next block.
-	pub fn reset(&mut self) {
-		*self = Self::new();
 	}
 
 	/// Check if the first transaction and receipt should be loaded from storage.
@@ -580,10 +617,14 @@ impl EthereumBlockBuilder {
 
 	/// Loads the first values from storage.
 	///
-	/// This is only needed if `should_load_first_values` returns true.
+	/// Loading the first value in required when:
+	///  - [`Self::should_load_first_values`] returns true.
+	///  - Before the [`Self::build`] method is called if and only the
+	///    [`Self::should_load_first_values`] has not returned true.
 	///
-	/// The values are expected to be identical to the first transaction and receipt and
-	/// are returned by `Self::process_transaction`.
+	/// The loaded values are expected to be stored in the pallet storage and must
+	/// be identical to the first transaction and receipt. Therefore, this
+	/// method takes as input the return of [`Self::process_transaction`].
 	pub fn load_first_values(&mut self, values: Option<(Vec<u8>, Vec<u8>)>) {
 		if let Some((tx_encoded, receipt_encoded)) = values {
 			self.transaction_root_builder.load_first_value(tx_encoded);
@@ -593,8 +634,9 @@ impl EthereumBlockBuilder {
 
 	/// Process a single transaction at a time.
 	///
-	/// Returns the first transaction and receipt to be stored in the pallet storage.
-	/// Otherwise, returns None.
+	/// Returns the first transaction and receipt to be stored in the pallet storage until
+	/// either the [`Self::should_load_first_values`] returns true or the [`Self::build`] method
+	/// is called.
 	pub fn process_transaction(
 		&mut self,
 		transaction_encoded: Vec<u8>,
@@ -625,6 +667,7 @@ impl EthereumBlockBuilder {
 		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
 
 		// The first transaction and receipt are returned to be stored in the pallet storage.
+		// The index of the incremental hash builders already expects the next items.
 		if self.tx_hashes.len() == 1 {
 			Some((transaction_encoded, encoded_receipt))
 		} else {
@@ -674,6 +717,9 @@ impl EthereumBlockBuilder {
 		(block, gas_info)
 	}
 
+	/// Extracts the transaction type from the RLP encoded transaction.
+	///
+	/// This is needed to build the RLP encoding of the receipt.
 	fn extract_transaction_type(transaction_encoded: &[u8]) -> Vec<u8> {
 		// The transaction type is the first byte from the encoded transaction,
 		// when the transaction is not legacy. For legacy transactions, there's
