@@ -159,6 +159,7 @@ struct Index {
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
+	// hash -> (account id, priority, data length, insertion time)
 	entries: HashMap<Hash, (AccountId, Priority, usize, u64)>,
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
