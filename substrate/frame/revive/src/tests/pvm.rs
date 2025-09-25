@@ -27,7 +27,11 @@ use crate::{
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
-	storage::DeletionQueueManager,
+	precompiles::alloy::sol_types::{
+		sol_data::{Bool, FixedBytes},
+		SolType,
+	},
+	storage::{DeletionQueueManager, WriteOutcome},
 	test_utils::builder::Contract,
 	tests::{
 		builder, initialize_block, test_utils::*, Balances, CodeHashLockupDepositPercent,
@@ -471,7 +475,7 @@ fn run_out_of_fuel_host() {
 
 #[test]
 fn gas_syncs_work() {
-	let (code, _code_hash) = compile_module("caller_is_origin_n").unwrap();
+	let (code, _code_hash) = compile_module("gas_price_n").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let contract = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -483,7 +487,7 @@ fn gas_syncs_work() {
 		let result = builder::bare_call(contract.addr).data(1u32.encode()).build();
 		assert_ok!(result.result);
 		let gas_consumed_once = result.gas_consumed.ref_time();
-		let host_consumed_once = <Test as Config>::WeightInfo::seal_caller_is_origin().ref_time();
+		let host_consumed_once = <Test as Config>::WeightInfo::seal_gas_price().ref_time();
 		let engine_consumed_once = gas_consumed_once - host_consumed_once - engine_consumed_noop;
 
 		let result = builder::bare_call(contract.addr).data(2u32.encode()).build();
@@ -3470,6 +3474,74 @@ fn call_diverging_out_len_works() {
 }
 
 #[test]
+fn call_own_code_hash_works() {
+	let (code, code_hash) = compile_module("call_own_code_hash").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create the contract: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		let ret_hash = FixedBytes::<32>::abi_decode(&ret.data).unwrap();
+		assert_eq!(ret_hash, code_hash.0);
+	});
+}
+
+#[test]
+fn call_caller_is_root() {
+	let (code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create the contract: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).origin(RuntimeOrigin::root()).build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_root_from_non_root() {
+	let (code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create the contract: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(!is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_origin() {
+	let (code, _) = compile_module("call_caller_is_origin").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create the contract: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		let is_origin = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(is_origin);
+	});
+}
+
+#[test]
 fn chain_id_works() {
 	let (code, _) = compile_module("chain_id").unwrap();
 
@@ -4051,8 +4123,9 @@ fn call_tracing_works() {
 
 		let tracer_configs = vec![
 			 CallTracerConfig{ with_logs: false, only_top_call: false},
-			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: true, only_top_call: false},
 			 CallTracerConfig{ with_logs: false, only_top_call: true},
+			 CallTracerConfig{ with_logs: true, only_top_call: true},
 		];
 
 		// Verify that the first trace report the same weight reported by bare_call
@@ -4154,12 +4227,15 @@ fn call_tracing_works() {
 													..Default::default()
 												}
 											],
+											child_call_count: 1,
 											..Default::default()
 										},
 									],
+									child_call_count: 2,
 									..Default::default()
 								},
 							],
+							child_call_count: 2,
 							..Default::default()
 						},
 					]
@@ -4179,6 +4255,7 @@ fn call_tracing_works() {
 					logs: logs.clone(),
 					value: Some(U256::from(0)),
 					calls: calls,
+					child_call_count: 2,
 					..Default::default()
 				};
 
@@ -4244,6 +4321,7 @@ fn create_call_tracing_works() {
 					call_type: CallType::Create2,
 					..Default::default()
 				},],
+				child_call_count: 1,
 				..Default::default()
 			}
 		);
@@ -4912,5 +4990,161 @@ fn return_data_limit_is_enforced() {
 			let result = builder::bare_call(addr).data(return_size.encode()).build().result;
 			assert_result(result);
 		}
+	});
+}
+
+/// EIP-3607
+/// Test that a top-level signed transaction that uses a contract address as the signer is rejected.
+#[test]
+fn reject_signed_tx_from_contract_address() {
+	let (binary, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: contract_addr, account_id: contract_account_id, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		assert!(AccountInfoOf::<Test>::contains_key(&contract_addr));
+
+		let call_result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(contract_account_id.clone()))
+			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
+
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(contract_account_id))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn reject_signed_tx_from_primitive_precompile_address() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		// blake2f precompile address
+		let precompile_addr = H160::from_low_u64_be(9);
+		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+
+		let call_result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(fake_account.clone()))
+			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
+
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(fake_account))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn reject_signed_tx_from_builtin_precompile_address() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		// system precompile address
+		let precompile_addr = H160::from_low_u64_be(0x900);
+		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+
+		let call_result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(fake_account.clone()))
+			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
+
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(fake_account))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn get_set_storage_key_works() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let contract_key_to_test = [1; 32];
+		// Checking non-existing keys gets created.
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, None);
+
+		let value_to_write = Some(vec![1, 2, 3]);
+		let write_result =
+			Pallet::<Test>::set_storage(addr, contract_key_to_test, value_to_write.clone())
+				.unwrap();
+		assert_eq!(write_result, WriteOutcome::New);
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, value_to_write);
+
+		// Check existing keys overwrite
+
+		let new_value_to_write = Some(vec![5, 1, 2, 3]);
+		let write_result =
+			Pallet::<Test>::set_storage(addr, contract_key_to_test, new_value_to_write.clone())
+				.unwrap();
+		assert_eq!(
+			write_result,
+			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+		);
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, new_value_to_write);
+	});
+}
+
+#[test]
+fn get_set_storage_var_key_works() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let contract_key_to_test = vec![1; 85];
+		// Checking non-existing keys gets created.
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, None);
+
+		let value_to_write = Some(vec![1, 2, 3]);
+		let write_result = Pallet::<Test>::set_storage_var_key(
+			addr,
+			contract_key_to_test.clone(),
+			value_to_write.clone(),
+		)
+		.unwrap();
+		assert_eq!(write_result, WriteOutcome::New);
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, value_to_write);
+
+		// Check existing keys overwrite
+
+		let new_value_to_write = Some(vec![5, 1, 2, 3]);
+		let write_result = Pallet::<Test>::set_storage_var_key(
+			addr,
+			contract_key_to_test.clone(),
+			new_value_to_write.clone(),
+		)
+		.unwrap();
+		assert_eq!(
+			write_result,
+			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+		);
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, new_value_to_write);
 	});
 }
