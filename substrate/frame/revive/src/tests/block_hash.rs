@@ -85,12 +85,11 @@ fn transactions_are_captured() {
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
 
 		// Double check the trie root hash.
-		let mut builder = EthereumBlockBuilder::from_ir(block_builder);
+		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
 
-		let maybe_first_values = EthBlockBuilderFirstValues::<Test>::take();
-		if let Some(values) = maybe_first_values {
-			builder.load_first_values(Some(values));
-		}
+		let first_values = EthBlockBuilderFirstValues::<Test>::get().unwrap();
+		builder.transaction_root_builder.load_first_value(first_values.0);
+
 		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
@@ -171,7 +170,7 @@ fn events_are_captured() {
 		// 1 transaction captured.
 		assert_eq!(block_builder.gas_info.len(), 1);
 
-		let mut builder = EthereumBlockBuilder::from_ir(block_builder);
+		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
 		builder.transaction_root_builder.load_first_value(expected_payloads[0].clone());
 		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
