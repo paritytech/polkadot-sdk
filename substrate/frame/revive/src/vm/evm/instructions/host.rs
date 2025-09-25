@@ -117,7 +117,7 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
-			log::error!(target: crate::LOG_TARGET, "sload read invalid storage value length. Expected 32.");
+			log::debug!(target: crate::LOG_TARGET, "sload read invalid storage value length. Expected 32.");
 			context.interpreter.halt(InstructionResult::FatalExternalError);
 			return
 		};
