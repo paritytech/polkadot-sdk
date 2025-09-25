@@ -390,7 +390,7 @@ pub struct VmBinaryModule {
 impl VmBinaryModule {
 	/// Return a contract code that does nothing.
 	pub fn dummy() -> Self {
-		Self::new(bench_fixtures::DUMMY.to_vec())
+		Self::new(bench_fixtures::dummy().to_vec())
 	}
 
 	fn new(code: Vec<u8>) -> Self {
@@ -414,6 +414,13 @@ impl VmBinaryModule {
 		// Due to variable length encoding of instructions this is not precise. But we only
 		// need rough numbers for our benchmarks.
 		Self::with_num_instructions(size / 3)
+	}
+
+	// Same as [`Self::sized`] but using EVM bytecode.
+	pub fn evm_sized(size: u32) -> Self {
+		use revm::bytecode::opcode::STOP;
+		let code = vec![STOP; size as usize];
+		Self::new(code)
 	}
 
 	/// A contract code of specified number of instructions that uses all its bytes for instructions
@@ -451,7 +458,7 @@ impl VmBinaryModule {
 
 	/// A contract code that calls the "noop" host function in a loop depending in the input.
 	pub fn noop() -> Self {
-		Self::new(bench_fixtures::NOOP.to_vec())
+		Self::new(bench_fixtures::noop().to_vec())
 	}
 
 	/// A contract code that does unaligned memory accessed in a loop.
@@ -475,6 +482,14 @@ impl VmBinaryModule {
 		"
 		);
 		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		Self::new(code)
+	}
+
+	/// An evm contract that executes `size` JUMPDEST instructions.
+	pub fn evm_noop(size: u32) -> Self {
+		use revm::bytecode::opcode::JUMPDEST;
+
+		let code = vec![JUMPDEST; size as usize];
 		Self::new(code)
 	}
 }

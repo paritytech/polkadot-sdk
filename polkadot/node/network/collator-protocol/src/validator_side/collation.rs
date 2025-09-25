@@ -50,7 +50,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CollatorId, Hash, HeadData,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CollatorId, Hash, HeadData,
 	Id as ParaId, PersistedValidationData,
 };
 use tokio_util::sync::CancellationToken;

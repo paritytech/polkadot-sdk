@@ -208,14 +208,20 @@ impl snowbridge_pallet_system::Config for Runtime {
 pub mod benchmark_helpers {
 	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
 	use codec::Encode;
-	use snowbridge_beacon_primitives::BeaconHeader;
+	use snowbridge_inbound_queue_primitives::EventFixture;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
-	use sp_core::H256;
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		fn initialize_storage() -> EventFixture {
+			let message = make_register_token_message();
+			EthereumBeaconClient::store_finalized_header(
+				message.finalized_header,
+				message.block_roots_root,
+			)
+			.unwrap();
+			message
 		}
 	}
 

@@ -41,7 +41,7 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex,
+	node_features, CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex,
 	GroupRotationInfo, HeadData, NodeFeatures, PersistedValidationData, ValidatorId,
 	ValidatorIndex,
 };
