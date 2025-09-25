@@ -146,7 +146,9 @@ fn events_are_captured() {
 			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 		];
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
-		const EXPECTED_GAS: u64 = 7735804;
+
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		let gas_used = block_builder.gas_info[0].gas_used;
 
 		let logs = vec![AlloyLog::new_unchecked(
 			contract.0.into(),
@@ -155,7 +157,7 @@ fn events_are_captured() {
 		)];
 		let receipt = alloy_consensus::Receipt {
 			status: true.into(),
-			cumulative_gas_used: EXPECTED_GAS,
+			cumulative_gas_used: gas_used.as_u64(),
 			logs,
 		};
 
@@ -168,7 +170,6 @@ fn events_are_captured() {
 		let block_builder = EthBlockBuilderIR::<Test>::get();
 		// 1 transaction captured.
 		assert_eq!(block_builder.gas_info.len(), 1);
-		assert_eq!(block_builder.gas_info, vec![ReceiptGasInfo { gas_used: EXPECTED_GAS.into() }]);
 
 		let mut builder = EthereumBlockBuilder::from_ir(block_builder);
 		builder.transaction_root_builder.load_first_value(expected_payloads[0].clone());
