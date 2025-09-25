@@ -288,9 +288,6 @@ impl<
 	fn new(header: Self::Header, extrinsics: Vec<Self::Extrinsic>) -> Self {
 		Block { header, extrinsics }
 	}
-	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8> {
-		(header, extrinsics).encode()
-	}
 }
 
 impl<'a, Xt> Deserialize<'a> for Block<Xt>
