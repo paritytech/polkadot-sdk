@@ -365,6 +365,59 @@ fn sload_works() {
 }
 
 #[test]
+fn sload_error_reading_non_32_byte_value() {
+	let (code, _) = compile_module_with_type("Host", FixtureType::Solc).unwrap();
+
+	let index = U256::from(13);
+	let expected_value = U256::from(17);
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		{
+			// Test that reading storage value of 31 bytes results in contract trapped
+			let contract_info = test_utils::get_contract(&addr);
+			let key = Key::Fix(index.to_be_bytes());
+			contract_info
+				.write(&key, Some(expected_value.to_be_bytes::<32>()[..31].to_vec()), None, false)
+				.unwrap();
+
+			let result = builder::bare_call(addr)
+				.data(Host::HostCalls::sloadOp(Host::sloadOpCall { slot: index }).abi_encode())
+				.build();
+			assert!(result.result.is_err(), "test should error");
+			let err = result.result.unwrap_err();
+			let sp_runtime::DispatchError::Module(module_err) = &err else {
+				panic!("expected Module error (ContractTrapped), got {:?}", err)
+			};
+			assert_eq!(module_err.message, Some("ContractTrapped"));
+		}
+
+		{
+			// Test that reading storage value of 33 bytes results in contract trapped
+			let contract_info = test_utils::get_contract(&addr);
+			let key = Key::Fix(index.to_be_bytes());
+			let mut bytes = expected_value.to_be_bytes::<32>().to_vec();
+			bytes.push(0u8);
+			contract_info.write(&key, Some(bytes), None, false).unwrap();
+
+			let result = builder::bare_call(addr)
+				.data(Host::HostCalls::sloadOp(Host::sloadOpCall { slot: index }).abi_encode())
+				.build();
+			assert!(result.result.is_err(), "test should error");
+			let err = result.result.unwrap_err();
+			let sp_runtime::DispatchError::Module(module_err) = &err else {
+				panic!("expected Module error (ContractTrapped), got {:?}", err)
+			};
+			assert_eq!(module_err.message, Some("ContractTrapped"));
+		}
+	});
+}
+
+#[test]
 fn sstore_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();

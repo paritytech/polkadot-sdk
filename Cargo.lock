@@ -5218,6 +5218,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "tokio",
+ "zombienet-configuration",
  "zombienet-sdk",
 ]
 
@@ -5231,6 +5232,7 @@ dependencies = [
  "futures",
  "log",
  "polkadot-primitives",
+ "rstest",
  "serde",
  "serde_json",
  "sp-core 28.0.0",

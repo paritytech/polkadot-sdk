@@ -17,7 +17,7 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{BalanceOf, Config, H160, U256};
+use crate::{storage::WriteOutcome, BalanceOf, Config, H160, U256};
 use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
@@ -198,6 +198,9 @@ pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, Disp
 /// Result type of a `get_storage` call.
 pub type GetStorageResult = Result<Option<Vec<u8>>, ContractAccessError>;
 
+/// Result type of a `set_storage` call.
+pub type SetStorageResult = Result<WriteOutcome, ContractAccessError>;
+
 /// The possible errors that can happen querying the storage of a contract.
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 pub enum ContractAccessError {
@@ -205,6 +208,8 @@ pub enum ContractAccessError {
 	DoesntExist,
 	/// Storage key cannot be decoded from the provided input data.
 	KeyDecodingFailed,
+	/// Writing to storage failed.
+	StorageWriteFailed(DispatchError),
 }
 
 /// Output of a contract call or instantiation which ran to completion.
