@@ -579,7 +579,7 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
-/// Oracle module that makes off-chain data available on-chain.
+/// FRAME oracle pallet for off-chain data.
 #[cfg(feature = "pallet-oracle")]
 pub use pallet_oracle;
 

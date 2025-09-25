@@ -17,12 +17,12 @@
 
 use crate as pallet_oracle;
 
+use crate::{Config, DefaultCombineData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, SortedMembers, Time},
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
-use crate::{Config, DefaultCombineData};
 
 pub type AccountId = u128;
 type Key = u32;
