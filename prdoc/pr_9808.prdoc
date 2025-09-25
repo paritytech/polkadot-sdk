@@ -28,6 +28,6 @@ crates:
 - name: pallet-staking-async-rc-runtime
   bump: none
 - name: pallet-xcm-benchmarks
-  bump: patch
+  bump: major
 - name: westend-runtime
   bump: patch
