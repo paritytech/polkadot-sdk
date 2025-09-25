@@ -16,13 +16,21 @@
 // limitations under the License.
 
 use crate::{
-	evm::block_hash::{AccumulateReceipt, LogsBloom},
+	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
+	sp_runtime::traits::One,
+	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, ReceiptInfoData, UniqueSaturatedInto,
 	H160, H256,
 };
+
+use frame_support::weights::Weight;
+pub use sp_core::U256;
+
 use alloc::vec::Vec;
 use environmental::environmental;
 
 /// The maximum number of block hashes to keep in the history.
+///
+/// Note: This might be made configurable in the future.
 pub const BLOCK_HASH_COUNT: u32 = 256;
 
 // Accumulates the receipt's events (logs) for the current transaction
@@ -55,4 +63,75 @@ pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
 /// wallet.
 pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 	receipt::using(&mut AccumulateReceipt::new(), f)
+}
+
+/// Clear the storage used to capture the block hash related data.
+pub fn on_initialize<T: Config>() {
+	ReceiptInfoData::<T>::kill();
+	EthereumBlock::<T>::kill();
+}
+
+/// Build the ethereum block and store it into the pallet storage.
+pub fn on_finalize_build_eth_block<T: Config>(
+	block_author: H160,
+	eth_block_num: U256,
+	gas_limit: U256,
+	timestamp: U256,
+) {
+	let parent_hash = if eth_block_num > U256::zero() {
+		BlockHash::<T>::get(eth_block_num - 1)
+	} else {
+		H256::default()
+	};
+
+	let block_builder_ir = EthBlockBuilderIR::<T>::get();
+	EthBlockBuilderIR::<T>::kill();
+
+	// Load the first values if not already loaded.
+	let (block, receipt_data) = EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build(
+		eth_block_num,
+		parent_hash,
+		timestamp,
+		block_author,
+		gas_limit,
+	);
+
+	// Put the block hash into storage.
+	BlockHash::<T>::insert(eth_block_num, block.hash);
+
+	// Prune older block hashes.
+	let block_hash_count = BLOCK_HASH_COUNT;
+	let to_remove =
+		eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
+	if !to_remove.is_zero() {
+		<BlockHash<T>>::remove(U256::from(UniqueSaturatedInto::<u32>::unique_saturated_into(
+			to_remove,
+		)));
+	}
+	// Store the ETH block into the last block.
+	EthereumBlock::<T>::put(block);
+	// Store the receipt info data for offchain reconstruction.
+	ReceiptInfoData::<T>::put(receipt_data);
+}
+
+/// Process a transaction payload with extra details.
+/// This stores the RLP encoded transaction and receipt details into storage.
+///
+/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
+pub fn process_transaction<T: Config>(
+	transaction_encoded: Vec<u8>,
+	success: bool,
+	gas_used: Weight,
+) {
+	// Method returns `None` only when called from outside of the ethereum context.
+	// This is not the case here, since the `store_transaction` is called from within the
+	// ethereum context.
+	let (encoded_logs, bloom) = get_receipt_details().unwrap_or_default();
+
+	let block_builder_ir = EthBlockBuilderIR::<T>::get();
+	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+	block_builder.process_transaction(transaction_encoded, success, gas_used, encoded_logs, bloom);
+
+	EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 }

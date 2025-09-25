@@ -46,7 +46,7 @@ pub mod weights_utils;
 
 use crate::{
 	evm::{
-		block_hash::{EthereumBlockBuilder, EthereumBlockBuilderIR, ReceiptGasInfo},
+		block_hash::{EthereumBlockBuilderIR, ReceiptGasInfo},
 		block_storage,
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
@@ -733,8 +733,8 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			ReceiptInfoData::<T>::kill();
-			EthereumBlock::<T>::kill();
+			// Kill related ethereum block storage items.
+			block_storage::on_initialize::<T>();
 
 			// Warm up the pallet account.
 			System::<T>::account_exists(&Pallet::<T>::account_id());
@@ -743,45 +743,13 @@ pub mod pallet {
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
-			let block_author = Self::block_author();
-
-			// Weights are accounted for in the `on_initialize`.
-			let eth_block_num: U256 = block_number.into();
-			let parent_hash = if eth_block_num > U256::zero() {
-				BlockHash::<T>::get(eth_block_num - 1)
-			} else {
-				H256::default()
-			};
-			let gas_limit = Self::evm_block_gas_limit();
-
-			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			EthBlockBuilderIR::<T>::kill();
-
-			// Load the first values if not already loaded.
-			let (block, receipt_data) = EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build(
-				eth_block_num,
-				parent_hash,
+			// Build the ethereum block and place it in storage.
+			block_storage::on_finalize_build_eth_block::<T>(
+				Self::block_author(),
+				block_number.into(),
+				Self::evm_block_gas_limit(),
 				T::Time::now().into(),
-				block_author,
-				gas_limit,
 			);
-
-			// Put the block hash into storage.
-			BlockHash::<T>::insert(eth_block_num, block.hash);
-
-			// Prune older block hashes.
-			let block_hash_count = block_storage::BLOCK_HASH_COUNT;
-			let to_remove =
-				eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
-			if !to_remove.is_zero() {
-				<BlockHash<T>>::remove(U256::from(
-					UniqueSaturatedInto::<u32>::unique_saturated_into(to_remove),
-				));
-			}
-			// Store the ETH block into the last block.
-			EthereumBlock::<T>::put(block);
-			// Store the receipt info data for offchain reconstruction.
-			ReceiptInfoData::<T>::put(receipt_data);
 		}
 
 		fn integrity_test() {
@@ -1115,7 +1083,7 @@ pub mod pallet {
 					}
 				}
 
-				Self::store_transaction(
+				block_storage::process_transaction::<T>(
 					transaction_encoded,
 					output.result.is_ok(),
 					output.gas_consumed,
@@ -1168,7 +1136,7 @@ pub mod pallet {
 					}
 				}
 
-				Self::store_transaction(
+				block_storage::process_transaction::<T>(
 					transaction_encoded,
 					output.result.is_ok(),
 					output.gas_consumed,
@@ -2031,29 +1999,6 @@ impl<T: Config> Pallet<T> {
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
-	}
-
-	/// Store a transaction payload with extra details.
-	///
-	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
-	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
-		// Method returns `None` only when called from outside of the ethereum context.
-		// This is not the case here, since the `store_transaction` is called from within the
-		// ethereum context.
-		let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
-
-		let block_builder_ir = EthBlockBuilderIR::<T>::get();
-		let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
-
-		block_builder.process_transaction(
-			transaction_encoded,
-			success,
-			gas_used,
-			encoded_logs,
-			bloom,
-		);
-
-		EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 	}
 
 	/// The address of the validator that produced the current block.
