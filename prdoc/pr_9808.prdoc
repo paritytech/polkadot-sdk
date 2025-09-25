@@ -29,5 +29,7 @@ crates:
   bump: none
 - name: pallet-xcm-benchmarks
   bump: major
+- name: staging-xcm-executor
+  bump: major
 - name: westend-runtime
   bump: patch

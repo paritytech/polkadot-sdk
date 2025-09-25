@@ -46,6 +46,8 @@ mod assets;
 pub use assets::AssetsInHolding;
 mod config;
 pub use config::Config;
+mod weights;
+use weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -284,7 +286,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			);
 
 			return Outcome::Incomplete {
-				used: xcm_weight, // Weight consumed before the error
+				used: WeightInfo::<Config>::barrier_check(), // Weight consumed before the error
 				error: InstructionError { index: 0, error: XcmError::Barrier }, // The error that occurred
 			};
 		}
