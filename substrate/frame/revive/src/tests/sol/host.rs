@@ -21,13 +21,11 @@ use crate::{
 	address::AddressMapper,
 	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
 	tests::{builder, test_utils, ExtBuilder, RuntimeEvent, Test},
-	Code, Config, Key, System, H256,
+	Code, Config, Key, System, H256, U256,
 };
+use alloy_core::primitives;
 
-use alloy_core::{
-	primitives::U256,
-	sol_types::{SolCall, SolInterface},
-};
+use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::{fungible::Mutate, Get};
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Host};
 use pretty_assertions::assert_eq;
@@ -61,7 +59,7 @@ fn balance_works() {
 					)
 					.build_and_unwrap_result();
 				assert!(!result.did_revert(), "test reverted");
-				let result = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+				let result = U256::from_big_endian(&result.data);
 
 				assert_eq!(
 					expected_balance, result,
@@ -95,7 +93,7 @@ fn selfbalance_works() {
 					.data(Host::HostCalls::selfbalance(Host::selfbalanceCall {}).abi_encode())
 					.build_and_unwrap_result();
 				assert!(!result.did_revert(), "test reverted");
-				let result_balance = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+				let result_balance = U256::from_big_endian(&result.data);
 
 				assert_eq!(
 					expected_balance, result_balance,
@@ -135,7 +133,7 @@ fn extcodesize_works() {
 					.build_and_unwrap_result();
 				assert!(!result.did_revert(), "test reverted");
 
-				let result_size = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+				let result_size = U256::from_big_endian(&result.data);
 
 				assert_eq!(
 					expected_code_size, result_size,
@@ -174,8 +172,8 @@ fn extcodehash_works() {
 					.build_and_unwrap_result();
 				assert!(!result.did_revert(), "test reverted");
 
-				let result_hash = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-				let result_hash = H256::from(result_hash.to_be_bytes());
+				let result_hash = U256::from_big_endian(&result.data);
+				let result_hash = H256::from(result_hash.to_big_endian());
 
 				assert_eq!(
 					expected_code_hash, result_hash,
@@ -257,8 +255,8 @@ fn extcodecopy_works() {
 				.data(
 					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
 						account: dummy_addr.0.into(),
-						offset: U256::from(test_case.offset),
-						size: U256::from(test_case.size),
+						offset: primitives::U256::from(test_case.offset),
+						size: primitives::U256::from(test_case.size),
 					})
 					.abi_encode(),
 				)
@@ -303,15 +301,15 @@ fn blockhash_works() {
 				let result = builder::bare_call(addr)
 					.data(
 						Host::HostCalls::blockhashOp(Host::blockhashOpCall {
-							blockNumber: U256::from(block_number_to_test),
+							blockNumber: primitives::U256::from(block_number_to_test),
 						})
 						.abi_encode(),
 					)
 					.build_and_unwrap_result();
 				assert!(!result.did_revert(), "test reverted");
 
-				let result_hash = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-				let result_hash = H256::from(result_hash.to_be_bytes());
+				let result_hash = U256::from_big_endian(&result.data);
+				let result_hash = H256::from(result_hash.to_big_endian());
 
 				let expected_block_hash = System::<Test>::block_hash(block_number_to_test);
 
@@ -341,18 +339,23 @@ fn sload_works() {
 
 			{
 				let contract_info = test_utils::get_contract(&addr);
-				let key = Key::Fix(index.to_be_bytes());
+				let key = Key::Fix(index.to_big_endian());
 				contract_info
-					.write(&key, Some(expected_value.to_be_bytes::<32>().to_vec()), None, false)
+					.write(&key, Some(expected_value.to_big_endian().to_vec()), None, false)
 					.unwrap();
 			}
 
 			{
 				let result = builder::bare_call(addr)
-					.data(Host::HostCalls::sloadOp(Host::sloadOpCall { slot: index }).abi_encode())
+					.data(
+						Host::HostCalls::sloadOp(Host::sloadOpCall {
+							slot: primitives::U256::from_be_bytes(index.to_big_endian()),
+						})
+						.abi_encode(),
+					)
 					.build_and_unwrap_result();
 				assert!(!result.did_revert(), "test reverted");
-				let result = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+				let result = U256::from_big_endian(&result.data);
 
 				assert_eq!(
 					expected_value, result,
@@ -381,9 +384,9 @@ fn sstore_works() {
 
 			{
 				let contract_info = test_utils::get_contract(&addr);
-				let key = Key::Fix(index.to_be_bytes());
+				let key = Key::Fix(index.to_big_endian());
 				contract_info
-					.write(&key, Some(unexpected_value.to_be_bytes::<32>().to_vec()), None, false)
+					.write(&key, Some(unexpected_value.to_big_endian().to_vec()), None, false)
 					.unwrap();
 			}
 
@@ -391,8 +394,8 @@ fn sstore_works() {
 				let result = builder::bare_call(addr)
 					.data(
 						Host::HostCalls::sstoreOp(Host::sstoreOpCall {
-							slot: index,
-							value: expected_value,
+							slot: primitives::U256::from_be_bytes(index.to_big_endian()),
+							value: primitives::U256::from_be_bytes(expected_value.to_big_endian()),
 						})
 						.abi_encode(),
 					)
@@ -401,9 +404,9 @@ fn sstore_works() {
 
 				let written_value = {
 					let contract_info = test_utils::get_contract(&addr);
-					let key = Key::Fix(index.to_be_bytes());
+					let key = Key::Fix(index.to_big_endian());
 					let result = contract_info.read(&key).unwrap();
-					U256::from_be_bytes::<32>(result.try_into().unwrap())
+					U256::from_big_endian(&result)
 				};
 				assert_eq!(
 					expected_value, written_value,
@@ -506,9 +509,9 @@ fn transient_storage_works() {
 		let (code, _) = compile_module_with_type("HostTransientMemory", fixture_type).unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
-			let slot = U256::from(0);
+			let slot = primitives::U256::from(0);
 
-			let value = U256::from(13);
+			let value = primitives::U256::from(13);
 
 			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
@@ -525,7 +528,7 @@ fn transient_storage_works() {
 				.build_and_unwrap_result();
 			assert!(!result.did_revert(), "test reverted");
 			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				U256::from_big_endian(&result.data),
 				U256::from(0),
 				"transient storage should return zero for {:?}",
 				fixture_type
@@ -558,7 +561,7 @@ fn logs_denied_for_static_call() {
 					Caller::CallerCalls::staticCall(Caller::staticCallCall {
 						_callee: host_addr.0.into(),
 						_data: Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode().into(),
-						_gas: U256::MAX,
+						_gas: primitives::U256::MAX,
 					})
 					.abi_encode(),
 				)

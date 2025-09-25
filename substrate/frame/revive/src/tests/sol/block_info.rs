@@ -20,15 +20,15 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
-	vm::evm::{U256Converter, BASE_FEE, DIFFICULTY},
+	vm::evm::{BASE_FEE, DIFFICULTY},
 	Code, Config,
 };
 
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::sol_types::SolInterface;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, BlockInfo, FixtureType};
 use pretty_assertions::assert_eq;
-use sp_core::H160;
+use sp_core::{H160, U256};
 
 /// Tests that the blocknumber opcode works as expected.
 #[test]
@@ -48,10 +48,7 @@ fn block_number_works() {
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(42u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
+			assert_eq!(U256::from(42u32), U256::from_big_endian(&result.data));
 		});
 	}
 }
@@ -93,7 +90,7 @@ fn chainid_works() {
 				.build_and_unwrap_result();
 			assert_eq!(
 				U256::from(<Test as Config>::ChainId::get()),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+				U256::from_big_endian(&result.data)
 			);
 		});
 	}
@@ -119,7 +116,7 @@ fn timestamp_works() {
 				// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
 				// milliseconds.
 				U256::from(Timestamp::get() / 1000),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+				U256::from_big_endian(&result.data)
 			);
 		});
 	}
@@ -142,7 +139,7 @@ fn gaslimit_works() {
 				U256::from(
 					<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
 				),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+				U256::from_big_endian(&result.data)
 			);
 		});
 	}
@@ -161,10 +158,7 @@ fn basefee_works() {
 			let result = builder::bare_call(addr)
 				.data(BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {}).abi_encode())
 				.build_and_unwrap_result();
-			assert_eq!(
-				BASE_FEE.into_revm_u256(),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
+			assert_eq!(BASE_FEE, U256::from_big_endian(&result.data));
 		});
 	}
 }
@@ -188,7 +182,7 @@ fn difficulty_works() {
 			assert_eq!(
 				// Alligned with the value set for PVM
 				U256::from(DIFFICULTY),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+				U256::from_big_endian(&result.data)
 			);
 		});
 	}

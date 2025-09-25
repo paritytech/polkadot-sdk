@@ -18,13 +18,11 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
-	Code, Config,
+	Code, Config, U256,
 };
-use alloy_core::primitives::U256;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
-
 use revm::bytecode::opcode::*;
 
 #[test]
@@ -63,7 +61,7 @@ fn jump_works() {
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);
@@ -146,12 +144,12 @@ fn jumpi_works() {
 
 		{
 			// JUMPI was *not* triggered, contract returns 0xfefefefe
-			let argument = U256::from(expected_value).to_be_bytes::<32>().to_vec();
+			let argument = U256::from(expected_value).to_big_endian().to_vec();
 
 			let result = builder::bare_call(addr).data(argument).build_and_unwrap_result();
 			assert!(!result.did_revert(), "test reverted");
 			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				U256::from_big_endian(&result.data),
 				U256::from(expected_value),
 				"memory test should return {expected_value}"
 			);
@@ -159,13 +157,13 @@ fn jumpi_works() {
 
 		{
 			// JUMPI was triggered, contract returns 0xdeadbeef
-			let argument = U256::from(unexpected_value).to_be_bytes::<32>().to_vec();
+			let argument = U256::from(unexpected_value).to_big_endian().to_vec();
 
 			let result = builder::bare_call(addr).data(argument).build_and_unwrap_result();
 			assert!(!result.did_revert(), "test reverted");
 
 			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				U256::from_big_endian(&result.data),
 				U256::from(0xdeadbeef_u64),
 				"memory test should return 0xdeadbeef"
 			);
@@ -198,7 +196,7 @@ fn ret_works() {
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);
@@ -230,7 +228,7 @@ fn revert_works() {
 
 		assert!(result.flags == ReturnFlags::REVERT, "test did not revert");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);

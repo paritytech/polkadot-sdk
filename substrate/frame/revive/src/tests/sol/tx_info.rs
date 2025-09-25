@@ -21,10 +21,10 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config,
+	Code, Config, U256,
 };
 
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::sol_types::SolInterface;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, TransactionInfo};
 use pretty_assertions::assert_eq;
@@ -48,10 +48,7 @@ fn gasprice_works() {
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(GAS_PRICE),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
+			assert_eq!(U256::from(GAS_PRICE), U256::from_big_endian(&result.data));
 		});
 	}
 }

@@ -39,15 +39,14 @@ fn bitwise_works() {
 			let result = builder::bare_call(addr)
 				.data(Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {}).abi_encode())
 				.build_and_unwrap_result();
+
 			if result.did_revert() {
 				if let Some(revert_msg) = decode_revert_reason(&result.data) {
-					log::error!("Revert message: {}", revert_msg);
+					panic!("Revert message: {revert_msg}");
 				} else {
-					log::error!("Revert without message, raw data: {:?}", result.data);
+					panic!("Revert without message, raw data: {:?}", result.data);
 				}
 			}
-
-			assert!(!result.did_revert(), "bitwise test reverted");
 		});
 	}
 }

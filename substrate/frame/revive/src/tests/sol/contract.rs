@@ -70,7 +70,7 @@ fn staticcall_works() {
 			assert!(result.success, "the call must succeed");
 			assert_eq!(
 				magic_number,
-				U256::from_be_bytes::<32>(result.output.as_ref().try_into().unwrap()),
+				U256::from_be_slice(result.output.as_ref()),
 				"the call must reproduce the magic number"
 			);
 
@@ -130,7 +130,7 @@ fn call_works() {
 			assert!(result.success, "the call must succeed");
 			assert_eq!(
 				magic_number,
-				U256::from_be_bytes::<32>(result.output.as_ref().try_into().unwrap()),
+				U256::from_be_slice(result.output.as_ref()),
 				"the call must reproduce the magic number"
 			);
 
@@ -165,13 +165,9 @@ fn call_revert() {
 			let Contract { addr: callee_addr, .. } =
 				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-			log::info!("Callee  addr: {:?}", callee_addr);
-
 			// Instantiate the caller contract.
 			let Contract { addr: caller_addr, .. } =
 				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
-
-			log::info!("Caller  addr: {:?}", caller_addr);
 
 			// Call revert and assert failure
 			let result = builder::bare_call(caller_addr)
@@ -187,7 +183,6 @@ fn call_revert() {
 				.build_and_unwrap_result();
 			let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
 			assert!(!result.success, "Call should propagate revert");
-			log::info!("Returned data: {:?}", result.output);
 			assert!(result.output.len() > 0, "Returned data should contain revert message");
 
 			let data = result.output.as_ref();
@@ -348,7 +343,7 @@ fn delegatecall_works() {
 			assert!(result.success, "the call must succeed");
 			assert_eq!(
 				magic_number,
-				U256::from_be_bytes::<32>(result.output.as_ref().try_into().unwrap()),
+				U256::from_be_slice(result.output.as_ref()),
 				"the call must reproduce the magic number"
 			);
 

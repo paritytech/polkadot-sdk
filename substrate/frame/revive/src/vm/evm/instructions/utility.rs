@@ -15,7 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use revm::primitives::{Address, B256, U256};
+use sp_core::{H160, U256};
+
+/// Converts a `U256` value to a `usize`, saturating to `MAX` if the value is too large.
+pub fn as_usize_saturated(v: U256) -> usize {
+	match &v.0 {
+		x =>
+			if (x[1] == 0) & (x[2] == 0) & (x[3] == 0) {
+				usize::try_from(x[0]).unwrap_or(usize::MAX)
+			} else {
+				usize::MAX
+			},
+	}
+}
 
 /// Pushes an arbitrary length slice of bytes onto the stack, padding the last word with zeros
 /// if necessary.
@@ -23,7 +35,6 @@ use revm::primitives::{Address, B256, U256};
 /// # Panics
 ///
 /// Panics if slice is longer than 32 bytes.
-#[inline]
 pub fn cast_slice_to_u256(slice: &[u8], dest: &mut U256) {
 	if slice.is_empty() {
 		return;
@@ -34,10 +45,7 @@ pub fn cast_slice_to_u256(slice: &[u8], dest: &mut U256) {
 
 	// SAFETY: Length checked above.
 	unsafe {
-		//let dst = self.data.as_mut_ptr().add(self.data.len()).cast::<u64>();
-		//self.data.set_len(new_len);
-		let dst = dest.as_limbs_mut().as_mut_ptr();
-
+		let dst = dest.0.as_mut_ptr();
 		let mut i = 0;
 
 		// Write full words
@@ -82,47 +90,14 @@ pub fn cast_slice_to_u256(slice: &[u8], dest: &mut U256) {
 	}
 }
 
-/// Trait for converting types into U256 values.
-pub trait IntoU256 {
-	/// Converts the implementing type into a U256 value.
-	fn into_u256(self) -> U256;
-}
-
-impl IntoU256 for Address {
-	fn into_u256(self) -> U256 {
-		self.into_word().into_u256()
-	}
-}
-
-impl IntoU256 for B256 {
-	fn into_u256(self) -> U256 {
-		U256::from_be_bytes(self.0)
-	}
-}
-
 /// Trait for converting types into Address values.
 pub trait IntoAddress {
 	/// Converts the implementing type into an Address value.
-	fn into_address(self) -> Address;
+	fn into_address(self) -> H160;
 }
 
 impl IntoAddress for U256 {
-	fn into_address(self) -> Address {
-		Address::from_word(B256::from(self.to_be_bytes()))
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use revm::primitives::address;
-
-	use super::*;
-
-	#[test]
-	fn test_into_u256() {
-		let addr = address!("0x0000000000000000000000000000000000000001");
-		let u256 = addr.into_u256();
-		assert_eq!(u256, U256::from(0x01));
-		assert_eq!(u256.into_address(), addr);
+	fn into_address(self) -> H160 {
+		H160::from_slice(&self.to_big_endian()[12..])
 	}
 }
