@@ -1,0 +1,86 @@
+title: Lazy decode block extrinsics
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/issues/4255
+
+    Addresses https://github.com/paritytech/polkadot-sdk/pull/7902#pullrequestreview-3079855302
+
+    This PR enables us to lazily decode the block extrinsics when needed.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: frame-benchmarking-cli
+  bump: patch
+- name: sc-rpc
+  bump: patch
+- name: sc-service
+  bump: patch
+- name: sc-tracing
+  bump: patch
+- name: sp-api
+  bump: patch
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-pallet-aura-ext
+  bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: rococo-parachain-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: sc-basic-authorship
+  bump: patch
+- name: frame-executive
+  bump: patch
+- name: frame-support
+  bump: patch
+- name: sp-api-proc-macro
+  bump: patch
+- name: frame-try-runtime
+  bump: patch
+- name: cumulus-primitives-core
+  bump: patch
+- name: sc-consensus-babe
+  bump: patch
+- name: sc-consensus-pow
+  bump: patch
+- name: sp-block-builder
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
