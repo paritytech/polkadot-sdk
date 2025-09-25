@@ -63,6 +63,12 @@
 //! induces. In order to be able to charge the correct weight for the functions defined
 //! by a chain extension benchmarks must be written, too. In the near future this crate
 //! will provide the means for easier creation of those specialized benchmarks.
+//!
+//! # Example
+//!
+//! The ink-examples repository maintains an
+//! [end-to-end example](https://github.com/use-ink/ink-examples/tree/v5.x.x/rand-extension)
+//! on how to use a chain extension in order to provide new features to ink! contracts.
 
 use crate::{
 	wasm::{Runtime, RuntimeCosts},
