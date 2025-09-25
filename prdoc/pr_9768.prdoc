@@ -1,4 +1,4 @@
-title: '[WIP] pallet revive evm backend add tests for cross vm contract calls'
+title: 'pallet revive evm backend add tests for cross vm contract calls'
 doc:
 - audience: Runtime Dev
   description: fixes https://github.com/paritytech/polkadot-sdk/issues/9576
