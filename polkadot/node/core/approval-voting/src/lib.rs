@@ -3241,8 +3241,10 @@ where
 	};
 
 	if newly_approved {
+		println!("collecting approvals...");
 		collect_useful_approvals(sender,  &status, block_hash, &candidate_entry);
 
+		println!("checking for no-shows: {:?}...", status.no_show_validators.len());
 		if status.no_show_validators.len() > 0 {
 			_ = sender
 				.try_send_message(ConsensusStatisticsCollectorMessage::NoShows(
