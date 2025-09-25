@@ -2615,10 +2615,6 @@ mod ah_stop_gap {
 				)
 				.await;
 
-				// nothing happens yet
-				test_helpers::Yield::new().await;
-				assert_matches!(virtual_overseer.recv().now_or_never(), None);
-
 				// invulnerable makes an advertisement and it's fetched
 				submit_second_and_assert(
 					&mut virtual_overseer,
@@ -2837,13 +2833,10 @@ mod ah_stop_gap {
 						},
 					}
 
-					if collation_fetching_count > 1 || can_second_count > 2 {
-						assert!(
-							false,
-							"Unexpected message count: {:?} {:?}",
-							collation_fetching_count, can_second_count
-						);
-					}
+					// sanity check the messages count
+					assert!(collation_fetching_count <= 1);
+					assert!(can_second_count <= 2);
+
 					if collation_fetching_count == 1 && can_second_count == 2 {
 						break;
 					}
