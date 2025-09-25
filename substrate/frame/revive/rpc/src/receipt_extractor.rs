@@ -112,10 +112,10 @@ impl ReceiptExtractor {
 		.inspect_err(
 			|err| log::debug!(target: LOG_TARGET, "TransactionFeePaid not found in events for block {block_number}\n{err:?}")
 		)?;
+		let transaction_hash = H256(keccak_256(&call.payload));
 
-		let signed_tx = call.signed_transaction.0;
-		let transaction_hash = H256(keccak_256(&signed_tx.signed_payload()));
-
+		let signed_tx =
+			TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
 		let from = signed_tx.recover_eth_address().map_err(|_| {
 			log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
 			ClientError::RecoverEthAddressFailed
