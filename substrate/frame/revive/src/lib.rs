@@ -1358,6 +1358,7 @@ where
 		};
 		let mut exec_config = ExecConfig::new_eth_tx(effective_gas_price);
 		exec_config.unsafe_skip_transfers = tx.gas.is_none();
+		exec_config.collect_deposit_from_hold = false;
 
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
