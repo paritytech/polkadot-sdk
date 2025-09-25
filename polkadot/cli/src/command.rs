@@ -61,7 +61,11 @@ fn get_invulnerable_ah_collators(
 		"12D3KooWGowDwrXAh9cxkbPHPHuwMouFHrMcJhCVXcFS2B8vc5Ry",
 	];
 
-	const POLKADOT: [&str; 2] = [
+	const POLKADOT: [&str; 6] = [
+		"12D3KooWD9dTKLW65NFFLVjqgaXNzb3zKXBfwRS5iovxV6XaoVX6",
+		"12D3KooWPJfGGisRMkiD5yhySZggEhyMSwELb34P2bEuAmUh9RYy",
+		"12D3KooWQB9RBoJEByMtXtD8aC1WR1DJQb3QMXRcsQmNxrghsQLv",
+		"12D3KooWFhBYG98e53DQB7W2JKBL9xWrP83ANkAjzvp4enEJAt3k",
 		"12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa",
 		"12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq",
 	];
