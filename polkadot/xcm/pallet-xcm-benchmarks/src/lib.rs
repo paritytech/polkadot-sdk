@@ -82,7 +82,8 @@ impl<T: Config> ExecuteXcmOf<T> {
 	}
 
 	pub fn execute(&mut self, xcm: Xcm<XcmCallOf<T>>) -> Result<(), BenchmarkError> {
-		let message = ExecutorOf::<T>::prepare(xcm, Weight::MAX).unwrap();
+		let message =
+			ExecutorOf::<T>::prepare(xcm, Weight::MAX).map_err(|_| BenchmarkError::Skip)?;
 		self.outcome =
 			Some(ExecutorOf::<T>::execute(self.origin.clone(), message, &mut self.id, Weight::MAX));
 		Ok(())
