@@ -814,7 +814,14 @@ where
 				);
 			});
 
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value, storage_meter);
+			let result = Self::transfer_from_origin(
+				&origin,
+				&origin,
+				&dest,
+				value,
+				storage_meter,
+				exec_config,
+			);
 
 			if_tracing(|t| match result {
 				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
@@ -1216,6 +1223,7 @@ where
 					account_id,
 					frame.value_transferred,
 					&mut frame.nested_storage,
+					self.exec_config,
 				)?;
 			}
 
@@ -1459,6 +1467,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
+		exec_config: &ExecConfig,
 	) -> DispatchResult {
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
@@ -1551,7 +1560,7 @@ where
 			match storage_meter
 				.record_charge(&StorageDeposit::Charge(ed))
 				.and_then(|_| {
-					T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+					<Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config)
 						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
 				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value))
@@ -1569,6 +1578,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
+		exec_config: &ExecConfig,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1577,7 +1587,7 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(origin, from, to, value, storage_meter)
+		Self::transfer(origin, from, to, value, storage_meter, exec_config)
 			.map(|_| Default::default())
 			.map_err(Into::into)
 	}
@@ -1951,6 +1961,7 @@ where
 						&dest,
 						value,
 						&mut frame.nested_storage,
+						self.exec_config,
 					)
 				};
 

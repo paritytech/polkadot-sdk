@@ -252,6 +252,7 @@ fn transfer_works() {
 			&BOB,
 			Pallet::<Test>::convert_native_to_evm(value),
 			&mut storage_meter,
+			&ExecConfig::new_substrate_tx(),
 		)
 		.unwrap();
 
@@ -289,6 +290,7 @@ fn transfer_to_nonexistent_account_works() {
 			&CHARLIE,
 			evm_value,
 			&mut storage_meter,
+			&ExecConfig::new_substrate_tx(),
 		));
 		assert_eq!(get_balance(&ALICE), ed);
 		assert_eq!(get_balance(&BOB), ed);
@@ -303,7 +305,8 @@ fn transfer_to_nonexistent_account_works() {
 				&BOB,
 				&DJANGO,
 				evm_value,
-				&mut storage_meter
+				&mut storage_meter,
+				&ExecConfig::new_substrate_tx(),
 			),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
@@ -317,7 +320,8 @@ fn transfer_to_nonexistent_account_works() {
 				&BOB,
 				&EVE,
 				evm_value,
-				&mut storage_meter
+				&mut storage_meter,
+				&ExecConfig::new_substrate_tx(),
 			),
 			<Error<Test>>::TransferFailed
 		);
@@ -493,6 +497,7 @@ fn balance_too_low() {
 			&dest,
 			Pallet::<Test>::convert_native_to_evm(100u64).as_u64().into(),
 			&mut storage_meter,
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
