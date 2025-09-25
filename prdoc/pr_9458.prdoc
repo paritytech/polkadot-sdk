@@ -15,7 +15,7 @@ crates:
 - name: polkadot-node-network-protocol
   bump: minor
 - name: polkadot-collator-protocol
-  bump: major
+  bump: minor
 - name: polkadot-cli
   bump: major
 - name: polkadot-service
