@@ -224,4 +224,11 @@ pub trait StatementStore {
 			store.remove(hash).unwrap_or_default()
 		}
 	}
+
+	/// Remove all statements from the store that were posted by the given public key.
+	fn remove_by(&mut self, who: PassPointerAndReadCopy<[u8; 32], 32>) {
+		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
+			store.remove_by(who).unwrap_or_default()
+		}
+	}
 }

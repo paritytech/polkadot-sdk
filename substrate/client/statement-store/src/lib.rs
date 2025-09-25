@@ -965,6 +965,33 @@ impl StatementStore for Store {
 		}
 		Ok(())
 	}
+
+	/// Remove all statements by an account.
+	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
+		let mut index = self.index.write();
+		let mut evicted = Vec::new();
+		if let Some(account_rec) = index.accounts.get(&who) {
+			evicted.extend(account_rec.by_priority.keys().map(|k| k.hash));
+		}
+
+		let current_time = self.timestamp();
+		let mut commit = Vec::new();
+		for hash in evicted {
+			index.make_expired(&hash, current_time);
+			commit.push((col::STATEMENTS, hash.to_vec(), None));
+			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+		}
+		if let Err(e) = self.db.commit(commit) {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement validation failed: database error {}, remove by {:?}",
+				e,
+				HexDisplay::from(&who),
+			);
+			return Err(Error::Db(e.to_string()))
+		}
+		Ok(())
+	}
 }
 
 #[cfg(test)]
