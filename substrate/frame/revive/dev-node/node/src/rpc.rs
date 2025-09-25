@@ -45,6 +45,8 @@ use crate::cli::Consensus;
 pub trait HardhatRpc {
 	#[method(name = "hardhat_getAutomine")]
 	fn get_automine(&self) -> RpcResult<bool>;
+	#[method(name = "evm_setAutomine", )]
+	fn set_automine(&self, automine: bool) -> RpcResult<bool>;
 }
 
 pub struct HardhatRpcServerImpl {
@@ -59,6 +61,15 @@ impl HardhatRpcServerImpl {
 
 impl HardhatRpcServer for HardhatRpcServerImpl {
 	fn get_automine(&self) -> RpcResult<bool> {
+		Ok(match self.consensus_type {
+			Consensus::InstantSeal => true,
+			_ => false,
+		})
+	}
+
+	fn set_automine(&self, automine: bool) -> RpcResult<bool> {
+		// stub for backward compatibility
+		// but we won't support dynamic switching yet
 		Ok(match self.consensus_type {
 			Consensus::InstantSeal => true,
 			_ => false,

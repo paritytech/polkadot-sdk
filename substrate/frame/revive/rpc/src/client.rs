@@ -855,6 +855,13 @@ impl Client {
 		Ok(automine)
 	}
 
+	pub async fn set_automine(&self, automine: bool) -> Result<bool, ClientError> {
+		let automine: bool =
+			self.rpc_client.request("evm_setAutomine", rpc_params![automine]).await.unwrap();
+
+		Ok(automine)
+	}
+
 	/// Takes the eth hash of a tx in the mempool and removes it.
 	/// It goes through the txs in the mempool and compares the
 	/// hashes of their stripped version to the hash provided. For this,
@@ -865,7 +872,7 @@ impl Client {
 			.rpc_client
 			.request("author_pendingExtrinsics", Default::default())
 			.await
-			.unwrap();
+			.map_err(ClientError::RpcError)?;
 
 		for transaction in bytes_pending_transactions {
 			match H256(keccak_256(&transaction.0[7..])).eq(&hash) {
@@ -1068,7 +1075,7 @@ impl Client {
 		let block_hash = self
 			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
 			.await?;
-		let block = self.tracing_block(block_hash).await?;
+		let _block = self.tracing_block(block_hash).await?;
 
 		let alice = dev::alice();
 
@@ -1254,20 +1261,42 @@ impl Client {
 		}
 	}
 
-	pub async fn pending_transactions(&self) -> Result<Option<Vec<H256>>, ClientError> {
-		let bytes_pending_transactions: Vec<H256> = self
+	/// Helper method to convert raw transaction bytes to TransactionInfo for pending transactions
+	async fn bytes_to_pending_transaction_info(&self, tx_bytes: &[u8]) -> Option<TransactionInfo> {
+		// Skip the first 7 bytes which are substrate-specific encoding
+		if tx_bytes.len() <= 7 {
+			return None;
+		}
+
+		let signed_tx = TransactionSigned::decode(&tx_bytes[7..]).ok()?;
+		let from_address = signed_tx.recover_eth_address().ok()?;
+
+		let transaction_hash = H256(keccak_256(&tx_bytes[7..]));
+
+		// for pending transactions, use zero values for block-related fields
+		Some(TransactionInfo {
+			block_hash: H256::zero(),
+			block_number: U256::zero(),
+			from: from_address,
+			hash: transaction_hash,
+			transaction_index: U256::zero(),
+			transaction_signed: signed_tx,
+		})
+	}
+
+	pub async fn pending_transactions(&self) -> Result<Option<Vec<TransactionInfo>>, ClientError> {
+		let bytes_pending_transactions: Vec<Bytes> = self
 			.rpc_client
 			.request("author_pendingExtrinsics", Default::default())
 			.await
-			.unwrap();
+			.map_err(ClientError::RpcError)?;
 
-		let pending_eth_transactions: Vec<H256> = bytes_pending_transactions
-			.into_iter()
-			.map(|tx| {
-				let hash = H256(keccak_256(&tx.0[7..]));
-				hash
-			})
-			.collect();
+		let mut pending_eth_transactions: Vec<TransactionInfo> = Vec::new();
+		for tx_bytes in bytes_pending_transactions {
+			if let Some(tx_info) = self.bytes_to_pending_transaction_info(&tx_bytes.0).await {
+				pending_eth_transactions.push(tx_info);
+			}
+		}
 
 		Ok(Some(pending_eth_transactions))
 	}

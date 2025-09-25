@@ -142,6 +142,10 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.get_automine().await?)
 	}
 
+	async fn set_automine(&self, automine: bool) -> RpcResult<bool> {
+		Ok(self.client.set_automine(automine).await?)
+	}
+
 	async fn drop_transaction(&self, hash: H256) -> RpcResult<Option<H256>> {
 		Ok(self.client.drop_transaction(hash).await?)
 	}
@@ -197,7 +201,7 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.stop_impersonate_account(account).await?)
 	}
 
-	async fn pending_transactions(&self) -> RpcResult<Option<Vec<H256>>> {
+	async fn pending_transactions(&self) -> RpcResult<Option<Vec<TransactionInfo>>> {
 		Ok(self.client.pending_transactions().await?)
 	}
 
