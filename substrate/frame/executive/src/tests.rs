@@ -677,7 +677,7 @@ fn block_import_works_inner(mut ext: sp_io::TestExternalities, state_root: H256)
 				},
 				extrinsics: vec![],
 			}
-			.into_lazy_block(),
+			.into(),
 		);
 	});
 }
@@ -699,7 +699,7 @@ fn block_import_of_bad_state_root_fails() {
 				},
 				extrinsics: vec![],
 			}
-			.into_lazy_block(),
+			.into(),
 		);
 	});
 }
@@ -721,7 +721,7 @@ fn block_import_of_bad_extrinsic_root_fails() {
 				},
 				extrinsics: vec![],
 			}
-			.into_lazy_block(),
+			.into(),
 		);
 	});
 }
@@ -1066,7 +1066,7 @@ fn custom_runtime_upgrade_is_called_when_using_execute_block_trait() {
 		});
 
 		<Executive as ExecuteBlock<Block<UncheckedXt>>>::execute_block(
-			Block::new(header, vec![xt]).into_lazy_block(),
+			Block::new(header, vec![xt]).into(),
 		);
 
 		assert_eq!(&sp_io::storage::get(TEST_KEY).unwrap()[..], *b"module");
@@ -1140,7 +1140,7 @@ fn calculating_storage_root_twice_works() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(header, vec![xt]).into_lazy_block());
+		Executive::execute_block(Block::new(header, vec![xt]).into());
 	});
 }
 
@@ -1166,7 +1166,7 @@ fn invalid_inherent_position_fail() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into_lazy_block());
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into());
 	});
 }
 
@@ -1186,7 +1186,7 @@ fn valid_inherents_position_works() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into_lazy_block());
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into());
 	});
 }
 
@@ -1212,7 +1212,7 @@ fn invalid_inherents_fail_block_execution() {
 				),
 				vec![xt1],
 			)
-			.into_lazy_block(),
+			.into(),
 		);
 	});
 }
@@ -1246,7 +1246,7 @@ fn inherents_ok_while_exts_forbidden_works() {
 
 	new_test_ext(1).execute_with(|| {
 		// Tell `initialize_block` to forbid extrinsics:
-		Executive::execute_block(Block::new(header, vec![xt1]).into_lazy_block());
+		Executive::execute_block(Block::new(header, vec![xt1]).into());
 	});
 }
 
@@ -1268,7 +1268,7 @@ fn transactions_in_only_inherents_block_errors() {
 
 	new_test_ext(1).execute_with(|| {
 		MbmActive::set(true);
-		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into_lazy_block());
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into());
 	});
 }
 
@@ -1289,7 +1289,7 @@ fn transactions_in_normal_block_works() {
 
 	new_test_ext(1).execute_with(|| {
 		// Tell `initialize_block` to forbid extrinsics:
-		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into_lazy_block());
+		Executive::execute_block(Block::new(header, vec![xt1, xt2]).into());
 	});
 }
 
@@ -1310,7 +1310,7 @@ fn try_execute_block_works() {
 
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header, vec![xt1, xt2]).into_lazy_block(),
+			Block::new(header, vec![xt1, xt2]).into(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1369,7 +1369,7 @@ fn try_execute_tx_forbidden_errors() {
 	new_test_ext(1).execute_with(|| {
 		MbmActive::set(true);
 		Executive::try_execute_block(
-			Block::new(header, vec![xt1, xt2]).into_lazy_block(),
+			Block::new(header, vec![xt1, xt2]).into(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1517,7 +1517,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 		new_test_ext(10).execute_with(|| {
 			let header = std::panic::catch_unwind(|| {
-				Executive::execute_block(Block::new(header, extrinsics).into_lazy_block());
+				Executive::execute_block(Block::new(header, extrinsics).into());
 			});
 
 			match header {
@@ -1564,7 +1564,7 @@ fn post_inherent_called_after_all_inherents() {
 	#[cfg(feature = "try-runtime")]
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]).into_lazy_block(),
+			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]).into(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1575,7 +1575,7 @@ fn post_inherent_called_after_all_inherents() {
 
 	new_test_ext(1).execute_with(|| {
 		MockedSystemCallbacks::reset();
-		Executive::execute_block(Block::new(header, vec![in1, xt1]).into_lazy_block());
+		Executive::execute_block(Block::new(header, vec![in1, xt1]).into());
 		assert!(MockedSystemCallbacks::post_transactions_called());
 	});
 }
@@ -1604,7 +1604,7 @@ fn post_inherent_called_after_all_optional_inherents() {
 	#[cfg(feature = "try-runtime")]
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]).into_lazy_block(),
+			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]).into(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1615,7 +1615,7 @@ fn post_inherent_called_after_all_optional_inherents() {
 
 	new_test_ext(1).execute_with(|| {
 		MockedSystemCallbacks::reset();
-		Executive::execute_block(Block::new(header, vec![in1, xt1]).into_lazy_block());
+		Executive::execute_block(Block::new(header, vec![in1, xt1]).into());
 		assert!(MockedSystemCallbacks::post_transactions_called());
 	});
 }

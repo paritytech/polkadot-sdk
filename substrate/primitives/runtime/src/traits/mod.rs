@@ -1313,24 +1313,16 @@ pub trait LazyBlock: Debug + Encode + Decode + Sized {
 	/// Header type.
 	type Header: Header;
 
-	/// Creates new block from header and opaque extrinsics.
-	fn new(header: Self::Header, extrinsics: Vec<OpaqueExtrinsic>) -> Self;
-
 	/// Returns a reference to the header.
 	fn header(&self) -> &Self::Header;
 
 	/// Returns a mut reference to the header.
 	fn header_mut(&mut self) -> &mut Self::Header;
 
-	/// Returns a reference to the list of opaque extrinsics.
-	fn opaque_extrinsics(&self) -> &[OpaqueExtrinsic];
-
-	/// Returns a reference to the list of extrinsics.
+	/// Returns an iterator over all extrinsics.
 	///
-	/// The extrinsics are lazily decoded
-	fn extrinsics(&self) -> impl Iterator<Item = Result<Self::Extrinsic, codec::Error>> {
-		self.opaque_extrinsics().iter().map(|xt| Self::Extrinsic::try_from_opaque(&xt))
-	}
+	/// The extrinsics are lazily decoded (if possible) as they are pulled by the iterator.
+	fn extrinsics(&self) -> impl Iterator<Item = Result<Self::Extrinsic, codec::Error>>;
 }
 
 /// Something which fulfills the abstract idea of a Substrate block. It has types for
@@ -1339,6 +1331,8 @@ pub trait LazyBlock: Debug + Encode + Decode + Sized {
 /// You can get an iterator over each of the `extrinsics` and retrieve the `header`.
 pub trait Block:
 	HeaderProvider<HeaderT = Self::Header>
+	+ Into<Self::LazyBlock>
+	+ EncodeLike<Self::LazyBlock>
 	+ Clone
 	+ Send
 	+ Sync
@@ -1358,7 +1352,7 @@ pub trait Block:
 
 	/// A shadow structure which allows us to lazily decode the extrinsics.
 	/// The `LazyBlock` must have the same encoded representation as the `Block`.
-	type LazyBlock: LazyBlock<Extrinsic = Self::Extrinsic, Header = Self::Header>;
+	type LazyBlock: LazyBlock<Extrinsic = Self::Extrinsic, Header = Self::Header> + EncodeLike<Self>;
 
 	/// Returns a reference to the header.
 	fn header(&self) -> &Self::Header;
@@ -1375,12 +1369,6 @@ pub trait Block:
 	/// Creates an encoded block from the given `header` and `extrinsics` without requiring the
 	/// creation of an instance.
 	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8>;
-
-	/// Convert the current block into a `Self::LazyBlock`
-	fn into_lazy_block(self) -> Self::LazyBlock {
-		let (header, extrinsics) = self.deconstruct();
-		Self::LazyBlock::new(header, extrinsics.into_iter().map(|xt| xt.into()).collect())
-	}
 }
 
 /// Something that acts like an `Extrinsic`.

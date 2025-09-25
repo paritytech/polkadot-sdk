@@ -996,6 +996,11 @@ impl OpaqueExtrinsic {
 	pub fn try_from_encoded_extrinsic(mut bytes: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode(&mut bytes)
 	}
+
+	/// Get the actual blob.
+	pub fn inner(&self) -> &[u8] {
+		&self.0
+	}
 }
 
 impl LazyExtrinsic for OpaqueExtrinsic {

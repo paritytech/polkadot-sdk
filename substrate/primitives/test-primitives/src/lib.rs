@@ -43,14 +43,14 @@ pub enum Extrinsic {
 }
 
 impl From<Extrinsic> for OpaqueExtrinsic {
-	fn from(_xt: Extrinsic) -> Self {
-		unimplemented!()
+	fn from(xt: Extrinsic) -> Self {
+		OpaqueExtrinsic::from_bytes(xt.encode())
 	}
 }
 
 impl LazyExtrinsic for Extrinsic {
-	fn try_from_opaque(_opaque: &OpaqueExtrinsic) -> Result<Self, codec::Error> {
-		unimplemented!()
+	fn try_from_opaque(opaque: &OpaqueExtrinsic) -> Result<Self, codec::Error> {
+		Self::decode(&mut opaque.inner())
 	}
 }
 

@@ -24,7 +24,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-	codec::{Codec, Decode, DecodeWithMemTracking, Encode},
+	codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike},
 	traits::{
 		self, Block as BlockT, Header as HeaderT, LazyExtrinsic, MaybeSerialize,
 		MaybeSerializeDeserialize, Member, NumberFor,
@@ -89,6 +89,39 @@ pub struct LazyBlock<Header, Extrinsic> {
 	_phantom: PhantomData<Extrinsic>,
 }
 
+impl<Header, Extrinsic: Into<OpaqueExtrinsic>> LazyBlock<Header, Extrinsic> {
+	/// Creates a new instance of `LazyBlock` from its parts.
+	pub fn new(header: Header, extrinsics: Vec<Extrinsic>) -> Self {
+		Self {
+			header,
+			extrinsics: extrinsics.into_iter().map(|xt| xt.into()).collect(),
+			_phantom: Default::default(),
+		}
+	}
+}
+
+impl<Header, Extrinsic: Into<OpaqueExtrinsic>> From<Block<Header, Extrinsic>>
+	for LazyBlock<Header, Extrinsic>
+{
+	fn from(block: Block<Header, Extrinsic>) -> Self {
+		LazyBlock::new(block.header, block.extrinsics)
+	}
+}
+
+impl<Header, Extrinsic> EncodeLike<LazyBlock<Header, Extrinsic>> for Block<Header, Extrinsic>
+where
+	Block<Header, Extrinsic>: Encode,
+	LazyBlock<Header, Extrinsic>: Encode,
+{
+}
+
+impl<Header, Extrinsic> EncodeLike<Block<Header, Extrinsic>> for LazyBlock<Header, Extrinsic>
+where
+	Block<Header, Extrinsic>: Encode,
+	LazyBlock<Header, Extrinsic>: Encode,
+{
+}
+
 impl<Header, Extrinsic> traits::LazyBlock for LazyBlock<Header, Extrinsic>
 where
 	Header: HeaderT,
@@ -96,10 +129,6 @@ where
 {
 	type Extrinsic = Extrinsic;
 	type Header = Header;
-
-	fn new(header: Self::Header, extrinsics: Vec<OpaqueExtrinsic>) -> Self {
-		Self { header, extrinsics, _phantom: Default::default() }
-	}
 
 	fn header(&self) -> &Self::Header {
 		&self.header
@@ -109,8 +138,8 @@ where
 		&mut self.header
 	}
 
-	fn opaque_extrinsics(&self) -> &[OpaqueExtrinsic] {
-		&self.extrinsics
+	fn extrinsics(&self) -> impl Iterator<Item = Result<Self::Extrinsic, codec::Error>> {
+		self.extrinsics.iter().map(|xt| Self::Extrinsic::try_from_opaque(&xt))
 	}
 }
 

@@ -233,8 +233,7 @@ where
 				sp_api::client_side::execute_block(&self.client.runtime_api(), parent_hash, block)
 			}) {
 				return Err(Error::Dispatch(format!(
-					"Failed to collect traces and execute block: {:?}",
-					e
+					"Failed to collect traces and execute block: {e:?}"
 				)))
 			}
 		}

@@ -30,7 +30,6 @@ use sc_block_builder::BlockBuilderBuilder;
 use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie, Ferdie};
 
 use cumulus_test_service::bench_utils as utils;
-use sp_runtime::traits::Block;
 
 fn benchmark_block_import(c: &mut Criterion) {
 	sp_tracing::try_init_simple();
@@ -100,10 +99,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 						benchmark_block.block.clone()
 					},
 					|block| {
-						client
-							.runtime_api()
-							.execute_block(parent_hash, block.into_lazy_block())
-							.unwrap();
+						client.runtime_api().execute_block(parent_hash, block.into()).unwrap();
 					},
 					BatchSize::SmallInput,
 				)

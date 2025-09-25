@@ -44,8 +44,6 @@ pub fn execute_block<Block: BlockT, Api: ApiExt<Block> + Core<Block>>(
 			api.execute_block_before_version_6(at, block)
 				.map_err(ExecuteBlockError::ApiError)
 		},
-		6.. => api
-			.execute_block(at, block.into_lazy_block())
-			.map_err(ExecuteBlockError::ApiError),
+		6.. => api.execute_block(at, block.into()).map_err(ExecuteBlockError::ApiError),
 	}
 }

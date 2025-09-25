@@ -18,7 +18,7 @@
 //! Testing utilities.
 
 use crate::{
-	codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen},
+	codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen},
 	generic::{self, LazyBlock, UncheckedExtrinsic},
 	scale_info::TypeInfo,
 	traits::{self, BlakeTwo256, Dispatchable, LazyExtrinsic, OpaqueKeys},
@@ -233,6 +233,26 @@ pub struct Block<Xt> {
 
 impl<Xt> traits::HeaderProvider for Block<Xt> {
 	type HeaderT = Header;
+}
+
+impl<Xt: Into<OpaqueExtrinsic>> From<Block<Xt>> for LazyBlock<Header, Xt> {
+	fn from(block: Block<Xt>) -> Self {
+		LazyBlock::new(block.header, block.extrinsics)
+	}
+}
+
+impl<Xt> EncodeLike<LazyBlock<Header, Xt>> for Block<Xt>
+where
+	Block<Xt>: Encode,
+	LazyBlock<Header, Xt>: Encode,
+{
+}
+
+impl<Xt> EncodeLike<Block<Xt>> for LazyBlock<Header, Xt>
+where
+	Block<Xt>: Encode,
+	LazyBlock<Header, Xt>: Encode,
+{
 }
 
 impl<
