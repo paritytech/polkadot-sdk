@@ -252,7 +252,7 @@ parameter_types! {
 ///
 /// This is needed because we make certain assumptions about how weight
 /// is mapped to fees. Enforced at compile time.
-type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
+pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 	// p
 	CENTS,
 	// q
