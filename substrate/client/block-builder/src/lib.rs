@@ -290,6 +290,8 @@ where
 		let version = self.version;
 
 		let start = std::time::Instant::now();
+		let proof_size = self.api.proof_recorder().map(|pr| pr.estimate_encoded_size());
+		tracing::debug!(target: "durations", "block_builder::push: before: proof_size:{:?}", proof_size);
 		let result = self.api.execute_in_transaction(|api| {
 			let res = if version < 6 {
 				#[allow(deprecated)]
@@ -310,7 +312,8 @@ where
 				Err(e) => TransactionOutcome::Rollback(Err(Error::from(e))),
 			}
 		});
-		tracing::debug!(target: "durations", "block_builder::push: duration: {:?} result: {:?}", start.elapsed(), result);
+		let proof_size = self.api.proof_recorder().map(|pr| pr.estimate_encoded_size());
+		tracing::debug!(target: "durations", "block_builder::push: duration: {:?} result: {:?} proof_size:{:?}", start.elapsed(), result, proof_size);
 		result
 	}
 
@@ -332,6 +335,8 @@ where
 			),
 		);
 
+		let proof_size = self.api.proof_recorder().map(|pr| pr.estimate_encoded_size());
+
 		let proof = self.api.extract_proof();
 
 		let state = self.call_api_at.state_at(self.parent_hash)?;
@@ -341,7 +346,7 @@ where
 			.into_storage_changes(&state, self.parent_hash)
 			.map_err(sp_blockchain::Error::StorageChanges)?;
 
-		tracing::debug!(target: "durations", "block_builder::build: duration: {:?}, finalized_duration:{finalized_duration:?}", start.elapsed());
+		tracing::debug!(target: "durations", "block_builder::build: duration: {:?}, finalized_duration:{finalized_duration:?}, proof_size:{proof_size:?}", start.elapsed());
 
 		Ok(BuiltBlock {
 			block: <Block as BlockT>::new(header, self.extrinsics),
