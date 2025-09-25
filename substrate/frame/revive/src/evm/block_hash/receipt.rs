@@ -38,7 +38,7 @@ pub const BLOOM_SIZE_BYTES: usize = 256;
 /// usage by only storing the RLP encoded value and the logs directly. This effectively saves
 /// the need to store the full receipt (which can grow unboundedly due to the number of logs), and
 /// builds the RLP encoding incrementally as logs are added.
-///BLOOM_SIZE_BYTES
+///
 /// The implementation leverages the RLP encoding details of the receipt:
 ///
 /// ```ignore
