@@ -22,6 +22,7 @@ use crate::{
 	StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::vec::Vec;
+ use alloc::collections::BTreeSet;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::{
@@ -405,6 +406,18 @@ where
 		}
 
 		Ok(self.total_deposit)
+	}
+
+	fn coalesce_and_refund_destroyed_contracts(&mut self, 
+		origin: &Origin<T>,
+		destroyed_contracts: BTreeSet<ContractInfo<T>>
+	) -> Result<(), DispatchError> {
+		// sort and coalesce charges
+		// remove the charge for each contract that is in destroyed_contracts
+		// execute refund of Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), contract) for each of those
+		// update self.total_deposit to reflect the change
+		// error out if any of the charges fail
+		Ok(())
 	}
 }
 
