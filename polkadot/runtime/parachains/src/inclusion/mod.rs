@@ -259,6 +259,14 @@ pub enum UmpQueueId {
 	Para(ParaId),
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl From<u32> for AggregateMessageOrigin {
+	fn from(n: u32) -> Self {
+		// Some dummy for the benchmarks.
+		Self::Ump(UmpQueueId::Para(n.into()))
+	}
+}
+
 impl From<ParaId> for AggregateMessageOrigin {
 	fn from(para_id: ParaId) -> Self {
 		Self::Ump(UmpQueueId::Para(para_id))
