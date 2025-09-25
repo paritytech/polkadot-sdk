@@ -306,8 +306,12 @@ impl IncrementalHashBuilder {
 	}
 
 	/// Check if we should load the first value from storage.
-	pub fn should_load_first_value(&self) -> bool {
-		self.index == 0x7f
+	pub fn should_load_first_value(&self, all_tx_processed: bool) -> bool {
+		if all_tx_processed {
+			self.index < 0x7f
+		} else {
+			self.index == 0x7f
+		}
 	}
 
 	/// Build the trie root hash.
@@ -495,13 +499,10 @@ const BLOOM_SIZE_BYTES: usize = 256;
 pub struct EthereumBlockBuilderIR {
 	transaction_root_builder: IncrementalHashBuilderIR,
 	receipts_root_builder: IncrementalHashBuilderIR,
-
 	gas_used: U256,
-	pub(crate) tx_hashes: Vec<H256>,
-
 	logs_bloom: [u8; BLOOM_SIZE_BYTES],
+	pub(crate) tx_hashes: Vec<H256>,
 	pub(crate) gas_info: Vec<ReceiptGasInfo>,
-	first_values_loaded: bool,
 }
 
 impl Default for EthereumBlockBuilderIR {
@@ -513,7 +514,6 @@ impl Default for EthereumBlockBuilderIR {
 			tx_hashes: Vec::new(),
 			logs_bloom: [0; BLOOM_SIZE_BYTES],
 			gas_info: Vec::new(),
-			first_values_loaded: false,
 		}
 	}
 }
@@ -557,7 +557,7 @@ impl Default for EthereumBlockBuilderIR {
 /// // Build the block.
 /// let (block, gas_info) = block_builder.build(...);
 /// ```
-pub struct EthereumBlockBuilder {
+pub struct EthereumBlockBuilder<T> {
 	pub(crate) transaction_root_builder: IncrementalHashBuilder,
 	pub(crate) receipts_root_builder: IncrementalHashBuilder,
 
@@ -566,10 +566,10 @@ pub struct EthereumBlockBuilder {
 
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
-	first_values_loaded: bool,
+	_phantom: core::marker::PhantomData<T>,
 }
 
-impl EthereumBlockBuilder {
+impl<T: crate::Config> EthereumBlockBuilder<T> {
 	/// Constructs a new [`EthereumBlockBuilder`].
 	pub fn new() -> Self {
 		Self {
@@ -579,7 +579,7 @@ impl EthereumBlockBuilder {
 			tx_hashes: Vec::new(),
 			logs_bloom: LogsBloom::new(),
 			gas_info: Vec::new(),
-			first_values_loaded: false,
+			_phantom: core::marker::PhantomData,
 		}
 	}
 
@@ -594,7 +594,6 @@ impl EthereumBlockBuilder {
 			tx_hashes: self.tx_hashes,
 			logs_bloom: self.logs_bloom.bloom,
 			gas_info: self.gas_info,
-			first_values_loaded: self.first_values_loaded,
 		}
 	}
 
@@ -609,41 +608,18 @@ impl EthereumBlockBuilder {
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
 			gas_info: ir.gas_info,
-			first_values_loaded: ir.first_values_loaded,
+			_phantom: core::marker::PhantomData,
 		}
 	}
 
-	/// Check if the first transaction and receipt should be loaded from storage.
-	///
-	/// This returns true if the index of the current value is 0x7f.
-	pub fn should_load_first_values(&self) -> bool {
-		self.transaction_root_builder.should_load_first_value() ||
-			self.receipts_root_builder.should_load_first_value()
+	/// Store the first transaction and receipt in pallet storage.
+	fn store_first_values(&mut self, values: (Vec<u8>, Vec<u8>)) {
+		crate::EthBlockBuilderFirstValues::<T>::put(Some(values));
 	}
 
-	/// Loads the first values from storage.
-	///
-	/// Loading the first value in required when:
-	///  - [`Self::should_load_first_values`] returns true.
-	///  - Before the [`Self::build`] method is called if and only the
-	///    [`Self::should_load_first_values`] has not returned true.
-	///
-	/// The loaded values are expected to be stored in the pallet storage and must
-	/// be identical to the first transaction and receipt. Therefore, this
-	/// method takes as input the return of [`Self::process_transaction`].
-	pub fn load_first_values(&mut self, values: Option<(Vec<u8>, Vec<u8>)>) {
-		if let Some((tx_encoded, receipt_encoded)) = values {
-			self.first_values_loaded = true;
-			self.transaction_root_builder.load_first_value(tx_encoded);
-			self.receipts_root_builder.load_first_value(receipt_encoded);
-		}
-	}
-
-	/// Check if the first values have been loaded.
-	///
-	/// Returns true after [`Self::load_first_values`] has been called.
-	pub fn first_values_loaded(&self) -> bool {
-		self.first_values_loaded
+	/// Load the first transaction and receipt from pallet storage.
+	fn load_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
+		crate::EthBlockBuilderFirstValues::<T>::take()
 	}
 
 	/// Process a single transaction at a time.
@@ -658,7 +634,7 @@ impl EthereumBlockBuilder {
 		gas_used: Weight,
 		encoded_logs: Vec<u8>,
 		receipt_bloom: LogsBloom,
-	) -> Option<(Vec<u8>, Vec<u8>)> {
+	) {
 		let tx_hash = H256(keccak_256(&transaction_encoded));
 		self.tx_hashes.push(tx_hash);
 
@@ -683,12 +659,19 @@ impl EthereumBlockBuilder {
 		// The first transaction and receipt are returned to be stored in the pallet storage.
 		// The index of the incremental hash builders already expects the next items.
 		if self.tx_hashes.len() == 1 {
-			Some((transaction_encoded, encoded_receipt))
-		} else {
-			self.transaction_root_builder.add_value(transaction_encoded);
-			self.receipts_root_builder.add_value(encoded_receipt);
-			None
+			self.store_first_values((transaction_encoded, encoded_receipt));
+			return;
 		}
+
+		if self.transaction_root_builder.should_load_first_value(false) {
+			if let Some((first_tx, first_receipt)) = self.load_first_values() {
+				self.transaction_root_builder.load_first_value(first_tx);
+				self.receipts_root_builder.load_first_value(first_receipt);
+			}
+		}
+
+		self.transaction_root_builder.add_value(transaction_encoded);
+		self.receipts_root_builder.add_value(encoded_receipt);
 	}
 
 	/// Build the ethereum block from provided data.
@@ -700,6 +683,13 @@ impl EthereumBlockBuilder {
 		block_author: H160,
 		gas_limit: U256,
 	) -> (Block, Vec<ReceiptGasInfo>) {
+		if self.transaction_root_builder.should_load_first_value(true) {
+			if let Some((first_tx, first_receipt)) = self.load_first_values() {
+				self.transaction_root_builder.load_first_value(first_tx);
+				self.receipts_root_builder.load_first_value(first_receipt);
+			}
+		}
+
 		let transactions_root = self.transaction_root_builder.finish();
 		let receipts_root = self.receipts_root_builder.finish();
 

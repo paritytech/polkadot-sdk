@@ -758,15 +758,7 @@ pub mod pallet {
 			EthBlockBuilderIR::<T>::kill();
 
 			// Load the first values if not already loaded.
-			let mut ethereum_block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
-
-			// Avoid a storage modification if the values are already loaded.
-			if !ethereum_block_builder.first_values_loaded() {
-				let maybe_first_values = EthBlockBuilderFirstValues::<T>::take();
-				ethereum_block_builder.load_first_values(maybe_first_values);
-			}
-
-			let (block, receipt_data) = ethereum_block_builder.build(
+			let (block, receipt_data) = EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build(
 				eth_block_num,
 				parent_hash,
 				T::Time::now().into(),
@@ -2051,26 +2043,15 @@ impl<T: Config> Pallet<T> {
 		let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 		let block_builder_ir = EthBlockBuilderIR::<T>::get();
-		let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
+		let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
 
-		// The first transaction and receipt are loaded if we are processing the
-		// transaction index 0x7f. This efficiently preserves the first values without
-		// serializing / deserializing them on every transaction.
-		if block_builder.should_load_first_values() {
-			let values = EthBlockBuilderFirstValues::<T>::take();
-			block_builder.load_first_values(values);
-		}
-
-		if let Some((tx, receipt)) = block_builder.process_transaction(
+		block_builder.process_transaction(
 			transaction_encoded,
 			success,
 			gas_used,
 			encoded_logs,
 			bloom,
-		) {
-			// Preserve the first values into storage.
-			EthBlockBuilderFirstValues::<T>::put(Some((tx, receipt)));
-		}
+		);
 
 		EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 	}
