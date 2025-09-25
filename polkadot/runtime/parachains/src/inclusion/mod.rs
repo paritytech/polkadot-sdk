@@ -273,18 +273,12 @@ impl From<ParaId> for AggregateMessageOrigin {
 	}
 }
 
-#[derive(Debug)]
-pub enum ConversionError {
-	NotAPara,
-}
-
 impl TryFrom<AggregateMessageOrigin> for ParaId {
-	type Error = ConversionError;
+	type Error = ();
 
 	fn try_from(value: AggregateMessageOrigin) -> Result<Self, Self::Error> {
 		match value {
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(id)) => Ok(id),
-			_ => Err(ConversionError::NotAPara),
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(id)) => Ok(id)
 		}
 	}
 }
