@@ -1875,14 +1875,6 @@ async fn run_inner<Context>(
 	let mut network_error_freq = gum::Freq::new();
 	let mut canceled_freq = gum::Freq::new();
 
-	gum::trace!(
-		target: LOG_TARGET,
-		?eviction_policy,
-		ah_invulnerables=?state.ah_invulnerables,
-		?hold_off_duration,
-		"starting up"
-	);
-
 	loop {
 		select! {
 			_ = reputation_delay => {
