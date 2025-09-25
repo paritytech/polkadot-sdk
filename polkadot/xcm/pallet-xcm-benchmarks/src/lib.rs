@@ -68,6 +68,31 @@ pub type AssetTransactorOf<T> = <<T as Config>::XcmConfig as XcmConfig>::AssetTr
 /// The call type of executor's config. Should eventually resolve to the same overarching call type.
 pub type XcmCallOf<T> = <<T as Config>::XcmConfig as XcmConfig>::RuntimeCall;
 
+/// The wrapper for executing XCMs in benchmarks, storing the execution outcome.
+pub struct ExecuteXcmOf<T: Config> {
+	_config: core::marker::PhantomData<T>,
+	origin: Location,
+	id: XcmHash,
+	outcome: Option<Outcome>,
+}
+
+impl<T: Config> ExecuteXcmOf<T> {
+	pub fn new(origin: impl Into<Location>, id: XcmHash) -> Self {
+		Self { _config: core::marker::PhantomData, origin: origin.into(), id, outcome: None }
+	}
+
+	pub fn execute(&mut self, xcm: Xcm<XcmCallOf<T>>) -> Result<(), BenchmarkError> {
+		let message = ExecutorOf::<T>::prepare(xcm, Weight::MAX).unwrap();
+		self.outcome =
+			Some(ExecutorOf::<T>::execute(self.origin.clone(), message, &mut self.id, Weight::MAX));
+		Ok(())
+	}
+
+	pub fn outcome(&self) -> &Option<Outcome> {
+		&self.outcome
+	}
+}
+
 pub fn generate_holding_assets(max_assets: u32) -> Assets {
 	let fungibles_amount: u128 = 100;
 	let holding_fungibles = max_assets / 2;
@@ -97,12 +122,6 @@ pub fn asset_instance_from(x: u32) -> AssetInstance {
 	let mut instance = [0u8; 4];
 	instance.copy_from_slice(&bytes);
 	AssetInstance::Array4(instance)
-}
-
-pub fn execute_xcm<T: Config>(xcm: Xcm<<T::XcmConfig as XcmConfig>::RuntimeCall>) -> Outcome {
-	let mut hash = [0; 32];
-	let message = ExecutorOf::<T>::prepare(xcm, Weight::MAX).unwrap();
-	ExecutorOf::<T>::execute(Location::default(), message, &mut hash, Weight::MAX)
 }
 
 pub fn new_executor<T: Config>(origin: Location) -> ExecutorOf<T> {

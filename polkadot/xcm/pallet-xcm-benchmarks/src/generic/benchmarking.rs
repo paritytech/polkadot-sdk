@@ -16,7 +16,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{account_and_location, execute_xcm, new_executor, EnsureDelivery, XcmCallOf};
+use crate::{account_and_location, new_executor, EnsureDelivery, ExecuteXcmOf, XcmCallOf};
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use frame_benchmarking::v2::*;
@@ -966,16 +966,17 @@ mod benchmarks {
 		use xcm::latest::{prelude::Outcome, Error::Barrier};
 
 		let xcm = T::worst_case_for_not_passing_barrier().map_err(|_| BenchmarkError::Skip)?;
-		let mut outcome: Option<Outcome> = None;
+		let mut executor = ExecuteXcmOf::<T>::new(Location::default(), XcmHash::default());
 
 		#[block]
 		{
-			outcome = Some(execute_xcm::<T>(xcm.into()));
+			let _ = executor.execute(xcm.into());
 		}
 
-		let err = outcome.expect("Error should exist after barrier rejection");
+		let outcome =
+			executor.outcome().clone().expect("Error should exist after barrier rejection");
 		assert!(matches!(
-			err,
+			outcome,
 			Outcome::Incomplete { used: _, error: InstructionError { index: 0, error: Barrier } }
 		));
 		Ok(())
