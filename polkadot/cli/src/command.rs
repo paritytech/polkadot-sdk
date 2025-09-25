@@ -19,7 +19,7 @@ use frame_benchmarking_cli::{
 	BenchmarkCmd, ExtrinsicFactory, SubstrateRemarkBuilder, SUBSTRATE_REFERENCE_HARDWARE,
 };
 use futures::future::TryFutureExt;
-use log::info;
+use log::{info, warn};
 use polkadot_service::{
 	self,
 	benchmarking::{benchmark_inherent_data, TransferKeepAliveBuilder},
@@ -80,7 +80,7 @@ fn get_invulnerable_ah_collators(
 				invuln_str
 					.parse::<PeerId>()
 					.map_err(|e| {
-						info!("Failed to parse AssetHub invulnerable peer from the default list. This should never happen. {:?}", e)
+						warn!("Failed to parse AssetHub invulnerable peer from the default list. This should never happen. {:?}", e)
 					})
 					.ok()
 			})
