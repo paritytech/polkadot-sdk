@@ -139,7 +139,7 @@ pub struct Options {
 	max_total_size: usize,
 	/// Number of seconds for which removed statements won't be allowed to be added back in.
 	purge_after_sec: u64,
-	/// TODO
+	/// Number of seconds after which statements are removed from the store.
 	statement_lapse_sec: u64,
 }
 
@@ -482,7 +482,6 @@ impl Index {
 				would_free_size += len;
 			}
 		}
-
 		// Now check global constraints as well.
 		if !((self.total_size - would_free_size + statement_len <= self.options.max_total_size) &&
 			self.entries.len() + 1 - evicted.len() <= self.options.max_total_statements)
@@ -569,48 +568,44 @@ impl Store {
 		let statement_col = &mut config.columns[col::STATEMENTS as usize];
 		statement_col.ref_counted = false;
 		statement_col.uniform = true;
+		let db = parity_db::Db::open_or_create(&config).map_err(|e| Error::Db(e.to_string()))?;
+		let version = db
+			.get(col::META, &KEY_VERSION)
+			.map_err(|e| Error::Db(e.to_string()))
+			.and_then(|v| {
+				v.map(|v| {
+					<[u8; 4]>::try_from(v)
+						.map(|v| u32::from_le_bytes(v))
+						.map_err(|_| Error::Db("Error reading database version".into()))
+				})
+				.transpose()
+			})?;
+		match version {
+			None => {
+				db.commit([(
+					col::META,
+					KEY_VERSION.to_vec(),
+					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
+				)])
+				.map_err(|e| Error::Db(e.to_string()))?;
+			},
+			Some(CURRENT_VERSION) => (),
+			Some(version) =>
+				return Err(Error::Db(format!("Unsupported database version: {version}"))),
+		}
 
 		let validator = ClientWrapper { client, _block: Default::default() };
 		let validate_fn = Box::new(move |block, source, statement| {
 			validator.validate_statement(block, source, statement)
 		});
 		let store = Store {
-			db: parity_db::Db::open_or_create(&config).map_err(|e| Error::Db(e.to_string()))?,
+			db,
 			index: RwLock::new(Index::new(options)),
 			validate_fn,
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 		};
-
-		let version = store
-			.db
-			.get(col::META, &KEY_VERSION)
-			.map_err(|e| Error::Db(e.to_string()))
-			.and_then(|v| {
-			v.map(|v| {
-				<[u8; 4]>::try_from(v)
-					.map(|v| u32::from_le_bytes(v))
-					.map_err(|_| Error::Db("Error reading database version".into()))
-			})
-			.transpose()
-		})?;
-
-		match version {
-			None => {
-				store
-					.db
-					.commit([(
-						col::META,
-						KEY_VERSION.to_vec(),
-						Some(CURRENT_VERSION.to_le_bytes().to_vec()),
-					)])
-					.map_err(|e| Error::Db(e.to_string()))?;
-			},
-			Some(CURRENT_VERSION) => (),
-			Some(version) =>
-				return Err(Error::Db(format!("Unsupported database version: {version}"))),
-		}
 
 		store.populate()?;
 		Ok(store)
