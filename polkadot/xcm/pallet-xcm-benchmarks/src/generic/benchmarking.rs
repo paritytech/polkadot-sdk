@@ -970,14 +970,15 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = executor.execute(xcm.into());
+			executor.execute(xcm.into())?;
 		}
 
-		let outcome =
-			executor.outcome().clone().expect("Error should exist after barrier rejection");
 		assert!(matches!(
-			outcome,
-			Outcome::Incomplete { used: _, error: InstructionError { index: 0, error: Barrier } }
+			executor.outcome(),
+			Some(Outcome::Incomplete {
+				used: _,
+				error: InstructionError { index: 0, error: XcmError::Barrier }
+			})
 		));
 		Ok(())
 	}
