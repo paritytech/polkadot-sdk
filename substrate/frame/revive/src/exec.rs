@@ -1560,8 +1560,13 @@ where
 			match storage_meter
 				.record_charge(&StorageDeposit::Charge(ed))
 				.and_then(|_| {
-					<Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config)
-						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+					if !exec_config.unsafe_skip_transfers {
+						<Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config)
+							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+					} else {
+						T::Currency::set_balance(to, ed);
+					}
+					Ok(())
 				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value))
 			{
