@@ -759,8 +759,12 @@ pub mod pallet {
 
 			// Load the first values if not already loaded.
 			let mut ethereum_block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
-			let maybe_first_values = EthBlockBuilderFirstValues::<T>::take();
-			ethereum_block_builder.load_first_values(maybe_first_values);
+
+			// Avoid a storage modification if the values are already loaded.
+			if !ethereum_block_builder.first_values_loaded() {
+				let maybe_first_values = EthBlockBuilderFirstValues::<T>::take();
+				ethereum_block_builder.load_first_values(maybe_first_values);
+			}
 
 			let (block, receipt_data) = ethereum_block_builder.build(
 				eth_block_num,

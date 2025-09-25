@@ -501,6 +501,7 @@ pub struct EthereumBlockBuilderIR {
 
 	logs_bloom: [u8; BLOOM_SIZE_BYTES],
 	pub(crate) gas_info: Vec<ReceiptGasInfo>,
+	first_values_loaded: bool,
 }
 
 impl Default for EthereumBlockBuilderIR {
@@ -512,6 +513,7 @@ impl Default for EthereumBlockBuilderIR {
 			tx_hashes: Vec::new(),
 			logs_bloom: [0; BLOOM_SIZE_BYTES],
 			gas_info: Vec::new(),
+			first_values_loaded: false,
 		}
 	}
 }
@@ -564,6 +566,7 @@ pub struct EthereumBlockBuilder {
 
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
+	first_values_loaded: bool,
 }
 
 impl EthereumBlockBuilder {
@@ -576,6 +579,7 @@ impl EthereumBlockBuilder {
 			tx_hashes: Vec::new(),
 			logs_bloom: LogsBloom::new(),
 			gas_info: Vec::new(),
+			first_values_loaded: false,
 		}
 	}
 
@@ -590,6 +594,7 @@ impl EthereumBlockBuilder {
 			tx_hashes: self.tx_hashes,
 			logs_bloom: self.logs_bloom.bloom,
 			gas_info: self.gas_info,
+			first_values_loaded: self.first_values_loaded,
 		}
 	}
 
@@ -604,6 +609,7 @@ impl EthereumBlockBuilder {
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
 			gas_info: ir.gas_info,
+			first_values_loaded: ir.first_values_loaded,
 		}
 	}
 
@@ -627,9 +633,17 @@ impl EthereumBlockBuilder {
 	/// method takes as input the return of [`Self::process_transaction`].
 	pub fn load_first_values(&mut self, values: Option<(Vec<u8>, Vec<u8>)>) {
 		if let Some((tx_encoded, receipt_encoded)) = values {
+			self.first_values_loaded = true;
 			self.transaction_root_builder.load_first_value(tx_encoded);
 			self.receipts_root_builder.load_first_value(receipt_encoded);
 		}
+	}
+
+	/// Check if the first values have been loaded.
+	///
+	/// Returns true after [`Self::load_first_values`] has been called.
+	pub fn first_values_loaded(&self) -> bool {
+		self.first_values_loaded
 	}
 
 	/// Process a single transaction at a time.
