@@ -39,48 +39,11 @@ use sp_core::{keccak_256, H160, H256, U256};
 ///
 /// This builder is optimized to minimize memory usage and pallet storage by leveraging the internal
 /// structure of the Ethereum trie and the RLP encoding of receipts.
-///
-/// The builder relies on the pallet storage to store the first transaction and receipt. This
-/// ensures we are reading and writing a minimal amount of data to the pallet storage. For example,
-/// if the block has less than 127 transactions, for each transaction we would have otherwise
-/// serialized and deserialized the first transaction bytes.
-///
-/// # Example
-///
-/// ```ignore
-/// // Get the intermediate representation from pallet storage.
-/// let ir = EthBlockBuilderIR::<T>::get();
-/// // Convert from the serialized from into the builder object.
-/// let mut block_builder = EthereumBlockBuilder::from_ir(ir);
-///
-/// for tx in transactions {
-/// 	// Ensure the first transaction is loaded.
-/// 	if block_builder.should_load_first_values() {
-/// 		let values = EthBlockBuilderFirstValues::<T>::take();
-/// 		block_builder.load_first_values(values);
-/// 	}
-///
-/// 	// Process the transaction.
-/// 	if let Some(first_values) = block_builder.process_transaction(..) {
-/// 		// Store the first transaction and receipt in pallet storage.
-/// 		EthBlockBuilderFirstValues::<T>::put(first_values);
-/// 	}
-/// }
-///
-/// // Either the value was previously consumed, or the block has less than 127 transactions.
-/// let values = EthBlockBuilderFirstValues::<T>::take();
-/// block_builder.load_first_values(values);
-///
-/// // Build the block.
-/// let (block, gas_info) = block_builder.build(...);
-/// ```
 pub struct EthereumBlockBuilder<T> {
 	pub(crate) transaction_root_builder: IncrementalHashBuilder,
 	pub(crate) receipts_root_builder: IncrementalHashBuilder,
-
-	gas_used: U256,
 	pub(crate) tx_hashes: Vec<H256>,
-
+	gas_used: U256,
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
 	_phantom: core::marker::PhantomData<T>,
@@ -140,10 +103,6 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 	}
 
 	/// Process a single transaction at a time.
-	///
-	/// Returns the first transaction and receipt to be stored in the pallet storage until
-	/// either the [`Self::should_load_first_values`] returns true or the [`Self::build`] method
-	/// is called.
 	pub fn process_transaction(
 		&mut self,
 		transaction_encoded: Vec<u8>,
