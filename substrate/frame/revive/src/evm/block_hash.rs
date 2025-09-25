@@ -163,7 +163,7 @@ pub struct IncrementalHashBuilder {
 /// The intermediate representation of the [`IncrementalHashBuilder`] that can be placed into the
 /// pallets storage. This contains the minimum amount of data that is needed to serialize
 /// and deserialize the incremental hash builder.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, Debug, Default)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct IncrementalHashBuilderIR {
 	/// The nibbles of the builder.
 	pub key: Vec<u8>,
@@ -187,6 +187,25 @@ pub struct IncrementalHashBuilderIR {
 	pub rlp_buf: Vec<u8>,
 	/// The index of the current value.
 	pub index: u64,
+}
+
+impl Default for IncrementalHashBuilderIR {
+	fn default() -> Self {
+		Self {
+			// First deserialization time from the pallet storage, is expected
+			// to contain index 1.
+			index: 1,
+			key: Vec::new(),
+			value_type: 0,
+			builder_value: Vec::new(),
+			stack: Vec::new(),
+			state_masks: Vec::new(),
+			tree_masks: Vec::new(),
+			hash_masks: Vec::new(),
+			stored_in_database: false,
+			rlp_buf: Vec::new(),
+		}
+	}
 }
 
 impl IncrementalHashBuilder {

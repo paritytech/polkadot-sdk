@@ -21,8 +21,8 @@ use crate::{
 	evm::{Block, TransactionSigned},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderIR, EthereumBlock,
-	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData,
+	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
+	EthereumBlock, EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
@@ -86,7 +86,11 @@ fn transactions_are_captured() {
 
 		// Double check the trie root hash.
 		let mut builder = EthereumBlockBuilder::from_ir(block_builder);
-		builder.transaction_root_builder.load_first_value(expected_payloads[0].clone());
+
+		let maybe_first_values = EthBlockBuilderFirstValues::<Test>::take();
+		if let Some(values) = maybe_first_values {
+			builder.load_first_values(Some(values));
+		}
 		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
