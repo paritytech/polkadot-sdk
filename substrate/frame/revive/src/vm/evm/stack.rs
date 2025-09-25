@@ -57,7 +57,6 @@ impl Stack {
 	}
 
 	/// Push a value onto the stack
-	/// Returns Continue(()) if successful, Break(Halt::StackOverflow) if stack would overflow
 	pub fn push(&mut self, value: impl ToU256) -> ControlFlow<Halt> {
 		if self.0.len() >= 1024 {
 			ControlFlow::Break(Halt::StackOverflow)
@@ -85,8 +84,6 @@ impl Stack {
 	}
 
 	/// Pop multiple values from the stack
-	/// Returns Continue(array) if successful, Break(Halt::StackUnderflow) if not enough values on
-	/// stack
 	pub fn popn<const N: usize>(&mut self) -> ControlFlow<Halt, [U256; N]> {
 		if self.0.len() < N {
 			return ControlFlow::Break(Halt::StackUnderflow);
@@ -125,7 +122,6 @@ impl Stack {
 	}
 
 	/// Duplicate the Nth item from the top and push it onto the stack
-	/// Returns Continue(()) if successful, Break(Halt) if stack would overflow or index is invalid
 	pub fn dup(&mut self, n: usize) -> ControlFlow<Halt> {
 		if n == 0 || n > self.0.len() {
 			return ControlFlow::Break(Halt::StackUnderflow);
@@ -141,7 +137,6 @@ impl Stack {
 	}
 
 	/// Swap the top stack item with the Nth item from the top
-	/// Returns Continue(()) if successful, Break(Halt::StackUnderflow) if indices are invalid
 	pub fn exchange(&mut self, i: usize, j: usize) -> ControlFlow<Halt> {
 		let len = self.0.len();
 		if i >= len || j >= len {
