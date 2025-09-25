@@ -293,10 +293,12 @@ where
 	verify_proof::<L, _, _, _>(root, proof, items)
 }
 
-/// Removes keys from a trie based on the provided delta, recording the nodes for proof size calculation.
+/// Removes keys from a trie based on the provided delta, recording the nodes for proof size
+/// calculation.
 ///
-/// This function replicates the trie operations that would occur for the given delta, removing specified trie nodes.
-/// It is intended for calculating proof size without altering the actual trie storage apart from removals.
+/// This function replicates the trie operations that would occur for the given delta, removing
+/// specified trie nodes. It is intended for calculating proof size without altering the actual trie
+/// storage apart from removals.
 pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB>(
 	db: &mut DB,
 	mut root: TrieHash<L>,
@@ -330,12 +332,14 @@ where
 	Ok(())
 }
 
-/// Executes a trie node accesses based on the provided delta, recording the nodes for proof size calculation.
+/// Executes a trie node accesses based on the provided delta, recording the nodes for proof size
+/// calculation.
 ///
-/// This function replicats the trie operations that would occur for the given delta, recording trie nodes accessed.
-/// It is intended for calculating proof size without altering the actual trie storage.
+/// This function replicats the trie operations that would occur for the given delta, recording trie
+/// nodes accessed. It is intended for calculating proof size without altering the actual trie
+/// storage.
 pub fn read_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB>(
-	db: &mut DB,
+	db: &DB,
 	root: TrieHash<L>,
 	delta: I,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
@@ -344,7 +348,7 @@ pub fn read_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB>(
 where
 	I: IntoIterator<Item = (A, B)>,
 	A: Borrow<[u8]>,
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
 	let mut read = 0;
 	{
@@ -495,6 +499,50 @@ where
 
 	let mut db = KeySpacedDBMut::new(db, keyspace);
 	delta_trie_root::<L, _, _, _, _, _>(&mut db, root, delta, recorder, cache)
+}
+
+pub fn child_remove_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB, RD>(
+	keyspace: &[u8],
+	db: &mut DB,
+	root_data: RD,
+	delta: I,
+	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<(), Box<TrieError<L>>>
+where
+	I: IntoIterator<Item = (A, B)>,
+	A: Borrow<[u8]>,
+	RD: AsRef<[u8]>,
+	DB: hash_db::HashDB<L::Hash, trie_db::DBValue>,
+{
+	let mut root = TrieHash::<L>::default();
+	// root is fetched from DB, not writable by runtime, so it's always valid.
+	root.as_mut().copy_from_slice(root_data.as_ref());
+
+	let mut db = KeySpacedDBMut::new(db, keyspace);
+	remove_trie_keys_from_delta::<L, _, _, _, _>(&mut db, root, delta, recorder, cache)
+}
+
+pub fn child_read_trie_keys_from_delta<L: TrieConfiguration, I, A, B, DB, RD>(
+	keyspace: &[u8],
+	db: &DB,
+	root_data: RD,
+	delta: I,
+	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<(), Box<TrieError<L>>>
+where
+	I: IntoIterator<Item = (A, B)>,
+	A: Borrow<[u8]>,
+	RD: AsRef<[u8]>,
+	DB: hash_db::HashDB<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let mut root = TrieHash::<L>::default();
+	// root is fetched from DB, not writable by runtime, so it's always valid.
+	root.as_mut().copy_from_slice(root_data.as_ref());
+
+	let db = KeySpacedDB::new(db, keyspace);
+	read_trie_keys_from_delta::<L, _, _, _, _>(&db, root, delta, recorder, cache)
 }
 
 /// Read a value from the child trie.

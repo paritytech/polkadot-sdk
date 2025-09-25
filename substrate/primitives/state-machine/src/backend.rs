@@ -363,22 +363,23 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	) where
 		H::Out: Ord + Encode,
 	{
-		// let mut child_roots: Vec<_> = Default::default();
+		let mut child_roots: Vec<_> = Default::default();
 		// child first
 		for (child_info, child_delta) in child_deltas {
 			self.trigger_child_storage_root_size_estimation(child_info, child_delta, state_version);
 			//todo: do we need to include potential child storage root changes?
 			//how do we know empy?
-			// let prefixed_storage_key = child_info.prefixed_storage_key();
+			let prefixed_storage_key = child_info.prefixed_storage_key();
 			// if empty {
-			// 	child_roots.push((prefixed_storage_key.into_inner(), None));
+			child_roots.push((prefixed_storage_key.into_inner(), None::<&[u8]>));
 			// } else {
 			// 	child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
 			// }
 		}
 		self.trigger_storage_root_size_estimation(
-			delta.map(|(k, v)| (k, v.as_ref().map(|v| &v[..]))),
-			// .chain(child_roots.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..])))),
+			delta
+				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
+				.chain(child_roots.iter().map(|(k, v)| (&k[..], None::<&[u8]>))),
 			state_version,
 		);
 	}

@@ -548,8 +548,7 @@ where
 	) where
 		H::Out: Ord,
 	{
-		// self.essence.child_storage_root(child_info, delta, state_version, xxx)
-		todo!()
+		self.essence.trigger_child_storage_root_size_estimation(child_info, delta, state_version)
 	}
 
 	fn register_overlay_stats(&self, _stats: &crate::stats::StateMachineStats) {}
