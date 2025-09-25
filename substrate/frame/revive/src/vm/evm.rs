@@ -31,7 +31,7 @@ pub mod instructions;
 mod instructions;
 
 mod interpreter;
-pub use interpreter::{Halt, Interpreter};
+pub use interpreter::{Halt, HaltReason, Interpreter};
 
 mod ext_bytecode;
 use ext_bytecode::ExtBytecode;

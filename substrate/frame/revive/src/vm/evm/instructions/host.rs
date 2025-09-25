@@ -1,3 +1,4 @@
+use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -121,7 +122,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
-			return ControlFlow::Break(Halt::FatalExternalError);
+			return ControlFlow::Break(HaltReason::FatalExternalError.into());
 		};
 		U256::from_big_endian(&bytes)
 	} else {
@@ -150,7 +151,7 @@ fn store_helper<'ext, E: Ext>(
 	let Ok(write_outcome) =
 		set_function(interpreter.ext, &key, Some(value.to_big_endian().to_vec()), take_old)
 	else {
-		return ControlFlow::Break(Halt::FatalExternalError);
+		return ControlFlow::Break(HaltReason::FatalExternalError.into());
 	};
 
 	interpreter
@@ -199,11 +200,11 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
 			// tload always reads a word
-			return ControlFlow::Break(Halt::FatalExternalError);
+			return ControlFlow::Break(HaltReason::FatalExternalError.into());
 		}
 
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
-			return ControlFlow::Break(Halt::FatalExternalError);
+			return ControlFlow::Break(HaltReason::FatalExternalError.into());
 		};
 		U256::from_big_endian(&bytes)
 	} else {
@@ -226,7 +227,7 @@ pub fn log<'ext, const N: usize, E: Ext>(
 	let [offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt(len)?;
 	if len as u32 > interpreter.ext.max_value_size() {
-		return ControlFlow::Break(Halt::InvalidOperandOOG);
+		return ControlFlow::Break(HaltReason::InvalidOperandOOG.into());
 	}
 
 	interpreter
@@ -241,7 +242,7 @@ pub fn log<'ext, const N: usize, E: Ext>(
 		interpreter.memory.slice(offset..offset + len).to_vec()
 	};
 	if interpreter.stack.len() < N {
-		return ControlFlow::Break(Halt::StackUnderflow);
+		return ControlFlow::Break(HaltReason::StackUnderflow.into());
 	}
 	let topics = interpreter.stack.popn::<N>()?;
 	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
@@ -255,5 +256,5 @@ pub fn log<'ext, const N: usize, E: Ext>(
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	// TODO: for now this instruction is not supported
-	ControlFlow::Break(Halt::NotActivated)
+	ControlFlow::Break(HaltReason::NotActivated.into())
 }

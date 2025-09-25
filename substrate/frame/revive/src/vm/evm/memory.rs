@@ -17,7 +17,7 @@
 
 //! Custom EVM memory implementation using standard Vec<u8>
 
-use crate::vm::evm::Halt;
+use crate::vm::evm::{Halt, HaltReason};
 use alloc::vec::Vec;
 use core::ops::{ControlFlow, Range};
 
@@ -60,7 +60,7 @@ impl Memory {
 		let target_len = revm::interpreter::num_words(offset.saturating_add(len)) * 32;
 		if target_len as u32 > crate::limits::code::BASELINE_MEMORY_LIMIT {
 			log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={offset} target_len={target_len} current_len={current_len}");
-			return ControlFlow::Break(Halt::MemoryOOG);
+			return ControlFlow::Break(HaltReason::MemoryOOG.into());
 		}
 
 		if target_len > current_len {

@@ -480,6 +480,8 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
+		/// EVM execution halted with the given reason.
+		Halt(crate::vm::evm::HaltReason) = 0x32,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.

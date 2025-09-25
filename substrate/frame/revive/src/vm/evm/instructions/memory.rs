@@ -1,3 +1,4 @@
+use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -79,7 +80,7 @@ pub fn mcopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let len = as_usize_or_halt(len)?;
 	// Deduce gas
 	let Some(gas_cost) = copy_cost_verylow(len) else {
-		return ControlFlow::Break(Halt::OutOfGas);
+		return ControlFlow::Break(HaltReason::OutOfGas.into());
 	};
 	interpreter.ext.charge_or_halt(EVMGas(gas_cost))?;
 	if len == 0 {

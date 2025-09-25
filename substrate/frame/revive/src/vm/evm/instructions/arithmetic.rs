@@ -1,3 +1,4 @@
+use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -120,7 +121,7 @@ pub fn mulmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 pub fn exp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	let Some(gas_cost) = exp_cost(*op2) else {
-		return ControlFlow::Break(Halt::OutOfGas);
+		return ControlFlow::Break(HaltReason::OutOfGas.into());
 	};
 	interpreter.ext.charge_or_halt(EVMGas(gas_cost))?;
 	*op2 = op1.pow(*op2);

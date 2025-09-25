@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! EVM opcode implementations.
+/// EVM opcode implementations.
 
 use super::interpreter::Interpreter;
 use crate::vm::{evm::Halt, Ext};

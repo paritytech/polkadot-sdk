@@ -19,6 +19,7 @@ use crate::{
 	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, ExtBuilder, Test},
+	vm::evm::HaltReason,
 	Code, Config, Error, ExecReturnValue, LOG_TARGET, U256,
 };
 use alloy_core::{
@@ -54,7 +55,7 @@ fn memory_limit_works() {
 				Memory::expandMemoryCall {
 					memorySize: primitives::U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
 				},
-				Err(<Error<Test>>::OutOfGas.into()),
+				Err(<Error<Test>>::Halt(HaltReason::MemoryOOG).into()),
 			),
 		];
 

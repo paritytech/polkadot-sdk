@@ -17,7 +17,7 @@
 
 //! Custom EVM stack implementation using sp_core::U256
 
-use crate::vm::evm::interpreter::Halt;
+use crate::vm::evm::{interpreter::Halt, HaltReason};
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use sp_core::{H160, H256, U256};
@@ -59,7 +59,7 @@ impl Stack {
 	/// Push a value onto the stack
 	pub fn push(&mut self, value: impl ToU256) -> ControlFlow<Halt> {
 		if self.0.len() >= 1024 {
-			ControlFlow::Break(Halt::StackOverflow)
+			ControlFlow::Break(HaltReason::StackOverflow.into())
 		} else {
 			self.0.push(value.to_u256());
 			ControlFlow::Continue(())
@@ -86,14 +86,14 @@ impl Stack {
 	/// Pop multiple values from the stack
 	pub fn popn<const N: usize>(&mut self) -> ControlFlow<Halt, [U256; N]> {
 		if self.0.len() < N {
-			return ControlFlow::Break(Halt::StackUnderflow);
+			return ControlFlow::Break(HaltReason::StackUnderflow.into());
 		}
 
 		let mut result: [U256; N] = [U256::zero(); N];
 		for i in 0..N {
 			match self.0.pop() {
 				Some(value) => result[i] = value,
-				None => return ControlFlow::Break(Halt::StackUnderflow),
+				None => return ControlFlow::Break(HaltReason::StackUnderflow.into()),
 			}
 		}
 		ControlFlow::Continue(result)
@@ -103,31 +103,31 @@ impl Stack {
 	/// This is used for operations that pop some values and modify the top of the stack
 	pub fn popn_top<const N: usize>(&mut self) -> ControlFlow<Halt, ([U256; N], &mut U256)> {
 		if self.0.len() < N + 1 {
-			return ControlFlow::Break(Halt::StackUnderflow);
+			return ControlFlow::Break(HaltReason::StackUnderflow.into());
 		}
 
 		let mut popped: [U256; N] = [U256::zero(); N];
 		for i in 0..N {
 			match self.0.pop() {
 				Some(value) => popped[i] = value,
-				None => return ControlFlow::Break(Halt::StackUnderflow),
+				None => return ControlFlow::Break(HaltReason::StackUnderflow.into()),
 			}
 		}
 
 		// Get mutable reference to the new top
 		match self.0.last_mut() {
 			Some(top) => ControlFlow::Continue((popped, top)),
-			None => ControlFlow::Break(Halt::StackUnderflow),
+			None => ControlFlow::Break(HaltReason::StackUnderflow.into()),
 		}
 	}
 
 	/// Duplicate the Nth item from the top and push it onto the stack
 	pub fn dup(&mut self, n: usize) -> ControlFlow<Halt> {
 		if n == 0 || n > self.0.len() {
-			return ControlFlow::Break(Halt::StackUnderflow);
+			return ControlFlow::Break(HaltReason::StackUnderflow.into());
 		}
 		if self.0.len() >= 1024 {
-			return ControlFlow::Break(Halt::StackOverflow);
+			return ControlFlow::Break(HaltReason::StackOverflow.into());
 		}
 
 		let idx = self.0.len() - n;
@@ -140,7 +140,7 @@ impl Stack {
 	pub fn exchange(&mut self, i: usize, j: usize) -> ControlFlow<Halt> {
 		let len = self.0.len();
 		if i >= len || j >= len {
-			return ControlFlow::Break(Halt::StackUnderflow);
+			return ControlFlow::Break(HaltReason::StackUnderflow.into());
 		}
 
 		let i_idx = len - 1 - i;
@@ -171,7 +171,7 @@ mod tests {
 		// Test pop
 		assert_eq!(stack.popn::<1>(), ControlFlow::Continue([U256::from(42)]));
 		assert_eq!(stack.len(), 0);
-		assert_eq!(stack.popn::<1>(), ControlFlow::Break(Halt::StackUnderflow));
+		assert_eq!(stack.popn::<1>(), ControlFlow::Break(HaltReason::StackUnderflow.into()));
 	}
 
 	#[test]
@@ -190,7 +190,7 @@ mod tests {
 
 		// Try to pop more than available
 		let result: ControlFlow<_, [U256; 2]> = stack.popn();
-		assert_eq!(result, ControlFlow::Break(Halt::StackUnderflow));
+		assert_eq!(result, ControlFlow::Break(HaltReason::StackUnderflow.into()));
 	}
 
 	#[test]
@@ -256,7 +256,7 @@ mod tests {
 		}
 
 		// Should fail to push one more
-		assert_eq!(stack.push(U256::from(9999)), ControlFlow::Break(Halt::StackOverflow));
+		assert_eq!(stack.push(U256::from(9999)), ControlFlow::Break(HaltReason::StackOverflow.into()));
 		assert_eq!(stack.len(), 1024);
 	}
 

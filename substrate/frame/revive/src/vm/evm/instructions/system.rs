@@ -1,3 +1,4 @@
+use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -75,7 +76,7 @@ pub fn caller<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 			let address = <E::T as Config>::AddressMapper::to_address(account_id);
 			interpreter.stack.push(address)
 		},
-		Err(_) => ControlFlow::Break(Halt::FatalExternalError),
+		Err(_) => ControlFlow::Break(HaltReason::FatalExternalError.into()),
 	}
 }
 
@@ -176,7 +177,7 @@ pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<H
 	// Old legacy behavior is to panic if data_end is out of scope of return buffer.
 	let data_end = data_offset.saturating_add(len);
 	if data_end > interpreter.ext.last_frame_output().data.len() {
-		return ControlFlow::Break(Halt::OutOfOffset);
+		return ControlFlow::Break(HaltReason::OutOfOffset.into());
 	}
 
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {

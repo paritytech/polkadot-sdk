@@ -1,3 +1,4 @@
+use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -17,7 +18,11 @@
 
 use crate::{
 	vm::{
-		evm::{interpreter::Halt, util::{as_usize_or_halt, as_usize_or_halt_with}, EVMGas, Interpreter},
+		evm::{
+			interpreter::Halt,
+			util::{as_usize_or_halt, as_usize_or_halt_with},
+			EVMGas, Interpreter,
+		},
 		Ext,
 	},
 	U256,
@@ -56,10 +61,10 @@ pub fn jumpi<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Validates jump target and performs the actual jump.
 fn jump_inner<E: Ext>(interpreter: &mut Interpreter<E>, target: U256) -> ControlFlow<Halt> {
-	let target = as_usize_or_halt_with(target, || Halt::InvalidJump)?;
+	let target = as_usize_or_halt_with(target, || HaltReason::InvalidJump.into())?;
 
 	if !interpreter.bytecode.is_valid_legacy_jump(target) {
-		return ControlFlow::Break(Halt::InvalidJump);
+		return ControlFlow::Break(HaltReason::InvalidJump.into());
 	}
 	// SAFETY: `is_valid_jump` ensures that `dest` is in bounds.
 	interpreter.bytecode.absolute_jump(target);
@@ -127,10 +132,10 @@ pub fn stop<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Invalid opcode. This opcode halts the execution.
 pub fn invalid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().consume_all();
-	ControlFlow::Break(Halt::InvalidFEOpcode)
+	ControlFlow::Break(HaltReason::InvalidFEOpcode.into())
 }
 
 /// Unknown opcode. This opcode halts the execution.
 pub fn unknown<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(Halt::OpcodeNotFound)
+	ControlFlow::Break(HaltReason::OpcodeNotFound.into())
 }

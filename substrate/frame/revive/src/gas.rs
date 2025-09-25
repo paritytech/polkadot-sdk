@@ -1,3 +1,4 @@
+use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -224,7 +225,7 @@ impl<T: Config> GasMeter<T> {
 		token: Tok,
 	) -> ControlFlow<Halt, ChargedAmount> {
 		self.charge(token)
-			.map_or_else(|_| ControlFlow::Break(Halt::OutOfGas), ControlFlow::Continue)
+			.map_or_else(|_| ControlFlow::Break(HaltReason::OutOfGas.into()), ControlFlow::Continue)
 	}
 
 	/// Adjust a previously charged amount down to its actual amount.

@@ -1,78 +1,103 @@
 //! Custom EVM interpreter implementation using sp_core types
 
 use super::ExtBytecode;
-use crate::vm::{
-	evm::{memory::Memory, stack::Stack},
-	ExecResult, Ext,
+use crate::{
+	primitives::ExecReturnValue,
+	vm::{
+		evm::{memory::Memory, stack::Stack},
+		ExecResult, Ext,
+	},
+	Error, ExecError,
 };
 use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use core::ops::ControlFlow;
+use pallet_revive_uapi::ReturnFlags;
+use scale_info::TypeInfo;
 
-#[derive(Debug, PartialEq)]
-pub enum Halt {
-	Return(Vec<u8>),
-	Revert(Vec<u8>),
-
-	Stop,
-	SelfDestruct,
-
+/// Reason for EVM execution halt
+#[derive(Debug, PartialEq, Clone, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo)]
+pub enum HaltReason {
+	// Gas and resource errors
 	OutOfGas,
-	StackOverflow,
-	StackUnderflow,
 	MemoryOOG,
 	InvalidOperandOOG,
 
+	// Stack errors
+	StackOverflow,
+	StackUnderflow,
+
+	// Jump and opcode errors
 	InvalidJump,
 	OpcodeNotFound,
 	InvalidFEOpcode,
-
-	StateChangeDuringStaticCall,
-	CallDepthExceeded,
-	CreateInitCodeSizeLimit,
-	CallNotAllowedInsideStatic,
-
-	FatalExternalError,
-	ReentrancyGuard,
-
-	OutOfOffset,
 	NotActivated,
 	EOFOpcodeDisabledInLegacy,
+
+	// State change errors
+	StateChangeDuringStaticCall,
+	CallNotAllowedInsideStatic,
+
+	// Call depth and contract creation
+	CallDepthExceeded,
+	CreateInitCodeSizeLimit,
+
+	// External and system errors
+	FatalExternalError,
+	ReentrancyGuard,
+	OutOfOffset,
 }
 
-/// Convert ExecError to ControlFlow<Halt> using proper error type comparison
+impl frame_support::traits::PalletError for HaltReason {
+	const MAX_ENCODED_SIZE: usize = 1; // Single byte discriminant for enum variants
+}
+
+/// EVM execution halt - either successful termination or error
+#[derive(Debug, PartialEq)]
+pub enum Halt {
+	Stop,
+	Return(Vec<u8>),
+	Revert(Vec<u8>),
+	Err(HaltReason),
+}
+
+impl From<HaltReason> for Halt {
+	fn from(reason: HaltReason) -> Self {
+		Halt::Err(reason)
+	}
+}
+
+/// Convert ExecError to ControlFlow<Halt>
+///
+/// This function checks if the error should result in a successful execution (with error code)
+/// or if it should halt the execution. VM-triggered errors now use the Halt(HaltReason) pattern.
 pub fn exec_error_into_halt<E: Ext>(from: crate::ExecError) -> ControlFlow<Halt> {
 	use crate::{DispatchError, Error};
 
-	let static_memory_too_large: DispatchError = Error::<E::T>::StaticMemoryTooLarge.into();
-	let code_rejected: DispatchError = Error::<E::T>::CodeRejected.into();
-	let transfer_failed: DispatchError = Error::<E::T>::TransferFailed.into();
-	let duplicate_contract: DispatchError = Error::<E::T>::DuplicateContract.into();
-	let value_too_large: DispatchError = Error::<E::T>::ValueTooLarge.into();
+	// First check if this should be a non-halting success case
+	if crate::vm::exec_error_into_return_code::<E>(from.clone()).is_ok() {
+		return ControlFlow::Continue(());
+	}
+
+	// Map specific errors to halt reasons or fallback
 	let out_of_gas: DispatchError = Error::<E::T>::OutOfGas.into();
-	let out_of_deposit: DispatchError = Error::<E::T>::StorageDepositLimitExhausted.into();
 	let invalid_instruction: DispatchError = Error::<E::T>::InvalidInstruction.into();
 	let state_change_denied: DispatchError = Error::<E::T>::StateChangeDenied.into();
-	let contract_trapped: DispatchError = Error::<E::T>::ContractTrapped.into();
 	let out_of_bounds: DispatchError = Error::<E::T>::OutOfBounds.into();
 	let max_call_depth_reached: DispatchError = Error::<E::T>::MaxCallDepthReached.into();
+	let static_memory_too_large: DispatchError = Error::<E::T>::StaticMemoryTooLarge.into();
 
-	let halt = match from.error {
-		err if err == static_memory_too_large => Halt::MemoryOOG,
-		err if err == code_rejected => Halt::OpcodeNotFound,
-		err if err == transfer_failed => Halt::OutOfGas,
-		err if err == duplicate_contract => Halt::OutOfGas,
-		err if err == value_too_large => Halt::OutOfGas,
-		err if err == out_of_deposit => Halt::OutOfGas,
-		err if err == out_of_gas => Halt::OutOfGas,
-		err if err == invalid_instruction => Halt::OpcodeNotFound,
-		err if err == state_change_denied => Halt::StateChangeDuringStaticCall,
-		err if err == contract_trapped => Halt::FatalExternalError,
-		err if err == out_of_bounds => Halt::OutOfOffset,
-		err if err == max_call_depth_reached => Halt::CallDepthExceeded,
-		_ => Halt::FatalExternalError,
+	let halt_reason = match from.error {
+		err if err == out_of_gas => HaltReason::OutOfGas,
+		err if err == invalid_instruction => HaltReason::OpcodeNotFound,
+		err if err == state_change_denied => HaltReason::StateChangeDuringStaticCall,
+		err if err == out_of_bounds => HaltReason::OutOfOffset,
+		err if err == max_call_depth_reached => HaltReason::CallDepthExceeded,
+		err if err == static_memory_too_large => HaltReason::MemoryOOG,
+		_ => HaltReason::FatalExternalError,
 	};
 
-	ControlFlow::Break(halt)
+	ControlFlow::Break(Halt::Err(halt_reason))
 }
 
 /// EVM interpreter state using sp_core types
@@ -98,40 +123,11 @@ impl<'a, E: Ext> Interpreter<'a, E> {
 
 	/// Convert a Halt reason into an ExecResult
 	pub fn into_exec_result(&self, halt: Halt) -> ExecResult {
-		use crate::{primitives::ExecReturnValue, Error, ExecError};
-		use pallet_revive_uapi::ReturnFlags;
-
 		match halt {
+			Halt::Stop => Ok(ExecReturnValue::default()),
 			Halt::Return(data) => Ok(ExecReturnValue { flags: ReturnFlags::empty(), data }),
 			Halt::Revert(data) => Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data }),
-			Halt::Stop => Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }),
-			Halt::SelfDestruct =>
-				Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }),
-
-			Halt::MemoryOOG | Halt::OutOfGas => Err(ExecError::from(Error::<E::T>::OutOfGas)),
-			Halt::StackOverflow => Err(ExecError::from(Error::<E::T>::ContractTrapped)),
-			Halt::StackUnderflow => Err(ExecError::from(Error::<E::T>::ContractTrapped)),
-			Halt::InvalidOperandOOG => Err(ExecError::from(Error::<E::T>::OutOfGas)),
-
-			Halt::InvalidJump => Err(ExecError::from(Error::<E::T>::InvalidInstruction)),
-			Halt::OpcodeNotFound => Err(ExecError::from(Error::<E::T>::InvalidInstruction)),
-			Halt::InvalidFEOpcode => Err(ExecError::from(Error::<E::T>::InvalidInstruction)),
-
-			Halt::StateChangeDuringStaticCall =>
-				Err(ExecError::from(Error::<E::T>::StateChangeDenied)),
-			Halt::CallDepthExceeded => Err(ExecError::from(Error::<E::T>::MaxCallDepthReached)),
-			Halt::CreateInitCodeSizeLimit =>
-				Err(ExecError::from(Error::<E::T>::StaticMemoryTooLarge)),
-			Halt::CallNotAllowedInsideStatic =>
-				Err(ExecError::from(Error::<E::T>::StateChangeDenied)),
-
-			Halt::FatalExternalError => Err(ExecError::from(Error::<E::T>::ContractTrapped)),
-			Halt::ReentrancyGuard => Err(ExecError::from(Error::<E::T>::ContractTrapped)),
-
-			Halt::OutOfOffset => Err(ExecError::from(Error::<E::T>::OutOfBounds)),
-			Halt::NotActivated => Err(ExecError::from(Error::<E::T>::InvalidInstruction)),
-			Halt::EOFOpcodeDisabledInLegacy =>
-				Err(ExecError::from(Error::<E::T>::InvalidInstruction)),
+			Halt::Err(reason) => Err(ExecError::from(Error::<E::T>::Halt(reason))),
 		}
 	}
 }

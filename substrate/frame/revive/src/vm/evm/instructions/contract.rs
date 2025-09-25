@@ -1,3 +1,4 @@
+use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -39,7 +40,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	interpreter: &mut Interpreter<E>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
-		return ControlFlow::Break(Halt::StateChangeDuringStaticCall);
+		return ControlFlow::Break(HaltReason::StateChangeDuringStaticCall.into());
 	}
 
 	let [value, code_offset, len] = interpreter.stack.popn()?;
@@ -58,7 +59,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	if len != 0 {
 		// EIP-3860: Limit initcode
 		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
-			return ControlFlow::Break(Halt::CreateInitCodeSizeLimit);
+			return ControlFlow::Break(HaltReason::CreateInitCodeSizeLimit.into());
 		}
 
 		let code_offset = as_usize_or_halt(code_offset)?;
@@ -118,7 +119,7 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 	let has_transfer = !value.is_zero();
 	if interpreter.ext.is_read_only() && has_transfer {
-		return ControlFlow::Break(Halt::CallNotAllowedInsideStatic);
+		return ControlFlow::Break(HaltReason::CallNotAllowedInsideStatic.into());
 	}
 
 	let (input, return_memory_offset) = get_memory_input_and_out_ranges(interpreter)?;
@@ -143,7 +144,7 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Isn't supported yet: [`solc` no longer emits it since Solidity v0.3.0 in 2016]
 /// (https://soliditylang.org/blog/2016/03/11/solidity-0.3.0-release-announcement/).
 pub fn call_code<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(Halt::NotActivated)
+	ControlFlow::Break(HaltReason::NotActivated.into())
 }
 
 /// Implements the DELEGATECALL instruction.

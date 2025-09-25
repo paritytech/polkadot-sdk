@@ -1,4 +1,4 @@
-use crate::{vm::evm::interpreter::Halt, U256};
+use crate::{vm::evm::{interpreter::Halt, HaltReason}, U256};
 use core::ops::ControlFlow;
 
 /// Helper function to convert U256 to usize, checking for overflow
@@ -13,5 +13,5 @@ pub fn as_usize_or_halt_with(value: U256, halt: impl Fn() -> Halt) -> ControlFlo
 
 /// Helper function to convert U256 to usize, checking for overflow, with default InvalidOperandOOG error
 pub fn as_usize_or_halt(value: U256) -> ControlFlow<Halt, usize> {
-	as_usize_or_halt_with(value, || Halt::InvalidOperandOOG)
+	as_usize_or_halt_with(value, || HaltReason::InvalidOperandOOG.into())
 }
