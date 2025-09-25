@@ -24,14 +24,12 @@
 //! Constraint management.
 //!
 //! Each time a new statement is inserted into the store, it is first validated with the runtime
-//! Validation function computes `global_priority`, 'max_count' and `max_size` for a statement.
-//! The following constraints are then checked:
+//! Validation function computes `max_count` and `max_size` for a statement. The following
+//! constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
 //!   the lowest priority until a constraint is satisfied.
 //! * There may not be more than `MAX_TOTAL_STATEMENTS` total statements with `MAX_TOTAL_SIZE` size.
-//!   To satisfy this, statements are removed from the store starting with the lowest
-//!   `global_priority` until a constraint is satisfied.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
 //! statements are deleted and `Ignored` result is returned.
@@ -43,6 +41,9 @@
 //! explicitly with the `remove` function) the statement is marked as expired. Expired statements
 //! can't be added to the store for `Options::purge_after_sec` seconds. This is to prevent old
 //! statements from being propagated on the network.
+//!
+//! Statements are also removed from the store after the lapse time, configured with
+//! `Options::statement_lapse_sec`.
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
@@ -72,13 +73,14 @@ use std::{
 };
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
-const CURRENT_VERSION: u32 = 1;
+const CURRENT_VERSION: u32 = 2;
 
 const LOG_TARGET: &str = "statement-store";
 
 const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
 const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 8192;
 const DEFAULT_MAX_TOTAL_SIZE: usize = 64 * 1024 * 1024;
+const DEFAULT_STATEMENT_LAPSE_SEC: u64 = 7 * 24 * 60 * 60; //7 days
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -137,6 +139,8 @@ pub struct Options {
 	max_total_size: usize,
 	/// Number of seconds for which removed statements won't be allowed to be added back in.
 	purge_after_sec: u64,
+	/// Number of seconds after which statements are removed from the store.
+	statement_lapse_sec: u64,
 }
 
 impl Default for Options {
@@ -145,6 +149,7 @@ impl Default for Options {
 			max_total_statements: DEFAULT_MAX_TOTAL_STATEMENTS,
 			max_total_size: DEFAULT_MAX_TOTAL_SIZE,
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
+			statement_lapse_sec: DEFAULT_STATEMENT_LAPSE_SEC,
 		}
 	}
 }
@@ -154,11 +159,14 @@ struct Index {
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
-	entries: HashMap<Hash, (AccountId, Priority, usize)>,
+	// hash -> (account id, priority, data length, insertion time)
+	entries: HashMap<Hash, (AccountId, Priority, usize, u64)>,
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	options: Options,
 	total_size: usize,
+	// insertion time -> Vec<statement hash>
+	by_insert: BTreeMap<u64, Vec<Hash>>,
 }
 
 struct ClientWrapper<Block, Client> {
@@ -219,12 +227,21 @@ enum MaybeInserted {
 	Ignored,
 }
 
+type StatementWithTime = (Statement, u64);
+type EncodeLikeStatementWithTime<'a> = (&'a Statement, u64);
+
 impl Index {
 	fn new(options: Options) -> Index {
 		Index { options, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		insert_time_sec: u64,
+	) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -238,7 +255,8 @@ impl Index {
 			self.topics_and_keys.insert(hash, (all_topics, key));
 		}
 		let priority = Priority(statement.priority().unwrap_or(0));
-		self.entries.insert(hash, (account, priority, statement.data_len()));
+		self.entries
+			.insert(hash, (account, priority, statement.data_len(), insert_time_sec));
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -248,6 +266,7 @@ impl Index {
 		account_info
 			.by_priority
 			.insert(PriorityKey { hash, priority }, (statement.channel(), statement.data_len()));
+		self.by_insert.entry(insert_time_sec).or_default().push(hash);
 	}
 
 	fn query(&self, hash: &Hash) -> IndexQuery {
@@ -305,23 +324,34 @@ impl Index {
 		Ok(())
 	}
 
-	fn maintain(&mut self, current_time: u64) -> Vec<Hash> {
+	fn maintain(&mut self, current_time: u64) -> (Vec<Hash>, Vec<Hash>) {
 		// Purge previously expired messages.
-		let mut purged = Vec::new();
+		let mut purged_expired = Vec::new();
 		self.expired.retain(|hash, timestamp| {
 			if *timestamp + self.options.purge_after_sec <= current_time {
-				purged.push(*hash);
+				purged_expired.push(*hash);
 				log::trace!(target: LOG_TARGET, "Purged statement {:?}", HexDisplay::from(hash));
 				false
 			} else {
 				true
 			}
 		});
-		purged
+		let mut purged_lapsed = Vec::new();
+		while let Some(insert_time_sec) = self.by_insert.keys().next().copied() {
+			if current_time < insert_time_sec.saturating_add(self.options.statement_lapse_sec) {
+				break
+			}
+
+			if let Some(mut inserted) = self.by_insert.remove(&insert_time_sec) {
+				purged_lapsed.append(&mut inserted);
+			}
+		}
+
+		(purged_expired, purged_lapsed)
 	}
 
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
-		if let Some((account, priority, len)) = self.entries.remove(hash) {
+		if let Some((account, priority, len, insert_time_sec)) = self.entries.remove(hash) {
 			self.total_size -= len;
 			if let Some((topics, key)) = self.topics_and_keys.remove(hash) {
 				for t in topics.into_iter().flatten() {
@@ -358,6 +388,7 @@ impl Index {
 					account_rec.remove_entry();
 				}
 			}
+			self.by_insert.entry(insert_time_sec).and_modify(|v| v.retain(|h| h != hash));
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
 			true
 		} else {
@@ -469,7 +500,7 @@ impl Index {
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		self.insert_new(hash, *account, statement);
+		self.insert_new(hash, *account, statement, current_time);
 		MaybeInserted::Inserted(evicted)
 	}
 }
@@ -531,26 +562,26 @@ impl Store {
 		Client::Api: ValidateStatement<Block>,
 	{
 		let mut path: std::path::PathBuf = path.into();
-		path.push("statements");
+		path.push("statements2");
 
 		let mut config = parity_db::Options::with_columns(&path, col::COUNT);
 
 		let statement_col = &mut config.columns[col::STATEMENTS as usize];
 		statement_col.ref_counted = false;
-		statement_col.preimage = true;
 		statement_col.uniform = true;
 		let db = parity_db::Db::open_or_create(&config).map_err(|e| Error::Db(e.to_string()))?;
-		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
-			Some(version) => {
-				let version = u32::from_le_bytes(
-					version
-						.try_into()
-						.map_err(|_| Error::Db("Error reading database version".into()))?,
-				);
-				if version != CURRENT_VERSION {
-					return Err(Error::Db(format!("Unsupported database version: {version}")))
-				}
-			},
+		let version = db
+			.get(col::META, &KEY_VERSION)
+			.map_err(|e| Error::Db(e.to_string()))
+			.and_then(|v| {
+				v.map(|v| {
+					<[u8; 4]>::try_from(v)
+						.map(|v| u32::from_le_bytes(v))
+						.map_err(|_| Error::Db("Error reading database version".into()))
+				})
+				.transpose()
+			})?;
+		match version {
 			None => {
 				db.commit([(
 					col::META,
@@ -559,13 +590,15 @@ impl Store {
 				)])
 				.map_err(|e| Error::Db(e.to_string()))?;
 			},
+			Some(CURRENT_VERSION) => (),
+			Some(version) =>
+				return Err(Error::Db(format!("Unsupported database version: {version}"))),
 		}
 
 		let validator = ClientWrapper { client, _block: Default::default() };
 		let validate_fn = Box::new(move |block, source, statement| {
 			validator.validate_statement(block, source, statement)
 		});
-
 		let store = Store {
 			db,
 			index: RwLock::new(Index::new(options)),
@@ -574,6 +607,7 @@ impl Store {
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 		};
+
 		store.populate()?;
 		Ok(store)
 	}
@@ -582,43 +616,33 @@ impl Store {
 	// This may be moved to a background thread if it slows startup too much.
 	// This function should only be used on startup. There should be no other DB operations when
 	// iterating the index.
+	// The DB must have no recent commit for columns STATEMENTS and EXPIRED as we use
+	// `iter_column_while`.
 	fn populate(&self) -> Result<()> {
 		{
 			let mut index = self.index.write();
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					let statement = item.value;
-					if let Ok(statement) = Statement::decode(&mut statement.as_slice()) {
+					if let Ok((statement, insert_time)) = StatementWithTime::decode(&mut statement.as_slice()) {
 						let hash = statement.hash();
-						log::trace!(
-							target: LOG_TARGET,
-							"Statement loaded {:?}",
-							HexDisplay::from(&hash)
-						);
+						log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
 						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement);
+							index.insert_new(hash, account_id, &statement, insert_time);
 						} else {
-							log::debug!(
-								target: LOG_TARGET,
-								"Error decoding statement loaded from the DB: {:?}",
-								HexDisplay::from(&hash)
-							);
+							log::debug!(target: LOG_TARGET, "Error decoding statement loaded from the DB: {:?}", HexDisplay::from(&hash));
 						}
 					}
 					true
 				})
-				.map_err(|e| Error::Db(e.to_string()))?;
+			.map_err(|e| Error::Db(e.to_string()))?;
 			self.db
 				.iter_column_while(col::EXPIRED, |item| {
 					let expired_info = item.value;
 					if let Ok((hash, timestamp)) =
 						<(Hash, u64)>::decode(&mut expired_info.as_slice())
 					{
-						log::trace!(
-							target: LOG_TARGET,
-							"Statement loaded (expired): {:?}",
-							HexDisplay::from(&hash)
-						);
+						log::trace!(target: LOG_TARGET, "Statement loaded (expired): {:?}", HexDisplay::from(&hash));
 						index.insert_expired(hash, timestamp);
 					}
 					true
@@ -641,7 +665,7 @@ impl Store {
 		index.iterate_with(key, match_all_topics, |hash| {
 			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
 				Some(entry) => {
-					if let Ok(statement) = Statement::decode(&mut entry.as_slice()) {
+					if let Ok((statement, _)) = StatementWithTime::decode(&mut entry.as_slice()) {
 						if let Some(data) = f(statement) {
 							result.push(data);
 						}
@@ -671,11 +695,14 @@ impl Store {
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		let deleted = self.index.write().maintain(self.timestamp());
-		let deleted: Vec<_> =
-			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
-		let count = deleted.len() as u64;
-		if let Err(e) = self.db.commit(deleted) {
+		let (purged_expired, purged_lapsed) = self.index.write().maintain(self.timestamp());
+		let purged = purged_expired
+			.into_iter()
+			.map(|hash| (col::EXPIRED, hash, None))
+			.chain(purged_lapsed.into_iter().map(|hash| (col::STATEMENTS, hash, None)))
+			.collect::<Vec<_>>();
+		let count = purged.len() as u64;
+		if let Err(e) = self.db.commit(purged) {
 			log::warn!(target: LOG_TARGET, "Error writing to the statement database: {:?}", e);
 		} else {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(count));
@@ -764,10 +791,10 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for h in self.index.read().entries.keys() {
+		for h in index.entries.keys() {
 			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
 			if let Some(encoded) = encoded {
-				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				if let Ok((statement, _gp)) = StatementWithTime::decode(&mut encoded.as_slice()) {
 					let hash = statement.hash();
 					result.push((hash, statement));
 				}
@@ -791,7 +818,8 @@ impl StatementStore for Store {
 						HexDisplay::from(hash)
 					);
 					Some(
-						Statement::decode(&mut entry.as_slice())
+						StatementWithTime::decode(&mut entry.as_slice())
+							.map(|(stmt, _gp)| stmt)
 							.map_err(|e| Error::Decode(e.to_string()))?,
 					)
 				},
@@ -921,7 +949,11 @@ impl StatementStore for Store {
 					MaybeInserted::Inserted(evicted) => evicted,
 				};
 
-			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
+			commit.push((
+				col::STATEMENTS,
+				hash.to_vec(),
+				Some(EncodeLikeStatementWithTime::encode(&(&statement, current_time))),
+			));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
 				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
@@ -969,6 +1001,9 @@ impl StatementStore for Store {
 
 #[cfg(test)]
 mod tests {
+	use super::{
+		col, EncodeLikeStatementWithTime, StatementWithTime, CURRENT_VERSION, KEY_VERSION,
+	};
 	use crate::Store;
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
@@ -1503,4 +1538,6 @@ mod tests {
 		// exactly one element, equal to the expected plaintext
 		assert_eq!(retrieved, vec![plaintext_good]);
 	}
+
+	// TODO: test lapse
 }
