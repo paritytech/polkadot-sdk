@@ -76,7 +76,7 @@ pub fn exec_error_into_halt<E: Ext>(from: crate::ExecError) -> ControlFlow<Halt>
 	use crate::{DispatchError, Error};
 
 	// First check if this should be a non-halting success case
-	if crate::vm::exec_error_into_return_code::<E>(from.clone()).is_ok() {
+	if crate::vm::exec_error_into_return_code::<E>(from).is_ok() {
 		return ControlFlow::Continue(());
 	}
 
