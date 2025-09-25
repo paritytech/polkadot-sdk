@@ -1639,7 +1639,7 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 			candidate_hash,
 			session_index,
 			true,
-			vec![],
+			vec![validator],
 			None,
 		)
 		.await;
@@ -2389,7 +2389,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			candidate_hash,
 			session_index,
 			true,
-			vec![validator_index_b],
+			vec![validator_index_a, validator_index_b],
 			Some(sig_b),
 		)
 		.await;
@@ -3363,15 +3363,9 @@ where
 			assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 		}
 
-		// 10
-		// 0..10
-		// 3 * (i + 1)
-		// 0 => 3
-		// 1 => 6
-		// 2 => 9
-		// 3 => 12
 		let n_validators = validators.len();
-		let validators_collected = approvals_to_import[0..=n_validators/3]
+		let to_collect = min((n_validators/3) + 1, approvals_to_import.len());
+		let validators_collected = approvals_to_import[0..to_collect]
 			.iter()
 			.map(|vidx| ValidatorIndex(vidx.clone()))
 			.collect::<Vec<ValidatorIndex>>();
@@ -3964,6 +3958,21 @@ fn waits_until_approving_assignments_are_old_enough() {
 
 		// Sleep to ensure we get a consistent read on the database.
 		futures_timer::Delay::new(Duration::from_millis(100)).await;
+
+		let _ =
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ConsensusStatisticsCollector(
+				ConsensusStatisticsCollectorMessage::CandidateApproved(
+					c_hash, b_hash, validators
+				)
+			) => {
+				assert_eq!(b_hash, block_hash);
+				assert_eq!(c_hash, candidate_hash);
+				assert_eq!(validators, vec![validator_index_a, validator_index_b]);
+			}
+		);
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
