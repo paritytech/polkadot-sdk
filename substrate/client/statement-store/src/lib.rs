@@ -1533,7 +1533,7 @@ mod tests {
 
 	#[test]
 	fn remove_by_covers_various_situations() {
-		use sp_statement_store::{StatementStore, SubmitResult, StatementSource};
+		use sp_statement_store::{StatementSource, StatementStore, SubmitResult};
 
 		// Use a fresh store and fixed time so we can control purging.
 		let (mut store, _temp) = test_store();
@@ -1567,7 +1567,10 @@ mod tests {
 
 		// Submit all statements.
 		for s in [&s_a1, &s_a2, &s_a3, &s_b1, &s_b2] {
-			assert!(matches!(store.submit(s.clone(), StatementSource::Network), SubmitResult::New(_)));
+			assert!(matches!(
+				store.submit(s.clone(), StatementSource::Network),
+				SubmitResult::New(_)
+			));
 		}
 
 		// --- Pre-conditions: everything is indexed as expected.
