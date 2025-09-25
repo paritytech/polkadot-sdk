@@ -1040,65 +1040,66 @@ fn hold_off_asset_hub_collation_if_needed(
 	let peer_is_invulnerable = state.ah_invulnerables.contains(&peer_id);
 	let invulnerables_set_is_empty = state.ah_invulnerables.is_empty();
 
-	if maybe_para_id == Some(ASSET_HUB_PARA_ID) &&
-		!peer_is_invulnerable &&
-		!invulnerables_set_is_empty
+	if maybe_para_id != Some(ASSET_HUB_PARA_ID) ||
+		peer_is_invulnerable ||
+		invulnerables_set_is_empty
 	{
-		let Some(rp_state) = state.per_relay_parent.get_mut(&relay_parent) else {
-			// this should never happen
-			gum::warn!(
-				target: LOG_TARGET,
-				?peer_id,
-				?relay_parent,
-				"Trying to hold off AssetHub collation, but the relay parent is not known",
-			);
-			return false
-		};
+		gum::trace!(
+			target: LOG_TARGET,
+			?maybe_para_id,
+			peer_is_invulnerable,
+			invulnerables_set_is_empty,
+			?peer_id,
+			?relay_parent,
+			?prospective_candidate,
+			"Collation not held off",
+		);
 
-		if rp_state.ah_held_off_advertisements.hold_off_if_necessary(HeldOffAdvertisement {
-			relay_parent,
-			peer_id,
-			collator_id,
-			prospective_candidate,
-		}) {
-			state.ah_held_off_rp_timers.push(Box::pin(async move {
-				Delay::new(hold_off_duration).await;
-				relay_parent
-			}));
-
-			gum::debug!(
-				target: LOG_TARGET,
-				?peer_id,
-				?relay_parent,
-				?prospective_candidate,
-				"AssetHub collation held off, not from invulnerable collator",
-			);
-
-			return true;
-		} else {
-			gum::debug!(
-				target: LOG_TARGET,
-				?peer_id,
-				?relay_parent,
-				?prospective_candidate,
-				"AssetHub collation from non-invulnerable collator not held off - already done for this relay parent",
-			);
-			return false
-		}
+		return false
 	}
 
-	gum::trace!(
-		target: LOG_TARGET,
-		?maybe_para_id,
-		peer_is_invulnerable,
-		invulnerables_set_is_empty,
-		?peer_id,
-		?relay_parent,
-		?prospective_candidate,
-		"Collation not held off",
-	);
+	let Some(rp_state) = state.per_relay_parent.get_mut(&relay_parent) else {
+		// this should never happen
+		gum::warn!(
+			target: LOG_TARGET,
+			?peer_id,
+			?relay_parent,
+			"Trying to hold off AssetHub collation, but the relay parent is not known",
+		);
+		return false
+	};
 
-	return false
+	if rp_state.ah_held_off_advertisements.hold_off_if_necessary(HeldOffAdvertisement {
+		relay_parent,
+		peer_id,
+		collator_id,
+		prospective_candidate,
+	}) {
+		state.ah_held_off_rp_timers.push(Box::pin(async move {
+			Delay::new(hold_off_duration).await;
+			relay_parent
+		}));
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?relay_parent,
+			?prospective_candidate,
+			"AssetHub collation held off, not from invulnerable collator",
+		);
+
+		return true;
+	} else {
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?relay_parent,
+			?prospective_candidate,
+			"AssetHub collation from non-invulnerable collator not held off - already done for this relay parent",
+		);
+
+		return false
+	}
 }
 
 #[derive(Debug)]
