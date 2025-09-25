@@ -15,7 +15,7 @@ crates:
   bump: major
 - name: asset-hub-westend-runtime
   bump: major
-- name: pallet-assets-rewards
+- name: pallet-asset-rewards
   bump: major
 - name: pallet-staking-async-parachain-runtime
   bump: major
