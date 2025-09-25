@@ -64,7 +64,7 @@ impl<T: Config> ContractBlob<T> {
 	/// Create a new contract from EVM init code.
 	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
-			return Err(<Error<T>>::BlobTooLarge.into());
+			// return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
 		// EIP-3541: Reject new contract code starting with the 0xEF byte
@@ -98,7 +98,7 @@ impl<T: Config> ContractBlob<T> {
 		owner: AccountIdOf<T>,
 	) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE {
-			return Err(<Error<T>>::BlobTooLarge.into());
+			// return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
 		let code_len = code.len() as u32;

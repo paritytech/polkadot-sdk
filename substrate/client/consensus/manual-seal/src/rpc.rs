@@ -30,6 +30,9 @@ use sp_runtime::EncodedJustification;
 
 /// Sender passed to the authorship task to report errors or successes.
 pub type Sender<T> = Option<oneshot::Sender<std::result::Result<T, Error>>>;
+use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
+
+pub type SharedDelta = Arc<Mutex<Option<u64>>>;
 
 /// Message sent to the background authorship task, usually by RPC.
 pub enum EngineCommand<Hash> {
@@ -71,6 +74,7 @@ pub trait ManualSealApi<Hash> {
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: Option<Hash>,
+		timestamp_delta: Option<u64>,
 	) -> Result<CreatedBlock<Hash>, Error>;
 
 	/// Instructs the manual-seal authorship task to finalize a block
@@ -80,11 +84,16 @@ pub trait ManualSealApi<Hash> {
 		hash: Hash,
 		justification: Option<EncodedJustification>,
 	) -> Result<bool, Error>;
+
+	#[method(name = "engine_setNextBlockTimestamp")]
+	async fn set_next_timestamp(&self, next_timestamp: u64) -> Result<bool, Error>;
 }
 
 /// A struct that implements the [`ManualSealApiServer`].
 pub struct ManualSeal<Hash> {
 	import_block_channel: mpsc::Sender<EngineCommand<Hash>>,
+	timestamp_delta_override: SharedDelta,
+	next_timestamp: Arc<AtomicU64>,
 }
 
 /// return type of `engine_createBlock`
@@ -100,22 +109,36 @@ pub struct CreatedBlock<Hash> {
 
 impl<Hash> ManualSeal<Hash> {
 	/// Create new `ManualSeal` with the given reference to the client.
-	pub fn new(import_block_channel: mpsc::Sender<EngineCommand<Hash>>) -> Self {
-		Self { import_block_channel }
+	pub fn new(
+		import_block_channel: mpsc::Sender<EngineCommand<Hash>>,
+		timestamp_delta_override: SharedDelta,
+		next_timestamp: Arc<AtomicU64>,
+	) -> Self {
+		Self { import_block_channel, timestamp_delta_override, next_timestamp }
 	}
 }
 
 #[async_trait]
 impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
+	async fn set_next_timestamp(&self, next_timestamp: u64) -> Result<bool, Error> {
+		self.next_timestamp.store(next_timestamp * 1000, Ordering::SeqCst);
+		Ok(true)
+	}
+
 	async fn create_block(
 		&self,
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: Option<Hash>,
+		timestamp_delta: Option<u64>,
 	) -> Result<CreatedBlock<Hash>, Error> {
 		let mut sink = self.import_block_channel.clone();
 		let (sender, receiver) = oneshot::channel();
-		// NOTE: this sends a Result over the channel.
+		let timestamp_delta_ms = match timestamp_delta {
+			Some(time) => Some(time * 1000),
+			None => None,
+		};
+		*self.timestamp_delta_override.lock().unwrap() = timestamp_delta_ms;
 		let command = EngineCommand::SealNewBlock {
 			create_empty,
 			finalize,

@@ -50,7 +50,10 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
-	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
+	storage::{
+		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
+		EvmNonce,
+	},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 };
@@ -89,7 +92,6 @@ pub use crate::{
 	},
 	exec::{Key, MomentOf, Origin},
 	pallet::{genesis, *},
-	storage::{AccountInfo, ContractInfo},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -480,6 +482,8 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
+		/// Cannot set a nonce lower than current
+		NonceTooLow = 0x32
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -504,6 +508,18 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
 
+	/// A mapping from an account to it's nonce.
+	#[pallet::storage]
+	pub(crate) type EvmNonceOf<T: Config> = StorageMap<_, Identity, H160, EvmNonce>;
+
+	/// A mapping from a block to it's modified miner.
+	#[pallet::storage]
+	pub(crate) type ModifiedCoinbase<T: Config> = StorageValue<_, H160, ValueQuery>;
+
+	/// A mapping from a block to it's modified prevrandao.
+	#[pallet::storage]
+	pub(crate) type ModifiedPrevrandao<T: Config> = StorageMap<_, Identity, U256, H256>;
+
 	/// The data associated to a contract or externally owned account.
 	#[pallet::storage]
 	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
@@ -511,6 +527,17 @@ pub mod pallet {
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
 	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
+
+	#[pallet::storage]
+	/// The modifiable EVM gas price, used by the EVM RPC.
+	pub(crate) type GasPrice<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+	#[pallet::storage]
+	/// The modifiable EVM gas limit, used by the EVM RPC.
+	pub(crate) type GasLimit<T: Config> = StorageValue<_, Option<u64>, ValueQuery>;
+
+	#[pallet::storage]
+	pub(crate) type ImpersonatedAccounts<T: Config> = StorageMap<_, Identity, H160, ()>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -575,6 +602,7 @@ pub mod pallet {
 		/// Account entries (both EOAs and contracts)
 		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub accounts: Vec<genesis::Account<T>>,
+		pub gas_price: u64,
 	}
 
 	#[pallet::genesis_build]
@@ -600,6 +628,7 @@ pub mod pallet {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
+			GasPrice::<T>::put(self.gas_price);
 
 			let owner = Pallet::<T>::account_id();
 
@@ -720,8 +749,8 @@ pub mod pallet {
 					.len() as u32;
 
 			let max_immutable_key_size = T::AccountId::max_encoded_len() as u32;
-			let max_immutable_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
+			let max_immutable_size: u32 = ((max_block_ref_time
+				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
 					limits::IMMUTABLE_BYTES,
 				))
 				.ref_time()))
@@ -731,8 +760,8 @@ pub mod pallet {
 
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
-			let max_storage_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+			let max_storage_size: u32 = ((max_block_ref_time
+				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
 					new_bytes: max_payload_size,
 					old_bytes: 0,
 				})
@@ -755,8 +784,8 @@ pub mod pallet {
 			// We can use storage to store events using the available block ref_time with the
 			// `deposit_event` host function. The overhead of stored events, which is around 100B,
 			// is not taken into account to simplify calculations, as it does not change much.
-			let max_events_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+			let max_events_size: u32 = ((max_block_ref_time
+				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
 					num_topic: 0,
 					len: max_payload_size,
 				})
@@ -1110,6 +1139,54 @@ pub mod pallet {
 			})
 		}
 
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::set_code())]
+		pub fn set_bytecode(
+			origin: OriginFor<T>,
+			dest: H160,
+			code_hash: sp_core::H256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let contract_info = AccountInfo::<T>::load_contract(&dest).unwrap_or_else(|| {
+				ContractInfo::new(&dest, T::Nonce::default(), code_hash)
+					.expect("Should insert dummy contract")
+			});
+			AccountInfo::<T>::insert_contract(&dest, contract_info.clone());
+
+			Ok(())
+		}
+
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::set_code())]
+		pub fn set_balance(origin: OriginFor<T>, dest: H160, value: U256) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let exists = <AccountInfoOf<T>>::contains_key(dest);
+			match exists {
+				true => {
+					<AccountInfoOf<T>>::try_mutate(&dest, |account: &mut Option<AccountInfo<T>>| {
+						let Some(account) = account else {
+							return Err(<Error<T>>::ContractNotFound.into());
+						};
+
+						let AccountType::EOA = account.account_type else {
+							return Err(<Error<T>>::AccountUnmapped.into());
+						};
+
+						account.dust = value.as_u32();
+
+						Ok(())
+					})
+				},
+				false => {
+					let info = AccountInfo { account_type: AccountType::EOA, dust: value.as_u32() };
+
+					<AccountInfoOf<T>>::set(dest, Some(info));
+					Ok(())
+				},
+			}
+		}
+
 		/// Register the callers account id so that it can be used in contract interactions.
 		///
 		/// This will error if the origin is already mapped or is a eth native `Address20`. It will
@@ -1153,6 +1230,99 @@ pub mod pallet {
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
 			call.dispatch(RawOrigin::Signed(unmapped_account).into())
+		}
+
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::upload_code(nonce.as_u32()))]
+		pub fn set_evm_nonce_call(
+			origin: OriginFor<T>,
+			address: H160,
+			nonce: U256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::set_evm_nonce(&address, nonce.as_u32())?;
+			Ok(())
+		}
+
+		#[pallet::call_index(13)]
+		#[pallet::weight(10_000)]
+		pub fn set_gas_price(origin: OriginFor<T>, new_price: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			GasPrice::<T>::put(new_price);
+			Ok(())
+		}
+
+		#[pallet::call_index(14)]
+		#[pallet::weight(10_000)]
+		pub fn set_storage_at(
+			origin: OriginFor<T>,
+			address: H160,
+			storage_slot: U256,
+			value: U256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let contract_info = AccountInfo::<T>::load_contract(&address).unwrap_or_else(|| {
+				ContractInfo::new(&address, T::Nonce::default(), H256::zero())
+					.expect("Should insert dummy contract")
+			});
+
+			AccountInfo::<T>::insert_contract(&address, contract_info.clone());
+
+			contract_info
+				.write(
+					&Key::from_fixed(storage_slot.to_big_endian()),
+					Some(value.to_big_endian().to_vec()),
+					None,
+					false,
+				)
+				.map_err(|_| Error::<T>::ExecutionFailed)?;
+
+			Ok(())
+		}
+
+		#[pallet::call_index(15)]
+		#[pallet::weight(10_000)]
+		pub fn set_next_coinbase(origin: OriginFor<T>, coinbase: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ModifiedCoinbase::<T>::put(coinbase);
+			Ok(())
+		}
+
+		#[pallet::call_index(16)]
+		#[pallet::weight(10_000)]
+		pub fn set_next_prev_randao(
+			origin: OriginFor<T>,
+			last_block: U256,
+			prev_randao: H256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let next_block_number = last_block.as_u32().saturating_add(2);
+			ModifiedPrevrandao::<T>::insert(U256::from(next_block_number), prev_randao);
+			Ok(())
+		}
+
+		#[pallet::call_index(17)]
+		#[pallet::weight(10_000)]
+		pub fn set_block_gas_limit(origin: OriginFor<T>, block_gas_limit: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			GasLimit::<T>::put(Some(block_gas_limit));
+			Ok(())
+		}
+
+		#[pallet::call_index(18)]
+		#[pallet::weight(10_000)]
+		pub fn impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ImpersonatedAccounts::<T>::insert(account, ());
+			Ok(())
+		}
+
+		#[pallet::call_index(19)]
+		#[pallet::weight(10_000)]
+		pub fn stop_impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ImpersonatedAccounts::<T>::remove(account);
+			Ok(())
 		}
 	}
 }
@@ -1359,13 +1529,13 @@ where
 			tx.chain_id = Some(T::ChainId::get().into());
 		}
 		if tx.gas_price.is_none() {
-			tx.gas_price = Some(GAS_PRICE.into());
+			tx.gas_price = Some(Self::evm_gas_price().into());
 		}
 		if tx.max_priority_fee_per_gas.is_none() {
-			tx.max_priority_fee_per_gas = Some(GAS_PRICE.into());
+			tx.max_priority_fee_per_gas = Some(Self::evm_gas_price().into());
 		}
 		if tx.max_fee_per_gas.is_none() {
-			tx.max_fee_per_gas = Some(GAS_PRICE.into());
+			tx.max_fee_per_gas = Some(Self::evm_gas_price().into());
 		}
 		if tx.gas.is_none() {
 			tx.gas = Some(Self::evm_block_gas_limit());
@@ -1379,9 +1549,9 @@ where
 		let input = tx.input.clone().to_vec();
 
 		let extract_error = |err| {
-			if err == Error::<T>::TransferFailed.into() ||
-				err == Error::<T>::StorageDepositNotEnoughFunds.into() ||
-				err == Error::<T>::StorageDepositLimitExhausted.into()
+			if err == Error::<T>::TransferFailed.into()
+				|| err == Error::<T>::StorageDepositNotEnoughFunds.into()
+				|| err == Error::<T>::StorageDepositLimitExhausted.into()
 			{
 				let balance = Self::evm_balance(&from);
 				return Err(EthTransactError::Message(format!(
@@ -1585,15 +1755,55 @@ where
 	where
 		T::Nonce: Into<u32>,
 	{
+		let evm_nonce = EvmNonceOf::<T>::get(address).unwrap_or_default();
 		let account = T::AddressMapper::to_account_id(&address);
-		System::<T>::account_nonce(account).into()
+		let substrate_nonce = System::<T>::account_nonce(account);
+
+		if evm_nonce.positive {
+			let nonce = substrate_nonce.into().saturating_add(evm_nonce.difference);
+			return nonce;
+		} else {
+			let nonce = substrate_nonce.into().saturating_sub(evm_nonce.difference);
+			return nonce;
+		}
+	}
+
+	pub fn set_evm_nonce(address: &H160, nonce: u32) -> Result<u32, Error<T>> {
+		let account = T::AddressMapper::to_account_id(&address);
+		let substrate_nonce: u32 = System::<T>::account_nonce(account).try_into().ok().unwrap();
+		let evm_nonce_u32 = nonce;
+
+		if evm_nonce_u32 < substrate_nonce {
+			return Err(<Error<T>>::NonceTooLow.into())
+		}
+
+		// Use mutate_exists because the key might not exist yet
+		EvmNonceOf::<T>::mutate_exists(&address, |maybe_evm_nonce| {
+			let (difference, positive) = if substrate_nonce > evm_nonce_u32 {
+				(substrate_nonce - evm_nonce_u32, false)
+			} else {
+				(evm_nonce_u32 - substrate_nonce, true)
+			};
+
+			match maybe_evm_nonce {
+				Some(evm_nonce) => {
+					evm_nonce.difference = difference;
+					evm_nonce.positive = positive;
+				},
+				None => {
+					*maybe_evm_nonce = Some(EvmNonce { difference, positive });
+				},
+			}
+		});
+
+		Ok(evm_nonce_u32)
 	}
 
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
 		let fee = Self::convert_native_to_evm(fee);
-		let gas_price = GAS_PRICE.into();
+		let gas_price = Self::evm_gas_price().into();
 		let (quotient, remainder) = fee.div_mod(gas_price);
 		if remainder.is_zero() {
 			quotient
@@ -1624,22 +1834,26 @@ where
 		T: pallet_transaction_payment::Config,
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 	{
-		let max_block_weight = T::BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.max_total
-			.unwrap_or_else(|| T::BlockWeights::get().max_block);
+		if let Some(gas_limit) = GasLimit::<T>::get() {
+			return U256::from(gas_limit);
+		} else {
+			let max_block_weight = T::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		let length_fee = pallet_transaction_payment::Pallet::<T>::length_to_fee(
-			5 * 1024 * 1024, // 5 MB
-		);
+			let length_fee = pallet_transaction_payment::Pallet::<T>::length_to_fee(
+				5 * 1024 * 1024, // 5 MB
+			);
 
-		Self::evm_gas_from_weight(max_block_weight)
-			.saturating_add(Self::evm_fee_to_gas(length_fee.into()))
+			return Self::evm_gas_from_weight(max_block_weight)
+				.saturating_add(Self::evm_fee_to_gas(length_fee.into()));
+		};
 	}
 
 	/// Get the gas price.
 	pub fn evm_gas_price() -> U256 {
-		GAS_PRICE.into()
+		GasPrice::<T>::get().into()
 	}
 
 	/// Build an EVM tracer from the given tracer type.
@@ -1653,8 +1867,9 @@ where
 				Self::evm_gas_from_weight as fn(Weight) -> U256,
 			)
 			.into(),
-			TracerType::PrestateTracer(config) =>
-				PrestateTracer::new(config.unwrap_or_default()).into(),
+			TracerType::PrestateTracer(config) => {
+				PrestateTracer::new(config.unwrap_or_default()).into()
+			},
 		}
 	}
 
@@ -1870,7 +2085,7 @@ impl<T: Config> Pallet<T> {
 	pub fn code(address: &H160) -> Vec<u8> {
 		use precompiles::{All, Precompiles};
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
-			return code.into()
+			return code.into();
 		}
 		AccountInfo::<T>::load_contract(&address)
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
@@ -1909,6 +2124,8 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns the nonce of the given `[H160]` address.
 		fn nonce(address: H160) -> Nonce;
+
+		fn account_or_fallback(address: H160) -> AccountId;
 
 		/// Perform a call from a specified account to a given contract.
 		///
@@ -2041,6 +2258,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::block_author()
 				}
 
+				fn account_or_fallback(address: $crate::H160) -> AccountId {
+					use $crate::AddressMapper;
+					<Self as $crate::Config>::AddressMapper::to_account_id(&address)
+				}
+
 				fn block_gas_limit() -> $crate::U256 {
 					$crate::Pallet::<Self>::evm_block_gas_limit()
 				}
@@ -2050,9 +2272,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn nonce(address: $crate::H160) -> Nonce {
-					use $crate::AddressMapper;
-					let account = <Self as $crate::Config>::AddressMapper::to_account_id(&address);
-					$crate::frame_system::Pallet::<Self>::account_nonce(account)
+					$crate::Pallet::<Self>::evm_nonce(&address)
 				}
 
 				fn address(account_id: AccountId) -> $crate::H160 {

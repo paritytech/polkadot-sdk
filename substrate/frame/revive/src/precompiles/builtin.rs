@@ -17,6 +17,7 @@
 
 mod blake2f;
 mod bn128;
+mod console;
 mod ecrecover;
 mod identity;
 mod modexp;
@@ -58,6 +59,7 @@ type Production<T> = (
 	blake2f::Blake2F<T>,
 	point_eval::PointEval<T>,
 	system::System<T>,
+	console::Console<T>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]

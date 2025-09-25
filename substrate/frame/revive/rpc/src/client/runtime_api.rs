@@ -17,7 +17,7 @@
 
 use crate::{
 	client::Balance,
-	subxt_client::{self, SrcChainConfig},
+	subxt_client::{self, runtime_apis::revive_api::types::address::AccountId, SrcChainConfig},
 	ClientError, LOG_TARGET,
 };
 use pallet_revive::{
@@ -63,7 +63,7 @@ impl RuntimeApi {
 		&self,
 		tx: GenericTransaction,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
-		let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
+		let payload = subxt_client::apis().revive_api().eth_transact(tx.clone().into());
 		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {
@@ -101,6 +101,13 @@ impl RuntimeApi {
 		let payload = subxt_client::apis().revive_api().block_author();
 		let author = self.0.call(payload).await?;
 		Ok(author)
+	}
+
+	// Get the account for the given H160 address
+	pub async fn account_or_fallback(&self, address: H160) -> Result<AccountId, ClientError> {
+		let payload = subxt_client::apis().revive_api().account_or_fallback(address);
+		let account = self.0.call(payload).await?;
+		Ok(account)
 	}
 
 	/// Get the trace for the given transaction index in the given block.
