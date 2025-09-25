@@ -46,6 +46,7 @@ pub enum HaltReason {
 	FatalExternalError,
 	ReentrancyGuard,
 	OutOfOffset,
+	OutOfFund,
 }
 
 impl frame_support::traits::PalletError for HaltReason {
@@ -86,6 +87,10 @@ pub fn exec_error_into_halt<E: Ext>(from: crate::ExecError) -> ControlFlow<Halt>
 	let out_of_bounds: DispatchError = Error::<E::T>::OutOfBounds.into();
 	let max_call_depth_reached: DispatchError = Error::<E::T>::MaxCallDepthReached.into();
 	let static_memory_too_large: DispatchError = Error::<E::T>::StaticMemoryTooLarge.into();
+	let value_too_large: DispatchError = Error::<E::T>::ValueTooLarge.into();
+	let reentranced_pallet: DispatchError = Error::<E::T>::ReenteredPallet.into();
+	let basic_block_too_large: DispatchError = Error::<E::T>::BasicBlockTooLarge.into();
+	let transfer_failed: DispatchError = Error::<E::T>::TransferFailed.into();
 
 	let halt_reason = match from.error {
 		err if err == out_of_gas => HaltReason::OutOfGas,
@@ -94,6 +99,10 @@ pub fn exec_error_into_halt<E: Ext>(from: crate::ExecError) -> ControlFlow<Halt>
 		err if err == out_of_bounds => HaltReason::OutOfOffset,
 		err if err == max_call_depth_reached => HaltReason::CallDepthExceeded,
 		err if err == static_memory_too_large => HaltReason::MemoryOOG,
+		err if err == value_too_large => HaltReason::MemoryOOG,
+		err if err == reentranced_pallet => HaltReason::ReentrancyGuard,
+		err if err == basic_block_too_large => HaltReason::CreateInitCodeSizeLimit,
+		err if err == transfer_failed => HaltReason::OutOfFund,
 		_ => HaltReason::FatalExternalError,
 	};
 
