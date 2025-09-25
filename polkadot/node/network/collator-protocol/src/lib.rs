@@ -137,7 +137,7 @@ impl<Context> CollatorProtocolSubsystem {
 					target: LOG_TARGET,
 					?invulnerables,
 					?collator_protocol_hold_off,
-					"AH stop-gap params",
+					"AH collator protocol params",
 				);
 				validator_side::run(
 					ctx,

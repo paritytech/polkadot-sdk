@@ -485,7 +485,7 @@ struct State {
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
 
-	/// List of invulnerable AssetHub collators. They are handled with a priority.
+	/// List of invulnerable AssetHub collators. They are handled with priority.
 	ah_invulnerables: HashSet<PeerId>,
 
 	/// Timers for AH held off advertisements. All advertisements are grouped by relay parent. Once
