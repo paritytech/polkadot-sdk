@@ -1,0 +1,10 @@
+title: Update pallet-revive weights
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR is to generate new weights for `pallet-revive`
+
+    It is mainly needed to compare the weights from [ETH block storage PR](https://github.com/paritytech/polkadot-sdk/pull/9418)
+crates:
+- name: pallet-revive
+  bump: patch
