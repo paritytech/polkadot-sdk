@@ -988,7 +988,7 @@ impl StatementStore for Store {
 				e,
 				HexDisplay::from(&who),
 			);
-			
+
 			Error::Db(e.to_string())
 		})
 	}
