@@ -89,6 +89,14 @@ macro_rules! decl_extension {
 			}
 		}
 
+		impl $ext_name {
+			/// Returns the `TypeId` of this extension.
+			#[allow(dead_code)]
+			pub fn type_id() -> core::any::TypeId {
+				core::any::TypeId::of::<Self>()
+			}
+		}
+
 		impl core::ops::Deref for $ext_name {
 			type Target = $inner;
 
@@ -123,6 +131,14 @@ macro_rules! decl_extension {
 
 			fn type_id(&self) -> core::any::TypeId {
 				core::any::Any::type_id(self)
+			}
+		}
+
+		impl $ext_name {
+			/// Returns the `TypeId` of this extension.
+			#[allow(dead_code)]
+			pub fn type_id() -> core::any::TypeId {
+				core::any::TypeId::of::<Self>()
 			}
 		}
 	}
@@ -178,6 +194,11 @@ impl Extensions {
 		self.extensions.insert(type_id, Box::new(ext));
 	}
 
+	/// Returns `true` if an extension for the given `type_id` is already registered.
+	pub fn is_registered(&self, type_id: TypeId) -> bool {
+		self.extensions.contains_key(&type_id)
+	}
+
 	/// Register extension `extension` using the given `type_id`.
 	pub fn register_with_type_id(
 		&mut self,
@@ -219,6 +240,11 @@ impl Extensions {
 	/// instance found in `self`.
 	pub fn merge(&mut self, other: Self) {
 		self.extensions.extend(other.extensions);
+	}
+
+	/// Returns an iterator that returns all stored extensions.
+	pub fn into_extensions(self) -> impl Iterator<Item = Box<dyn Extension>> {
+		self.extensions.into_values()
 	}
 }
 

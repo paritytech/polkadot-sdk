@@ -30,6 +30,7 @@ use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
 pub struct BlockBuilderAndSupportData<'a> {
 	pub block_builder: sc_block_builder::BlockBuilder<'a, Block, Client>,
 	pub persisted_validation_data: PersistedValidationData<PHash, PBlockNumber>,
+	pub proof_recorder: ProofRecorder<Block>,
 }
 
 /// An extension for the Cumulus test client to init a block builder.
@@ -143,13 +144,14 @@ fn init_block_builder(
 			.collect::<Vec<_>>(),
 	};
 
+	let proof_recorder =
+		ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.unwrap_or_default());
+
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
 		.unwrap()
-		.with_proof_recorder(Some(ProofRecorder::<Block>::with_ignored_nodes(
-			ignored_nodes.unwrap_or_default(),
-		)))
+		.with_proof_recorder(Some(proof_recorder.clone()))
 		.with_inherent_digests(pre_digests)
 		.build()
 		.expect("Creates new block builder for test runtime");
@@ -186,7 +188,11 @@ fn init_block_builder(
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
 
-	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data }
+	BlockBuilderAndSupportData {
+		block_builder,
+		persisted_validation_data: validation_data,
+		proof_recorder,
+	}
 }
 
 impl InitBlockBuilder for Client {
@@ -274,11 +280,11 @@ pub trait BuildParachainBlockData {
 
 impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, Client> {
 	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block> {
+		let proof_recorder = self.proof_recorder().expect("Proof recorder is always set");
 		let built_block = self.build().expect("Builds the block");
 
-		let storage_proof = built_block
-			.proof
-			.expect("We enabled proof recording before.")
+		let storage_proof = proof_recorder
+			.drain_storage_proof()
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 

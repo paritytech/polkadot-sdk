@@ -20,7 +20,7 @@
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder, BuiltBlock};
 use sc_cli::{Error, Result};
 use sc_client_api::UsageProvider;
-use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{
 	ApplyExtrinsicFailed::Validity,
 	Error::{ApplyExtrinsicFailed, RuntimeApiError},
@@ -137,11 +137,14 @@ where
 		ext_builder: Option<&dyn ExtrinsicBuilder>,
 	) -> Result<(Block, Option<u64>, u64)> {
 		let chain = self.client.usage_info().chain;
+
+		let storage_proof_recorder = self.record_proof.then(|| ProofRecorder::<Block>::default());
+
 		let mut builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(chain.best_hash)
 			.with_parent_block_number(chain.best_number)
 			.with_inherent_digests(Digest { logs: self.digest_items.clone() })
-			.with_proof_recording(self.record_proof)
+			.with_proof_recorder(storage_proof_recorder.clone())
 			.build()?;
 
 		// Create and insert the inherents.
@@ -175,7 +178,9 @@ where
 			None => None,
 		};
 
-		let BuiltBlock { block, proof, .. } = builder.build()?;
+		let BuiltBlock { block, .. } = builder.build()?;
+
+		let proof = storage_proof_recorder.map(|r| r.drain_storage_proof());
 
 		Ok((
 			block,

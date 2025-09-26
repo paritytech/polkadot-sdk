@@ -4404,7 +4404,6 @@ dependencies = [
  "async-trait",
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
- "cumulus-client-consensus-proposer",
  "cumulus-client-parachain-inherent",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
@@ -4435,6 +4434,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
  "sp-inherents",
  "sp-keyring",
  "sp-keystore",
@@ -4482,25 +4482,6 @@ dependencies = [
  "sp-version",
  "substrate-prometheus-endpoint",
  "tracing",
-]
-
-[[package]]
-name = "cumulus-client-consensus-proposer"
-version = "0.7.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "cumulus-primitives-parachain-inherent",
- "sc-basic-authorship",
- "sc-block-builder",
- "sc-transaction-pool-api",
- "sp-api",
- "sp-blockchain",
- "sp-consensus",
- "sp-inherents",
- "sp-runtime",
- "sp-state-machine",
- "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5196,7 +5177,6 @@ dependencies = [
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
- "cumulus-client-consensus-proposer",
  "cumulus-client-parachain-inherent",
  "cumulus-client-pov-recovery",
  "cumulus-client-service",
@@ -15994,7 +15974,6 @@ dependencies = [
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
- "cumulus-client-consensus-proposer",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
@@ -16370,7 +16349,6 @@ dependencies = [
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
- "cumulus-client-consensus-proposer",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-network",
  "cumulus-client-parachain-inherent",
@@ -19687,6 +19665,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-inherents",
  "sp-runtime",
+ "sp-state-machine",
  "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
@@ -19701,10 +19680,10 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
- "sp-trie",
  "substrate-test-runtime-client",
 ]
 
@@ -20156,10 +20135,12 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
  "sp-inherents",
  "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
@@ -20211,6 +20192,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
+ "sp-trie",
  "substrate-test-runtime-client",
 ]
 
@@ -22920,9 +22902,12 @@ dependencies = [
  "async-trait",
  "futures",
  "log",
+ "sp-api",
+ "sp-externalities 0.25.0",
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
+ "sp-trie",
  "thiserror 1.0.65",
 ]
 

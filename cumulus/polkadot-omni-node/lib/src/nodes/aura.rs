@@ -45,7 +45,6 @@ use cumulus_client_consensus_aura::{
 	},
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
@@ -63,6 +62,7 @@ use sc_service::{Configuration, Error, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_api::ProvideRuntimeApi;
+use sp_consensus::{Environment, Proposer};
 use sp_core::traits::SpawnNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -274,7 +274,7 @@ where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
 		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
-		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+		Proposer: Environment<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnNamed,
 	{
@@ -325,7 +325,7 @@ where
 		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
-		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
@@ -449,7 +449,7 @@ where
 		node_extra_args: NodeExtraArgs,
 		_: (),
 	) -> Result<(), Error> {
-		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
