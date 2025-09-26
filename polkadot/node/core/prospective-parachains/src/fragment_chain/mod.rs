@@ -977,7 +977,7 @@ impl FragmentChain {
 					let _ = self.unconnected.add_candidate_entry(candidate);
 				},
 				Err(e) => {
-					log::trace!(
+					gum::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?candidate.candidate_hash,
 						err = ?e,
