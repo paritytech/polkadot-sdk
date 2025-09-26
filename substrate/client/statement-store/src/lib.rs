@@ -981,16 +981,16 @@ impl StatementStore for Store {
 			commit.push((col::STATEMENTS, hash.to_vec(), None));
 			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
 		}
-		if let Err(e) = self.db.commit(commit) {
+		self.db.commit(commit).map_err(|e| {
 			log::debug!(
 				target: LOG_TARGET,
 				"Statement validation failed: database error {}, remove by {:?}",
 				e,
 				HexDisplay::from(&who),
 			);
-			return Err(Error::Db(e.to_string()))
-		}
-		Ok(())
+			
+			Error::Db(e.to_string())
+		})
 	}
 }
 
