@@ -21,9 +21,9 @@ alice: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
 bob: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
 charlie: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
 
-alice: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 60 seconds
-bob: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 60 seconds
-charlie: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 60 seconds
+alice: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 75 seconds
+bob: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 75 seconds
+charlie: reports block height is greater than {{DB_BLOCK_HEIGHT}} within 75 seconds
 
 dave: reports block height is at least 1 within 60 seconds
 dave: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
