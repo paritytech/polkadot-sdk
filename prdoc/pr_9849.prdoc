@@ -1,0 +1,36 @@
+title: "Bump spec versions"
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR bumps specv versions to 1_020_001.
+
+crates:
+  - name: westend-runtime
+    bump: none
+  - name: rococo-runtime
+    bump: none
+  - name: asset-hub-rococo-runtime
+    bump: none
+  - name: asset-hub-westend-runtime
+    bump: none
+  - name: bridge-hub-rococo-runtime
+    bump: none
+  - name: bridge-hub-westend-runtime
+    bump: none
+  - name: collectives-westend-runtime
+    bump: none
+  - name: coretime-rococo-runtime
+    bump: none
+  - name: coretime-westend-runtime
+    bump: none
+  - name: people-rococo-runtime
+    bump: none
+  - name: people-westend-runtime
+    bump: none
+  - name: glutton-westend-runtime
+    bump: none
+  - name: rococo-parachain-runtime
+    bump: none
+  - name: yet-another-parachain-runtime
+    bump: none
