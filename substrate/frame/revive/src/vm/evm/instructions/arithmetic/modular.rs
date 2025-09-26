@@ -53,6 +53,9 @@ impl Modular for U256 {
 	}
 
 	fn add_mod(self, rhs: Self, modulus: Self) -> Self {
+		if modulus.is_zero() {
+			return Self::zero();
+		}
 		// Reduce inputs
 		let lhs = self.reduce_mod(modulus);
 		let rhs = rhs.reduce_mod(modulus);
