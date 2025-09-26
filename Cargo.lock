@@ -14996,6 +14996,7 @@ dependencies = [
  "pyroscope",
  "pyroscope_pprofrs",
  "sc-cli",
+ "sc-network-types",
  "sc-service",
  "sc-storage-monitor",
  "sc-sysinfo",
