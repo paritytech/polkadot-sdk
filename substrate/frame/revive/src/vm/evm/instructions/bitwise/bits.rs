@@ -38,13 +38,14 @@ impl Bits for U256 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::assert_same_as_alloy;
 	use proptest::proptest;
 
 	#[test]
 	fn test_arithmetic_shr() {
 		proptest!(|(limbs: [u64; 4], shift in 0usize..=258)| {
-			assert_same_as_alloy!(limbs, arithmetic_shr, shift);
+			let ours = U256(limbs).arithmetic_shr(shift);
+			let theirs = alloy_core::primitives::U256::from_limbs(limbs).arithmetic_shr(shift);
+			assert_eq!(&ours.0, theirs.as_limbs());
 		});
 	}
 }

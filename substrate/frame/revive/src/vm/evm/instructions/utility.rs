@@ -17,25 +17,6 @@
 
 use sp_core::{H160, U256};
 
-/// Compare the result of calling a U256 method on [`sp_core::U256`] vs
-/// [`alloy_core::primitives::U256`].
-#[macro_export]
-macro_rules! assert_same_as_alloy {
-		($limbs: expr, $op:ident $(, $arg:expr )* $(,)?) => {{
-			let ours = U256($limbs).$op($($arg),*);
-			let theirs = alloy_core::primitives::U256::from_limbs($limbs).$op($($arg),*);
-			assert_eq!(
-				&ours.0,
-				theirs.as_limbs(),
-				"Mismatch for {}({}): ours={:?}, theirs={:?}",
-				stringify!($op),
-				stringify!($($arg),*),
-				&ours,
-				theirs
-			);
-		}};
-	}
-
 /// Converts a `U256` value to a `usize`, saturating to `MAX` if the value is too large.
 pub fn as_usize_saturated(v: U256) -> usize {
 	match &v.0 {
