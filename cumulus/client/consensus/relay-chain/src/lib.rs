@@ -42,9 +42,8 @@ use cumulus_primitives_core::{relay_chain::Hash as PHash, ParaId, PersistedValid
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use sc_consensus::{BlockImport, BlockImportParams};
-use sp_consensus::{
-	BlockOrigin, EnableProofRecording, Environment, ProofRecording, Proposal, Proposer,
-};
+use sp_api::ProofRecorder;
+use sp_consensus::{BlockOrigin, Environment, Proposal, ProposeArgs, Proposer};
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
@@ -149,11 +148,7 @@ where
 	RCInterface: RelayChainInterface + Clone,
 	BI: BlockImport<B> + ParachainBlockImportMarker + Send + Sync,
 	PF: Environment<B> + Send + Sync,
-	PF::Proposer: Proposer<
-		B,
-		ProofRecording = EnableProofRecording,
-		Proof = <EnableProofRecording as ProofRecording>::Proof,
-	>,
+	PF::Proposer: Proposer<B>,
 	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)>,
 {
 	async fn produce_candidate(
@@ -174,18 +169,23 @@ where
 		let inherent_data =
 			self.inherent_data(parent.hash(), validation_data, relay_parent).await?;
 
-		let Proposal { block, storage_changes, proof } = proposer
-			.propose(
-				inherent_data,
-				Default::default(),
-				// TODO: Fix this.
-				Duration::from_millis(500),
-				// Set the block limit to 50% of the maximum PoV size.
-				//
-				// TODO: If we got benchmarking that includes that encapsulates the proof size,
-				// we should be able to use the maximum pov size.
-				Some((validation_data.max_pov_size / 2) as usize),
-			)
+		let storage_proof_recorder = ProofRecorder::<B>::default();
+
+		let propose_args = ProposeArgs {
+			inherent_data,
+			// TODO: Fix this.
+			max_duration: Duration::from_millis(500),
+			// Set the block limit to 50% of the maximum PoV size.
+			//
+			// TODO: If we got benchmarking that includes that encapsulates the proof size,
+			// we should be able to use the maximum pov size.
+			block_size_limit: Some((validation_data.max_pov_size / 2) as usize),
+			storage_proof_recorder: Some(storage_proof_recorder.clone()),
+			..Default::default()
+		};
+
+		let Proposal { block, storage_changes } = proposer
+			.propose(propose_args)
 			.await
 			.map_err(|e| tracing::error!(target: LOG_TARGET, error = ?e, "Proposing failed."))
 			.ok()?;
@@ -208,6 +208,8 @@ where
 
 			return None
 		}
+
+		let proof = storage_proof_recorder.drain_storage_proof();
 
 		Some(ParachainCandidate { block, proof })
 	}
@@ -237,11 +239,7 @@ pub fn build_relay_chain_consensus<Block, PF, BI, CIDP, RCInterface>(
 where
 	Block: BlockT,
 	PF: Environment<Block> + Send + Sync + 'static,
-	PF::Proposer: Proposer<
-		Block,
-		ProofRecording = EnableProofRecording,
-		Proof = <EnableProofRecording as ProofRecording>::Proof,
-	>,
+	PF::Proposer: Proposer<Block>,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	CIDP: CreateInherentDataProviders<Block, (PHash, PersistedValidationData)> + 'static,
 	RCInterface: RelayChainInterface + Clone + 'static,

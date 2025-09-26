@@ -56,11 +56,11 @@ pub struct MiningMetadata<H, D> {
 }
 
 /// A build of mining, containing the metadata and the block proposal.
-pub struct MiningBuild<Block: BlockT, Algorithm: PowAlgorithm<Block>, Proof> {
+pub struct MiningBuild<Block: BlockT, Algorithm: PowAlgorithm<Block>> {
 	/// Mining metadata.
 	pub metadata: MiningMetadata<Block::Hash, Algorithm::Difficulty>,
 	/// Mining proposal.
-	pub proposal: Proposal<Block, Proof>,
+	pub proposal: Proposal<Block>,
 }
 
 /// Version of the mining worker.
@@ -72,16 +72,15 @@ pub struct MiningHandle<
 	Block: BlockT,
 	Algorithm: PowAlgorithm<Block>,
 	L: sc_consensus::JustificationSyncLink<Block>,
-	Proof,
 > {
 	version: Arc<AtomicUsize>,
 	algorithm: Arc<Algorithm>,
 	justification_sync_link: Arc<L>,
-	build: Arc<Mutex<Option<MiningBuild<Block, Algorithm, Proof>>>>,
+	build: Arc<Mutex<Option<MiningBuild<Block, Algorithm>>>>,
 	block_import: Arc<Mutex<BoxBlockImport<Block>>>,
 }
 
-impl<Block, Algorithm, L, Proof> MiningHandle<Block, Algorithm, L, Proof>
+impl<Block, Algorithm, L> MiningHandle<Block, Algorithm, L>
 where
 	Block: BlockT,
 	Algorithm: PowAlgorithm<Block>,
@@ -112,7 +111,7 @@ where
 		self.increment_version();
 	}
 
-	pub(crate) fn on_build(&self, value: MiningBuild<Block, Algorithm, Proof>) {
+	pub(crate) fn on_build(&self, value: MiningBuild<Block, Algorithm>) {
 		let mut build = self.build.lock();
 		*build = Some(value);
 		self.increment_version();
@@ -216,7 +215,7 @@ where
 	}
 }
 
-impl<Block, Algorithm, L, Proof> Clone for MiningHandle<Block, Algorithm, L, Proof>
+impl<Block, Algorithm, L> Clone for MiningHandle<Block, Algorithm, L>
 where
 	Block: BlockT,
 	Algorithm: PowAlgorithm<Block>,

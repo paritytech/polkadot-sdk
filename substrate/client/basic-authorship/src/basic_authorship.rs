@@ -32,17 +32,17 @@ use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
-use sp_api::{ApiExt, CallApiAt, ProofRecorder, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
-use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
+use sp_consensus::{Proposal, ProposeArgs};
 use sp_core::traits::SpawnNamed;
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
-	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
+	ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
-use sp_trie::recorder::IgnoredNodes;
-use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
+use sp_state_machine::StorageProof;
+use std::{pin::Pin, sync::Arc, time};
 
 /// Default block size limit in bytes used by [`Proposer`].
 ///
@@ -58,7 +58,7 @@ const DEFAULT_SOFT_DEADLINE_PERCENT: Percent = Percent::from_percent(50);
 const LOG_TARGET: &'static str = "basic-authorship";
 
 /// [`Proposer`] factory.
-pub struct ProposerFactory<A, C, PR> {
+pub struct ProposerFactory<A, C> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	/// The client instance.
 	client: Arc<C>,
@@ -82,11 +82,9 @@ pub struct ProposerFactory<A, C, PR> {
 	telemetry: Option<TelemetryHandle>,
 	/// When estimating the block size, should the proof be included?
 	include_proof_in_block_size_estimation: bool,
-	/// phantom member to pin the `ProofRecording` type.
-	_phantom: PhantomData<PR>,
 }
 
-impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
+impl<A, C> Clone for ProposerFactory<A, C> {
 	fn clone(&self) -> Self {
 		Self {
 			spawn_handle: self.spawn_handle.clone(),
@@ -97,16 +95,12 @@ impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
-			_phantom: self._phantom,
 		}
 	}
 }
 
-impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
+impl<A, C> ProposerFactory<A, C> {
 	/// Create a new proposer factory.
-	///
-	/// Proof recording will be disabled when using proposers built by this instance to build
-	/// blocks.
 	pub fn new(
 		spawn_handle: impl SpawnNamed + 'static,
 		client: Arc<C>,
@@ -123,35 +117,6 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 			telemetry,
 			client,
 			include_proof_in_block_size_estimation: false,
-			_phantom: PhantomData,
-		}
-	}
-}
-
-impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
-	/// Create a new proposer factory with proof recording enabled.
-	///
-	/// Each proposer created by this instance will record a proof while building a block.
-	///
-	/// This will also include the proof into the estimation of the block size. This can be disabled
-	/// by calling [`ProposerFactory::disable_proof_in_block_size_estimation`].
-	pub fn with_proof_recording(
-		spawn_handle: impl SpawnNamed + 'static,
-		client: Arc<C>,
-		transaction_pool: Arc<A>,
-		prometheus: Option<&PrometheusRegistry>,
-		telemetry: Option<TelemetryHandle>,
-	) -> Self {
-		ProposerFactory {
-			client,
-			spawn_handle: Box::new(spawn_handle),
-			transaction_pool,
-			metrics: PrometheusMetrics::new(prometheus),
-			default_block_size_limit: DEFAULT_BLOCK_SIZE_LIMIT,
-			soft_deadline_percent: DEFAULT_SOFT_DEADLINE_PERCENT,
-			telemetry,
-			include_proof_in_block_size_estimation: true,
-			_phantom: PhantomData,
 		}
 	}
 
@@ -159,9 +124,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 	pub fn disable_proof_in_block_size_estimation(&mut self) {
 		self.include_proof_in_block_size_estimation = false;
 	}
-}
 
-impl<A, C, PR> ProposerFactory<A, C, PR> {
 	/// Set the default block size limit in bytes.
 	///
 	/// The default value for the block size limit is:
@@ -190,7 +153,7 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 	}
 }
 
-impl<Block, C, A, PR> ProposerFactory<A, C, PR>
+impl<Block, C, A> ProposerFactory<A, C>
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
@@ -201,7 +164,7 @@ where
 		&mut self,
 		parent_header: &<Block as BlockT>::Header,
 		now: Box<dyn Fn() -> time::Instant + Send + Sync>,
-	) -> Proposer<Block, C, A, PR> {
+	) -> Proposer<Block, C, A> {
 		let parent_hash = parent_header.hash();
 
 		info!(
@@ -210,7 +173,7 @@ where
 			parent_header.number()
 		);
 
-		let proposer = Proposer::<_, _, _, PR> {
+		let proposer = Proposer::<_, _, _> {
 			spawn_handle: self.spawn_handle.clone(),
 			client: self.client.clone(),
 			parent_hash,
@@ -221,7 +184,6 @@ where
 			default_block_size_limit: self.default_block_size_limit,
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
-			_phantom: PhantomData,
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
 		};
 
@@ -229,16 +191,15 @@ where
 	}
 }
 
-impl<A, Block, C, PR> sp_consensus::Environment<Block> for ProposerFactory<A, C, PR>
+impl<A, Block, C> sp_consensus::Environment<Block> for ProposerFactory<A, C>
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
-	PR: ProofRecording,
 {
 	type CreateProposer = future::Ready<Result<Self::Proposer, Self::Error>>;
-	type Proposer = Proposer<Block, C, A, PR>;
+	type Proposer = Proposer<Block, C, A>;
 	type Error = sp_blockchain::Error;
 
 	fn init(&mut self, parent_header: &<Block as BlockT>::Header) -> Self::CreateProposer {
@@ -247,7 +208,7 @@ where
 }
 
 /// The proposer logic.
-pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
+pub struct Proposer<Block: BlockT, C, A: TransactionPool> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	client: Arc<C>,
 	parent_hash: Block::Hash,
@@ -259,72 +220,20 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
 	include_proof_in_block_size_estimation: bool,
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
-	_phantom: PhantomData<PR>,
 }
 
-impl<A, Block, C, PR> sp_consensus::Proposer<Block> for Proposer<Block, C, A, PR>
+impl<A, Block, C> sp_consensus::Proposer<Block> for Proposer<Block, C, A>
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
-	PR: ProofRecording,
 {
-	type Proposal =
-		Pin<Box<dyn Future<Output = Result<Proposal<Block, PR::Proof>, Self::Error>> + Send>>;
+	type Proposal = Pin<Box<dyn Future<Output = Result<Proposal<Block>, Self::Error>> + Send>>;
 	type Error = sp_blockchain::Error;
-	type ProofRecording = PR;
-	type Proof = PR::Proof;
 
-	fn propose(
-		self,
-		inherent_data: InherentData,
-		inherent_digests: Digest,
-		max_duration: time::Duration,
-		block_size_limit: Option<usize>,
-	) -> Self::Proposal {
-		Self::propose_block(
-			self,
-			ProposeArgs {
-				inherent_data,
-				inherent_digests,
-				max_duration,
-				block_size_limit,
-				ignored_nodes_by_proof_recording: None,
-			},
-		)
-		.boxed()
-	}
-}
-
-/// Arguments for [`Proposer::propose`].
-pub struct ProposeArgs<Block: BlockT> {
-	/// The inherent data to pass to the block production.
-	pub inherent_data: InherentData,
-	/// The inherent digests to include in the produced block.
-	pub inherent_digests: Digest,
-	/// Max duration for building the block.
-	pub max_duration: time::Duration,
-	/// Optional size limit for the produced block.
-	///
-	/// When set, block production ends before hitting this limit. The limit includes the storage
-	/// proof, when proof recording is activated.
-	pub block_size_limit: Option<usize>,
-	/// Trie nodes that should not be recorded.
-	///
-	/// Only applies when proof recording is enabled.
-	pub ignored_nodes_by_proof_recording: Option<IgnoredNodes<Block::Hash>>,
-}
-
-impl<Block: BlockT> Default for ProposeArgs<Block> {
-	fn default() -> Self {
-		Self {
-			inherent_data: Default::default(),
-			inherent_digests: Default::default(),
-			max_duration: Default::default(),
-			block_size_limit: None,
-			ignored_nodes_by_proof_recording: None,
-		}
+	fn propose(self, args: ProposeArgs<Block>) -> Self::Proposal {
+		Self::propose_block(self, args).boxed()
 	}
 }
 
@@ -333,19 +242,18 @@ impl<Block: BlockT> Default for ProposeArgs<Block> {
 /// It allows us to increase block utilization.
 const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
-impl<A, Block, C, PR> Proposer<Block, C, A, PR>
+impl<A, Block, C> Proposer<Block, C, A>
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
-	PR: ProofRecording,
 {
 	/// Propose a new block.
 	pub async fn propose_block(
 		self,
 		args: ProposeArgs<Block>,
-	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
+	) -> Result<Proposal<Block>, sp_blockchain::Error> {
 		let (tx, rx) = oneshot::channel();
 		let spawn_handle = self.spawn_handle.clone();
 
@@ -370,26 +278,28 @@ where
 
 	async fn propose_with(
 		self,
-		ProposeArgs {
+		args: ProposeArgs<Block>,
+	) -> Result<Proposal<Block>, sp_blockchain::Error> {
+		let ProposeArgs {
 			inherent_data,
 			inherent_digests,
 			max_duration,
 			block_size_limit,
-			ignored_nodes_by_proof_recording,
-		}: ProposeArgs<Block>,
-	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
+			storage_proof_recorder,
+			extra_extensions,
+		} = args;
 		// leave some time for evaluation and block finalization (10%)
 		let deadline = (self.now)() + max_duration - max_duration / 10;
 		let block_timer = time::Instant::now();
+		// Determine if proof recording was requested
+		let proof_recording_enabled = storage_proof_recorder.is_some();
+
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
 			.with_parent_block_number(self.parent_number)
-			.with_proof_recorder(PR::ENABLED.then(|| {
-				ProofRecorder::<Block>::with_ignored_nodes(
-					ignored_nodes_by_proof_recording.unwrap_or_default(),
-				)
-			}))
+			.with_proof_recorder(storage_proof_recorder)
 			.with_inherent_digests(inherent_digests)
+			.with_extra_extensions(extra_extensions)
 			.build()?;
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
@@ -400,14 +310,11 @@ where
 				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
-		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
+		let (block, storage_changes) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 
-		let proof =
-			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
-
 		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
-		Ok(Proposal { block, proof, storage_changes })
+		Ok(Proposal { block, storage_changes })
 	}
 
 	/// Apply all inherents to the block.
@@ -1044,13 +951,8 @@ mod tests {
 		// Without a block limit we should include all of them
 		assert_eq!(block.extrinsics().len(), extrinsics_num);
 
-		let mut proposer_factory = ProposerFactory::with_proof_recording(
-			spawner.clone(),
-			client.clone(),
-			txpool.clone(),
-			None,
-			None,
-		);
+		let mut proposer_factory =
+			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
 
 		let proposer = block_on(proposer_factory.init(&genesis_header)).unwrap();
 
@@ -1060,7 +962,7 @@ mod tests {
 			let builder = BlockBuilderBuilder::new(&*client)
 				.on_parent_block(genesis_header.hash())
 				.with_parent_block_number(0)
-				.enable_proof_recording()
+				.with_proof_recorder(Some(Default::default()))
 				.build()
 				.unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
@@ -1068,6 +970,7 @@ mod tests {
 		let block = block_on(proposer.propose_block(ProposeArgs {
 			max_duration: deadline,
 			block_size_limit: Some(block_limit),
+			storage_proof_recorder: Some(Default::default()),
 			..Default::default()
 		}))
 		.map(|r| r.block)

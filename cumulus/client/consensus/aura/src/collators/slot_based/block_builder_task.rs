@@ -17,7 +17,7 @@
 
 use super::CollatorMessage;
 use crate::{
-	collator::{self as collator_util, Collator, SlotClaim},
+	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
@@ -31,7 +31,6 @@ use crate::{
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector,
@@ -45,16 +44,18 @@ use polkadot_primitives::{
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
-use sp_api::{ProvideRuntimeApi, StorageProof};
+use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
+use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
+use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member, Zero};
-use sp_trie::recorder::IgnoredNodes;
+use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
 use std::{
 	collections::VecDeque,
 	sync::Arc,
@@ -91,7 +92,7 @@ pub struct BuilderTaskParams<
 	pub keystore: KeystorePtr,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The underlying block proposer this should call into.
+	/// The proposer for building blocks.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -137,7 +138,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
 	P: Pair,
@@ -438,7 +439,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 {
 	let core_start = Instant::now();
@@ -535,23 +536,30 @@ where
 			Ok(x) => x,
 		};
 
+		let storage_proof_recorder =
+			ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
+		let mut extra_extensions = Extensions::default();
+		extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
+
 		let Ok(Some(res)) = collator
-			.build_block_and_import(
-				&parent_header,
+			.build_block_and_import(BuildBlockAndImportParams {
+				parent_header: &parent_header,
 				slot_claim,
-				Some(vec![
+				additional_pre_digest: vec![
 					CumulusDigestItem::CoreInfo(core_info.clone()).to_digest_item(),
 					CumulusDigestItem::BundleInfo(BundleInfo {
 						index: block_index as u8,
 						maybe_last: is_last,
 					})
 					.to_digest_item(),
-				]),
-				(parachain_inherent_data, other_inherent_data),
-				authoring_duration,
-				allowed_pov_size,
-				Some(ignored_nodes.clone()),
-			)
+				],
+				parachain_inherent_data,
+				extra_inherent_data: other_inherent_data,
+				proposal_duration: authoring_duration,
+				max_pov_size: allowed_pov_size,
+				storage_proof_recorder: storage_proof_recorder.into(),
+				extra_extensions,
+			})
 			.await
 		else {
 			tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");

@@ -71,7 +71,6 @@ pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{RelayParentOffsetApi, SlotSchedule};
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -86,6 +85,7 @@ use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
+use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
 use sp_core::{crypto::Pair, traits::SpawnNamed};
 use sp_inherents::CreateInherentDataProviders;
@@ -124,7 +124,7 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub collator_key: CollatorPair,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The underlying block proposer this should call into.
+	/// The proposer for building blocks.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -170,7 +170,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
 	P: Pair + 'static,

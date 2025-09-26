@@ -74,5 +74,6 @@
 mod basic_authorship;
 
 pub use crate::basic_authorship::{
-	ProposeArgs, Proposer, ProposerFactory, DEFAULT_BLOCK_SIZE_LIMIT,
+	Proposer, ProposerFactory, DEFAULT_BLOCK_SIZE_LIMIT,
 };
+pub use sp_consensus::ProposeArgs;

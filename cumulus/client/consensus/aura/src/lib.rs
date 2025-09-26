@@ -36,10 +36,10 @@ use sc_client_api::{backend::AuxStore, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo};
 use sc_telemetry::TelemetryHandle;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProofRecorder, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{EnableProofRecording, Environment, ProofRecording, Proposer, SyncOracle};
+use sp_consensus::{Environment, Proposer, SyncOracle};
 use sp_consensus_aura::{AuraApi, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
@@ -144,12 +144,7 @@ where
 		SO: SyncOracle + Send + Sync + Clone + 'static,
 		BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
 		PF: Environment<B, Error = Error> + Send + Sync + 'static,
-		PF::Proposer: Proposer<
-			B,
-			Error = Error,
-			ProofRecording = EnableProofRecording,
-			Proof = <EnableProofRecording as ProofRecording>::Proof,
-		>,
+		PF::Proposer: Proposer<B, Error = Error>,
 		Error: std::error::Error + Send + From<sp_consensus::Error> + 'static,
 		P: Pair + 'static,
 		P::Public: AppPublic + Member + Codec,
@@ -218,7 +213,7 @@ where
 	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)> + Send + Sync + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	W: SimpleSlotWorker<B> + Send + Sync,
-	W::Proposer: Proposer<B, Proof = <EnableProofRecording as ProofRecording>::Proof>,
+	W::Proposer: Proposer<B>,
 {
 	async fn produce_candidate(
 		&mut self,
@@ -229,7 +224,9 @@ where
 		let inherent_data_providers =
 			self.inherent_data(parent.hash(), validation_data, relay_parent).await?;
 
-		let info = SlotInfo::new(
+		let storage_proof_recorder = ProofRecorder::<B>::default();
+
+		let info = SlotInfo::with_storage_proof_recorder(
 			inherent_data_providers.slot(),
 			Box::new(inherent_data_providers),
 			self.slot_duration.as_duration(),
@@ -239,6 +236,7 @@ where
 			// TODO: If we got benchmarking that includes the proof size,
 			// we should be able to use the maximum pov size.
 			Some((validation_data.max_pov_size / 2) as usize),
+			storage_proof_recorder.clone(),
 		);
 
 		// With async backing this function will be called every relay chain block.
@@ -253,9 +251,11 @@ where
 			return None
 		}
 
-		let res = self.aura_worker.lock().await.on_slot(info).await?;
+		let block = self.aura_worker.lock().await.on_slot(info).await?;
 
-		Some(ParachainCandidate { block: res.block, proof: res.storage_proof })
+		let proof = storage_proof_recorder.drain_storage_proof();
+
+		Some(ParachainCandidate { block, proof })
 	}
 }
 
