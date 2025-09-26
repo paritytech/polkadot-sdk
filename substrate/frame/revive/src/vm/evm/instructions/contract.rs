@@ -78,7 +78,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	let call_result = interpreter.ext.instantiate(
 		Weight::from_parts(u64::MAX, u64::MAX), // TODO: set the right limit
 		U256::MAX,
-		Code::Upload(code.to_vec()),
+		Code::Upload(code),
 		value,
 		vec![],
 		salt.as_ref(),
