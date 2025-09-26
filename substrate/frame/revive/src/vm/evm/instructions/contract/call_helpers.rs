@@ -28,7 +28,7 @@ use revm::interpreter::interpreter_action::CallScheme;
 use sp_core::{H160, U256};
 
 /// Gets memory input and output ranges for call instructions.
-pub fn get_memory_input_and_out_ranges<'a, E: Ext>(
+pub fn get_memory_in_and_out_ranges<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 ) -> ControlFlow<Halt, (Range<usize>, Range<usize>)> {
 	let [in_offset, in_len, out_offset, out_len] = interpreter.stack.popn()?;

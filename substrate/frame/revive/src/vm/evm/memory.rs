@@ -40,13 +40,13 @@ impl Memory {
 		&self.0[range]
 	}
 
-	/// Returns a byte slice of the memory region at the given offset.
+	/// Get a mutable slice of memory for the given range
 	///
 	/// # Panics
 	///
 	/// Panics on out of bounds.
-	pub fn slice_mut(&mut self, offset: usize, len: usize) -> &mut [u8] {
-		&mut self.0[offset..offset + len]
+	pub fn slice_mut(&mut self, range: Range<usize>) -> &mut [u8] {
+		&mut self.0[range]
 	}
 
 	/// Get the current memory size in bytes

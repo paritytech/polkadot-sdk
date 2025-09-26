@@ -18,6 +18,7 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
+	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
 	vm::evm::HaltReason,
@@ -25,7 +26,7 @@ use crate::{
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes, U256},
-	sol_types::{SolCall, SolInterface},
+	sol_types::{Revert, SolCall, SolError, SolInterface},
 };
 use frame_support::{assert_err, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
@@ -186,19 +187,40 @@ fn call_revert() {
 			assert!(!result.success, "Call should propagate revert");
 			assert!(result.output.len() > 0, "Returned data should contain revert message");
 
+			// Use Alloy's built-in decoder for the revert data
 			let data = result.output.as_ref();
-
-			// string length
-			let str_len = U256::from_be_slice(&data[36..68]).to::<usize>();
-
-			// string bytes
-			let str_start = 68;
-			let str_end = str_start + str_len;
-			let reason_bytes = &data[str_start..str_end];
-			let reason = std::str::from_utf8(reason_bytes).unwrap();
-			assert_eq!(reason, "This is a revert");
+			if data.len() >= 4 && &data[..4] == Revert::SELECTOR {
+				let reason = decode_revert_reason(data).expect("Failed to decode revert reason");
+				assert_eq!(reason, "revert: This is a revert");
+			} else {
+				panic!("Error selector not found in revert data");
+			}
 		});
 	}
+}
+
+#[test]
+fn deploy_revert() {
+	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(caller_addr)
+			.data(Caller::createRevertCall {}.abi_encode())
+			.build_and_unwrap_result();
+
+		let data: &[u8] = result.data.as_ref();
+		if data.len() >= 72 && &data[68..72] == Revert::SELECTOR {
+			let reason = decode_revert_reason(&data[68..]).expect("Failed to decode revert reason");
+			assert_eq!(reason, "revert: ChildRevert: revert in constructor");
+		} else {
+			panic!("Error selector not found at expected position 68");
+		}
+	});
 }
 
 // This test has a `caller` contract calling into a `callee` contract which then executes the

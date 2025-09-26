@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.0;
 
+// Contract that always reverts in constructor
+contract ChildRevert {
+    constructor() {
+        revert("ChildRevert: revert in constructor");
+    }
+}
+
 contract Caller {
     function normal(
         address _callee,
@@ -40,6 +47,15 @@ contract Caller {
 				returndatacopy(0, 0, returnDataSize)
                 revert(0, returnDataSize)
             }
+        }
+    }
+
+
+    function createRevert() external returns (address addr) {
+        try new ChildRevert() returns (ChildRevert c) {
+            addr = address(c);
+        } catch (bytes memory reason) {
+            revert(string(reason));
         }
     }
 
