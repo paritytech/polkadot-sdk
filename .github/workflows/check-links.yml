@@ -42,7 +42,6 @@ jobs:
             --config .config/lychee.toml
             --no-progress
             './**/*.rs'
-            './**/*.prdoc'
           fail: true
         env:
           # To bypass GitHub rate-limit:
