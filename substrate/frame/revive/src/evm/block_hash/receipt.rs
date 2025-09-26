@@ -194,7 +194,6 @@ mod test {
 	#[test]
 	fn test_bloom_accrue_log() {
 		let mut bloom = LogsBloom::new();
-
 		let data = vec![
 			(H160::repeat_byte(0x01), vec![H256::repeat_byte(0x02), H256::repeat_byte(0x03)]),
 			(H160::repeat_byte(0x04), vec![H256::repeat_byte(0x05), H256::repeat_byte(0x06)]),
@@ -213,6 +212,26 @@ mod test {
 				&topics.iter().map(|t| t.0.into()).collect::<Vec<_>>(),
 			);
 		}
+
+		assert_eq!(bloom.bloom, alloy_bloom.0);
+	}
+
+	#[test]
+	fn test_bloom_accrue_bloom() {
+		let mut bloom = LogsBloom::new();
+		let mut bloom2 = LogsBloom::new();
+
+		bloom.accrue_log(&H160::repeat_byte(0x01), &[H256::repeat_byte(0x02)]);
+		bloom2.accrue_log(&H160::repeat_byte(0x03), &[H256::repeat_byte(0x04)]);
+		bloom.accrue_bloom(&bloom2);
+
+		let mut alloy_bloom = alloy_core::primitives::Bloom::default();
+		let mut alloy_bloom2 = alloy_core::primitives::Bloom::default();
+		alloy_bloom
+			.accrue_raw_log(H160::repeat_byte(0x01).0.into(), &[H256::repeat_byte(0x02).0.into()]);
+		alloy_bloom2
+			.accrue_raw_log(H160::repeat_byte(0x03).0.into(), &[H256::repeat_byte(0x04).0.into()]);
+		alloy_bloom.accrue_bloom(&alloy_bloom2);
 
 		assert_eq!(bloom.bloom, alloy_bloom.0);
 	}
