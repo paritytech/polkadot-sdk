@@ -122,7 +122,7 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 		return ControlFlow::Break(HaltReason::CallNotAllowedInsideStatic.into());
 	}
 
-	let (input, return_memory_offset) = get_memory_in_and_out_ranges(interpreter)?;
+	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::Call;
 	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
 
@@ -133,7 +133,7 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 		scheme,
 		Weight::from_parts(gas_limit, u64::MAX),
 		value,
-		return_memory_offset,
+		return_memory_range,
 	)
 }
 
@@ -156,7 +156,7 @@ pub fn delegate_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Ha
 	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
 	// addressed in #9577.
 
-	let (input, return_memory_offset) = get_memory_in_and_out_ranges(interpreter)?;
+	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::DelegateCall;
 	let value = U256::zero();
 	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
@@ -168,7 +168,7 @@ pub fn delegate_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Ha
 		scheme,
 		Weight::from_parts(gas_limit, u64::MAX),
 		value,
-		return_memory_offset,
+		return_memory_range,
 	)
 }
 
@@ -180,7 +180,7 @@ pub fn static_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 	let to = to.into_address();
 	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
 	// addressed in #9577.
-	let (input, return_memory_offset) = get_memory_in_and_out_ranges(interpreter)?;
+	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::StaticCall;
 	let value = U256::zero();
 	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
@@ -192,7 +192,7 @@ pub fn static_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 		scheme,
 		Weight::from_parts(gas_limit, u64::MAX),
 		value,
-		return_memory_offset,
+		return_memory_range,
 	)
 }
 
@@ -203,7 +203,7 @@ fn run_call<'a, E: Ext>(
 	scheme: CallScheme,
 	gas_limit: Weight,
 	value: U256,
-	return_memory_offset: Range<usize>,
+	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
@@ -224,8 +224,8 @@ fn run_call<'a, E: Ext>(
 
 	match call_result {
 		Ok(()) => {
-			let mem_start = return_memory_offset.start;
-			let mem_length = return_memory_offset.len();
+			let mem_start = return_memory_range.start;
+			let mem_length = return_memory_range.len();
 			let returned_len = interpreter.ext.last_frame_output().data.len();
 			let target_len = min(mem_length, returned_len);
 

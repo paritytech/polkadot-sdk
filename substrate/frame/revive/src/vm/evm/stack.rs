@@ -27,7 +27,7 @@ pub const STACK_LIMIT: usize = 1024;
 
 /// EVM stack implementation using sp_core types
 #[derive(Debug, Clone)]
-pub struct Stack(pub Vec<U256>);
+pub struct Stack(Vec<U256>);
 
 /// A trait for converting types into an unsigned 256-bit integer (`U256`).
 pub trait ToU256 {
