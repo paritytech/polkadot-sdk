@@ -175,7 +175,6 @@ impl Stack {
 		self.0.push(U256::from_big_endian(&word_bytes));
 		return ControlFlow::Continue(());
 	}
-
 }
 
 impl Default for Stack {
