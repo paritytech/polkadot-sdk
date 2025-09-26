@@ -17,7 +17,7 @@
 
 use crate::{
 	vm::{
-		evm::{instructions::utility::cast_slice_to_u256, interpreter::Halt, EVMGas, Interpreter},
+		evm::{interpreter::Halt, EVMGas, Interpreter},
 		Ext,
 	},
 	U256,
@@ -52,11 +52,9 @@ pub fn push<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
-	interpreter.stack.push(U256::zero())?;
-	let ([], top) = interpreter.stack.popn_top()?;
 
-	let imm = interpreter.bytecode.read_slice(N);
-	cast_slice_to_u256(imm, top);
+	let slice = interpreter.bytecode.read_slice(N);
+	interpreter.stack.push_slice(slice)?;
 
 	// Can ignore return. as relative N jump is safe operation
 	interpreter.bytecode.relative_jump(N as isize);

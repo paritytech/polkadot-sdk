@@ -22,6 +22,9 @@ use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use sp_core::{H160, H256, U256};
 
+/// EVM interpreter stack limit.
+pub const STACK_LIMIT: usize = 1024;
+
 /// EVM stack implementation using sp_core types
 #[derive(Debug, Clone)]
 pub struct Stack(pub Vec<U256>);
@@ -58,7 +61,7 @@ impl Stack {
 
 	/// Push a value onto the stack
 	pub fn push(&mut self, value: impl ToU256) -> ControlFlow<Halt> {
-		if self.0.len() >= 1024 {
+		if self.0.len() >= STACK_LIMIT {
 			ControlFlow::Break(HaltReason::StackOverflow.into())
 		} else {
 			self.0.push(value.to_u256());
@@ -126,7 +129,7 @@ impl Stack {
 		if n == 0 || n > self.0.len() {
 			return ControlFlow::Break(HaltReason::StackUnderflow.into());
 		}
-		if self.0.len() >= 1024 {
+		if self.0.len() >= STACK_LIMIT {
 			return ControlFlow::Break(HaltReason::StackOverflow.into());
 		}
 
@@ -148,6 +151,31 @@ impl Stack {
 		self.0.swap(i_idx, j_idx);
 		ControlFlow::Continue(())
 	}
+
+	/// Pushes a slice of bytes onto the stack, padding the last word with zeros
+	/// if necessary.
+	///
+	/// # Panics
+	///
+	/// Panics if slice is longer than 32 bytes.
+	pub fn push_slice(&mut self, slice: &[u8]) -> ControlFlow<Halt> {
+		debug_assert!(slice.len() <= 32, "slice must be at most 32 bytes");
+		if slice.is_empty() {
+			return ControlFlow::Continue(());
+		}
+
+		if self.0.len() >= STACK_LIMIT {
+			return ControlFlow::Break(HaltReason::StackOverflow.into());
+		}
+
+		let mut word_bytes = [0u8; 32];
+		let offset = 32 - slice.len();
+		word_bytes[offset..].copy_from_slice(slice);
+
+		self.0.push(U256::from_big_endian(&word_bytes));
+		return ControlFlow::Continue(());
+	}
+
 }
 
 impl Default for Stack {
@@ -159,6 +187,31 @@ impl Default for Stack {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn test_push_slice() {
+		// No-op
+		let mut stack = Stack::new();
+		assert!(stack.push_slice(b"").is_continue());
+		assert!(stack.is_empty());
+
+		// Single byte
+		let mut stack = Stack::new();
+		assert!(stack.push_slice(&[42]).is_continue());
+		assert_eq!(stack.0, vec![U256::from(42)]);
+
+		// 16-byte value (128-bit)
+		let n = 0x1111_2222_3333_4444_5555_6666_7777_8888_u128;
+		let mut stack = Stack::new();
+		assert!(stack.push_slice(&n.to_be_bytes()).is_continue());
+		assert_eq!(stack.0, vec![U256::from(n)]);
+
+		// Full 32-byte value
+		let mut stack = Stack::new();
+		let bytes_32 = [42u8; 32];
+		assert!(stack.push_slice(&bytes_32).is_continue());
+		assert_eq!(stack.0, vec![U256::from_big_endian(&bytes_32)]);
+	}
 
 	#[test]
 	fn test_push_pop() {
@@ -251,13 +304,16 @@ mod tests {
 		let mut stack = Stack::new();
 
 		// Fill stack to limit
-		for i in 0..1024 {
+		for i in 0..STACK_LIMIT {
 			assert!(matches!(stack.push(U256::from(i)), ControlFlow::Continue(())));
 		}
 
 		// Should fail to push one more
-		assert_eq!(stack.push(U256::from(9999)), ControlFlow::Break(HaltReason::StackOverflow.into()));
-		assert_eq!(stack.len(), 1024);
+		assert_eq!(
+			stack.push(U256::from(9999)),
+			ControlFlow::Break(HaltReason::StackOverflow.into())
+		);
+		assert_eq!(stack.len(), STACK_LIMIT);
 	}
 
 	#[test]
