@@ -186,3 +186,34 @@ impl LogsBloom {
 		}
 	}
 }
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn test_bloom_accrue_log() {
+		let mut bloom = LogsBloom::new();
+
+		let data = vec![
+			(H160::repeat_byte(0x01), vec![H256::repeat_byte(0x02), H256::repeat_byte(0x03)]),
+			(H160::repeat_byte(0x04), vec![H256::repeat_byte(0x05), H256::repeat_byte(0x06)]),
+			(H160::repeat_byte(0x07), vec![H256::repeat_byte(0x08), H256::repeat_byte(0x09)]),
+		];
+
+		for (contract, topics) in data.clone() {
+			bloom.accrue_log(&contract, &topics);
+		}
+
+		let mut alloy_bloom = alloy_core::primitives::Bloom::default();
+
+		for (contract, topics) in data {
+			alloy_bloom.accrue_raw_log(
+				contract.0.into(),
+				&topics.iter().map(|t| t.0.into()).collect::<Vec<_>>(),
+			);
+		}
+
+		assert_eq!(bloom.bloom, alloy_bloom.0);
+	}
+}
