@@ -311,9 +311,9 @@ mod test {
 			let mut first_value = Some(rlp_values[0].clone());
 			let mut builder = IncrementalHashBuilder::new();
 			for rlp_value in rlp_values.iter().skip(1) {
-				if builder.should_load_first_value(false) {
+				if builder.needs_first_value(BuilderPhase::ProcessingValue) {
 					let value = first_value.take().expect("First value must be present; qed");
-					builder.load_first_value(value);
+					builder.set_first_value(value);
 				}
 				builder.add_value(rlp_value.clone());
 
@@ -321,7 +321,7 @@ mod test {
 				builder = IncrementalHashBuilder::from_ir(ir_builder);
 			}
 			if let Some(value) = first_value.take() {
-				builder.load_first_value(value);
+				builder.set_first_value(value);
 			}
 			let incremental_hash = builder.finish();
 
@@ -453,16 +453,19 @@ mod test {
 			let mut builder = IncrementalHashBuilder::new();
 			let mut loaded = false;
 			for tx in encoded_tx.iter().skip(1) {
-				if builder.should_load_first_value(false) {
+				if builder.needs_first_value(BuilderPhase::ProcessingValue) {
 					loaded = true;
 					let first_tx = encoded_tx[0].clone();
-					builder.load_first_value(first_tx);
+					builder.set_first_value(first_tx);
 				}
 				builder.add_value(tx.clone())
 			}
 			if !loaded {
+				// Not loaded, therefore the first value must be set now.
+				assert!(builder.needs_first_value(BuilderPhase::Build));
+
 				let first_tx = encoded_tx[0].clone();
-				builder.load_first_value(first_tx);
+				builder.set_first_value(first_tx);
 			}
 
 			let incremental_hash = builder.finish();

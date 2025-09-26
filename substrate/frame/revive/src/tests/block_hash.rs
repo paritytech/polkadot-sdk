@@ -88,7 +88,7 @@ fn transactions_are_captured() {
 		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
 
 		let first_values = EthBlockBuilderFirstValues::<Test>::get().unwrap();
-		builder.transaction_root_builder.load_first_value(first_values.0);
+		builder.transaction_root_builder.set_first_value(first_values.0);
 
 		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
@@ -171,11 +171,11 @@ fn events_are_captured() {
 		assert_eq!(block_builder.gas_info.len(), 1);
 
 		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
-		builder.transaction_root_builder.load_first_value(expected_payloads[0].clone());
+		builder.transaction_root_builder.set_first_value(expected_payloads[0].clone());
 		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
-		builder.receipts_root_builder.load_first_value(encoded_receipt.clone());
+		builder.receipts_root_builder.set_first_value(encoded_receipt.clone());
 		let receipt_root = builder.receipts_root_builder.finish();
 		assert_eq!(receipt_root, expected_receipt_root.0.into());
 
