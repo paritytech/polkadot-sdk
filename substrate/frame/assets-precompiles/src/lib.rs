@@ -17,7 +17,8 @@
 
 //! # Assets Precompiles
 //!
-//! A wrapper pallet over the [`pallet-assets`] pallet that exposes common precompiles for accessing and managing assets.
+//! A wrapper pallet over the [`pallet-assets`] pallet that exposes common precompiles for accessing
+//! and managing assets.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

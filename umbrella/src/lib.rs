@@ -340,7 +340,7 @@ pub use pallet_assets_freezer;
 #[cfg(feature = "pallet-assets-holder")]
 pub use pallet_assets_holder;
 
-/// Provides holding features to `pallet-assets`.
+/// Provides precompiles for `pallet-assets`.
 #[cfg(feature = "pallet-assets-precompiles")]
 pub use pallet_assets_precompiles;
 

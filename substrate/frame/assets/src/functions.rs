@@ -207,7 +207,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Holder::balance_on_hold(id.clone(), who),
 				T::Freezer::frozen_balance(id.clone(), who),
 			) {
-				(None, None) => {
+				(None, None) =>
 					if rest < details.min_balance {
 						if keep_alive {
 							WouldDie
@@ -216,8 +216,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						}
 					} else {
 						Success
-					}
-				},
+					},
 				(maybe_held, maybe_frozen) => {
 					let frozen = maybe_frozen.unwrap_or_default();
 					let held = maybe_held.unwrap_or_default();

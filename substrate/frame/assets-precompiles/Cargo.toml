@@ -48,6 +48,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -55,5 +56,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-revive/try-runtime",
 	"sp-runtime/try-runtime",
 ]
