@@ -98,7 +98,6 @@ fn return_inner<E: Ext>(
 	interpreter: &mut Interpreter<E>,
 	halt: impl Fn(Vec<u8>) -> Halt,
 ) -> ControlFlow<Halt> {
-	// Zero gas cost
 	let [offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt(len)?;
 

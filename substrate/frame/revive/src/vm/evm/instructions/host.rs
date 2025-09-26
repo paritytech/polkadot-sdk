@@ -73,10 +73,7 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 	let [address, memory_offset, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt(len)?;
 
-	interpreter
-		.ext
-		.gas_meter_mut()
-		.charge_or_halt(RuntimeCosts::ExtCodeCopy(len as u32))?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::ExtCodeCopy(len as u32))?;
 	let address = address.into_address();
 
 	if len == 0 {
@@ -189,10 +186,7 @@ pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Load value from transient storage
 pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	interpreter
-		.ext
-		.gas_meter_mut()
-		.charge_or_halt(RuntimeCosts::GetTransientStorage(32))?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::GetTransientStorage(32))?;
 
 	let key = Key::Fix(index.to_big_endian());
 	let bytes = interpreter.ext.get_transient_storage(&key);
@@ -230,10 +224,9 @@ pub fn log<'ext, const N: usize, E: Ext>(
 		return ControlFlow::Break(HaltReason::InvalidOperandOOG.into());
 	}
 
-	interpreter
-		.ext
-		.gas_meter_mut()
-		.charge_or_halt(RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 })?;
+	let cost = RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 };
+	interpreter.ext.charge_or_halt(cost)?;
+
 	let data = if len == 0 {
 		Vec::new()
 	} else {
