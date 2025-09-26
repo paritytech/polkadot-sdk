@@ -90,29 +90,6 @@ impl WeighAssets for Assets {
 	}
 }
 
-pub struct AssetHubWestendXcmWeightInfoBounds;
-impl WeightBounds<RuntimeCall> for AssetHubWestendXcmWeightInfoBounds {
-	fn weight(
-		message: &mut Xcm<RuntimeCall>,
-		weight_limit: Weight,
-	) -> Result<Weight, InstructionError> {
-		WeightInfoBounds::<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>::weight(
-			message,
-			weight_limit,
-		)
-	}
-
-	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError> {
-		WeightInfoBounds::<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>::instr_weight(
-			instruction,
-		)
-	}
-
-	fn barrier_check_weight() -> Option<Weight> {
-		Some(XcmGeneric::<Runtime>::barrier_check())
-	}
-}
-
 pub struct AssetHubWestendXcmWeight<Call>(core::marker::PhantomData<Call>);
 impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
@@ -326,5 +303,28 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	}
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
+	}
+}
+
+pub struct AssetHubWestendXcmWeightInfoBounds;
+impl WeightBounds<RuntimeCall> for AssetHubWestendXcmWeightInfoBounds {
+	fn weight(
+		message: &mut Xcm<RuntimeCall>,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		WeightInfoBounds::<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>::weight(
+			message,
+			weight_limit,
+		)
+	}
+
+	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError> {
+		WeightInfoBounds::<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>::instr_weight(
+			instruction,
+		)
+	}
+
+	fn barrier_check_weight() -> Option<Weight> {
+		Some(XcmGeneric::<Runtime>::barrier_check())
 	}
 }

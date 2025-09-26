@@ -230,9 +230,9 @@ impl generic::Config for Test {
 			clear_origin = Xcm(vec![SetAppendix(clear_origin)]);
 		}
 
-		let nested = Xcm(vec![SetAppendix(set_topic), SetAppendix(clear_origin)]);
+		let xcm = Xcm(vec![SetAppendix(set_topic), SetAppendix(clear_origin)]);
 
-		Ok(nested)
+		Ok(xcm)
 	}
 }
 
