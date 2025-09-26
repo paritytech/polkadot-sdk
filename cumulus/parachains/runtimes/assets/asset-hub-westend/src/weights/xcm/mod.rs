@@ -16,7 +16,10 @@
 mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
-use crate::{xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding, MaxInstructions}, Runtime, RuntimeCall};
+use crate::{
+	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding, MaxInstructions},
+	Runtime, RuntimeCall,
+};
 use alloc::vec::Vec;
 use assets_common::IsLocalAccountKey20;
 use frame_support::{traits::Contains, weights::Weight};
@@ -89,7 +92,10 @@ impl WeighAssets for Assets {
 
 pub struct AssetHubWestendXcmWeightInfoBounds;
 impl WeightBounds<RuntimeCall> for AssetHubWestendXcmWeightInfoBounds {
-	fn weight(message: &mut Xcm<RuntimeCall>, weight_limit: Weight) -> Result<Weight, InstructionError> {
+	fn weight(
+		message: &mut Xcm<RuntimeCall>,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
 		WeightInfoBounds::<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>::weight(
 			message,
 			weight_limit,
