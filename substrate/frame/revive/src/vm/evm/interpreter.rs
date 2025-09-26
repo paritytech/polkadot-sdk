@@ -1,4 +1,19 @@
-//! Custom EVM interpreter implementation using sp_core types
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use super::ExtBytecode;
 use crate::{
@@ -16,7 +31,7 @@ use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 
 /// Reason for EVM execution halt
-#[derive(Debug, PartialEq, Clone, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo)]
+#[derive(Debug, Eq, PartialEq, Clone, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo)]
 pub enum HaltReason {
 	// Gas and resource errors
 	OutOfGas,
@@ -54,7 +69,7 @@ impl frame_support::traits::PalletError for HaltReason {
 }
 
 /// EVM execution halt - either successful termination or error
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Halt {
 	Stop,
 	Return(Vec<u8>),
@@ -72,7 +87,7 @@ impl From<HaltReason> for Halt {
 ///
 /// This function checks if the error should result in a successful execution (with error code)
 /// or if it should halt the execution. VM-triggered errors now use the Halt(HaltReason) pattern.
-pub fn exec_error_into_halt<E: Ext>(from: crate::ExecError) -> ControlFlow<Halt> {
+pub fn exec_error_into_halt<E: Ext>(from: ExecError) -> ControlFlow<Halt> {
 	use crate::{DispatchError, Error};
 
 	// First check if this should be a non-halting success case

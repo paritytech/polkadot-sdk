@@ -1,4 +1,3 @@
-use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -16,15 +15,15 @@ use crate::vm::evm::HaltReason;
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::utility::as_usize_saturated;
 use crate::{
 	address::AddressMapper,
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt, EVMGas, Interpreter},
+		evm::{interpreter::Halt, util::as_usize_or_halt, EVMGas, HaltReason, Interpreter},
 		Ext, RuntimeCosts,
 	},
 	Config, U256,
 };
-use super::utility::as_usize_saturated;
 use core::{ops::ControlFlow, ptr};
 use revm::interpreter::gas::{BASE, VERYLOW};
 use sp_core::H256;

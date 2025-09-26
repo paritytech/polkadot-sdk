@@ -1,4 +1,3 @@
-use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -20,7 +19,7 @@ use crate::{
 	address::AddressMapper,
 	evm::runtime::GAS_PRICE,
 	vm::{
-		evm::{interpreter::Halt, Interpreter},
+		evm::{interpreter::Halt, HaltReason, Interpreter},
 		Ext, RuntimeCosts,
 	},
 	Config, U256,

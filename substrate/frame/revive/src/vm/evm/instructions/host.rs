@@ -72,13 +72,12 @@ pub fn extcodehash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [address, memory_offset, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt(len)?;
-
 	interpreter.ext.charge_or_halt(RuntimeCosts::ExtCodeCopy(len as u32))?;
-	let address = address.into_address();
-
 	if len == 0 {
 		return ControlFlow::Continue(());
 	}
+
+	let address = address.into_address();
 	let memory_offset = as_usize_or_halt(memory_offset)?;
 	let code_offset = as_usize_or_halt(code_offset)?;
 
