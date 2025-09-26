@@ -189,12 +189,12 @@ impl IncrementalHashBuilder {
 	}
 
 	/// Load the first value from storage.
-	pub fn load_first_value(&mut self, value: Vec<u8>) {
+	pub fn set_first_value(&mut self, value: Vec<u8>) {
 		self.first_value = Some(value);
 	}
 
 	/// Check if we should load the first value from storage.
-	pub fn should_load_first_value(&self, phase: BuilderPhase) -> bool {
+	pub fn needs_first_value(&self, phase: BuilderPhase) -> bool {
 		match phase {
 			BuilderPhase::ProcessingValue => self.index == 0x7f,
 			BuilderPhase::Build => self.index < 0x7f,

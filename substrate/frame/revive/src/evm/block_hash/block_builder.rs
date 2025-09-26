@@ -93,12 +93,12 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 	}
 
 	/// Store the first transaction and receipt in pallet storage.
-	fn store_first_values(&mut self, values: (Vec<u8>, Vec<u8>)) {
+	fn pallet_put_first_values(&mut self, values: (Vec<u8>, Vec<u8>)) {
 		crate::EthBlockBuilderFirstValues::<T>::put(Some(values));
 	}
 
-	/// Load the first transaction and receipt from pallet storage.
-	fn load_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
+	/// Take the first transaction and receipt from pallet storage.
+	fn pallet_take_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
 		crate::EthBlockBuilderFirstValues::<T>::take()
 	}
 
@@ -135,17 +135,14 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		// The first transaction and receipt are returned to be stored in the pallet storage.
 		// The index of the incremental hash builders already expects the next items.
 		if self.tx_hashes.len() == 1 {
-			self.store_first_values((transaction_encoded, encoded_receipt));
+			self.pallet_put_first_values((transaction_encoded, encoded_receipt));
 			return;
 		}
 
-		if self
-			.transaction_root_builder
-			.should_load_first_value(BuilderPhase::ProcessingValue)
-		{
-			if let Some((first_tx, first_receipt)) = self.load_first_values() {
-				self.transaction_root_builder.load_first_value(first_tx);
-				self.receipts_root_builder.load_first_value(first_receipt);
+		if self.transaction_root_builder.needs_first_value(BuilderPhase::ProcessingValue) {
+			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
+				self.transaction_root_builder.set_first_value(first_tx);
+				self.receipts_root_builder.set_first_value(first_receipt);
 			}
 		}
 
@@ -162,10 +159,10 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		block_author: H160,
 		gas_limit: U256,
 	) -> (Block, Vec<ReceiptGasInfo>) {
-		if self.transaction_root_builder.should_load_first_value(BuilderPhase::Build) {
-			if let Some((first_tx, first_receipt)) = self.load_first_values() {
-				self.transaction_root_builder.load_first_value(first_tx);
-				self.receipts_root_builder.load_first_value(first_receipt);
+		if self.transaction_root_builder.needs_first_value(BuilderPhase::Build) {
+			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
+				self.transaction_root_builder.set_first_value(first_tx);
+				self.receipts_root_builder.set_first_value(first_receipt);
 			}
 		}
 
