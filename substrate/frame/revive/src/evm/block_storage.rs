@@ -124,7 +124,7 @@ pub fn process_transaction<T: Config>(
 	gas_used: Weight,
 ) {
 	// Method returns `None` only when called from outside of the ethereum context.
-	// This is not the case here, since the `store_transaction` is called from within the
+	// This is not the case here, since this is called from within the
 	// ethereum context.
 	let (encoded_logs, bloom) = get_receipt_details().unwrap_or_default();
 
