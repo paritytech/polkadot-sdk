@@ -48,7 +48,7 @@ jobs:
         run: |
           cd substrate/
           ../.gitlab/ensure-deps.sh
-  check-rust-feature-propagation:
+  check-zepter:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [preflight]
@@ -62,7 +62,7 @@ jobs:
           time cargo metadata --format-version=1 --locked > /dev/null
       - name: Install newer Zepter
         run: |
-          cargo install zepter@1.78.2 --locked -q
+          cargo install zepter@1.82.1 --locked -q
       - name: run zepter
         run: |
           zepter --version
@@ -143,7 +143,7 @@ jobs:
         run: pip3 install "cargo-workspace>=1.2.4" toml
       - name: Install newer Zepter
         run: |
-          cargo install zepter@1.78.2 --locked -q && zepter --version
+          cargo install zepter@1.82.1 --locked -q && zepter --version
       - name: check umbrella correctness
         run: |
           # Fixes "detected dubious ownership" error in the ci
@@ -242,7 +242,7 @@ jobs:
     needs:
       - fmt
       - check-dependency-rules
-      - check-rust-feature-propagation
+      - check-zepter
       - test-rust-features
       - check-toml-format
       - check-workspace
