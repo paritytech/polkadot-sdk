@@ -1,4 +1,3 @@
-use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -17,8 +16,8 @@ use crate::vm::evm::HaltReason;
 // limitations under the License.
 
 pub mod i256;
+use crate::vm::evm::HaltReason;
 use i256::{i256_div, i256_mod};
-
 mod modular;
 use modular::Modular;
 

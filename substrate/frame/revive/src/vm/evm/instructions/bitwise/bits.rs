@@ -26,9 +26,6 @@ pub trait Bits {
 impl Bits for U256 {
 	fn arithmetic_shr(self, rhs: usize) -> Self {
 		const BITS: usize = 256;
-		if BITS == 0 {
-			return Self::zero();
-		}
 		let sign = self.bit(BITS - 1);
 		let mut r = self >> rhs;
 		if sign {
