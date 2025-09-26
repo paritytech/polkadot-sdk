@@ -1,0 +1,11 @@
+title: 'prospective-parachains: add more logs'
+doc:
+- audience: Todo
+  description: |-
+    Candidates based on the parent of the best block have 6s less time to get backed on chain before their relay parent expires.
+    While looking at our canary parachain logs, we've identified a situation when the candidate was backed quickly offchain, but never made it in on chain in time.
+
+    This PR ensure we log all candidate processing errors (especially `FragmentValidityError`) to observe how many are dropped and why.
+crates:
+- name: polkadot-node-core-prospective-parachains
+  bump: patch
