@@ -46,8 +46,6 @@ mod assets;
 pub use assets::AssetsInHolding;
 mod config;
 pub use config::Config;
-mod weights;
-use weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
