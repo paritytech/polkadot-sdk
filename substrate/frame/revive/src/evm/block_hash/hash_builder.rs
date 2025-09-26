@@ -194,11 +194,10 @@ impl IncrementalHashBuilder {
 	}
 
 	/// Check if we should load the first value from storage.
-	pub fn should_load_first_value(&self, all_tx_processed: bool) -> bool {
-		if all_tx_processed {
-			self.index < 0x7f
-		} else {
-			self.index == 0x7f
+	pub fn should_load_first_value(&self, phase: BuilderPhase) -> bool {
+		match phase {
+			BuilderPhase::ProcessingValue => self.index == 0x7f,
+			BuilderPhase::Build => self.index < 0x7f,
 		}
 	}
 
@@ -214,6 +213,14 @@ impl IncrementalHashBuilder {
 
 		self.hash_builder.root().0.into()
 	}
+}
+
+/// The phase in which the hash builder is currently operating.
+pub enum BuilderPhase {
+	/// Processing a value, unknown at the moment if more values will come.
+	ProcessingValue,
+	/// The trie hash is being finalized, no more values will be added.
+	Build,
 }
 
 /// The intermediate representation of the [`IncrementalHashBuilder`] that can be placed into the

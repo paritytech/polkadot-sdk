@@ -22,7 +22,7 @@ mod receipt;
 pub use receipt::{AccumulateReceipt, LogsBloom};
 
 mod hash_builder;
-pub use hash_builder::{IncrementalHashBuilder, IncrementalHashBuilderIR};
+pub use hash_builder::{BuilderPhase, IncrementalHashBuilder, IncrementalHashBuilderIR};
 
 mod block_builder;
 pub use block_builder::{EthereumBlockBuilder, EthereumBlockBuilderIR};

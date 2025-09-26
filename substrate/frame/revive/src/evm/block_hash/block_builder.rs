@@ -20,7 +20,7 @@
 use crate::{
 	evm::{
 		block_hash::{
-			receipt::BLOOM_SIZE_BYTES, AccumulateReceipt, IncrementalHashBuilder,
+			receipt::BLOOM_SIZE_BYTES, AccumulateReceipt, BuilderPhase, IncrementalHashBuilder,
 			IncrementalHashBuilderIR, LogsBloom,
 		},
 		Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
@@ -139,7 +139,10 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			return;
 		}
 
-		if self.transaction_root_builder.should_load_first_value(false) {
+		if self
+			.transaction_root_builder
+			.should_load_first_value(BuilderPhase::ProcessingValue)
+		{
 			if let Some((first_tx, first_receipt)) = self.load_first_values() {
 				self.transaction_root_builder.load_first_value(first_tx);
 				self.receipts_root_builder.load_first_value(first_receipt);
@@ -159,7 +162,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		block_author: H160,
 		gas_limit: U256,
 	) -> (Block, Vec<ReceiptGasInfo>) {
-		if self.transaction_root_builder.should_load_first_value(true) {
+		if self.transaction_root_builder.should_load_first_value(BuilderPhase::Build) {
 			if let Some((first_tx, first_receipt)) = self.load_first_values() {
 				self.transaction_root_builder.load_first_value(first_tx);
 				self.receipts_root_builder.load_first_value(first_receipt);
