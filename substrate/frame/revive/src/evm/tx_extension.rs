@@ -30,7 +30,7 @@ use sp_runtime::{
 	Weight,
 };
 
-/// An extension that sets the origin to [`Origin::EvmTransaction`] in case it originated from an
+/// An extension that sets the origin to [`Origin::EthTransaction`] in case it originated from an
 /// eth transaction.
 ///
 /// This extension needs to be put behind any other extension that relies on a signed origin.
