@@ -100,6 +100,8 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		prepare_workers_hard_max_num: None,
 		prepare_workers_soft_max_num: None,
 		keep_finalized_for: None,
+		invulnerable_ah_collators: HashSet::new(),
+		collator_protocol_hold_off: None,
 	};
 
 	match config.network.network_backend {
