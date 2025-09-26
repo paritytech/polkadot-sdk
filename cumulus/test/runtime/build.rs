@@ -18,7 +18,10 @@
 fn main() {
 	use substrate_wasm_builder::WasmBuilder;
 
-	WasmBuilder::build_using_defaults();
+	WasmBuilder::init_with_defaults()
+		.enable_feature("async-backing")
+		.import_memory()
+		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("increment-spec-version")
@@ -68,6 +71,15 @@ fn main() {
 		.enable_feature("sync-backing")
 		.import_memory()
 		.set_file_name("wasm_binary_sync_backing.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling-12s-slot")
+		.enable_feature("elastic-scaling")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_12s_slot.rs")
 		.build();
 }
 
