@@ -21,7 +21,7 @@ use crate::vm::evm::{Halt, HaltReason};
 use alloc::vec::Vec;
 use core::ops::{ControlFlow, Range};
 
-/// EVM memory implementation using standard Vec<u8> and sp_core::U256
+/// EVM memory implementation
 #[derive(Debug, Clone)]
 pub struct Memory(Vec<u8>);
 
