@@ -35,6 +35,8 @@ use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
 
+const LOG_TARGET: &str = "runtime::revive::block_builder";
+
 /// Ethereum block builder designed to incrementally build the transaction and receipt trie roots.
 ///
 /// This builder is optimized to minimize memory usage and pallet storage by leveraging the internal
@@ -135,14 +137,18 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		// The first transaction and receipt are returned to be stored in the pallet storage.
 		// The index of the incremental hash builders already expects the next items.
 		if self.tx_hashes.len() == 1 {
+			log::debug!(target: LOG_TARGET, "Storing first transaction and receipt in pallet storage");
 			self.pallet_put_first_values((transaction_encoded, encoded_receipt));
 			return;
 		}
 
 		if self.transaction_root_builder.needs_first_value(BuilderPhase::ProcessingValue) {
 			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
+				log::debug!(target: LOG_TARGET, "Loaded first transaction and receipt from pallet storage");
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
+			} else {
+				log::error!(target: LOG_TARGET, "First transaction and receipt must be present at processing phase");
 			}
 		}
 
@@ -163,6 +169,8 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
+			} else {
+				log::error!(target: LOG_TARGET, "First transaction and receipt must be present at build phase");
 			}
 		}
 
