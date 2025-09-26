@@ -976,9 +976,14 @@ impl FragmentChain {
 				Ok(()) => {
 					let _ = self.unconnected.add_candidate_entry(candidate);
 				},
-				// Swallow these errors as they can legitimately happen when pruning stale
-				// candidates.
-				Err(_) => {},
+				Err(e) => {
+					log::trace!(
+						target: LOG_TARGET,
+						candidate_hash = ?candidate.candidate_hash,
+						err = ?e,
+						"Failed to add candidate as potential"
+					);
+				},
 			};
 		}
 	}
@@ -1159,7 +1164,25 @@ impl FragmentChain {
 
 				// Only keep a candidate if its full ancestry was already kept as potential and this
 				// candidate itself has potential.
-				if parent_has_potential && self.check_potential(child).is_ok() {
+				let mut keep = false;
+				if parent_has_potential {
+					match self.check_potential(child) {
+						Ok(()) => {
+							keep = true;
+						},
+						Err(e) => {
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_hash = ?child_hash,
+								parent = ?parent,
+								err = ?e,
+								"check_potential failed for candidate"
+							);
+						},
+					}
+				}
+
+				if keep {
 					queue.push_back((child.output_head_data_hash, true));
 				} else {
 					// Otherwise, remove this candidate and continue looping for its children, but
