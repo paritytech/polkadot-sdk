@@ -325,6 +325,7 @@ members = [
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
 	"substrate/frame/asset-conversion/ops",
+	"substrate/frame/assets-precompiles",
 	"substrate/frame/asset-rate",
 	"substrate/frame/asset-rewards",
 	"substrate/frame/assets",
@@ -943,9 +944,10 @@ pallet-asset-conversion-tx-payment = { path = "substrate/frame/transaction-payme
 pallet-asset-rate = { path = "substrate/frame/asset-rate", default-features = false }
 pallet-asset-rewards = { path = "substrate/frame/asset-rewards", default-features = false }
 pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
-pallet-assets = { path = "substrate/frame/assets", default-features = false, features = ["precompiles"] }
+pallet-assets = { path = "substrate/frame/assets", default-features = false }
 pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
 pallet-assets-holder = { path = "substrate/frame/assets-holder", default-features = false }
+pallet-assets-precompiles = { path = "substrate/frame/assets-precompiles", default-features = false }
 pallet-atomic-swap = { default-features = false, path = "substrate/frame/atomic-swap" }
 pallet-aura = { path = "substrate/frame/aura", default-features = false }
 pallet-authority-discovery = { path = "substrate/frame/authority-discovery", default-features = false }

@@ -1,11 +1,13 @@
-title: "pallet-assets: gate precompiles behind feature flag"
+title: "pallet-assets: extract precompiles to its own pallet"
 
 doc:
   - audience: Runtime Dev
     description: |
         Assets pallet includes pallet-revive precompiles and subsequently pull a lot of EVM related dependencies by default. This change
-        hides the precompiles behind a feature flag `precompiles`, so downstream users can opt-in to the precompiles if they need them.
+        extracts the precompiles into a new pallet `pallet-assets-precompiles`.
 
 crates:
   - name: pallet-assets
+    bump: minor
+  - name: pallet-assets-precompiles
     bump: minor
