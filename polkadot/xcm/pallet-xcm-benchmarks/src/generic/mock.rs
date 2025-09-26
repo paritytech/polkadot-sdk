@@ -216,12 +216,21 @@ impl generic::Config for Test {
 	}
 
 	fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
-		use xcm::latest::prelude::{ClearOrigin, SetAppendix};
+		use xcm::latest::prelude::{ClearOrigin, SetAppendix, SetTopic};
 
-		let mut nested = Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]);
-		for _ in 0..=(xcm_executor::RECURSION_LIMIT + 1) {
-			nested = Xcm(vec![SetAppendix(nested)]);
+		// Within the recursion limit, this is fine.
+		let mut set_topic = Xcm(vec![SetTopic([42; 32])]);
+		for _ in 0..(xcm_executor::RECURSION_LIMIT - 1) {
+			set_topic = Xcm(vec![SetAppendix(set_topic)]);
 		}
+
+		// Exceed the recursion limit, this will be rejected.
+		let mut clear_origin = Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]);
+		for _ in 0..=xcm_executor::RECURSION_LIMIT {
+			clear_origin = Xcm(vec![SetAppendix(clear_origin)]);
+		}
+
+		let nested = Xcm(vec![SetAppendix(set_topic), SetAppendix(clear_origin)]);
 
 		Ok(nested)
 	}
