@@ -190,6 +190,7 @@ impl LogsBloom {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use alloy_consensus::RlpEncodableReceipt;
 
 	#[test]
 	fn test_bloom_accrue_log() {
@@ -234,5 +235,48 @@ mod test {
 		alloy_bloom.accrue_bloom(&alloy_bloom2);
 
 		assert_eq!(bloom.bloom, alloy_bloom.0);
+	}
+
+	#[test]
+	fn test_accumulate_receipt() {
+		let mut receipt = AccumulateReceipt::new();
+
+		receipt.add_log(&H160::repeat_byte(0x01), &[0x01, 0x02], &[H256::repeat_byte(0x02)]);
+		receipt.add_log(&H160::repeat_byte(0x03), &[0x03, 0x04], &[H256::repeat_byte(0x04)]);
+
+		let encoded = AccumulateReceipt::encoded_receipt(
+			receipt.encoding,
+			receipt.bloom,
+			true,
+			21000,
+			vec![],
+		);
+
+		let alloy_receipt = alloy_consensus::Receipt {
+			status: true.into(),
+			cumulative_gas_used: 21000,
+			logs: vec![
+				alloy_core::primitives::Log::new_unchecked(
+					H160::repeat_byte(0x01).0.into(),
+					vec![H256::repeat_byte(0x02).0.into()],
+					vec![0x01, 0x02].into(),
+				),
+				alloy_core::primitives::Log::new_unchecked(
+					H160::repeat_byte(0x03).0.into(),
+					vec![H256::repeat_byte(0x04).0.into()],
+					vec![0x03, 0x04].into(),
+				),
+			],
+		};
+
+		// Check bloom filters.
+		let alloy_bloom = alloy_receipt.bloom_slow();
+		assert_eq!(receipt.bloom.bloom, alloy_bloom.0);
+
+		// Check RLP encoding.
+		let mut alloy_encoded = vec![];
+		alloy_receipt.rlp_encode_with_bloom(&alloy_bloom, &mut alloy_encoded);
+
+		assert_eq!(alloy_encoded, encoded);
 	}
 }
