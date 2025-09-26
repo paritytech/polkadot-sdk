@@ -38,49 +38,13 @@ impl Bits for U256 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use core::cmp::min;
+	use crate::assert_same_as_alloy;
 	use proptest::proptest;
 
 	#[test]
 	fn test_arithmetic_shr() {
-		let leading_ones = |x: U256| (!x).leading_zeros() as usize;
 		proptest!(|(limbs: [u64; 4], shift in 0usize..=258)| {
-			let value = U256(limbs);
-			let shifted = value.arithmetic_shr(shift);
-			assert_eq!(leading_ones(shifted), match leading_ones(value) {
-				0 => 0,
-				n => min(256, n + shift)
-			});
+			assert_same_as_alloy!(limbs, arithmetic_shr, shift);
 		});
-	}
-
-	#[test]
-	fn test_arithmetic_shr_positive() {
-		// Test positive number (MSB = 0)
-		let value = U256::from(0x7FFFFFFFu64);
-		let result = value.arithmetic_shr(4);
-		let expected = U256::from(0x07FFFFFFu64);
-		assert_eq!(result, expected);
-	}
-
-	#[test]
-	fn test_arithmetic_shr_negative() {
-		// Test negative number (MSB = 1)
-		let value = U256::MAX; // All bits set
-		let result = value.arithmetic_shr(4);
-		// Should still be all bits set
-		assert_eq!(result, U256::MAX);
-	}
-
-	#[test]
-	fn test_arithmetic_shr_large_shift() {
-		// Test shift larger than bit width
-		let value = U256::MAX;
-		let result = value.arithmetic_shr(300);
-		assert_eq!(result, U256::MAX);
-
-		let positive = U256::from(123u64);
-		let result_pos = positive.arithmetic_shr(300);
-		assert_eq!(result_pos, U256::zero());
 	}
 }
