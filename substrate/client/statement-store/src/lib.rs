@@ -984,7 +984,7 @@ impl StatementStore for Store {
 		self.db.commit(commit).map_err(|e| {
 			log::debug!(
 				target: LOG_TARGET,
-				"Statement validation failed: database error {}, remove by {:?}",
+				"Error removing statement: database error {}, remove by {:?}",
 				e,
 				HexDisplay::from(&who),
 			);
