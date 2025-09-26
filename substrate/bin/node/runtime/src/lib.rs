@@ -3352,8 +3352,9 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 
 		fn get_all_values(_provider_id: u32) -> Vec<(u32, Option<u128>)> {
+			use pallet_oracle::DataProviderExtended;
 			pallet_oracle::Pallet::<Runtime>::get_all_values()
-				.map(|(k, v)| (k, Some(v.value)))
+				.map(|(k, v)| (k, v.map(|tv| tv.value)))
 				.collect()
 		}
 	}
