@@ -89,11 +89,6 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 			let return_value = interpreter.ext.last_frame_output();
 			if return_value.did_revert() {
 				// Contract creation reverted — return data must be propagated
-				let len = return_value.data.len() as u32;
-				interpreter
-					.ext
-					.gas_meter_mut()
-					.charge_or_halt(RuntimeCosts::CopyToContract(len))?;
 				interpreter.stack.push(U256::zero())
 			} else {
 				// Otherwise clear it. Note that RETURN opcode should abort.
