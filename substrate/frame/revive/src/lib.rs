@@ -78,7 +78,7 @@ use frame_system::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Bounded, Convert, Dispatchable, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
 	AccountId32, DispatchError, FixedPointNumber, FixedU128,
 };
 
@@ -86,7 +86,7 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
-	exec::{Key, MomentOf, Origin},
+	exec::{Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
 };
@@ -157,8 +157,14 @@ pub mod pallet {
 		/// The overarching call type.
 		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
-			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+			+ Dispatchable<RuntimeOrigin = OriginFor<Self>, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo;
+
+		/// The overarching origin type.
+		#[pallet::no_default_bounds]
+		type RuntimeOrigin: IsType<OriginFor<Self>>
+			+ From<Origin<Self>>
+			+ Into<Result<Origin<Self>, OriginFor<Self>>>;
 
 		/// Overarching hold reason.
 		#[pallet::no_default_bounds]
@@ -227,7 +233,7 @@ pub mod pallet {
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
 		/// code.
 		#[pallet::no_default_bounds]
-		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+		type UploadOrigin: EnsureOrigin<OriginFor<Self>, Success = Self::AccountId>;
 
 		/// Origin allowed to instantiate code.
 		///
@@ -240,7 +246,7 @@ pub mod pallet {
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
 		/// contract code.
 		#[pallet::no_default_bounds]
-		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+		type InstantiateOrigin: EnsureOrigin<OriginFor<Self>, Success = Self::AccountId>;
 
 		/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///
@@ -347,6 +353,9 @@ pub mod pallet {
 
 			#[inject_runtime_type]
 			type RuntimeCall = ();
+
+			#[inject_runtime_type]
+			type RuntimeOrigin = ();
 
 			type Precompiles = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
@@ -506,6 +515,22 @@ pub mod pallet {
 		StorageDepositReserve,
 		/// Deposit for creating an address mapping in [`OriginalAccount`].
 		AddressMapping,
+	}
+
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		MaxEncodedLen,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		RuntimeDebug,
+	)]
+	#[pallet::origin]
+	pub enum Origin<T: Config> {
+		EthTransaction(T::AccountId),
 	}
 
 	/// A mapping from a contract's code hash to its code.
@@ -993,6 +1018,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			effective_gas_price: U256,
 		) -> DispatchResultWithPostInfo {
+			let origin = Self::ensure_eth_origin(origin)?;
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1035,6 +1061,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			effective_gas_price: U256,
 		) -> DispatchResultWithPostInfo {
+			let origin = Self::ensure_eth_origin(origin)?;
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1220,7 +1247,7 @@ where
 		let mut storage_deposit = Default::default();
 
 		let try_call = || {
-			let origin = Origin::from_runtime_origin(origin)?;
+			let origin = ExecOrigin::from_runtime_origin(origin)?;
 			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
 			let result = ExecStack::<T, ContractBlob<T>>::run_call(
 				origin.clone(),
@@ -1301,7 +1328,7 @@ where
 				Code::Existing(code_hash) =>
 					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
-			let instantiate_origin = Origin::from_account_id(instantiate_account.clone());
+			let instantiate_origin = ExecOrigin::from_account_id(instantiate_account.clone());
 			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
 			let result = ExecStack::<T, ContractBlob<T>>::run_instantiate(
 				instantiate_account,
@@ -1432,7 +1459,7 @@ where
 				} else {
 					// Dry run the call.
 					let result = crate::Pallet::<T>::bare_call(
-						T::RuntimeOrigin::signed(origin),
+						OriginFor::<T>::signed(origin),
 						dest,
 						value,
 						gas_limit,
@@ -1483,7 +1510,7 @@ where
 
 				// Dry run the call.
 				let result = crate::Pallet::<T>::bare_instantiate(
-					T::RuntimeOrigin::signed(origin),
+					OriginFor::<T>::signed(origin),
 					value,
 					gas_limit,
 					BalanceOf::<T>::max_value(),
@@ -1815,6 +1842,14 @@ impl<T: Config> Pallet<T> {
 	/// Deposit a pallet contracts event.
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
+	}
+
+	/// Tranform a [`Origin::EthTransaction`] into a signed origin.
+	fn ensure_eth_origin(origin: OriginFor<T>) -> Result<OriginFor<T>, DispatchError> {
+		match <T as Config>::RuntimeOrigin::from(origin).into() {
+			Ok(Origin::EthTransaction(signer)) => Ok(OriginFor::<T>::signed(signer)),
+			_ => Err(BadOrigin.into()),
+		}
 	}
 }
 

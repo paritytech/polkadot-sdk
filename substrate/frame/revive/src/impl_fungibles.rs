@@ -24,6 +24,7 @@
 
 #![cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 
+use crate::OriginFor;
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
 	sol_types::*,
@@ -73,7 +74,7 @@ where
 	fn total_issuance(asset_id: Self::AssetId) -> Self::Balance {
 		let data = IERC20::totalSupplyCall {}.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(Self::checking_account()),
+			OriginFor::<T>::signed(Self::checking_account()),
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
@@ -108,7 +109,7 @@ where
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
 		let data = IERC20::balanceOfCall { account: address }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(account_id.clone()),
+			OriginFor::<T>::signed(account_id.clone()),
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
@@ -182,7 +183,7 @@ where
 		let data =
 			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(who.clone()),
+			OriginFor::<T>::signed(who.clone()),
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
@@ -218,7 +219,7 @@ where
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(Self::checking_account()),
+			OriginFor::<T>::signed(Self::checking_account()),
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,

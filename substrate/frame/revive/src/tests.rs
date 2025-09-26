@@ -29,7 +29,7 @@ use crate::{
 	genesis::{Account, ContractData},
 	test_utils::*,
 	AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call, CodeInfoOf, Config,
-	GenesisConfig, Origin, Pallet, PristineCode,
+	ExecOrigin as Origin, GenesisConfig, OriginFor, Pallet, PristineCode,
 };
 use frame_support::{
 	assert_ok, derive_impl,
@@ -51,7 +51,11 @@ use sp_runtime::{
 pub type Address = MultiAddress<AccountId32, u32>;
 pub type Block = sp_runtime::generic::Block<Header<u64, BlakeTwo256>, UncheckedExtrinsic>;
 pub type Signature = MultiSignature;
-pub type SignedExtra = (frame_system::CheckNonce<Test>, ChargeTransactionPayment<Test>);
+pub type SignedExtra = (
+	frame_system::CheckNonce<Test>,
+	ChargeTransactionPayment<Test>,
+	crate::evm::tx_extension::SetOrigin<Test>,
+);
 pub type UncheckedExtrinsic =
 	crate::evm::runtime::UncheckedExtrinsic<Address, Signature, EthExtraImpl>;
 
@@ -63,7 +67,11 @@ impl EthExtra for EthExtraImpl {
 	type Extension = SignedExtra;
 
 	fn get_eth_extension(nonce: u32, tip: BalanceOf<Test>) -> Self::Extension {
-		(frame_system::CheckNonce::from(nonce), ChargeTransactionPayment::from(tip))
+		(
+			frame_system::CheckNonce::from(nonce),
+			ChargeTransactionPayment::from(tip),
+			crate::evm::tx_extension::SetOrigin::<Test>::new_from_eth_transaction(),
+		)
 	}
 }
 
@@ -336,7 +344,7 @@ where
 {
 	type Success = T::AccountId;
 
-	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
+	fn try_origin(o: OriginFor<T>) -> Result<Self::Success, OriginFor<T>> {
 		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o.clone())?;
 		if matches!(A::get(), Some(a) if who != a) {
 			return Err(o);
@@ -346,7 +354,7 @@ where
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
+	fn try_successful_origin() -> Result<OriginFor<T>, ()> {
 		Err(())
 	}
 }

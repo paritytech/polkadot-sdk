@@ -22,7 +22,7 @@ use pallet_revive::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
-	DispatchInfo, Origin,
+	DispatchInfo, ExecOrigin as Origin,
 };
 use tracing::error;
 use xcm::{v5, IdentifyVersion, MAX_XCM_DECODE_DEPTH};

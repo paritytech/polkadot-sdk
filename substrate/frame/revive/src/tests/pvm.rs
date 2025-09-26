@@ -41,7 +41,8 @@ use crate::{
 	tracing::trace,
 	weights::WeightInfo,
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueueCounter,
-	Error, EthTransactError, ExecConfig, HoldReason, Pallet, PristineCode, StorageDeposit, H160,
+	Error, EthTransactError, ExecConfig, HoldReason, Origin, Pallet, PristineCode, StorageDeposit,
+	H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -190,7 +191,10 @@ fn eth_call_transfer_with_dust_works() {
 
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
-		assert_ok!(builder::eth_call(addr).value(balance).build());
+		assert_ok!(builder::eth_call(addr)
+			.origin(Origin::EthTransaction(ALICE).into())
+			.value(balance)
+			.build());
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), balance);
 	});

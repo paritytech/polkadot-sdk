@@ -18,8 +18,8 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, ExecConfig, HoldReason, Inspect,
-	Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, ExecConfig, ExecOrigin as Origin,
+	HoldReason, Inspect, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};

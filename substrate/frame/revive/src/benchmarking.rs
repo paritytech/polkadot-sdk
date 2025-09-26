@@ -118,6 +118,7 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+		OriginFor<T>: From<Origin<T>>,
 )]
 mod benchmarks {
 	use super::*;
@@ -296,8 +297,8 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
-		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		let origin = Origin::EthTransaction(caller.clone());
+		Contracts::<T>::map_account(OriginFor::<T>::signed(caller.clone())).unwrap();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
@@ -442,7 +443,7 @@ mod benchmarks {
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 
 		let caller_addr = T::AddressMapper::to_address(&instance.caller);
-		let origin = RawOrigin::Signed(instance.caller.clone());
+		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
@@ -680,7 +681,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let contract_acc = call_setup.contract().account_id.clone();
 		let caller = call_setup.contract().address;
-		call_setup.set_origin(Origin::from_account_id(contract_acc));
+		call_setup.set_origin(ExecOrigin::from_account_id(contract_acc));
 		let (mut ext, _) = call_setup.ext();
 
 		let result;
@@ -739,7 +740,7 @@ mod benchmarks {
 			ISystem::ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}).abi_encode();
 
 		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(Origin::Root);
+		setup.set_origin(ExecOrigin::Root);
 		let (mut ext, _) = setup.ext();
 
 		let result;
@@ -1812,7 +1813,7 @@ mod benchmarks {
 		// We benchmark the overhead of cloning the input. Not passing it to the contract.
 		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
 		setup.set_data(vec![42; i as usize]);
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
@@ -1916,7 +1917,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_storage_deposit_limit(deposit);
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 
 		let (mut ext, _) = setup.ext();
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
@@ -1965,7 +1966,7 @@ mod benchmarks {
 		let deposit_len = deposit_bytes.len() as u32;
 
 		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
 
 		let account_id = &setup.contract().account_id.clone();

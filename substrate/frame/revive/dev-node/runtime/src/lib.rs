@@ -162,6 +162,8 @@ type TxExtension = (
 	// Ensures that the sender has enough funds to pay for the transaction
 	// and deducts the fee from the sender's account.
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	// Needs to be done after all extensions that rely on a signed origin.
+	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	// Reclaim the unused weight from the block using post dispatch information.
 	// It must be last in the pipeline in order to catch the refund in previous transaction
 	// extensions
@@ -186,6 +188,7 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 	}

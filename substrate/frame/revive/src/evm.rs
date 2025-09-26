@@ -23,6 +23,7 @@ mod tracing;
 pub use tracing::*;
 pub mod fees;
 pub mod runtime;
+pub mod tx_extension;
 pub use alloy_core::sol_types::decode_revert_reason;
 
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as pallet_transaction_payment::OnChargeTransaction<T>>::Balance;

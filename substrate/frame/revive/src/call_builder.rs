@@ -33,7 +33,8 @@ use crate::{
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
 	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, Weight,
+	Error, ExecConfig, ExecOrigin as Origin, GasMeter, MomentOf, OriginFor, Pallet as Contracts,
+	PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -254,7 +255,7 @@ where
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let salt = Some([0xffu8; 32]);
-		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller.clone()).into();
+		let origin: OriginFor<T> = RawOrigin::Signed(caller.clone()).into();
 
 		// We ignore the error since we might also pass an already mapped account here.
 		Contracts::<T>::map_account(origin.clone()).ok();
