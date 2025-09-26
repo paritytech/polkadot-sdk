@@ -83,7 +83,7 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 
 	interpreter.memory.resize(memory_offset, len)?;
 
-	let mut buf = interpreter.memory.slice_mut(memory_offset..memory_offset + len);
+	let mut buf = interpreter.memory.slice_mut(memory_offset, len);
 	// Note: This can't panic because we resized memory to fit.
 	interpreter.ext.copy_code_slice(&mut buf, &address, code_offset);
 	ControlFlow::Continue(())

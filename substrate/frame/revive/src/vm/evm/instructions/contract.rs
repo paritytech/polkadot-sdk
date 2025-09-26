@@ -233,6 +233,8 @@ fn run_call<'a, E: Ext>(
 			let return_value = interpreter.ext.last_frame_output();
 			let return_data = &return_value.data;
 			let did_revert = return_value.did_revert();
+
+			// Note: This can't panic because we resized memory with `get_memory_in_and_out_ranges`
 			interpreter.memory.set(mem_start, &return_data[..target_len]);
 			interpreter.stack.push(U256::from(!did_revert as u8))
 		},

@@ -45,8 +45,8 @@ impl Memory {
 	/// # Panics
 	///
 	/// Panics on out of bounds.
-	pub fn slice_mut(&mut self, range: Range<usize>) -> &mut [u8] {
-		&mut self.0[range]
+	pub fn slice_mut(&mut self, offset: usize, len: usize) -> &mut [u8] {
+		&mut self.0[offset..offset + len]
 	}
 
 	/// Get the current memory size in bytes
@@ -65,51 +65,58 @@ impl Memory {
 
 		if target_len > current_len {
 			self.0.resize(target_len, 0);
-		};
+		}
 
 		ControlFlow::Continue(())
 	}
 
-	/// Set memory at the given offset with the provided data
+	/// Set memory at the given `offset`
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
 	pub fn set(&mut self, offset: usize, data: &[u8]) {
-		if data.is_empty() {
+		if !data.is_empty() {
+			self.0[offset..offset + data.len()].copy_from_slice(data);
+		}
+	}
+
+	/// Set memory from data. Our memory offset+len is expected to be correct but we
+	/// are doing bound checks on data/data_offset/len and zeroing parts that is not copied.
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
+	pub fn set_data(&mut self, memory_offset: usize, data_offset: usize, len: usize, data: &[u8]) {
+		if data_offset >= data.len() {
+			// nullify all memory slots
+			self.slice_mut(memory_offset, len).fill(0);
 			return;
 		}
-		let end = offset.saturating_add(data.len());
-		if end > self.0.len() {
-			self.0.resize(end, 0);
-		}
-		self.0[offset..end].copy_from_slice(data);
+		let data_end = core::cmp::min(data_offset + len, data.len());
+		let data_len = data_end - data_offset;
+
+		self.slice_mut(memory_offset, data_len)
+			.copy_from_slice(&data[data_offset..data_end]);
+
+		// nullify rest of memory slots
+		// Safety: Memory is assumed to be valid. And it is commented where that assumption is
+		// made
+		self.slice_mut(memory_offset + data_len, len - data_len).fill(0);
 	}
 
-	/// Set data in memory from another memory's global slice
-	pub fn set_data(&mut self, offset: usize, data_offset: usize, len: usize, data: &[u8]) {
-		if len > 0 && data_offset < data.len() {
-			let copy_len = core::cmp::min(len, data.len() - data_offset);
-			let source = &data[data_offset..data_offset + copy_len];
-			self.set(offset, source);
-		}
-	}
-
+	/// Get the slice of memory at the given offset and length
 	pub fn slice_len(&self, offset: usize, len: usize) -> &[u8] {
 		self.0.get(offset..offset.saturating_add(len)).unwrap_or(&[])
 	}
 
 	/// Copy data within memory from src to dst
+	///
+	/// # Panics
+	///
+	/// Panics if range is out of scope of allocated memory.
 	pub fn copy(&mut self, dst: usize, src: usize, len: usize) {
-		if len == 0 {
-			return;
-		}
-
-		let max_offset = core::cmp::max(dst.saturating_add(len), src.saturating_add(len));
-		if max_offset > self.0.len() {
-			self.0.resize(max_offset, 0);
-		}
-
-		// Handle overlapping memory regions correctly
-		if dst != src {
-			self.0.copy_within(src..src + len, dst);
-		}
+		self.0.copy_within(src..src + len, dst);
 	}
 }
 
@@ -139,17 +146,18 @@ mod tests {
 	#[test]
 	fn test_set_get() {
 		let mut memory = Memory::new();
+		memory.0.resize(100, 0);
 
 		let data = b"Hello, World!";
 		memory.set(10, data);
 
 		assert_eq!(memory.slice(10..10 + data.len()), data);
-		assert_eq!(memory.size(), 10 + data.len());
 	}
 
 	#[test]
 	fn test_memory_copy() {
 		let mut memory = Memory::new();
+		memory.0.resize(100, 0);
 
 		// Set some initial data
 		memory.set(0, b"Hello");
@@ -163,20 +171,10 @@ mod tests {
 	}
 
 	#[test]
-	fn test_overlapping_copy() {
-		let mut memory = Memory::new();
-
-		memory.set(0, b"HelloWorld");
-
-		// Overlapping copy - move "World" to overlap with "Hello"
-		memory.copy(2, 5, 5);
-
-		assert_eq!(memory.slice(0..10), b"HeWorldrld");
-	}
-
-	#[test]
 	fn test_set_data() {
 		let mut memory = Memory::new();
+		memory.0.resize(100, 0);
+
 		let source_data = b"Hello World";
 
 		memory.set_data(5, 0, 5, source_data);

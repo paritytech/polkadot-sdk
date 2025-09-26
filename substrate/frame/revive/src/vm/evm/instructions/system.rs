@@ -98,6 +98,7 @@ pub fn codecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	};
 	let code_offset = as_usize_saturated(code_offset);
 
+	// Note: This can't panic because we resized memory.
 	interpreter.memory.set_data(
 		memory_offset,
 		code_offset,
@@ -155,6 +156,8 @@ pub fn calldatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 	};
 
 	let data_offset = as_usize_saturated(data_offset);
+
+	// Note: This can't panic because we resized memory.
 	interpreter.memory.set_data(memory_offset, data_offset, len, &interpreter.input);
 	ControlFlow::Continue(())
 }
@@ -183,6 +186,7 @@ pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<H
 		return ControlFlow::Continue(())
 	};
 
+	// Note: This can't panic because we resized memory.
 	interpreter.memory.set_data(
 		memory_offset,
 		data_offset,
@@ -211,16 +215,12 @@ pub fn memory_resize<'a, E: Ext>(
 	memory_offset: U256,
 	len: usize,
 ) -> ControlFlow<Halt, Option<usize>> {
-	interpreter
-		.ext
-		.gas_meter_mut()
-		.charge_or_halt(RuntimeCosts::CopyToContract(len as u32))?;
 	if len == 0 {
 		return ControlFlow::Continue(None)
 	}
 
+	interpreter.ext.charge_or_halt(RuntimeCosts::CopyToContract(len as u32))?;
 	let memory_offset = as_usize_or_halt(memory_offset)?;
 	interpreter.memory.resize(memory_offset, len)?;
-
 	ControlFlow::Continue(Some(memory_offset))
 }
