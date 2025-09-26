@@ -67,7 +67,7 @@ fn should_feed_values_from_member() {
 #[test]
 fn should_feed_values_from_root() {
 	new_test_ext().execute_with(|| {
-		let root_feeder: AccountId = RootOperatorAccountId::get();
+		let root_feeder: AccountId = OraclePalletId::get().into_account_truncating();
 
 		assert_ok!(ModuleOracle::feed_values(
 			RuntimeOrigin::root(),
@@ -102,7 +102,7 @@ fn should_feed_values_from_root() {
 #[test]
 fn should_not_feed_values_from_root_directly() {
 	new_test_ext().execute_with(|| {
-		let root_feeder: AccountId = RootOperatorAccountId::get();
+		let root_feeder: AccountId = OraclePalletId::get().into_account_truncating();
 
 		assert_noop!(
 			ModuleOracle::feed_values(
@@ -212,7 +212,7 @@ fn get_all_values_should_work() {
 		let eur: u32 = 1;
 		let jpy: u32 = 2;
 
-		assert_eq!(ModuleOracle::get_all_values(), vec![]);
+		assert_eq!(ModuleOracle::get_all_values().collect::<Vec<_>>(), vec![]);
 
 		// feed eur & jpy
 		assert_ok!(ModuleOracle::feed_values(
@@ -231,7 +231,7 @@ fn get_all_values_should_work() {
 		// not enough eur & jpy prices
 		assert_eq!(ModuleOracle::get(&eur), None);
 		assert_eq!(ModuleOracle::get(&jpy), None);
-		assert_eq!(ModuleOracle::get_all_values(), vec![]);
+		assert_eq!(ModuleOracle::get_all_values().collect::<Vec<_>>(), vec![]);
 
 		// finalize block
 		ModuleOracle::on_finalize(1);
@@ -253,7 +253,7 @@ fn get_all_values_should_work() {
 		// not enough jpy prices
 		assert_eq!(ModuleOracle::get(&jpy), None);
 
-		assert_eq!(ModuleOracle::get_all_values(), vec![(eur, eur_price)]);
+		assert_eq!(ModuleOracle::get_all_values().collect::<Vec<_>>(), vec![(eur, eur_price)]);
 
 		// feed jpy
 		assert_ok!(ModuleOracle::feed_values(
@@ -265,7 +265,10 @@ fn get_all_values_should_work() {
 		let jpy_price = Some(TimestampedValue { value: 8000, timestamp: 12345 });
 		assert_eq!(ModuleOracle::get(&jpy), jpy_price);
 
-		assert_eq!(ModuleOracle::get_all_values(), vec![(eur, eur_price), (jpy, jpy_price)]);
+		assert_eq!(
+			ModuleOracle::get_all_values().collect::<Vec<_>>(),
+			vec![(eur, eur_price), (jpy, jpy_price)]
+		);
 	});
 }
 

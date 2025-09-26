@@ -35,9 +35,10 @@ pub trait DataProvider<Key, Value> {
 /// An extended `DataProvider` that provides timestamped data.
 pub trait DataProviderExtended<Key, TimestampedValue> {
 	/// Returns a list of all keys and their optional timestamped values.
-	fn get_all_values() -> impl Iterator<Item = (Key, TimestampedValue)>;
+	fn get_all_values() -> impl Iterator<Item = (Key, Option<TimestampedValue>)>;
 }
 
+/// Returns the median of a list of values.
 pub fn median<T: Ord + Clone>(mut items: Vec<T>) -> Option<T> {
 	if items.is_empty() {
 		return None;
@@ -67,14 +68,14 @@ macro_rules! create_median_value_data_provider {
 			}
 		}
 		impl $crate::DataProviderExtended<$key, $timestamped_value> for $name {
-			fn get_all_values() -> Vec<($key, Option<$timestamped_value>)> {
+			fn get_all_values() -> impl Iterator<Item = ($key, Option<$timestamped_value>)> {
 				let mut keys = sp_std::collections::btree_set::BTreeSet::new();
 				$(
 					<$provider as $crate::DataProviderExtended<$key, $timestamped_value>>::get_all_values()
 						.into_iter()
 						.for_each(|(k, _)| { keys.insert(k); });
 				)*
-				keys.into_iter().map(|k| (k, Self::get(&k))).collect()
+				keys.into_iter().map(|k| (k, Self::get(&k)))
 			}
 		}
 	}
@@ -123,8 +124,8 @@ mod tests {
 				}
 			}
 			impl DataProviderExtended<u8, u8> for $provider {
-				fn get_all_values() -> Vec<(u8, Option<u8>)> {
-					vec![(0, Self::get(&0))]
+				fn get_all_values() -> impl Iterator<Item = (u8, Option<u8>)> {
+					vec![(0, Self::get(&0))].into_iter()
 				}
 			}
 		};

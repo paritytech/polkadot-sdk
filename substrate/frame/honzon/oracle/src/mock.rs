@@ -21,6 +21,7 @@ use crate::{Config, DefaultCombineData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, SortedMembers, Time},
+	PalletId,
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
@@ -71,8 +72,8 @@ impl SortedMembers<AccountId> for Members {
 	}
 }
 parameter_types! {
-	pub const RootOperatorAccountId: AccountId = 4;
 	pub const MaxFeedValues: u32 = 5;
+	pub const OraclePalletId: PalletId = PalletId(*b"py/oracl");
 }
 
 impl Config for Test {
@@ -81,7 +82,7 @@ impl Config for Test {
 	type Time = Timestamp;
 	type OracleKey = Key;
 	type OracleValue = Value;
-	type RootOperatorAccountId = RootOperatorAccountId;
+	type PalletId = OraclePalletId;
 	type Members = Members;
 	type WeightInfo = ();
 	type MaxHasDispatchedSize = ConstU32<100>;

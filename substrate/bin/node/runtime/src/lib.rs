@@ -2951,13 +2951,17 @@ impl pallet_oracle::BenchmarkHelper<u32, u128, OracleMaxFeedValues> for OracleBe
 	}
 }
 
+parameter_types! {
+	pub const OraclePalletId: PalletId = PalletId(*b"py/oracl");
+}
+
 impl pallet_oracle::Config for Runtime {
 	type OnNewData = ();
 	type CombineData = pallet_oracle::DefaultCombineData<Self, ConstU32<5>, ConstU64<3600>>;
 	type Time = Timestamp;
 	type OracleKey = u32;
 	type OracleValue = u128;
-	type RootOperatorAccountId = RootOperatorAccountId;
+	type PalletId = OraclePalletId;
 	type Members = TechnicalMembership;
 	type WeightInfo = ();
 	type MaxHasDispatchedSize = OracleMaxHasDispatchedSize;
@@ -3343,14 +3347,13 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 
 	impl polkadot_sdk::pallet_oracle_runtime_api::OracleApi<Block, u32, u32, u128> for Runtime {
 		fn get_value(_provider_id: u32, key: u32) -> Option<u128> {
-			// ProviderId is unused in the pallet implementation; we expose current aggregated value.
+			// ProviderId is unused as we only have 1 provider
 			pallet_oracle::Pallet::<Runtime>::get(&key).map(|v| v.value)
 		}
 
 		fn get_all_values(_provider_id: u32) -> Vec<(u32, Option<u128>)> {
 			pallet_oracle::Pallet::<Runtime>::get_all_values()
-				.into_iter()
-				.map(|(k, v)| (k, v.map(|tv| tv.value)))
+				.map(|(k, v)| (k, Some(v.value)))
 				.collect()
 		}
 	}

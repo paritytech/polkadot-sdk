@@ -83,11 +83,14 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{ChangeMembers, Get, SortedMembers, Time},
 	weights::Weight,
-	Parameter,
+	PalletId, Parameter,
 };
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Member, DispatchResult, RuntimeDebug};
+use sp_runtime::{
+	traits::{AccountIdConversion, Member},
+	DispatchResult, RuntimeDebug,
+};
 use sp_std::{prelude::*, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -95,7 +98,7 @@ mod benchmarking;
 
 mod default_combine_data;
 pub use default_combine_data::DefaultCombineData;
-mod traits;
+pub mod traits;
 pub use traits::{CombineData, DataFeeder, DataProvider, DataProviderExtended, OnNewData};
 #[cfg(test)]
 mod mock;
@@ -316,7 +319,7 @@ pub mod pallet {
 
 		/// Retrieve every aggregated oracle value tracked by the pallet.
 		pub fn all_values() -> Vec<(T::OracleKey, TimestampedValueOf<T, I>)> {
-			Self::get_all_values().collect()
+			<Values<T, I>>::iter().collect()
 		}
 	}
 
@@ -376,11 +379,15 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	fn get_pallet_account() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
+	}
+
 	/// Reads the raw values for a given key from all oracle members.
 	pub fn read_raw_values(key: &T::OracleKey) -> Vec<TimestampedValueOf<T, I>> {
 		T::Members::sorted_members()
 			.iter()
-			.chain([T::RootOperatorAccountId::get()].iter())
+			.chain([Self::get_pallet_account()].iter())
 			.filter_map(|x| Self::raw_values(x, key))
 			.collect()
 	}
@@ -388,11 +395,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Returns the aggregated and timestamped value for a given key.
 	pub fn get(key: &T::OracleKey) -> Option<TimestampedValueOf<T, I>> {
 		Self::values(key)
-	}
-
-	/// Returns all aggregated and timestamped values.
-	pub fn get_all_values() -> impl Iterator<Item = (T::OracleKey, TimestampedValueOf<T, I>)> {
-		<Values<T, I>>::iter()
 	}
 
 	fn combined(key: &T::OracleKey) -> Option<TimestampedValueOf<T, I>> {
@@ -406,14 +408,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(T::Members::contains(&who), Error::<T, I>::NoPermission);
 			Ok(who)
 		} else {
-			Ok(T::RootOperatorAccountId::get())
+			Ok(Self::get_pallet_account())
 		}
 	}
 
-	fn do_feed_values(
-		who: T::AccountId,
-		values: Vec<(T::OracleKey, T::OracleValue)>,
-	) {
+	fn do_feed_values(who: T::AccountId, values: Vec<(T::OracleKey, T::OracleValue)>) {
 		let now = T::Time::now();
 		for (key, value) in &values {
 			let timestamped = TimestampedValue { value: value.clone(), timestamp: now };
@@ -455,8 +454,8 @@ impl<T: Config<I>, I: 'static> DataProvider<T::OracleKey, T::OracleValue> for Pa
 impl<T: Config<I>, I: 'static> DataProviderExtended<T::OracleKey, TimestampedValueOf<T, I>>
 	for Pallet<T, I>
 {
-	fn get_all_values() -> impl Iterator<Item = (T::OracleKey, TimestampedValueOf<T, I>)> {
-		Self::get_all_values()
+	fn get_all_values() -> impl Iterator<Item = (T::OracleKey, Option<TimestampedValueOf<T, I>>)> {
+		<Values<T, I>>::iter().map(|(k, v)| (k, Some(v)))
 	}
 }
 
