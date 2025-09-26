@@ -27,6 +27,7 @@ use crate::{
 	},
 	U256,
 };
+use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use revm::interpreter::{
 	gas::{BASE, HIGH, JUMPDEST, MID},

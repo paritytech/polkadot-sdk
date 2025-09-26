@@ -26,6 +26,7 @@ use crate::{
 	},
 	Code, Pallet, Weight, H160, U256,
 };
+use alloc::{vec, vec::Vec};
 pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
 use core::{
 	cmp::min,
