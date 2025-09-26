@@ -8,35 +8,49 @@ use nohash_hasher::BuildNoHashHasher;
 // #[cfg(not(feature = "std"))]
 // use alloc::collections::btree_map::BTreeMap as Map;
 // use alloc::collections::HashMap as Map;
-use indexmap::{map as hash_map, IndexMap as Map, IndexSet as Set};
+use indexmap::{map as hash_map, IndexMap as Map};
 
-use std::collections::HashSet;
-
+pub type XxxKey = u64;
 const LOG_TARGET: &str = "xxx";
+
+fn xxx_key<K: Hash>(key: &K) -> XxxKey {
+	use core::hash::Hasher;
+	let mut hasher = foldhash::fast::FixedState::default().build_hasher();
+	key.hash(&mut hasher);
+	hasher.finish()
+}
 
 #[derive(Debug, Clone)]
 pub struct InternalSet<K> {
-	inner: HashSet<K>,
+	inner: Map<XxxKey, K, BuildNoHashHasher<XxxKey>>,
 }
 
-pub type DeltaKeys<K> = HashSet<K>;
+pub type DeltaKeys<K> = Map<XxxKey, K, foldhash::fast::FixedState>;
 
 impl<K> InternalSet<K> {
 	pub fn new() -> Self {
-		Self { inner: HashSet::with_capacity(1024) }
+		Self { inner: Map::with_capacity_and_hasher(16, BuildNoHashHasher::<XxxKey>::default()) }
 	}
 }
 impl<K: Hash + Eq> InternalSet<K> {
 	pub fn with_capacity(capacity: usize) -> Self {
-		Self { inner: HashSet::with_capacity(capacity) }
+		Self {
+			inner: Map::with_capacity_and_hasher(capacity, BuildNoHashHasher::<XxxKey>::default()),
+		}
 	}
 
 	pub fn insert(&mut self, value: K) -> bool {
-		self.inner.insert(value)
+		let key = xxx_key(&value);
+		self.inner.insert(key, value).is_none()
 	}
 
 	pub fn contains(&self, value: &K) -> bool {
-		self.inner.contains(value)
+		let key = xxx_key(value);
+		self.inner.contains_key(&key)
+	}
+
+	pub fn contains_hash(&self, hash_key: &XxxKey) -> bool {
+		self.inner.contains_key(hash_key)
 	}
 
 	pub fn is_empty(&self) -> bool {
@@ -47,8 +61,8 @@ impl<K: Hash + Eq> InternalSet<K> {
 		self.inner.extend(other.inner);
 	}
 
-	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, K> {
-		self.inner.iter()
+	pub fn iter(&self) -> hash_map::Values<'_, XxxKey, K> {
+		self.inner.values()
 	}
 }
 
@@ -68,19 +82,19 @@ impl<K> Default for InternalSet<K> {
 
 impl<K: Hash + Eq> IntoIterator for InternalSet<K> {
 	type Item = K;
-	type IntoIter = std::collections::hash_set::IntoIter<K>;
+	type IntoIter = hash_map::IntoValues<XxxKey, K>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		self.inner.into_iter()
+		self.inner.into_values()
 	}
 }
 
 impl<'a, K: Hash + Eq> IntoIterator for &'a InternalSet<K> {
 	type Item = &'a K;
-	type IntoIter = std::collections::hash_set::Iter<'a, K>;
+	type IntoIter = hash_map::Values<'a, XxxKey, K>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		self.inner.iter()
+		self.inner.values()
 	}
 }
 
@@ -264,8 +278,8 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 				match keys {
 					TransactionKeys::Dirty(set) => {
 						// Accumulate live dirty keys
-						for key in &set.inner {
-							delta.insert(key.clone());
+						for (hash_key, key) in &set.inner {
+							delta.insert(*hash_key, key.clone());
 						}
 					},
 					TransactionKeys::Snapshot(_) => {
@@ -286,7 +300,7 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 		if let Some(top_transaction) = self.transactions.last_mut() {
 			top_transaction.last_mut().map(|stage| {
 				let mut internal_set = InternalSet::new();
-				internal_set.inner.extend(delta.iter().cloned());
+				internal_set.inner.extend(delta.iter().map(|(k, v)| (*k, v.clone())));
 				*stage = TransactionKeys::Snapshot(internal_set);
 			});
 			top_transaction.push(TransactionKeys::Dirty(InternalSet::new()));
@@ -309,9 +323,9 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 		for transaction in self.transactions.iter().rev() {
 			for keys in transaction.iter().rev() {
 				if let TransactionKeys::Dirty(set) = keys {
-					for key in &set.inner {
-						if !snapshot_keys.iter().any(|snapshot| snapshot.contains(key)) {
-							delta.insert(key.clone());
+					for (hash_key, key) in &set.inner {
+						if !snapshot_keys.iter().any(|snapshot| snapshot.contains_hash(hash_key)) {
+							delta.insert(*hash_key, key.clone());
 						}
 					}
 				}
@@ -329,7 +343,7 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 		if let Some(top_transaction) = self.transactions.last_mut() {
 			top_transaction.last_mut().map(|stage| {
 				let mut internal_set = InternalSet::new();
-				internal_set.inner.extend(delta.iter().cloned());
+				internal_set.inner.extend(delta.iter().map(|(k, v)| (*k, v.clone())));
 				*stage = TransactionKeys::Snapshot(internal_set);
 			});
 			top_transaction.push(TransactionKeys::Dirty(InternalSet::new()));
@@ -349,7 +363,7 @@ mod tests {
                 let expected: ::std::collections::HashSet<String> =
                     [$($val),*].iter().cloned().map(String::from).collect();
                 let actual: ::std::collections::HashSet<String> =
-                    $delta.iter().cloned().collect();
+                    $delta.values().cloned().collect();
                 assert_eq!(actual, expected);
             }
         };

@@ -740,7 +740,7 @@ impl OverlayedChangeSet {
 		keys: &xxx::DeltaKeys<StorageKey>,
 	) -> Vec<(&StorageKey, Option<&StorageValue>)> {
 		for key in keys {
-			if let Some(entry) = self.changes.get_mut(key) {
+			if let Some(entry) = self.changes.get_mut(key.1) {
 				// materialize...
 				let _trigger = entry.value();
 			}
@@ -749,7 +749,7 @@ impl OverlayedChangeSet {
 		keys.iter()
 			.filter_map(|key| {
 				self.changes
-					.get_key_value(key)
+					.get_key_value(key.1)
 					.and_then(|(map_key, entry)| Some((map_key, entry.value_ref().as_option_xxx())))
 			})
 			.collect()
