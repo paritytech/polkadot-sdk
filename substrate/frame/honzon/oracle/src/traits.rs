@@ -34,13 +34,10 @@ pub trait DataProvider<Key, Value> {
 
 /// An extended `DataProvider` that provides timestamped data.
 pub trait DataProviderExtended<Key, TimestampedValue> {
-	/// Returns the timestamped value for a given key.
-	fn get_no_op(key: &Key) -> Option<TimestampedValue>;
 	/// Returns a list of all keys and their optional timestamped values.
-	fn get_all_values() -> Vec<(Key, Option<TimestampedValue>)>;
+	fn get_all_values() -> impl Iterator<Item = (Key, TimestampedValue)>;
 }
 
-#[allow(dead_code)] // rust cannot detect usage in macro_rules
 pub fn median<T: Ord + Clone>(mut items: Vec<T>) -> Option<T> {
 	if items.is_empty() {
 		return None;
@@ -70,15 +67,6 @@ macro_rules! create_median_value_data_provider {
 			}
 		}
 		impl $crate::DataProviderExtended<$key, $timestamped_value> for $name {
-			fn get_no_op(key: &$key) -> Option<$timestamped_value> {
-				let mut values = vec![];
-				$(
-					if let Some(v) = <$provider as $crate::DataProviderExtended<$key, $timestamped_value>>::get_no_op(&key) {
-						values.push(v);
-					}
-				)*
-				$crate::traits::median(values)
-			}
 			fn get_all_values() -> Vec<($key, Option<$timestamped_value>)> {
 				let mut keys = sp_std::collections::btree_set::BTreeSet::new();
 				$(
@@ -86,7 +74,7 @@ macro_rules! create_median_value_data_provider {
 						.into_iter()
 						.for_each(|(k, _)| { keys.insert(k); });
 				)*
-				keys.into_iter().map(|k| (k, Self::get_no_op(&k))).collect()
+				keys.into_iter().map(|k| (k, Self::get(&k))).collect()
 			}
 		}
 	}
@@ -135,11 +123,8 @@ mod tests {
 				}
 			}
 			impl DataProviderExtended<u8, u8> for $provider {
-				fn get_no_op(_: &u8) -> Option<u8> {
-					$price.with(|v| *v.borrow())
-				}
 				fn get_all_values() -> Vec<(u8, Option<u8>)> {
-					vec![(0, Self::get_no_op(&0))]
+					vec![(0, Self::get(&0))]
 				}
 			}
 		};

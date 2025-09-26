@@ -72,9 +72,6 @@
 //! - Easy integration with data aggregation algorithms
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// Disable the following two lints since they originate from an external macro (namely decl_storage)
-#![allow(clippy::string_lit_as_bytes)]
-#![allow(clippy::unused_unit)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
 
@@ -192,13 +189,12 @@ pub mod pallet {
 		/// temperatures, scores).
 		type OracleValue: Parameter + Member + Ord + MaxEncodedLen;
 
-		/// The account ID for the root operator.
+		/// The pallet ID.
 		///
-		/// This account can bypass the oracle membership check and feed values directly,
-		/// providing a fallback mechanism for critical data feeds when regular oracle
-		/// operators are unavailable.
+		/// Will be used to derive the pallet's account, which is used as the oracle account
+		/// when values are fed by root.
 		#[pallet::constant]
-		type RootOperatorAccountId: Get<Self::AccountId>;
+		type PalletId: Get<PalletId>;
 
 		/// The source of oracle members.
 		///
@@ -311,6 +307,19 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::view_functions]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Retrieve the aggregated oracle value for a specific key, including its timestamp.
+		pub fn get_value(key: T::OracleKey) -> Option<TimestampedValueOf<T, I>> {
+			Self::get(&key)
+		}
+
+		/// Retrieve every aggregated oracle value tracked by the pallet.
+		pub fn all_values() -> Vec<(T::OracleKey, TimestampedValueOf<T, I>)> {
+			Self::get_all_values().collect()
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Feeds external data values into the oracle system.
@@ -319,7 +328,7 @@ pub mod pallet {
 		///
 		/// The dispatch origin of this call must be a signed account that is either:
 		/// - A member of the oracle operators set (managed by [`SortedMembers`])
-		/// - The root operator account (configured via [`RootOperatorAccountId`])
+		/// - The root origin
 		///
 		/// ## Details
 		///
@@ -360,7 +369,7 @@ pub mod pallet {
 					.ok_or(Error::<T, I>::AlreadyFeeded)
 			})?;
 
-			Self::do_feed_values(who, values.into())?;
+			Self::do_feed_values(who, values.into());
 			Ok(Pays::No.into())
 		}
 	}
@@ -382,9 +391,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Returns all aggregated and timestamped values.
-	#[allow(clippy::complexity)]
-	pub fn get_all_values() -> Vec<(T::OracleKey, Option<TimestampedValueOf<T, I>>)> {
-		<Values<T, I>>::iter().map(|(k, v)| (k, Some(v))).collect()
+	pub fn get_all_values() -> impl Iterator<Item = (T::OracleKey, TimestampedValueOf<T, I>)> {
+		<Values<T, I>>::iter()
 	}
 
 	fn combined(key: &T::OracleKey) -> Option<TimestampedValueOf<T, I>> {
@@ -405,7 +413,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_feed_values(
 		who: T::AccountId,
 		values: Vec<(T::OracleKey, T::OracleValue)>,
-	) -> DispatchResult {
+	) {
 		let now = T::Time::now();
 		for (key, value) in &values {
 			let timestamped = TimestampedValue { value: value.clone(), timestamp: now };
@@ -419,7 +427,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::OnNewData::on_new_data(&who, key, value);
 		}
 		Self::deposit_event(Event::NewFeedData { sender: who, values });
-		Ok(())
 	}
 }
 
@@ -448,12 +455,7 @@ impl<T: Config<I>, I: 'static> DataProvider<T::OracleKey, T::OracleValue> for Pa
 impl<T: Config<I>, I: 'static> DataProviderExtended<T::OracleKey, TimestampedValueOf<T, I>>
 	for Pallet<T, I>
 {
-	fn get_no_op(key: &T::OracleKey) -> Option<TimestampedValueOf<T, I>> {
-		Self::get(key)
-	}
-
-	#[allow(clippy::complexity)]
-	fn get_all_values() -> Vec<(T::OracleKey, Option<TimestampedValueOf<T, I>>)> {
+	fn get_all_values() -> impl Iterator<Item = (T::OracleKey, TimestampedValueOf<T, I>)> {
 		Self::get_all_values()
 	}
 }
@@ -466,6 +468,7 @@ impl<T: Config<I>, I: 'static> DataFeeder<T::OracleKey, T::OracleValue, T::Accou
 		key: T::OracleKey,
 		value: T::OracleValue,
 	) -> DispatchResult {
-		Self::do_feed_values(Self::ensure_account(who)?, vec![(key, value)])
+		Self::do_feed_values(Self::ensure_account(who)?, vec![(key, value)]);
+		Ok(())
 	}
 }
