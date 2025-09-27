@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Custom EVM memory implementation using standard Vec<u8>
-
 use crate::vm::evm::{Halt, HaltReason};
 use alloc::vec::Vec;
 use core::ops::{ControlFlow, Range};
