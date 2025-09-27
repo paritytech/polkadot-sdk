@@ -275,8 +275,6 @@ pub mod pallet {
 		/// remote block number advances faster than the local block number.
 		///
 		/// It is recommended to use the local block number for solo chains and relay chains.
-		/// Parachains should use the local block number until the pallet supports large gaps
-		/// between blocks (as might occur with Agile Coretime).
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Helper for benchmarking.
@@ -468,10 +466,9 @@ pub mod pallet {
 			);
 
 			// Check the expiry block.
-			let expiry_block =
-				expiry.evaluate(<T as Config>::BlockNumberProvider::current_block_number());
+			let expiry_block = expiry.evaluate(T::BlockNumberProvider::current_block_number());
 			ensure!(
-				expiry_block > <T as Config>::BlockNumberProvider::current_block_number(),
+				expiry_block > T::BlockNumberProvider::current_block_number(),
 				Error::<T>::ExpiryBlockMustBeInTheFuture
 			);
 
@@ -571,7 +568,7 @@ pub mod pallet {
 
 			// Always start by updating the pool rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let now = <T as Config>::BlockNumberProvider::current_block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now > pool_info.expiry_block || caller == staker, BadOrigin);
 
 			let staker_info = PoolStakers::<T>::get(pool_id, &staker).unwrap_or_default();
@@ -625,7 +622,7 @@ pub mod pallet {
 
 			// Always start by updating the pool and staker rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let now = <T as Config>::BlockNumberProvider::current_block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now > pool_info.expiry_block || caller == staker, BadOrigin);
 
 			let staker_info =
@@ -736,10 +733,9 @@ pub mod pallet {
 			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
-			let new_expiry =
-				new_expiry.evaluate(<T as Config>::BlockNumberProvider::current_block_number());
+			let new_expiry = new_expiry.evaluate(T::BlockNumberProvider::current_block_number());
 			ensure!(
-				new_expiry > <T as Config>::BlockNumberProvider::current_block_number(),
+				new_expiry > T::BlockNumberProvider::current_block_number(),
 				Error::<T>::ExpiryBlockMustBeInTheFuture
 			);
 
@@ -875,8 +871,7 @@ pub mod pallet {
 			reward_per_token: T::Balance,
 		) -> Result<PoolInfoFor<T>, DispatchError> {
 			let mut new_pool_info = pool_info.clone();
-			new_pool_info.last_update_block =
-				<T as Config>::BlockNumberProvider::current_block_number();
+			new_pool_info.last_update_block = T::BlockNumberProvider::current_block_number();
 			new_pool_info.reward_per_token_stored = reward_per_token;
 
 			Ok(new_pool_info)
@@ -921,7 +916,7 @@ pub mod pallet {
 		}
 
 		fn last_block_reward_applicable(pool_expiry_block: BlockNumberFor<T>) -> BlockNumberFor<T> {
-			let now = <T as Config>::BlockNumberProvider::current_block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			if now < pool_expiry_block {
 				now
 			} else {
