@@ -135,7 +135,7 @@ fn store_helper<'ext, E: Ext>(
 	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
-		return ControlFlow::Break(Halt::Revert(Vec::new()));
+		return ControlFlow::Break(HaltReason::StateChangeDuringStaticCall.into());
 	}
 
 	let [index, value] = interpreter.stack.popn()?;
@@ -214,7 +214,7 @@ pub fn log<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
-		return ControlFlow::Break(Halt::Revert(Vec::new()));
+		return ControlFlow::Break(HaltReason::StateChangeDuringStaticCall.into());
 	}
 
 	let [offset, len] = interpreter.stack.popn()?;
