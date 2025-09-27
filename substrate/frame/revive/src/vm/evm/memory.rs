@@ -105,9 +105,13 @@ impl Memory {
 		self.slice_mut(memory_offset + data_len, len - data_len).fill(0);
 	}
 
-	/// Get the slice of memory at the given offset and length
-	pub fn slice_len(&self, offset: usize, len: usize) -> &[u8] {
-		self.0.get(offset..offset.saturating_add(len)).unwrap_or(&[])
+	/// Returns a byte slice of the memory region at the given offset.
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
+	pub fn slice_len(&self, offset: usize, size: usize) -> &[u8] {
+		&self.0[offset..offset + size]
 	}
 
 	/// Copy data within memory from src to dst
