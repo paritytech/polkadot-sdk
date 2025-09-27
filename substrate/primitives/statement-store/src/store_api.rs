@@ -104,4 +104,7 @@ pub trait StatementStore: Send + Sync {
 
 	/// Remove a statement from the store.
 	fn remove(&self, hash: &Hash) -> Result<()>;
+
+	/// Remove all statements authored by `who`.
+	fn remove_by(&self, who: [u8; 32]) -> Result<()>;
 }

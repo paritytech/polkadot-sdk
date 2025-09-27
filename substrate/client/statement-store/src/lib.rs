@@ -965,6 +965,33 @@ impl StatementStore for Store {
 		}
 		Ok(())
 	}
+
+	/// Remove all statements by an account.
+	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
+		let mut index = self.index.write();
+		let mut evicted = Vec::new();
+		if let Some(account_rec) = index.accounts.get(&who) {
+			evicted.extend(account_rec.by_priority.keys().map(|k| k.hash));
+		}
+
+		let current_time = self.timestamp();
+		let mut commit = Vec::new();
+		for hash in evicted {
+			index.make_expired(&hash, current_time);
+			commit.push((col::STATEMENTS, hash.to_vec(), None));
+			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+		}
+		self.db.commit(commit).map_err(|e| {
+			log::debug!(
+				target: LOG_TARGET,
+				"Error removing statement: database error {}, remove by {:?}",
+				e,
+				HexDisplay::from(&who),
+			);
+
+			Error::Db(e.to_string())
+		})
+	}
 }
 
 #[cfg(test)]
@@ -1502,5 +1529,119 @@ mod tests {
 
 		// exactly one element, equal to the expected plaintext
 		assert_eq!(retrieved, vec![plaintext_good]);
+	}
+
+	#[test]
+	fn remove_by_covers_various_situations() {
+		use sp_statement_store::{StatementSource, StatementStore, SubmitResult};
+
+		// Use a fresh store and fixed time so we can control purging.
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+
+		// Reuse helpers from this module.
+		let t42 = topic(42);
+		let k7 = dec_key(7);
+
+		// Account A = 4 (has per-account limits (4, 1000) in the mock runtime)
+		// - Mix of topic, decryption-key and channel to exercise every index.
+		let mut s_a1 = statement(4, 10, Some(100), 100);
+		s_a1.set_topic(0, t42);
+		let h_a1 = s_a1.hash();
+
+		let mut s_a2 = statement(4, 20, Some(200), 150);
+		s_a2.set_decryption_key(k7);
+		let h_a2 = s_a2.hash();
+
+		let s_a3 = statement(4, 30, None, 50);
+		let h_a3 = s_a3.hash();
+
+		// Account B = 3 (control group that must remain untouched).
+		let s_b1 = statement(3, 10, None, 100);
+		let h_b1 = s_b1.hash();
+
+		let mut s_b2 = statement(3, 15, Some(300), 100);
+		s_b2.set_topic(0, t42);
+		s_b2.set_decryption_key(k7);
+		let h_b2 = s_b2.hash();
+
+		// Submit all statements.
+		for s in [&s_a1, &s_a2, &s_a3, &s_b1, &s_b2] {
+			assert!(matches!(
+				store.submit(s.clone(), StatementSource::Network),
+				SubmitResult::New(_)
+			));
+		}
+
+		// --- Pre-conditions: everything is indexed as expected.
+		{
+			let idx = store.index.read();
+			assert_eq!(idx.entries.len(), 5, "all 5 should be present");
+			assert!(idx.accounts.contains_key(&account(4)));
+			assert!(idx.accounts.contains_key(&account(3)));
+			assert_eq!(idx.total_size, 100 + 150 + 50 + 100 + 100);
+
+			// Topic and key sets contain both A & B entries.
+			let set_t = idx.by_topic.get(&t42).expect("topic set exists");
+			assert!(set_t.contains(&h_a1) && set_t.contains(&h_b2));
+
+			let set_k = idx.by_dec_key.get(&Some(k7)).expect("key set exists");
+			assert!(set_k.contains(&h_a2) && set_k.contains(&h_b2));
+		}
+
+		// --- Action: remove all statements by Account A.
+		store.remove_by(account(4)).expect("remove_by should succeed");
+
+		// --- Post-conditions: A's statements are gone and marked expired; B's remain.
+		{
+			// A's statements removed from DB view.
+			for h in [h_a1, h_a2, h_a3] {
+				assert!(store.statement(&h).unwrap().is_none(), "A's statement should be removed");
+			}
+
+			// B's statements still present.
+			for h in [h_b1, h_b2] {
+				assert!(store.statement(&h).unwrap().is_some(), "B's statement should remain");
+			}
+
+			let idx = store.index.read();
+
+			// Account map updated.
+			assert!(!idx.accounts.contains_key(&account(4)), "Account A must be gone");
+			assert!(idx.accounts.contains_key(&account(3)), "Account B must remain");
+
+			// Removed statements are marked expired.
+			assert!(idx.expired.contains_key(&h_a1));
+			assert!(idx.expired.contains_key(&h_a2));
+			assert!(idx.expired.contains_key(&h_a3));
+			assert_eq!(idx.expired.len(), 3);
+
+			// Entry count & total_size reflect only B's data.
+			assert_eq!(idx.entries.len(), 2);
+			assert_eq!(idx.total_size, 100 + 100);
+
+			// Topic index: only B2 remains for topic 42.
+			let set_t = idx.by_topic.get(&t42).expect("topic set exists");
+			assert!(set_t.contains(&h_b2));
+			assert!(!set_t.contains(&h_a1));
+
+			// Decryption-key index: only B2 remains for key 7.
+			let set_k = idx.by_dec_key.get(&Some(k7)).expect("key set exists");
+			assert!(set_k.contains(&h_b2));
+			assert!(!set_k.contains(&h_a2));
+		}
+
+		// --- Idempotency: removing again is a no-op and should not error.
+		store.remove_by(account(4)).expect("second remove_by should be a no-op");
+
+		// --- Purge: advance time beyond TTL and run maintenance; expired entries disappear.
+		let purge_after = store.index.read().options.purge_after_sec;
+		store.set_time(purge_after + 1);
+		store.maintain();
+		assert_eq!(store.index.read().expired.len(), 0, "expired entries should be purged");
+
+		// --- Reuse: Account A can submit again after purge.
+		let s_new = statement(4, 40, None, 10);
+		assert!(matches!(store.submit(s_new, StatementSource::Network), SubmitResult::New(_)));
 	}
 }
