@@ -581,20 +581,9 @@ impl<T: Config> DeletionQueueManager<T> {
 	Serialize,
 	Deserialize,
 )]
-#[scale_info(skip_type_params(T))]
-pub struct DebugSettings<T: Config> {
+pub struct DebugSettings {
 	/// Whether to allow unlimited contract size.
 	pub allow_unlimited_contract_size: bool,
-	#[codec(skip)]
-	#[serde(skip)]
-	pub _phantom: PhantomData<T>,
-}
-
-impl<T: Config> DebugSettings<T> {
-	/// Returns true if the settings are the default ones.
-	pub fn is_default(&self) -> bool {
-		self == &Self::default()
-	}
 }
 
 #[cfg(test)]

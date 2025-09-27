@@ -17,17 +17,18 @@
 
 use crate::{
 	assert_refcount,
+	call_builder::VmBinaryModule,
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		ExtBuilder, Test,
+		DebugFlag, ExtBuilder, Test,
 	},
 	Code, Config, DebugSettings, Error, GenesisConfig, PristineCode,
 };
 use alloy_core::{primitives::U256, sol_types::SolInterface};
-use frame_support::assert_err;
 use frame_support::traits::fungible::Mutate;
+use frame_support::{assert_err, assert_ok};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
 
@@ -171,24 +172,41 @@ fn basic_evm_flow_tracing_works() {
 
 #[test]
 fn eth_contract_too_large() {
-	// This contract size is higher than the allowed limit of 25kb
-	let (code, _) = compile_module_with_type("HeavyContract", FixtureType::Solc).unwrap();
+	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
+	let contract_size = u32::try_from(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1)
+		.expect("usize value doesn't fit in u32");
+	let code = VmBinaryModule::evm_sized(contract_size).code;
 
-	// Manually initialize genesis config with allow_unlimited_contract_size = true
-	let genesis_config = GenesisConfig::<Test> {
-		debug_settings: DebugSettings { allow_unlimited_contract_size: true, ..Default::default() },
-		..Default::default()
-	};
+	for (allow_unlimited_contract_size, debug_flag) in
+		[(true, false), (true, true), (false, false), (false, true)]
+	{
+		// Set the DebugEnabled flag to the desired value for this iteration of the test.
+		DebugFlag::set(debug_flag);
 
-	ExtBuilder::default()
-		.genesis_config(Some(genesis_config))
-		.build()
-		.execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		// Manually initialize genesis config with allow_unlimited_contract_size
+		let genesis_config = GenesisConfig::<Test> {
+			debug_settings: Some(DebugSettings {
+				allow_unlimited_contract_size,
+				..Default::default()
+			}),
+			..Default::default()
+		};
 
-			let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
+		ExtBuilder::default()
+			.genesis_config(Some(genesis_config))
+			.build()
+			.execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-			// Even if allow_unlimited_contract_size is true, the contract is still too large unless DebugEnabled is also true.
-			assert_err!(result.result, <Error<Test>>::BlobTooLarge);
-		});
+				let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
+
+				if allow_unlimited_contract_size && debug_flag {
+					// The contract is too large, but the DebugEnabled flag is set and allow_unlimited_contract_size is true.
+					assert_ok!(result.result);
+				} else {
+					// The contract is too large and either the DebugEnabled flag is not set or allow_unlimited_contract_size is false.
+					assert_err!(result.result, <Error<Test>>::BlobTooLarge);
+				}
+			});
+	}
 }

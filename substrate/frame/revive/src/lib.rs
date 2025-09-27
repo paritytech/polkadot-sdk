@@ -485,8 +485,6 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
-		/// The pallet is not configured to allow debug features.
-		DebugNotEnabled = 0x32,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -544,7 +542,7 @@ pub mod pallet {
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
 	#[pallet::getter(fn debug_settings)]
-	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings<T>, ValueQuery>;
+	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, OptionQuery>;
 
 	pub mod genesis {
 		use super::*;
@@ -589,8 +587,8 @@ pub mod pallet {
 		pub accounts: Vec<genesis::Account<T>>,
 
 		/// Optional debugging settings applied at genesis.
-		#[serde(default, skip_serializing_if = "DebugSettings::<T>::is_default")]
-		pub debug_settings: DebugSettings<T>,
+		#[serde(default, skip_serializing_if = "Option::is_some")]
+		pub debug_settings: Option<DebugSettings>,
 	}
 
 	#[pallet::genesis_build]
@@ -678,9 +676,7 @@ pub mod pallet {
 			}
 
 			// Set debug settings.
-			let _ = Pallet::<T>::set_debug_settings(&self.debug_settings).inspect_err(|err| {
-				log::debug!(target: LOG_TARGET, "Failed to set debug settings: {err:?}");
-			});
+			Pallet::<T>::set_debug_settings(&self.debug_settings)
 		}
 	}
 
@@ -1901,17 +1897,18 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns true if unlimited contract size is allowed.
 	pub fn is_unlimited_contract_size_allowed() -> bool {
-		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().allow_unlimited_contract_size
+		T::DebugEnabled::get()
+			&& DebugSettingsOf::<T>::get().unwrap_or_default().allow_unlimited_contract_size
 	}
 
 	/// Set the debug settings for the pallet.
-	pub fn set_debug_settings(settings: &DebugSettings<T>) -> Result<(), Error<T>> {
-		// Only allowed if the DebugEnabled associated type is set to true.
-		if T::DebugEnabled::get() {
+	pub fn set_debug_settings(settings: &Option<DebugSettings>) {
+		if let Some(settings) = settings {
 			DebugSettingsOf::<T>::put(settings);
-			return Ok(());
+			if !T::DebugEnabled::get() {
+				log::warn!("Revive: Debug settings changed, but debug features are disabled in the runtime configuration.");
+			}
 		}
-		Err(<Error<T>>::DebugNotEnabled)
 	}
 }
 

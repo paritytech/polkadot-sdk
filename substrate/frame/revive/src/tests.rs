@@ -332,6 +332,7 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
+	pub static DebugFlag: bool = false;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -358,6 +359,7 @@ impl Config for Test {
 	type ChainId = ChainId;
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
+	type DebugEnabled = DebugFlag;
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
@@ -485,7 +487,6 @@ fn ext_builder_with_genesis_config_works() {
 		mapped_accounts: vec![EVE],
 		accounts: vec![eoa.clone(), pvm_contract.clone(), evm_contract.clone()],
 		..Default::default()
-
 	};
 
 	// Genesis serialization works
