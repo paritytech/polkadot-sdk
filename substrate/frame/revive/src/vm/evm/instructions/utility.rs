@@ -29,7 +29,6 @@ pub fn as_usize_saturated(v: U256) -> usize {
 	}
 }
 
-
 /// Trait for converting types into Address values.
 pub trait IntoAddress {
 	/// Converts the implementing type into an Address value.

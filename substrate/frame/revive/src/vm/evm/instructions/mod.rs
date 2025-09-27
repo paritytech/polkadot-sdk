@@ -16,7 +16,6 @@
 // limitations under the License.
 
 /// EVM opcode implementations.
-
 use super::interpreter::Interpreter;
 use crate::vm::{evm::Halt, Ext};
 use revm::bytecode::opcode::*;
