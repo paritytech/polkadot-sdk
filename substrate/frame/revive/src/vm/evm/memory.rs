@@ -28,7 +28,7 @@ pub struct Memory(Vec<u8>);
 impl Memory {
 	/// Create a new empty memory
 	pub fn new() -> Self {
-		Self(Vec::new())
+		Self(Vec::with_capacity(4 * 1024))
 	}
 
 	/// Get a slice of memory for the given range
