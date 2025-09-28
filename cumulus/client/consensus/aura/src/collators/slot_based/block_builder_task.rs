@@ -541,8 +541,8 @@ where
 		let mut extra_extensions = Extensions::default();
 		extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
 
-		let Ok(Some(res)) = collator
-			.build_block_and_import(BuildBlockAndImportParams {
+		let Ok(Some((built_block, import_block))) = collator
+			.build_block(BuildBlockAndImportParams {
 				parent_header: &parent_header,
 				slot_claim,
 				additional_pre_digest: vec![
@@ -566,14 +566,19 @@ where
 			return Ok(None);
 		};
 
-		parent_hash = res.block.header().hash();
-		parent_header = res.block.header().clone();
+		if let Err(error) = collator.import_block(import_block).await {
+			tracing::error!(target: crate::LOG_TARGET, ?error, "Failed to import built block.");
+			return Ok(None);
+		}
+
+		parent_hash = built_block.block.header().hash();
+		parent_header = built_block.block.header().clone();
 
 		// Announce the newly built block to our peers.
 		collator.collator_service().announce_block(parent_hash, None);
 
-		blocks.push(res.block);
-		proofs.push(res.proof);
+		blocks.push(built_block.block);
+		proofs.push(built_block.proof);
 
 		if CumulusDigestItem::contains_use_full_core(parent_header.digest()) {
 			tracing::trace!(
@@ -588,7 +593,7 @@ where
 		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(
 			proofs.last().expect("We just pushed the proof into the vector; qed"),
 		));
-		ignored_nodes.extend(IgnoredNodes::from_memory_db(res.backend_transaction));
+		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.backend_transaction));
 
 		// If there is still time left for the block in the slot, we sleep the rest of the time.
 		// This ensures that we have some steady block rate.

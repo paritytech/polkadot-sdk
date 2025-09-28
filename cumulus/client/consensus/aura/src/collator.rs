@@ -233,8 +233,25 @@ where
 	/// Build and import a parachain block using the given parameters.
 	pub async fn build_block_and_import(
 		&mut self,
-		mut params: BuildBlockAndImportParams<'_, Block, P>,
+		params: BuildBlockAndImportParams<'_, Block, P>,
 	) -> Result<Option<BuiltBlock<Block>>, Box<dyn Error + Send + 'static>> {
+		let Some((built_block, import_block)) = self.build_block(params).await? else {
+			return Ok(None)
+		};
+
+		self.import_block(import_block).await?;
+
+		Ok(Some(built_block))
+	}
+
+	/// Build a parachain block using the given parameters.
+	pub async fn build_block(
+		&mut self,
+		mut params: BuildBlockAndImportParams<'_, Block, P>,
+	) -> Result<
+		Option<(BuiltBlock<Block>, BlockImportParams<Block>)>,
+		Box<dyn Error + Send + 'static>,
+	> {
 		let mut digest = params.additional_pre_digest;
 		digest.push(params.slot_claim.pre_digest.clone());
 
@@ -304,14 +321,21 @@ where
 			return Ok(None)
 		};
 
-		self.block_import
-			.import_block(sealed_importable)
-			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
-			.await?;
-
 		let proof = storage_proof_recorder.drain_storage_proof();
 
-		Ok(Some(BuiltBlock { block, proof, backend_transaction }))
+		Ok(Some((BuiltBlock { block, proof, backend_transaction }, sealed_importable)))
+	}
+
+	/// Import the given `import_block`.
+	pub async fn import_block(
+		&mut self,
+		import_block: BlockImportParams<Block>,
+	) -> Result<(), Box<dyn Error + Send + 'static>> {
+		self.block_import
+			.import_block(import_block)
+			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
+			.await
+			.map(drop)
 	}
 
 	/// Propose, seal, import a block and packaging it into a collation.
