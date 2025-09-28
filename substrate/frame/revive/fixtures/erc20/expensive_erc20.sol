@@ -10,10 +10,7 @@ contract MyToken is ERC20 {
         _mint(msg.sender, total);
     }
 
-    function transfer(
-        address to,
-        uint256 value
-    ) public override returns (bool) {
+    function transfer(address to, uint256 value) public override returns (bool) {
         address owner = msg.sender;
         _transfer(owner, to, value);
         for (uint256 i = 0; i < 1000000; i++) {

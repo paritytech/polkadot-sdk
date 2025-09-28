@@ -25,7 +25,7 @@ pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 pub use erc20_transactor::ERC20Transactor;
-pub use erc721_transactor_test::ERC721Transactor;
+pub use erc721_transactor::ERC721Transactor;
 
 extern crate alloc;
 extern crate core;
@@ -35,7 +35,6 @@ use alloc::vec::Vec;
 use codec::{Decode, EncodeLike};
 use core::{cmp::PartialEq, marker::PhantomData};
 use frame_support::traits::{Contains, Equals, EverythingBut};
-use pallet_revive::U256;
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_core::H160;
 use sp_runtime::traits::{MaybeEquivalence, TryConvertInto};
@@ -164,7 +163,7 @@ pub type ERC20Matcher =
 /// [`xcm_executor::traits::MatchesNonFungibles`] implementation that matches
 /// ERC721 tokens.
 pub type ERC721Matcher =
-	MatchedConvertedConcreteId<H160, U256, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
+	MatchedConvertedConcreteId<H160, AssetInstance, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
 
 pub type AssetIdForPoolAssets = u32;
 

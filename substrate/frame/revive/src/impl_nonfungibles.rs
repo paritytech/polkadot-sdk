@@ -187,14 +187,13 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+mod erc721_contract_tests {
 	use super::*;
 	use crate::{
 		test_utils::{builder::*, ALICE, BOB},
-		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
+		tests::{ExtBuilder, RuntimeOrigin, Test},
 		AccountInfoOf, Code,
 	};
-	use frame_support::assert_ok;
 	const ERC721_PVM_CODE: &[u8] = include_bytes!("../fixtures/erc721/erc721.polkavm");
 
 	#[test]

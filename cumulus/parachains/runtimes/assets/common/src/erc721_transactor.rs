@@ -21,7 +21,7 @@ use ethereum_standards::IERC721;
 use frame_support::traits::{fungible::Inspect, OriginTrait};
 use pallet_revive::{
 	precompiles::alloy::{
-		primitives::{Address, U256 as EU256},
+		primitives::{Address},
 		sol_types::SolCall,
 	},
 	AddressMapper, ContractResult, DepositLimit, MomentOf,
@@ -44,6 +44,16 @@ use pallet_revive::precompiles::alloy::primitives::U256 as AlloyU256;
 fn sp_u256_to_alloy(x: U256) -> AlloyU256 {
 	let bytes: [u8; 32] = x.to_big_endian();
 	AlloyU256::from_be_bytes(bytes)
+}
+fn asset_instance_to_u256(inst: &AssetInstance) -> Result<U256, XcmError> {
+	match inst {
+		AssetInstance::Undefined => Err(XcmError::FailedToTransactAsset("Undefined AssetInstance")),
+		AssetInstance::Index(index) => Ok(U256::from(*index)),
+		AssetInstance::Array4(arr) => Ok(U256::from_big_endian(&arr[..])),
+		AssetInstance::Array8(arr) => Ok(U256::from_big_endian(&arr[..])),
+		AssetInstance::Array16(arr) => Ok(U256::from_big_endian(&arr[..])),
+		AssetInstance::Array32(arr) => Ok(U256::from_big_endian(&arr[..])),
+	}
 }
 
 pub struct ERC721Transactor<
@@ -70,7 +80,7 @@ impl<
 		AccountId: Eq + Clone,
 		T: pallet_revive::Config<AccountId = AccountId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		Matcher: MatchesNonFungibles<H160, U256>,
+		Matcher: MatchesNonFungibles<H160, AssetInstance>,
 		GasLimit: Get<Weight>,
 		StorageDepositLimit: Get<BalanceOf<T>>,
 		TransfersCheckingAccount: Get<AccountId>,
@@ -111,7 +121,9 @@ where
 			?what, ?who
 		);
 
-		let (asset_id, token_id) = Matcher::matches_nonfungibles(what)?;
+		let (asset_id, instance) = Matcher::matches_nonfungibles(what)?;
+		let token_id = asset_instance_to_u256(&instance)?;
+
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
@@ -150,6 +162,9 @@ where
 			if return_value.did_revert() {
 				tracing::debug!(target: "xcm::transactor::erc721::withdraw", "ERC721 contract reverted");
 				Err(XcmError::FailedToTransactAsset("ERC721 contract reverted"))
+			} else if !return_value.data.is_empty() {
+				tracing::debug!(target: "xcm::transactor::erc721::withdraw", ?return_value, "Unexpected data");
+				Err(XcmError::FailedToTransactAsset("ERC721 returned unexpected data"))
 			} else {
 				// ERC721 transferFrom does not return a value.
 				// Success is determined by the absence of a revert.
@@ -174,7 +189,9 @@ where
 			?what, ?who,
 		);
 
-		let (asset_id, token_id) = Matcher::matches_nonfungibles(what)?;
+		let (asset_id, instance) = Matcher::matches_nonfungibles(what)?;
+		let token_id = asset_instance_to_u256(&instance)?;
+
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
@@ -223,6 +240,9 @@ where
 					"Contract reverted"
 				);
 				Err(XcmError::FailedToTransactAsset("ERC721 contract reverted"))
+			} else if !return_value.data.is_empty() {
+				tracing::debug!(target: "xcm::transactor::erc721::withdraw", ?return_value, "Unexpected data");
+				Err(XcmError::FailedToTransactAsset("ERC721 returned unexpected data"))
 			} else {
 				// ERC721 transferFrom does not return a value.
 				// Success is determined by the absence of a revert.
