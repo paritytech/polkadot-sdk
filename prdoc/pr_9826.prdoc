@@ -1,4 +1,4 @@
-title: Added pallet-root-offences to Westend relay-chain runtime
+title: Update pallet-asset-rewards to use BlockNumberProvider
 doc:
 - audience: Runtime Dev
   description: |-
