@@ -402,7 +402,7 @@ impl<T: Default> SuppressedDrop for NoDrop<T> {
 	}
 
 	fn into_inner(mut self) -> Self::Inner {
-		self.0
+		mem::take(&mut self.0)
 	}
 
 	fn new(inner: Self::Inner) -> Self {
