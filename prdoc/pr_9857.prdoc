@@ -2,9 +2,8 @@ title: add RewardsPool trait
 doc:
 - audience: Runtime Dev
   description: |-
-    Part of https://github.com/paritytech/polkadot-sdk/issues/9765
-
-    so that other pallets can create and manage rewards pool
+    Add `trait RewardsPool` to frame-support and updated `pallet-asset-rewards` to implement it.
+    This allows other pallets to be able to use the `RewardsPool` trait to manage reward pools programmatically.
 crates:
 - name: pallet-asset-rewards
   bump: minor
