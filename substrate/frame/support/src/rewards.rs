@@ -34,8 +34,8 @@ pub trait RewardsPool<AccountId, PoolId, Balance> {
 	/// - `reward_rate_per_block`: the amount of reward tokens distributed per block;
 	/// - `expiry`: the block number at which the pool will cease to accumulate rewards. The
 	///   [`DispatchTime::After`] variant evaluated at the execution time.
-	/// - `admin`: the account allowed to extend the pool expiration, increase the rewards rate
-	///   and receive the unutilized reward tokens back after the pool completion.
+	/// - `admin`: the account allowed to extend the pool expiration, increase the rewards rate and
+	///   receive the unutilized reward tokens back after the pool completion.
 	fn create_pool(
 		creator: &AccountId,
 		staked_asset_id: Self::AssetId,
