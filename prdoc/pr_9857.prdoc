@@ -1,0 +1,12 @@
+title: add RewardsPool trait
+doc:
+- audience: Runtime Dev
+  description: |-
+    Part of https://github.com/paritytech/polkadot-sdk/issues/9765
+
+    so that other pallets can create and manage rewards pool
+crates:
+- name: pallet-asset-rewards
+  bump: minor
+- name: frame-support
+  bump: minor
