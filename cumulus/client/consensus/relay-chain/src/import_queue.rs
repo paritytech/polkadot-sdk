@@ -17,9 +17,7 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use sc_consensus::{
-	import_queue::{Verifier as VerifierT}, BlockImportParams,
-};
+use sc_consensus::{import_queue::Verifier as VerifierT, BlockImportParams};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_inherents::CreateInherentDataProviders;

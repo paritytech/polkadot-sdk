@@ -29,9 +29,7 @@ use cumulus_primitives_core::PersistedValidationData;
 use cumulus_primitives_core::relay_chain::HeadData;
 use futures::lock::Mutex;
 use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
-use sc_telemetry::TelemetryHandle;
 use sp_consensus_aura::SlotDuration;
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::{
 	fs,
@@ -76,23 +74,6 @@ impl<B, CIDP, W> Clone for AuraConsensus<B, CIDP, W> {
 			_phantom: PhantomData,
 		}
 	}
-}
-
-/// Parameters of [`AuraConsensus::build`].
-#[deprecated = "Use the `aura::collators::basic` collator instead"]
-pub struct BuildAuraConsensusParams<PF, BI, CIDP, Client, BS, SO> {
-	pub proposer_factory: PF,
-	pub create_inherent_data_providers: CIDP,
-	pub block_import: BI,
-	pub para_client: Arc<Client>,
-	pub backoff_authoring_blocks: Option<BS>,
-	pub sync_oracle: SO,
-	pub keystore: KeystorePtr,
-	pub force_authoring: bool,
-	pub slot_duration: SlotDuration,
-	pub telemetry: Option<TelemetryHandle>,
-	pub block_proposal_slot_portion: SlotProportion,
-	pub max_block_proposal_slot_portion: Option<SlotProportion>,
 }
 
 /// Export the given `pov` to the file system at `path`.
