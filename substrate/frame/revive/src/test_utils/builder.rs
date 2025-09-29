@@ -17,8 +17,9 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
-	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
+	address::AddressMapper, evm::TransactionSigned, AccountIdOf, BalanceOf, BumpNonce, Code,
+	Config, ContractResult, DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor,
+	Pallet, Weight, U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -141,6 +142,14 @@ builder!(
 		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
+	pub fn concat_evm_data(mut self, more_data: &[u8]) -> Self {
+		let Code::Upload(code) = &mut self.code else {
+			panic!("concat_evm_data should only be used with Code::Upload");
+		};
+		code.extend_from_slice(more_data);
+		self
+	}
+
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
 		self.evm_value = Pallet::<T>::convert_native_to_evm(value);
@@ -242,7 +251,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		payload: Vec<u8>,
+		transaction_encoded: Vec<u8>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -254,7 +263,32 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
-			payload: vec![],
+			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
+		}
+	}
+);
+
+builder!(
+	eth_instantiate_with_code(
+			origin: OriginFor<T>,
+			value: U256,
+			gas_limit: Weight,
+			storage_deposit_limit: BalanceOf<T>,
+			code: Vec<u8>,
+			data: Vec<u8>,
+			transaction_encoded: Vec<u8>,
+	) -> DispatchResultWithPostInfo;
+
+	/// Create a [`EthInstantiateWithCodeBuilder`] with default values.
+	pub fn eth_instantiate_with_code(origin: OriginFor<T>, code: Vec<u8>) -> Self {
+		Self {
+			origin,
+			value: 0u32.into(),
+			gas_limit: GAS_LIMIT,
+			storage_deposit_limit: deposit_limit::<T>(),
+			code,
+			data: vec![],
+			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 		}
 	}
 );

@@ -23,8 +23,8 @@ use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::{Stream, StreamExt};
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as PHash,
-	Id as ParaId, OccupiedCoreAssumption, SessionIndex,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as PHash, Id as ParaId,
+	OccupiedCoreAssumption, SessionIndex,
 };
 use sp_api::RuntimeApiInfo;
 use sp_consensus::SyncOracle;

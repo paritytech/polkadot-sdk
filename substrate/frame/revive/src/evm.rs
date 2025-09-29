@@ -26,3 +26,6 @@ pub use gas_encoder::*;
 pub mod runtime;
 pub use alloy_core::sol_types::decode_revert_reason;
 pub mod block_hash;
+
+/// Ethereum block storage module.
+pub(crate) mod block_storage;

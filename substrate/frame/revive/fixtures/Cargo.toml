@@ -16,6 +16,7 @@ exclude-from-umbrella = true
 workspace = true
 
 [dependencies]
+alloy-core = { workspace = true, default-features = true, features = ["sol-types"], optional = true }
 anyhow = { workspace = true, default-features = true, optional = true }
 sp-core = { workspace = true, default-features = true, optional = true }
 sp-io = { workspace = true, default-features = true, optional = true }
@@ -23,11 +24,20 @@ sp-io = { workspace = true, default-features = true, optional = true }
 [build-dependencies]
 anyhow = { workspace = true, default-features = true }
 cargo_metadata = { workspace = true }
+hex = { workspace = true, features = ["alloc"] }
 pallet-revive-uapi = { workspace = true }
 polkavm-linker = { version = "0.27.0" }
+serde_json = { workspace = true }
 toml = { workspace = true }
 
 [features]
 default = ["std"]
 # only when std is enabled all fixtures are available
-std = ["anyhow", "sp-core", "sp-io"]
+std = [
+	"alloy-core",
+	"anyhow",
+	"hex/std",
+	"serde_json/std",
+	"sp-core",
+	"sp-io",
+]

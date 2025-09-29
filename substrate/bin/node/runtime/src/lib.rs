@@ -159,7 +159,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
 #[cfg(test)]
-pub const CALL_PARAMS_MAX_SIZE: usize = 244;
+pub const CALL_PARAMS_MAX_SIZE: usize = 512;
 
 /// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
 #[cfg(feature = "std")]
@@ -364,6 +364,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = ConstU16<42>;
 	type MaxConsumers = ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
+	type SingleBlockMigrations = Migrations;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -1475,7 +1476,6 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerItem = DepositPerItem;
 	type DepositPerByte = DepositPerByte;
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
-	type LengthToFee = <Runtime as pallet_transaction_payment::Config>::LengthToFee;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type Precompiles =
 		(ERC20<Self, InlineIdConfig<0x1>, Instance1>, ERC20<Self, InlineIdConfig<0x2>, Instance2>);
@@ -1491,6 +1491,7 @@ impl pallet_revive::Config for Runtime {
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
+	type AllowEVMBytecode = ConstBool<true>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -2874,7 +2875,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 // We don't have a limit in the Relay Chain.
