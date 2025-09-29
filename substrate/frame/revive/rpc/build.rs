@@ -49,7 +49,6 @@ fn main() {
 	println!("cargo:rustc-env=TARGET={target}");
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
 
-	// Generate metadata
 	generate_metadata_file();
 }
 
