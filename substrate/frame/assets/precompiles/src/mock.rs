@@ -17,10 +17,8 @@
 
 //! Tests mock for `pallet-assets-freezer`.
 
-use crate as pallet_assets_precompiles;
-pub use crate::*;
+pub use super::*;
 use frame_support::{derive_impl, traits::AsEnsureOriginWithArg};
-use precompiles::{InlineIdConfig, ERC20};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -47,8 +45,6 @@ mod runtime {
 	pub type Assets = pallet_assets;
 	#[runtime::pallet_index(21)]
 	pub type Revive = pallet_revive;
-	#[runtime::pallet_index(22)]
-	pub type AssetsPrecompiles = pallet_assets_precompiles;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -75,8 +71,6 @@ impl pallet_revive::Config for Test {
 	type Currency = Balances;
 	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
 }
-
-impl Config for Test {}
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {

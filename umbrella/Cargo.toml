@@ -1280,7 +1280,7 @@ path = "../substrate/frame/assets-holder"
 [dependencies.pallet-assets-precompiles]
 default-features = false
 optional = true
-path = "../substrate/frame/assets-precompiles"
+path = "../substrate/frame/assets/precompiles"
 
 [dependencies.pallet-atomic-swap]
 default-features = false

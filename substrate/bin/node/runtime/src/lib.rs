@@ -633,9 +633,6 @@ impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 }
 
-impl pallet_assets_precompiles::Config<Instance1> for Runtime {}
-impl pallet_assets_precompiles::Config<Instance2> for Runtime {}
-
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = NativeOrWithId<u32>;
@@ -2799,12 +2796,6 @@ mod runtime {
 
 	#[runtime::pallet_index(84)]
 	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
-
-	#[runtime::pallet_index(85)]
-	pub type AssetsPrecompiles = pallet_assets_precompiles::Pallet<Runtime, Instance1>;
-
-	#[runtime::pallet_index(86)]
-	pub type PoolAssetsPrecompiles = pallet_assets_precompiles::Pallet<Runtime, Instance2>;
 
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;

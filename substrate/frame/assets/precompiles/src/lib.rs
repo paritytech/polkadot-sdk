@@ -15,6 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Ensure we're `no_std` when compiling for Wasm.
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use ethereum_standards::{
@@ -30,6 +35,9 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
+
+#[cfg(test)]
+mod mock;
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
@@ -314,8 +322,8 @@ where
 mod test {
 	use super::*;
 	use crate::{
+		alloy::hex,
 		mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
-		precompiles::alloy::hex,
 	};
 	use alloy::primitives::U256;
 	use frame_support::{assert_ok, traits::Currency};

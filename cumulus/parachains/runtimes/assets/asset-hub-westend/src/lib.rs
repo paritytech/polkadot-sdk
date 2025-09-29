@@ -308,9 +308,6 @@ impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 }
 
-impl pallet_assets_precompiles::Config<TrustBackedAssetsInstance> for Runtime {}
-impl pallet_assets_precompiles::Config<PoolAssetsInstance> for Runtime {}
-
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
@@ -1349,8 +1346,6 @@ construct_runtime!(
 		Revive: pallet_revive = 60,
 
 		AssetRewards: pallet_asset_rewards = 61,
-		AssetsPrecompiles: pallet_assets_precompiles::<Instance1> = 62,
-		PoolAssetsPrecompiles: pallet_assets_precompiles::<Instance3> = 63,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
