@@ -482,11 +482,11 @@ pub mod pallet {
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
 		/// Invalid jump destination. Dynamic jumps points to invalid not jumpdest opcode.
-		InvalidJump = 0x36,
+		InvalidJump = 0x32,
 		/// Attempting to pop a value from an empty stack.
-		StackUnderflow = 0x3b,
+		StackUnderflow = 0x33,
 		/// Attempting to push a value onto a full stack.
-		StackOverflow = 0x3c,
+		StackOverflow = 0x34,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
