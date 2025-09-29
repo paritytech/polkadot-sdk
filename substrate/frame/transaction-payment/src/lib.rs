@@ -710,6 +710,11 @@ impl<T: Config> Pallet<T> {
 	///
 	/// # Warning
 	///
+	/// Do **not** use this to pay for Weight fees. Use only to pay for storage fees
+	/// that can be rolled back by a storage transaction.
+	///
+	/// # Note
+	///
 	/// This is only useful if a pallet knows that the pre-dispatch weight was vastly
 	/// overestimated. Pallets need to make sure to leave enough balance to pay for the
 	/// transaction fees. They can do that by first drawing as much as they need and then
