@@ -250,7 +250,7 @@ fn compile_with_standard_json(
 		.stderr(std::process::Stdio::piped())
 		.spawn()
 		.with_context(|| {
-			format!("Failed to execute {}. Make sure {} is installed.", compiler, compiler)
+			format!("Failed to execute {} {}. Make sure {} is installed.", compiler, contracts_dir, compiler)
 		})?;
 
 	let mut stdin = compiler_output.stdin.as_ref().unwrap();
