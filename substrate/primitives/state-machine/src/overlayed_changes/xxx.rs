@@ -49,14 +49,14 @@ pub type DeltaKeys<K> = Map<XxxKey, K, BuildNoHashHasher<XxxKey>>;
 impl<K, HB: BuildHasher + Default> InternalSet<K, HB> {
 	pub fn new() -> Self {
 		Self {
-			inner: Map::with_capacity_and_hasher(1024, BuildNoHashHasher::<XxxKey>::default()),
+			inner: Map::with_capacity_and_hasher(16, BuildNoHashHasher::<XxxKey>::default()),
 			hash_builder: HB::default(),
 		}
 	}
 
 	pub fn new_with_hash_builder(hash_builder: HB) -> Self {
 		Self {
-			inner: Map::with_capacity_and_hasher(1024, BuildNoHashHasher::<XxxKey>::default()),
+			inner: Map::with_capacity_and_hasher(16, BuildNoHashHasher::<XxxKey>::default()),
 			hash_builder,
 		}
 	}
