@@ -178,6 +178,18 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	/// Checks if a slash has been cancelled for the given era and slash parameters.
+	pub(crate) fn check_slash_cancelled(
+		era: EraIndex,
+		validator: &T::AccountId,
+		slash_fraction: Perbill,
+	) -> bool {
+		let cancelled_slashes = CancelledSlashes::<T>::get(&era);
+		cancelled_slashes.iter().any(|(cancelled_validator, cancel_fraction)| {
+			*cancelled_validator == *validator && *cancel_fraction >= slash_fraction
+		})
+	}
+
 	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
 		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
@@ -1143,7 +1155,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	) -> Weight {
 		// worst case weight of this is always
 		T::WeightInfo::rc_on_session_report()
-			.saturating_add(T::WeightInfo::prune_era(ValidatorCount::<T>::get()))
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
@@ -1764,6 +1775,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		// If the pallet is not initialized (both ActiveEra and CurrentEra are None),
+		// there's nothing to check, so return early.
+		if ActiveEra::<T>::get().is_none() && CurrentEra::<T>::get().is_none() {
+			return Ok(());
+		}
+
 		session_rotation::Rotator::<T>::do_try_state()?;
 		session_rotation::Eras::<T>::do_try_state()?;
 
@@ -1944,6 +1961,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
+	/// * ActiveEra is Some.
 	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
@@ -1954,7 +1972,13 @@ impl<T: Config> Pallet<T> {
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
 			BTreeMap::new();
-		let era = ActiveEra::<T>::get().unwrap().index;
+		// If the pallet is not initialized, we return immediately from pallet's do_try_state() and
+		// we don't call this method. Otherwise, Eras::do_try_state enforces that both ActiveEra
+		// and CurrentEra are Some. Thus, we should never hit this error.
+		let era = ActiveEra::<T>::get()
+			.ok_or(TryRuntimeError::Other("ActiveEra must be set when checking paged exposures"))?
+			.index;
+
 		let accumulator_default = PagedExposureMetadata {
 			total: Zero::zero(),
 			own: Zero::zero(),
