@@ -19,11 +19,14 @@ use hashbrown::{
 	hash_map::{IntoValues, Values},
 	HashMap as Map,
 };
+// #[cfg(feature = "std")]
+// use std::collections::{
+// 	hash_map::{IntoValues, Values},
+// 	HashMap as Map,
+// };
+
 #[cfg(feature = "std")]
-use std::collections::{
-	hash_map::{IntoValues, Values},
-	HashMap as Map,
-};
+use indexmap::{map as hash_map, map::IntoValues, map::Values, IndexMap as Map};
 
 pub type XxxKey = u64;
 const LOG_TARGET: &str = "xxx";
