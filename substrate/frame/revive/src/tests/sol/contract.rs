@@ -191,7 +191,6 @@ fn call_revert(caller_type: FixtureType, callee_type: FixtureType) {
 		assert!(!result.success, "Call should propagate revert");
 		assert!(result.output.len() > 0, "Returned data should contain revert message");
 
-		// Use Alloy's built-in decoder for the revert data
 		let data = result.output.as_ref();
 		if data.len() >= 4 && &data[..4] == Revert::SELECTOR {
 			let reason = decode_revert_reason(data).expect("Failed to decode revert reason");
