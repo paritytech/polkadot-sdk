@@ -671,8 +671,7 @@ impl Store {
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		let mut index = self.index.write();
-		let deleted = index.maintain(self.timestamp());
+		let deleted = self.index.write().maintain(self.timestamp());
 		let deleted: Vec<_> =
 			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
 		let count = deleted.len() as u64;
@@ -685,8 +684,8 @@ impl Store {
 			target: LOG_TARGET,
 			"Completed store maintenance. Purged: {}, Active: {}, Expired: {}",
 			count,
-			index.entries.len(),
-			index.expired.len()
+			self.index.read().entries.len(),
+			self.index.read().expired.len()
 		);
 	}
 
