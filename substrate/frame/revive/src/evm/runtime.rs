@@ -18,14 +18,13 @@
 use crate::{
 	evm::{
 		api::{GenericTransaction, TransactionSigned},
+		create_call,
 		fees::InfoT,
 	},
-	vm::pvm::extract_code_and_data,
-	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, DispatchClass, MomentOf, Pallet, Zero,
-	LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, MomentOf, Pallet, Zero, LOG_TARGET,
 };
 use alloc::vec::Vec;
-use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{
@@ -33,12 +32,10 @@ use frame_support::{
 		tokens::{Fortitude, Precision, Preservation},
 		InherentBuilder, IsSubType, SignedTransactionBuilder,
 	},
-	MAX_EXTRINSIC_DEPTH,
 };
-use num_traits::Bounded;
 use pallet_transaction_payment::Config as TxConfig;
 use scale_info::{StaticTypeInfo, TypeInfo};
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
@@ -46,7 +43,7 @@ use sp_runtime::{
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	FixedPointNumber, OpaqueExtrinsic, RuntimeDebug, SaturatedConversion, Saturating, Weight,
+	OpaqueExtrinsic, RuntimeDebug, Weight,
 };
 
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
@@ -309,168 +306,22 @@ pub trait EthExtra {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
 		})?;
-
-		let base_fee = <Pallet<Self::Config>>::evm_gas_price();
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
+		let base_fee = <Pallet<Self::Config>>::evm_gas_price();
 		let tx = GenericTransaction::from_signed(tx, base_fee, None);
-
-		let Some(gas) = tx.gas else {
-			log::debug!(target: LOG_TARGET, "No gas provided");
-			return Err(InvalidTransaction::Call);
-		};
-
-		let Some(effective_gas_price) = tx.gas_price else {
-			log::debug!(target: LOG_TARGET, "No gas_price provided.");
-			return Err(InvalidTransaction::Payment);
-		};
-
-		let chain_id = tx.chain_id.unwrap_or_default();
-
-		if chain_id != <Self::Config as Config>::ChainId::get().into() {
-			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
-			return Err(InvalidTransaction::Call);
-		}
-
-		if effective_gas_price < base_fee {
-			log::debug!(
-				target: LOG_TARGET,
-				"Specified gas_price is too low. effective_gas_price={effective_gas_price} base_fee={base_fee}"
-			);
-			return Err(InvalidTransaction::Payment);
-		}
-
-		let value = tx.value.unwrap_or_default();
-		let data = tx.input.to_vec();
-
-		let mut call = if let Some(dest) = tx.to {
-			if dest == RUNTIME_PALLETS_ADDR {
-				let call = CallOf::<Self::Config>::decode_all_with_depth_limit(
-					MAX_EXTRINSIC_DEPTH,
-					&mut &data[..],
-				)
-				.map_err(|_| {
-					log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
-					InvalidTransaction::Call
-				})?;
-
-				if !value.is_zero() {
-					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
-					return Err(InvalidTransaction::Call)
-				}
-
-				call
-			} else {
-				let call = crate::Call::eth_call::<Self::Config> {
-					dest,
-					value,
-					gas_limit: Zero::zero(),
-					storage_deposit_limit: BalanceOf::<Self::Config>::max_value(),
-					data,
-					effective_gas_price,
-				}
-				.into();
-				call
-			}
-		} else {
-			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-				let Some((code, data)) = extract_code_and_data(&data) else {
-					log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
-					return Err(InvalidTransaction::Call);
-				};
-				(code, data)
-			} else {
-				(data, Default::default())
-			};
-
-			let call = crate::Call::eth_instantiate_with_code::<Self::Config> {
-				value,
-				gas_limit: Zero::zero(),
-				storage_deposit_limit: BalanceOf::<Self::Config>::max_value(),
-				code,
-				data,
-				effective_gas_price,
-			}
-			.into();
-
-			call
-		};
-
 		let nonce = tx.nonce.unwrap_or_default().try_into().map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
 			InvalidTransaction::Call
 		})?;
-
-		// the fee as signed off by the eth wallet. we cannot consume more.
-		let eth_fee = effective_gas_price.saturating_mul(gas) /
-			<Self::Config as Config>::NativeToEthRatio::get();
-
-		let weight_limit = {
-			let extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&call);
-			let mut info = call.get_dispatch_info();
-			info.extension_weight = extension_weight;
-
-			let fixed_fee = <Self::Config as Config>::FeeInfo::weight_to_fee(
-				<Self::Config as frame_system::Config>::BlockWeights::get()
-					.get(info.class)
-					.base_extrinsic,
-			)
-			.saturating_add(<Self::Config as Config>::FeeInfo::length_to_fee(encoded_len as u32));
-
-			let remaining_fee = {
-				let adjusted = eth_fee.checked_sub(fixed_fee.into()).ok_or_else(|| {
-					log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover base and len fee. eth_fee={eth_fee:?} fixed_fee={fixed_fee:?}");
-					InvalidTransaction::Payment
-				})?;
-				let unadjusted =
-					<Self::Config as Config>::FeeInfo::next_fee_multiplier_reciprocal()
-						.saturating_mul_int(<BalanceOf<Self::Config>>::saturated_from(adjusted));
-				unadjusted
-			};
-
-			let weight_limit = <Self::Config as Config>::FeeInfo::fee_to_weight(remaining_fee)
-				.checked_sub(&info.total_weight()).ok_or_else(|| {
-					log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight of the extrinsic.");
-					InvalidTransaction::Payment
-				})?;
-
-			call.set_weight_limit(weight_limit);
-			info = call.get_dispatch_info();
-			info.extension_weight = extension_weight;
-
-			let factor = <Self::Config as Config>::MaxEthExtrinsicWeight::get();
-			let max_weight = <Self::Config as frame_system::Config>::BlockWeights::get()
-				.get(DispatchClass::Normal)
-				.max_extrinsic
-				.unwrap_or_else(|| {
-					<Self::Config as frame_system::Config>::BlockWeights::get().max_block
-				});
-			let max_weight = Weight::from_parts(
-				factor.saturating_mul_int(max_weight.ref_time()),
-				factor.saturating_mul_int(max_weight.proof_size()),
-			);
-
-			let overweight_by = info.total_weight().saturating_sub(max_weight);
-			let capped_weight = weight_limit.saturating_sub(overweight_by);
-			call.set_weight_limit(capped_weight);
-			capped_weight
-		};
-
-		// the overall fee of the extrinsic including the gas limit
-		let tx_fee = <Self::Config as Config>::FeeInfo::tx_fee(encoded_len as u32, &call);
-
-		// the leftover we make available to the deposit collection system
-		let storage_deposit = eth_fee.checked_sub(tx_fee.into()).ok_or_else(|| {
-			log::error!(target: LOG_TARGET, "The eth_fee={eth_fee:?} is smaller than the tx_fee={tx_fee:?}. This is a bug.");
-			InvalidTransaction::Payment
-		})?.saturated_into();
+		let call_info = create_call::<Self::Config>(tx, Some(encoded_len as u32))?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
-					storage_deposit,
+					call_info.storage_deposit,
 					Precision::Exact,
 					Preservation::Preserve,
 					Fortitude::Polite,
 		).map_err(|_| {
-			log::debug!(target: LOG_TARGET, "Not enough balance to hold additional storage deposit of {storage_deposit:?}");
+			log::debug!(target: LOG_TARGET, "Not enough balance to hold additional storage deposit of {:?}", call_info.storage_deposit);
 			InvalidTransaction::Payment
 		})?;
 		<Self::Config as Config>::FeeInfo::deposit_txfee(storage_credit);
@@ -482,13 +333,12 @@ pub trait EthExtra {
 
 		log::debug!(target: LOG_TARGET, "\
 			Created checked Ethereum transaction with: \
-			gas={gas} \
-			weight_limit={weight_limit} \
-			additional_storage_deposit_held={storage_deposit:?} \
-			effective_gas_price={effective_gas_price} \
-			base_fee={base_fee} \
+			weight_limit={} \
+			additional_storage_deposit_held={:?} \
 			nonce={nonce:?}
-			"
+			",
+			call_info.weight_limit,
+			call_info.storage_deposit,
 		);
 
 		// We can't calculate a tip because it needs to be based on the actual gas used which we
@@ -498,7 +348,7 @@ pub trait EthExtra {
 				signer.into(),
 				Self::get_eth_extension(nonce, Zero::zero()),
 			),
-			function: call,
+			function: call_info.call,
 		})
 	}
 }
@@ -512,11 +362,11 @@ mod test {
 		tests::{
 			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, UncheckedExtrinsic,
 		},
-		EthTransactInfo, Weight,
+		EthTransactInfo, Weight, RUNTIME_PALLETS_ADDR,
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
-	use sp_runtime::traits::{self, Checkable, DispatchTransaction};
+	use sp_runtime::traits::{self, Checkable, DispatchTransaction, Get};
 
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -561,7 +411,7 @@ mod test {
 		}
 
 		fn estimate_gas(&mut self) {
-			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone(), Weight::MAX);
+			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone());
 			self.tx.gas_price = Some(<Pallet<Test>>::evm_gas_price());
 
 			match dry_run {

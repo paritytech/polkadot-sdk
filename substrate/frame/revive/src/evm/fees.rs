@@ -105,16 +105,23 @@ pub trait InfoT<T: Config>: seal::Sealed {
 	}
 
 	/// Calculate the fee of a transaction divided by the next fee multiplier.
-	fn unadjusted_tx_fee(
-		_eth_transact_call: CallOf<T>,
-		_dispatch_call: &CallOf<T>,
-	) -> BalanceOf<T> {
+	fn unadjusted_tx_fee(_encoded_len: u32, _dispatch_call: &CallOf<T>) -> BalanceOf<T> {
 		Zero::zero()
 	}
 
 	/// Calculate the fee of a transaction including the next fee multiplier adjustment.
 	fn tx_fee(_len: u32, _call: &CallOf<T>) -> BalanceOf<T> {
 		Zero::zero()
+	}
+
+	/// Get the dispatch info of a call with the proper extension weight set.
+	fn dispatch_info(_call: &CallOf<T>) -> DispatchInfo {
+		Default::default()
+	}
+
+	/// Calculate the encoded length of a call.
+	fn encoded_len(_eth_transact_call: CallOf<T>) -> u32 {
+		0
 	}
 
 	/// Convert a weight to an unadjusted fee.
@@ -196,22 +203,30 @@ where
 	}
 
 	fn unadjusted_tx_fee(
-		eth_transact_call: CallOf<E::Config>,
+		encoded_len: u32,
 		dispatch_call: &CallOf<E::Config>,
 	) -> BalanceOf<E::Config> {
-		let uxt: <<E::Config as SysConfig>::Block as BlockT>::Extrinsic =
-			UncheckedExtrinsic::new_bare(eth_transact_call).into();
-
 		// We need to divide because the eth wallet will multiply with the gas price
-		let fee = Self::tx_fee(uxt.encoded_size() as u32, dispatch_call);
+		let fee = Self::tx_fee(encoded_len, dispatch_call);
 		Self::next_fee_multiplier_reciprocal().saturating_mul_int(fee.into())
 	}
 
 	fn tx_fee(len: u32, call: &CallOf<E::Config>) -> BalanceOf<E::Config> {
+		let dispatch_info = Self::dispatch_info(call);
+		TxPallet::<E::Config>::compute_fee(len, &dispatch_info, 0u32.into()).into()
+	}
+
+	fn dispatch_info(call: &CallOf<E::Config>) -> DispatchInfo {
 		let mut dispatch_info = call.get_dispatch_info();
 		dispatch_info.extension_weight =
 			E::get_eth_extension(0u32.into(), 0u32.into()).weight(call);
-		TxPallet::<E::Config>::compute_fee(len, &dispatch_info, 0u32.into()).into()
+		dispatch_info
+	}
+
+	fn encoded_len(eth_transact_call: CallOf<E::Config>) -> u32 {
+		let uxt: <<E::Config as SysConfig>::Block as BlockT>::Extrinsic =
+			UncheckedExtrinsic::new_bare(eth_transact_call).into();
+		uxt.encoded_size() as u32
 	}
 
 	fn weight_to_fee(weight: Weight) -> BalanceOf<E::Config> {

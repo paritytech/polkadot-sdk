@@ -3908,6 +3908,7 @@ fn skip_transfer_works() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		<Test as Config>::Currency::set_balance(&BOB, 0);
+		let gas_limit = <Pallet<Test>>::evm_block_gas_limit();
 
 		// when gas is some (transfers enabled): bob has no money: fail
 		assert_err!(
@@ -3915,13 +3916,12 @@ fn skip_transfer_works() {
 				GenericTransaction {
 					from: Some(BOB_ADDR),
 					input: code.clone().into(),
-					gas: Some(1u32.into()),
+					gas: Some(gas_limit),
 					..Default::default()
 				},
-				Weight::MAX,
 			),
 			EthTransactError::Message(format!(
-				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
+				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas {gas_limit})"
 			))
 		);
 
@@ -3932,7 +3932,6 @@ fn skip_transfer_works() {
 				input: code.clone().into(),
 				..Default::default()
 			},
-			Weight::MAX,
 		));
 
 		let Contract { addr, .. } =
@@ -3948,13 +3947,12 @@ fn skip_transfer_works() {
 					from: Some(BOB_ADDR),
 					to: Some(addr),
 					input: 0u32.encode().into(),
-					gas: Some(1u32.into()),
+					gas: Some(gas_limit),
 					..Default::default()
 				},
-				Weight::MAX,
 			),
 			EthTransactError::Message(format!(
-				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
+				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas {gas_limit})"
 			))
 		);
 
@@ -3970,7 +3968,6 @@ fn skip_transfer_works() {
 				gas: Some(1u32.into()),
 				..Default::default()
 			},
-			Weight::MAX,
 		)
 		.is_err(),);
 
@@ -3982,7 +3979,6 @@ fn skip_transfer_works() {
 				input: 2u32.encode().into(),
 				..Default::default()
 			},
-			Weight::MAX,
 		));
 
 		// call through contract works when transfers are skipped
@@ -3993,7 +3989,6 @@ fn skip_transfer_works() {
 				input: (3u32, &addr).encode().into(),
 				..Default::default()
 			},
-			Weight::MAX,
 		));
 
 		// works with transfers enabled if we don't incur a storage cost
@@ -4003,10 +3998,9 @@ fn skip_transfer_works() {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
 				input: (2u32, &addr).encode().into(),
-				gas: Some(1u32.into()),
+				gas: Some(gas_limit),
 				..Default::default()
 			},
-			Weight::MAX,
 		));
 
 		// fails when trying to increase the storage item size
@@ -4018,7 +4012,6 @@ fn skip_transfer_works() {
 				gas: Some(1u32.into()),
 				..Default::default()
 			},
-			Weight::MAX,
 		)
 		.is_err());
 	});

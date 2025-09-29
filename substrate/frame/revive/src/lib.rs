@@ -45,8 +45,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		fees::InfoT as FeeInfo, CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer,
-		TracerType, TYPE_EIP1559,
+		create_call, fees::InfoT as FeeInfo, runtime::SetWeightLimit, CallTracer,
+		GenericTransaction, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -1366,10 +1366,9 @@ where
 	/// dispatched call
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
-		gas_limit: Weight,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
-		CallOf<T>: From<crate::Call<T>>,
+		CallOf<T>: From<crate::Call<T>> + SetWeightLimit,
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
@@ -1409,9 +1408,16 @@ where
 			tx.r#type = Some(TYPE_EIP1559.into());
 		}
 
-		// Convert the value to the native balance type.
+		// Store values before moving the tx
 		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
+		let to = tx.to;
+		let gas = tx.gas.unwrap_or_default();
+
+		// we need to parse the weight from the transaction so that it is run
+		// using the exact weight limit passed by the eth wallet
+		let mut call_info = create_call::<T>(tx, None)
+			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		let extract_error = |err| {
 			if err == Error::<T>::TransferFailed.into() ||
@@ -1420,8 +1426,7 @@ where
 			{
 				let balance = Self::evm_balance(&from);
 				return Err(EthTransactError::Message(format!(
-					"insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
-					tx.gas.unwrap_or_default()
+					"insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {gas})",
 				)));
 			}
 
@@ -1431,7 +1436,7 @@ where
 		};
 
 		// Dry run the call
-		let (weight_limit, mut result, dispatch_call) = match tx.to {
+		let mut dry_run = match to {
 			// A contract call.
 			Some(dest) => {
 				if dest == RUNTIME_PALLETS_ADDR {
@@ -1450,19 +1455,14 @@ where
 						)));
 					};
 
-					let result = EthTransactInfo {
-						gas_required: dispatch_call.get_dispatch_info().total_weight(),
-						..Default::default()
-					};
-
-					(Zero::zero(), result, dispatch_call)
+					Default::default()
 				} else {
 					// Dry run the call.
 					let result = crate::Pallet::<T>::bare_call(
 						OriginFor::<T>::signed(origin),
 						dest,
 						value,
-						gas_limit,
+						call_info.weight_limit,
 						BalanceOf::<T>::max_value(),
 						input.clone(),
 						exec_config,
@@ -1481,22 +1481,12 @@ where
 						},
 					};
 
-					let result = EthTransactInfo {
+					EthTransactInfo {
 						gas_required: result.gas_required,
 						storage_deposit: result.storage_deposit.charge_or_zero(),
 						data,
 						eth_gas: Default::default(),
-					};
-					let dispatch_call: CallOf<T> = crate::Call::<T>::eth_call {
-						dest,
-						value,
-						gas_limit: result.gas_required,
-						storage_deposit_limit: Zero::zero(),
-						data: input.clone(),
-						effective_gas_price,
 					}
-					.into();
-					(result.gas_required, result, dispatch_call)
 				}
 			},
 			// A contract deployment
@@ -1512,7 +1502,7 @@ where
 				let result = crate::Pallet::<T>::bare_instantiate(
 					OriginFor::<T>::signed(origin),
 					value,
-					gas_limit,
+					call_info.weight_limit,
 					BalanceOf::<T>::max_value(),
 					Code::Upload(code.clone()),
 					data.clone(),
@@ -1533,35 +1523,22 @@ where
 					},
 				};
 
-				let result = EthTransactInfo {
+				EthTransactInfo {
 					gas_required: result.gas_required,
 					storage_deposit: result.storage_deposit.charge_or_zero(),
 					data: returned_data,
 					eth_gas: Default::default(),
-				};
-				let dispatch_call: CallOf<T> = crate::Call::<T>::eth_instantiate_with_code {
-					value,
-					gas_limit: result.gas_required,
-					storage_deposit_limit: Zero::zero(),
-					code,
-					data,
-					effective_gas_price,
 				}
-				.into();
-				(result.gas_required, result, dispatch_call)
 			},
 		};
 
-		let Ok(unsigned_tx) = tx.clone().try_into_unsigned() else {
-			return Err(EthTransactError::Message("Invalid transaction".into()));
-		};
+		// replace the weight passed in the transaction with the dry_run result
+		call_info.call.set_weight_limit(dry_run.gas_required);
 
-		let eth_transact_call =
-			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
 		let transaction_fee: U256 =
-			T::FeeInfo::unadjusted_tx_fee(eth_transact_call.into(), &dispatch_call).into();
-		let storage_deposit =
-			T::FeeInfo::next_fee_multiplier_reciprocal().saturating_mul_int(result.storage_deposit);
+			T::FeeInfo::unadjusted_tx_fee(call_info.encoded_len, &call_info.call).into();
+		let storage_deposit = T::FeeInfo::next_fee_multiplier_reciprocal()
+			.saturating_mul_int(dry_run.storage_deposit);
 
 		// We add `2` to account for one potential rounding error in each of the terms.
 		// Returning a larger value here just increases the the pre-dispatch weight.
@@ -1572,13 +1549,14 @@ where
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \
-			weight_limit={weight_limit:?}: \
+			weight_limit={:?}: \
 			(transaction_fee={transaction_fee:?}) + (storage_deposit={storage_deposit:?}) = (eth_gas={eth_gas:?})\
 			",
+			dry_run.gas_required,
 
 		);
-		result.eth_gas = eth_gas;
-		Ok(result)
+		dry_run.eth_gas = eth_gas;
+		Ok(dry_run)
 	}
 
 	/// Get the balance with EVM decimals of the given `address`.
@@ -2055,10 +2033,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
-
-					let blockweights: $crate::BlockWeights =
-						<Self as $crate::frame_system::Config>::BlockWeights::get();
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, blockweights.max_block)
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx)
 				}
 
 				fn call(

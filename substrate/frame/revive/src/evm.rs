@@ -19,6 +19,8 @@
 
 mod api;
 pub use api::*;
+mod call;
+pub(crate) use call::*;
 mod tracing;
 pub use tracing::*;
 pub mod fees;
