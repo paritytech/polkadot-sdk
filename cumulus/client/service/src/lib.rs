@@ -20,7 +20,6 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
@@ -94,7 +93,6 @@ pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawn
 	pub para_id: ParaId,
 	pub relay_chain_interface: RCInterface,
 	pub task_manager: &'a mut TaskManager,
-	pub parachain_consensus: Box<dyn ParachainConsensus<Block>>,
 	pub import_queue: Box<dyn ImportQueueService<Block>>,
 	pub collator_key: CollatorPair,
 	pub relay_chain_slot_duration: Duration,
