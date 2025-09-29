@@ -2566,19 +2566,22 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
 					use xcm::latest::prelude::{ClearOrigin, SetAppendix, SetTopic};
 
+					let recursion_limit = xcm_executor::RECURSION_LIMIT as usize;
+
 					// Within the recursion limit, this is fine.
 					let mut set_topic = Xcm(vec![SetTopic([42; 32])]);
-					for _ in 0..(xcm_executor::RECURSION_LIMIT - 1) {
+					for _ in 0..(recursion_limit - 2) {
 						set_topic = Xcm(vec![SetAppendix(set_topic)]);
 					}
+					let set_topics = Xcm(vec![SetAppendix(set_topic); recursion_limit - 2]);
 
 					// Exceed the recursion limit, this will be rejected.
 					let mut clear_origin = Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]);
-					for _ in 0..=xcm_executor::RECURSION_LIMIT {
+					for _ in 0..=recursion_limit {
 						clear_origin = Xcm(vec![SetAppendix(clear_origin)]);
 					}
 
-					let xcm = Xcm(vec![SetAppendix(set_topic), SetAppendix(clear_origin)]);
+					let xcm = Xcm(vec![SetAppendix(set_topics), SetAppendix(clear_origin)]);
 
 					Ok(xcm)
 				}
