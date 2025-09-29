@@ -129,12 +129,6 @@ pub mod pallet {
 			if let Some(new_slot) = Self::current_slot_from_digests() {
 				let current_slot = CurrentSlot::<T>::get();
 
-				if T::AllowMultipleBlocksPerSlot::get() {
-					assert!(current_slot <= new_slot, "Slot must not decrease");
-				} else {
-					assert!(current_slot < new_slot, "Slot must increase");
-				}
-
 				CurrentSlot::<T>::put(new_slot);
 
 				if let Some(n_authorities) = <Authorities<T>>::decode_len() {
