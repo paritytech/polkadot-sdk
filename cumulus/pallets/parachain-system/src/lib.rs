@@ -29,7 +29,7 @@
 
 extern crate alloc;
 
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use alloc::{collections::{btree_map::BTreeMap, btree_set::BTreeSet}, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
 use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
@@ -737,13 +737,16 @@ pub mod pallet {
 			<HostConfiguration<T>>::put(host_config);
 
 			// Extract and store published data roots from relay chain state
-			if let Ok(Some(published_roots)) = relay_state_proof.read_published_data_roots() {
-				<PublishedDataRoots<T>>::put(published_roots);
+			let current_roots = if let Ok(Some(published_roots)) = relay_state_proof.read_published_data_roots() {
+				<PublishedDataRoots<T>>::put(&published_roots);
 				log::debug!(
 					target: "parachain_system::inherent",
 					"Stored published data roots from relay chain state"
 				);
-			}
+				published_roots
+			} else {
+				Vec::new()
+			};
 
 			// Process published data from the broadcaster pallet
 			log::info!(
@@ -751,7 +754,7 @@ pub mod pallet {
 				"📨 Received inherent with published_data containing {} publishers",
 				published_data.len()
 			);
-			Self::process_published_data(&published_data);
+			Self::process_published_data(&published_data, &current_roots);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
@@ -1008,6 +1011,15 @@ pub mod pallet {
 	/// Contains (ParaId, root_hash) pairs for all publishers, mirroring the relay chain storage.
 	#[pallet::storage]
 	pub type PublishedDataRoots<T: Config> = StorageValue<
+		_,
+		Vec<(ParaId, Vec<u8>)>,  // Vector of (Publisher, Root hash)
+		ValueQuery,
+	>;
+
+	/// Previous data roots of published data, used to detect changes.
+	/// Contains (ParaId, root_hash) pairs from the previous block for comparison.
+	#[pallet::storage]
+	pub type PreviousPublishedDataRoots<T: Config> = StorageValue<
 		_,
 		Vec<(ParaId, Vec<u8>)>,  // Vector of (Publisher, Root hash)
 		ValueQuery,
@@ -1344,61 +1356,127 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Process published data from the broadcaster pallet and store it in parachain storage.
+	/// Only processes data for publishers whose trie roots have changed.
 	fn process_published_data(
 		published_data: &BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
+		current_roots: &Vec<(ParaId, Vec<u8>)>,
 	) {
-		log::info!(
-			target: "parachain_system::published_data",
-			"📨 Processing published data from {} publishers",
-			published_data.len()
-		);
+		let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
-		if published_data.is_empty() {
-			log::debug!(
-				target: "parachain_system::published_data",
-				"🕳️ No published data to process"
-			);
-			return;
+		// Create maps for easier lookup
+		let current_roots_map: BTreeMap<ParaId, &Vec<u8>> = current_roots.iter()
+			.map(|(para_id, root)| (*para_id, root))
+			.collect();
+		let previous_roots_map: BTreeMap<ParaId, &Vec<u8>> = previous_roots.iter()
+			.map(|(para_id, root)| (*para_id, root))
+			.collect();
+
+		// Determine which publishers have changed roots
+		let mut changed_publishers = BTreeSet::new();
+
+		// Check for new or changed publishers
+		for (para_id, current_root) in &current_roots_map {
+			if let Some(previous_root) = previous_roots_map.get(para_id) {
+				if current_root != previous_root {
+					changed_publishers.insert(*para_id);
+					log::info!(
+						target: "parachain_system::published_data",
+						"🔄 Publisher {:?} has changed root: {:?} -> {:?}",
+						para_id,
+						sp_core::hexdisplay::HexDisplay::from(&**previous_root),
+						sp_core::hexdisplay::HexDisplay::from(&**current_root)
+					);
+				}
+			} else {
+				// New publisher
+				changed_publishers.insert(*para_id);
+				log::info!(
+					target: "parachain_system::published_data",
+					"🆕 New publisher {:?} with root: {:?}",
+					para_id,
+					sp_core::hexdisplay::HexDisplay::from(&**current_root)
+				);
+			}
 		}
 
-		// Store new published data (we'll clear per-publisher rather than all data)
-		for (publisher, data_entries) in published_data {
+		// Check for removed publishers
+		for (para_id, _) in &previous_roots_map {
+			if !current_roots_map.contains_key(para_id) {
+				changed_publishers.insert(*para_id);
+				log::info!(
+					target: "parachain_system::published_data",
+					"🗑️ Publisher {:?} removed",
+					para_id
+				);
+			}
+		}
+
+		if changed_publishers.is_empty() {
 			log::info!(
 				target: "parachain_system::published_data",
-				"📦 Processing {} data items from publisher parachain {:?}",
-				data_entries.len(),
-				publisher
+				"⚡ No publishers have changed data roots - skipping processing for optimization"
+			);
+		} else {
+			log::info!(
+				target: "parachain_system::published_data",
+				"📨 Processing published data from {} publishers with changed roots (out of {} total)",
+				changed_publishers.len(),
+				published_data.len()
 			);
 
-			// Clear existing data for this publisher
-			let _ = PublishedData::<T>::remove_prefix(publisher, None);
+			// Only process data for publishers with changed roots
+			for (publisher, data_entries) in published_data {
+				if !changed_publishers.contains(publisher) {
+					continue;
+				}
 
-			// Store new data for this publisher
-			for (key, value) in data_entries {
-				log::debug!(
+				log::info!(
 					target: "parachain_system::published_data",
-					"💾 Storing key {:?} ({}B) -> value ({}B) from publisher {:?}",
-					key,
-					key.len(),
-					value.len(),
+					"📦 Processing {} data items from publisher parachain {:?}",
+					data_entries.len(),
 					publisher
 				);
-				PublishedData::<T>::insert(publisher, key, value);
+
+				// Clear existing data for this publisher
+				let _ = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
+
+				// Store new data for this publisher
+				for (key, value) in data_entries {
+					log::debug!(
+						target: "parachain_system::published_data",
+						"💾 Storing key {:?} ({}B) -> value ({}B) from publisher {:?}",
+						key,
+						key.len(),
+						value.len(),
+						publisher
+					);
+					PublishedData::<T>::insert(publisher, key, value);
+				}
+
+				log::info!(
+					target: "parachain_system::published_data",
+					"✅ Successfully stored {} items from publisher {:?}",
+					data_entries.len(),
+					publisher
+				);
 			}
 
 			log::info!(
 				target: "parachain_system::published_data",
-				"✅ Successfully stored {} items from publisher {:?}",
-				data_entries.len(),
-				publisher
+				"🎯 Finished processing published data from all publishers"
 			);
 		}
 
+		// Update previous roots storage for next comparison
+		<PreviousPublishedDataRoots<T>>::put(current_roots);
+
 		log::info!(
 			target: "parachain_system::published_data",
-			"🎯 Finished processing published data from all publishers"
+			"💾 Updated previous published data roots for {} publishers",
+			current_roots.len()
 		);
 	}
+
 
 	/// Drop blocks from the unincluded segment with respect to the latest parachain head.
 	fn maybe_drop_included_ancestors(
