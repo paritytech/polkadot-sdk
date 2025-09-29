@@ -1,0 +1,50 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Traits for handling publish/subscribe operations in XCM.
+
+use alloc::vec::Vec;
+use xcm::latest::{Location, PublishData, Result as XcmResult};
+
+/// Trait for handling publish/subscribe operations on the relay chain.
+pub trait BroadcastHandler {
+	/// Handle publish operation from the given origin.
+	/// Should validate origin authorization and extract necessary data.
+	fn handle_publish(origin: &Location, data: PublishData) -> XcmResult;
+
+	/// Handle subscribe/unsubscribe operation from the given origin.
+	/// Toggles subscription state for the given publisher.
+	fn handle_subscribe(origin: &Location, publisher: u32) -> XcmResult;
+}
+
+/// Trait for the actual publish handling logic.
+/// Implemented by pallets that store published data.
+pub trait HandlePublish {
+	fn handle_publish(publisher: u32, data: Vec<(Vec<u8>, Vec<u8>)>) -> Result<(), ()>;
+}
+
+/// Implementation of `BroadcastHandler` for the unit type `()`.
+impl BroadcastHandler for () {
+	fn handle_publish(_origin: &Location, _data: PublishData) -> XcmResult {
+		// No-op implementation for unit type
+		Ok(())
+	}
+
+	fn handle_subscribe(_origin: &Location, _publisher: u32) -> XcmResult {
+		// No-op implementation for unit type
+		Ok(())
+	}
+}

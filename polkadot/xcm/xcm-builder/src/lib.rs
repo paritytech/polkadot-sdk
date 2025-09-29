@@ -48,6 +48,11 @@ pub use barriers::{
 	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 
+mod broadcast_adapter;
+pub use broadcast_adapter::{
+	AllParachains, DirectParachainsOnly, ParachainBroadcastAdapter, SpecificParachains,
+};
+
 mod controller;
 pub use controller::{
 	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,

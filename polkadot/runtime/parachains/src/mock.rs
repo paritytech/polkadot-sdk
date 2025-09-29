@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	assigner_coretime, broadcaster, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -74,6 +74,7 @@ frame_support::construct_runtime!(
 		Paras: paras,
 		Configuration: configuration,
 		ParasShared: shared,
+		Broadcaster: broadcaster,
 		ParaInclusion: inclusion,
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
@@ -480,6 +481,19 @@ impl crate::inclusion::Config for Test {
 
 impl crate::paras_inherent::Config for Test {
 	type WeightInfo = crate::paras_inherent::TestWeightInfo;
+}
+
+parameter_types! {
+	pub const MaxPublishItems: u32 = 10;
+	pub const MaxKeyLength: u32 = 100; 
+	pub const MaxValueLength: u32 = 1000;
+}
+
+impl crate::broadcaster::Config for Test {
+	type MaxPublishItems = MaxPublishItems;
+	type MaxKeyLength = MaxKeyLength;
+	type MaxValueLength = MaxValueLength;
+	type MaxSubscriptions = ConstU32<10>;
 }
 
 pub struct MockValidatorSet;

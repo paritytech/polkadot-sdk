@@ -4428,6 +4428,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-test-relay-sproof-builder",
  "parity-scale-codec",
+ "polkadot-runtime-parachains",
  "sc-client-api",
  "sc-consensus-babe",
  "sp-crypto-hashing 0.1.0",

@@ -1224,6 +1224,20 @@ impl parachains_slashing::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxPublishItems: u32 = 100;
+	pub const MaxKeyLength: u32 = 256;
+	pub const MaxValueLength: u32 = 1024;
+	pub const MaxSubscriptions: u32 = 100;
+}
+
+impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
+	type MaxPublishItems = MaxPublishItems;
+	type MaxKeyLength = MaxKeyLength;
+	type MaxValueLength = MaxValueLength;
+	type MaxSubscriptions = MaxSubscriptions;
+}
+
+parameter_types! {
 	pub const ParaDeposit: Balance = 40 * UNITS;
 }
 
@@ -1597,6 +1611,9 @@ construct_runtime! {
 		Auctions: auctions = 72,
 		Crowdloan: crowdloan = 73,
 		Coretime: coretime = 74,
+
+		// Broadcaster pallet for pubsub XCM v5 functionality
+		Broadcaster: polkadot_runtime_parachains::broadcaster = 75,
 
 		// Migrations pallet
 		MultiBlockMigrations: pallet_migrations = 98,
@@ -2715,6 +2732,28 @@ sp_api::impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
 			XcmPallet::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl polkadot_runtime_parachains::broadcaster::runtime_api::BroadcasterApi<Block> for Runtime {
+		fn get_published_value(para_id: polkadot_primitives::Id, key: Vec<u8>) -> Option<Vec<u8>> {
+			Broadcaster::get_published_value(para_id, &key)
+		}
+
+		fn get_publisher_child_root(para_id: polkadot_primitives::Id) -> Option<Vec<u8>> {
+			Broadcaster::get_publisher_child_root(para_id)
+		}
+
+		fn get_all_published_data(para_id: polkadot_primitives::Id) -> Vec<(Vec<u8>, Vec<u8>)> {
+			Broadcaster::get_all_published_data(para_id)
+		}
+
+		fn get_all_publishers() -> Vec<polkadot_primitives::Id> {
+			Broadcaster::get_all_publishers()
+		}
+
+		fn get_subscribed_data(subscriber_para_id: polkadot_primitives::Id) -> alloc::collections::BTreeMap<polkadot_primitives::Id, Vec<(Vec<u8>, Vec<u8>)>> {
+			Broadcaster::get_subscribed_data(subscriber_para_id)
 		}
 	}
 }
