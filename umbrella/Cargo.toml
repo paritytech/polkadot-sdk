@@ -118,6 +118,8 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
+	"pallet-oracle-runtime-api?/std",
+	"pallet-oracle?/std",
 	"pallet-origin-restriction?/std",
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
@@ -303,6 +305,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
+	"pallet-oracle?/runtime-benchmarks",
 	"pallet-origin-restriction?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
@@ -440,6 +443,7 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
+	"pallet-oracle?/try-runtime",
 	"pallet-origin-restriction?/try-runtime",
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
@@ -654,6 +658,8 @@ runtime-full = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
+	"pallet-oracle",
+	"pallet-oracle-runtime-api",
 	"pallet-origin-restriction",
 	"pallet-paged-list",
 	"pallet-parameters",
@@ -1562,6 +1568,16 @@ path = "../substrate/frame/offences"
 default-features = false
 optional = true
 path = "../substrate/frame/offences/benchmarking"
+
+[dependencies.pallet-oracle]
+default-features = false
+optional = true
+path = "../substrate/frame/honzon/oracle"
+
+[dependencies.pallet-oracle-runtime-api]
+default-features = false
+optional = true
+path = "../substrate/frame/honzon/oracle/runtime-api"
 
 [dependencies.pallet-origin-restriction]
 default-features = false
