@@ -388,42 +388,32 @@ where
 					if a.contract != b.contract {
 						return Err((a, b));
 					}
-					// both Charge or both refund: can be added together
-					if matches!(a.amount, Deposit::Charge(_)) == matches!(b.amount, Deposit::Charge(_)) {
+
+					// TODO: make sure the Terminated state does not get removed here
+
+					// both Charge can be added together
+					if matches!(a.amount, Deposit::Charge(_)) && matches!(b.amount, Deposit::Charge(_)) && a.state == b.state {
 						a.amount = a.amount.saturating_add(&b.amount);
 						return Ok(a);
-					}
-					if matches!(a.amount, Deposit::Charge(_)) == matches!(b.amount, Deposit::Refund(_)) {
-						let diff = a.amount.saturating_add(&b.amount);
-						if diff.is_zero() {
-							// they cancel out
-							log::info!("meter.rs try_into_deposit() cancel out: {a:?}, {b:?}");
-							// TODO: how to handle this?
-							// - set both to zero?
-							// - set Charge to zero and cancel Refund?
-							// - set Refund to zero and cancel Charge?
+					} else if matches!(a.amount, Deposit::Charge(_)) != matches!(b.amount, Deposit::Charge(_)) {
+						// one Charge, one Refund
+						if matches!(a.amount, Deposit::Refund(_)) {
+							a.amount = a.amount.saturating_add(&b.amount);
 							return Ok(Charge {
 								contract: a.contract,
-								amount: Deposit::Charge(Zero::zero()),
+								amount: a.amount,
 								state: a.state,
 							});
-						}
-					} else if matches!(a.amount, Deposit::Refund(_)) == matches!(b.amount, Deposit::Charge(_)) {
-						let diff = a.amount.saturating_add(&b.amount);
-						if diff.is_zero() {
-							// they cancel out
-							log::info!("meter.rs try_into_deposit() cancel out: {a:?}, {b:?}");
-							// TODO: how to handle this?
-							// - set both to zero?
-							// - set Charge to zero and cancel Refund?
-							// - set Refund to zero and cancel Charge?
+						} else {
+							let mut c = b.clone();
+							c.amount = b.amount.saturating_add(&a.amount);
 							return Ok(Charge {
-								contract: a.contract,
-								amount: Deposit::Charge(Zero::zero()),
-								state: a.state,
+								contract: c.contract,
+								amount: a.amount,
+								state: c.state,
 							});
 						}
-					}
+					} // else both refund
 
 					Err((a, b))
 				})
