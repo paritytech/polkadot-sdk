@@ -372,7 +372,6 @@ pub mod pallet {
 	}
 
 	#[pallet::error]
-	#[derive(PartialEq)]
 	#[repr(u8)]
 	pub enum Error<T> {
 		/// Invalid schedule supplied, e.g. with zero weight of a basic operation.
