@@ -234,6 +234,7 @@ pub fn new_full<
 		sync_service: sync_service.clone(),
 		config,
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: None,
 	})?;
 
 	if role.is_authority() {

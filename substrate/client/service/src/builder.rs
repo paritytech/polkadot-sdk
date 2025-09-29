@@ -81,6 +81,7 @@ use sc_rpc_spec_v2::{
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
+use sc_tracing::block::TracingExecuteBlock;
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
@@ -461,11 +462,29 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	pub sync_service: Arc<SyncingService<TBl>>,
 	/// Telemetry instance for this node.
 	pub telemetry: Option<&'a mut Telemetry>,
+	/// Optional [`TracingExecuteBlock`] handle.
+	///
+	/// Will be used by the `trace_block` RPC to execute the actual block.
+	pub tracing_execute_block: Option<Arc<dyn TracingExecuteBlock<TBl>>>,
 }
 
 /// Spawn the tasks that are required to run a node.
 pub fn spawn_tasks<TBl, TBackend, TExPool, TRpc, TCl>(
-	params: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
+	SpawnTasksParams {
+		mut config,
+		task_manager,
+		client,
+		backend,
+		keystore,
+		transaction_pool,
+		rpc_builder,
+		network,
+		system_rpc_tx,
+		tx_handler_controller,
+		sync_service,
+		telemetry,
+		tracing_execute_block: execute_block,
+	}: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
 ) -> Result<RpcHandlers, Error>
 where
 	TCl: ProvideRuntimeApi<TBl>
@@ -492,21 +511,6 @@ where
 	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
 	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
 {
-	let SpawnTasksParams {
-		mut config,
-		task_manager,
-		client,
-		backend,
-		keystore,
-		transaction_pool,
-		rpc_builder,
-		network,
-		system_rpc_tx,
-		tx_handler_controller,
-		sync_service,
-		telemetry,
-	} = params;
-
 	let chain_info = client.usage_info().chain;
 
 	sp_session::generate_initial_session_keys(
@@ -603,21 +607,22 @@ where
 		.transpose()?;
 
 	let gen_rpc_module = || {
-		gen_rpc_module(
-			task_manager.spawn_handle(),
-			client.clone(),
-			transaction_pool.clone(),
-			keystore.clone(),
-			system_rpc_tx.clone(),
-			config.impl_name.clone(),
-			config.impl_version.clone(),
-			config.chain_spec.as_ref(),
-			&config.state_pruning,
-			config.blocks_pruning,
-			backend.clone(),
-			&*rpc_builder,
-			rpc_v2_metrics.clone(),
-		)
+		gen_rpc_module(GenRpcModuleParams {
+			spawn_handle: task_manager.spawn_handle(),
+			client: client.clone(),
+			transaction_pool: transaction_pool.clone(),
+			keystore: keystore.clone(),
+			system_rpc_tx: system_rpc_tx.clone(),
+			impl_name: config.impl_name.clone(),
+			impl_version: config.impl_version.clone(),
+			chain_spec: config.chain_spec.as_ref(),
+			state_pruning: &config.state_pruning,
+			blocks_pruning: config.blocks_pruning,
+			backend: backend.clone(),
+			rpc_builder: &*rpc_builder,
+			metrics: rpc_v2_metrics.clone(),
+			tracing_execute_block: execute_block.clone(),
+		})
 	};
 
 	let rpc_server_handle = start_rpc_servers(
@@ -750,21 +755,58 @@ where
 	Ok(telemetry.handle())
 }
 
+/// Parameters for [`gen_rpc_module`].
+pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
+	/// The handle to spawn tasks.
+	pub spawn_handle: SpawnTaskHandle,
+	/// Access to the client.
+	pub client: Arc<TCl>,
+	/// The transaction pool.
+	pub transaction_pool: Arc<TExPool>,
+	/// Keystore handle.
+	pub keystore: KeystorePtr,
+	/// Sender for system requests.
+	pub system_rpc_tx: TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
+	/// Implementation name of this node.
+	pub impl_name: String,
+	/// Implementation version of this node.
+	pub impl_version: String,
+	/// The chain spec.
+	pub chain_spec: &'a dyn ChainSpec,
+	/// Enabled pruning mode for this node.
+	pub state_pruning: &'a Option<PruningMode>,
+	/// Enabled blocks pruning mode.
+	pub blocks_pruning: BlocksPruning,
+	/// Backend of the node.
+	pub backend: Arc<TBackend>,
+	/// RPC builder.
+	pub rpc_builder: &'a (dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
+	/// Transaction metrics handle.
+	pub metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
+	/// Optional [`TracingExecuteBlock`] handle.
+	///
+	/// Will be used by the `trace_block` RPC to execute the actual block.
+	pub tracing_execute_block: Option<Arc<dyn TracingExecuteBlock<TBl>>>,
+}
+
 /// Generate RPC module using provided configuration
 pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
-	spawn_handle: SpawnTaskHandle,
-	client: Arc<TCl>,
-	transaction_pool: Arc<TExPool>,
-	keystore: KeystorePtr,
-	system_rpc_tx: TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
-	impl_name: String,
-	impl_version: String,
-	chain_spec: &dyn ChainSpec,
-	state_pruning: &Option<PruningMode>,
-	blocks_pruning: BlocksPruning,
-	backend: Arc<TBackend>,
-	rpc_builder: &(dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
-	metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
+	GenRpcModuleParams {
+		spawn_handle,
+		client,
+		transaction_pool,
+		keystore,
+		system_rpc_tx,
+		impl_name,
+		impl_version,
+		chain_spec,
+		state_pruning,
+		blocks_pruning,
+		backend,
+		rpc_builder,
+		metrics,
+		tracing_execute_block: execute_block,
+	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc, TExPool>,
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
@@ -799,7 +841,8 @@ where
 
 	let (chain, state, child_state) = {
 		let chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone()).into_rpc();
-		let (state, child_state) = sc_rpc::state::new_full(client.clone(), task_executor.clone());
+		let (state, child_state) =
+			sc_rpc::state::new_full(client.clone(), task_executor.clone(), execute_block);
 		let state = state.into_rpc();
 		let child_state = child_state.into_rpc();
 
