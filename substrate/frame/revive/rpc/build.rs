@@ -18,8 +18,12 @@ use asset_hub_westend_runtime::Runtime;
 use parachains_runtimes_test_utils::ExtBuilder;
 use std::{fs, path::Path, process::Command};
 
-/// Get the current branch and commit hash.
 fn main() {
+	generate_version_hash();
+	generate_metadata_file();
+}
+
+fn generate_git_revision() {
 	let output = Command::new("rustc")
 		.arg("--version")
 		.output()
@@ -48,8 +52,6 @@ fn main() {
 	println!("cargo:rustc-env=RUSTC_VERSION={rustc_version}");
 	println!("cargo:rustc-env=TARGET={target}");
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
-
-	generate_metadata_file();
 }
 
 fn generate_metadata_file() {
