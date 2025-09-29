@@ -14,6 +14,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use asset_hub_westend_runtime::Runtime;
+use parachains_runtimes_test_utils::ExtBuilder;
 use std::{fs, path::Path, process::Command};
 
 /// Get the current branch and commit hash.
@@ -52,11 +54,8 @@ fn main() {
 }
 
 fn generate_metadata_file() {
-	use asset_hub_westend_runtime::Runtime;
-	use parachains_runtimes_test_utils::ExtBuilder;
 	let metadata_path = Path::new("revive_chain.scale");
 
-	// use existing metadata if present
 	if metadata_path.exists() {
 		println!("cargo:warning=Using cached revive_chain.scale metadata");
 		return;
@@ -69,5 +68,5 @@ fn generate_metadata_file() {
 	});
 
 	println!("cargo:rerun-if-changed={}", metadata_path.display());
-	println!("cargo:warning=Successfully generated metadata from runtime");
+	println!("cargo:warning=Updated revive_chain.scale metadata");
 }
