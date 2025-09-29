@@ -865,6 +865,7 @@ impl<T: Config> RewardsPool<T::AccountId, PoolId, T::Balance> for Pallet<T> {
 
 		let footprint = Self::pool_creation_footprint();
 		let cost = T::Consideration::new(creator, footprint)?;
+		PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
 
 		// Create the pool.
 		let pool = PoolInfoFor::<T> {
