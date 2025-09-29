@@ -1,0 +1,16 @@
+title: Fix executor param fetching session index
+doc:
+- audience: Node Dev
+  description: |-
+    This aims to fix #4292
+    We have three cases of candidate validation where a proper set of executor environment parameters should be used:
+    1) Backing, and we're currently doing the right thing, requesting the executor params at the relay parent at which the candidate was produced:
+    https://github.com/paritytech/polkadot-sdk/blob/e7f36ab82934a7142f3ebd7f8b5566f12f85339b/polkadot/node/core/backing/src/lib.rs#L1140-L1146
+    2) Approval voting, where a wrong session was used, and this PR fixes that;
+    3) Disputes, where the session index, again, is hopefully derived from the relay parent at which the candidate was produced:
+    https://github.com/paritytech/polkadot-sdk/blob/63958c454643ddafdde8be17af5334aa95954550/polkadot/node/subsystem-types/src/messages.rs#L295-L296
+
+    So, hopefully, this PR fixes the only wrong case and harmonizes the executor param fetching over all the existing use cases.
+crates:
+- name: polkadot-node-core-approval-voting
+  bump: patch
