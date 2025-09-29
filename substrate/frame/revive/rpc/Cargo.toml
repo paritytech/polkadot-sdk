@@ -52,7 +52,7 @@ static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
 
 [build-dependencies]
-git2 = { workspace = true }
 asset-hub-westend-runtime = { workspace = true }
+git2 = { workspace = true }
 parachains-runtimes-test-utils = { workspace = true }
 sp-runtime = { workspace = true, default-features = true }
