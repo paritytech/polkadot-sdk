@@ -61,7 +61,7 @@ fn memory_limit_works() {
 
 		for (reason, data, expected_result) in test_cases {
 			let result = builder::bare_call(addr).data(data.abi_encode()).build().result;
-			assert_eq!(result, expected_result, "{}", reason);
+			assert_eq!(result, expected_result, "{reason}");
 		}
 	});
 }
