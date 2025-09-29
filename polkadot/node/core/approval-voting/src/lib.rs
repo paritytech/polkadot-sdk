@@ -855,10 +855,7 @@ async fn get_extended_session_info<'a, Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match runtime_info
-		.get_session_info(sender, relay_parent)
-		.await
-	{
+	match runtime_info.get_session_info(sender, relay_parent).await {
 		Ok(extended_info) => Some(&extended_info),
 		Err(_) => {
 			gum::debug!(
@@ -1925,7 +1922,10 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 											match get_extended_session_info(
 												session_info_provider,
 												sender,
-												candidate_entry.candidate_receipt().descriptor().relay_parent(),
+												candidate_entry
+													.candidate_receipt()
+													.descriptor()
+													.relay_parent(),
 											)
 											.await
 											{
@@ -3305,36 +3305,32 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		_ => return Ok(Vec::new()),
 	};
 
-	let (no_show_slots, needed_approvals) =
-		match get_session_info_by_index(
-			session_info_provider,
-			sender,
-			block_entry.block_hash(),
-			block_entry.session(),
-		)
-		.await
-		{
-			Some(i) => (i.no_show_slots, i.needed_approvals),
-			None => return Ok(Vec::new()),
-		};
+	let (no_show_slots, needed_approvals) = match get_session_info_by_index(
+		session_info_provider,
+		sender,
+		block_entry.block_hash(),
+		block_entry.session(),
+	)
+	.await
+	{
+		Some(i) => (i.no_show_slots, i.needed_approvals),
+		None => return Ok(Vec::new()),
+	};
 
-	let ExtendedSessionInfo { ref executor_params, .. } = 
-		match get_extended_session_info(
-			session_info_provider,
-			sender,
-			candidate_entry.candidate_receipt().descriptor().relay_parent(),
-		)
-		.await
-		{
-			Some(i) => i,
-			None => return Ok(Vec::new()),
-		};
+	let ExtendedSessionInfo { ref executor_params, .. } = match get_extended_session_info(
+		session_info_provider,
+		sender,
+		candidate_entry.candidate_receipt().descriptor().relay_parent(),
+	)
+	.await
+	{
+		Some(i) => i,
+		None => return Ok(Vec::new()),
+	};
 
 	let block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
-	let no_show_duration = slot_number_to_tick(
-		state.slot_duration_millis,
-		Slot::from(u64::from(no_show_slots)),
-	);
+	let no_show_duration =
+		slot_number_to_tick(state.slot_duration_millis, Slot::from(u64::from(no_show_slots)));
 	let tranche_now = state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
 
 	gum::trace!(
