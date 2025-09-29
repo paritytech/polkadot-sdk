@@ -182,11 +182,10 @@ fn eth_contract_too_large() {
 		// Set the DebugEnabled flag to the desired value for this iteration of the test.
 		DebugFlag::set(debug_flag);
 
-		// Manually initialize genesis config with allow_unlimited_contract_size
+		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
 			debug_settings: Some(DebugSettings {
 				allow_unlimited_contract_size,
-				..Default::default()
 			}),
 			..Default::default()
 		};
