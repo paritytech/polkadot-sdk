@@ -144,6 +144,7 @@ pub fn create_benchmarking_transfer_extrinsics(
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(chain.best_hash)
 		.with_parent_block_number(chain.best_number)
+		.enable_proof_recording()
 		.build()
 		.expect("Creates block builder");
 	let mut max_transfer_count = 0;
@@ -173,12 +174,7 @@ pub fn create_benchmarking_transfer_extrinsics(
 			}
 		};
 
-		let extrinsic: UncheckedExtrinsic = construct_extrinsic(
-			client,
-			call,
-			src.clone(),
-			Some(0),
-		);
+		let extrinsic: UncheckedExtrinsic = construct_extrinsic(client, call, src.clone(), Some(0));
 
 		match block_builder.push(extrinsic.clone().into()) {
 			Ok(_) => {},
