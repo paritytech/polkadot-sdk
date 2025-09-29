@@ -136,5 +136,6 @@ pub fn invalid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Unknown opcode. This opcode halts the execution.
 pub fn unknown<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.gas_meter_mut().consume_all();
 	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }
