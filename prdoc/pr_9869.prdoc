@@ -11,5 +11,5 @@ crates:
   bump: major
 - name: cumulus-client-service
   bump: major
-- name: polkadot-omni-node
+- name: polkadot-omni-node-lib
   bump: none

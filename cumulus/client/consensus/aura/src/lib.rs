@@ -26,17 +26,9 @@ use codec::Encode;
 use cumulus_primitives_core::PersistedValidationData;
 
 use cumulus_primitives_core::relay_chain::HeadData;
-use futures::lock::Mutex;
 use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
-use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
-use std::{
-	fs,
-	fs::File,
-	marker::PhantomData,
-	path::PathBuf,
-	sync::{atomic::AtomicU64, Arc},
-};
+use std::{fs, fs::File, path::PathBuf};
 
 mod import_queue;
 
