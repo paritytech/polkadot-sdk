@@ -21,6 +21,7 @@ use crate::common::{
 };
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
+use cumulus_client_service::ParachainTracingExecuteBlock;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::CollectCollationInfo;
 use futures::FutureExt;
@@ -283,6 +284,9 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			sync_service,
 			config,
 			telemetry: telemetry.as_mut(),
+			tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(
+				client.clone(),
+			))),
 		})?;
 
 		Ok(task_manager)

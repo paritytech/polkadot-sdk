@@ -494,6 +494,7 @@ where
 			system_rpc_tx,
 			tx_handler_controller,
 			telemetry: telemetry.as_mut(),
+			tracing_execute_block: None,
 		})?;
 
 		if let Some(hwbench) = hwbench {
