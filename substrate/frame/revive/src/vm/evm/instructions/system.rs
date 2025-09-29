@@ -19,10 +19,10 @@ use super::utility::as_usize_saturated;
 use crate::{
 	address::AddressMapper,
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt, EVMGas, HaltReason, Interpreter},
+		evm::{interpreter::Halt, util::as_usize_or_halt, EVMGas, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Config, U256,
+	Config, Error, U256,
 };
 use core::{ops::ControlFlow, ptr};
 use revm::interpreter::gas::{BASE, VERYLOW};
@@ -39,7 +39,7 @@ pub const KECCAK_EMPTY: [u8; 32] =
 /// Computes Keccak-256 hash of memory data.
 pub fn keccak256<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([offset], top) = interpreter.stack.popn_top()?;
-	let len = as_usize_or_halt(*top)?;
+	let len = as_usize_or_halt::<E::T>(*top)?;
 	interpreter
 		.ext
 		.gas_meter_mut()
@@ -48,7 +48,7 @@ pub fn keccak256<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 	let hash = if len == 0 {
 		H256::from(KECCAK_EMPTY)
 	} else {
-		let from = as_usize_or_halt(offset)?;
+		let from = as_usize_or_halt::<E::T>(offset)?;
 		interpreter.memory.resize(from, len)?;
 		H256::from(keccak_256(interpreter.memory.slice_len(from, len)))
 	};
@@ -75,7 +75,7 @@ pub fn caller<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 			let address = <E::T as Config>::AddressMapper::to_address(account_id);
 			interpreter.stack.push(address)
 		},
-		Err(_) => ControlFlow::Break(HaltReason::FatalExternalError.into()),
+		Err(_) => ControlFlow::Break(Error::<E::T>::FatalExternalError.into()),
 	}
 }
 
@@ -92,7 +92,7 @@ pub fn codesize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Copies running contract's bytecode to memory.
 pub fn codecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [memory_offset, code_offset, len] = interpreter.stack.popn()?;
-	let len = as_usize_or_halt(len)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
 		return ControlFlow::Continue(())
 	};
@@ -149,7 +149,7 @@ pub fn callvalue<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 /// Copies input data to memory.
 pub fn calldatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [memory_offset, data_offset, len] = interpreter.stack.popn()?;
-	let len = as_usize_or_halt(len)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
 		return ControlFlow::Continue(());
@@ -173,13 +173,13 @@ pub fn returndatasize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<H
 pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [memory_offset, offset, len] = interpreter.stack.popn()?;
 
-	let len = as_usize_or_halt(len)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 	let data_offset = as_usize_saturated(offset);
 
 	// Old legacy behavior is to panic if data_end is out of scope of return buffer.
 	let data_end = data_offset.saturating_add(len);
 	if data_end > interpreter.ext.last_frame_output().data.len() {
-		return ControlFlow::Break(HaltReason::OutOfOffset.into());
+		return ControlFlow::Break(Error::<E::T>::OutOfOffset.into());
 	}
 
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
@@ -220,7 +220,7 @@ pub fn memory_resize<'a, E: Ext>(
 	}
 
 	interpreter.ext.charge_or_halt(RuntimeCosts::CopyToContract(len as u32))?;
-	let memory_offset = as_usize_or_halt(memory_offset)?;
+	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
 	interpreter.memory.resize(memory_offset, len)?;
 	ControlFlow::Continue(Some(memory_offset))
 }

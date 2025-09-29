@@ -1,4 +1,3 @@
-use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -21,7 +20,7 @@ use crate::{
 		evm::{interpreter::Halt, EVMGas, Interpreter, BASE_FEE, DIFFICULTY},
 		Ext,
 	},
-	RuntimeCosts,
+	Error, RuntimeCosts,
 };
 use core::ops::ControlFlow;
 use revm::interpreter::gas::BASE;
@@ -91,6 +90,8 @@ pub fn basefee<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 }
 
 /// EIP-7516: BLOBBASEFEE opcode is not supported
-pub fn blob_basefee<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(HaltReason::NotActivated.into())
+pub fn blob_basefee<'ext, E: Ext>(
+	_interpreter: &mut Interpreter<'ext, E>,
+) -> ControlFlow<Halt> {
+	ControlFlow::Break(Error::<E::T>::NotActivated.into())
 }

@@ -1,4 +1,3 @@
-use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -25,7 +24,7 @@ use crate::{
 		},
 		Ext,
 	},
-	U256,
+	Error, U256,
 };
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
@@ -62,10 +61,10 @@ pub fn jumpi<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Validates jump target and performs the actual jump.
 fn jump_inner<E: Ext>(interpreter: &mut Interpreter<E>, target: U256) -> ControlFlow<Halt> {
-	let target = as_usize_or_halt_with(target, || HaltReason::InvalidJump.into())?;
+	let target = as_usize_or_halt_with(target, || Error::<E::T>::InvalidJump.into())?;
 
 	if !interpreter.bytecode.is_valid_legacy_jump(target) {
-		return ControlFlow::Break(HaltReason::InvalidJump.into());
+		return ControlFlow::Break(Error::<E::T>::InvalidJump.into());
 	}
 	// SAFETY: `is_valid_jump` ensures that `dest` is in bounds.
 	interpreter.bytecode.absolute_jump(target);
@@ -99,12 +98,12 @@ fn return_inner<E: Ext>(
 	halt: impl Fn(Vec<u8>) -> Halt,
 ) -> ControlFlow<Halt> {
 	let [offset, len] = interpreter.stack.popn()?;
-	let len = as_usize_or_halt(len)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 
 	// Important: Offset must be ignored if len is zeros
 	let mut output = Default::default();
 	if len != 0 {
-		let offset = as_usize_or_halt(offset)?;
+		let offset = as_usize_or_halt::<E::T>(offset)?;
 		interpreter.memory.resize(offset, len)?;
 		output = interpreter.memory.slice_len(offset, len).to_vec()
 	}
@@ -132,10 +131,10 @@ pub fn stop<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Invalid opcode. This opcode halts the execution.
 pub fn invalid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.gas_meter_mut().consume_all();
-	ControlFlow::Break(HaltReason::InvalidFEOpcode.into())
+	ControlFlow::Break(Error::<E::T>::InvalidFEOpcode.into())
 }
 
 /// Unknown opcode. This opcode halts the execution.
 pub fn unknown<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(HaltReason::OpcodeNotFound.into())
+	ControlFlow::Break(Error::<E::T>::OpcodeNotFound.into())
 }

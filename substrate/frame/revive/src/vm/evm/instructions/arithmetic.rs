@@ -16,7 +16,6 @@
 // limitations under the License.
 
 pub mod i256;
-use crate::vm::evm::HaltReason;
 use i256::{i256_div, i256_mod};
 mod modular;
 use modular::Modular;
@@ -26,7 +25,7 @@ use crate::{
 		evm::{interpreter::Halt, EVMGas, Interpreter},
 		Ext,
 	},
-	U256,
+	Error, U256,
 };
 use core::ops::ControlFlow;
 use revm::interpreter::gas::{EXP, LOW, MID, VERYLOW};
@@ -120,7 +119,7 @@ pub fn mulmod<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 pub fn exp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 	let Some(gas_cost) = exp_cost(*op2) else {
-		return ControlFlow::Break(HaltReason::OutOfGas.into());
+		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
 	};
 	interpreter.ext.charge_or_halt(EVMGas(gas_cost))?;
 	*op2 = op1.pow(*op2);

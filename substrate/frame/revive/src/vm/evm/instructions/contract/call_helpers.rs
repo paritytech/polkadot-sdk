@@ -44,9 +44,9 @@ pub fn resize_memory<'a, E: Ext>(
 	offset: U256,
 	len: U256,
 ) -> ControlFlow<Halt, Range<usize>> {
-	let len = as_usize_or_halt(len)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 	if len != 0 {
-		let offset = as_usize_or_halt(offset)?;
+		let offset = as_usize_or_halt::<E::T>(offset)?;
 		interpreter.memory.resize(offset, len)?;
 		ControlFlow::Continue(offset..offset + len)
 	} else {

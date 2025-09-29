@@ -15,18 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::vm::evm::{Halt, HaltReason};
+use crate::{vm::evm::Halt, Config, Error};
 use alloc::vec::Vec;
 use core::ops::{ControlFlow, Range};
 
 /// EVM memory implementation
 #[derive(Debug, Clone)]
-pub struct Memory(Vec<u8>);
+pub struct Memory<T> {
+	data: Vec<u8>,
+	_phantom: core::marker::PhantomData<T>,
+}
 
-impl Memory {
+impl<T: Config> Memory<T> {
 	/// Create a new empty memory
 	pub fn new() -> Self {
-		Self(Vec::with_capacity(4 * 1024))
+		Self { data: Vec::with_capacity(4 * 1024), _phantom: core::marker::PhantomData }
 	}
 
 	/// Get a slice of memory for the given range
@@ -35,7 +38,7 @@ impl Memory {
 	///
 	/// Panics on out of bounds.
 	pub fn slice(&self, range: Range<usize>) -> &[u8] {
-		&self.0[range]
+		&self.data[range]
 	}
 
 	/// Get a mutable slice of memory for the given range
@@ -44,25 +47,25 @@ impl Memory {
 	///
 	/// Panics on out of bounds.
 	pub fn slice_mut(&mut self, offset: usize, len: usize) -> &mut [u8] {
-		&mut self.0[offset..offset + len]
+		&mut self.data[offset..offset + len]
 	}
 
 	/// Get the current memory size in bytes
 	pub fn size(&self) -> usize {
-		self.0.len()
+		self.data.len()
 	}
 
 	/// Resize memory to accommodate the given offset and length
 	pub fn resize(&mut self, offset: usize, len: usize) -> ControlFlow<Halt> {
-		let current_len = self.0.len();
+		let current_len = self.data.len();
 		let target_len = revm::interpreter::num_words(offset.saturating_add(len)) * 32;
 		if target_len > crate::limits::code::BASELINE_MEMORY_LIMIT as usize {
 			log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={offset} target_len={target_len} current_len={current_len}");
-			return ControlFlow::Break(HaltReason::MemoryOOG.into());
+			return ControlFlow::Break(Error::<T>::MemoryOOG.into());
 		}
 
 		if target_len > current_len {
-			self.0.resize(target_len, 0);
+			self.data.resize(target_len, 0);
 		}
 
 		ControlFlow::Continue(())
@@ -75,7 +78,7 @@ impl Memory {
 	/// Panics on out of bounds.
 	pub fn set(&mut self, offset: usize, data: &[u8]) {
 		if !data.is_empty() {
-			self.0[offset..offset + data.len()].copy_from_slice(data);
+			self.data[offset..offset + data.len()].copy_from_slice(data);
 		}
 	}
 
@@ -109,7 +112,7 @@ impl Memory {
 	///
 	/// Panics on out of bounds.
 	pub fn slice_len(&self, offset: usize, size: usize) -> &[u8] {
-		&self.0[offset..offset + size]
+		&self.data[offset..offset + size]
 	}
 
 	/// Copy data within memory from src to dst
@@ -118,23 +121,18 @@ impl Memory {
 	///
 	/// Panics if range is out of scope of allocated memory.
 	pub fn copy(&mut self, dst: usize, src: usize, len: usize) {
-		self.0.copy_within(src..src + len, dst);
-	}
-}
-
-impl Default for Memory {
-	fn default() -> Self {
-		Self::new()
+		self.data.copy_within(src..src + len, dst);
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::tests::Test;
 
 	#[test]
 	fn test_memory_resize() {
-		let mut memory = Memory::new();
+		let mut memory = Memory::<Test>::new();
 		assert_eq!(memory.size(), 0);
 
 		assert!(memory.resize(0, 100).is_continue());
@@ -147,8 +145,8 @@ mod tests {
 
 	#[test]
 	fn test_set_get() {
-		let mut memory = Memory::new();
-		memory.0.resize(100, 0);
+		let mut memory = Memory::<Test>::new();
+		memory.data.resize(100, 0);
 
 		let data = b"Hello, World!";
 		memory.set(10, data);
@@ -158,8 +156,8 @@ mod tests {
 
 	#[test]
 	fn test_memory_copy() {
-		let mut memory = Memory::new();
-		memory.0.resize(100, 0);
+		let mut memory = Memory::<Test>::new();
+		memory.data.resize(100, 0);
 
 		// Set some initial data
 		memory.set(0, b"Hello");
@@ -174,8 +172,8 @@ mod tests {
 
 	#[test]
 	fn test_set_data() {
-		let mut memory = Memory::new();
-		memory.0.resize(100, 0);
+		let mut memory = Memory::<Test>::new();
+		memory.data.resize(100, 0);
 
 		let source_data = b"Hello World";
 

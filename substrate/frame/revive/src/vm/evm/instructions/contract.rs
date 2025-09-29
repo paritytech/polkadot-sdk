@@ -1,4 +1,3 @@
-use crate::vm::evm::HaltReason;
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -24,7 +23,7 @@ use crate::{
 		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Code, Pallet, Weight, H160, U256,
+	Code, Error, Pallet, Weight, H160, LOG_TARGET, U256,
 };
 use alloc::{vec, vec::Vec};
 pub use call_helpers::{calc_call_gas, get_memory_in_and_out_ranges};
@@ -41,11 +40,11 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	interpreter: &mut Interpreter<E>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
-		return ControlFlow::Break(HaltReason::StateChangeDuringStaticCall.into());
+		return ControlFlow::Break(Error::<E::T>::StateChangeDuringStaticCall.into());
 	}
 
 	let [value, code_offset, len] = interpreter.stack.popn()?;
-	let len = as_usize_or_halt(len)?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 
 	// TODO: We do not charge for the new code in storage. When implementing the new gas:
 	// Introduce EthInstantiateWithCode, which shall charge gas based on the code length.
@@ -60,10 +59,10 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	if len != 0 {
 		// EIP-3860: Limit initcode
 		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
-			return ControlFlow::Break(HaltReason::CreateInitCodeSizeLimit.into());
+			return ControlFlow::Break(Error::<E::T>::CreateInitCodeSizeLimit.into());
 		}
 
-		let code_offset = as_usize_or_halt(code_offset)?;
+		let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
 		interpreter.memory.resize(code_offset, len)?;
 		code = interpreter.memory.slice_len(code_offset, len).to_vec();
 	}
@@ -97,8 +96,9 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 			}
 		},
 		Err(err) => {
+			log::debug!(target: LOG_TARGET, "Create failed: {err:?}");
 			interpreter.stack.push(U256::zero())?;
-			return crate::vm::evm::interpreter::exec_error_into_halt::<E>(err)
+			ControlFlow::Continue(())
 		},
 	}
 }
@@ -114,7 +114,7 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 	let has_transfer = !value.is_zero();
 	if interpreter.ext.is_read_only() && has_transfer {
-		return ControlFlow::Break(HaltReason::CallNotAllowedInsideStatic.into());
+		return ControlFlow::Break(Error::<E::T>::CallNotAllowedInsideStatic.into());
 	}
 
 	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
@@ -139,7 +139,7 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Isn't supported yet: [`solc` no longer emits it since Solidity v0.3.0 in 2016]
 /// (https://soliditylang.org/blog/2016/03/11/solidity-0.3.0-release-announcement/).
 pub fn call_code<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(HaltReason::NotActivated.into())
+	ControlFlow::Break(Error::<E::T>::NotActivated.into())
 }
 
 /// Implements the DELEGATECALL instruction.
@@ -239,8 +239,9 @@ fn run_call<'a, E: Ext>(
 			interpreter.stack.push(U256::from(!did_revert as u8))
 		},
 		Err(err) => {
+			log::debug!(target: LOG_TARGET, "Call failed: {err:?}");
 			interpreter.stack.push(U256::zero())?;
-			crate::vm::evm::interpreter::exec_error_into_halt::<E>(err)
+			ControlFlow::Continue(())
 		},
 	}
 }

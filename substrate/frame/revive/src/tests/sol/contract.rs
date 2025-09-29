@@ -21,7 +21,6 @@ use crate::{
 	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
-	vm::evm::HaltReason,
 	Code, Config, Error,
 };
 use alloy_core::{
@@ -282,7 +281,7 @@ fn invalid_opcode_evm() {
 		let result = builder::bare_call(callee_addr)
 			.data(Callee::invalidCall {}.abi_encode().into())
 			.build();
-		assert_err!(result.result, <Error<Test>>::Halt(HaltReason::InvalidFEOpcode));
+		assert_err!(result.result, Error::<Test>::InvalidFEOpcode);
 	});
 }
 

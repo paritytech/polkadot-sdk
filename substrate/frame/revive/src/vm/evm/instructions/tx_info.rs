@@ -19,10 +19,10 @@ use crate::{
 	address::AddressMapper,
 	evm::runtime::GAS_PRICE,
 	vm::{
-		evm::{interpreter::Halt, HaltReason, Interpreter},
+		evm::{interpreter::Halt, Interpreter},
 		Ext, RuntimeCosts,
 	},
-	Config, U256,
+	Config, Error, U256,
 };
 use core::ops::ControlFlow;
 
@@ -44,7 +44,7 @@ pub fn origin<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 			let address = <E::T as Config>::AddressMapper::to_address(account_id);
 			interpreter.stack.push(address)
 		},
-		Err(_) => ControlFlow::Break(HaltReason::FatalExternalError.into()),
+		Err(_) => ControlFlow::Break(Error::<E::T>::FatalExternalError.into()),
 	}
 }
 
@@ -52,5 +52,5 @@ pub fn origin<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// EIP-4844: Shard Blob Transactions - gets the hash of a transaction blob.
 pub fn blob_hash<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(HaltReason::NotActivated.into())
+	ControlFlow::Break(Error::<E::T>::NotActivated.into())
 }

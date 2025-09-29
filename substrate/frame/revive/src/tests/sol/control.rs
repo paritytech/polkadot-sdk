@@ -18,7 +18,6 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
-	vm::evm::HaltReason,
 	Code, Config, Error, U256,
 };
 use frame_support::{assert_err, traits::fungible::Mutate};
@@ -92,7 +91,7 @@ fn jumpdest_works() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr).build().result;
-		assert_err!(result, <Error<Test>>::Halt(HaltReason::InvalidJump));
+		assert_err!(result, Error::<Test>::InvalidJump);
 	});
 }
 
@@ -257,7 +256,7 @@ fn invalid_works() {
 		let output = builder::bare_call(addr).gas_limit(expected_gas.into()).data(vec![]).build();
 
 		let result = output.result;
-		assert_err!(result, <Error<Test>>::Halt(HaltReason::InvalidFEOpcode));
+		assert_err!(result, Error::<Test>::InvalidFEOpcode);
 		assert_eq!(
 			output.gas_consumed.ref_time(),
 			expected_gas,

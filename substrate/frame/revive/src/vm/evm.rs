@@ -31,7 +31,7 @@ pub mod instructions;
 mod instructions;
 
 mod interpreter;
-pub use interpreter::{Halt, HaltReason, Interpreter};
+pub use interpreter::{Halt, Interpreter};
 
 mod ext_bytecode;
 use ext_bytecode::ExtBytecode;
@@ -131,7 +131,7 @@ impl<T: Config> ContractBlob<T> {
 pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResult {
 	let mut interpreter = Interpreter::new(ExtBytecode::new(bytecode), input, ext);
 	let ControlFlow::Break(halt) = run_plain(&mut interpreter);
-	interpreter.into_exec_result(halt)
+	halt.into()
 }
 
 fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
