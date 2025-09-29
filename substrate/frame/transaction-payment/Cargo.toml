@@ -2,7 +2,7 @@
 name = "pallet-transaction-payment"
 version = "28.0.0"
 authors.workspace = true
-edition = "2024"
+edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true

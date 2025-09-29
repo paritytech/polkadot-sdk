@@ -192,10 +192,10 @@ where
 			let (mut fee_credit, refund_credit) = remaining_credit.split(corrected_fee);
 			// resolve might fail if refund is below the ed and account
 			// is kept alive by other providers
-			if let false = refund_credit.peek().is_zero() &&
-				let Err(not_refunded) = F::resolve(who, refund_credit)
-			{
-				fee_credit.subsume(not_refunded);
+			if !refund_credit.peek().is_zero() {
+				if let Err(not_refunded) = F::resolve(who, refund_credit) {
+					fee_credit.subsume(not_refunded);
+				}
 			}
 			fee_credit
 		} else {
