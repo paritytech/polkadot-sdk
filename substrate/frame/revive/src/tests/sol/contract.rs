@@ -49,16 +49,11 @@ fn staticcall_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
-
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
-
 		let magic_number = U256::from(42);
-		log::info!("Calling callee from caller");
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::staticCallCall {
@@ -109,16 +104,11 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
-
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
-
 		let magic_number = U256::from(42);
-		log::info!("Calling callee from caller");
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::normalCall {
@@ -243,13 +233,9 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
-
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
-
-		log::info!("Caller  addr: {:?}", caller_addr);
 
 		let result = builder::bare_call(caller_addr)
 			.data(
@@ -304,13 +290,9 @@ fn call_stop_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
-
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
-
-		log::info!("Caller  addr: {:?}", caller_addr);
 
 		let result = builder::bare_call(caller_addr)
 			.data(
@@ -347,16 +329,11 @@ fn delegatecall_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-		log::info!("Callee  addr: {:?}", callee_addr);
-
 		// Instantiate the caller contract.
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		log::info!("Caller  addr: {:?}", caller_addr);
-
 		let magic_number = U256::from(42);
-		log::info!("Calling callee.echo() from caller");
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::delegateCall {
@@ -376,7 +353,6 @@ fn delegatecall_works(caller_type: FixtureType, callee_type: FixtureType) {
 			"the call must reproduce the magic number"
 		);
 
-		log::info!("Calling callee.whoSender() from caller");
 		let result = builder::bare_call(caller_addr)
 			.data(
 				Caller::delegateCall {
@@ -414,9 +390,6 @@ fn create_works() {
 			.build_and_unwrap_result();
 
 		let callee_addr = Caller::createCall::abi_decode_returns(&result.data).unwrap();
-
-		log::info!("Created  addr: {:?}", callee_addr);
-
 		let magic_number = U256::from(42);
 
 		// Check if the created contract is working
@@ -455,15 +428,11 @@ fn create2_works() {
 
 		let callee_addr = Caller::create2Call::abi_decode_returns(&result.data).unwrap();
 
-		log::info!("Created  addr: {:?}", callee_addr);
-
 		// Compute expected CREATE2 address
 		let expected_addr = crate::address::create2(&caller_addr, &initcode, &[], &salt);
 
 		let callee_addr: H160 = callee_addr.0 .0.into();
-
 		assert_eq!(callee_addr, expected_addr, "CREATE2 address should be deterministic");
-
 		let magic_number = U256::from(42);
 
 		// Check if the created contract is working
