@@ -481,33 +481,12 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
-
-		/// The feature or opcode is not activated in this version of the EVM.
-		NotActivated = 0x32,
-		/// Invalid state modification in static call.
-		StateChangeDuringStaticCall = 0x33,
-		/// Invalid `CALL` with value transfer in static context.
-		CallNotAllowedInsideStatic = 0x34,
-		/// Exceeded init code size limit (EIP-3860:  Limit and meter initcode).
-		CreateInitCodeSizeLimit = 0x35,
 		/// Invalid jump destination. Dynamic jumps points to invalid not jumpdest opcode.
 		InvalidJump = 0x36,
-		/// An undefined bytecode value encountered during execution.
-		InvalidFEOpcode = 0x37,
-		/// Unknown or invalid opcode.
-		OpcodeNotFound = 0x38,
-		/// Fatal external error. Returned by database.
-		FatalExternalError = 0x39,
-		/// Out of gas error encountered while calling an invalid operand.
-		InvalidOperandOOG = 0x3a,
 		/// Attempting to pop a value from an empty stack.
 		StackUnderflow = 0x3b,
 		/// Attempting to push a value onto a full stack.
 		StackOverflow = 0x3c,
-		/// Invalid memory or storage offset.
-		OutOfOffset = 0x3d,
-		/// Out of gas error encountered during memory expansion.
-		MemoryOOG = 0x3e,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.

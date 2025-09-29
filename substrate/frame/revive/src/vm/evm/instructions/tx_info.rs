@@ -44,7 +44,7 @@ pub fn origin<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 			let address = <E::T as Config>::AddressMapper::to_address(account_id);
 			interpreter.stack.push(address)
 		},
-		Err(_) => ControlFlow::Break(Error::<E::T>::FatalExternalError.into()),
+		Err(_) => ControlFlow::Break(Error::<E::T>::ContractTrapped.into()),
 	}
 }
 
@@ -52,5 +52,5 @@ pub fn origin<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// EIP-4844: Shard Blob Transactions - gets the hash of a transaction blob.
 pub fn blob_hash<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(Error::<E::T>::NotActivated.into())
+	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }

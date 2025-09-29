@@ -117,7 +117,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
-			return ControlFlow::Break(Error::<E::T>::FatalExternalError.into());
+			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		};
 		U256::from_big_endian(&bytes)
 	} else {
@@ -134,7 +134,7 @@ fn store_helper<'ext, E: Ext>(
 	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
-		return ControlFlow::Break(Error::<E::T>::StateChangeDuringStaticCall.into());
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
 	let [index, value] = interpreter.stack.popn()?;
@@ -146,7 +146,7 @@ fn store_helper<'ext, E: Ext>(
 	let Ok(write_outcome) =
 		set_function(interpreter.ext, &key, Some(value.to_big_endian().to_vec()), take_old)
 	else {
-		return ControlFlow::Break(Error::<E::T>::FatalExternalError.into());
+		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
 	interpreter
@@ -192,11 +192,11 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
 			// tload always reads a word
-			return ControlFlow::Break(Error::<E::T>::FatalExternalError.into());
+			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		}
 
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
-			return ControlFlow::Break(Error::<E::T>::FatalExternalError.into());
+			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		};
 		U256::from_big_endian(&bytes)
 	} else {
@@ -213,13 +213,13 @@ pub fn log<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
-		return ControlFlow::Break(Error::<E::T>::StateChangeDuringStaticCall.into());
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
 	let [offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 	if len as u32 > interpreter.ext.max_value_size() {
-		return ControlFlow::Break(Error::<E::T>::InvalidOperandOOG.into());
+		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
 	}
 
 	let cost = RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 };
@@ -247,5 +247,5 @@ pub fn log<'ext, const N: usize, E: Ext>(
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	// TODO: for now this instruction is not supported
-	ControlFlow::Break(Error::<E::T>::NotActivated.into())
+	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }

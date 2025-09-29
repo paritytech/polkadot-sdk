@@ -256,7 +256,7 @@ fn invalid_works() {
 		let output = builder::bare_call(addr).gas_limit(expected_gas.into()).data(vec![]).build();
 
 		let result = output.result;
-		assert_err!(result, Error::<Test>::InvalidFEOpcode);
+		assert_err!(result, Error::<Test>::InvalidInstruction);
 		assert_eq!(
 			output.gas_consumed.ref_time(),
 			expected_gas,

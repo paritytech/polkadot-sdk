@@ -93,5 +93,5 @@ pub fn basefee<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 pub fn blob_basefee<'ext, E: Ext>(
 	_interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	ControlFlow::Break(Error::<E::T>::NotActivated.into())
+	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }

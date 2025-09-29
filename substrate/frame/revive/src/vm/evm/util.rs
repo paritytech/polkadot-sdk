@@ -27,8 +27,8 @@ pub fn as_usize_or_halt_with(value: U256, halt: impl Fn() -> Halt) -> ControlFlo
 	}
 }
 
-/// Helper function to convert U256 to usize, checking for overflow, with default InvalidOperandOOG
+/// Helper function to convert U256 to usize, checking for overflow, with default OutOfGas
 /// error
 pub fn as_usize_or_halt<T: Config>(value: U256) -> ControlFlow<Halt, usize> {
-	as_usize_or_halt_with(value, || Error::<T>::InvalidOperandOOG.into())
+	as_usize_or_halt_with(value, || Error::<T>::OutOfGas.into())
 }

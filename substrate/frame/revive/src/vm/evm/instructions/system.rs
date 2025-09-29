@@ -75,7 +75,7 @@ pub fn caller<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 			let address = <E::T as Config>::AddressMapper::to_address(account_id);
 			interpreter.stack.push(address)
 		},
-		Err(_) => ControlFlow::Break(Error::<E::T>::FatalExternalError.into()),
+		Err(_) => ControlFlow::Break(Error::<E::T>::ContractTrapped.into()),
 	}
 }
 
@@ -179,7 +179,7 @@ pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<H
 	// Old legacy behavior is to panic if data_end is out of scope of return buffer.
 	let data_end = data_offset.saturating_add(len);
 	if data_end > interpreter.ext.last_frame_output().data.len() {
-		return ControlFlow::Break(Error::<E::T>::OutOfOffset.into());
+		return ControlFlow::Break(Error::<E::T>::OutOfBounds.into());
 	}
 
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {

@@ -281,7 +281,7 @@ fn invalid_opcode_evm() {
 		let result = builder::bare_call(callee_addr)
 			.data(Callee::invalidCall {}.abi_encode().into())
 			.build();
-		assert_err!(result.result, Error::<Test>::InvalidFEOpcode);
+		assert_err!(result.result, Error::<Test>::InvalidInstruction);
 	});
 }
 

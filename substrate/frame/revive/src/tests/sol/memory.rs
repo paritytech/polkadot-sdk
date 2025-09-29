@@ -54,7 +54,7 @@ fn memory_limit_works() {
 				Memory::expandMemoryCall {
 					memorySize: primitives::U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
 				},
-				Err(Error::<Test>::MemoryOOG.into()),
+				Err(Error::<Test>::OutOfGas.into()),
 			),
 		];
 

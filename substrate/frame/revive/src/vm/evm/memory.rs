@@ -61,7 +61,7 @@ impl<T: Config> Memory<T> {
 		let target_len = revm::interpreter::num_words(offset.saturating_add(len)) * 32;
 		if target_len > crate::limits::code::BASELINE_MEMORY_LIMIT as usize {
 			log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={offset} target_len={target_len} current_len={current_len}");
-			return ControlFlow::Break(Error::<T>::MemoryOOG.into());
+			return ControlFlow::Break(Error::<T>::OutOfGas.into());
 		}
 
 		if target_len > current_len {
