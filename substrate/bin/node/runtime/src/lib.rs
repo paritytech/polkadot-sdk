@@ -1669,7 +1669,8 @@ parameter_types! {
 
 impl pallet_identity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Balances = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type BasicDeposit = BasicDeposit;
 	type ByteDeposit = ByteDeposit;
 	type UsernameDeposit = UsernameDeposit;
@@ -1689,6 +1690,8 @@ impl pallet_identity::Config for Runtime {
 	type MaxUsernameLength = ConstU32<32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type OldCurrency = Balances;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
