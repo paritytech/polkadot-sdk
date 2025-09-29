@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::process::Command;
+use std::{fs, path::Path, process::Command};
 
 /// Get the current branch and commit hash.
 fn main() {
@@ -46,4 +46,28 @@ fn main() {
 	println!("cargo:rustc-env=RUSTC_VERSION={rustc_version}");
 	println!("cargo:rustc-env=TARGET={target}");
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
+
+	// Generate metadata
+	generate_metadata_file();
+}
+
+fn generate_metadata_file() {
+	use asset_hub_westend_runtime::Runtime;
+	use parachains_runtimes_test_utils::ExtBuilder;
+	let metadata_path = Path::new("revive_chain.scale");
+
+	// use existing metadata if present
+	if metadata_path.exists() {
+		println!("cargo:warning=Using cached revive_chain.scale metadata");
+		return;
+	}
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let metadata = Runtime::metadata_at_version(16).unwrap();
+		let bytes: &[u8] = &metadata;
+		fs::write(metadata_path, bytes).unwrap();
+	});
+
+	println!("cargo:rerun-if-changed={}", metadata_path.display());
+	println!("cargo:warning=Successfully generated metadata from runtime");
 }

@@ -13140,6 +13140,7 @@ name = "pallet-revive-eth-rpc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "asset-hub-westend-runtime",
  "clap",
  "env_logger 0.11.3",
  "futures",
@@ -13149,6 +13150,7 @@ dependencies = [
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "pretty_assertions",
  "rlp 0.6.1",
