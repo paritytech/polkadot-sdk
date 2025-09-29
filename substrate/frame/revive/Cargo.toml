@@ -18,8 +18,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 alloy-consensus = { workspace = true, default-features = false }
-alloy-core = { workspace = true, features = ["sol-types"] }
-alloy-primitives = { workspace = true, default-features = false }
+alloy-core = { workspace = true, features = ["rlp", "sol-types"] }
+alloy-trie = { workspace = true, default-features = false }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true, features = ["from", "try_into"] }
 environmental = { workspace = true }
@@ -28,6 +28,7 @@ ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
 humantime-serde = { optional = true, workspace = true }
 impl-trait-for-tuples = { workspace = true }
+k256 = { features = ["alloc", "ecdsa"], workspace = true, optional = true }
 log = { workspace = true }
 num-bigint = { workspace = true }
 num-integer = { workspace = true }
@@ -37,6 +38,7 @@ polkavm = { version = "0.27.0", default-features = false }
 polkavm-common = { version = "0.27.0", default-features = false, features = ["alloc"] }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
+revm = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
@@ -48,7 +50,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
-pallet-revive-uapi = { workspace = true, features = ["scale"] }
+pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces", "scale"] }
 pallet-transaction-payment = { workspace = true }
 ripemd = { workspace = true }
 sp-api = { workspace = true }
@@ -63,11 +65,13 @@ sp-version = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 
 [dev-dependencies]
+alloy-consensus = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
+test-case = { workspace = true }
 
 # Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }
@@ -81,7 +85,9 @@ sp-tracing = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-consensus/std",
 	"alloy-core/std",
+	"alloy-trie/std",
 	"codec/std",
 	"environmental/std",
 	"ethereum-types/std",
@@ -89,6 +95,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"humantime-serde",
+	"k256/std",
 	"log/std",
 	"num-bigint/std",
 	"num-integer/std",
@@ -101,6 +108,7 @@ std = [
 	"polkavm-common/std",
 	"polkavm/std",
 	"rand?/std",
+	"revm/std",
 	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
@@ -116,12 +124,14 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
+	"sp-version/std",
 	"subxt-signer",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"k256",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",

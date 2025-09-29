@@ -17,6 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
+	evm::block_storage,
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -25,9 +26,9 @@ use crate::{
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
-	LOG_TARGET,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
+	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
+	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -61,6 +62,9 @@ use sp_runtime::{
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+pub mod mock_ext;
+
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
 pub type ExecResult = Result<ExecReturnValue, ExecError>;
@@ -75,6 +79,7 @@ pub const EMPTY_CODE_HASH: H256 =
 	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
 
 /// Combined key type for both fixed and variable sized storage keys.
+#[derive(Debug)]
 pub enum Key {
 	/// Variant for fixed sized keys.
 	Fix([u8; 32]),
@@ -151,6 +156,7 @@ impl<T: Config> Origin<T> {
 	pub fn from_account_id(account_id: T::AccountId) -> Self {
 		Origin::Signed(account_id)
 	}
+
 	/// Creates a new Origin from a `RuntimeOrigin`.
 	pub fn from_runtime_origin(o: OriginFor<T>) -> Result<Self, DispatchError> {
 		match o.into() {
@@ -159,6 +165,7 @@ impl<T: Config> Origin<T> {
 			_ => Err(BadOrigin.into()),
 		}
 	}
+
 	/// Returns the AccountId of a Signed Origin or an error if the origin is Root.
 	pub fn account_id(&self) -> Result<&T::AccountId, DispatchError> {
 		match self {
@@ -179,7 +186,6 @@ impl<T: Config> Origin<T> {
 		}
 	}
 }
-
 /// Environment functions only available to host functions.
 pub trait Ext: PrecompileWithInfoExt {
 	/// Execute code in the current frame.
@@ -200,13 +206,15 @@ pub trait Ext: PrecompileWithInfoExt {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
+	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Returns the code hash of the contract being executed.
+	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
 
 	/// Sets new code hash and immutable data for an existing contract.
-	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
+	/// Returns whether the old code was removed as a result of this operation.
+	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
 
 	/// Get the length of the immutable data.
 	///
@@ -262,7 +270,7 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		code: H256,
+		code: Code,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
@@ -284,8 +292,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
-	///
-	/// Returns the code size of the called contract.
 	fn call(
 		&mut self,
 		gas_limit: Weight,
@@ -321,8 +327,14 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the caller.
 	fn caller(&self) -> Origin<Self::T>;
 
+	/// Returns the caller of the caller.
+	fn caller_of_caller(&self) -> Origin<Self::T>;
+
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
+
+	/// Returns the account id for the given `address`.
+	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
 
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
@@ -332,10 +344,10 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn code_size(&self, address: &H160) -> u64;
 
 	/// Check if the caller of the current contract is the origin of the whole call stack.
-	fn caller_is_origin(&self) -> bool;
+	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool;
 
 	/// Check if the caller is origin, and this origin is root.
-	fn caller_is_root(&self) -> bool;
+	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool;
 
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
@@ -367,7 +379,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
+	///
+	/// Returns an error if the maximum number of events has been reached.
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError>;
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
@@ -378,6 +392,12 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns the author of the current block.
 	fn block_author(&self) -> Option<H160>;
+
+	/// Returns the block gas limit.
+	fn gas_limit(&self) -> u64;
+
+	/// Returns the chain id.
+	fn chain_id(&self) -> u64;
 
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
@@ -418,6 +438,15 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
+
+	/// Copies a slice of the contract's code at `address` into the provided buffer.
+	///
+	/// EVM CODECOPY semantics:
+	/// - If `buf.len()` = 0: Nothing happens
+	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
+	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
+	///   are filled with zeros
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -449,6 +478,9 @@ pub trait Executable<T: Config>: Sized {
 	/// # Note
 	/// Charges size base load weight from the gas meter.
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError>;
+
+	/// Load the executable from EVM bytecode
+	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
 
 	/// Execute the specified exported function and return the result.
 	///
@@ -509,6 +541,11 @@ pub struct Stack<'a, T: Config, E> {
 	/// Whether or not actual transfer of funds should be performed.
 	/// This is set to `true` exclusively when we simulate a call through eth_transact.
 	skip_transfer: bool,
+	/// The number of emitted events.
+	///
+	/// When this reaches the maximum allowed number of events, no further events
+	/// can be emitted, and the transaction will fail.
+	emitted_events: u32,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -564,6 +601,13 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 			Some(executable)
 		} else {
 			None
+		}
+	}
+
+	fn is_pvm(&self) -> bool {
+		match self {
+			Self::Executable(e) => e.code_info().is_pvm(),
+			_ => false,
 		}
 	}
 
@@ -897,6 +941,7 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			skip_transfer,
+			emitted_events: 0,
 			_phantom: Default::default(),
 		};
 
@@ -1087,6 +1132,7 @@ where
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
+		let is_pvm = executable.is_pvm();
 
 		if_tracing(|tracer| {
 			tracer.enter_child_span(
@@ -1116,6 +1162,7 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
+			let skip_transfer = self.skip_transfer;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
@@ -1157,12 +1204,14 @@ where
 					<System<T>>::inc_account_nonce(caller.account_id()?);
 				}
 				// The incremented refcount should be visible to the constructor.
-				<CodeInfo<T>>::increment_refcount(
-					*executable
-						.as_executable()
-						.expect("Precompiles cannot be instantiated; qed")
-						.code_hash(),
-				)?;
+				if is_pvm {
+					<CodeInfo<T>>::increment_refcount(
+						*executable
+							.as_executable()
+							.expect("Precompiles cannot be instantiated; qed")
+							.code_hash(),
+					)?;
+				}
 			}
 
 			// Every non delegate call or instantiate also optionally transfers the balance.
@@ -1197,12 +1246,12 @@ where
 				}
 			}
 
-			let code_deposit = executable
+			let mut code_deposit = executable
 				.as_executable()
 				.map(|exec| exec.code_info().deposit())
 				.unwrap_or_default();
 
-			let output = match executable {
+			let mut output = match executable {
 				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
@@ -1224,16 +1273,38 @@ where
 				return Ok(output);
 			}
 
-			let frame = self.top_frame_mut();
-
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
-			if entry_point == ExportedFunction::Constructor {
-				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+			let frame = if entry_point == ExportedFunction::Constructor {
+				let origin = self.origin.account_id()?.clone();
+				let frame = self.top_frame_mut();
+				let contract_info = frame.contract_info();
+				// if we are dealing with EVM bytecode
+				// We upload the new runtime code, and update the code
+				if !is_pvm {
+					// Only keep return data for tracing
+					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
+						core::mem::replace(&mut output.data, Default::default())
+					} else {
+						output.data.clone()
+					};
+
+					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
+					module.store_code(skip_transfer)?;
+					code_deposit = module.code_info().deposit();
+					contract_info.code_hash = *module.code_hash();
+
+					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
+				}
+
+				let deposit = contract_info.update_base_deposit(code_deposit);
 				frame
 					.nested_storage
 					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
-			}
+				frame
+			} else {
+				self.top_frame_mut()
+			};
 
 			// The storage deposit is only charged at the end of every call stack.
 			// To make sure that no sub call uses more than it is allowed to,
@@ -1358,6 +1429,7 @@ where
 				}
 			}
 		} else {
+			// TODO: iterate contracts_to_be_destroyed and destroy each contract
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
 				return;
@@ -1471,7 +1543,8 @@ where
 			Ok(())
 		}
 
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		if value.is_zero() {
 			return Ok(());
 		}
@@ -1578,7 +1651,14 @@ where
 		if block_number < self.block_number.saturating_sub(256u32.into()) {
 			return None;
 		}
-		Some(System::<T>::block_hash(&block_number).into())
+
+		// Fallback to the system block hash for older blocks
+		// 256 entries should suffice for all use cases, this mostly ensures
+		// our benchmarks are passing.
+		match crate::Pallet::<T>::eth_block_hash_from_number(block_number.into()) {
+			Some(hash) => Some(hash),
+			None => Some(System::<T>::block_hash(&block_number).into()),
+		}
 	}
 }
 
@@ -1626,7 +1706,7 @@ where
 		}
 	}
 
-	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
+	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
@@ -1642,9 +1722,9 @@ where
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
 		AccountInfoOf::<T>::remove(&account_address);
 		ImmutableDataOf::<T>::remove(&account_address);
-		<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
+		let removed = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
-		Ok(())
+		Ok(removed)
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1666,7 +1746,7 @@ where
 	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
 	///
 	/// The `set_code_hash` contract API stays disabled until this change is implemented.
-	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
+	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
 		let frame = top_frame_mut!(self);
 
 		let info = frame.contract_info();
@@ -1684,8 +1764,8 @@ where
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
 		<CodeInfo<T>>::increment_refcount(hash)?;
-		<CodeInfo<T>>::decrement_refcount(prev_hash)?;
-		Ok(())
+		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
+		Ok(removed)
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {
@@ -1757,7 +1837,7 @@ where
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		code_hash: H256,
+		code: Code,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
@@ -1766,24 +1846,34 @@ where
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
-		let sender = &self.top_frame().account_id;
-		let executable = self.push_frame(
-			FrameArgs::Instantiate {
-				sender: sender.clone(),
-				executable,
-				salt,
-				input_data: input_data.as_ref(),
-			},
-			value,
-			gas_limit,
-			deposit_limit.saturated_into::<BalanceOf<T>>(),
-			self.is_read_only(),
-		)?;
+		let sender = self.top_frame().account_id.clone();
+		let executable = {
+			let executable = match &code {
+				Code::Upload(bytecode) => {
+					if !T::AllowEVMBytecode::get() {
+						return Err(<Error<T>>::CodeRejected.into());
+					}
+					E::from_evm_init_code(bytecode.clone(), sender.clone())?
+				},
+				Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
+			};
+			self.push_frame(
+				FrameArgs::Instantiate {
+					sender,
+					executable,
+					salt,
+					input_data: input_data.as_ref(),
+				},
+				value,
+				gas_limit,
+				deposit_limit.saturated_into::<BalanceOf<T>>(),
+				self.is_read_only(),
+			)?
+		};
+		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
-		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
-			.map(|_| address)
+		if_tracing(|t| t.instantiate_code(&code, salt));
+		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)
 	}
 }
 
@@ -1932,8 +2022,25 @@ where
 		}
 	}
 
+	fn caller_of_caller(&self) -> Origin<T> {
+		// fetch top frame of top frame
+		let caller_of_caller_frame = match self.frames().nth(2) {
+			None => return self.origin.clone(),
+			Some(frame) => frame,
+		};
+		if let Some(DelegateInfo { caller, .. }) = &caller_of_caller_frame.delegate {
+			caller.clone()
+		} else {
+			Origin::from_account_id(caller_of_caller_frame.account_id.clone())
+		}
+	}
+
 	fn origin(&self) -> &Origin<T> {
 		&self.origin
+	}
+
+	fn to_account_id(&self, address: &H160) -> T::AccountId {
+		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
@@ -1962,13 +2069,14 @@ where
 			.unwrap_or_default()
 	}
 
-	fn caller_is_origin(&self) -> bool {
-		self.origin == self.caller()
+	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool {
+		let caller = if use_caller_of_caller { self.caller_of_caller() } else { self.caller() };
+		self.origin == caller
 	}
 
-	fn caller_is_root(&self) -> bool {
+	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool {
 		// if the caller isn't origin, then it can't be root.
-		self.caller_is_origin() && self.origin == Origin::Root
+		self.caller_is_origin(use_caller_of_caller) && self.origin == Origin::Root
 	}
 
 	fn balance(&self) -> U256 {
@@ -1993,15 +2101,28 @@ where
 	}
 
 	fn minimum_balance(&self) -> U256 {
-		T::Currency::minimum_balance().into()
+		let min = T::Currency::minimum_balance();
+		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError> {
+		// Increment the emitted events counter and check if the limit is exceeded
+		self.emitted_events = self.emitted_events.saturating_add(1);
+
+		if self.emitted_events > limits::NUM_EMITTED_EVENTS {
+			return Err(Error::<T>::TooManyEmittedEvents.into());
+		}
+
 		let contract = T::AddressMapper::to_address(self.account_id());
 		if_tracing(|tracer| {
 			tracer.log_event(contract, &topics, &data);
 		});
+
+		// Capture the log only if it is generated by an Ethereum transaction.
+		block_storage::capture_ethereum_log(&contract, &data, &topics);
+
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
+		Ok(())
 	}
 
 	fn block_number(&self) -> U256 {
@@ -2013,7 +2134,15 @@ where
 	}
 
 	fn block_author(&self) -> Option<H160> {
-		crate::Pallet::<T>::block_author()
+		Some(Contracts::<Self::T>::block_author())
+	}
+
+	fn gas_limit(&self) -> u64 {
+		<T as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+	}
+
+	fn chain_id(&self) -> u64 {
+		<T as Config>::ChainId::get()
 	}
 
 	fn max_value_size(&self) -> u32 {
@@ -2069,12 +2198,41 @@ where
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
 	}
+
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
+		let len = buf.len();
+		if len == 0 {
+			return;
+		}
+
+		let code_hash = self.code_hash(address);
+		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+
+		let len = len.min(code.len().saturating_sub(code_offset));
+		if len > 0 {
+			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
+		}
+
+		buf[len..].fill(0);
+	}
+}
+
+/// Returns true if the address has a precompile contract, else false.
+pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
+{
+	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
 }
 
 mod sealing {
 	use super::*;
 
 	pub trait Sealed {}
-
 	impl<'a, T: Config, E> Sealed for Stack<'a, T, E> {}
+
+	#[cfg(test)]
+	impl<T: Config> sealing::Sealed for mock_ext::MockExt<T> {}
 }

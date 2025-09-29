@@ -1,0 +1,46 @@
+title: 'frame/revive: ETH block storage'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR constructs the Ethereum block in the following way:
+    - events (logs) are captured via an `environmental!` variable to reduce reliance on pallet storage
+      - A maximum of 512 events is allowed per transaction, with the size of an event capped to `self.ext.max_value_size()`
+    - A memory-efficient intermediate block builder is deserialized and serialized back to the pallet storage
+      - The intermediate block builder builds the transaction and event root hashes using low level RLP encoding primitives to achieve around 90% pallet storage optimization
+      - For more details, see https://github.com/paritytech/polkadot-sdk/pull/9764
+    - A fixup is included for 7702 transaction rlp serialization/deserialization is added to ensure we can build the Ethereum block hash from live Ethereum blocks.
+    - The maximum `CALL_PARAMS_MAX_SIZE` is increased to 512 to 244 to accommodate the transaction added to the Eth call
+
+
+    This PR also includes benchmarking:
+    - https://github.com/paritytech/polkadot-sdk/pull/9496
+
+    ### Testing Done
+    - pallet storage testing and capturing of events / transactions are added at `tests/block_hash.rs`
+    - incremental block storage is tested in `evm/block_hash.rs`, which ensures RLP encoding / hash builder and identical hashes from live ethereum blocks
+    - tested via RPC work
+
+    ### Next Steps
+    - https://github.com/paritytech/polkadot-sdk/pull/9512
+    - https://github.com/paritytech/polkadot-sdk/pull/9616
+    - https://github.com/paritytech/polkadot-sdk/pull/9452
+
+
+    Builds upon https://github.com/paritytech/polkadot-sdk/pull/9413
+
+    Part of: https://github.com/paritytech/contract-issues/issues/139
+crates:
+- name: pallet-revive
+  bump: patch
+- name: sp-core
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: pallet-xcm
+  bump: patch
+- name: pallet-assets
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch

@@ -21,7 +21,7 @@ use frame_support::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
 		Everything, EverythingBut, Footprint, Nothing,
 	},
-	weights::{FixedFee, Weight},
+	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -342,7 +342,6 @@ impl pallet_revive::Config for Test {
 	type Time = Timestamp;
 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
-	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 }
 
 // This child parachain is a system parachain trusted to teleport native token.
@@ -770,7 +769,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE] }
+	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

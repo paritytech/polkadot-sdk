@@ -20,10 +20,10 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
+	vm::pvm::extract_code_and_data,
 	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, OnChargeTransactionBalanceOf, Pallet,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
-use alloc::vec::Vec;
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
@@ -55,7 +55,7 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// - Not too high, ensuring the gas value is large enough (at least 7 digits) to encode the
 ///   ref_time, proof_size, and deposit into the less significant (6 lower) digits of the gas value.
 /// - Not too low, enabling users to adjust the gas price to define a tip.
-pub(crate) const GAS_PRICE: u64 = 1_000u64;
+pub(crate) const GAS_PRICE: u64 = 1_000_000u64;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
@@ -143,7 +143,7 @@ where
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
 			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
-				let checked = E::try_into_checked_extrinsic(payload.to_vec(), self.encoded_size())?;
+				let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
 				return Ok(checked)
 			};
 		}
@@ -270,11 +270,9 @@ pub trait EthExtra {
 	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
-	/// - `gas_limit`: The gas limit for the extrinsic
-	/// - `storage_deposit_limit`: The storage deposit limit for the extrinsic,
 	/// - `encoded_len`: The encoded length of the extrinsic.
 	fn try_into_checked_extrinsic(
-		payload: Vec<u8>,
+		payload: &[u8],
 		encoded_len: usize,
 	) -> Result<
 		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extension>,
@@ -294,11 +292,29 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
+		// Check transaction type and reject unsupported transaction types
+		match &tx {
+			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
+			crate::evm::api::TransactionSigned::Transaction2930Signed(_) |
+			crate::evm::api::TransactionSigned::TransactionLegacySigned(_) => {
+				// Supported transaction types, continue processing
+			},
+			crate::evm::api::TransactionSigned::Transaction7702Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+			crate::evm::api::TransactionSigned::Transaction4844Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-4844 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+		}
+
 		let signer_addr = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
 		})?;
 
+		let transaction_encoded = tx.signed_payload();
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
@@ -346,29 +362,28 @@ pub trait EthExtra {
 					gas_limit,
 					storage_deposit_limit,
 					data,
-					payload,
+					transaction_encoded,
 				}
 				.into()
 			}
 		} else {
-			let blob = match polkavm::ProgramBlob::blob_length(&data) {
-				Some(blob_len) =>
-					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
-				_ => None,
-			};
-
-			let Some((code, data)) = blob else {
-				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
-				return Err(InvalidTransaction::Call);
+			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+				let Some((code, data)) = extract_code_and_data(&data) else {
+					log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
+					return Err(InvalidTransaction::Call);
+				};
+				(code, data)
+			} else {
+				(data, Default::default())
 			};
 
 			crate::Call::eth_instantiate_with_code::<Self::Config> {
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				code: code.to_vec(),
-				data: data.to_vec(),
-				payload,
+				code,
+				data,
+				transaction_encoded,
 			}
 			.into()
 		};
@@ -407,7 +422,7 @@ pub trait EthExtra {
 				.min(actual_fee);
 
 		crate::tracing::if_tracing(|tracer| {
-			tracer.watch_address(&Pallet::<Self::Config>::block_author().unwrap_or_default());
+			tracer.watch_address(&Pallet::<Self::Config>::block_author());
 			tracer.watch_address(&signer_addr);
 		});
 
@@ -496,6 +511,7 @@ mod test {
 				Weight::MAX,
 				|eth_call, dispatch_call| {
 					let mut info = dispatch_call.get_dispatch_info();
+
 					info.extension_weight =
 						Extra::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
 					let uxt: Ex =
@@ -541,8 +557,10 @@ mod test {
 
 		fn check(
 			self,
-		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction, Vec<u8>), TransactionValidityError>
-		{
+		) -> Result<
+			(RuntimeCall, SignedExtra, GenericTransaction, TransactionSigned),
+			TransactionValidityError,
+		> {
 			self.mutate_estimate_and_check(Box::new(|_| ()))
 		}
 
@@ -550,8 +568,10 @@ mod test {
 		fn mutate_estimate_and_check(
 			mut self,
 			f: Box<dyn FnOnce(&mut GenericTransaction) -> ()>,
-		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction, Vec<u8>), TransactionValidityError>
-		{
+		) -> Result<
+			(RuntimeCall, SignedExtra, GenericTransaction, TransactionSigned),
+			TransactionValidityError,
+		> {
 			ExtBuilder::default().build().execute_with(|| self.estimate_gas());
 			f(&mut self.tx);
 			ExtBuilder::default().build().execute_with(|| {
@@ -564,11 +584,11 @@ mod test {
 					100_000_000_000_000,
 				);
 
-				let payload = account
-					.sign_transaction(tx.clone().try_into_unsigned().unwrap())
-					.signed_payload();
-				let call =
-					RuntimeCall::Contracts(crate::Call::eth_transact { payload: payload.clone() });
+				let signed_transaction =
+					account.sign_transaction(tx.clone().try_into_unsigned().unwrap());
+				let call = RuntimeCall::Contracts(crate::Call::eth_transact {
+					payload: signed_transaction.signed_payload().clone(),
+				});
 
 				let encoded_len = call.encoded_size();
 				let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();
@@ -587,7 +607,7 @@ mod test {
 					0,
 				)?;
 
-				Ok((result.function, extra, tx, payload))
+				Ok((result.function, extra, tx, signed_transaction))
 			})
 		}
 	}
@@ -595,7 +615,7 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (call, _, tx, payload) = builder.check().unwrap();
+		let (call, _, tx, signed_transaction) = builder.check().unwrap();
 		let (gas_limit, storage_deposit_limit) =
 			<<Test as Config>::EthGasEncoder as GasEncoder<_>>::decode(tx.gas.unwrap()).unwrap();
 
@@ -607,7 +627,7 @@ mod test {
 				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit,
-				payload,
+				transaction_encoded: signed_transaction.signed_payload(),
 			}
 			.into()
 		);
@@ -618,7 +638,7 @@ mod test {
 		let (code, _) = compile_module("dummy").unwrap();
 		let data = vec![];
 		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
-		let (call, _, tx, payload) = builder.check().unwrap();
+		let (call, _, tx, signed_transaction) = builder.check().unwrap();
 		let (gas_limit, storage_deposit_limit) =
 			<<Test as Config>::EthGasEncoder as GasEncoder<_>>::decode(tx.gas.unwrap()).unwrap();
 
@@ -630,7 +650,7 @@ mod test {
 				data,
 				gas_limit,
 				storage_deposit_limit,
-				payload,
+				transaction_encoded: signed_transaction.signed_payload(),
 			}
 			.into()
 		);
@@ -668,13 +688,17 @@ mod test {
 
 	#[test]
 	fn check_instantiate_data() {
-		let code = b"invalid code".to_vec();
+		let code: Vec<u8> = polkavm_common::program::BLOB_MAGIC
+			.into_iter()
+			.chain(b"invalid code".iter().cloned())
+			.collect();
 		let data = vec![1];
+
 		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
 		// Fail because the tx input fail to get the blob length
 		assert_eq!(
-			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = vec![1, 2, 3].into())),
+			builder.check(),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		);
 	}
@@ -685,7 +709,7 @@ mod test {
 			(
 				"Eth fees too low",
 				Box::new(|tx| {
-					tx.gas_price = Some(tx.gas_price.unwrap() / 2);
+					tx.gas_price = Some(100u64.into());
 				}),
 				InvalidTransaction::Payment,
 			),
@@ -709,7 +733,8 @@ mod test {
 	#[test]
 	fn check_transaction_tip() {
 		let (code, _) = compile_module("dummy").unwrap();
-		let data = vec![];
+		// create some dummy data to increase the gas fee
+		let data = vec![42u8; crate::limits::CALLDATA_BYTES as usize];
 		let (_, extra, tx, _) =
 			UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.mutate_estimate_and_check(Box::new(|tx| {
@@ -719,6 +744,7 @@ mod test {
 				.unwrap();
 		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
 		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
+
 		assert_eq!(extra.1.tip(), expected_tip);
 	}
 

@@ -49,14 +49,15 @@ impl StorageApi {
 		let contract_address: subxt::utils::H160 = contract_address.0.into();
 
 		let query = subxt_client::storage().revive().account_info_of(contract_address);
-		self.0
-			.fetch(&query)
-			.await?
-			.and_then(|info| match info.account_type {
-				AccountType::Contract(contract_info) => Some(contract_info),
-				_ => None,
-			})
-			.ok_or(ClientError::ContractNotFound)
+		let Some(info) = self.0.fetch(&query).await? else {
+			return Err(ClientError::ContractNotFound);
+		};
+
+		let AccountType::Contract(contract_info) = info.account_type else {
+			return Err(ClientError::ContractNotFound);
+		};
+
+		Ok(contract_info)
 	}
 
 	/// Get the contract trie id for the given contract address.

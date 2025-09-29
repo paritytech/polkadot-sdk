@@ -97,7 +97,7 @@ impl RuntimeApi {
 	}
 
 	/// Get the miner address
-	pub async fn block_author(&self) -> Result<Option<H160>, ClientError> {
+	pub async fn block_author(&self) -> Result<H160, ClientError> {
 		let payload = subxt_client::apis().revive_api().block_author();
 		let author = self.0.call(payload).await?;
 		Ok(author)
