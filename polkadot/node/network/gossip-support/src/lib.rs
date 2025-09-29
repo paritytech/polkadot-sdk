@@ -90,13 +90,15 @@ const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(2);
 const LOW_CONNECTIVITY_WARN_DELAY: Duration = Duration::from_secs(600);
 
 /// If connectivity is lower than this in percent, issue warning in logs.
-const LOW_CONNECTIVITY_WARN_THRESHOLD: usize = 90;
+const LOW_CONNECTIVITY_WARN_THRESHOLD: usize = 85;
 
 /// The Gossip Support subsystem.
 pub struct GossipSupport<AD> {
 	keystore: KeystorePtr,
 
 	last_session_index: Option<SessionIndex>,
+	/// Whether we are currently an authority or not.
+	is_authority_now: bool,
 	/// The minimum known session we build the topology for.
 	min_known_session: SessionIndex,
 	// Some(timestamp) if we failed to resolve
@@ -163,6 +165,7 @@ where
 			min_known_session: u32::MAX,
 			authority_discovery,
 			finalized_needed_session: None,
+			is_authority_now: false,
 			metrics,
 		}
 	}
@@ -282,6 +285,9 @@ where
 						"New session detected",
 					);
 					self.last_session_index = Some(session_index);
+					self.is_authority_now =
+						ensure_i_am_an_authority(&self.keystore, &session_info.discovery_keys)
+							.is_ok();
 				}
 
 				// Connect to authorities from the past/present/future.
@@ -705,13 +711,11 @@ where
 			.resolved_authorities
 			.iter()
 			.filter(|(a, _)| !self.connected_authorities.contains_key(a));
-		// TODO: Make that warning once connectivity issues are fixed (no point in warning, if
-		// we already know it is broken.
-		// https://github.com/paritytech/polkadot/issues/3921
-		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD {
-			gum::debug!(
+		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD && self.is_authority_now {
+			gum::error!(
 				target: LOG_TARGET,
-				"Connectivity seems low, we are only connected to {}% of available validators (see debug logs for details)", connected_ratio
+				session_index = self.last_session_index.as_ref().map(|s| *s).unwrap_or_default(),
+				"Connectivity seems low, we are only connected to {connected_ratio}% of available validators (see debug logs for details), if this persists more than a session action needs to be taken"
 			);
 		}
 		let pretty = PrettyAuthorities(unconnected_authorities);

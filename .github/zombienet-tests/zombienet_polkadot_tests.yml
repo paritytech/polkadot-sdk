@@ -1,0 +1,254 @@
+# Functional tests using traditional zombienet
+- job-name: "zombienet-polkadot-functional-0001-parachains-pvf"
+  test-definition: "0001-parachains-pvf.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  concurrency: 1
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-functional-0002-parachains-disputes"
+  test-definition: "0002-parachains-disputes.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  concurrency: 1
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-functional-0003-beefy-and-mmr"
+  test-definition: "0003-beefy-and-mmr.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "default"
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
+  test-definition: "0004-parachains-garbage-candidate.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-functional-0006-parachains-max-tranche0"
+  test-definition: "0006-parachains-max-tranche0.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-functional-0007-dispute-freshly-finalized"
+  test-definition: "0007-dispute-freshly-finalized.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-functional-0013-systematic-chunk-recovery"
+  test-definition: "0013-systematic-chunk-recovery.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility"
+  test-definition: "0014-chunk-fetching-network-compatibility.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  use-zombienet-sdk: false
+  additional-setup: |
+    BIN_DIR="$(pwd)/bin_old"
+    mkdir -p $BIN_DIR
+    for bin in polkadot polkadot-parachain; do
+      OLD_NAME="$bin-old"
+      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
+      chmod 755 $BIN_DIR/$OLD_NAME;
+    done
+    for bin in polkadot-execute-worker polkadot-prepare-worker; do
+      OLD_NAME="$bin"
+      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
+      chmod 755 $BIN_DIR/$OLD_NAME;
+    done
+    ls -ltr $BIN_DIR
+    export PATH=$BIN_DIR:$PATH
+    echo "PATH=$PATH" >> $GITHUB_ENV
+    echo "OLD_SUFFIX=-old" >> $GITHUB_ENV
+  additional-env:
+    OLD_SUFFIX: "-old"
+
+- job-name: "zombienet-polkadot-functional-0015-coretime-shared-core"
+  test-definition: "0015-coretime-shared-core.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  use-zombienet-sdk: false
+  additional-setup: |
+    cp --remove-destination ./polkadot/zombienet_tests/assign-core.js ./polkadot/zombienet_tests/functional
+
+- job-name: "zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness"
+  test-definition: "0019-coretime-collation-fetching-fairness.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
+  runner-type: "large"
+  use-zombienet-sdk: false
+  additional-setup: |
+    cp --remove-destination ./polkadot/zombienet_tests/assign-core.js ./polkadot/zombienet_tests/functional
+
+# Smoke tests using traditional zombienet
+- job-name: "zombienet-polkadot-smoke-0001-parachains-smoke-test"
+  test-definition: "0001-parachains-smoke-test.zndsl"
+  local-dir: "./polkadot/zombienet_tests/smoke"
+  runner-type: "default"
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke"
+  test-definition: "0002-parachains-upgrade-smoke-test.zndsl"
+  local-dir: "./polkadot/zombienet_tests/smoke"
+  runner-type: "default"
+  use-zombienet-sdk: false
+
+# TODO: Disabled
+- job-name: "zombienet-polkadot-smoke-0003-deregister-register-validator"
+  test-definition: "0003-deregister-register-validator-smoke.zndsl"
+  local-dir: "./polkadot/zombienet_tests/smoke"
+  runner-type: "default"
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-smoke-0004-coretime-smoke-test"
+  test-definition: "0004-coretime-smoke-test.zndsl"
+  local-dir: "./polkadot/zombienet_tests/smoke"
+  runner-type: "large"
+  use-zombienet-sdk: false
+
+- job-name: "zombienet-polkadot-smoke-0005-precompile-pvf-smoke"
+  test-definition: "0005-precompile-pvf-smoke.zndsl"
+  local-dir: "./polkadot/zombienet_tests/smoke"
+  runner-type: "large"
+  use-zombienet-sdk: false
+
+# Misc tests using traditional zombienet
+# TODO: Disabled, occasionally (1 on ~50-70 runs) fails
+- job-name: "zombienet-polkadot-misc-0001-parachains-paritydb"
+  test-definition: "0001-paritydb.zndsl"
+  local-dir: "./polkadot/zombienet_tests/misc"
+  runner-type: "large"
+  use-zombienet-sdk: false
+
+# TODO: needs to resolve how to pass the GH_TOKEN to pods
+# - job-name: "zombienet-polkadot-misc-0002-upgrade-node"
+#   test-definition: "0002-upgrade-node.zndsl"
+#   local-dir: "./polkadot/zombienet_tests/misc"
+#   runner-type: "large"
+#   additional-env:
+#     ZOMBIENET_INTEGRATION_TEST_IMAGE: "docker.io/parity/polkadot:latest"
+#     POLKADOT_PR_ARTIFACTS_URL: ${{ needs.preflight.outputs.POLKADOT_PR_ARTIFACTS_URL }}
+#   use-zombienet-sdk: false
+
+# Malus tests using traditional zombienet
+- job-name: "zombienet-polkadot-malus-0001-dispute-valid"
+  test-definition: "0001-dispute-valid-block.zndsl"
+  local-dir: "./polkadot/node/malus/integrationtests"
+  runner-type: "large"
+  use-zombienet-sdk: false
+
+# SDK tests using zombienet-sdk
+# TODO: Disabled
+- job-name: "zombienet-polkadot-coretime-revenue"
+  test-filter: "smoke::coretime_revenue::coretime_revenue_test"
+  runner-type: "default"
+  use-zombienet-sdk: true
+  cumulus-image: "colander"
+
+- job-name: "zombienet-polkadot-elastic-scaling-slot-based-3cores"
+  test-filter: "elastic_scaling::slot_based_3cores::slot_based_3cores_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+# TODO: Disabled, fails very often with zombienet native provider
+- job-name: "zombienet-polkadot-elastic-scaling-slot-based-12cores"
+  test-filter: "elastic_scaling::slot_based_12cores::slot_based_12cores_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-elastic-scaling-doesnt-break-parachains"
+  test-filter: "elastic_scaling::doesnt_break_parachains::doesnt_break_parachains_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-polkadot-elastic-scaling-basic-3cores"
+  test-filter: "elastic_scaling::basic_3cores::basic_3cores_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "colander"
+
+- job-name: "zombienet-polkadot-functional-sync-backing"
+  test-filter: "functional::sync_backing::sync_backing_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-functional-async-backing-6-seconds-rate"
+  test-filter: "functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+
+# TODO: Disabled, occasionally (1 on ~50-100 runs) fails
+- job-name: "zombienet-polkadot-functional-duplicate-collations"
+  test-filter: "functional::duplicate_collations::duplicate_collations_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+
+# TODO: Disabled, occasionally (2 on ~50-70 runs) fails
+- job-name: "zombienet-polkadot-disputes-slashing"
+  test-filter: "disabling::slashing"
+  runner-type: "default"
+  use-zombienet-sdk: true
+
+# TODO: Disabled, occasionally (1 on ~50-100 runs) fails
+- job-name: "zombienet-polkadot-functional-spam-statement-distribution-requests"
+  test-filter: "functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "colander"
+
+- job-name: "zombienet-polkadot-approval-voting-coalescing"
+  test-filter: "functional::approval_voting_coalescing::approval_voting_coalescing_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "colander"
+
+- job-name: "zombienet-polkadot-approved-peer-mixed-validators"
+  test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "colander"
+  additional-setup: |
+    BIN_DIR="$(pwd)/bin_old"
+    mkdir -p $BIN_DIR
+    for bin in polkadot polkadot-parachain; do
+      OLD_NAME="$bin-old"
+      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
+      chmod 755 $BIN_DIR/$OLD_NAME;
+    done
+    for bin in polkadot-execute-worker polkadot-prepare-worker; do
+      OLD_NAME="$bin"
+      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
+      chmod 755 $BIN_DIR/$OLD_NAME;
+    done
+    ls -ltr $BIN_DIR
+    export PATH=$BIN_DIR:$PATH
+    echo "PATH=$PATH" >> $GITHUB_ENV
+  additional-env:
+    OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
+    OLD_POLKADOT_COMMAND: "polkadot-old"
+
+- job-name: "zombienet-polkadot-functional-validator-disabling"
+  test-filter: "functional::validator_disabling::validator_disabling_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-polkadot-dispute-old-finalized"
+  test-filter: "functional::dispute_old_finalized::dispute_old_finalized"
+  runner-type: "large"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-polkadot-shared-core-idle-parachain"
+  test-filter: "functional::shared_core_idle_parachain::shared_core_idle_parachain_test"
+  runner-type: "large"
+  use-zombienet-sdk: true

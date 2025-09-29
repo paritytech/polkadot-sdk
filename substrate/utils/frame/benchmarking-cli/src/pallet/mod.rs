@@ -16,6 +16,7 @@
 // limitations under the License.
 
 mod command;
+mod logging;
 mod types;
 mod writer;
 
@@ -27,6 +28,9 @@ use sc_cli::{
 	DEFAULT_WASM_EXECUTION_METHOD,
 };
 use std::{fmt::Debug, path::PathBuf};
+
+/// Logging target
+const LOG_TARGET: &'static str = "frame::benchmark::pallet";
 
 // Add a more relaxed parsing for pallet names by allowing pallet directory names with `-` to be
 // used like crate names with `_`
@@ -186,6 +190,13 @@ pub struct PalletCmd {
 	/// Optional runtime blob to use instead of the one from the genesis config.
 	#[arg(long, conflicts_with = "chain", required_if_eq("genesis_builder", "runtime"))]
 	pub runtime: Option<PathBuf>,
+
+	/// Set the runtime log level.
+	///
+	/// This will overwrite the `RUNTIME_LOG` environment variable. If neither is set, the CLI
+	/// default set by `RUST_LOG` setting is used.
+	#[arg(long)]
+	pub runtime_log: Option<String>,
 
 	/// Do not fail if there are unknown but also unused host functions in the runtime.
 	#[arg(long)]

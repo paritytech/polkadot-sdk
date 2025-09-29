@@ -22,21 +22,23 @@
 /// should be thrown out and which ones should be kept.
 use codec::Codec;
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
+use cumulus_primitives_core::{CumulusDigestItem, RelayBlockIdentifier};
 use parking_lot::Mutex;
 use polkadot_primitives::Hash as RHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
-use sc_consensus_aura::standalone as aura_internal;
+use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker, CompatibilityMode};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
-use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
+use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use std::{fmt::Debug, sync::Arc};
 
@@ -72,12 +74,12 @@ impl<N: std::hash::Hash + PartialEq> NaiveEquivocationDefender<N> {
 }
 
 /// A parachain block import verifier that checks for equivocation limits within each slot.
-pub struct Verifier<P, Client, Block: BlockT, CIDP> {
+pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
-	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
+	authorities_tracker: AuthoritiesTracker<P, Block, Client>,
 }
 
 impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
@@ -99,11 +101,11 @@ where
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
 		Self {
-			client,
+			client: client.clone(),
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			_phantom: std::marker::PhantomData,
+			authorities_tracker: AuthoritiesTracker::new(client),
 		}
 	}
 }
@@ -115,7 +117,11 @@ where
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
@@ -138,10 +144,10 @@ where
 
 		// check seal and update pre-hash/post-hash
 		{
-			let authorities = aura_internal::fetch_authorities(self.client.as_ref(), parent_hash)
-				.map_err(|e| {
-				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
-			})?;
+			let authorities = self
+				.authorities_tracker
+				.fetch_or_update(&block_params.header, &CompatibilityMode::None)
+				.map_err(|e| format!("Could not fetch authorities: {}", e))?;
 
 			let slot_duration = self
 				.client
@@ -168,14 +174,13 @@ where
 					// We need some kind of identifier for the relay parent, in the worst case we
 					// take the all `0` hash.
 					let relay_parent =
-						cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
-							pre_header.digest(),
-						)
-						.map(|r| r.0)
-						.unwrap_or_else(|| {
-							cumulus_primitives_core::extract_relay_parent(pre_header.digest())
-								.unwrap_or_default()
-						});
+						match CumulusDigestItem::find_relay_block_identifier(pre_header.digest()) {
+							None => Default::default(),
+							Some(RelayBlockIdentifier::ByHash(h)) |
+							Some(RelayBlockIdentifier::ByStorageRoot {
+								storage_root: h, ..
+							}) => h,
+						};
 
 					block_params.header = pre_header;
 					block_params.post_digests.push(seal_digest);
@@ -197,6 +202,14 @@ where
 							post_hash,
 						))
 					}
+
+					self.authorities_tracker.import(&block_params.post_header()).map_err(|e| {
+						format!(
+							"Could not import authorities for block {:?} at number {}: {e}",
+							post_hash,
+							block_params.header.number(),
+						)
+					})?;
 				},
 				Err(aura_internal::SealVerificationError::Deferred(hdr, slot)) => {
 					telemetry!(
@@ -230,29 +243,14 @@ where
 				.await
 				.map_err(|e| format!("Could not create inherent data {:?}", e))?;
 
-			let inherent_data = create_inherent_data_providers
-				.create_inherent_data()
-				.await
-				.map_err(|e| format!("Could not create inherent data {:?}", e))?;
-
-			let inherent_res = self
-				.client
-				.runtime_api()
-				.check_inherents(parent_hash, block, inherent_data)
-				.map_err(|e| format!("Unable to check block inherents {:?}", e))?;
-
-			if !inherent_res.ok() {
-				for (i, e) in inherent_res.into_errors() {
-					match create_inherent_data_providers.try_handle_error(&i, &e).await {
-						Some(res) => res.map_err(|e| format!("Inherent Error {:?}", e))?,
-						None =>
-							return Err(format!(
-								"Unknown inherent error, source {:?}",
-								String::from_utf8_lossy(&i[..])
-							)),
-					}
-				}
-			}
+			sp_block_builder::check_inherents(
+				self.client.clone(),
+				parent_hash,
+				block,
+				&create_inherent_data_providers,
+			)
+			.await
+			.map_err(|e| format!("Error checking block inherents {:?}", e))?;
 		}
 
 		Ok(block_params)
@@ -290,16 +288,21 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::<P, _, _, _> {
-		client,
+		client: client.clone(),
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		_phantom: std::marker::PhantomData,
+		authorities_tracker: AuthoritiesTracker::new(client.clone()),
 	};
 
 	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
@@ -334,7 +337,7 @@ mod test {
 			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
-			_phantom: std::marker::PhantomData,
+			authorities_tracker: AuthoritiesTracker::new(client.clone()),
 		};
 
 		let genesis = client.info().best_hash;

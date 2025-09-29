@@ -156,10 +156,15 @@ pub type EncodedJustification = Vec<u8>;
 /// Collection of justifications for a given block, multiple justifications may
 /// be provided by different consensus engines for the same block.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Justifications(Vec<Justification>);
 
 impl Justifications {
+	/// Create a new `Justifications` instance with the given justifications.
+	pub fn new(justifications: Vec<Justification>) -> Self {
+		Self(justifications)
+	}
+
 	/// Return an iterator over the justifications.
 	pub fn iter(&self) -> impl Iterator<Item = &Justification> {
 		self.0.iter()

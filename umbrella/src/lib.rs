@@ -451,6 +451,10 @@ pub use pallet_delegated_staking;
 #[cfg(feature = "pallet-democracy")]
 pub use pallet_democracy;
 
+/// FRAME derivatives pallet.
+#[cfg(feature = "pallet-derivatives")]
+pub use pallet_derivatives;
+
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
@@ -574,6 +578,14 @@ pub use pallet_offences;
 /// FRAME offences pallet benchmarking.
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
+
+/// FRAME oracle pallet for off-chain data.
+#[cfg(feature = "pallet-oracle")]
+pub use pallet_oracle;
+
+/// Runtime API for the oracle pallet.
+#[cfg(feature = "pallet-oracle-runtime-api")]
+pub use pallet_oracle_runtime_api;
 
 /// Pallet to give some execution allowance for some origins.
 #[cfg(feature = "pallet-origin-restriction")]
@@ -975,6 +987,10 @@ pub use polkadot_parachain_primitives;
 /// Shared primitives used by Polkadot runtime.
 #[cfg(feature = "polkadot-primitives")]
 pub use polkadot_primitives;
+
+/// Test helpers for Polkadot runtime primitives.
+#[cfg(feature = "polkadot-primitives-test-helpers")]
+pub use polkadot_primitives_test_helpers;
 
 /// Polkadot specific RPC functionality.
 #[cfg(feature = "polkadot-rpc")]

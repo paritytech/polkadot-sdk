@@ -324,6 +324,10 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					self.recorder = std::option::Option::Some(std::default::Default::default());
 				}
 
+				fn record_proof_with_recorder(&mut self, recorder: #crate_::ProofRecorder<Block>) {
+					self.recorder = std::option::Option::Some(recorder);
+				}
+
 				fn proof_recorder(&self) -> std::option::Option<#crate_::ProofRecorder<Block>> {
 					std::clone::Clone::clone(&self.recorder)
 				}

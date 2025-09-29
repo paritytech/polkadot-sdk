@@ -172,6 +172,9 @@ impl<PUBLIC: From<VerifyingKey>> GenericSignature<PUBLIC> {
 	}
 }
 
+/// Proof of Possession is the same as Signature for ecdsa
+pub type ProofOfPossession = Signature;
+
 impl Signature {
 	/// Recover the public key from this signature and a message.
 	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
@@ -255,6 +258,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		Self::from_seed_slice(seed_slice)
@@ -846,13 +850,16 @@ mod test {
 
 	#[test]
 	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let owner = b"owner";
+		let not_owner = b"not owner";
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let proof_of_possession = pair.generate_proof_of_possession();
-		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
+		let proof_of_possession = pair.generate_proof_of_possession(owner);
+		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
 		assert_eq!(
-			Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()),
+			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
 			false
 		);
+		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
 	}
 }
