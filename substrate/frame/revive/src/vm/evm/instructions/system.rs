@@ -120,7 +120,6 @@ pub fn calldataload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 	let input_len = input.len();
 	if offset < input_len {
 		let count = 32.min(input_len - offset);
-		// SAFETY: `count` is bounded by the calldata length.
 		word[..count].copy_from_slice(&input[offset..offset + count]);
 	}
 	*offset_ptr = U256::from_big_endian(&word);
