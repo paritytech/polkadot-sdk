@@ -375,11 +375,7 @@ where
 				Origin::Signed(o) => o,
 			};
 			self.charges.sort_by(|a, b| {
-				a.contract.cmp(&b.contract).then_with(|| {
-					// Refund first: Deposit::Charge => true, Deposit::Refund => false
-					matches!(a.amount, Deposit::Charge(_))
-						.cmp(&matches!(b.amount, Deposit::Charge(_)))
-				})
+				a.contract.cmp(&b.contract)
 			});
 			let coalesced: Vec<Charge<T>> = self
 				.charges
@@ -389,33 +385,22 @@ where
 						return Err((a, b));
 					}
 
-					// TODO: make sure the Terminated state does not get removed here
-
-					// both Charge can be added together
-					if matches!(a.amount, Deposit::Charge(_)) && matches!(b.amount, Deposit::Charge(_)) && a.state == b.state {
-						a.amount = a.amount.saturating_add(&b.amount);
-						return Ok(a);
-					} else if matches!(a.amount, Deposit::Charge(_)) != matches!(b.amount, Deposit::Charge(_)) {
-						// one Charge, one Refund
-						if matches!(a.amount, Deposit::Refund(_)) {
-							a.amount = a.amount.saturating_add(&b.amount);
-							return Ok(Charge {
-								contract: a.contract,
-								amount: a.amount,
-								state: a.state,
-							});
-						} else {
-							let mut c = b.clone();
-							c.amount = b.amount.saturating_add(&a.amount);
-							return Ok(Charge {
-								contract: c.contract,
-								amount: a.amount,
-								state: c.state,
-							});
-						}
-					} // else both refund
-
-					Err((a, b))
+					// If the contracts are the same any charge and refund can be coalesced together.
+					// So long as the terminate state does not disappear.
+					let resulting_amount =  a.amount.saturating_add(&b.amount);
+					if matches!(b.state, ContractState::Terminated { ..}) {
+						Ok(Charge {
+							contract: b.contract,
+							amount: resulting_amount,
+							state: b.state,
+						})
+					} else {
+						Ok(Charge {
+							contract: a.contract,
+							amount: resulting_amount,
+							state: a.state,
+						})
+					}
 				})
 				.collect();
 			log::info!("meter.rs coalesced: {:#?}", coalesced);
