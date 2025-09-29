@@ -1,0 +1,10 @@
+title: Fix deadlock in statement store
+
+doc:
+  - audience: Node Dev, Runtime Dev, Node Operator
+    description: |
+      Fix a deadlock in the statement store that could occur under high load.
+
+crates:
+- name: sc-statement-store
+  bump: patch
