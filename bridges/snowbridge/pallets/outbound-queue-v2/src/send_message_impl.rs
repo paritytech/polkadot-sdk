@@ -36,7 +36,7 @@ where
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
-		// Todo: Inject the AH Location as a type parameter, with the agent the same as in V1
+		// Todo: Inject AH as a type parameter, and the agent_id should be same as in V1
 		let asset_hub_agent_id =
 			AgentIdOf::convert_location(&ParentThen(Parachain(1000_u32.into()).into()).into())
 				.ok_or(SendError::InvalidOrigin)?;
