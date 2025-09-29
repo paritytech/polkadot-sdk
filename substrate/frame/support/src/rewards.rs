@@ -26,16 +26,30 @@ pub trait RewardsPool<AccountId, PoolId, Balance> {
 	type BlockNumber;
 
 	/// Create a new reward pool.
+	///
+	/// Parameters:
+	/// - `creator`: The account to pay for on-chain stroage deposit;
+	/// - `staked_asset_id`: the asset to be staked in the pool;
+	/// - `reward_asset_id`: the asset to be distributed as rewards;
+	/// - `reward_rate_per_block`: the amount of reward tokens distributed per block;
+	/// - `expiry`: the block number at which the pool will cease to accumulate rewards. The
+	///   [`DispatchTime::After`] variant evaluated at the execution time.
+	/// - `admin`: the account allowed to extend the pool expiration, increase the rewards rate
+	///   and receive the unutilized reward tokens back after the pool completion.
 	fn create_pool(
 		creator: &AccountId,
 		staked_asset_id: Self::AssetId,
 		reward_asset_id: Self::AssetId,
 		reward_rate_per_block: Balance,
 		expiry: DispatchTime<Self::BlockNumber>,
-		admin: Option<AccountId>,
+		admin: &AccountId,
 	) -> Result<PoolId, DispatchError>;
 
 	/// Modify a pool reward rate.
+	///
+	/// Currently the reward rate can only be increased.
+	///
+	/// Only the pool admin may perform this operation.
 	fn set_pool_reward_rate_per_block(
 		admin: &AccountId,
 		pool_id: PoolId,
@@ -43,9 +57,15 @@ pub trait RewardsPool<AccountId, PoolId, Balance> {
 	) -> DispatchResult;
 
 	/// Modify a pool admin.
+	///
+	/// Only the pool admin may perform this operation.
 	fn set_pool_admin(admin: &AccountId, pool_id: PoolId, new_admin: AccountId) -> DispatchResult;
 
 	/// Set when the pool should expire.
+	///
+	/// Currently the expiry block can only be extended.
+	///
+	/// Only the pool admin may perform this operation.
 	fn set_pool_expiry_block(
 		admin: &AccountId,
 		pool_id: PoolId,

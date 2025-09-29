@@ -463,7 +463,7 @@ pub mod pallet {
 				*reward_asset_id,
 				reward_rate_per_block,
 				expiry,
-				admin,
+				&admin.unwrap_or_else(|| creator.clone()),
 			)?;
 			Ok(())
 		}
@@ -846,7 +846,7 @@ impl<T: Config> RewardsPool<T::AccountId, PoolId, T::Balance> for Pallet<T> {
 		reward_asset_id: T::AssetId,
 		reward_rate_per_block: T::Balance,
 		expiry: DispatchTime<BlockNumberFor<T>>,
-		admin: Option<T::AccountId>,
+		admin: &T::AccountId,
 	) -> Result<PoolId, DispatchError> {
 		// Ensure the assets exist.
 		ensure!(T::Assets::asset_exists(staked_asset_id.clone()), Error::<T>::NonExistentAsset);
@@ -860,13 +860,14 @@ impl<T: Config> RewardsPool<T::AccountId, PoolId, T::Balance> for Pallet<T> {
 			Error::<T>::ExpiryBlockMustBeInTheFuture
 		);
 
-		let pool_id = NextPoolId::<T>::get();
+		let pool_id = NextPoolId::<T>::try_mutate(|id| -> Result<PoolId, DispatchError> {
+			let current_id = *id;
+			*id = id.ensure_add(1)?;
+			Ok(current_id)
+		})?;
 
 		let footprint = Self::pool_creation_footprint();
 		let cost = T::Consideration::new(creator, footprint)?;
-		PoolCost::<T>::insert(pool_id, (creator.clone(), cost));
-
-		let admin = admin.unwrap_or(creator.clone());
 
 		// Create the pool.
 		let pool = PoolInfoFor::<T> {
@@ -884,8 +885,6 @@ impl<T: Config> RewardsPool<T::AccountId, PoolId, T::Balance> for Pallet<T> {
 		// Insert it into storage.
 		Pools::<T>::insert(pool_id, pool);
 
-		NextPoolId::<T>::put(pool_id.ensure_add(1)?);
-
 		// Emit created event.
 		Self::deposit_event(Event::PoolCreated {
 			creator: creator.clone(),
@@ -894,7 +893,7 @@ impl<T: Config> RewardsPool<T::AccountId, PoolId, T::Balance> for Pallet<T> {
 			reward_asset_id,
 			reward_rate_per_block,
 			expiry_block,
-			admin,
+			admin: admin.clone(),
 		});
 
 		Ok(pool_id)
