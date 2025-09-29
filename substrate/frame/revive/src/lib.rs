@@ -1681,6 +1681,27 @@ where
 		Ok(maybe_value)
 	}
 
+	/// Get the immutable data of a specified contract.
+	///
+	/// Returns `None` if the contract does not exist or has no immutable data.
+	pub fn get_immutables(address: H160) -> Option<ImmutableData> {
+		let immutable_data = <ImmutableDataOf<T>>::get(address);
+		immutable_data
+	}
+
+	/// Sets immutable data of a contract
+	///
+	/// Returns an error if the contract does not exist.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
+		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+		<ImmutableDataOf<T>>::insert(address, data);
+		Ok(())
+	}
+
 	/// Query storage of a specified contract under a specified variable-sized key.
 	pub fn get_storage_var_key(address: H160, key: Vec<u8>) -> GetStorageResult {
 		let contract_info =
