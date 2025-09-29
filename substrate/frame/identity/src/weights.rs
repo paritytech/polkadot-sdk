@@ -103,6 +103,9 @@ pub trait WeightInfo {
 	fn migration_v2_pending_username_step() -> Weight;
 	fn migration_v2_cleanup_authority_step() -> Weight;
 	fn migration_v2_cleanup_username_step() -> Weight;
+	fn migration_v3_username_step() -> Weight;
+	fn migration_v3_pending_username_step() -> Weight;
+	fn migration_v3_identity_step() -> Weight;
 }
 
 /// Weights for `pallet_identity` using the Substrate node and recommended hardware.
@@ -593,6 +596,45 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: UNKNOWN KEY `0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3` (r:2 w:0)
+	/// Proof: UNKNOWN KEY `0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3` (r:2 w:0)
+	/// Storage: `Identity::UsernameInfoOf` (r:0 w:1)
+	/// Proof: `Identity::UsernameInfoOf` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
+	fn migration_v3_username_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `138`
+		//  Estimated: `6078`
+		// Minimum execution time: 7_467_000 picoseconds.
+		Weight::from_parts(7_987_000, 6078)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: UNKNOWN KEY `0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3` (r:2 w:0)
+	/// Proof: UNKNOWN KEY `0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3` (r:2 w:0)
+	/// Storage: `Identity::UsernameInfoOf` (r:0 w:1)
+	/// Proof: `Identity::UsernameInfoOf` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
+	fn migration_v3_pending_username_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `138`
+		//  Estimated: `6078`
+		// Minimum execution time: 7_467_000 picoseconds.
+		Weight::from_parts(7_987_000, 6078)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Identity::IdentityOf` (r:2 w:1)
+	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::UsernameOf` (r:0 w:1)
+	/// Proof: `Identity::UsernameOf` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+	fn migration_v3_identity_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `7041`
+		//  Estimated: `21016`
+		// Minimum execution time: 62_502_000 picoseconds.
+		Weight::from_parts(63_160_000, 21016)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1081,5 +1123,44 @@ impl WeightInfo for () {
 		Weight::from_parts(10_451_000, 6136)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: UNKNOWN KEY `0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3` (r:2 w:0)
+	/// Proof: UNKNOWN KEY `0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3` (r:2 w:0)
+	/// Storage: `Identity::UsernameInfoOf` (r:0 w:1)
+	/// Proof: `Identity::UsernameInfoOf` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
+	fn migration_v3_username_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `138`
+		//  Estimated: `6078`
+		// Minimum execution time: 7_467_000 picoseconds.
+		Weight::from_parts(7_987_000, 6078)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: UNKNOWN KEY `0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3` (r:2 w:0)
+	/// Proof: UNKNOWN KEY `0x2aeddc77fe58c98d50bd37f1b90840f97c182fead9255863460affdd63116be3` (r:2 w:0)
+	/// Storage: `Identity::UsernameInfoOf` (r:0 w:1)
+	/// Proof: `Identity::UsernameInfoOf` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
+	fn migration_v3_pending_username_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `138`
+		//  Estimated: `6078`
+		// Minimum execution time: 7_467_000 picoseconds.
+		Weight::from_parts(7_987_000, 6078)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Identity::IdentityOf` (r:2 w:1)
+	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7538), added: 10013, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::UsernameOf` (r:0 w:1)
+	/// Proof: `Identity::UsernameOf` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+	fn migration_v3_identity_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `7041`
+		//  Estimated: `21016`
+		// Minimum execution time: 62_502_000 picoseconds.
+		Weight::from_parts(63_160_000, 21016)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

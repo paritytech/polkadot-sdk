@@ -147,6 +147,8 @@ type ProviderOf<T> = Provider<BalanceOf<T>>;
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	#[cfg(feature = "runtime-benchmarks")]
+	use frame_support::traits::{Currency, ReservableCurrency};
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<Public, Signature> {
@@ -255,6 +257,11 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelper<Self::SigningPublicKey, Self::OffchainSignature>;
 
+		#[cfg(feature = "runtime-benchmarks")]
+		/// A module that implements the old `Currency` mechanism.
+		type OldCurrency: Currency<Self::AccountId, Balance = BalanceOf<Self>>
+			+ ReservableCurrency<Self::AccountId>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -267,7 +274,7 @@ pub mod pallet {
 		Username,
 	}
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]

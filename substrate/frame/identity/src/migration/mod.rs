@@ -24,14 +24,13 @@ use frame_support::{
 };
 
 #[cfg(feature = "try-runtime")]
-use alloc::collections::BTreeMap;
-#[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+#[cfg(any(test, feature = "try-runtime"))]
+use {alloc::collections::BTreeMap, sp_runtime::TryRuntimeError};
 
 pub mod v1;
 pub mod v2;
+pub mod v3;
 
 pub const PALLET_MIGRATIONS_ID: &[u8; 15] = b"pallet-identity";
 

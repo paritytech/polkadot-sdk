@@ -21,7 +21,10 @@
 
 use super::*;
 
-use crate::{migration::v2::LazyMigrationV1ToV2, Pallet as Identity};
+use crate::{
+	migration::{v2::LazyMigrationV1ToV2, v3::LazyMigrationV2ToV3},
+	Pallet as Identity,
+};
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
@@ -935,6 +938,53 @@ mod benchmarks {
 			LazyMigrationV1ToV2::<T>::cleanup_username_step(None);
 		}
 		LazyMigrationV1ToV2::<T>::check_username_cleanup_validity(setup.username, setup.account);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v3_username_step() -> Result<(), BenchmarkError> {
+		let (authority, deposit) =
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::setup_benchmark_env_for_username_deposit_migration(false)?;
+		#[block]
+		{
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::username_step(None);
+		}
+		assert_eq!(T::Balances::balance_on_hold(&HoldReason::Username.into(), &authority), deposit);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v3_pending_username_step() -> Result<(), BenchmarkError> {
+		let (authority, deposit) =
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::setup_benchmark_env_for_username_deposit_migration(true)?;
+		#[block]
+		{
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::pending_username_step(None);
+		}
+		assert_eq!(T::Balances::balance_on_hold(&HoldReason::Username.into(), &authority), deposit);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v3_identity_step() -> Result<(), BenchmarkError> {
+		let (account_id, identity_deposit, judgements_deposit, subs_deposit) =
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::setup_benchmark_env_for_identity_deposit_migration()?;
+		#[block]
+		{
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::identity_step(None);
+		}
+		assert_eq!(
+			T::Balances::balance_on_hold(&HoldReason::Identity.into(), &account_id),
+			identity_deposit
+		);
+		assert_eq!(
+			T::Balances::balance_on_hold(&HoldReason::Judgement.into(), &account_id),
+			judgements_deposit
+		);
+		assert_eq!(
+			T::Balances::balance_on_hold(&HoldReason::SubIdentities.into(), &account_id),
+			subs_deposit
+		);
 		Ok(())
 	}
 

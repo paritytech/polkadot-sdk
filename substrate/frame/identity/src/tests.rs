@@ -94,6 +94,8 @@ impl pallet_identity::Config for Test {
 	type MaxUsernameLength = ConstU32<32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type OldCurrency = Balances;
 	type WeightInfo = ();
 }
 
