@@ -794,6 +794,9 @@ where
 		(new_child_root, is_default, write_overlay)
 	}
 
+	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
+	///
+	/// Refer to [`trigger_storage_root_size_estimation`] for more details.
 	pub fn trigger_child_storage_root_size_estimation<'a>(
 		&self,
 		child_info: &ChildInfo,
