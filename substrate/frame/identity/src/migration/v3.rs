@@ -4,6 +4,7 @@ use frame_support::{
 	traits::{Currency, ReservableCurrency},
 	weights::WeightMeter,
 };
+#[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::ArithmeticError;
 
 type HashedKey = BoundedVec<u8, ConstU32<256>>;
