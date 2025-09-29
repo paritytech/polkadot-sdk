@@ -1,0 +1,7 @@
+title: added check in integrity_test for worst case EVM memory
+doc:
+- audience: Runtime Dev
+  description: fixes https://github.com/paritytech/polkadot-sdk/issues/9565
+crates:
+- name: pallet-revive
+  bump: patch
