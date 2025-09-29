@@ -853,9 +853,10 @@ impl<T: Config> RewardsPool<T::AccountId, PoolId, T::Balance> for Pallet<T> {
 		ensure!(T::Assets::asset_exists(reward_asset_id.clone()), Error::<T>::NonExistentAsset);
 
 		// Check the expiry block.
-		let expiry_block = expiry.evaluate(T::BlockNumberProvider::current_block_number());
+		let now = T::BlockNumberProvider::current_block_number();
+		let expiry_block = expiry.evaluate(now);
 		ensure!(
-			expiry_block > T::BlockNumberProvider::current_block_number(),
+			expiry_block > now,
 			Error::<T>::ExpiryBlockMustBeInTheFuture
 		);
 
@@ -944,9 +945,10 @@ impl<T: Config> RewardsPool<T::AccountId, PoolId, T::Balance> for Pallet<T> {
 		pool_id: PoolId,
 		new_expiry: DispatchTime<BlockNumberFor<T>>,
 	) -> DispatchResult {
-		let new_expiry_block = new_expiry.evaluate(T::BlockNumberProvider::current_block_number());
+		let now = T::BlockNumberProvider::current_block_number();
+		let new_expiry_block = new_expiry.evaluate(now);
 		ensure!(
-			new_expiry_block > T::BlockNumberProvider::current_block_number(),
+			new_expiry_block > now,
 			Error::<T>::ExpiryBlockMustBeInTheFuture
 		);
 
