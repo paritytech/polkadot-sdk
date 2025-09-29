@@ -19,7 +19,7 @@ use parachains_runtimes_test_utils::ExtBuilder;
 use std::{fs, path::Path, process::Command};
 
 fn main() {
-	generate_version_hash();
+	generate_git_revision();
 	generate_metadata_file();
 }
 
