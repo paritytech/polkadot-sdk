@@ -39,10 +39,8 @@ fn arithmetic_works(fixture_type: FixtureType) {
 		{
 			let result = builder::bare_call(addr)
 				.data(
-					Arithmetic::ArithmeticCalls::testArithmetic(
-						Arithmetic::testArithmeticCall {},
-					)
-					.abi_encode(),
+					Arithmetic::ArithmeticCalls::testArithmetic(Arithmetic::testArithmeticCall {})
+						.abi_encode(),
 				)
 				.build_and_unwrap_result();
 			if result.did_revert() {

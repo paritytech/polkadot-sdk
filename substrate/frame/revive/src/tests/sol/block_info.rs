@@ -45,8 +45,7 @@ fn block_number_works(fixture_type: FixtureType) {
 
 		let result = builder::bare_call(addr)
 			.data(
-				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {})
-					.abi_encode(),
+				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
 			)
 			.build_and_unwrap_result();
 		assert_eq!(U256::from(42u32), U256::from_big_endian(&result.data));
@@ -106,9 +105,7 @@ fn timestamp_works(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(
-				BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode(),
-			)
+			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert_eq!(
 			// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
@@ -133,9 +130,7 @@ fn gaslimit_works(fixture_type: FixtureType) {
 			.data(BlockInfo::BlockInfoCalls::gaslimit(BlockInfo::gaslimitCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert_eq!(
-			U256::from(
-				<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
-			),
+			U256::from(<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()),
 			U256::from_big_endian(&result.data)
 		);
 	});
@@ -169,10 +164,7 @@ fn difficulty_works(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(
-				BlockInfo::BlockInfoCalls::difficulty(BlockInfo::difficultyCall {})
-					.abi_encode(),
-			)
+			.data(BlockInfo::BlockInfoCalls::difficulty(BlockInfo::difficultyCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert_eq!(
 			// Alligned with the value set for PVM

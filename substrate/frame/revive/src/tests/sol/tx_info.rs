@@ -43,10 +43,8 @@ fn gasprice_works(fixture_type: FixtureType) {
 
 		let result = builder::bare_call(addr)
 			.data(
-				TransactionInfo::TransactionInfoCalls::gasprice(
-					TransactionInfo::gaspriceCall {},
-				)
-				.abi_encode(),
+				TransactionInfo::TransactionInfoCalls::gasprice(TransactionInfo::gaspriceCall {})
+					.abi_encode(),
 			)
 			.build_and_unwrap_result();
 		assert_eq!(U256::from(GAS_PRICE), U256::from_big_endian(&result.data));
