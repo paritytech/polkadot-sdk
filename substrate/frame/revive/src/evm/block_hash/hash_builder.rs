@@ -115,6 +115,37 @@ pub struct HashBuilderStats {
 	pub largest_data: (usize, u64),
 }
 
+#[cfg(test)]
+impl core::fmt::Display for HashBuilderStats {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		writeln!(
+			f,
+			"  Total data processed: {} bytes ({:.2} MB)",
+			self.total_data_size,
+			self.total_data_size as f64 / 1_048_576.0
+		)?;
+		writeln!(
+			f,
+			"  Current HB size: {} bytes ({:.2} KB)",
+			self.hb_current_size,
+			self.hb_current_size as f64 / 1024.0
+		)?;
+		writeln!(
+			f,
+			"  Max HB size: {:?} ({:.2} KB at index {})",
+			self.hb_max_size,
+			self.hb_max_size.0 as f64 / 1024.0,
+			self.hb_max_size.1
+		)?;
+		writeln!(f, "  Largest data item: {:?}", self.largest_data)?;
+		write!(
+			f,
+			"  Memory efficiency: {:.4}% (current size vs total data)",
+			(self.hb_current_size as f64 / self.total_data_size as f64) * 100.0
+		)
+	}
+}
+
 impl IncrementalHashBuilder {
 	/// Construct the hash builder from the first value.
 	pub fn new() -> Self {
@@ -277,20 +308,6 @@ impl IncrementalHashBuilder {
 		}
 	}
 
-	#[cfg(test)]
-	fn print_stats(&self) {
-		if let Some(stats) = self.get_stats() {
-			println!(
-				"HB info idx: {} size current: {} max: {:?} total size: {} largest payload: {:?}",
-				self.index,
-				stats.hb_current_size,
-				stats.hb_max_size,
-				stats.total_data_size,
-				stats.largest_data
-			)
-		}
-	}
-
 	/// Build the trie root hash.
 	pub fn finish(&mut self) -> H256 {
 		// We have less than 0x7f items to the trie. Therefore, the
@@ -424,13 +441,9 @@ mod tests {
 		let test_data3 = vec![30; 300]; // 300 bytes
 
 		builder.set_first_value(test_data1.clone());
-		builder.print_stats();
 		builder.add_value(test_data2.clone());
-		builder.print_stats();
 		builder.add_value(test_data3.clone());
-		builder.print_stats();
 		let _root = builder.finish();
-		builder.print_stats();
 
 		let stats = builder.get_stats().expect("Stats should be enabled");
 		assert_eq!(stats.total_data_size, 1500);
@@ -450,5 +463,76 @@ mod tests {
 
 		// Still no stats
 		assert!(builder.get_stats().is_none());
+	}
+
+	#[test]
+	fn test_stats_100k_small_items() {
+		println!("\n=== Testing Hash Builder with 10k Small Items ===");
+
+		let mut builder = IncrementalHashBuilder::new();
+		builder.enable_stats();
+
+		let initial_stats = builder.get_stats().unwrap();
+		println!("Initial size: {} bytes", initial_stats.hb_current_size);
+
+		// Add 100k items of 1024 bytes each
+		let item_count = 100 * 1024;
+		let item_size = 1024;
+		let test_data = vec![42u8; item_size];
+
+		println!("Adding {} items of {} bytes each...", item_count, item_size);
+
+		builder.set_first_value(test_data.clone());
+		for _ in 0..(item_count - 1) {
+			builder.add_value(test_data.clone());
+		}
+		let _root = builder.finish();
+
+		let final_stats = builder.get_stats().unwrap();
+		println!("\nFinal Stats - 10k Small Items:");
+		println!("{}", final_stats);
+
+		// Verify expected values
+		assert_eq!(final_stats.total_data_size, item_count * item_size);
+		assert_eq!(final_stats.largest_data.0, item_size);
+		assert!(final_stats.hb_current_size < final_stats.total_data_size);
+	}
+
+	#[test]
+	fn test_stats_1k_large_items() {
+		println!("\n=== Testing Hash Builder with 100 Large Items ===");
+
+		let mut builder = IncrementalHashBuilder::new();
+		builder.enable_stats();
+
+		let initial_stats = builder.get_stats().unwrap();
+		println!("Initial size: {} bytes", initial_stats.hb_current_size);
+
+		// Add 1024 items of 1MB each
+		let item_count = 1024;
+		let item_size = 1024 * 1024; // 1MB
+		let test_data = vec![42u8; item_size];
+
+		println!(
+			"Adding {} items of {} bytes ({:.2} KB) each...",
+			item_count,
+			item_size,
+			item_size as f64 / 1024.0
+		);
+
+		builder.set_first_value(test_data.clone());
+		for _ in 0..(item_count - 1) {
+			builder.add_value(test_data.clone());
+		}
+		let _root = builder.finish();
+
+		let final_stats = builder.get_stats().unwrap();
+		println!("\nFinal Stats - 1024 Large Items:");
+		println!("{}", final_stats);
+
+		// Verify expected values
+		assert_eq!(final_stats.total_data_size, item_count * item_size);
+		assert_eq!(final_stats.largest_data.0, item_size);
+		assert!(final_stats.hb_current_size < final_stats.total_data_size);
 	}
 }
