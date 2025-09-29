@@ -63,8 +63,8 @@ pub(crate) const BASE_FEE: U256 = U256::zero();
 impl<T: Config> ContractBlob<T> {
 	/// Create a new contract from EVM init code.
 	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE
-			&& !crate::Pallet::<T>::is_unlimited_contract_size_allowed()
+		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE &&
+			!crate::Pallet::<T>::is_unlimited_contract_size_allowed()
 		{
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
@@ -99,8 +99,8 @@ impl<T: Config> ContractBlob<T> {
 		code: Vec<u8>,
 		owner: AccountIdOf<T>,
 	) -> Result<Self, DispatchError> {
-		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE
-			&& !crate::Pallet::<T>::is_unlimited_contract_size_allowed()
+		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE &&
+			!crate::Pallet::<T>::is_unlimited_contract_size_allowed()
 		{
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}

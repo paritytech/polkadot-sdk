@@ -1897,8 +1897,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns true if unlimited contract size is allowed.
 	pub fn is_unlimited_contract_size_allowed() -> bool {
-		T::DebugEnabled::get()
-			&& DebugSettingsOf::<T>::get().unwrap_or_default().allow_unlimited_contract_size
+		T::DebugEnabled::get() &&
+			DebugSettingsOf::<T>::get().unwrap_or_default().allow_unlimited_contract_size
 	}
 
 	/// Set the debug settings for the pallet.

@@ -27,8 +27,7 @@ use crate::{
 	Code, Config, DebugSettings, Error, GenesisConfig, PristineCode,
 };
 use alloy_core::{primitives::U256, sol_types::SolInterface};
-use frame_support::traits::fungible::Mutate;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
 
@@ -201,10 +200,12 @@ fn eth_contract_too_large() {
 				let result = builder::bare_instantiate(Code::Upload(code.clone())).build();
 
 				if allow_unlimited_contract_size && debug_flag {
-					// The contract is too large, but the DebugEnabled flag is set and allow_unlimited_contract_size is true.
+					// The contract is too large, but the DebugEnabled flag is set and
+					// allow_unlimited_contract_size is true.
 					assert_ok!(result.result);
 				} else {
-					// The contract is too large and either the DebugEnabled flag is not set or allow_unlimited_contract_size is false.
+					// The contract is too large and either the DebugEnabled flag is not set or
+					// allow_unlimited_contract_size is false.
 					assert_err!(result.result, <Error<Test>>::BlobTooLarge);
 				}
 			});
