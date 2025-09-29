@@ -79,44 +79,6 @@
 //! /// Executive: handles dispatch to the various modules.
 //! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem>;
 //! ```
-//!
-//! ### Custom `OnRuntimeUpgrade` logic
-//!
-//! You can add custom logic that should be called in your runtime on a runtime upgrade. This is
-//! done by setting an optional generic parameter. The custom logic will be called before
-//! the on runtime upgrade logic of all modules is called.
-//!
-//! ```
-//! # use sp_runtime::generic;
-//! # use frame_executive as executive;
-//! # pub struct UncheckedExtrinsic {};
-//! # pub struct Header {};
-//! # type Context = frame_system::ChainContext<Runtime>;
-//! # pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-//! # pub type Balances = u64;
-//! # pub type AllPalletsWithSystem = u64;
-//! # pub enum Runtime {};
-//! # use sp_runtime::transaction_validity::{
-//! #    TransactionValidity, UnknownTransaction, TransactionSource,
-//! # };
-//! # use sp_runtime::traits::ValidateUnsigned;
-//! # impl ValidateUnsigned for Runtime {
-//! #     type Call = ();
-//! #
-//! #     fn validate_unsigned(_source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
-//! #         UnknownTransaction::NoUnsignedValidator.into()
-//! #     }
-//! # }
-//! struct CustomOnRuntimeUpgrade;
-//! impl frame_support::traits::OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
-//!     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-//!         // Do whatever you want.
-//!         frame_support::weights::Weight::zero()
-//!     }
-//! }
-//!
-//! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, CustomOnRuntimeUpgrade>;
-//! ```
 
 #[cfg(doc)]
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -161,8 +123,9 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		BeforeAllRuntimeMigrations, ExecuteBlock, IsInherent, OffchainWorker, OnFinalize, OnIdle,
-		OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents, PostTransactions, PreInherents,
+		BeforeAllRuntimeMigrations, ExecuteBlock, Get, IsInherent, OffchainWorker, OnFinalize,
+		OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents, PostTransactions,
+		PreInherents,
 	},
 	weights::{Weight, WeightMeter},
 	MAX_EXTRINSIC_DEPTH,
@@ -230,15 +193,19 @@ impl core::fmt::Debug for ExecutiveError {
 /// - `UnsignedValidator`: The unsigned transaction validator of the runtime.
 /// - `AllPalletsWithSystem`: Tuple that contains all pallets including frame system pallet. Will be
 ///   used to call hooks e.g. `on_initialize`.
-/// - `OnRuntimeUpgrade`: Custom logic that should be called after a runtime upgrade. Modules are
-///   already called by `AllPalletsWithSystem`. It will be called before all modules will be called.
+/// - [**DEPRECATED** `OnRuntimeUpgrade`]: This parameter is deprecated and will be removed after
+///   September 2026. Use type `SingleBlockMigrations` in frame_system::Config instead.
+#[allow(deprecated)]
 pub struct Executive<
 	System,
 	Block,
 	Context,
 	UnsignedValidator,
 	AllPalletsWithSystem,
-	OnRuntimeUpgrade = (),
+	#[deprecated(
+		note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
+		Use type `SingleBlockMigrations` in frame_system::Config instead."
+	)] OnRuntimeUpgrade = (),
 >(
 	PhantomData<(
 		System,
@@ -250,6 +217,10 @@ pub struct Executive<
 	)>,
 );
 
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
+#[allow(deprecated)]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
@@ -260,7 +231,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitialize<BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -288,6 +259,10 @@ where
 	}
 }
 
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
+#[allow(deprecated)]
 #[cfg(feature = "try-runtime")]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
@@ -299,7 +274,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitialize<BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -424,10 +399,15 @@ where
 	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
+
 		let try_on_runtime_upgrade_weight =
-			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
-				checks.pre_and_post(),
-			)?;
+			<(
+				COnRuntimeUpgrade,
+				<System as frame_system::Config>::SingleBlockMigrations,
+				// We want to run the migrations before we call into the pallets as they may
+				// access any state that would then not be migrated.
+				AllPalletsWithSystem,
+			) as OnRuntimeUpgrade>::try_on_runtime_upgrade(checks.pre_and_post())?;
 
 		frame_system::LastRuntimeUpgrade::<System>::put(
 			frame_system::LastRuntimeUpgradeInfo::from(
@@ -488,6 +468,42 @@ where
 	}
 }
 
+/// Extension trait for [`OnInitialize`].
+///
+/// It takes care to register the weight of each pallet directly after executing its
+/// `on_initialize`.
+///
+/// The trait is sealed.
+pub trait OnInitializeWithWeightRegistration<T: frame_system::Config> {
+	/// The actual logic that calls `on_initialize` and registers the weight.
+	fn on_initialize_with_weight_registration(_n: BlockNumberFor<T>) -> Weight;
+}
+
+frame_support::impl_for_tuples_attr! {
+	#[tuple_types_custom_trait_bound(OnInitialize<frame_system::pallet_prelude::BlockNumberFor<T>>)]
+	impl<T: frame_system::Config> OnInitializeWithWeightRegistration<T> for Tuple {
+		fn on_initialize_with_weight_registration(n: BlockNumberFor<T>) -> Weight {
+			let mut weight = Weight::zero();
+			for_tuples!( #(
+				let individual_weight = Tuple::on_initialize(n);
+
+				<frame_system::Pallet<T>>::register_extra_weight_unchecked(
+					individual_weight,
+					DispatchClass::Mandatory,
+				);
+
+				weight = weight.saturating_add(individual_weight);
+			)* );
+
+			weight
+		}
+	}
+}
+
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
+#[allow(deprecated)]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
@@ -498,7 +514,7 @@ impl<
 		UnsignedValidator,
 		AllPalletsWithSystem: OnRuntimeUpgrade
 			+ BeforeAllRuntimeMigrations
-			+ OnInitialize<BlockNumberFor<System>>
+			+ OnInitializeWithWeightRegistration<System>
 			+ OnIdle<BlockNumberFor<System>>
 			+ OnFinalize<BlockNumberFor<System>>
 			+ OffchainWorker<BlockNumberFor<System>>
@@ -566,7 +582,7 @@ where
 	) {
 		// Reset events before apply runtime upgrade hook.
 		// This is required to preserve events from runtime upgrade hook.
-		// This means the format of all the event related storages must always be compatible.
+		// This means the format of all the event related storage must always be compatible.
 		<frame_system::Pallet<System>>::reset_events();
 
 		let mut weight = Weight::zero();
@@ -580,15 +596,22 @@ where
 			);
 		}
 		<frame_system::Pallet<System>>::initialize(block_number, parent_hash, digest);
-		weight = weight.saturating_add(<AllPalletsWithSystem as OnInitialize<
-			BlockNumberFor<System>,
-		>>::on_initialize(*block_number));
-		weight = weight.saturating_add(
-			<System::BlockWeights as frame_support::traits::Get<_>>::get().base_block,
-		);
+
+		weight = System::BlockWeights::get().base_block.saturating_add(weight);
+		// Register the base block weight and optional `on_runtime_upgrade` weight.
 		<frame_system::Pallet<System>>::register_extra_weight_unchecked(
 			weight,
 			DispatchClass::Mandatory,
+		);
+
+		weight = weight
+			.saturating_add(<AllPalletsWithSystem as OnInitializeWithWeightRegistration<
+			System,
+		>>::on_initialize_with_weight_registration(*block_number));
+
+		log::debug!(
+			target: LOG_TARGET,
+			"[{block_number:?}]: Block initialization weight consumption: {weight:?}",
 		);
 
 		frame_system::Pallet::<System>::note_finished_initialize();

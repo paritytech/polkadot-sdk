@@ -5,6 +5,7 @@
 // itself if ElasticScalingMVP feature is enabled in genesis.
 
 use anyhow::anyhow;
+use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
 };
@@ -93,12 +94,14 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	assert_finality_lag(&para_client, 6).await?;
 
 	// Sanity check that indeed the parachain has two assigned cores.
-	let cq = relay_client
-		.runtime_api()
-		.at_latest()
-		.await?
-		.call_raw::<BTreeMap<CoreIndex, VecDeque<ParaId>>>("ParachainHost_claim_queue", None)
-		.await?;
+	let cq = BTreeMap::<CoreIndex, VecDeque<ParaId>>::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at_latest()
+			.await?
+			.call_raw("ParachainHost_claim_queue", None)
+			.await?[..],
+	)?;
 
 	assert_eq!(
 		cq,
