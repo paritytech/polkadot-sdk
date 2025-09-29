@@ -1,9 +1,8 @@
-title: Allow unlimited contract size in debug mode
+title: "Allow unlimited contract size in debug mode."
 doc:
   - audience: Runtime dev
-    description: |-
-	This PR enables instantiation of EVM contracts larger than the EIP-3860 limit in debug mode.
-	Fixes: https://github.com/paritytech/contract-issues/issues/167
+    description: "This PR enables instantiation of EVM contracts larger than the EIP-3860 limit in debug mode.
+    Fixes: https://github.com/paritytech/contract-issues/issues/167"
 crates:
 - name: pallet-revive
   bump: patch
