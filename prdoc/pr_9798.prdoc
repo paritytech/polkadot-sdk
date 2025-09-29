@@ -3,7 +3,23 @@ doc:
 - audience: Runtime Dev
   description: |-
     Adds a new unapplied_slashes_v2 but keeps old unapplied_slashes
-    for backwards compat.
+    API and type for backwards compat.
 crates:
-- name: pallet-migrations
-  bump: patch
+- name: polkadot-node-core-runtime-api
+  bump: minor
+- name: polkadot-service
+  bump: minor
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: polkadot-node-subsystem-util
+  bump: major
+- name: polkadot-primitives
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: polkadot-test-runtime
+  bump: minor
