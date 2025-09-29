@@ -488,12 +488,7 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block>
-			+ HeaderBackend<Block>
-			+ sc_client_api::ExecutorProvider<Block>
-			+ Send
-			+ Sync
-			+ 'static,
+		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 		Client::Api: ValidateStatement<Block>,
 	{
 		let store = Arc::new(Self::new(path, options, client, keystore, prometheus)?);
