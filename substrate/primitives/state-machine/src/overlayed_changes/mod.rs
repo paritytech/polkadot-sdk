@@ -680,6 +680,9 @@ impl<H: Hasher> OverlayedChanges<H> {
 		#[cfg(feature = "std")]
 		{
 			crate::debug!(target: "durations", "storage_root: duration={:?}", start.elapsed());
+			// let snapshot = self.top.storage_root_snaphost_delta_keys2();
+			// crate::debug!(target: "durations", "storage_root: duration={:?} snaphost_len:{}", start.elapsed(),snapshot.len());
+			// crate::debug!(target: "durations", "storage_root: snapshot:{:?}", snapshot.iter().map(|k| hex::encode(k.1)).collect::<Vec<_>>());
 		}
 
 		(root, false)

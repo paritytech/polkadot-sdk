@@ -269,8 +269,8 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	where
 		H::Out: Ord;
 
-	/// Calculate the storage root, with given delta over what is already stored in
-	/// the backend, and produce a "transaction" that can be used to commit.
+	/// Updates the recorder's proof size by recording trie nodes for a given delta.
+	///
 	/// Does not include child storage updates.
 	fn trigger_storage_root_size_estimation<'a, 'b>(
 		&self,
@@ -279,9 +279,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	) where
 		H::Out: Ord;
 
-	/// Calculate the child storage root, with given delta over what is already stored in
-	/// the backend, and produce a "transaction" that can be used to commit. The second argument
-	/// is true if child storage root equals default storage root.
+	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
 	fn trigger_child_storage_root_size_estimation<'a, 'b>(
 		&self,
 		child_info: &ChildInfo,
@@ -350,9 +348,8 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		(root, txs)
 	}
 
-	/// Calculate the storage root, with given delta over what is already stored
-	/// in the backend, and produce a "transaction" that can be used to commit.
-	/// Does include child storage updates.
+	/// Updates the recorder's proof size by recording trie nodes for a given delta and children
+	/// trie nodes for given child_deltas.
 	fn trigger_storage_root_size_estimation_full<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
@@ -367,19 +364,15 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		// child first
 		for (child_info, child_delta) in child_deltas {
 			self.trigger_child_storage_root_size_estimation(child_info, child_delta, state_version);
-			//todo: do we need to include potential child storage root changes?
-			//how do we know empy?
 			let prefixed_storage_key = child_info.prefixed_storage_key();
-			// if empty {
+			// At "estimation phase" we don't know if child trie is empty or not. Let's assume worst
+			// case - remocal of the child storage root value from the main trie:
 			child_roots.push((prefixed_storage_key.into_inner(), None::<&[u8]>));
-			// } else {
-			// 	child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
-			// }
 		}
 		self.trigger_storage_root_size_estimation(
 			delta
 				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
-				.chain(child_roots.iter().map(|(k, v)| (&k[..], None::<&[u8]>))),
+				.chain(child_roots.iter().map(|(k, _)| (&k[..], None::<&[u8]>))),
 			state_version,
 		);
 	}
