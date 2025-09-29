@@ -172,8 +172,15 @@ impl<PUBLIC: From<VerifyingKey>> GenericSignature<PUBLIC> {
 	}
 }
 
-/// Proof of Possession is the same as Signature for ecdsa
+/// Proof of Possession is the same as Signature.
+///
+/// Uses blake2 during key recovery.
 pub type ProofOfPossession = Signature;
+
+/// Proof of Possession is the same as Signature.
+///
+/// Uses keccak during key recovery.
+pub type KeccakProofOfPossession = KeccakSignature;
 
 impl Signature {
 	/// Recover the public key from this signature and a message.
@@ -296,6 +303,7 @@ impl TraitPair for KeccakPair {
 	type Public = KeccakPublic;
 	type Seed = Seed;
 	type Signature = KeccakSignature;
+	type ProofOfPossession = KeccakProofOfPossession;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		Self::from_seed_slice(seed_slice)
