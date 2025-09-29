@@ -18,8 +18,7 @@
 //! The AuRa consensus algorithm for parachains.
 //!
 //! This extends the Substrate provided AuRa consensus implementation to make it compatible for
-//! parachains. The main entry points for of this consensus algorithm are [`AuraConsensus::build`]
-//! and [`fn@import_queue`].
+//! parachains.
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
 
@@ -54,27 +53,6 @@ pub mod collators;
 pub mod equivocation_import_queue;
 
 const LOG_TARGET: &str = "aura::cumulus";
-
-/// The implementation of the AURA consensus for parachains.
-pub struct AuraConsensus<B, CIDP, W> {
-	create_inherent_data_providers: Arc<CIDP>,
-	aura_worker: Arc<Mutex<W>>,
-	slot_duration: SlotDuration,
-	last_slot_processed: Arc<AtomicU64>,
-	_phantom: PhantomData<B>,
-}
-
-impl<B, CIDP, W> Clone for AuraConsensus<B, CIDP, W> {
-	fn clone(&self) -> Self {
-		Self {
-			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
-			aura_worker: self.aura_worker.clone(),
-			slot_duration: self.slot_duration,
-			last_slot_processed: self.last_slot_processed.clone(),
-			_phantom: PhantomData,
-		}
-	}
-}
 
 /// Export the given `pov` to the file system at `path`.
 ///
