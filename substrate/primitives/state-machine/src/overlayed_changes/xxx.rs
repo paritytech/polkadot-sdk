@@ -5,47 +5,74 @@ use core::{
 };
 use nohash_hasher::BuildNoHashHasher;
 
-// #[cfg(not(feature = "std"))]
-// use alloc::collections::btree_map::BTreeMap as Map;
-// use alloc::collections::HashMap as Map;
-use indexmap::{map as hash_map, IndexMap as Map};
+#[cfg(not(feature = "std"))]
+pub type DefaultHashBuilder = sp_trie::RandomState;
+
+// #[cfg(feature = "std")]
+// pub type DefaultHashBuilder = foldhash::quality::RandomState;
+#[cfg(feature = "std")]
+// pub type DefaultHashBuilder = foldhash::quality::RandomState;
+pub type DefaultHashBuilder = foldhash::fast::FixedState;
+
+#[cfg(not(feature = "std"))]
+use hashbrown::{
+	hash_map::{IntoValues, Values},
+	HashMap as Map,
+};
+#[cfg(feature = "std")]
+use std::collections::{
+	hash_map::{IntoValues, Values},
+	HashMap as Map,
+};
 
 pub type XxxKey = u64;
 const LOG_TARGET: &str = "xxx";
 
-fn xxx_key<K: Hash>(key: &K) -> XxxKey {
+fn xxx_key<K: Hash, HB: BuildHasher>(key: &K, hash_builder: &HB) -> XxxKey {
 	use core::hash::Hasher;
-	let mut hasher = foldhash::fast::FixedState::default().build_hasher();
+	let mut hasher = hash_builder.build_hasher();
 	key.hash(&mut hasher);
 	hasher.finish()
 }
 
 #[derive(Debug, Clone)]
-pub struct InternalSet<K> {
+pub struct InternalSet<K, HB = DefaultHashBuilder> {
 	inner: Map<XxxKey, K, BuildNoHashHasher<XxxKey>>,
+	hash_builder: HB,
 }
 
-pub type DeltaKeys<K> = Map<XxxKey, K, foldhash::fast::FixedState>;
+pub type DeltaKeys<K> = Map<XxxKey, K, BuildNoHashHasher<XxxKey>>;
 
-impl<K> InternalSet<K> {
+impl<K, HB: BuildHasher + Default> InternalSet<K, HB> {
 	pub fn new() -> Self {
-		Self { inner: Map::with_capacity_and_hasher(16, BuildNoHashHasher::<XxxKey>::default()) }
+		Self {
+			inner: Map::with_capacity_and_hasher(1024, BuildNoHashHasher::<XxxKey>::default()),
+			hash_builder: HB::default(),
+		}
+	}
+
+	pub fn new_with_hash_builder(hash_builder: HB) -> Self {
+		Self {
+			inner: Map::with_capacity_and_hasher(1024, BuildNoHashHasher::<XxxKey>::default()),
+			hash_builder,
+		}
 	}
 }
-impl<K: Hash + Eq> InternalSet<K> {
+impl<K: Hash + Eq, HB: BuildHasher + Default> InternalSet<K, HB> {
 	pub fn with_capacity(capacity: usize) -> Self {
 		Self {
 			inner: Map::with_capacity_and_hasher(capacity, BuildNoHashHasher::<XxxKey>::default()),
+			hash_builder: HB::default(),
 		}
 	}
 
 	pub fn insert(&mut self, value: K) -> bool {
-		let key = xxx_key(&value);
+		let key = xxx_key(&value, &self.hash_builder);
 		self.inner.insert(key, value).is_none()
 	}
 
 	pub fn contains(&self, value: &K) -> bool {
-		let key = xxx_key(value);
+		let key = xxx_key(value, &self.hash_builder);
 		self.inner.contains_key(&key)
 	}
 
@@ -57,16 +84,16 @@ impl<K: Hash + Eq> InternalSet<K> {
 		self.inner.is_empty()
 	}
 
-	pub fn extend(&mut self, other: InternalSet<K>) {
+	pub fn extend(&mut self, other: InternalSet<K, HB>) {
 		self.inner.extend(other.inner);
 	}
 
-	pub fn iter(&self) -> hash_map::Values<'_, XxxKey, K> {
+	pub fn iter(&self) -> Values<'_, XxxKey, K> {
 		self.inner.values()
 	}
 }
 
-impl<K> Default for InternalSet<K> {
+impl<K, HB: BuildHasher + Default> Default for InternalSet<K, HB> {
 	fn default() -> Self {
 		Self::new()
 	}
@@ -80,18 +107,18 @@ impl<K> Default for InternalSet<K> {
 // 	}
 // }
 
-impl<K: Hash + Eq> IntoIterator for InternalSet<K> {
+impl<K: Hash + Eq, HB: BuildHasher> IntoIterator for InternalSet<K, HB> {
 	type Item = K;
-	type IntoIter = hash_map::IntoValues<XxxKey, K>;
+	type IntoIter = IntoValues<XxxKey, K>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.inner.into_values()
 	}
 }
 
-impl<'a, K: Hash + Eq> IntoIterator for &'a InternalSet<K> {
+impl<'a, K: Hash + Eq, HB: BuildHasher> IntoIterator for &'a InternalSet<K, HB> {
 	type Item = &'a K;
-	type IntoIter = hash_map::Values<'a, XxxKey, K>;
+	type IntoIter = Values<'a, XxxKey, K>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.inner.values()
@@ -99,9 +126,9 @@ impl<'a, K: Hash + Eq> IntoIterator for &'a InternalSet<K> {
 }
 
 #[derive(Debug, Clone)]
-enum TransactionKeys<K> {
-	Dirty(InternalSet<K>),
-	Snapshot(InternalSet<K>),
+enum TransactionKeys<K, HB = DefaultHashBuilder> {
+	Dirty(InternalSet<K, HB>),
+	Snapshot(InternalSet<K, HB>),
 }
 
 // impl<K: Hash + Eq + AsRef<[u8]>> std::fmt::Debug for TransactionKeys<K> {
@@ -113,31 +140,33 @@ enum TransactionKeys<K> {
 // 	}
 // }
 
-impl<K: Hash + Eq> TransactionKeys<K> {
+impl<K: Hash + Eq, HB: BuildHasher + Default> TransactionKeys<K, HB> {
 	fn is_empty(&self) -> bool {
 		match self {
 			TransactionKeys::Dirty(k) | TransactionKeys::Snapshot(k) => k.is_empty(),
 		}
 	}
-	fn keys(&self) -> &InternalSet<K> {
+	fn keys(&self) -> &InternalSet<K, HB> {
 		match self {
 			TransactionKeys::Dirty(k) | TransactionKeys::Snapshot(k) => k,
 		}
 	}
 }
 
-impl<K> Default for TransactionKeys<K> {
+impl<K, HB: BuildHasher + Default> Default for TransactionKeys<K, HB> {
 	fn default() -> Self {
 		TransactionKeys::Dirty(Default::default())
 	}
 }
 
-type Transaction<K> = Vec<TransactionKeys<K>>;
+type Transaction<K, HB = DefaultHashBuilder> = Vec<TransactionKeys<K, HB>>;
 
 #[derive(Debug, Clone)]
-pub struct Changeset<K> {
+pub struct Changeset<K, HB = DefaultHashBuilder> {
 	// Stack of transactions.
-	transactions: Vec<Transaction<K>>,
+	transactions: Vec<Transaction<K, HB>>,
+	// Shared hasher for all InternalSet instances
+	hash_builder: HB,
 }
 
 // impl<K: Hash + Eq + AsRef<[u8]>> std::fmt::Debug for Changeset<K> {
@@ -146,21 +175,23 @@ pub struct Changeset<K> {
 // 	}
 // }
 
-impl<K> Default for Changeset<K> {
+impl<K, HB: BuildHasher + Default + Clone> Default for Changeset<K, HB> {
 	fn default() -> Self {
-		Changeset { transactions: vec![vec![Default::default()]] }
+		Self::new()
 	}
 }
 
-impl<K> Changeset<K> {
+impl<K, HB: BuildHasher + Default + Clone> Changeset<K, HB> {
 	pub fn new() -> Self {
+		let hash_builder = HB::default();
 		// Initialize with one transaction having a single empty dirty set
-		Changeset { transactions: vec![vec![Default::default()]] }
+		let initial_set = InternalSet::new_with_hash_builder(hash_builder.clone());
+		Changeset { transactions: vec![vec![TransactionKeys::Dirty(initial_set)]], hash_builder }
 	}
 }
 
 // impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
-impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
+impl<K: Clone + Hash + Ord + core::fmt::Debug, HB: BuildHasher + Default + Clone> Changeset<K, HB> {
 	pub fn add_key(&mut self, key: K) {
 		if let Some(transaction) = self.transactions.last_mut() {
 			match transaction.last_mut() {
@@ -168,7 +199,7 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 					dirty_set.insert(key);
 				},
 				Some(TransactionKeys::Snapshot(_)) | None => {
-					let mut set = InternalSet::new();
+					let mut set = InternalSet::new_with_hash_builder(self.hash_builder.clone());
 					set.insert(key);
 					transaction.push(TransactionKeys::Dirty(set));
 				},
@@ -177,7 +208,10 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 	}
 
 	pub fn start_transaction(&mut self) {
-		self.transactions.push(vec![TransactionKeys::Dirty(InternalSet::new())]);
+		self.transactions
+			.push(vec![TransactionKeys::Dirty(InternalSet::new_with_hash_builder(
+				self.hash_builder.clone(),
+			))]);
 	}
 
 	pub fn commit_transaction(&mut self) {
@@ -201,7 +235,9 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 		//   snapshot
 		// add key: c
 		//
-		fn fix<K: Clone + Hash + Ord + core::fmt::Debug>(top_transaction: &mut Transaction<K>) {
+		fn fix<K: Clone + Hash + Ord + core::fmt::Debug, HB: BuildHasher + Default>(
+			top_transaction: &mut Transaction<K, HB>,
+		) {
 			if top_transaction.len() > 1 {
 				let dirty = top_transaction.pop().expect("there is always dirty at the end");
 
@@ -299,11 +335,14 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 		// Append snapshot keys and new dirty keys to the most recent transaction:
 		if let Some(top_transaction) = self.transactions.last_mut() {
 			top_transaction.last_mut().map(|stage| {
-				let mut internal_set = InternalSet::new();
+				let mut internal_set =
+					InternalSet::new_with_hash_builder(self.hash_builder.clone());
 				internal_set.inner.extend(delta.iter().map(|(k, v)| (*k, v.clone())));
 				*stage = TransactionKeys::Snapshot(internal_set);
 			});
-			top_transaction.push(TransactionKeys::Dirty(InternalSet::new()));
+			top_transaction.push(TransactionKeys::Dirty(InternalSet::new_with_hash_builder(
+				self.hash_builder.clone(),
+			)));
 		}
 		delta
 	}
@@ -342,11 +381,14 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 		// Now we can safely modify self
 		if let Some(top_transaction) = self.transactions.last_mut() {
 			top_transaction.last_mut().map(|stage| {
-				let mut internal_set = InternalSet::new();
+				let mut internal_set =
+					InternalSet::new_with_hash_builder(self.hash_builder.clone());
 				internal_set.inner.extend(delta.iter().map(|(k, v)| (*k, v.clone())));
 				*stage = TransactionKeys::Snapshot(internal_set);
 			});
-			top_transaction.push(TransactionKeys::Dirty(InternalSet::new()));
+			top_transaction.push(TransactionKeys::Dirty(InternalSet::new_with_hash_builder(
+				self.hash_builder.clone(),
+			)));
 		}
 		delta
 	}
