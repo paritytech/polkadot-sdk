@@ -24,7 +24,7 @@ use crate::{
 	},
 	Config, Error, U256,
 };
-use core::{ops::ControlFlow, ptr};
+use core::ops::ControlFlow;
 use revm::interpreter::gas::{BASE, VERYLOW};
 use sp_core::H256;
 use sp_io::hashing::keccak_256;

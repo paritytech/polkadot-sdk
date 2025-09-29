@@ -383,6 +383,8 @@ members = [
 	"substrate/frame/fast-unstake",
 	"substrate/frame/glutton",
 	"substrate/frame/grandpa",
+	"substrate/frame/honzon/oracle",
+	"substrate/frame/honzon/oracle/runtime-api",
 	"substrate/frame/identity",
 	"substrate/frame/im-online",
 	"substrate/frame/indices",
@@ -627,6 +629,9 @@ while_immutable_condition = { level = "allow", priority = 2 }        # false pos
 zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
 
 [workspace.dependencies]
+pallet-oracle = { path = "substrate/frame/honzon/oracle", default-features = false }
+pallet-oracle-runtime-api = { path = "substrate/frame/honzon/oracle/runtime-api", default-features = false }
+
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
@@ -1407,6 +1412,7 @@ syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
+test-case = { version = "3.3.1" }
 test-log = { version = "0.2.14" }
 test-pallet = { path = "substrate/frame/support/test/pallet", default-features = false, package = "frame-support-test-pallet" }
 test-parachain-adder = { path = "polkadot/parachain/test-parachains/adder" }

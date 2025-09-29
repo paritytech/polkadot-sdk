@@ -117,6 +117,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
+			log::debug!(target: crate::LOG_TARGET, "sload read invalid storage value length. Expected 32.");
 			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		};
 		U256::from_big_endian(&bytes)
@@ -161,9 +162,10 @@ fn store_helper<'ext, E: Ext>(
 ///
 /// Stores a word to storage.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let old_bytes = interpreter.ext.max_value_size();
 	store_helper(
 		interpreter,
-		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 0 },
+		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes },
 		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
 		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
 	)
@@ -172,9 +174,10 @@ pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let old_bytes = interpreter.ext.max_value_size();
 	store_helper(
 		interpreter,
-		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 },
+		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes },
 		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
 		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
 	)
@@ -192,6 +195,7 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
 			// tload always reads a word
+			log::debug!(target: crate::LOG_TARGET, "tload read invalid storage value length. Expected 32.");
 			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		}
 
