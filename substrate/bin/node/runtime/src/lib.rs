@@ -1953,6 +1953,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		CreationHoldReason,
 		ConstantStoragePrice<StakePoolCreationDeposit, Balance>,
 	>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
