@@ -97,7 +97,7 @@ impl ConsensusStatisticsCollector {
     }
 }
 
-#[overseer::subsystem(StatisticsCollector, error = SubsystemError, prefix = self::overseer)]
+#[overseer::subsystem(ConsensusStatisticsCollector, error = SubsystemError, prefix = self::overseer)]
 impl<Context> ConsensusStatisticsCollector
 where
     Context: Send + Sync,
@@ -112,7 +112,7 @@ where
     }
 }
 
-#[overseer::contextbounds(StatisticsCollector, prefix = self::overseer)]
+#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
 async fn run<Context>(mut ctx: Context, metrics: Metrics) -> FatalResult<()> {
     let mut view = View::new();
     loop {
@@ -123,7 +123,7 @@ async fn run<Context>(mut ctx: Context, metrics: Metrics) -> FatalResult<()> {
     }
 }
 
-#[overseer::contextbounds(StatisticsCollector, prefix = self::overseer)]
+#[overseer::contextbounds(ConsensusStatisticsCollector, prefix = self::overseer)]
 pub(crate) async fn run_iteration<Context>(
     ctx: &mut Context,
     view: &mut View,
@@ -163,11 +163,6 @@ pub(crate) async fn run_iteration<Context>(
                             session_idx,
                             no_show_validators,
                         );
-                    },
-                    ConsensusStatisticsCollectorMessage::RelayBlockApproved(block_hash) => {
-                        view.per_relay
-                            .entry(block_hash)
-                            .and_modify(|q| q.relay_approved = true);
                     },
                 }
             },
