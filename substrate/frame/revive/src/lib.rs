@@ -702,6 +702,31 @@ pub mod pallet {
 				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
 			);
 
+			{
+				let call_stack_depth: u64 = limits::CALL_STACK_DEPTH.into();
+				let per_call_limit: u64 = crate::limits::code::BASELINE_MEMORY_LIMIT.into();
+				let stack_size_limit: u64 = 1024 * 32; // 1024 words EVM stack size limit
+
+				let memory_used = call_stack_depth
+					.checked_mul(per_call_limit)
+					.unwrap_or(u64::MAX)
+					.saturating_sub(stack_size_limit);
+
+				let memory_left = i64::from(max_runtime_mem)
+					.saturating_div(TOTAL_MEMORY_DEVIDER.into())
+					.saturating_sub(memory_used.try_into().unwrap_or(i64::MAX));
+
+				log::debug!(target: LOG_TARGET, "Integrity check: memory_used: {}, call_stack_depth: {}, per_call_limit: {}, stack_size_limit: {}", memory_used, call_stack_depth, per_call_limit, stack_size_limit);
+
+				log::debug!(target: LOG_TARGET, "Integrity check: memory_left after call stack limits: {} KB", memory_left);
+
+				assert!(
+					memory_left >= 0,
+					"Runtime ran out of memory, memory_left: {}",
+					memory_left
+				);
+			}
+
 			// Validators are configured to be able to use more memory than block builders. This is
 			// because in addition to `max_runtime_mem` they need to hold additional data in
 			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
