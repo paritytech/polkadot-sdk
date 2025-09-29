@@ -32,6 +32,7 @@ pub mod offchain;
 
 pub mod bench;
 
+mod archive_db;
 mod children;
 mod parity_db;
 mod pinned_blocks_cache;
@@ -53,6 +54,7 @@ use std::{
 };
 
 use crate::{
+	archive_db::{make_full_key, ArchiveDb},
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -77,7 +79,7 @@ use sp_core::{
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys, ChildInfo},
 };
-use sp_database::Transaction;
+use sp_database::{OrderedDatabase, Transaction};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{
@@ -88,7 +90,7 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
-	BackendTransaction, ChildStorageCollection, DBValue, IndexOperation, IterArgs,
+	BackendTransaction, ChildStorageCollection, DBValue, DefaultError, IndexOperation, IterArgs,
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
 };
@@ -442,6 +444,8 @@ pub(crate) mod columns {
 	/// Transactions
 	pub const TRANSACTION: u32 = 11;
 	pub const BODY_INDEX: u32 = 12;
+	// Diffs for archive blocks
+	pub const ARCHIVE: u32 = 13;
 }
 
 struct PendingBlock<Block: BlockT> {
@@ -828,7 +832,7 @@ impl<Block: BlockT> HeaderMetadata<Block> for BlockchainDb<Block> {
 
 /// Database transaction
 pub struct BlockImportOperation<Block: BlockT> {
-	old_state: RecordStatsState<RefTrackingState<Block>, Block>,
+	old_state: RecordStatsState<TrieOrArchiveState<Block>, Block>,
 	db_updates: PrefixedMemoryDB<HashingFor<Block>>,
 	storage_updates: StorageCollection,
 	child_storage_updates: ChildStorageCollection,
@@ -899,7 +903,7 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	for BlockImportOperation<Block>
 {
-	type State = RecordStatsState<RefTrackingState<Block>, Block>;
+	type State = RecordStatsState<TrieOrArchiveState<Block>, Block>;
 
 	fn state(&self) -> ClientResult<Option<&Self::State>> {
 		Ok(Some(&self.old_state))
@@ -998,7 +1002,6 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		self.create_gap = create_gap;
 	}
 }
-
 struct StorageDb<Block: BlockT> {
 	pub db: Arc<dyn Database<DbHash>>,
 	pub state_db: StateDb<Block::Hash, Vec<u8>, StateMetaDb>,
@@ -1209,7 +1212,7 @@ impl<Block: BlockT> Backend<Block> {
 	}
 
 	fn from_database(
-		db: Arc<dyn Database<DbHash>>,
+		db: Arc<dyn Database<DbHash> + MaybeOrderedDatabase>,
 		canonicalization_delay: u64,
 		config: &DatabaseSettings,
 		should_init: bool,
@@ -1602,16 +1605,16 @@ impl<Block: BlockT> Backend<Block> {
 
 				let mut ops: u64 = 0;
 				let mut bytes: u64 = 0;
-				for (key, value) in operation
-					.storage_updates
-					.iter()
-					.chain(operation.child_storage_updates.iter().flat_map(|(_, s)| s.iter()))
-				{
+				for (key, value) in operation.storage_updates.drain(..).chain(
+					operation.child_storage_updates.drain(..).flat_map(|(_, s)| s.into_iter()),
+				) {
 					ops += 1;
 					bytes += key.len() as u64;
 					if let Some(v) = value.as_ref() {
 						bytes += v.len() as u64;
 					}
+					let full_key = make_full_key(&key, pending_block.header.number());
+					transaction.set_from_vec(columns::ARCHIVE, &full_key, value.encode());
 				}
 				self.state_usage.tally_writes(ops, bytes);
 				let number_u64 = number.saturated_into::<u64>();
@@ -2004,13 +2007,20 @@ impl<Block: BlockT> Backend<Block> {
 		Ok(())
 	}
 
-	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
+	fn empty_state(&self) -> RecordStatsState<TrieOrArchiveState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
 		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()))
 			.build();
-		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
-		RecordStatsState::new(state, None, self.state_usage.clone())
+		let trie_state = RefTrackingState::new(db_state, self.storage.clone(), None);
+		let archive_state =
+			ArchiveDb::new(self.storage.clone(), None, <Block::Header as HeaderT>::Number::zero());
+
+		RecordStatsState::new(
+			TrieOrArchiveState { trie_state: Some(trie_state), archive_state: Some(archive_state) },
+			None,
+			self.state_usage.clone(),
+		)
 	}
 }
 
@@ -2129,10 +2139,248 @@ where
 	}
 }
 
+#[derive(Debug)]
+pub struct TrieOrArchiveState<Block: BlockT> {
+	trie_state: Option<RefTrackingState<Block>>,
+	archive_state: Option<ArchiveDb<Block>>,
+}
+
+pub enum TrieOrArchiveStateIter<Block: BlockT> {
+	TrieIter(<RefTrackingState<Block> as StateBackend<HashingFor<Block>>>::RawIter),
+	ArchiveIter(archive_db::RawIter<Block>),
+}
+
+impl<Block: BlockT> StorageIterator<HashingFor<Block>> for TrieOrArchiveStateIter<Block> {
+	type Backend = TrieOrArchiveState<Block>;
+
+	type Error = DefaultError;
+
+	fn next_key(
+		&mut self,
+		backend: &Self::Backend,
+	) -> Option<core::result::Result<StorageKey, Self::Error>> {
+		match self {
+			TrieOrArchiveStateIter::TrieIter(iter) => {
+				if let Some(trie_state) = &backend.trie_state {
+					iter.next_key(trie_state)
+				} else {
+					Some(Err(
+						"Trie iterator is used, but trie data does not exist for this state".into()
+					))
+				}
+			},
+			TrieOrArchiveStateIter::ArchiveIter(iter) => {
+				if let Some(archive_state) = &backend.archive_state {
+					iter.next_key(archive_state)
+				} else {
+					Some(Err(
+						"Archive iterator is used, but archive data does not exist for this state"
+							.into(),
+					))
+				}
+			},
+		}
+	}
+
+	fn next_pair(
+		&mut self,
+		backend: &Self::Backend,
+	) -> Option<core::result::Result<(StorageKey, StorageValue), Self::Error>> {
+		todo!()
+	}
+
+	fn was_complete(&self) -> bool {
+		todo!()
+	}
+}
+
+impl<Block: BlockT> StateBackend<HashingFor<Block>> for TrieOrArchiveState<Block> {
+	type Error = DefaultError;
+
+	type TrieBackendStorage =
+		<RefTrackingState<Block> as AsTrieBackend<HashingFor<Block>>>::TrieBackendStorage;
+
+	type RawIter = TrieOrArchiveStateIter<Block>;
+
+	fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.storage(key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.storage(key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn storage_hash(
+		&self,
+		key: &[u8],
+	) -> Result<Option<<HashingFor<Block> as hash_db::Hasher>::Out>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.storage_hash(key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.storage_hash(key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn closest_merkle_value(
+		&self,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<<HashingFor<Block> as hash_db::Hasher>::Out>>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.closest_merkle_value(key)
+		} else {
+			Ok(None)
+		}
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<<HashingFor<Block> as hash_db::Hasher>::Out>>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.child_closest_merkle_value(child_info, key)
+		} else {
+			Ok(None)
+		}
+	}
+
+	fn child_storage(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<StorageValue>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.child_storage(child_info, key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.child_storage(child_info, key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn child_storage_hash(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<<HashingFor<Block> as hash_db::Hasher>::Out>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.child_storage_hash(child_info, key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.child_storage_hash(child_info, key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn next_storage_key(&self, key: &[u8]) -> Result<Option<StorageKey>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.next_storage_key(key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.next_storage_key(key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn next_child_storage_key(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<StorageKey>, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.next_child_storage_key(child_info, key)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.next_child_storage_key(child_info, key)
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn storage_root<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) -> (<HashingFor<Block> as hash_db::Hasher>::Out, BackendTransaction<HashingFor<Block>>)
+	where
+		<HashingFor<Block> as hash_db::Hasher>::Out: Ord,
+	{
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.storage_root(delta, state_version)
+		} else {
+			todo!()
+		}
+	}
+
+	fn child_storage_root<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) -> (<HashingFor<Block> as hash_db::Hasher>::Out, bool, BackendTransaction<HashingFor<Block>>)
+	where
+		<HashingFor<Block> as hash_db::Hasher>::Out: Ord,
+	{
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.child_storage_root(child_info, delta, state_version)
+		} else {
+			todo!()
+		}
+	}
+
+	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.raw_iter(args).map(|iter| TrieOrArchiveStateIter::TrieIter(iter))
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state
+				.raw_iter(args)
+				.map(|iter| TrieOrArchiveStateIter::ArchiveIter(iter))
+		} else {
+			Err("No storage exists for this state".into())
+		}
+	}
+
+	fn register_overlay_stats(&self, stats: &sp_state_machine::StateMachineStats) {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.register_overlay_stats(stats)
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.register_overlay_stats(stats)
+		}
+	}
+
+	fn usage_info(&self) -> StateUsageInfo {
+		if let Some(trie_state) = &self.trie_state {
+			trie_state.usage_info()
+		} else if let Some(archive_state) = &self.archive_state {
+			archive_state.usage_info()
+		} else {
+			StateUsageInfo::empty()
+		}
+	}
+}
+
+impl<Block: BlockT> AsTrieBackend<HashingFor<Block>> for TrieOrArchiveState<Block> {
+	type TrieBackendStorage =
+		<RefTrackingState<Block> as AsTrieBackend<HashingFor<Block>>>::TrieBackendStorage;
+
+	fn as_trie_backend(
+		&self,
+	) -> &sp_state_machine::TrieBackend<
+		Self::TrieBackendStorage,
+		HashingFor<Block>,
+		sp_trie::cache::LocalTrieCache<HashingFor<Block>>,
+	> {
+		todo!()
+	}
+}
+
 impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 	type BlockImportOperation = BlockImportOperation<Block>;
 	type Blockchain = BlockchainDb<Block>;
-	type State = RecordStatsState<RefTrackingState<Block>, Block>;
+	type State = RecordStatsState<TrieOrArchiveState<Block>, Block>;
 	type OffchainStorage = offchain::LocalStorage;
 
 	fn begin_operation(&self) -> ClientResult<Self::BlockImportOperation> {
@@ -2539,8 +2787,19 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						}))
 						.build();
 
-				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
-				return Ok(RecordStatsState::new(state, None, self.state_usage.clone()));
+				let trie_state = Some(RefTrackingState::new(db_state, self.storage.clone(), None));
+				let archive_state = Some(ArchiveDb::new(
+					self.storage.db.downcast(),
+					Some(hash),
+					<Block::Header as HeaderT>::Number::zero(),
+				));
+				let trie_or_archive_state = TrieOrArchiveState { trie_state, archive_state };
+
+				return Ok(RecordStatsState::new(
+					trie_or_archive_state,
+					None,
+					self.state_usage.clone(),
+				));
 			}
 		}
 
@@ -2552,7 +2811,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						.is_some()
 				};
 
-				if let Ok(()) =
+				let trie_state = if let Ok(()) =
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
 					let root = hdr.state_root;
@@ -2566,13 +2825,20 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 								}
 							}))
 							.build();
-					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
-					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
+					let state: RefTrackingState<Block> =
+						RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
+					Some(state)
 				} else {
-					Err(sp_blockchain::Error::UnknownBlock(format!(
-						"State already discarded for {hash:?}",
-					)))
-				}
+					None
+				};
+				let archive_state =
+					Some(ArchiveDb::new(self.storage.clone(), Some(hash), hdr.number));
+				let trie_or_archive_state = TrieOrArchiveState { trie_state, archive_state };
+				Ok(RecordStatsState::new(
+					trie_or_archive_state,
+					Some(hash),
+					self.state_usage.clone(),
+				))
 			},
 			Err(e) => Err(e),
 		}

@@ -77,6 +77,14 @@ impl<H> Transaction<H> {
 	}
 }
 
+pub trait OrderedDatabase {
+	fn get_lower_bound(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>>;
+}
+
+pub trait MaybeOrderedDatabase {
+	fn as_ordered_database(&self) -> Option<&dyn OrderedDatabase>;
+}
+
 pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 	/// Commit the `transaction` to the database atomically. Any further calls to `get` or `lookup`
 	/// will reflect the new state.

@@ -18,7 +18,7 @@
 /// A wrapper around `kvdb::Database` that implements `sp_database::Database` trait
 use ::kvdb::{DBTransaction, KeyValueDB};
 
-use crate::{error, Change, ColumnId, Database, Transaction};
+use crate::{error, Change, ColumnId, Database, MaybeOrderedDatabase, OrderedDatabase, Transaction};
 
 struct DbAdapter<D: KeyValueDB + 'static>(D);
 
