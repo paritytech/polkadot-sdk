@@ -1,196 +1,111 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+// Benchmarking statement store performance
+
 use anyhow::anyhow;
 use codec::{Decode, Encode};
 use log::{debug, info, trace};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Statement, Topic};
-use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::{sync::Mutex, time::timeout};
+use std::{collections::HashMap, time::Duration};
+use tokio::time::timeout;
 use zombienet_sdk::{
-	subxt::{
-		backend::rpc::RpcClient,
-		ext::{
-			jsonrpsee::{client_transport::ws::WsTransportClientBuilder, core::client::Client},
-			subxt_rpcs::rpc_params,
-		},
-	},
+	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
 const GROUP_SIZE: u32 = 6;
-const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 1000;
+const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
-const MESSAGE_COUNT: usize = 1;
+const MESSAGE_COUNT: usize = 2;
 const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
 const RECEIVE_DELAY_MS: u64 = 1000;
-const RPC_POOL_SIZE: usize = 50;
+const TIMEOUT_MS: u64 = 3000;
 
-#[derive(Clone)]
-struct RpcPool {
-	clients: Arc<Mutex<Vec<RpcClient>>>,
-}
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
 
-impl RpcPool {
-	async fn new(network: &Network<LocalFileSystem>, node: &str) -> Result<Self, anyhow::Error> {
-		let node = network.get_node(node)?;
-		let node_url = node.ws_uri().parse::<url::Url>()?;
+	let network = spawn_network().await?;
 
-		let mut clients = Vec::new();
-		for i in 0..RPC_POOL_SIZE {
-			let rpc_client = create_rpc_client(&node_url).await?;
-			clients.push(rpc_client);
-			debug!("RPC pool: created client {}/{}", i + 1, RPC_POOL_SIZE);
-		}
+	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
 
-		debug!("RPC pool: initialized with {} clients", RPC_POOL_SIZE);
-		Ok(Self { clients: Arc::new(Mutex::new(clients)) })
+	let target_node = "alice";
+	let node = network.get_node(target_node)?;
+	let rpc_client = node.rpc().await?;
+	info!("Created single RPC client for target node: {}", target_node);
+
+	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
+	for i in 0..(PARTICIPANT_SIZE) as usize {
+		participants.push(Participant::new(i as u32, rpc_client.clone()));
 	}
 
-	async fn get_client(&self) -> Result<RpcPoolGuard, anyhow::Error> {
-		loop {
-			let mut clients = self.clients.lock().await;
-			let available_count = clients.len();
+	let handles: Vec<_> = participants
+		.into_iter()
+		.map(|mut p| tokio::spawn(async move { p.run().await }))
+		.collect();
 
-			if let Some(client) = clients.pop() {
-				debug!("RPC pool: borrowed client, {} clients remaining", available_count - 1);
-				return Ok(RpcPoolGuard { client: Some(client), pool: self.clients.clone() });
-			}
-
-			drop(clients);
-			debug!("RPC pool: all {} clients in use, waiting for available client", RPC_POOL_SIZE);
-			tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
-		}
+	let mut all_stats = Vec::new();
+	for handle in handles {
+		let stats = handle.await??;
+		all_stats.push(stats);
 	}
+
+	let aggregated_stats = ParticipantStats::aggregate(all_stats);
+	aggregated_stats.log_summary();
+
+	Ok(())
 }
 
-struct RpcPoolGuard {
-	client: Option<RpcClient>,
-	pool: Arc<Mutex<Vec<RpcClient>>>,
-}
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
 
-impl std::ops::Deref for RpcPoolGuard {
-	type Target = RpcClient;
+	let network = spawn_network().await?;
 
-	fn deref(&self) -> &Self::Target {
-		self.client.as_ref().unwrap()
+	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
+
+	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+	let mut rpc_clients = Vec::new();
+	for &name in &collator_names {
+		let node = network.get_node(name)?;
+		let rpc_client = node.rpc().await?;
+		rpc_clients.push(rpc_client);
 	}
-}
+	info!("Created RPC clients for {} collator nodes", rpc_clients.len());
 
-impl Drop for RpcPoolGuard {
-	fn drop(&mut self) {
-		if let Some(client) = self.client.take() {
-			let pool = self.pool.clone();
-			tokio::spawn(async move {
-				let mut clients = pool.lock().await;
-				if clients.len() < RPC_POOL_SIZE {
-					clients.push(client);
-					debug!("RPC pool: returned client, {} clients available", clients.len());
-				}
-			});
-		}
+	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
+	for i in 0..(PARTICIPANT_SIZE) as usize {
+		let client_idx = i % GROUP_SIZE as usize;
+		participants.push(Participant::new(i as u32, rpc_clients[client_idx].clone()));
 	}
-}
+	info!(
+		"Participants distributed across nodes: {} participants per group of {} nodes",
+		PARTICIPANT_SIZE / GROUP_SIZE,
+		GROUP_SIZE
+	);
 
-async fn create_rpc_client(node_url: &url::Url) -> Result<RpcClient, anyhow::Error> {
-	let (node_sender, node_receiver) =
-		WsTransportClientBuilder::default().build(node_url.clone()).await?;
-	let client = Client::builder()
-		.request_timeout(std::time::Duration::from_secs(3600))
-		.max_buffer_capacity_per_subscription(4096 * 1024)
-		.max_concurrent_requests(2 * 1024 * 1024)
-		.build_with_tokio(node_sender, node_receiver);
-	let rpc_client = RpcClient::new(client);
-	Ok(rpc_client)
-}
+	let handles: Vec<_> = participants
+		.into_iter()
+		.map(|mut participant| tokio::spawn(async move { participant.run().await }))
+		.collect();
 
-#[test]
-fn statement_store() -> Result<(), anyhow::Error> {
-	let rt = tokio::runtime::Builder::new_multi_thread()
-		.worker_threads(num_cpus::get() * 2)
-		.max_blocking_threads(2024)
-		.thread_stack_size(4 * 1024 * 1024)
-		.enable_all()
-		.build()?;
+	let mut all_stats = Vec::new();
+	for handle in handles {
+		let stats = handle.await??;
+		all_stats.push(stats);
+	}
 
-	rt.block_on(async {
-		let _ = env_logger::try_init_from_env(
-			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-		);
+	let aggregated_stats = ParticipantStats::aggregate(all_stats);
+	aggregated_stats.log_summary();
 
-		let network = spawn_network().await?;
-
-		info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
-
-		let collator_name = "charlie";
-		let rpc_pool = RpcPool::new(&network, collator_name).await?;
-		info!("Created RPC pool with {} connections", RPC_POOL_SIZE);
-
-		let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
-		for i in 0..(PARTICIPANT_SIZE) as usize {
-			participants.push(Participant::new(i as u32, rpc_pool.clone()));
-		}
-
-		let handles: Vec<_> = participants
-			.into_iter()
-			.map(|mut participant| {
-				tokio::spawn(async move {
-					// Add staggered start delay to reduce initial network congestion
-					tokio::time::sleep(Duration::from_millis(participant.idx as u64 * 1)).await;
-					participant.run().await
-				})
-			})
-			.collect();
-
-		let mut all_stats = Vec::new();
-		for handle in handles {
-			let stats = handle.await??;
-			all_stats.push(stats);
-		}
-
-		let total_participants = all_stats.len() as u32;
-		let total_sent: u32 = all_stats.iter().map(|s| s.sent_count).sum();
-		let total_received: u32 = all_stats.iter().map(|s| s.received_count).sum();
-		let total_retries: u32 = all_stats.iter().map(|s| s.retry_count).sum();
-
-		let min_time = all_stats.iter().map(|s| s.total_time).min().unwrap_or(Duration::ZERO);
-		let max_time = all_stats.iter().map(|s| s.total_time).max().unwrap_or(Duration::ZERO);
-		let avg_time = Duration::from_secs_f64(
-			all_stats.iter().map(|s| s.total_time.as_secs_f64()).sum::<f64>() /
-				total_participants as f64,
-		);
-
-		let min_sent = all_stats.iter().map(|s| s.sent_count).min().unwrap_or(0);
-		let max_sent = all_stats.iter().map(|s| s.sent_count).max().unwrap_or(0);
-		let avg_sent = total_sent / total_participants;
-
-		let min_received = all_stats.iter().map(|s| s.received_count).min().unwrap_or(0);
-		let max_received = all_stats.iter().map(|s| s.received_count).max().unwrap_or(0);
-		let avg_received = total_received / total_participants;
-
-		let min_retries = all_stats.iter().map(|s| s.retry_count).min().unwrap_or(0);
-		let max_retries = all_stats.iter().map(|s| s.retry_count).max().unwrap_or(0);
-		let avg_retries = total_retries / total_participants;
-
-		info!("Statement store benchmark completed successfully");
-		info!("Participants: {}", total_participants);
-		info!("Messages sent - Min: {}, Max: {}, Avg: {}", min_sent, max_sent, avg_sent);
-		info!(
-			"Messages received - Min: {}, Max: {}, Avg: {}",
-			min_received, max_received, avg_received
-		);
-		info!("Retries - Min: {}, Max: {}, Avg: {}", min_retries, max_retries, avg_retries);
-		info!(
-			"Time - Min: {:.2}s, Max: {:.2}s, Avg: {:.2}s",
-			min_time.as_secs_f64(),
-			max_time.as_secs_f64(),
-			avg_time.as_secs_f64()
-		);
-
-		Ok(())
-	})
+	Ok(())
 }
 
 async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
@@ -266,10 +181,96 @@ struct ParticipantStats {
 	retry_count: u32,
 }
 
+#[derive(Debug)]
+struct AggregatedStats {
+	total_participants: u32,
+	min_time: Duration,
+	max_time: Duration,
+	avg_time: Duration,
+	min_sent: u32,
+	max_sent: u32,
+	avg_sent: u32,
+	min_received: u32,
+	max_received: u32,
+	avg_received: u32,
+	min_retries: u32,
+	max_retries: u32,
+	avg_retries: u32,
+}
+
+impl ParticipantStats {
+	fn aggregate(all_stats: Vec<ParticipantStats>) -> AggregatedStats {
+		let total_participants = all_stats.len() as u32;
+		let total_sent: u32 = all_stats.iter().map(|s| s.sent_count).sum();
+		let total_received: u32 = all_stats.iter().map(|s| s.received_count).sum();
+		let total_retries: u32 = all_stats.iter().map(|s| s.retry_count).sum();
+
+		let min_time = all_stats.iter().map(|s| s.total_time).min().unwrap_or(Duration::ZERO);
+		let max_time = all_stats.iter().map(|s| s.total_time).max().unwrap_or(Duration::ZERO);
+		let avg_time = Duration::from_secs_f64(
+			all_stats.iter().map(|s| s.total_time.as_secs_f64()).sum::<f64>() /
+				total_participants as f64,
+		);
+
+		let min_sent = all_stats.iter().map(|s| s.sent_count).min().unwrap_or(0);
+		let max_sent = all_stats.iter().map(|s| s.sent_count).max().unwrap_or(0);
+		let avg_sent = total_sent / total_participants;
+
+		let min_received = all_stats.iter().map(|s| s.received_count).min().unwrap_or(0);
+		let max_received = all_stats.iter().map(|s| s.received_count).max().unwrap_or(0);
+		let avg_received = total_received / total_participants;
+
+		let min_retries = all_stats.iter().map(|s| s.retry_count).min().unwrap_or(0);
+		let max_retries = all_stats.iter().map(|s| s.retry_count).max().unwrap_or(0);
+		let avg_retries = total_retries / total_participants;
+
+		AggregatedStats {
+			total_participants,
+			min_time,
+			max_time,
+			avg_time,
+			min_sent,
+			max_sent,
+			avg_sent,
+			min_received,
+			max_received,
+			avg_received,
+			min_retries,
+			max_retries,
+			avg_retries,
+		}
+	}
+}
+
+impl AggregatedStats {
+	fn log_summary(&self) {
+		info!("Statement store benchmark completed successfully");
+		info!("Participants: {}", self.total_participants);
+		info!(
+			"Messages sent - Min: {}, Max: {}, Avg: {}",
+			self.min_sent, self.max_sent, self.avg_sent
+		);
+		info!(
+			"Messages received - Min: {}, Max: {}, Avg: {}",
+			self.min_received, self.max_received, self.avg_received
+		);
+		info!(
+			"Retries - Min: {}, Max: {}, Avg: {}",
+			self.min_retries, self.max_retries, self.avg_retries
+		);
+		info!(
+			"Time - Min: {:.2}s, Max: {:.2}s, Avg: {:.2}s",
+			self.min_time.as_secs_f64(),
+			self.max_time.as_secs_f64(),
+			self.avg_time.as_secs_f64()
+		);
+	}
+}
+
 struct Participant {
+	idx: u32,
 	keyring: sr25519::Pair,
 	session_key: sr25519::Pair,
-	idx: u32,
 	group_members: Vec<u32>,
 	session_keys: HashMap<u32, sr25519::Public>,
 	symmetric_keys: HashMap<u32, sr25519::Public>,
@@ -283,7 +284,7 @@ struct Participant {
 	received_count: u32,
 	pending_res: HashMap<u32, Option<u32>>,
 	retry_count: u32,
-	rpc_pool: RpcPool,
+	rpc_client: RpcClient,
 }
 
 impl Participant {
@@ -291,7 +292,7 @@ impl Participant {
 		format!("participant_{}", self.idx)
 	}
 
-	fn new(idx: u32, rpc_pool: RpcPool) -> Self {
+	fn new(idx: u32, rpc_client: RpcClient) -> Self {
 		debug!(target: &format!("participant_{}", idx), "Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
@@ -325,7 +326,7 @@ impl Participant {
 			sent_count: 0,
 			received_count: 0,
 			retry_count: 0,
-			rpc_pool,
+			rpc_client,
 		}
 	}
 
@@ -338,8 +339,10 @@ impl Participant {
 		if self.retry_count % 10 == 0 {
 			debug!(target: &self.log_target(), "[{}] Retry attempt {}", self.idx, self.retry_count);
 		}
-		let delay_ms =
-			std::cmp::min(RETRY_DELAY_MS * (1 << std::cmp::min(self.retry_count / 5, 4)), 5000);
+		let delay_ms = std::cmp::min(
+			RETRY_DELAY_MS * (1 << std::cmp::min(self.retry_count / 5, 4)),
+			TIMEOUT_MS,
+		);
 		tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
 
 		Ok(())
@@ -347,11 +350,6 @@ impl Participant {
 
 	async fn receive_sleep(&mut self) {
 		tokio::time::sleep(tokio::time::Duration::from_millis(RECEIVE_DELAY_MS)).await;
-	}
-
-	async fn send_session_key(&mut self) -> Result<(), anyhow::Error> {
-		let statement = self.public_key_statement();
-		self.statement_submit(statement).await
 	}
 
 	async fn receive_statements_with_retry<T, F, R>(
@@ -370,7 +368,7 @@ impl Participant {
 
 			for item in &pending {
 				match timeout(
-					Duration::from_millis(RECEIVE_DELAY_MS * 3), // Increase timeout 3x
+					Duration::from_millis(TIMEOUT_MS),
 					self.statement_broadcasts_statement(topic_generator(item)),
 				)
 				.await
@@ -386,11 +384,9 @@ impl Participant {
 					},
 					Ok(Ok(statements)) if statements.is_empty() => {
 						debug!(target: &self.log_target(), "[{}] No statements received for item {:?}", self.idx, item);
-						self.receive_sleep().await;
 					},
 					err => {
 						debug!(target: &self.log_target(), "[{}] Cannot receive statements for item {:?}, err: {:?}", self.idx, item, err);
-						self.receive_sleep().await;
 					},
 				}
 			}
@@ -405,6 +401,11 @@ impl Participant {
 		}
 
 		Ok(())
+	}
+
+	async fn send_session_key(&mut self) -> Result<(), anyhow::Error> {
+		let statement = self.public_key_statement();
+		self.statement_submit(statement).await
 	}
 
 	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
@@ -554,8 +555,10 @@ impl Participant {
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
 		let statement_bytes: Bytes = statement.encode().into();
-		let rpc_client = self.rpc_pool.get_client().await?;
-		let _: () = rpc_client.request("statement_submit", rpc_params![statement_bytes]).await?;
+		let _: () = self
+			.rpc_client
+			.request("statement_submit", rpc_params![statement_bytes])
+			.await?;
 
 		self.sent_count += 1;
 		trace!(target: &self.log_target(), "[{}] Submitted statement (counter: {})", self.idx, self.sent_count);
@@ -567,9 +570,10 @@ impl Participant {
 		&mut self,
 		topics: Vec<Topic>,
 	) -> Result<Vec<Statement>, anyhow::Error> {
-		let rpc_client = self.rpc_pool.get_client().await?;
-		let statements: Vec<Bytes> =
-			rpc_client.request("statement_broadcastsStatement", rpc_params![topics]).await?;
+		let statements: Vec<Bytes> = self
+			.rpc_client
+			.request("statement_broadcastsStatement", rpc_params![topics])
+			.await?;
 
 		let mut decoded_statements = Vec::new();
 		for statement_bytes in &statements {
@@ -988,27 +992,30 @@ impl Participant {
 		self.receive_sleep().await;
 		self.receive_symmetric_keys().await?;
 
-		debug!(target: &self.log_target(), "[{}] Symmetric key acknowledgments", self.idx);
+		debug!(target: &self.log_target(), "[{}] Symmetric key acknowledgments exchange", self.idx);
 		self.send_symmetric_key_acknowledgments().await?;
 		self.receive_sleep().await;
 		self.receive_symmetric_key_acknowledgments().await?;
 
 		debug!(target: &self.log_target(), "[{}] Preparation finished", self.idx);
-		for round in 0..MESSAGE_COUNT {
-			debug!(target: &self.log_target(), "[{}] Req/res exchange round {}", self.idx, round + 1);
 
+		for round in 0..MESSAGE_COUNT {
+			debug!(target: &self.log_target(), "[{}] Requests exchange, round {}", self.idx, round + 1);
 			self.send_requests(round).await?;
 			self.receive_sleep().await;
 			self.receive_requests(round).await?;
 
+			debug!(target: &self.log_target(), "[{}] Request acknowledgments exchange, round {}", self.idx, round + 1);
 			self.send_request_acknowledgments().await?;
 			self.receive_sleep().await;
 			self.receive_request_acknowledgments().await?;
 
+			debug!(target: &self.log_target(), "[{}] Responses exchange, round {}", self.idx, round + 1);
 			self.send_responses(round).await?;
 			self.receive_sleep().await;
 			self.receive_responses(round).await?;
 
+			debug!(target: &self.log_target(), "[{}] Response acknowledgments exchange, round {}", self.idx, round + 1);
 			self.send_response_acknowledgments().await?;
 			self.receive_sleep().await;
 			self.receive_response_acknowledgments().await?;
