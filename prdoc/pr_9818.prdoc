@@ -1,0 +1,35 @@
+title: '[pallet-revive] revm refactor'
+doc:
+- audience: Runtime Dev
+  description: "Refactor REVM implementation in `pallet-revive`\n\nThis PR removes\
+    \ technical debt and eliminates tight coupling to specific REVM versions, facilitating\
+    \ integration with other projects (e.g., Foundry). After this refactoring, we\
+    \ primarily depend only on REVM's [`Bytecode`](https://docs.rs/revm/latest/revm/bytecode/struct.Bytecode.html)\
+    \ struct.\n\n## Background\n\nMost of REVM's generic type system and trait abstractions\
+    \ are unused or had to be ignored to prevent bugs. Interactions with the host\
+    \ in pallet-revive are handled through the `Ext` trait, making REVM's other abstractions\
+    \ unnecessary or potentially harmful.\n\nUnused REVM abstractions included:\n\
+    - **Host trait**: Unused in the pallet, we relied on the `DummyHost` default mocked\
+    \ implementation\n- **Gas field**: Unused, the pallet uses its own gas accounting\
+    \ system\n- **Methods from `InputsTr`**: Unused most methods had panic implementations\
+    \ since they couldn't be relied upon\n- **Spec**: Unused: We only maintain the\
+    \ latest fork for each runtime\n\n## Changes\n\nThis refactor introduces:\n- **Interpreter**:\
+    \ Simplified struct containing only the fields actually needed\n- **Stack**: Simplified\
+    \ implementation using `sp_core::U256` instead of `alloy_core::primitives::U256`\
+    \ for better integration with the rest of the pallet\n- **Memory**: Simplified\
+    \ implementation providing only the methods actually needed\n- **Instructions**:\n\
+    \    - New instructions don't rely on macros and have a simplified signature:\
+    \ `Fn(&mut interpreter) -> ControlFlow<Halt>`\n    - Removed function pointer\
+    \ table lookup for instructions in favor of match statements,\n    - Unified gas\
+    \ charging: legacy u64 gas charging is now wrapped in `EVMGas` that implements\
+    \ `Token<T>` to provide the associated weight\n    - Removed the `InterpreterAction`,\
+    \ this simplify the interpreter loop to:\n```rust\nloop {\n\tlet opcode = interpreter.bytecode.opcode();\n\
+    \tinterpreter.bytecode.relative_jump(1);\n\texec_instruction(interpreter, opcode)?;\n\
+    }\n```\n- **Error handling**:  Opcode  that fail will return Halt::Err(DispatchError),\
+    \ this remove the need from converting between InstructionResult and `ExecError`\
+    \ like we were previously doing."
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
