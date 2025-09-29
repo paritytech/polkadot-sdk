@@ -388,8 +388,44 @@ where
 					if a.contract != b.contract {
 						return Err((a, b));
 					}
-					a.amount = a.amount.saturating_add(&b.amount);
-					Ok(a)
+					// both Charge or both refund: can be added together
+					if matches!(a.amount, Deposit::Charge(_)) == matches!(b.amount, Deposit::Charge(_)) {
+						a.amount = a.amount.saturating_add(&b.amount);
+						return Ok(a);
+					}
+					if matches!(a.amount, Deposit::Charge(_)) == matches!(b.amount, Deposit::Refund(_)) {
+						let diff = a.amount.saturating_add(&b.amount);
+						if diff.is_zero() {
+							// they cancel out
+							log::info!("meter.rs try_into_deposit() cancel out: {a:?}, {b:?}");
+							// TODO: how to handle this?
+							// - set both to zero?
+							// - set Charge to zero and cancel Refund?
+							// - set Refund to zero and cancel Charge?
+							return Ok(Charge {
+								contract: a.contract,
+								amount: Deposit::Charge(Zero::zero()),
+								state: a.state,
+							});
+						}
+					} else if matches!(a.amount, Deposit::Refund(_)) == matches!(b.amount, Deposit::Charge(_)) {
+						let diff = a.amount.saturating_add(&b.amount);
+						if diff.is_zero() {
+							// they cancel out
+							log::info!("meter.rs try_into_deposit() cancel out: {a:?}, {b:?}");
+							// TODO: how to handle this?
+							// - set both to zero?
+							// - set Charge to zero and cancel Refund?
+							// - set Refund to zero and cancel Charge?
+							return Ok(Charge {
+								contract: a.contract,
+								amount: Deposit::Charge(Zero::zero()),
+								state: a.state,
+							});
+						}
+					}
+
+					Err((a, b))
 				})
 				.collect();
 			log::info!("meter.rs coalesced: {:#?}", coalesced);
@@ -488,8 +524,13 @@ impl<T: Config> Ext<T> for ReservingExt {
 		amount: &DepositOf<T>,
 		state: &ContractState<T>,
 	) -> Result<(), DispatchError> {
+				log::info!("meter.rs charge() amount: {amount:?}, state: {state:?}");
 		match amount {
-			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => return Ok(()),
+			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => {
+				// We cannot return here because need to handle the terminated state below.
+				log::info!("meter.rs charge() ZERO amount, skip");
+				// return Ok(())
+			},
 			Deposit::Charge(amount) => {
 				log::info!("meter.rs charge() CHARGE amount: {:?}", amount);
 				T::Currency::transfer_and_hold(
@@ -532,6 +573,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 			},
 		}
 		if let ContractState::<T>::Terminated { beneficiary } = state {
+			log::info!("meter.rs charge() TERMINATE, transfer {:?} to beneficiary: {:?}", T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite), beneficiary);
 			System::<T>::dec_consumers(&contract);
 			// Whatever is left in the contract is sent to the termination beneficiary.
 			T::Currency::transfer(

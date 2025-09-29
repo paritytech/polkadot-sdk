@@ -286,6 +286,7 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges the gas meter with the given weight.
 	fn charge(&mut self, weight: Weight) -> Result<crate::gas::ChargedAmount, DispatchError> {
+		log::info!("meter.rs charge() amount: {weight:?}");
 		self.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))
 	}
 
