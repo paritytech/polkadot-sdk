@@ -432,9 +432,13 @@ impl Client {
 	) -> Result<H256, ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
 		if self.get_automine().await? {
-			let hash = ext.submit().await?;
 			// Related to https://github.com/paritytech/hardhat-polkadot/issues/334
-			tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+			let x = ext.submit_and_watch().await?;
+			let hash = x.extrinsic_hash();
+			x.wait_for_finalized_success().await?;
+			return Ok(hash);
+
+			let hash = ext.submit().await?;
 			return Ok(hash);
 		} else {
 			let _ = ext.submit_and_watch().await?;
@@ -826,7 +830,7 @@ impl Client {
 		}
 
 		// Small delay only for the final block to ensure it's available for immediate latest() calls
-		tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+		tokio::time::sleep(std::time::Duration::from_millis(80)).await;
 
 		Ok(latest_block.unwrap())
 	}
