@@ -84,6 +84,7 @@ pub use pallet::*;
 
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{
+	ensure,
 	rewards::RewardsPool,
 	traits::{
 		fungibles::{Inspect, Mutate},
@@ -92,13 +93,12 @@ use frame_support::{
 		Consideration,
 	},
 	PalletId,
-	ensure,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{MaybeDisplay, Zero, BadOrigin, EnsureAdd},
+	traits::{BadOrigin, EnsureAdd, MaybeDisplay, Zero},
 	DispatchError, DispatchResult,
 };
 use sp_std::boxed::Box;
@@ -175,8 +175,8 @@ sp_api::decl_runtime_apis! {
 pub mod pallet {
 	use super::*;
 	use frame_support::{
-		rewards::RewardsPool,
 		pallet_prelude::*,
+		rewards::RewardsPool,
 		traits::{
 			fungibles::MutateFreeze,
 			tokens::{AssetId, Fortitude, Preservation},

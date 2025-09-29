@@ -22,37 +22,33 @@ use sp_runtime::{DispatchError, DispatchResult};
 
 /// A trait for managing a rewards pool.
 pub trait RewardsPool<AccountId, PoolId, Balance> {
-    type AssetId;
-    type BlockNumber;
+	type AssetId;
+	type BlockNumber;
 
-    /// Create a new reward pool.
-    fn create_pool(
-        creator: &AccountId,
-        staked_asset_id: Self::AssetId,
-        reward_asset_id: Self::AssetId,
-        reward_rate_per_block: Balance,
-        expiry: DispatchTime<Self::BlockNumber>,
-        admin: Option<AccountId>,
-    ) -> Result<PoolId, DispatchError>;
+	/// Create a new reward pool.
+	fn create_pool(
+		creator: &AccountId,
+		staked_asset_id: Self::AssetId,
+		reward_asset_id: Self::AssetId,
+		reward_rate_per_block: Balance,
+		expiry: DispatchTime<Self::BlockNumber>,
+		admin: Option<AccountId>,
+	) -> Result<PoolId, DispatchError>;
 
-    /// Modify a pool reward rate.
-    fn set_pool_reward_rate_per_block(
-        admin: &AccountId,
-        pool_id: PoolId,
-        new_reward_rate_per_block: Balance,
-    ) -> DispatchResult;
+	/// Modify a pool reward rate.
+	fn set_pool_reward_rate_per_block(
+		admin: &AccountId,
+		pool_id: PoolId,
+		new_reward_rate_per_block: Balance,
+	) -> DispatchResult;
 
-    /// Modify a pool admin.
-    fn set_pool_admin(
-        admin: &AccountId,
-        pool_id: PoolId,
-        new_admin: AccountId,
-    ) -> DispatchResult;
+	/// Modify a pool admin.
+	fn set_pool_admin(admin: &AccountId, pool_id: PoolId, new_admin: AccountId) -> DispatchResult;
 
-    /// Set when the pool should expire.
-    fn set_pool_expiry_block(
-        admin: &AccountId,
-        pool_id: PoolId,
-        new_expiry: DispatchTime<Self::BlockNumber>,
-    ) -> DispatchResult;
+	/// Set when the pool should expire.
+	fn set_pool_expiry_block(
+		admin: &AccountId,
+		pool_id: PoolId,
+		new_expiry: DispatchTime<Self::BlockNumber>,
+	) -> DispatchResult;
 }

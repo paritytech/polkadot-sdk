@@ -89,13 +89,13 @@ pub mod inherent;
 pub mod instances;
 mod macros;
 pub mod migrations;
+pub mod rewards;
 pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod traits;
 pub mod view_functions;
 pub mod weights;
-pub mod rewards;
 #[doc(hidden)]
 pub mod unsigned {
 	#[doc(hidden)]
