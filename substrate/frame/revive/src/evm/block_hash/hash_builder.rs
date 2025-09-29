@@ -488,114 +488,56 @@ mod tests {
 	}
 
 	#[test]
-	fn test_stats_100k_small_items() {
-		println!("\n=== Testing Hash Builder with 10k Small Items ===");
+	fn test_stats_item_count_and_sizes() {
+		for (item_count, item_size) in [
+			// 100k items of 1kB each
+			(100 * 1024, 1024),
+			// 1024 items of 1MB each
+			(1024, 1024 * 1024),
+			// 5 items of 512 each
+			(5, 512),
+		] {
+			println!("\n=== Testing Hash Builder with {item_count} items ===");
 
-		let mut builder = IncrementalHashBuilder::new();
-		builder.enable_stats();
+			let mut builder = IncrementalHashBuilder::new();
+			builder.enable_stats();
 
-		let initial_stats = builder.get_stats().unwrap();
-		println!("Initial size: {} bytes", initial_stats.hb_current_size);
+			let initial_stats = builder.get_stats().unwrap();
+			println!("Initial size: {} bytes", initial_stats.hb_current_size);
 
-		// Add 100k items of 1024 bytes each
-		let item_count = 100 * 1024;
-		let item_size = 1024;
-		let test_data = vec![42u8; item_size];
+			let test_data = vec![42u8; item_size];
 
-		println!("Adding {} items of {} bytes each...", item_count, item_size);
+			println!(
+				"Adding {} items of {} bytes ({:.2} KB) each...",
+				item_count,
+				item_size,
+				item_size as f64 / 1024.0
+			);
 
-		builder.set_first_value(test_data.clone());
-		for _ in 0..(item_count - 1) {
-			builder.add_value(test_data.clone());
+			builder.set_first_value(test_data.clone());
+			for _ in 0..(item_count - 1) {
+				builder.add_value(test_data.clone());
+			}
+			let final_stats = builder.get_stats().unwrap().clone();
+			println!("\nFinal Stats - {item_count} Items of {item_size} bytes each:");
+			println!("{}", final_stats);
+
+			let builder_ir = builder.to_ir();
+			let ir_size = builder_ir.calculate_size();
+			println!("  Builder IR size: {ir_size} bytes ({} KB)", ir_size as f64 / 1024.0);
+
+			// Verify expected values
+			let expected_data_size = if item_count > 128 {
+				item_count * item_size
+			} else {
+				// items_count - 1, because the first value is not taken into account (index < 128)
+				(item_count - 1) * item_size
+			};
+			assert_eq!(final_stats.total_data_size, expected_data_size);
+			assert!(final_stats.hb_current_size < final_stats.total_data_size);
 		}
-
-		let final_stats = builder.get_stats().unwrap().clone();
-		println!("\nFinal Stats - 10k Small Items:");
-		println!("{}", final_stats);
-
-		let builder_ir = builder.to_ir();
-		let ir_size = builder_ir.calculate_size();
-		println!("  Builder IR size: {ir_size} bytes ({} KB)", ir_size as f64 / 1024.0);
-
-		// Verify expected values
-		assert_eq!(final_stats.total_data_size, item_count * item_size);
-		assert!(final_stats.hb_current_size < final_stats.total_data_size);
 	}
 
-	#[test]
-	fn test_stats_1k_large_items() {
-		println!("\n=== Testing Hash Builder with 100 Large Items ===");
-
-		let mut builder = IncrementalHashBuilder::new();
-		builder.enable_stats();
-
-		let initial_stats = builder.get_stats().unwrap();
-		println!("Initial size: {} bytes", initial_stats.hb_current_size);
-
-		// Add 1024 items of 1MB each
-		let item_count = 1024;
-		let item_size = 1024 * 1024; // 1MB
-		let test_data = vec![42u8; item_size];
-
-		println!(
-			"Adding {} items of {} bytes ({:.2} KB) each...",
-			item_count,
-			item_size,
-			item_size as f64 / 1024.0
-		);
-
-		builder.set_first_value(test_data.clone());
-		for _ in 0..(item_count - 1) {
-			builder.add_value(test_data.clone());
-		}
-		let final_stats = builder.get_stats().unwrap().clone();
-		println!("\nFinal Stats - 1024 Large Items:");
-		println!("{}", final_stats);
-
-		let builder_ir = builder.to_ir();
-		let ir_size = builder_ir.calculate_size();
-		println!("  Builder IR size: {ir_size} bytes ({} KB)", ir_size as f64 / 1024.0);
-
-		// Verify expected values
-		assert_eq!(final_stats.total_data_size, item_count * item_size);
-		assert!(final_stats.hb_current_size < final_stats.total_data_size);
-	}
-
-	#[test]
-	fn test_stats_5_small_items() {
-		println!("\n=== Testing Hash Builder with 5 Small Items ===");
-
-		let mut builder = IncrementalHashBuilder::new();
-		builder.enable_stats();
-
-		let initial_stats = builder.get_stats().unwrap();
-		println!("Initial size: {} bytes", initial_stats.hb_current_size);
-
-		// Add 5 items of 512 bytes each
-		let item_count = 5;
-		let item_size = 512;
-		let test_data = vec![42u8; item_size];
-
-		println!("Adding {} items of {} bytes each...", item_count, item_size);
-
-		builder.set_first_value(test_data.clone());
-		for _ in 0..(item_count - 1) {
-			builder.add_value(test_data.clone());
-		}
-
-		let final_stats = builder.get_stats().unwrap().clone();
-		println!("\nFinal Stats - 5 small Items:");
-		println!("{}", final_stats);
-
-		let builder_ir = builder.to_ir();
-		let ir_size = builder_ir.calculate_size();
-		println!("  Builder IR size: {ir_size} bytes ({} KB)", ir_size as f64 / 1024.0);
-
-		// Verify expected values
-		// items_count - 1, because the first value is not taken into account (index < 128)
-		assert_eq!(final_stats.total_data_size, (item_count - 1) * item_size);
-		assert!(final_stats.hb_current_size < final_stats.total_data_size);
-	}
 	#[test]
 	fn test_ir_size_calculation() {
 		println!("\n=== Testing IncrementalHashBuilderIR Size Calculation ===");
