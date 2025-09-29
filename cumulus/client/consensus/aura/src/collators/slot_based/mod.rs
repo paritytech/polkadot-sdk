@@ -93,6 +93,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
+mod aux_schema;
 mod block_builder_task;
 mod block_import;
 mod collation_task;

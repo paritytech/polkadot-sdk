@@ -55,7 +55,10 @@ use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member, Zero};
-use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
+use sp_trie::{
+	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
+	recorder::IgnoredNodes,
+};
 use std::{
 	collections::VecDeque,
 	sync::Arc,
@@ -517,7 +520,7 @@ where
 
 		// The authoring duration is either the block time returned by the runtime or the 90% of the
 		// rest of the slot time for the block. We take here 90% because we still need to create the
-		// inherents and need to import the block afterwards.
+		// inherents and need to import the block afterward.
 		let authoring_duration = block_time.min(slot_time_for_block);
 
 		let (parachain_inherent_data, other_inherent_data) = match collator
@@ -538,8 +541,11 @@ where
 
 		let storage_proof_recorder =
 			ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
+
+		let proof_size_recorder = RecordingProofSizeProvider::new(storage_proof_recorder.clone());
+
 		let mut extra_extensions = Extensions::default();
-		extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
+		extra_extensions.register(ProofSizeExt::new(proof_size_recorder.clone()));
 
 		let Ok(Some((built_block, import_block))) = collator
 			.build_block(BuildBlockAndImportParams {
