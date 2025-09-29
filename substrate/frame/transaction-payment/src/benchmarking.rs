@@ -74,18 +74,12 @@ mod benchmarks {
 
 		#[block]
 		{
-			assert!(
-				ext.test_run(
-					RawOrigin::Signed(caller.clone()).into(),
-					&call,
-					&info,
-					10,
-					0,
-					|_| Ok(post_info)
-				)
+			assert!(ext
+				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 10, 0, |_| Ok(
+					post_info
+				))
 				.unwrap()
-				.is_ok()
-			);
+				.is_ok());
 		}
 
 		post_info.actual_weight.as_mut().map(|w| w.saturating_accrue(extension_weight));
