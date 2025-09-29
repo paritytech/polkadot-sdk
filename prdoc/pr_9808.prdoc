@@ -1,7 +1,7 @@
-title: Add Barrier Benchmark for Accurate XCM Weight Accounting in Early Rejections
+title: Benchmark Barrier for Accurate Weighting on Early Rejection
 doc:
 - audience: Runtime Dev
-  description: This PR improves weight accounting for barrier rejections.
+  description: This PR improves the weight accounting for XCMs that are rejected early by `Barrier`.
 crates:
 - name: asset-hub-rococo-runtime
   bump: patch
