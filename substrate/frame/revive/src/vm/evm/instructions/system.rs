@@ -121,7 +121,7 @@ pub fn calldataload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 	if offset < input_len {
 		let count = 32.min(input_len - offset);
 		// SAFETY: `count` is bounded by the calldata length.
-		unsafe { ptr::copy_nonoverlapping(input.as_ptr().add(offset), word.as_mut_ptr(), count) };
+		word[..count].copy_from_slice(&input[offset..offset + count]);
 	}
 	*offset_ptr = U256::from_big_endian(&word);
 	ControlFlow::Continue(())
