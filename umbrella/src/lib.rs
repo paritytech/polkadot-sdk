@@ -579,6 +579,14 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// FRAME oracle pallet for off-chain data.
+#[cfg(feature = "pallet-oracle")]
+pub use pallet_oracle;
+
+/// Runtime API for the oracle pallet.
+#[cfg(feature = "pallet-oracle-runtime-api")]
+pub use pallet_oracle_runtime_api;
+
 /// Pallet to give some execution allowance for some origins.
 #[cfg(feature = "pallet-origin-restriction")]
 pub use pallet_origin_restriction;
