@@ -131,8 +131,8 @@ pub(crate) async fn run_iteration<Context>(
         match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
             FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
             FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
-                if let Some(actived) = update.activated {
-                    view.per_relay.insert(actived.hash, PerRelayView::new(vec![]));
+                if let Some(activated) = update.activated {
+                    view.per_relay.insert(activated.hash, PerRelayView::new(vec![]));
                 }
             },
             FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},

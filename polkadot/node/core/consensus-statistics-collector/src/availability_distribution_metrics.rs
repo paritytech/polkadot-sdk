@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::Entry;
 use std::ops::Add;
 use gum::CandidateHash;
 use polkadot_primitives::{SessionIndex, ValidatorIndex};
@@ -17,16 +18,16 @@ impl AvailabilityDownloads {
 
     pub fn note_candidate_chunk_downloaded(
         &mut self,
-        hash: CandidateHash,
+        candidate_hash: CandidateHash,
         validator_index: ValidatorIndex,
         count: u64,
     ) {
-        self.chunks_per_candidate
-            .entry(hash)
+        let _ = self.chunks_per_candidate
+            .entry(candidate_hash)
             .or_default()
             .entry(validator_index)
-            .or_default()
-            .add(count);
+            .and_modify(|v| *v += count)
+            .or_insert(count);
     }
 }
 

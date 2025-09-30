@@ -1,6 +1,8 @@
 use super::*;
 use overseer::FromOrchestra;
+use polkadot_primitives::{SessionIndex};
 use polkadot_node_subsystem::messages::{ConsensusStatisticsCollectorMessage};
+
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ConsensusStatisticsCollectorMessage>;
 use polkadot_node_subsystem::{ActivatedLeaf};
@@ -230,14 +232,47 @@ fn candidate_approval_stats_with_no_shows() {
 	assert_votes(&view, rb_hash, candidate_hash.clone(), expected_validators);
 }
 
-fn assert_bak_votes_for(view: &View, rb_hash: Hash, candidate_hash: CandidateHash, expected_votes: Vec<ValidatorIndex>) {
-	let stats_for = view.per_relay.get(&rb_hash).unwrap();
-	let approvals_for = stats_for.approvals_stats.get(&candidate_hash).unwrap();
-	let collected_votes= approvals_for
-		.clone()
-		.votes
-		.into_iter()
-		.collect::<Vec<ValidatorIndex>>();
+#[test]
+fn note_chunks_downloaded() {
+	let candidate_hash = CandidateHash(Hash::from_low_u64_be(132));
+	let session_idx: SessionIndex = 2 ;
+	let chunk_downloads = vec![
+		(ValidatorIndex(0), 10u64),
+		(ValidatorIndex(1), 2),
+	];
 
-	assert_eq!(expected_votes, collected_votes);
+	let view = test_harness(|mut virtual_overseer| async move {
+		virtual_overseer.send(FromOrchestra::Communication {
+			msg: ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+				session_idx, candidate_hash.clone(), HashMap::from_iter(chunk_downloads.clone().into_iter()),
+			),
+		}).await;
+
+		// should increment only validator 0
+		let second_round_of_downloads = vec![
+			(ValidatorIndex(0), 5u64)
+		];
+		virtual_overseer.send(FromOrchestra::Communication {
+			msg: ConsensusStatisticsCollectorMessage::ChunksDownloaded(
+				session_idx, candidate_hash.clone(), HashMap::from_iter(second_round_of_downloads.into_iter()),
+			),
+		}).await;
+
+		virtual_overseer
+	});
+
+	assert_eq!(view.chunks_downloaded.chunks_per_candidate.len(), 1);
+	let amt_per_validator = view.chunks_downloaded.chunks_per_candidate
+		.get(&candidate_hash)
+		.unwrap();
+
+	let expected = vec![
+		(ValidatorIndex(0), 15u64),
+		(ValidatorIndex(1), 2),
+	];
+
+	for (vidx, expected_count) in expected {
+		let count = amt_per_validator.get(&vidx).unwrap();
+		assert_eq!(*count, expected_count);
+	}
 }
