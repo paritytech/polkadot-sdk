@@ -206,6 +206,41 @@ fn codesize_works(fixture_type: FixtureType) {
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
 #[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn returndatasize_works(caller_type: FixtureType, callee_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// Instantiate the callee contract, which can echo a value.
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let magic_number = 42u64;
+		let result = builder::bare_call(addr)
+			.data(
+				SystemFixture::returndatasizeCall {
+					_callee: callee_addr.0.into(),
+					_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		let decoded = SystemFixture::returndatasizeCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(decoded, 32);
+	});
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
 fn returndatacopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 	let (code, _) = compile_module_with_type("System", caller_type).unwrap();
 	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
