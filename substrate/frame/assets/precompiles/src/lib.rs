@@ -15,12 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{weights::WeightInfo, Call, Config, PhantomData, TransferFlags};
+// Ensure we're `no_std` when compiling for Wasm.
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 use ethereum_standards::{
 	IERC20,
 	IERC20::{IERC20Calls, IERC20Events},
 };
+use pallet_assets::{weights::WeightInfo, Call, Config, TransferFlags};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -29,6 +35,11 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
+
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
@@ -174,7 +185,7 @@ where
 		);
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-		crate::Pallet::<Runtime, Instance>::do_transfer(
+		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
 			&dest,
@@ -203,7 +214,8 @@ where
 		use frame_support::traits::fungibles::Inspect;
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::total_issuance())?;
 
-		let value = Self::to_u256(crate::Pallet::<Runtime, Instance>::total_issuance(asset_id))?;
+		let value =
+			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::total_issuance(asset_id))?;
 		return Ok(IERC20::totalSupplyCall::abi_encode_returns(&value));
 	}
 
@@ -216,7 +228,8 @@ where
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::balance())?;
 		let account = call.account.into_array().into();
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
-		let value = Self::to_u256(crate::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
+		let value =
+			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
 		return Ok(IERC20::balanceOfCall::abi_encode_returns(&value));
 	}
 
@@ -233,7 +246,7 @@ where
 
 		let spender = call.spender.into_array().into();
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
-		let value = Self::to_u256(crate::Pallet::<Runtime, Instance>::allowance(
+		let value = Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::allowance(
 			asset_id, &owner, &spender,
 		))?;
 
@@ -251,7 +264,7 @@ where
 		let spender = call.spender.into_array().into();
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
-		crate::Pallet::<Runtime, Instance>::do_approve_transfer(
+		pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner),
 			&spender,
@@ -286,7 +299,7 @@ where
 		let to = call.to.into_array().into();
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
-		crate::Pallet::<Runtime, Instance>::do_transfer_approved(
+		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
 			&from,
 			&spender,
@@ -304,251 +317,5 @@ where
 		)?;
 
 		return Ok(IERC20::transferFromCall::abi_encode_returns(&true));
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-	use crate::{
-		mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
-		precompiles::alloy::hex,
-	};
-	use alloy::primitives::U256;
-	use frame_support::{assert_ok, traits::Currency};
-	use pallet_revive::DepositLimit;
-	use sp_core::H160;
-	use sp_runtime::Weight;
-
-	fn assert_contract_event(contract: H160, event: IERC20Events) {
-		let (topics, data) = event.into_log_data().split();
-		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-		System::assert_has_event(RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
-			contract,
-			data: data.to_vec(),
-			topics,
-		}));
-	}
-
-	#[test]
-	fn asset_id_extractor_works() {
-		let address: [u8; 20] =
-			hex::const_decode_to_array(b"0000053900000000000000000000000001200000").unwrap();
-		assert!(InlineIdConfig::<0x0120>::MATCHER.matches(&address));
-		assert_eq!(
-			<InlineIdConfig<0x0120> as AssetPrecompileConfig>::AssetIdExtractor::asset_id_from_address(
-				&address
-			)
-			.unwrap(),
-			1337u32
-		);
-	}
-
-	#[test]
-	fn precompile_transfer_works() {
-		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = H160::from(
-				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap(),
-			);
-
-			let from = 123456789;
-			let to = 987654321;
-
-			Balances::make_free_balance_be(&from, 100);
-			Balances::make_free_balance_be(&to, 100);
-
-			let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
-			let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
-			assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
-
-			let data =
-				IERC20::transferCall { to: to_addr.0.into(), value: U256::from(10) }.abi_encode();
-
-			pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(from),
-				H160::from(asset_addr),
-				0u32.into(),
-				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
-				data,
-			);
-
-			assert_contract_event(
-				asset_addr,
-				IERC20Events::Transfer(IERC20::Transfer {
-					from: from_addr.0.into(),
-					to: to_addr.0.into(),
-					value: U256::from(10),
-				}),
-			);
-
-			assert_eq!(Assets::balance(asset_id, from), 90);
-			assert_eq!(Assets::balance(asset_id, to), 10);
-		});
-	}
-
-	#[test]
-	fn total_supply_works() {
-		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr =
-				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
-
-			let owner = 123456789;
-
-			Balances::make_free_balance_be(&owner, 100);
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-			assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
-
-			let data = IERC20::totalSupplyCall {}.abi_encode();
-
-			let data = pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(owner),
-				H160::from(asset_addr),
-				0u32.into(),
-				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
-				data,
-			)
-			.result
-			.unwrap()
-			.data;
-
-			let ret = IERC20::totalSupplyCall::abi_decode_returns(&data).unwrap();
-			assert_eq!(ret, U256::from(1000));
-		});
-	}
-
-	#[test]
-	fn balance_of_works() {
-		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr =
-				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
-
-			let owner = 123456789;
-
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-			assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
-
-			let account =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into();
-			let data = IERC20::balanceOfCall { account }.abi_encode();
-
-			let data = pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(owner),
-				H160::from(asset_addr),
-				0u32.into(),
-				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
-				data,
-			)
-			.result
-			.unwrap()
-			.data;
-
-			let ret = IERC20::balanceOfCall::abi_decode_returns(&data).unwrap();
-			assert_eq!(ret, U256::from(1000));
-		});
-	}
-
-	#[test]
-	fn approval_works() {
-		use frame_support::traits::fungibles::approvals::Inspect;
-
-		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = H160::from(
-				hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap(),
-			);
-
-			let owner = 123456789;
-			let spender = 987654321;
-			let other = 1122334455;
-
-			Balances::make_free_balance_be(&owner, 100);
-			Balances::make_free_balance_be(&spender, 100);
-			Balances::make_free_balance_be(&other, 100);
-
-			let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
-			let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
-			let other_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&other);
-
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-			assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
-
-			let data =
-				IERC20::approveCall { spender: spender_addr.0.into(), value: U256::from(25) }
-					.abi_encode();
-
-			pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(owner),
-				H160::from(asset_addr),
-				0u32.into(),
-				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
-				data,
-			);
-
-			assert_contract_event(
-				asset_addr,
-				IERC20Events::Approval(IERC20::Approval {
-					owner: owner_addr.0.into(),
-					spender: spender_addr.0.into(),
-					value: U256::from(25),
-				}),
-			);
-
-			let data = IERC20::allowanceCall {
-				owner: owner_addr.0.into(),
-				spender: spender_addr.0.into(),
-			}
-			.abi_encode();
-
-			let data = pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(owner),
-				H160::from(asset_addr),
-				0u32.into(),
-				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
-				data,
-			)
-			.result
-			.unwrap()
-			.data;
-
-			let ret = IERC20::allowanceCall::abi_decode_returns(&data).unwrap();
-			assert_eq!(ret, U256::from(25));
-
-			let data = IERC20::transferFromCall {
-				from: owner_addr.0.into(),
-				to: other_addr.0.into(),
-				value: U256::from(10),
-			}
-			.abi_encode();
-
-			pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(spender),
-				H160::from(asset_addr),
-				0u32.into(),
-				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
-				data,
-			);
-			assert_eq!(Assets::balance(asset_id, owner), 90);
-			assert_eq!(Assets::allowance(asset_id, &owner, &spender), 15);
-			assert_eq!(Assets::balance(asset_id, other), 10);
-
-			assert_contract_event(
-				asset_addr,
-				IERC20Events::Transfer(IERC20::Transfer {
-					from: owner_addr.0.into(),
-					to: other_addr.0.into(),
-					value: U256::from(10),
-				}),
-			);
-		});
 	}
 }
