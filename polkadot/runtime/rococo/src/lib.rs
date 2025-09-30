@@ -1231,6 +1231,7 @@ parameter_types! {
 }
 
 impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type MaxPublishItems = MaxPublishItems;
 	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;

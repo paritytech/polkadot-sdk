@@ -62,6 +62,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// Maximum number of items that can be published in one operation
 		#[pallet::constant]
 		type MaxPublishItems: Get<u32>;
@@ -77,6 +80,17 @@ pub mod pallet {
 		/// Maximum number of publishers a subscriber can subscribe to
 		#[pallet::constant]
 		type MaxSubscriptions: Get<u32>;
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Data published by a parachain.
+		DataPublished { publisher: ParaId, items_count: u32 },
+		/// Parachain subscribed to a publisher.
+		Subscribed { subscriber: ParaId, publisher: ParaId },
+		/// Parachain unsubscribed from a publisher.
+		Unsubscribed { subscriber: ParaId, publisher: ParaId },
 	}
 
 	/// Tracks which parachains have published data.
@@ -160,12 +174,7 @@ pub mod pallet {
 			origin_para_id: ParaId,
 			data: Vec<(Vec<u8>, Vec<u8>)>,
 		) -> DispatchResult {
-			log::info!(
-				target: "broadcaster::publish",
-				"📡 Publishing data from parachain {:?}: {} items",
-				origin_para_id,
-				data.len()
-			);
+			let items_count = data.len() as u32;
 
 			// Validate input limits first before making any changes
 			ensure!(
@@ -193,15 +202,6 @@ pub mod pallet {
 
 			// Store each key-value pair in the child trie and track the key
 			for (key, value) in data {
-				log::debug!(
-					target: "broadcaster::publish",
-					"📝 Storing key {:?} ({}B) -> value ({}B) for parachain {:?}",
-					key,
-					key.len(),
-					value.len(),
-					origin_para_id
-				);
-
 				frame_support::storage::child::put(&child_info, &key, &value);
 
 				// Track the key for enumeration (convert to BoundedVec)
@@ -241,13 +241,7 @@ pub mod pallet {
 
 			PublishedDataRoots::<T>::put(roots);
 
-			log::info!(
-				target: "broadcaster::publish",
-				"✅ Successfully published data for parachain {:?}, total keys: {}, root: {:?}",
-				origin_para_id,
-				PublishedKeys::<T>::get(origin_para_id).len(),
-				child_root
-			);
+			Self::deposit_event(Event::DataPublished { publisher: origin_para_id, items_count });
 
 			Ok(())
 		}
@@ -295,57 +289,28 @@ pub mod pallet {
 
 		/// Get all published data for a parachain.
 		pub fn get_all_published_data(para_id: ParaId) -> Vec<(Vec<u8>, Vec<u8>)> {
-			log::debug!(
-				target: "broadcaster::query",
-				"🔍 get_all_published_data() called for parachain {:?}",
-				para_id
-			);
-
 			if !PublisherExists::<T>::get(para_id) {
-				log::debug!(
-					target: "broadcaster::query",
-					"❌ Parachain {:?} has no published data",
-					para_id
-				);
 				return Vec::new();
 			}
 
 			let child_info = Self::derive_child_info(para_id);
 			let published_keys = PublishedKeys::<T>::get(para_id);
 
-			let data: Vec<(Vec<u8>, Vec<u8>)> = published_keys
+			published_keys
 				.into_iter()
 				.filter_map(|bounded_key| {
 					let key: Vec<u8> = bounded_key.into();
 					frame_support::storage::child::get(&child_info, &key)
 						.map(|value| (key, value))
 				})
-				.collect();
-
-			log::debug!(
-				target: "broadcaster::query",
-				"📦 Returning {} data items for parachain {:?}",
-				data.len(),
-				para_id
-			);
-
-			data
+				.collect()
 		}
 
 		/// Get list of all parachains that have published data.
 		pub fn get_all_publishers() -> Vec<ParaId> {
-			let publishers: Vec<ParaId> = PublisherExists::<T>::iter()
+			PublisherExists::<T>::iter()
 				.filter_map(|(para_id, exists)| if exists { Some(para_id) } else { None })
-				.collect();
-
-			log::debug!(
-				target: "broadcaster::query",
-				"🔍 get_all_publishers() returning {} publishers: {:?}",
-				publishers.len(),
-				publishers
-			);
-
-			publishers
+				.collect()
 		}
 
 		/// Toggle subscription: subscribe if not subscribed, unsubscribe if subscribed.
@@ -353,37 +318,21 @@ pub mod pallet {
 			subscriber: ParaId,
 			publisher: ParaId,
 		) -> DispatchResult {
-			log::info!(
-				target: "broadcaster::subscribe",
-				"🔄 Toggle subscription for parachain {:?} to publisher {:?}",
-				subscriber,
-				publisher
-			);
-
 			let mut subscriptions = Subscriptions::<T>::get(subscriber);
 
 			// Check if already subscribed
 			if let Some(pos) = subscriptions.iter().position(|&p| p == publisher) {
 				// Already subscribed -> unsubscribe
 				subscriptions.swap_remove(pos);
-				log::debug!(
-					target: "broadcaster::subscribe",
-					"❌ Unsubscribed: {:?} from {:?}",
-					subscriber,
-					publisher
-				);
+				Subscriptions::<T>::insert(subscriber, subscriptions);
+				Self::deposit_event(Event::Unsubscribed { subscriber, publisher });
 			} else {
 				// Not subscribed -> subscribe
 				subscriptions.try_push(publisher).map_err(|_| Error::<T>::TooManySubscriptions)?;
-				log::debug!(
-					target: "broadcaster::subscribe",
-					"✅ Subscribed: {:?} to {:?}",
-					subscriber,
-					publisher
-				);
+				Subscriptions::<T>::insert(subscriber, subscriptions);
+				Self::deposit_event(Event::Subscribed { subscriber, publisher });
 			}
 
-			Subscriptions::<T>::insert(subscriber, subscriptions);
 			Ok(())
 		}
 
@@ -401,48 +350,15 @@ pub mod pallet {
 		/// Returns a map of Publisher ParaId -> published data.
 		/// Only includes publishers that have actual data and are subscribed to.
 		pub fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
-			log::debug!(
-				target: "broadcaster::query",
-				"🔍 get_subscribed_data() called for subscriber {:?}",
-				subscriber_para_id
-			);
-
 			let subscriptions = Self::get_subscriptions(subscriber_para_id);
 			let mut result = BTreeMap::new();
-
-			log::debug!(
-				target: "broadcaster::query",
-				"📋 Subscriber {:?} has {} subscriptions: {:?}",
-				subscriber_para_id,
-				subscriptions.len(),
-				subscriptions
-			);
 
 			for publisher in subscriptions {
 				let data = Self::get_all_published_data(publisher);
 				if !data.is_empty() {
-					log::debug!(
-						target: "broadcaster::query",
-						"📦 Including {} data items from publisher {:?}",
-						data.len(),
-						publisher
-					);
 					result.insert(publisher, data);
-				} else {
-					log::debug!(
-						target: "broadcaster::query",
-						"🕳️ No data found for subscribed publisher {:?}",
-						publisher
-					);
 				}
 			}
-
-			log::debug!(
-				target: "broadcaster::query",
-				"✅ Returning subscribed data from {} publishers for subscriber {:?}",
-				result.len(),
-				subscriber_para_id
-			);
 
 			result
 		}
