@@ -987,7 +987,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 }
 
 #[test]
-fn cannot_self_destruct_while_live() {
+fn can_self_destruct_while_live() {
 	let (binary, _code_hash) = compile_module("self_destruct").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1000,20 +1000,18 @@ fn cannot_self_destruct_while_live() {
 		// Check that the BOB contract has been instantiated.
 		get_contract(&addr);
 
-		// Call BOB with input data, forcing it make a recursive call to itself to
-		// self-destruct, resulting in a trap.
-		assert_err_ignore_postinfo!(
-			builder::call(addr).data(vec![0]).build(),
-			Error::<Test>::ContractTrapped,
-		);
+		// Call BOB with input that forces it to recurse and self-destruct.
+		// New behavior: termination while on the stack is allowed, so expect success.
+		assert_ok!(builder::call(addr).data(vec![0]).build());
 
-		// Check that BOB is still there.
-		get_contract(&addr);
+		// Contract should be removed.
+		assert!(get_contract_checked(&addr).is_none(), "contract should have been destroyed");
 	});
 }
 
 #[test]
 fn self_destruct_works() {
+	use frame_support::traits::OnFinalize;
 	let (binary, code_hash) = compile_module("self_destruct").unwrap();
 	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1034,10 +1032,19 @@ fn self_destruct_works() {
 		let _ = get_contract(&contract.addr);
 
 		// Drop all previous events
+		// System::on_finalize(System::block_number());
+		// Contracts::on_finalize(System::block_number());
+		// Contracts::on_idle(System::block_number(), Weight::MAX);
 		initialize_block(2);
 
 		// Call BOB without input data which triggers termination.
 		assert_matches!(builder::call(contract.addr).build(), Ok(_));
+
+		// Drop all previous events
+		// System::on_finalize(System::block_number());
+		// Contracts::on_finalize(System::block_number());
+		// Contracts::on_idle(System::block_number(), Weight::MAX);
+		// initialize_block(System::block_number()+1);
 
 		// Check that the code is gone
 		assert!(PristineCode::<Test>::get(&code_hash).is_none());
@@ -1242,6 +1249,7 @@ fn destroy_contract_and_transfer_funds() {
 		let addr_charlie = create2(&addr_bob, &callee_binary, &[], &salt);
 		get_contract(&addr_charlie);
 
+		println!("calling bob addr...");
 		// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
 		assert_ok!(builder::call(addr_bob).data(addr_charlie.encode()).build());
 

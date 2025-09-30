@@ -203,8 +203,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// Transfer all funds to `beneficiary`.
 	/// Contract is deleted only if it was created in the same call stack.
 	///
-	/// This function will fail if the same contract is present on the contract
-	/// call stack.
+	/// This function will fail if called from constructor.
 	fn terminate(
 		&mut self,
 		beneficiary: &H160,
@@ -450,13 +449,13 @@ pub trait PrecompileExt: sealing::Sealed {
 	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 
-	/// Register the contract for destruction at the end of the call stack.
+	/// Register the caller of the current contract for destruction at the end of the call stack.
+	/// This is supposed to be used by the selfdestruct precompile.
 	///
 	/// Transfer all funds to `beneficiary`.
 	/// Contract is deleted only if it was created in the same call stack.
 	///
-	/// This function will fail if the same contract is present on the contract
-	/// call stack.
+	/// This function will fail if called from constructor.
 	fn terminate_caller(
 		&mut self,
 		beneficiary: &H160,
@@ -560,7 +559,7 @@ pub struct Stack<'a, T: Config, E> {
 	_phantom: PhantomData<E>,
 	/// The set of contracts that were created during this call stack.
 	contracts_created: BTreeSet<T::AccountId>,
-	/// The set of contracts that are to be destroyed at the end of this call stack.
+	/// The set of contracts that are registered for destruction at the end of this call stack.
 	/// The tuple contains: (address of contract, contract info, address of beneficiary)
 	contracts_to_be_destroyed: BTreeSet<(H160, ContractInfo<T>, H160)>,
 }
@@ -1386,7 +1385,7 @@ where
 
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
-		self.pop_frame(success);
+		self.pop_frame(success)?;
 		output.map(|output| {
 			self.top_frame_mut().last_frame_output = output;
 		})
@@ -1396,7 +1395,7 @@ where
 	///
 	/// This is called after running the current frame. It commits cached values to storage
 	/// and invalidates all stale references to it that might exist further down the call stack.
-	fn pop_frame(&mut self, persist: bool) {
+	fn pop_frame(&mut self, persist: bool) -> Result<(), ExecError> {
 		// Pop the current frame from the stack and return it in case it needs to interact
 		// with duplicates that might exist on the stack.
 		// A `None` means that we are returning from the `first_frame`.
@@ -1412,7 +1411,7 @@ where
 
 			// Only gas counter changes are persisted in case of a failure.
 			if !persist {
-				return;
+				return Ok(());
 			}
 
 			// Record the storage meter changes of the nested call into the parent meter.
@@ -1431,7 +1430,7 @@ where
 				// trigger a rollback.
 				if prev.account_id == *account_id {
 					prev.cached_contract_info = CachedContract::Cached(contract);
-					return;
+					return Ok(());
 				}
 
 				// Predecessor is a different contract: We persist the info and invalidate the first
@@ -1448,36 +1447,34 @@ where
 				}
 			}
 		} else {
-			{
-				self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
-				if !persist {
-					return;
-				}
-				let mut contract = self.first_frame.cached_contract_info.as_contract();
-				self.storage_meter.absorb(
-					mem::take(&mut self.first_frame.nested_storage),
-					&self.first_frame.account_id,
-					contract.as_deref_mut(),
-				);
+			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
+			if !persist {
+				return Ok(());
+			}
+			let mut contract = self.first_frame.cached_contract_info.as_contract();
+			self.storage_meter.absorb(
+				mem::take(&mut self.first_frame.nested_storage),
+				&self.first_frame.account_id,
+				contract.as_deref_mut(),
+			);
 
-				if let Some(contract) = contract {
-					AccountInfo::<T>::insert_contract(
-						&T::AddressMapper::to_address(&self.first_frame.account_id),
-						contract.clone(),
-					);
-				}
+			if let Some(contract) = contract {
+				AccountInfo::<T>::insert_contract(
+					&T::AddressMapper::to_address(&self.first_frame.account_id),
+					contract.clone(),
+				);
 			}
 			{
 				// iterate contracts_to_be_destroyed and destroy each contract
 				let contracts_to_destroy: Vec<(H160, ContractInfo<T>, H160)> =
 					self.contracts_to_be_destroyed.iter().cloned().collect();
 				for (contract_address, contract_info, beneficiary) in contracts_to_destroy {
-					let _code_removed = self
-						.destroy_contract(&contract_address, &contract_info, &beneficiary)
-						.unwrap(); //TODO: handle error properly
+					let _code_removed =
+						self.destroy_contract(&contract_address, &contract_info, &beneficiary)?;
 				}
 			}
 		}
+		Ok(())
 	}
 
 	/// Transfer some funds from `from` to `to`.
@@ -1707,16 +1704,7 @@ where
 			let mut info = Some(contract_info.clone());
 			self.storage_meter
 				.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
-
-			// Clean up on-chain storage
-			contract_info.queue_trie_for_deletion();
-			AccountInfoOf::<T>::remove(contract_address);
-			ImmutableDataOf::<T>::remove(contract_address);
-
-			// Decrement code refcount
-			let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-			log::info!("exec.rs destroy_contract removed??");
-			Ok(removed)
+			Ok(CodeRemoved::Yes)
 		} else {
 			log::info!("exec.rs destroy_contract NOT removed??");
 			Ok(CodeRemoved::No)
@@ -1773,9 +1761,6 @@ where
 		beneficiary: &H160,
 		allow_from_outside_tx: bool,
 	) -> Result<CodeRemoved, DispatchError> {
-		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into());
-		}
 		let contract_address = {
 			let frame = self.top_frame_mut();
 			if frame.entry_point == ExportedFunction::Constructor {
@@ -1790,8 +1775,6 @@ where
 		}
 
 		{
-			// let contract_info = self.top_frame_mut().terminate();
-
 			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
 				.ok_or(Error::<T>::ContractNotFound)?;
 			self.contracts_to_be_destroyed.insert((
@@ -2292,6 +2275,12 @@ where
 		beneficiary: &H160,
 		caller_address: &H160,
 	) -> Result<CodeRemoved, DispatchError> {
+		{
+			let frame = self.top_frame_mut();
+			if frame.entry_point == ExportedFunction::Constructor {
+				return Err(Error::<T>::TerminatedInConstructor.into());
+			}
+		}
 		let contract_info =
 			AccountInfo::<T>::load_contract(caller_address).ok_or(Error::<T>::ContractNotFound)?;
 		self.contracts_to_be_destroyed.insert((

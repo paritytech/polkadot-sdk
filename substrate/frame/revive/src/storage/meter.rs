@@ -18,7 +18,8 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, HoldReason, Inspect, Origin,
+	address::AddressMapper, storage::ContractInfo, AccountIdOf, AccountInfo, AccountInfoOf,
+	BalanceOf, CodeInfo, Config, Error, HoldReason, ImmutableDataOf, Inspect, Origin,
 	StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
@@ -413,6 +414,8 @@ where
 			try_charge().map_err(|_: DispatchError| <Error<T>>::StorageDepositNotEnoughFunds)?;
 		}
 
+		log::info!("meter.rs try_into_deposit DONE");
+
 		Ok(self.total_deposit)
 	}
 
@@ -498,11 +501,20 @@ impl<T: Config> Ext<T> for ReservingExt {
 		state: &ContractState<T>,
 	) -> Result<(), DispatchError> {
 		log::info!("meter.rs charge() amount: {amount:?}, state: {state:?}");
+
+		if let ContractState::<T>::Terminated { beneficiary } = state {
+			// Clean up on-chain storage
+			let contract_address = T::AddressMapper::to_address(contract);
+			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
+				.ok_or(Error::<T>::ContractNotFound)?;
+			contract_info.queue_trie_for_deletion();
+			AccountInfoOf::<T>::remove(contract_address);
+			ImmutableDataOf::<T>::remove(contract_address);
+			let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+		}
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => {
 				// We cannot return here because need to handle the terminated state below.
-				log::info!("meter.rs charge() ZERO amount, skip");
-				// return Ok(())
 			},
 			Deposit::Charge(amount) => {
 				log::info!("meter.rs charge() CHARGE amount: {:?}", amount);
@@ -515,6 +527,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				)?;
+				log::info!("meter.rs charge() CHARGE done");
 			},
 			Deposit::Refund(amount) => {
 				log::info!("meter.rs charge() REFUND amount: {:?}", amount);
@@ -546,11 +559,6 @@ impl<T: Config> Ext<T> for ReservingExt {
 			},
 		}
 		if let ContractState::<T>::Terminated { beneficiary } = state {
-			log::info!(
-				"meter.rs charge() TERMINATE, transfer {:?} to beneficiary: {:?}",
-				T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite),
-				beneficiary
-			);
 			System::<T>::dec_consumers(&contract);
 			// Whatever is left in the contract is sent to the termination beneficiary.
 			T::Currency::transfer(
@@ -560,6 +568,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 				Preservation::Expendable,
 			)?;
 		}
+		log::info!("meter.rs charge() DONE");
 		Ok(())
 	}
 }
