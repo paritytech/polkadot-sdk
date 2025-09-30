@@ -25,6 +25,7 @@
 //! |-------------|-------------------------|
 //! | undefined   | No profiling            |
 //! | `"jitdump"` | jitdump profiling       |
+//! | `"perfmap"` | perfmap profiling       |
 //! | other value | No profiling (warning)  |
 
 mod host;
