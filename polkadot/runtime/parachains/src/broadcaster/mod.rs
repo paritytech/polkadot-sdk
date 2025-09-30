@@ -256,9 +256,10 @@ pub mod pallet {
 
 		/// Get or create child trie info for a publisher.
 		fn get_or_create_publisher_child_info(para_id: ParaId) -> ChildInfo {
-			let child_info = Self::derive_child_info(para_id);
-			PublisherExists::<T>::insert(para_id, true);
-			child_info
+			if !PublisherExists::<T>::contains_key(para_id) {
+				PublisherExists::<T>::insert(para_id, true);
+			}
+			Self::derive_child_info(para_id)
 		}
 
 		/// Derive a deterministic child trie identifier from parachain ID.
