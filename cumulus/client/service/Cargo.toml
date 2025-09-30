@@ -35,9 +35,9 @@ sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-primitives = { workspace = true, default-features = true }
