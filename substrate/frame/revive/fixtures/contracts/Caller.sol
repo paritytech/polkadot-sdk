@@ -9,20 +9,17 @@ contract ChildRevert {
 }
 
 contract Caller {
-    function normal(
-        address _callee,
-        uint64 _value,
-        bytes memory _data,
-        uint64 _gas
-    ) external returns (bool success, bytes memory output) {
+    function normal(address _callee, uint64 _value, bytes memory _data, uint64 _gas)
+        external
+        returns (bool success, bytes memory output)
+    {
         (success, output) = _callee.call{value: _value, gas: _gas}(_data);
     }
 
-    function delegate(
-        address _callee,
-        bytes memory _data,
-        uint64 _gas
-    ) external returns (bool success, bytes memory output) {
+    function delegate(address _callee, bytes memory _data, uint64 _gas)
+        external
+        returns (bool success, bytes memory output)
+    {
         (success, output) = _callee.delegatecall{gas: _gas}(_data);
     }
 
@@ -35,21 +32,18 @@ contract Caller {
         (success, output) = _callee.staticcall{gas: _gas}(_data);
     }
 
-    function create(
-        bytes memory initcode
-    ) external payable returns (address addr) {
+    function create(bytes memory initcode) external payable returns (address addr) {
         assembly {
             // CREATE with no value
             addr := create(0, add(initcode, 0x20), mload(initcode))
             if iszero(addr) {
                 // bubble failure
-				let returnDataSize := returndatasize()
-				returndatacopy(0, 0, returnDataSize)
+                let returnDataSize := returndatasize()
+                returndatacopy(0, 0, returnDataSize)
                 revert(0, returnDataSize)
             }
         }
     }
-
 
     function createRevert() external returns (address addr) {
         try new ChildRevert() returns (ChildRevert c) {
@@ -59,17 +53,14 @@ contract Caller {
         }
     }
 
-    function create2(
-        bytes memory initcode,
-        bytes32 salt
-    ) external payable returns (address addr) {
+    function create2(bytes memory initcode, bytes32 salt) external payable returns (address addr) {
         assembly {
             // CREATE2 with no value
             addr := create2(0, add(initcode, 0x20), mload(initcode), salt)
             if iszero(addr) {
                 // bubble failure
-				let returnDataSize := returndatasize()
-				returndatacopy(0, 0, returnDataSize)
+                let returnDataSize := returndatasize()
+                returndatacopy(0, 0, returnDataSize)
                 revert(0, returnDataSize)
             }
         }

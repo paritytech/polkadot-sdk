@@ -21,15 +21,15 @@ contract Callee {
         return 42; // never reached
     }
 
-	function invalid() public pure {
-		assembly {
-			invalid()
-		}
-	}
+    function invalid() public pure {
+        assembly {
+            invalid()
+        }
+    }
 
-	function stop() public pure {
-		assembly {
-			stop()
-		}
-	}
+    function stop() public pure {
+        assembly {
+            stop()
+        }
+    }
 }

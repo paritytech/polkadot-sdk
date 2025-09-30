@@ -31,11 +31,7 @@ contract System {
         return uint64(msg.data.length);
     }
 
-    function calldatacopy(
-        uint64 destOffset,
-        uint64 offset,
-        uint64 size
-    ) public pure returns (bytes memory) {
+    function calldatacopy(uint64 destOffset, uint64 offset, uint64 size) public pure returns (bytes memory) {
         bytes memory data = new bytes(size);
         assembly {
             calldatacopy(add(data, 0x20), offset, size)
@@ -51,20 +47,12 @@ contract System {
         return uint64(size);
     }
 
-    function codecopy(
-        uint64 /* destOffset */,
-        uint64 /* offset */,
-        uint64 size
-    ) public pure returns (bytes memory) {
+    function codecopy(uint64, /* destOffset */ uint64, /* offset */ uint64 size) public pure returns (bytes memory) {
         bytes memory code = new bytes(size);
         return code;
     }
 
-    function returndatasize(
-        address _callee,
-        bytes memory _data,
-        uint64 _gas
-    ) public returns (uint64) {
+    function returndatasize(address _callee, bytes memory _data, uint64 _gas) public returns (uint64) {
         uint256 size;
         _callee.staticcall{gas: _gas}(_data);
         assembly {

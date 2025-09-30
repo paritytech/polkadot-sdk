@@ -35,11 +35,7 @@ contract Memory {
         assembly {
             result := mload(0)
         }
-        require(
-            result ==
-                0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe,
-            "Memory test failed"
-        );
+        require(result == 0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe, "Memory test failed");
 
         assembly {
             result := msize()
@@ -58,12 +54,7 @@ contract Memory {
         return uint64(value);
     }
 
-    function testMcopy(
-        uint64 dstOffset,
-        uint64 offset,
-        uint64 size,
-        uint64 value
-    ) public returns (uint64) {
+    function testMcopy(uint64 dstOffset, uint64 offset, uint64 size, uint64 value) public returns (uint64) {
         assembly {
             mstore(dstOffset, 0)
         }
