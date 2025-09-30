@@ -32,3 +32,9 @@ tokio = { features = ["time"], workspace = true, default-features = true }
 [dev-dependencies]
 sp-tracing = { workspace = true }
 tempfile = { workspace = true }
+criterion = { workspace = true, default-features = true }
+
+[[bench]]
+name = "statement_store"
+harness = false
+required-features = []
