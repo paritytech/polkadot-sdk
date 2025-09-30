@@ -20,7 +20,7 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
-	vm::evm::{BASE_FEE, DIFFICULTY},
+	vm::evm::DIFFICULTY,
 	Code, Config,
 };
 
