@@ -16,20 +16,20 @@ contract Callee {
         stored = _data;
     }
 
-    function revert() public pure returns (uint256) {
+    function revert() public pure returns (uint64) {
         require(false, "This is a revert");
         return 42; // never reached
     }
 
-    function invalid() public pure returns (uint256 result) {
-        assembly {
-            invalid() // 0xFE opcode
-        }
-    }
+	function invalid() public pure {
+		assembly {
+			invalid()
+		}
+	}
 
-    function stop() public pure returns (uint256 result) {
-        assembly {
-            stop()
-        }
-    }
+	function stop() public pure {
+		assembly {
+			stop()
+		}
+	}
 }

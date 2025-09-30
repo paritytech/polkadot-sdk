@@ -369,7 +369,8 @@ fn delegatecall_works(caller_type: FixtureType, callee_type: FixtureType) {
 
 		let result = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
 		assert!(result.success, "the whoSender call must succeed");
-		assert_eq!(ALICE_ADDR, H160::from_slice(&result.output.as_ref()[12..]));
+		let decoded = Callee::whoSenderCall::abi_decode_returns(&result.output).unwrap();
+		assert_eq!(ALICE_ADDR, H160::from_slice(decoded.as_slice()));
 	});
 }
 

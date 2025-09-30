@@ -19,12 +19,9 @@ use crate::{
 	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config, Error, ExecReturnValue, LOG_TARGET, U256,
+	Code, Config, Error, ExecReturnValue, LOG_TARGET,
 };
-use alloy_core::{
-	primitives,
-	sol_types::{SolCall, SolInterface},
-};
+use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Memory};
 use pallet_revive_uapi::ReturnFlags;
@@ -44,16 +41,14 @@ fn memory_limit_works() {
 			(
 				"Writing 1 byte from 0 to the limit - 1 should work.",
 				Memory::expandMemoryCall {
-					memorySize: primitives::U256::from(
-						crate::limits::code::BASELINE_MEMORY_LIMIT - 1,
-					),
+					memorySize: (crate::limits::code::BASELINE_MEMORY_LIMIT - 1) as u64,
 				},
 				Ok(ExecReturnValue { data: vec![0u8; 32], flags: ReturnFlags::empty() }),
 			),
 			(
 				"Writing 1 byte from the limit should revert.",
 				Memory::expandMemoryCall {
-					memorySize: primitives::U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
+					memorySize: crate::limits::code::BASELINE_MEMORY_LIMIT as u64,
 				},
 				Err(Error::<Test>::OutOfGas.into()),
 			),
@@ -103,20 +98,11 @@ fn msize_works(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-			.data(
-				Memory::MemoryCalls::testMsize(Memory::testMsizeCall {
-					offset: primitives::U256::from(512),
-				})
-				.abi_encode(),
-			)
+			.data(Memory::MemoryCalls::testMsize(Memory::testMsizeCall { offset }).abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "test reverted");
-		assert_eq!(
-			U256::from_big_endian(&result.data),
-			U256::from(offset + 32),
-			"memory test should return {}",
-			offset + 32
-		);
+		let decoded = Memory::testMsizeCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(offset + 32, decoded, "memory test should return {}", offset + 32);
 	});
 }
 
@@ -125,7 +111,7 @@ fn msize_works(fixture_type: FixtureType) {
 fn mcopy_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
-	let expected_value = U256::from(0xBE);
+	let expected_value = 0xBE;
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -135,19 +121,16 @@ fn mcopy_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(
 				Memory::MemoryCalls::testMcopy(Memory::testMcopyCall {
-					dstOffset: primitives::U256::from(512),
-					offset: primitives::U256::from(0),
-					size: primitives::U256::from(32),
-					value: primitives::U256::from_be_bytes(expected_value.to_big_endian()),
+					dstOffset: 512,
+					offset: 0,
+					size: 32,
+					value: expected_value,
 				})
 				.abi_encode(),
 			)
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "test reverted");
-		assert_eq!(
-			U256::from_big_endian(&result.data),
-			expected_value,
-			"memory test should return {expected_value}"
-		);
+		let decoded = Memory::testMcopyCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(expected_value, decoded, "memory test should return {expected_value}");
 	});
 }

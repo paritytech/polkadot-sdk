@@ -66,11 +66,8 @@ fn block_author_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::coinbase(BlockInfo::coinbaseCall {}).abi_encode())
 			.build_and_unwrap_result();
-		assert_eq!(
-			Contracts::block_author().unwrap(),
-			// Padding is used into the 32 bytes
-			H160::from_slice(&result.data[12..])
-		);
+		let decoded = BlockInfo::coinbaseCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(Contracts::block_author().unwrap(), H160::from_slice(decoded.as_slice()));
 	});
 }
 
@@ -88,10 +85,7 @@ fn chainid_works(fixture_type: FixtureType) {
 			.data(BlockInfo::BlockInfoCalls::chainid(BlockInfo::chainidCall {}).abi_encode())
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::chainidCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(
-			<Test as Config>::ChainId::get() as u64,
-			decoded
-		);
+		assert_eq!(<Test as Config>::ChainId::get() as u64, decoded);
 	});
 }
 

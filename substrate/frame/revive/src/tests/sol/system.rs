@@ -22,7 +22,7 @@ use crate::{
 	tests::{builder, Contracts, ExtBuilder, Test},
 	Code, Config, U256,
 };
-use alloy_core::{primitives, sol_types::SolCall};
+use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
 	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
@@ -66,8 +66,8 @@ fn address_works(fixture_type: FixtureType) {
 			.data(SystemFixture::addressFuncCall {}.abi_encode())
 			.build_and_unwrap_result();
 
-		let returned_addr: H160 = H160::from_slice(&result.data[12..]);
-		assert_eq!(addr, returned_addr);
+		let decoded = SystemFixture::addressFuncCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(addr, H160::from_slice(decoded.as_slice()));
 	});
 }
 
@@ -84,8 +84,8 @@ fn caller_works(fixture_type: FixtureType) {
 			.data(SystemFixture::callerCall {}.abi_encode())
 			.build_and_unwrap_result();
 
-		let returned_caller = H160::from_slice(&result.data[12..]);
-		assert_eq!(ALICE_ADDR, returned_caller);
+		let decoded = SystemFixture::callerCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(ALICE_ADDR, H160::from_slice(decoded.as_slice()));
 	});
 }
 
@@ -105,8 +105,8 @@ fn callvalue_works(fixture_type: FixtureType) {
 			.data(SystemFixture::callvalueCall {}.abi_encode())
 			.build_and_unwrap_result();
 
-		let returned_val = U256::from_big_endian(&result.data);
-		assert_eq!(U256::from(value), returned_val);
+		let decoded = SystemFixture::callvalueCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(value, decoded);
 	});
 }
 
@@ -120,15 +120,12 @@ fn calldataload_works(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr)
-				.data(
-						SystemFixture::calldataloadCall { offset: primitives::U256::from(4u32) } /* skip selector */
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
+			.data(SystemFixture::calldataloadCall { offset: 4u64 }.abi_encode())
+			.build_and_unwrap_result();
 
 		// Call calldataload(offset=4) → returns the argument "4"
-		let returned = U256::from_big_endian(result.data.as_slice().try_into().unwrap());
-		assert_eq!(U256::from(4u32), returned);
+		let decoded = SystemFixture::calldataloadCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(U256::from(4u32), U256::from_big_endian(decoded.as_slice()));
 	});
 }
 
@@ -147,8 +144,8 @@ fn calldatasize_works(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 
 		// ABI encodes: 4 (selector) + 0 (no args) = 4
-		let returned = U256::from_big_endian(result.data.as_slice().try_into().unwrap());
-		assert_eq!(returned, U256::from(4u32));
+		let decoded = SystemFixture::calldatasizeCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(4u64, decoded);
 	});
 }
 
@@ -162,9 +159,9 @@ fn calldatacopy_works(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let call_data = SystemFixture::calldatacopyCall {
-			destOffset: primitives::U256::from(0u32), // unused
-			offset: primitives::U256::from(4u32),     // skip selector
-			size: primitives::U256::from(64u32),      // copy destOffset + offset
+			destOffset: 0u64, // unused
+			offset: 4u64,     // skip selector
+			size: 64u64,      // copy destOffset + offset
 		}
 		.abi_encode();
 
@@ -198,10 +195,10 @@ fn codesize_works(fixture_type: FixtureType) {
 		// Now fetch the actual *runtime* code size from storage
 		let code = Contracts::code(&addr);
 
-		let returned_size = U256::from_big_endian(result.data.as_slice().try_into().unwrap());
-		let expected_size = U256::from(code.len());
+		let decoded = SystemFixture::codesizeCall::abi_decode_returns(&result.data).unwrap();
+		let expected_size = code.len() as u64;
 
-		assert_eq!(expected_size, returned_size);
+		assert_eq!(expected_size, decoded);
 	});
 }
 
@@ -227,21 +224,18 @@ fn returndatacopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 			.data(
 				SystemFixture::returndatacopyCall {
 					_callee: callee_addr.0.into(),
-					_data: Callee::echoCall {
-						_data: 42u64,
-					}
-					.abi_encode()
-					.into(),
+					_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
 					_gas: u64::MAX,
-					destOffset: primitives::U256::ZERO,
-					offset: primitives::U256::ZERO,
-					size: primitives::U256::from(32u32),
+					destOffset: 0u64,
+					offset: 0u64,
+					size: 32u64,
 				}
 				.abi_encode(),
 			)
 			.build_and_unwrap_result();
 
-		let result = SystemFixture::returndatacopyCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(magic_number, U256::from_big_endian(result.as_ref().try_into().unwrap()))
+		let decoded = SystemFixture::returndatacopyCall::abi_decode_returns(&result.data).unwrap();
+		let decoded_value = U256::from_big_endian(decoded.as_ref());
+		assert_eq!(magic_number, decoded_value)
 	});
 }

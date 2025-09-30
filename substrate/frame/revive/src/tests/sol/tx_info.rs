@@ -21,10 +21,10 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config, U256,
+	Code, Config,
 };
 
-use alloy_core::sol_types::SolInterface;
+use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, TransactionInfo};
 use pretty_assertions::assert_eq;
@@ -47,7 +47,8 @@ fn gasprice_works(fixture_type: FixtureType) {
 					.abi_encode(),
 			)
 			.build_and_unwrap_result();
-		assert_eq!(U256::from(GAS_PRICE), U256::from_big_endian(&result.data));
+		let decoded = TransactionInfo::gaspriceCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(GAS_PRICE as u64, decoded);
 	});
 }
 
@@ -67,10 +68,7 @@ fn origin_works(fixture_type: FixtureType) {
 					.abi_encode(),
 			)
 			.build_and_unwrap_result();
-		assert_eq!(
-			ALICE_ADDR,
-			// Padding is used into the 32 bytes
-			H160::from_slice(&result.data[12..])
-		);
+		let decoded = TransactionInfo::originCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(ALICE_ADDR, H160::from_slice(decoded.as_slice()));
 	});
 }

@@ -15,11 +15,11 @@ contract System {
         return msg.sender;
     }
 
-    function callvalue() public payable returns (uint256) {
-        return msg.value;
+    function callvalue() public payable returns (uint64) {
+        return uint64(msg.value);
     }
 
-    function calldataload(uint256 offset) public pure returns (bytes32) {
+    function calldataload(uint64 offset) public pure returns (bytes32) {
         bytes32 data;
         assembly {
             data := calldataload(offset)
@@ -27,14 +27,14 @@ contract System {
         return data;
     }
 
-    function calldatasize() public pure returns (uint256) {
-        return msg.data.length;
+    function calldatasize() public pure returns (uint64) {
+        return uint64(msg.data.length);
     }
 
     function calldatacopy(
-        uint256 destOffset,
-        uint256 offset,
-        uint256 size
+        uint64 destOffset,
+        uint64 offset,
+        uint64 size
     ) public pure returns (bytes memory) {
         bytes memory data = new bytes(size);
         assembly {
@@ -43,18 +43,18 @@ contract System {
         return data;
     }
 
-    function codesize() public pure returns (uint256) {
+    function codesize() public pure returns (uint64) {
         uint256 size;
         assembly {
             size := codesize()
         }
-        return size;
+        return uint64(size);
     }
 
     function codecopy(
-        uint256 /* destOffset */,
-        uint256 /* offset */,
-        uint256 size
+        uint64 /* destOffset */,
+        uint64 /* offset */,
+        uint64 size
     ) public pure returns (bytes memory) {
         bytes memory code = new bytes(size);
         return code;
@@ -64,22 +64,22 @@ contract System {
         address _callee,
         bytes memory _data,
         uint64 _gas
-    ) public returns (uint256) {
+    ) public returns (uint64) {
         uint256 size;
         _callee.staticcall{gas: _gas}(_data);
         assembly {
             size := returndatasize()
         }
-        return size;
+        return uint64(size);
     }
 
     function returndatacopy(
         address _callee,
         bytes memory _data,
         uint64 _gas,
-        uint256 destOffset,
-        uint256 offset,
-        uint256 size
+        uint64 destOffset,
+        uint64 offset,
+        uint64 size
     ) public returns (bytes memory) {
         bytes memory data = new bytes(size);
         _callee.staticcall{gas: _gas}(_data);
@@ -89,7 +89,7 @@ contract System {
         return data;
     }
 
-    function gas() public view returns (uint256) {
-        return gasleft();
+    function gas() public view returns (uint64) {
+        return uint64(gasleft());
     }
 }
