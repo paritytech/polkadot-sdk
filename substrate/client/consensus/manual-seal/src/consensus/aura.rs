@@ -23,7 +23,6 @@ use crate::{ConsensusDataProvider, Error};
 use sc_client_api::{AuxStore, UsageProvider};
 use sc_consensus::BlockImportParams;
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::{
 	digests::CompatibleDigestItem,
 	sr25519::{AuthorityId, AuthoritySignature},
@@ -48,7 +47,8 @@ where
 {
 	/// Creates a new instance of the [`AuraConsensusDataProvider`], requires that `client`
 	/// implements [`sp_consensus_aura::AuraApi`]
-	pub fn new<C>(client: Arc<C>) -> Self where
+	pub fn new<C>(client: Arc<C>) -> Self
+	where
 		C: AuxStore + ProvideRuntimeApi<B> + UsageProvider<B>,
 		C::Api: AuraApi<B, AuthorityId>,
 	{
@@ -59,8 +59,7 @@ where
 	}
 
 	/// Creates a new instance of the [`AuraConsensusDataProvider`]
-	pub fn new_with_slot_duration(slot_duration: SlotDuration) -> Self
-	{
+	pub fn new_with_slot_duration(slot_duration: SlotDuration) -> Self {
 		Self { slot_duration, _phantom: PhantomData }
 	}
 }

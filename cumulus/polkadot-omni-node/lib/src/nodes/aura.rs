@@ -18,7 +18,7 @@ use crate::{
 	cli::AuthoringPolicy,
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
-		rpc::BuildParachainRpcExtensions,
+		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
 			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
 			NodeSpec, StartConsensus,
@@ -30,6 +30,7 @@ use crate::{
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
+use codec::Encode;
 use cumulus_client_collator::service::{
 	CollatorService, ServiceInterface as CollatorServiceInterface,
 };
@@ -46,29 +47,36 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
+use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
-use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
+use cumulus_primitives_aura::AuraUnincludedSegmentApi;
+use cumulus_primitives_core::{
+	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
+};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use futures::prelude::*;
-use polkadot_primitives::CollatorPair;
+use futures::{prelude::*, FutureExt};
+use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
-use sc_client_api::BlockchainEvents;
+use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, DefaultImportQueue,
+	BlockImportParams, DefaultImportQueue, LongestChain,
 };
-use sc_service::{Configuration, Error, TaskManager};
+use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
+use sc_network::{config::FullNetworkConfiguration, NetworkBackend};
+use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
-use sp_api::ProvideRuntimeApi;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_core::traits::SpawnNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	app_crypto::AppCrypto,
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -204,6 +212,211 @@ where
 	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
+
+	fn start_manual(
+		mut config: Configuration,
+		block_time: u64,
+	) -> sc_service::error::Result<TaskManager> {
+		let PartialComponents {
+			client,
+			backend,
+			mut task_manager,
+			import_queue,
+			keystore_container,
+			select_chain: _,
+			transaction_pool,
+			other: (_, mut telemetry, _, _),
+		} = Self::new_partial(&config)?;
+		let select_chain = LongestChain::new(backend.clone());
+
+		let para_id =
+			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
+
+		// Since this is a dev node, prevent it from connecting to peers.
+		config.network.default_peers_set.in_peers = 0;
+		config.network.default_peers_set.out_peers = 0;
+		let net_config = FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
+			&config.network,
+			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+		);
+		let metrics = <sc_network::Litep2pNetworkBackend as NetworkBackend<
+			Block,
+			<Block as sp_runtime::traits::Block>::Hash,
+		>>::register_notification_metrics(
+			config.prometheus_config.as_ref().map(|cfg| &cfg.registry)
+		);
+
+		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+			sc_service::build_network(sc_service::BuildNetworkParams {
+				config: &config,
+				client: client.clone(),
+				transaction_pool: transaction_pool.clone(),
+				spawn_handle: task_manager.spawn_handle(),
+				import_queue,
+				net_config,
+				block_announce_validator_builder: None,
+				warp_sync_config: None,
+				block_relay: None,
+				metrics,
+			})?;
+
+		if config.offchain_worker.enabled {
+			let offchain_workers =
+				sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+					runtime_api_provider: client.clone(),
+					keystore: Some(keystore_container.keystore()),
+					offchain_db: backend.offchain_storage(),
+					transaction_pool: Some(OffchainTransactionPoolFactory::new(
+						transaction_pool.clone(),
+					)),
+					network_provider: Arc::new(network.clone()),
+					is_validator: config.role.is_authority(),
+					enable_http_requests: true,
+					custom_extensions: move |_| vec![],
+				})?;
+			task_manager.spawn_handle().spawn(
+				"offchain-workers-runner",
+				"offchain-work",
+				offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+			);
+		}
+
+		let proposer = sc_basic_authorship::ProposerFactory::new(
+			task_manager.spawn_handle(),
+			client.clone(),
+			transaction_pool.clone(),
+			None,
+			None,
+		);
+
+		let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
+		let mut manual_seal_sink_clone = manual_seal_sink.clone();
+		task_manager
+			.spawn_essential_handle()
+			.spawn("block_authoring", None, async move {
+				loop {
+					futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
+					manual_seal_sink_clone
+						.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+							create_empty: true,
+							finalize: true,
+							parent_hash: None,
+							sender: None,
+						})
+						.unwrap();
+				}
+			});
+
+		let slot_duration = sc_consensus_aura::slot_duration(&*client)
+			.expect("slot_duration is always present; qed.");
+		let aura_digest_provider = AuraConsensusDataProvider::new_with_slot_duration(slot_duration);
+
+		let client_for_cidp = client.clone();
+		let params = sc_consensus_manual_seal::ManualSealParams {
+			block_import: client.clone(),
+			env: proposer,
+			client: client.clone(),
+			pool: transaction_pool.clone(),
+			select_chain,
+			commands_stream: Box::pin(manual_seal_stream),
+			consensus_data_provider: Some(Box::new(aura_digest_provider)),
+			create_inherent_data_providers: move |block: Hash, ()| {
+				let current_para_head = client_for_cidp
+					.header(block)
+					.expect("Header lookup should succeed")
+					.expect("Header passed in as parent should be present in backend.");
+
+				let should_send_go_ahead = client_for_cidp
+					.runtime_api()
+					.collect_collation_info(block, &current_para_head)
+					.map(|info| info.new_validation_code.is_some())
+					.unwrap_or_default();
+
+				let requires_relay_progress = client_for_cidp
+					.runtime_api()
+					.has_api_with::<dyn AuraUnincludedSegmentApi<Block>, _>(block, |version| {
+						version > 1
+					})
+					.ok()
+					.unwrap_or_default();
+
+				let current_para_block_head =
+					Some(polkadot_primitives::HeadData(current_para_head.encode()));
+				let client_for_xcm = client_for_cidp.clone();
+				let current_block_number = UniqueSaturatedInto::<u32>::unique_saturated_into(
+					*current_para_head.number(),
+				) + 1;
+				log::info!("Current block number: {current_block_number}");
+				async move {
+					let mocked_parachain = MockValidationDataInherentDataProvider {
+						current_para_block: current_block_number,
+						para_id,
+						current_para_block_head,
+						relay_offset: 0,
+						relay_blocks_per_para_block: requires_relay_progress
+							.then(|| 1)
+							.unwrap_or_default(),
+						para_blocks_per_relay_epoch: 10,
+						relay_randomness_config: (),
+						xcm_config: MockXcmConfig::new(&*client_for_xcm, block, Default::default()),
+						raw_downward_messages: vec![],
+						raw_horizontal_messages: vec![],
+						additional_key_values: None,
+						upgrade_go_ahead: should_send_go_ahead.then(|| {
+							log::info!(
+								"Detected pending validation code, sending go-ahead signal."
+							);
+							UpgradeGoAhead::GoAhead
+						}),
+					};
+					Ok((
+						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(
+							current_block_number as u64 * slot_duration.as_millis(),
+						)),
+						mocked_parachain,
+					))
+				}
+			},
+		};
+		let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"manual-seal",
+			None,
+			authorship_future,
+		);
+		let rpc_extensions_builder = {
+			let client = client.clone();
+			let transaction_pool = transaction_pool.clone();
+			let backend_for_rpc = backend.clone();
+
+			Box::new(move |_| {
+				let module = Self::BuildRpcExtensions::build_rpc_extensions(
+					client.clone(),
+					backend_for_rpc.clone(),
+					transaction_pool.clone(),
+					None,
+				)?;
+				Ok(module)
+			})
+		};
+
+		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+			network,
+			client: client.clone(),
+			keystore: keystore_container.keystore(),
+			task_manager: &mut task_manager,
+			transaction_pool: transaction_pool.clone(),
+			rpc_builder: rpc_extensions_builder,
+			backend,
+			system_rpc_tx,
+			tx_handler_controller,
+			sync_service,
+			config,
+			telemetry: telemetry.as_mut(),
+		})?;
+
+		Ok(task_manager)
+	}
 }
 
 pub fn new_aura_node_spec<Block, RuntimeApi, AuraId>(

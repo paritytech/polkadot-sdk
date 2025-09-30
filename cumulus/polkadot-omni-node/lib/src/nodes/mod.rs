@@ -16,13 +16,6 @@
 
 pub mod aura;
 
-use crate::common::{
-	spec::{BaseNodeSpec, DynNodeSpec, NodeSpec as NodeSpecT, RuntimeApiOf},
-	types::ParachainClient,
-};
-use sc_service::{Configuration, TaskManager};
-use sp_api::ConstructRuntimeApi;
-use sp_consensus_aura::AuraApi;
 
 /// The current node version for cumulus official binaries, which takes the basic
 /// SemVer form `<major>.<minor>.<patch>`. It should correspond to the latest
