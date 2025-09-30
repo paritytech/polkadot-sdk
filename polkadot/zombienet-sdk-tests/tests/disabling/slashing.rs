@@ -6,6 +6,7 @@
 //! making some of the honest nodes go offline.
 
 use anyhow::anyhow;
+use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
 	assert_blocks_are_being_finalized, assert_para_throughput, wait_for_first_session_change,
 };
@@ -106,14 +107,13 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	while let Some(block) = best_blocks.next().await {
 		// NOTE: we can't use `at_latest` here, because it will utilize latest *finalized* block
 		// and finality is stalled...
-		let disputes = relay_client
-			.runtime_api()
-			.at(block?.hash())
-			.call_raw::<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>(
-				"ParachainHost_disputes",
-				None,
-			)
-			.await?;
+		let disputes = Vec::<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>::decode(
+			&mut &relay_client
+				.runtime_api()
+				.at(block?.hash())
+				.call_raw("ParachainHost_disputes", None)
+				.await?[..],
+		)?;
 		if let Some((session, _, _)) = disputes.first() {
 			dispute_session = *session;
 			break;

@@ -1,0 +1,9 @@
+title: '[pallet-revive] Add setting evm balance'
+doc:
+- audience: Runtime User
+  description: |-
+    Adds a balance setter in EVM for pallet-revive.
+
+crates:
+- name: pallet-revive
+  bump: minor

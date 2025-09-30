@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use codec::{Compact, Decode};
 use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
 use futures::stream::StreamExt;
-use polkadot_primitives::{vstaging::CandidateReceiptV2, Id as ParaId};
+use polkadot_primitives::{CandidateReceiptV2, Id as ParaId};
 use std::{cmp::max, collections::HashMap, ops::Range};
 use tokio::{
 	join,
@@ -14,14 +14,21 @@ use tokio::{
 use zombienet_sdk::subxt::{
 	self,
 	blocks::Block,
-	config::{signed_extensions::CheckMortalityParams, substrate::DigestItem, ExtrinsicParams},
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
 	tx::{signer::Signer, DynamicPayload, TxStatus},
 	utils::H256,
-	Config, OnlineClient, PolkadotConfig,
+	OnlineClient, PolkadotConfig,
 };
+
+use zombienet_sdk::{
+	tx_helper::{ChainUpgrade, RuntimeUpgradeOptions},
+	LocalFileSystem, Network, NetworkNode,
+};
+
+use zombienet_configuration::types::AssetLocation;
 
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
@@ -303,11 +310,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 	call: &DynamicPayload,
 	signer: &S,
 ) -> Result<(), anyhow::Error> {
-	let mut extensions: <<PolkadotConfig as Config>::ExtrinsicParams as ExtrinsicParams<
-		PolkadotConfig,
-	>>::Params = Default::default();
-
-	extensions.4 = CheckMortalityParams::<PolkadotConfig>::immortal();
+	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
 
 	let mut tx = client
 		.tx()
@@ -403,4 +406,58 @@ pub async fn assert_para_is_registered(
 	}
 
 	Err(anyhow!("No more blocks to check"))
+}
+
+pub async fn runtime_upgrade(
+	network: &Network<LocalFileSystem>,
+	node: &NetworkNode,
+	para_id: u32,
+	wasm_path: &str,
+) -> Result<(), anyhow::Error> {
+	log::info!("Performing runtime upgrade for parachain {}, wasm: {}", para_id, wasm_path);
+	let para = network.parachain(para_id).unwrap();
+
+	para.perform_runtime_upgrade(node, RuntimeUpgradeOptions::new(AssetLocation::from(wasm_path)))
+		.await
+}
+
+pub async fn assign_cores(
+	node: &NetworkNode,
+	para_id: u32,
+	cores: Vec<u32>,
+) -> Result<(), anyhow::Error> {
+	log::info!("Assigning {:?} cores to parachain {}", cores, para_id);
+
+	let assign_cores_call =
+		create_assign_core_call(&cores.into_iter().map(|core| (core, para_id)).collect::<Vec<_>>());
+
+	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
+	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
+		&client,
+		&assign_cores_call,
+		&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
+		60u64,
+	)
+	.await;
+	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
+	log::info!("Cores assigned to the parachain");
+
+	Ok(())
+}
+
+pub async fn wait_for_upgrade(
+	client: OnlineClient<PolkadotConfig>,
+	expected_version: u32,
+) -> Result<(), anyhow::Error> {
+	let updater = client.updater();
+	let mut update_stream = updater.runtime_updates().await?;
+
+	while let Some(Ok(update)) = update_stream.next().await {
+		let version = update.runtime_version().spec_version;
+		log::info!("Update runtime spec version {version}");
+		if version == expected_version {
+			break;
+		}
+	}
+	Ok(())
 }

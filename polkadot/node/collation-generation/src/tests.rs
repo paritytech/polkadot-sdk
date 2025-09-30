@@ -27,14 +27,12 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features,
-	vstaging::{
-		CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
-	},
-	CollatorPair, NodeFeatures, PersistedValidationData,
+	CandidateDescriptorVersion, CandidateReceiptV2, ClaimQueueOffset, CollatorPair, CoreSelector,
+	PersistedValidationData, UMPSignal, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
 use rstest::rstest;
+use sp_core::Pair;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -171,13 +169,6 @@ fn test_config_no_collator<Id: Into<ParaId>>(para_id: Id) -> CollationGeneration
 	}
 }
 
-fn node_features_with_v2_enabled() -> NodeFeatures {
-	let mut node_features = NodeFeatures::new();
-	node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
-	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
-	node_features
-}
-
 #[test]
 fn submit_collation_is_no_op_before_initialization() {
 	test_harness(|mut virtual_overseer| async move {
@@ -236,8 +227,7 @@ fn submit_collation_leads_to_distribution() {
 			relay_parent,
 			para_id,
 			expected_pvd.clone(),
-			NodeFeatures::EMPTY,
-			Default::default(),
+			[(CoreIndex(0), VecDeque::from([para_id]))].into(),
 		)
 		.await;
 
@@ -248,7 +238,7 @@ fn submit_collation_leads_to_distribution() {
 				parent_head_data_hash,
 				..
 			}) => {
-				let CandidateReceipt { descriptor, .. } = candidate_receipt;
+				let CandidateReceiptV2 { descriptor, .. } = candidate_receipt;
 				assert_eq!(parent_head_data_hash, parent_head.hash());
 				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
 				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
@@ -279,7 +269,6 @@ fn distribute_collation_only_for_assigned_para_id_at_offset_0() {
 			&mut virtual_overseer,
 			activated_hash,
 			claim_queue,
-			NodeFeatures::EMPTY,
 		)
 		.await;
 
@@ -319,7 +308,6 @@ fn distribute_collation_with_elastic_scaling(#[case] total_cores: u32) {
 			&mut virtual_overseer,
 			activated_hash,
 			claim_queue,
-			NodeFeatures::EMPTY,
 		)
 		.await;
 
@@ -341,25 +329,18 @@ fn distribute_collation_with_elastic_scaling(#[case] total_cores: u32) {
 // remainder to select the core. UMP signals may also contain a claim queue offset, based on which
 // we need to select the assigned core indexes for the para from that offset in the claim queue.
 #[rstest]
-#[case(0, 0, 0, false)]
-#[case(1, 0, 0, true)]
-#[case(1, 5, 0, false)]
-#[case(2, 0, 1, true)]
-#[case(4, 2, 2, false)]
+#[case(1, 0, 0)]
+#[case(2, 0, 1)]
 fn distribute_collation_with_core_selectors(
 	#[case] total_cores: u32,
 	// The core selector index that will be obtained from the first collation.
 	#[case] init_cs_index: u8,
 	// Claim queue offset where the assigned cores will be stored.
 	#[case] cq_offset: u8,
-	// Enables v2 receipts feature, affecting core selector and claim queue handling.
-	#[case] v2_receipts: bool,
 ) {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
 	let other_para_id = ParaId::from(10);
-	let node_features =
-		if v2_receipts { node_features_with_v2_enabled() } else { NodeFeatures::EMPTY };
 
 	let claim_queue = (0..total_cores)
 		.into_iter()
@@ -383,7 +364,6 @@ fn distribute_collation_with_core_selectors(
 			&mut virtual_overseer,
 			activated_hash,
 			claim_queue,
-			node_features,
 		)
 		.await;
 
@@ -421,7 +401,6 @@ fn distribute_collation_with_repeated_core_selector_index(
 ) {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
-	let node_features = node_features_with_v2_enabled();
 
 	let claim_queue = (0..total_cores)
 		.into_iter()
@@ -440,7 +419,6 @@ fn distribute_collation_with_repeated_core_selector_index(
 			&mut virtual_overseer,
 			activated_hash,
 			claim_queue,
-			node_features,
 		)
 		.await;
 
@@ -451,76 +429,6 @@ fn distribute_collation_with_repeated_core_selector_index(
 			expected_selected_cores,
 		)
 		.await;
-
-		virtual_overseer
-	});
-}
-
-#[rstest]
-#[case(true)]
-#[case(false)]
-fn test_candidate_receipt_versioning(#[case] v2_receipts: bool) {
-	let relay_parent = Hash::repeat_byte(0);
-	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
-	let parent_head = dummy_head_data();
-	let para_id = ParaId::from(5);
-	let expected_pvd = PersistedValidationData {
-		parent_head: parent_head.clone(),
-		relay_parent_number: 10,
-		relay_parent_storage_root: Hash::repeat_byte(1),
-		max_pov_size: 1024,
-	};
-	let node_features =
-		if v2_receipts { node_features_with_v2_enabled() } else { NodeFeatures::EMPTY };
-	let expected_descriptor_version =
-		if v2_receipts { CandidateDescriptorVersion::V2 } else { CandidateDescriptorVersion::V1 };
-
-	test_harness(|mut virtual_overseer| async move {
-		virtual_overseer
-			.send(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::Initialize(test_config_no_collator(para_id)),
-			})
-			.await;
-
-		virtual_overseer
-			.send(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-					relay_parent,
-					collation: test_collation(),
-					parent_head: dummy_head_data(),
-					validation_code_hash,
-					result_sender: None,
-					core_index: CoreIndex(0),
-				}),
-			})
-			.await;
-
-		helpers::handle_runtime_calls_on_submit_collation(
-			&mut virtual_overseer,
-			relay_parent,
-			para_id,
-			expected_pvd.clone(),
-			node_features,
-			[(CoreIndex(0), [para_id].into_iter().collect())].into_iter().collect(),
-		)
-		.await;
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
-				candidate_receipt,
-				parent_head_data_hash,
-				..
-			}) => {
-				let CandidateReceipt { descriptor, .. } = candidate_receipt;
-				assert_eq!(parent_head_data_hash, parent_head.hash());
-				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
-				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
-				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
-				// Check that the right version was indeed used.
-				assert_eq!(descriptor.version(), expected_descriptor_version);
-			}
-		);
 
 		virtual_overseer
 	});
@@ -564,7 +472,6 @@ fn v2_receipts_failed_core_index_check() {
 			relay_parent,
 			para_id,
 			expected_pvd.clone(),
-			node_features_with_v2_enabled(),
 			// Core index commitment is on core 0 but don't add any assignment for core 0.
 			[(CoreIndex(1), [para_id].into_iter().collect())].into_iter().collect(),
 		)
@@ -622,7 +529,6 @@ fn approved_peer_signal() {
 			relay_parent,
 			para_id,
 			expected_pvd.clone(),
-			node_features_with_v2_enabled(),
 			[(CoreIndex(0), [para_id].into_iter().collect())].into_iter().collect(),
 		)
 		.await;
@@ -634,7 +540,7 @@ fn approved_peer_signal() {
 				parent_head_data_hash,
 				..
 			}) => {
-				let CandidateReceipt { descriptor, .. } = candidate_receipt;
+				let CandidateReceiptV2 { descriptor, .. } = candidate_receipt;
 				assert_eq!(parent_head_data_hash, parent_head.hash());
 				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
 				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
@@ -688,7 +594,6 @@ mod helpers {
 		virtual_overseer: &mut VirtualOverseer,
 		activated_hash: Hash,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
-		node_features: NodeFeatures,
 	) {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
@@ -707,19 +612,6 @@ mod helpers {
 					Sr25519Keyring::Bob.public().into(),
 					Sr25519Keyring::Charlie.public().into(),
 				])).unwrap();
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				hash,
-				RuntimeApiRequest::NodeFeatures(session_index, tx),
-			)) => {
-				assert_eq!(1, session_index);
-				assert_eq!(hash, activated_hash);
-
-				tx.send(Ok(node_features)).unwrap();
 			}
 		);
 
@@ -809,7 +701,6 @@ mod helpers {
 		relay_parent: Hash,
 		para_id: ParaId,
 		expected_pvd: PersistedValidationData,
-		node_features: NodeFeatures,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	) {
 		assert_matches!(
@@ -851,19 +742,6 @@ mod helpers {
 					Sr25519Keyring::Bob.public().into(),
 					Sr25519Keyring::Charlie.public().into(),
 				])).unwrap();
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				rp,
-				RuntimeApiRequest::NodeFeatures(session_index, tx),
-			)) => {
-				assert_eq!(1, session_index);
-				assert_eq!(rp, relay_parent);
-
-				tx.send(Ok(node_features.clone())).unwrap();
 			}
 		);
 	}

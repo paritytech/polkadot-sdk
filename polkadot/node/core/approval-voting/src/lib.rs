@@ -53,9 +53,9 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, ApprovalVoteMultipleCandidates,
-	ApprovalVotingParams, BlockNumber, CandidateHash, CandidateIndex, CoreIndex, ExecutorParams,
-	GroupIndex, Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
+	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
+	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex,
+	Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
 	ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
