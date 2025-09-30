@@ -1,0 +1,9 @@
+title: Improve asset conversion
+doc:
+- audience: Runtime Dev
+  description: |-
+    added view functions #7374
+    added trait `MutateLiquidity` to allow other pallets to manage liquidity #9765
+crates:
+- name: pallet-asset-conversion
+  bump: minor
