@@ -1025,28 +1025,11 @@ pub mod pallet {
 
 		/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another
 		/// fungible. Returns a value in the form of an `Balance`.
-		fn get_balance(owner: &T::AccountId, asset: T::AssetKind) -> T::Balance {
+		pub(crate) fn get_balance(owner: &T::AccountId, asset: T::AssetKind) -> T::Balance {
 			T::Assets::reducible_balance(asset, owner, Expendable, Polite)
 		}
 
-		/// Returns the balance of each asset in the pool.
-		/// The tuple result is in the order requested (not necessarily the same as pool order).
-		pub fn get_reserves(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
-		) -> Result<(T::Balance, T::Balance), Error<T>> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2)
-				.map_err(|_| Error::<T>::InvalidAssetPair)?;
 
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-
-			if balance1.is_zero() || balance2.is_zero() {
-				Err(Error::<T>::PoolNotFound)?;
-			}
-
-			Ok((balance1, balance2))
-		}
 
 		/// Leading to an amount at the end of a `path`, get the required amounts in.
 		pub(crate) fn balance_path_from_amount_out(
@@ -1065,7 +1048,8 @@ pub mod pallet {
 						break
 					},
 				};
-				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
+				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())
+					.ok_or(Error::<T>::PoolNotFound)?;
 				balance_path.push((asset2, amount_in));
 				amount_in = Self::get_amount_in(&amount_in, &reserve_in, &reserve_out)?;
 			}
@@ -1091,56 +1075,15 @@ pub mod pallet {
 						break
 					},
 				};
-				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
+				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())
+					.ok_or(Error::<T>::PoolNotFound)?;
 				balance_path.push((asset1, amount_out));
 				amount_out = Self::get_amount_out(&amount_out, &reserve_in, &reserve_out)?;
 			}
 			Ok(balance_path)
 		}
 
-		/// Used by the RPC service to provide current prices.
-		pub fn quote_price_exact_tokens_for_tokens(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
-			amount: T::Balance,
-			include_fee: bool,
-		) -> Option<T::Balance> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_out(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance1, &balance2).ok()
-				}
-			} else {
-				None
-			}
-		}
-
-		/// Used by the RPC service to provide current prices.
-		pub fn quote_price_tokens_for_exact_tokens(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
-			amount: T::Balance,
-			include_fee: bool,
-		) -> Option<T::Balance> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
-
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_in(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance2, &balance1).ok()
-				}
-			} else {
-				None
-			}
-		}
 
 		/// Calculates the optimal amount from the reserves.
 		pub fn quote(
@@ -1287,6 +1230,70 @@ pub mod pallet {
 			NextPoolAssetId::<T>::get()
 				.or(T::PoolAssetId::initial_value())
 				.expect("Next pool asset ID can not be None")
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the balance of each asset in the pool.
+		/// The tuple result is in the order requested (not necessarily the same as pool order).
+		pub fn get_reserves(
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+		) -> Option<(T::Balance, T::Balance)> {
+			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
+			let balance1 = Self::get_balance(&pool_account, asset1);
+			let balance2 = Self::get_balance(&pool_account, asset2);
+
+			if balance1.is_zero() || balance2.is_zero() {
+				None
+			} else {
+				Some((balance1, balance2))
+			}
+		}
+
+		/// Used by the RPC service to provide current prices.
+		pub fn quote_price_exact_tokens_for_tokens(
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+			amount: T::Balance,
+			include_fee: bool,
+		) -> Option<T::Balance> {
+			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
+
+			let balance1 = Self::get_balance(&pool_account, asset1);
+			let balance2 = Self::get_balance(&pool_account, asset2);
+			if !balance1.is_zero() {
+				if include_fee {
+					Self::get_amount_out(&amount, &balance1, &balance2).ok()
+				} else {
+					Self::quote(&amount, &balance1, &balance2).ok()
+				}
+			} else {
+				None
+			}
+		}
+
+		/// Used by the RPC service to provide current prices.
+		pub fn quote_price_tokens_for_exact_tokens(
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+			amount: T::Balance,
+			include_fee: bool,
+		) -> Option<T::Balance> {
+			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
+
+			let balance1 = Self::get_balance(&pool_account, asset1);
+			let balance2 = Self::get_balance(&pool_account, asset2);
+			if !balance1.is_zero() {
+				if include_fee {
+					Self::get_amount_in(&amount, &balance1, &balance2).ok()
+				} else {
+					Self::quote(&amount, &balance2, &balance1).ok()
+				}
+			} else {
+				None
+			}
 		}
 	}
 }
