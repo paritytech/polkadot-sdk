@@ -21,8 +21,9 @@ use frame_support::{
 	parameter_types,
 	traits::{Contains, CrateVersion, PalletInfoData, PalletsInfoAccess},
 };
-pub use xcm::latest::{prelude::*, Weight};
-use xcm_executor::traits::{ClaimAssets, DropAssets, VersionChangeNotifier};
+pub use xcm::latest::{prelude::*, PublishData, Weight};
+use alloc::collections::BTreeMap;
+use xcm_executor::traits::{BroadcastHandler, ClaimAssets, DropAssets, VersionChangeNotifier};
 pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, ConvertOrigin, Enact, LockError, OnResponse, TransactAsset,
@@ -33,6 +34,10 @@ pub use xcm_executor::{
 parameter_types! {
 	pub static SubscriptionRequests: Vec<(Location, Option<(QueryId, Weight)>)> = vec![];
 	pub static MaxAssetsIntoHolding: u32 = 4;
+	// Maps ParaId => Vec<(key, value)>
+	pub static PublishedData: BTreeMap<u32, Vec<(Vec<u8>, Vec<u8>)>> = BTreeMap::new();
+	// Maps subscriber ParaId => Vec<publisher ParaId>
+	pub static BroadcastSubscriptions: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
 }
 
 pub struct TestSubscriptionService;
@@ -59,6 +64,50 @@ impl VersionChangeNotifier for TestSubscriptionService {
 	fn is_subscribed(location: &Location) -> bool {
 		let r = SubscriptionRequests::get();
 		r.iter().any(|(l, q)| l == location && q.is_some())
+	}
+}
+
+pub struct TestBroadcastHandler;
+
+impl BroadcastHandler for TestBroadcastHandler {
+	fn handle_publish(origin: &Location, data: PublishData) -> XcmResult {
+		// Extract para_id from origin
+		let para_id = match origin.unpack() {
+			(0, [Parachain(id)]) => *id,
+			(1, [Parachain(id), ..]) => *id,
+			_ => return Err(XcmError::BadOrigin),
+		};
+
+		let mut published = PublishedData::get();
+		let data_vec: Vec<(Vec<u8>, Vec<u8>)> = data.into_inner();
+
+		// Merge with existing data for this parachain
+		published.entry(para_id).or_insert_with(Vec::new).extend(data_vec);
+		PublishedData::set(published);
+
+		Ok(())
+	}
+
+	fn handle_subscribe(origin: &Location, publisher: u32) -> XcmResult {
+		// Extract subscriber para_id from origin
+		let subscriber_id = match origin.unpack() {
+			(0, [Parachain(id)]) => *id,
+			(1, [Parachain(id), ..]) => *id,
+			_ => return Err(XcmError::BadOrigin),
+		};
+
+		let mut subscriptions = BroadcastSubscriptions::get();
+		let subscriber_list = subscriptions.entry(subscriber_id).or_insert_with(Vec::new);
+
+		// Toggle subscription
+		if let Some(pos) = subscriber_list.iter().position(|&p| p == publisher) {
+			subscriber_list.remove(pos);
+		} else {
+			subscriber_list.push(publisher);
+		}
+
+		BroadcastSubscriptions::set(subscriptions);
+		Ok(())
 	}
 }
 

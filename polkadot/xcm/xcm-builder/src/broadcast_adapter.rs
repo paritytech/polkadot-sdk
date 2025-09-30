@@ -79,7 +79,7 @@ impl Contains<Location> for DirectParachainsOnly {
 	}
 }
 
-/// Allows both direct and sibling parachains.
+/// Allows both direct and sibling parachains. 
 pub struct AllParachains;
 impl Contains<Location> for AllParachains {
 	fn contains(origin: &Location) -> bool {
@@ -101,5 +101,224 @@ impl<const PARA1: u32, const PARA2: u32> Contains<Location> for SpecificParachai
 			},
 			_ => false,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frame_support::parameter_types;
+	use polkadot_runtime_parachains::broadcaster::publish;
+	use sp_runtime::bounded_vec;
+	use xcm::latest::{PublishData, Location, Junction};
+	use xcm::latest::prelude::XcmError;
+
+	// Mock handler that tracks calls
+	parameter_types! {
+		pub static PublishCalls: Vec<(ParaId, Vec<(Vec<u8>, Vec<u8>)>)> = vec![];
+		pub static SubscribeCalls: Vec<(ParaId, ParaId)> = vec![];
+	}
+
+	struct MockPublishHandler;
+	impl publish::Publish for MockPublishHandler {
+		fn publish_data(
+			publisher: ParaId,
+			data: Vec<(Vec<u8>, Vec<u8>)>,
+		) -> Result<(), sp_runtime::DispatchError> {
+			let mut calls = PublishCalls::get();
+			calls.push((publisher, data));
+			PublishCalls::set(calls);
+			Ok(())
+		}
+
+		fn toggle_subscription(
+			subscriber: ParaId,
+			publisher: ParaId,
+		) -> Result<(), sp_runtime::DispatchError> {
+			let mut calls = SubscribeCalls::get();
+			calls.push((subscriber, publisher));
+			SubscribeCalls::set(calls);
+			Ok(())
+		}
+	}
+
+	#[test]
+	fn publish_from_direct_parachain_works() {
+		PublishCalls::set(vec![]);
+		let origin = Location::new(0, [Junction::Parachain(1000)]);
+		let data: PublishData = bounded_vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+		];
+
+		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_publish(
+			&origin,
+			data.clone(),
+		);
+
+		assert!(result.is_ok());
+		let calls = PublishCalls::get();
+		assert_eq!(calls.len(), 1);
+		assert_eq!(calls[0].0, ParaId::from(1000));
+		assert_eq!(calls[0].1, data.into_inner());
+	}
+
+	#[test]
+	fn publish_from_sibling_parachain_works() {
+		PublishCalls::set(vec![]);
+		let origin = Location::new(1, [Junction::Parachain(2000), Junction::AccountId32 { network: None, id: [1; 32] }]);
+		let data: PublishData = bounded_vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+		];
+
+		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_publish(
+			&origin,
+			data.clone(),
+		);
+
+		assert!(result.is_ok());
+		let calls = PublishCalls::get();
+		assert_eq!(calls.len(), 1);
+		assert_eq!(calls[0].0, ParaId::from(2000));
+	}
+
+	#[test]
+	fn publish_from_non_parachain_fails() {
+		PublishCalls::set(vec![]);
+		// Root origin
+		let origin = Location::here();
+		let data: PublishData = bounded_vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+		];
+
+		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_publish(
+			&origin,
+			data,
+		);
+
+		assert!(matches!(result, Err(XcmError::NoPermission)));
+		assert!(PublishCalls::get().is_empty());
+	}
+
+	#[test]
+	fn publish_rejected_by_filter() {
+		PublishCalls::set(vec![]);
+		// Para 1000 not allowed by DirectParachainsOnly
+		let origin = Location::new(1, [Junction::Parachain(1000)]);
+		let data: PublishData = bounded_vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+		];
+
+		let result = ParachainBroadcastAdapter::<DirectParachainsOnly, MockPublishHandler>::handle_publish(
+			&origin,
+			data,
+		);
+
+		assert!(matches!(result, Err(XcmError::NoPermission)));
+		assert!(PublishCalls::get().is_empty());
+	}
+
+	#[test]
+	fn subscribe_from_direct_parachain_works() {
+		SubscribeCalls::set(vec![]);
+		let origin = Location::new(0, [Junction::Parachain(1000)]);
+		let publisher = 2000;
+
+		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
+			&origin,
+			publisher,
+		);
+
+		assert!(result.is_ok());
+		let calls = SubscribeCalls::get();
+		assert_eq!(calls.len(), 1);
+		assert_eq!(calls[0], (ParaId::from(1000), ParaId::from(2000)));
+	}
+
+	#[test]
+	fn subscribe_from_sibling_parachain_works() {
+		SubscribeCalls::set(vec![]);
+		let origin = Location::new(1, [Junction::Parachain(3000), Junction::AccountId32 { network: None, id: [1; 32] }]);
+		let publisher = 2000;
+
+		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
+			&origin,
+			publisher,
+		);
+
+		assert!(result.is_ok());
+		let calls = SubscribeCalls::get();
+		assert_eq!(calls.len(), 1);
+		assert_eq!(calls[0], (ParaId::from(3000), ParaId::from(2000)));
+	}
+
+	#[test]
+	fn subscribe_from_non_parachain_fails() {
+		SubscribeCalls::set(vec![]);
+		let origin = Location::here();
+		let publisher = 2000;
+
+		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
+			&origin,
+			publisher,
+		);
+
+		assert!(matches!(result, Err(XcmError::NoPermission)));
+		assert!(SubscribeCalls::get().is_empty());
+	}
+
+	#[test]
+	fn subscribe_rejected_by_filter() {
+		SubscribeCalls::set(vec![]);
+		let origin = Location::new(1, [Junction::Parachain(1000)]);
+		let publisher = 2000;
+
+		let result = ParachainBroadcastAdapter::<DirectParachainsOnly, MockPublishHandler>::handle_subscribe(
+			&origin,
+			publisher,
+		);
+
+		assert!(matches!(result, Err(XcmError::NoPermission)));
+		assert!(SubscribeCalls::get().is_empty());
+	}
+
+	#[test]
+	fn direct_parachains_only_filter_works() {
+		// Direct parachain allowed
+		assert!(DirectParachainsOnly::contains(&Location::new(0, [Junction::Parachain(1000)])));
+
+		// Sibling parachain not allowed
+		assert!(!DirectParachainsOnly::contains(&Location::new(1, [Junction::Parachain(1000)])));
+
+		// Root not allowed
+		assert!(!DirectParachainsOnly::contains(&Location::here()));
+	}
+
+	#[test]
+	fn all_parachains_filter_works() {
+		// Direct parachain allowed
+		assert!(AllParachains::contains(&Location::new(0, [Junction::Parachain(1000)])));
+
+		// Sibling parachain allowed
+		assert!(AllParachains::contains(&Location::new(1, [Junction::Parachain(2000), Junction::AccountId32 { network: None, id: [1; 32] }])));
+
+		// Root not allowed
+		assert!(!AllParachains::contains(&Location::here()));
+	}
+
+	#[test]
+	fn specific_parachains_filter_works() {
+		type TestFilter = SpecificParachains<1000, 2000>;
+
+		// Para 1000 allowed (direct)
+		assert!(TestFilter::contains(&Location::new(0, [Junction::Parachain(1000)])));
+
+		// Para 2000 allowed (sibling)
+		assert!(TestFilter::contains(&Location::new(1, [Junction::Parachain(2000)])));
+
+		// Para 3000 not allowed
+		assert!(!TestFilter::contains(&Location::new(0, [Junction::Parachain(3000)])));
+
+		// Root not allowed
+		assert!(!TestFilter::contains(&Location::here()));
 	}
 }

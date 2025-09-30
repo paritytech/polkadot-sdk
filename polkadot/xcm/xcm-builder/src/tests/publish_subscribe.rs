@@ -1,0 +1,254 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Tests for Publish and Subscribe XCM instructions.
+
+use super::*;
+use crate::test_utils::{BroadcastSubscriptions, PublishedData};
+use sp_runtime::bounded_vec;
+
+#[test]
+fn publish_from_parachain_works() {
+	// Allow unpaid execution from Parachain(1000)
+	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
+
+	let data: PublishData = bounded_vec![(b"key1".to_vec(), b"value1".to_vec()),];
+
+	let message = Xcm::<TestCall>(vec![Publish { data: data.clone() }]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(10, 10);
+
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parachain(1000),
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
+
+	// Verify data was published
+	let published = PublishedData::get();
+	assert_eq!(published.get(&1000).unwrap().len(), 1);
+	assert_eq!(published.get(&1000).unwrap()[0], (b"key1".to_vec(), b"value1".to_vec()));
+}
+
+#[test]
+fn publish_from_non_parachain_fails() {
+	// Allow unpaid execution from Parent to test that origin validation happens
+	AllowUnpaidFrom::set(vec![Parent.into()]);
+
+	let data: PublishData = bounded_vec![(b"key1".to_vec(), b"value1".to_vec()),];
+
+	let message = Xcm::<TestCall>(vec![Publish { data }]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(10, 10);
+
+	// Try from Parent (not a parachain)
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+
+	assert_eq!(
+		r,
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: InstructionError { index: 0, error: XcmError::BadOrigin },
+		}
+	);
+}
+
+#[test]
+fn publish_without_origin_fails() {
+	// Allow unpaid execution from Parachain(1000)
+	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
+
+	let data: PublishData = bounded_vec![(b"key1".to_vec(), b"value1".to_vec()),];
+
+	let message = Xcm::<TestCall>(vec![ClearOrigin, Publish { data }]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(20, 20);
+
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parachain(1000),
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+
+	assert_eq!(
+		r,
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: InstructionError { index: 1, error: XcmError::BadOrigin },
+		}
+	);
+}
+
+#[test]
+fn subscribe_from_parachain_works() {
+	// Allow unpaid execution from Parachain(1000)
+	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
+
+	let message = Xcm::<TestCall>(vec![Subscribe { publisher: 2000 }]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(10, 10);
+
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parachain(1000),
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
+
+	// Verify subscription was created
+	let subscriptions = BroadcastSubscriptions::get();
+	assert_eq!(subscriptions.get(&1000).unwrap(), &vec![2000]);
+}
+
+#[test]
+fn subscribe_toggle_unsubscribes() {
+	// Allow unpaid execution from Parachain(1000)
+	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
+
+	// First subscribe
+	let message1 = Xcm::<TestCall>(vec![Subscribe { publisher: 2000 }]);
+	let mut hash1 = fake_message_hash(&message1);
+	let weight_limit = Weight::from_parts(10, 10);
+
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parachain(1000),
+		message1,
+		&mut hash1,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
+
+	// Verify subscribed
+	let subscriptions = BroadcastSubscriptions::get();
+	assert_eq!(subscriptions.get(&1000).unwrap(), &vec![2000]);
+
+	// Subscribe again to toggle (unsubscribe)
+	let message2 = Xcm::<TestCall>(vec![Subscribe { publisher: 2000 }]);
+	let mut hash2 = fake_message_hash(&message2);
+
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parachain(1000),
+		message2,
+		&mut hash2,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
+
+	// Verify unsubscribed
+	let subscriptions = BroadcastSubscriptions::get();
+	assert!(subscriptions.get(&1000).unwrap().is_empty());
+}
+
+#[test]
+fn subscribe_from_non_parachain_fails() {
+	// Allow unpaid execution from Parent to test that origin validation happens
+	AllowUnpaidFrom::set(vec![Parent.into()]);
+
+	let message = Xcm::<TestCall>(vec![Subscribe { publisher: 2000 }]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(10, 10);
+
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+
+	assert_eq!(
+		r,
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: InstructionError { index: 0, error: XcmError::BadOrigin },
+		}
+	);
+}
+
+#[test]
+fn subscribe_without_origin_fails() {
+	// Allow unpaid execution from Parachain(1000)
+	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
+
+	let message = Xcm::<TestCall>(vec![ClearOrigin, Subscribe { publisher: 2000 }]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(20, 20);
+
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parachain(1000),
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+
+	assert_eq!(
+		r,
+		Outcome::Incomplete {
+			used: Weight::from_parts(20, 20),
+			error: InstructionError { index: 1, error: XcmError::BadOrigin },
+		}
+	);
+}
+
+#[test]
+fn publish_multiple_items_works() {
+	// Allow unpaid execution from Parachain(1000)
+	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
+
+	let data: PublishData = bounded_vec![
+		(b"key1".to_vec(), b"value1".to_vec()),
+		(b"key2".to_vec(), b"value2".to_vec()),
+	];
+
+	let message = Xcm::<TestCall>(vec![Publish { data: data.clone() }]);
+	let mut hash = fake_message_hash(&message);
+	let weight_limit = Weight::from_parts(10, 10);
+
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parachain(1000),
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
+
+	// Verify all data was published
+	let published = PublishedData::get();
+	let para_data = published.get(&1000).unwrap();
+	assert_eq!(para_data.len(), 2);
+	assert!(para_data.contains(&(b"key1".to_vec(), b"value1".to_vec())));
+	assert!(para_data.contains(&(b"key2".to_vec(), b"value2".to_vec())));
+}
