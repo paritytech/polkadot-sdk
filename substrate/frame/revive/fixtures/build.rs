@@ -259,7 +259,7 @@ fn create_out_dir() -> Result<PathBuf> {
 	}
 
 	if !out_exists {
-		fs::create_dir(&out_dir)
+		fs::create_dir_all(&out_dir)
 			.context(format!("Failed to create output directory: {})", out_dir.display(),))?;
 	}
 
