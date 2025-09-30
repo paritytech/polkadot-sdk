@@ -52,5 +52,5 @@ static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
 
 [build-dependencies]
+asset-hub-westend-runtime = { workspace = true, default-features = true }
 git2 = { workspace = true }
-substrate-wasm-builder = { workspace = true }
