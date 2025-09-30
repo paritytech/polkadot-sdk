@@ -563,12 +563,8 @@ pub mod pallet {
 				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
 
 			// pay the setup fee
-			let fee = Self::withdraw(
-				T::PoolSetupFeeAsset::get(),
-				creator,
-				T::PoolSetupFee::get(),
-				true,
-			)?;
+			let fee =
+				Self::withdraw(T::PoolSetupFeeAsset::get(), creator, T::PoolSetupFee::get(), true)?;
 			T::PoolSetupFeeTarget::on_unbalanced(fee);
 
 			if T::Assets::should_touch(*asset1.clone(), &pool_account) {
@@ -1085,8 +1081,6 @@ pub mod pallet {
 			T::Assets::reducible_balance(asset, owner, Expendable, Polite)
 		}
 
-
-
 		/// Leading to an amount at the end of a `path`, get the required amounts in.
 		pub(crate) fn balance_path_from_amount_out(
 			amount_out: T::Balance,
@@ -1138,8 +1132,6 @@ pub mod pallet {
 			}
 			Ok(balance_path)
 		}
-
-
 
 		/// Calculates the optimal amount from the reserves.
 		pub fn quote(

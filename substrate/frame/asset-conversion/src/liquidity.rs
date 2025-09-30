@@ -17,8 +17,8 @@
 
 //! Trait for providing methods to mutate liquidity pools.
 
-use sp_runtime::DispatchError;
 use frame_support::transactional;
+use sp_runtime::DispatchError;
 
 use crate::{Config, Pallet};
 
