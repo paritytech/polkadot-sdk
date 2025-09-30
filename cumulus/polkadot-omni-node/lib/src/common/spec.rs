@@ -299,7 +299,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	fn start_manual(
+	fn start_manual_seal_node(
 		_config: Configuration,
 		_block_time: u64,
 	) -> sc_service::error::Result<TaskManager> {
@@ -579,7 +579,7 @@ where
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager> {
 		log::info!("Starting manual seal node");
-		<Self as NodeSpec>::start_manual(config, block_time)
+		<Self as NodeSpec>::start_manual_seal_node(config, block_time)
 	}
 
 	fn start_node(

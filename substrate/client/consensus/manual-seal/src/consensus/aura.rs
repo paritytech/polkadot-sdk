@@ -33,7 +33,9 @@ use sp_runtime::{traits::Block as BlockT, Digest, DigestItem};
 use sp_timestamp::TimestampInherentData;
 use std::{marker::PhantomData, sync::Arc};
 
-/// Consensus data provider for Aura.
+/// Consensus data provider for Aura. This allows to use manual-seal driven nodes to author valida
+/// AURA blocks. It will inspect incoming [`InherentData`] and look for included timestamps. Based
+/// on these timestamps, the [`AuraConsensusDataProvider`] will emit fitting digest items.
 pub struct AuraConsensusDataProvider<B, P> {
 	// slot duration
 	slot_duration: SlotDuration,
