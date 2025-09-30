@@ -73,6 +73,14 @@ pub const PAGE_SIZE: u32 = 4 * 1024;
 /// Which should always be enough because Solidity allows for 16 local (stack) variables.
 pub const IMMUTABLE_BYTES: u32 = 4 * 1024;
 
+/// upperbound of memory that can be used by the EVM interpreter.
+pub const EVM_MEMORY_LIMIT: u32 = 1024 * 1024;
+
+/// EVM interpreter stack limit.
+pub const EVM_STACK_LIMIT: u32 = 1024;
+pub const EVM_MAX_CODE_SIZE: u32 = 0x6000;
+pub const EVM_MAX_INITCODE_SIZE: u32 = 2 * EVM_MAX_CODE_SIZE;
+
 /// Limits that are only enforced on code upload.
 ///
 /// # Note
@@ -254,7 +262,12 @@ const fn memory_required() -> u32 {
 	let max_call_depth = CALL_STACK_DEPTH + 1;
 
 	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
-	let per_frame_memory = code::BASELINE_MEMORY_LIMIT + CALLDATA_BYTES * 2;
+    let evm_overhead = EVM_MEMORY_LIMIT + EVM_MAX_INITCODE_SIZE + EVM_STACK_LIMIT;
+    let per_frame_memory = if code::BASELINE_MEMORY_LIMIT > evm_overhead {
+        code::BASELINE_MEMORY_LIMIT
+    } else {
+        evm_overhead
+    } + CALLDATA_BYTES * 2;
 
 	per_stack_memory + max_call_depth * per_frame_memory
 }
