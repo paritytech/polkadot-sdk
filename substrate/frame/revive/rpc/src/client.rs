@@ -826,7 +826,7 @@ impl Client {
 		}
 
 		// Small delay only for the final block to ensure it's available for immediate latest() calls
-		tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
 		Ok(latest_block.unwrap())
 	}
