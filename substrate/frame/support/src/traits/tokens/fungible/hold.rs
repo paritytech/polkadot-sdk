@@ -207,8 +207,11 @@ pub trait Mutate<AccountId>:
 
 		Self::ensure_can_hold(reason, who, amount)?;
 		// Should be infallible now, but we proceed softly anyway.
-		Self::decrease_balance(who, amount, Exact, Protect, Force)?;
 		Self::increase_balance_on_hold(reason, who, amount, BestEffort)?;
+		// decrease free balance after processing holds to allow cases
+		// when hold would decrease free balance below ED and cause dusting
+		// of the leftover (effectively zeroing free balance)
+		Self::decrease_balance(who, amount, Exact, Protect, Force)?;
 		Self::done_hold(reason, who, amount);
 		Ok(())
 	}
