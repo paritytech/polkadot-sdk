@@ -30,7 +30,7 @@ use crate::{
 	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
-use core::{fmt::Debug, marker::PhantomData, mem};
+use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
@@ -155,6 +155,7 @@ impl<T: Config> Origin<T> {
 	pub fn from_account_id(account_id: T::AccountId) -> Self {
 		Origin::Signed(account_id)
 	}
+
 	/// Creates a new Origin from a `RuntimeOrigin`.
 	pub fn from_runtime_origin(o: OriginFor<T>) -> Result<Self, DispatchError> {
 		match o.into() {
@@ -163,6 +164,7 @@ impl<T: Config> Origin<T> {
 			_ => Err(BadOrigin.into()),
 		}
 	}
+
 	/// Returns the AccountId of a Signed Origin or an error if the origin is Root.
 	pub fn account_id(&self) -> Result<&T::AccountId, DispatchError> {
 		match self {
@@ -206,6 +208,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Returns the code hash of the contract being executed.
+	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
 
 	/// Sets new code hash and immutable data for an existing contract.
@@ -287,9 +290,15 @@ pub trait PrecompileExt: sealing::Sealed {
 			.adjust_gas(charged, RuntimeCosts::Precompile(actual_weight));
 	}
 
+	/// Charges the gas meter with the given token or halts execution if not enough gas is left.
+	fn charge_or_halt<Tok: crate::gas::Token<Self::T>>(
+		&mut self,
+		token: Tok,
+	) -> ControlFlow<crate::vm::evm::Halt, crate::gas::ChargedAmount> {
+		self.gas_meter_mut().charge_or_halt(token)
+	}
+
 	/// Call (possibly transferring some amount of funds) into the specified account.
-	///
-	/// Returns the code size of the called contract.
 	fn call(
 		&mut self,
 		gas_limit: Weight,
@@ -325,8 +334,14 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the caller.
 	fn caller(&self) -> Origin<Self::T>;
 
+	/// Returns the caller of the caller.
+	fn caller_of_caller(&self) -> Origin<Self::T>;
+
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
+
+	/// Returns the account id for the given `address`.
+	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
 
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
@@ -336,10 +351,10 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn code_size(&self, address: &H160) -> u64;
 
 	/// Check if the caller of the current contract is the origin of the whole call stack.
-	fn caller_is_origin(&self) -> bool;
+	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool;
 
 	/// Check if the caller is origin, and this origin is root.
-	fn caller_is_root(&self) -> bool;
+	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool;
 
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
@@ -761,80 +776,6 @@ impl<T: Config> CachedContract<T> {
 			*self = CachedContract::Invalidated;
 		}
 	}
-}
-
-/// Function to transfer balance including the dust between accounts.
-fn transfer_with_dust<T: Config>(
-	from: &AccountIdOf<T>,
-	to: &AccountIdOf<T>,
-	value: BalanceWithDust<BalanceOf<T>>,
-) -> DispatchResult {
-	let (value, dust) = value.deconstruct();
-
-	fn transfer_balance<T: Config>(
-		from: &AccountIdOf<T>,
-		to: &AccountIdOf<T>,
-		value: BalanceOf<T>,
-	) -> DispatchResult {
-		T::Currency::transfer(from, to, value, Preservation::Preserve)
-		.map_err(|err| {
-			log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-			Error::<T>::TransferFailed
-		})?;
-		Ok(())
-	}
-
-	fn transfer_dust<T: Config>(
-		from: &mut AccountInfo<T>,
-		to: &mut AccountInfo<T>,
-		dust: u32,
-	) -> DispatchResult {
-		from.dust = from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-		to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-		Ok(())
-	}
-
-	if dust.is_zero() {
-		return transfer_balance::<T>(from, to, value)
-	}
-
-	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
-
-	let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
-	let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
-
-	let plank = T::NativeToEthRatio::get();
-
-	if from_info.dust < dust {
-		T::Currency::burn_from(
-			from,
-			1u32.into(),
-			Preservation::Preserve,
-			Precision::Exact,
-			Fortitude::Polite,
-		)
-		.map_err(|err| {
-			log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-			Error::<T>::TransferFailed
-		})?;
-
-		from_info.dust =
-			from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-	}
-
-	transfer_balance::<T>(from, to, value)?;
-	transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
-
-	if to_info.dust >= plank {
-		T::Currency::mint_into(to, 1u32.into())?;
-		to_info.dust = to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-	}
-
-	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-	AccountInfoOf::<T>::set(&to_addr, Some(to_info));
-
-	Ok(())
 }
 
 impl<'a, T, E> Stack<'a, T, E>
@@ -1331,11 +1272,11 @@ where
 				return Ok(output);
 			}
 
-			let frame = self.top_frame_mut();
-
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
-			if entry_point == ExportedFunction::Constructor {
+			let frame = if entry_point == ExportedFunction::Constructor {
+				let origin = self.origin.account_id()?.clone();
+				let frame = self.top_frame_mut();
 				let contract_info = frame.contract_info();
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
@@ -1347,10 +1288,7 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(
-						data,
-						caller.account_id()?.clone(),
-					)?;
+					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
 					module.store_code(skip_transfer)?;
 					code_deposit = module.code_info().deposit();
 					contract_info.code_hash = *module.code_hash();
@@ -1362,7 +1300,10 @@ where
 				frame
 					.nested_storage
 					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
-			}
+				frame
+			} else {
+				self.top_frame_mut()
+			};
 
 			// The storage deposit is only charged at the end of every call stack.
 			// To make sure that no sub call uses more than it is allowed to,
@@ -1526,7 +1467,83 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> DispatchResult {
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
+		fn transfer_with_dust<T: Config>(
+			from: &AccountIdOf<T>,
+			to: &AccountIdOf<T>,
+			value: BalanceWithDust<BalanceOf<T>>,
+		) -> DispatchResult {
+			let (value, dust) = value.deconstruct();
+
+			fn transfer_balance<T: Config>(
+				from: &AccountIdOf<T>,
+				to: &AccountIdOf<T>,
+				value: BalanceOf<T>,
+			) -> DispatchResult {
+				T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
+					Error::<T>::TransferFailed
+				})?;
+				Ok(())
+			}
+
+			fn transfer_dust<T: Config>(
+				from: &mut AccountInfo<T>,
+				to: &mut AccountInfo<T>,
+				dust: u32,
+			) -> DispatchResult {
+				from.dust =
+					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				Ok(())
+			}
+
+			if dust.is_zero() {
+				return transfer_balance::<T>(from, to, value)
+			}
+
+			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
+			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+
+			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
+			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
+
+			let plank = T::NativeToEthRatio::get();
+
+			if from_info.dust < dust {
+				T::Currency::burn_from(
+					from,
+					1u32.into(),
+					Preservation::Preserve,
+					Precision::Exact,
+					Fortitude::Polite,
+				)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
+					Error::<T>::TransferFailed
+				})?;
+
+				from_info.dust =
+					from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
+			}
+
+			transfer_balance::<T>(from, to, value)?;
+			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
+
+			if to_info.dust >= plank {
+				T::Currency::mint_into(to, 1u32.into())?;
+				to_info.dust =
+					to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
+			}
+
+			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
+			AccountInfoOf::<T>::set(&to_addr, Some(to_info));
+
+			Ok(())
+		}
+
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		if value.is_zero() {
 			return Ok(());
 		}
@@ -1997,8 +2014,25 @@ where
 		}
 	}
 
+	fn caller_of_caller(&self) -> Origin<T> {
+		// fetch top frame of top frame
+		let caller_of_caller_frame = match self.frames().nth(2) {
+			None => return self.origin.clone(),
+			Some(frame) => frame,
+		};
+		if let Some(DelegateInfo { caller, .. }) = &caller_of_caller_frame.delegate {
+			caller.clone()
+		} else {
+			Origin::from_account_id(caller_of_caller_frame.account_id.clone())
+		}
+	}
+
 	fn origin(&self) -> &Origin<T> {
 		&self.origin
+	}
+
+	fn to_account_id(&self, address: &H160) -> T::AccountId {
+		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
@@ -2027,13 +2061,14 @@ where
 			.unwrap_or_default()
 	}
 
-	fn caller_is_origin(&self) -> bool {
-		self.origin == self.caller()
+	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool {
+		let caller = if use_caller_of_caller { self.caller_of_caller() } else { self.caller() };
+		self.origin == caller
 	}
 
-	fn caller_is_root(&self) -> bool {
+	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool {
 		// if the caller isn't origin, then it can't be root.
-		self.caller_is_origin() && self.origin == Origin::Root
+		self.caller_is_origin(use_caller_of_caller) && self.origin == Origin::Root
 	}
 
 	fn balance(&self) -> U256 {
@@ -2058,7 +2093,8 @@ where
 	}
 
 	fn minimum_balance(&self) -> U256 {
-		T::Currency::minimum_balance().into()
+		let min = T::Currency::minimum_balance();
+		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
@@ -2159,6 +2195,16 @@ where
 
 		buf[len..].fill(0);
 	}
+}
+
+/// Returns true if the address has a precompile contract, else false.
+pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
+{
+	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
 }
 
 mod sealing {

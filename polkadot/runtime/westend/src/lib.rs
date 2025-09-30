@@ -225,6 +225,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
+	type SingleBlockMigrations = Migrations;
 }
 
 parameter_types! {
@@ -793,7 +794,7 @@ enum RcClientCalls<AccountId> {
 	#[codec(index = 0)]
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
 	#[codec(index = 1)]
-	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
+	RelayNewOffencePaged(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
 }
 
 pub struct AssetHubLocation;
@@ -842,24 +843,12 @@ impl sp_runtime::traits::Convert<rc_client::SessionReport<AccountId>, Xcm<()>>
 	}
 }
 
-pub struct StakingXcmToAssetHub;
-impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
-	type AccountId = AccountId;
-
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
-		rc_client::XCMSender::<
-			xcm_config::XcmRouter,
-			AssetHubLocation,
-			rc_client::SessionReport<AccountId>,
-			SessionReportToXcm,
-		>::split_then_send(session_report, Some(8));
-	}
-
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
-		let message = Xcm(vec![
+pub struct QueuedOffenceToXcm;
+impl sp_runtime::traits::Convert<Vec<ah_client::QueuedOffenceOf<Runtime>>, Xcm<()>>
+	for QueuedOffenceToXcm
+{
+	fn convert(offences: Vec<ah_client::QueuedOffenceOf<Runtime>>) -> Xcm<()> {
+		Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -867,17 +856,40 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 			Instruction::Transact {
 				origin_kind: OriginKind::Superuser,
 				fallback_max_weight: None,
-				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffence(
-					session_index,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffencePaged(
 					offences,
 				))
 				.encode()
 				.into(),
 			},
-		]);
-		if let Err(err) = send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message) {
-			log::error!(target: "runtime::ah-client", "Failed to send relay offence message: {:?}", err);
-		}
+		])
+	}
+}
+
+pub struct StakingXcmToAssetHub;
+impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
+	type AccountId = AccountId;
+
+	fn relay_session_report(
+		session_report: rc_client::SessionReport<Self::AccountId>,
+	) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			rc_client::SessionReport<AccountId>,
+			SessionReportToXcm,
+		>::send(session_report)
+	}
+
+	fn relay_new_offence_paged(
+		offences: Vec<ah_client::QueuedOffenceOf<Runtime>>,
+	) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			Vec<ah_client::QueuedOffenceOf<Runtime>>,
+			QueuedOffenceToXcm,
+		>::send(offences)
 	}
 }
 
@@ -893,7 +905,8 @@ impl ah_client::Config for Runtime {
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = ConstU32<50>;
 	type Fallback = Staking;
-	type WeightInfo = ah_client::weights::SubstrateWeight<Runtime>;
+	type MaximumValidatorsWithPoints = ConstU32<{ MaxActiveValidators::get() * 4 }>;
+	type MaxSessionReportRetries = ConstU32<5>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1727,6 +1740,12 @@ impl pallet_root_testing::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 }
 
+impl pallet_root_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = StakingAhClient;
+	type ReportOffence = Offences;
+}
+
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -2003,6 +2022,10 @@ mod runtime {
 	#[runtime::pallet_index(104)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
 
+	// Root offences pallet
+	#[runtime::pallet_index(105)]
+	pub type RootOffences = pallet_root_offences;
+
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
 	pub type Beefy = pallet_beefy;
@@ -2092,7 +2115,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
@@ -2143,7 +2165,6 @@ mod benches {
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
-		[pallet_staking_async_ah_client, StakingAhClient]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
@@ -2420,7 +2441,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(5)]
+	#[api_version(6)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
@@ -2481,19 +2502,9 @@ sp_api::impl_runtime_apis! {
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
-
-		fn generate_ancestry_proof(
-			prev_block_number: BlockNumber,
-			best_known_block_number: Option<BlockNumber>,
-		) -> Option<sp_runtime::OpaqueValue> {
-			use sp_consensus_beefy::AncestryHelper;
-
-			BeefyMmrLeaf::generate_proof(prev_block_number, best_known_block_number)
-				.map(|p| p.encode())
-				.map(sp_runtime::OpaqueValue::new)
-		}
 	}
 
+	#[api_version(3)]
 	impl mmr::MmrApi<Block, Hash, BlockNumber> for Runtime {
 		fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
 			Ok(pallet_mmr::RootHash::<Runtime>::get())
@@ -2518,6 +2529,13 @@ sp_api::impl_runtime_apis! {
 					)
 				},
 			)
+		}
+
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Result<mmr::AncestryProof<mmr::Hash>, mmr::Error> {
+			Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
 		}
 
 		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::LeafProof<mmr::Hash>)

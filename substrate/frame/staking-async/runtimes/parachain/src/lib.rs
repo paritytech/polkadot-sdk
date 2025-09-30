@@ -188,6 +188,7 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
+	type SingleBlockMigrations = Migrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -512,6 +513,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		ConstantStoragePrice<StakePoolCreationDeposit, Balance>,
 	>;
 	type WeightInfo = weights::pallet_asset_rewards::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;
 }
@@ -821,7 +823,10 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	// TODO: note that this value is different from most system chains, and is changed here only
+	// until lazy era pruning is implemented. The actual weight of the era pruning is not huge due
+	// to the fact that deletion is not expensive in `state_version: 1`.
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(70) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -1241,7 +1246,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
