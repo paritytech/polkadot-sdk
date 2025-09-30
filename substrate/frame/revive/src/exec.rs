@@ -1792,8 +1792,8 @@ where
 		{
 			// let contract_info = self.top_frame_mut().terminate();
 
-		let contract_info =
-			AccountInfo::<T>::load_contract(&contract_address).ok_or(Error::<T>::ContractNotFound)?;
+			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
+				.ok_or(Error::<T>::ContractNotFound)?;
 			self.contracts_to_be_destroyed.insert((
 				contract_address,
 				contract_info.clone(),

@@ -21,8 +21,7 @@ use crate::{
 	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, HoldReason, Inspect, Origin,
 	StorageDeposit as Deposit, System, LOG_TARGET,
 };
-use alloc::vec::Vec;
- use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::{
@@ -374,9 +373,7 @@ where
 				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
 				Origin::Signed(o) => o,
 			};
-			self.charges.sort_by(|a, b| {
-				a.contract.cmp(&b.contract)
-			});
+			self.charges.sort_by(|a, b| a.contract.cmp(&b.contract));
 			let coalesced: Vec<Charge<T>> = self
 				.charges
 				.into_iter()
@@ -385,10 +382,10 @@ where
 						return Err((a, b));
 					}
 
-					// If the contracts are the same any charge and refund can be coalesced together.
-					// So long as the terminate state does not disappear.
-					let resulting_amount =  a.amount.saturating_add(&b.amount);
-					if matches!(b.state, ContractState::Terminated { ..}) {
+					// If the contracts are the same any charge and refund can be coalesced
+					// together. So long as the terminate state does not disappear.
+					let resulting_amount = a.amount.saturating_add(&b.amount);
+					if matches!(b.state, ContractState::Terminated { .. }) {
 						Ok(Charge {
 							contract: b.contract,
 							amount: resulting_amount,
@@ -419,14 +416,15 @@ where
 		Ok(self.total_deposit)
 	}
 
-	fn coalesce_and_refund_destroyed_contracts(&mut self, 
+	fn coalesce_and_refund_destroyed_contracts(
+		&mut self,
 		origin: &Origin<T>,
-		destroyed_contracts: BTreeSet<ContractInfo<T>>
+		destroyed_contracts: BTreeSet<ContractInfo<T>>,
 	) -> Result<(), DispatchError> {
 		// sort and coalesce charges
 		// remove the charge for each contract that is in destroyed_contracts
-		// execute refund of Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), contract) for each of those
-		// update self.total_deposit to reflect the change
+		// execute refund of Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(),
+		// contract) for each of those update self.total_deposit to reflect the change
 		// error out if any of the charges fail
 		Ok(())
 	}
@@ -499,7 +497,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 		amount: &DepositOf<T>,
 		state: &ContractState<T>,
 	) -> Result<(), DispatchError> {
-				log::info!("meter.rs charge() amount: {amount:?}, state: {state:?}");
+		log::info!("meter.rs charge() amount: {amount:?}, state: {state:?}");
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => {
 				// We cannot return here because need to handle the terminated state below.
@@ -548,7 +546,11 @@ impl<T: Config> Ext<T> for ReservingExt {
 			},
 		}
 		if let ContractState::<T>::Terminated { beneficiary } = state {
-			log::info!("meter.rs charge() TERMINATE, transfer {:?} to beneficiary: {:?}", T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite), beneficiary);
+			log::info!(
+				"meter.rs charge() TERMINATE, transfer {:?} to beneficiary: {:?}",
+				T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite),
+				beneficiary
+			);
 			System::<T>::dec_consumers(&contract);
 			// Whatever is left in the contract is sent to the termination beneficiary.
 			T::Currency::transfer(

@@ -1204,7 +1204,10 @@ fn self_destruct2_works() {
 		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
 
 		println!("min_balance: {}", min_balance);
-		assert_eq!(<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK), 100_000 + min_balance);
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK),
+			100_000 + min_balance
+		);
 		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - min_balance);
 	});
 }
