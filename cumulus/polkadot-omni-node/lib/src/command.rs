@@ -136,7 +136,7 @@ where
 		// Handle the extra, and return - subcommands are self contained,
 		// no need to handle the rest of the CLI or node running.
 		extra.handle(&cmd_config)?;
-		return Ok(())
+		return Ok(());
 	}
 
 	// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
@@ -304,14 +304,16 @@ where
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 
 				if cli.run.base.is_dev()? {
-					// Set default dev block time to 3000ms if not set.
-					// TODO: take block time from AURA config if set.
 					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
-					return node_spec.start_manual(config, dev_block_time).map_err(Into::into);
+					return node_spec
+						.start_manual_seal_node(config, dev_block_time)
+						.map_err(Into::into);
 				}
 
 				if let Some(dev_block_time) = cli.dev_block_time {
-					return node_spec.start_manual(config, dev_block_time).map_err(Into::into);
+					return node_spec
+						.start_manual_seal_node(config, dev_block_time)
+						.map_err(Into::into);
 				}
 
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the

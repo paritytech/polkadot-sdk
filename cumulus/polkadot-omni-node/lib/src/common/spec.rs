@@ -553,12 +553,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
-	fn start_manual(
+	/// Start node with manual-seal consensus.
+	fn start_manual_seal_node(
 		self: Box<Self>,
 		config: Configuration,
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager>;
 
+	/// Start the node.
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,
@@ -573,12 +575,11 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
-	fn start_manual(
+	fn start_manual_seal_node(
 		self: Box<Self>,
 		config: Configuration,
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager> {
-		log::info!("Starting manual seal node");
 		<Self as NodeSpec>::start_manual_seal_node(config, block_time)
 	}
 

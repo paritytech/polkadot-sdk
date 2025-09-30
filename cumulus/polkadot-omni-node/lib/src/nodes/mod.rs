@@ -16,7 +16,6 @@
 
 pub mod aura;
 
-
 /// The current node version for cumulus official binaries, which takes the basic
 /// SemVer form `<major>.<minor>.<patch>`. It should correspond to the latest
 /// `polkadot` version of a stable release.
