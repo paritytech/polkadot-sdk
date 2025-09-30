@@ -1,18 +1,11 @@
 title: 'pallet-revive: add custom addr recovery logic in `ReceiptExtractor`'
 doc:
-- audience: Todo
+- audience: Node Dev
   description: |-
-    # Description
-
     `ReceiptExtractor` parses blocks and associated transactions in pallet-revive-eth-rpc and is useful for a range of Ethereum node RPCs. When the transactions are impersonated, they are based on a fake signature, which can't be used with the production eth address recovery logic. The recovery logic must be customised in cases where we impersonate transactions, so this PR adds a custom function on the `ReceiptExtractor` that if set to `None` it defaults to the production eth address recovery.
-
-    ## Integration
 
     Developers using pallet-revive-eth-rpc as a lib should instantiate the `ReceiptExtractor` in a custom way if impersonation usecases must be supported, otherwhise should set the constructor parameter to `None`.
 
-    ## Review Notes
-
-    Relevant in context of https://github.com/paritytech/foundry-polkadot/issues/242, to implement anvil-polkadot impersonation.
 crates:
 - name: pallet-revive-eth-rpc
   bump: major
