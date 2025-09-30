@@ -1340,6 +1340,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-precompiles",
  "pallet-aura",
  "pallet-authorship",
  "pallet-bags-list",
@@ -11442,14 +11443,12 @@ dependencies = [
 name = "pallet-assets"
 version = "29.1.0"
 dependencies = [
- "ethereum-standards",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
  "log",
  "pallet-balances",
- "pallet-revive",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
@@ -11479,6 +11478,23 @@ dependencies = [
  "log",
  "pallet-assets",
  "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-assets-precompiles"
+version = "0.1.0"
+dependencies = [
+ "ethereum-standards",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-revive",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
@@ -16344,6 +16360,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-freezer",
  "pallet-assets-holder",
+ "pallet-assets-precompiles",
  "pallet-atomic-swap",
  "pallet-aura",
  "pallet-authority-discovery",
