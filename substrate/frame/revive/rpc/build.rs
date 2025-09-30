@@ -57,12 +57,9 @@ fn build_ah_westend_wasm() {
 		.expect("`CARGO_MANIFEST_DIR` is always set for `build.rs` files; qed");
 
 	let runtime_cargo_toml = Path::new(&manifest_dir)
-		.parent()
-		.and_then(|p| p.parent())
-		.and_then(|p| p.parent())
-		.and_then(|p| p.parent())
-		.unwrap()
-		.join("cumulus/parachains/runtimes/assets/asset-hub-westend/Cargo.toml");
+		.join("../../../../cumulus/parachains/runtimes/assets/asset-hub-westend/Cargo.toml")
+		.canonicalize()
+		.expect("Failed to resolve runtime path");
 
 	substrate_wasm_builder::WasmBuilder::new()
 		.with_project(runtime_cargo_toml.to_str().expect("Invalid path"))
