@@ -690,17 +690,19 @@ pub mod pallet {
 			//
 			// Dynamic allocations are not available, yet. Hence they are not taken into
 			// consideration here.
-			let memory_left = i64::from(max_runtime_mem)
-				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
-				.saturating_sub(limits::MEMORY_REQUIRED.into());
+			{
+				let memory_left = i64::from(max_runtime_mem)
+					.saturating_div(TOTAL_MEMORY_DEVIDER.into())
+					.saturating_sub(limits::MEMORY_REQUIRED.into());
 
-			log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
+				log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
 
-			assert!(
-				memory_left >= 0,
-				"Runtime does not have enough memory for current limits. Additional runtime memory required: {} KB",
-				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
-			);
+				assert!(
+					memory_left >= 0,
+					"Runtime (PVM) does not have enough memory for current limits. Additional runtime memory required: {} KB",
+					memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
+				);
+			}
 
 			{
 				let call_stack_depth: u64 = limits::CALL_STACK_DEPTH.into();
@@ -716,14 +718,10 @@ pub mod pallet {
 					.saturating_div(TOTAL_MEMORY_DEVIDER.into())
 					.saturating_sub(memory_used.try_into().unwrap_or(i64::MAX));
 
-				log::debug!(target: LOG_TARGET, "Integrity check: memory_used: {}, call_stack_depth: {}, per_call_limit: {}, stack_size_limit: {}", memory_used, call_stack_depth, per_call_limit, stack_size_limit);
-
-				log::debug!(target: LOG_TARGET, "Integrity check: memory_left after call stack limits: {} KB", memory_left);
-
 				assert!(
 					memory_left >= 0,
-					"Runtime ran out of memory, memory_left: {}",
-					memory_left
+					"Runtime (EVM) does not have enough memory for current limits. Additional runtime memory required: {} KB",
+					memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
 				);
 			}
 
