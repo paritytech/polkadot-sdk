@@ -8,9 +8,9 @@ use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
-use snowbridge_core::TokenId;
+use snowbridge_core::{ParaId, TokenId};
 use snowbridge_inbound_queue_primitives::{
-	v2::{MessageProcessorError, MessageToXcm, XcmMessageProcessor},
+	v2::{MessageProcessorError, CreateAssetCallInfo, MessageToXcm, XcmMessageProcessor},
 	Log, Proof, VerificationError,
 };
 use sp_core::H160;
@@ -101,16 +101,15 @@ impl<'a, AccountId: Clone + Clone> TryConvert<&'a AccountId, Location>
 }
 
 parameter_types! {
-	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
+	pub const EthereumNetwork: NetworkId = Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
-	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
-	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
-	pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
 	pub SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
-	pub const CreateAssetCall: [u8;2] = [53, 0];
+	pub const CreateAssetCallIndex: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
+	pub const LocalNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
+	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateAssetDeposit::get(),min_balance:1};
+	pub AssetHubParaId: ParaId = ParaId::from(1000);
 }
 
 pub struct DummyPrefix;
