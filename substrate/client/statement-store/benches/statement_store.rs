@@ -36,7 +36,9 @@ type Block = sp_runtime::generic::Block<Header, Extrinsic>;
 const CORRECT_BLOCK_HASH: [u8; 32] = [1u8; 32];
 const STATEMENT_DATA_SIZE: usize = 256;
 const INITIAL_STATEMENTS: usize = 1_000;
-const OPERATIONS_COUNT: usize = 100;
+const NUM_THREADS: usize = 64;
+const OPS_PER_THREAD: usize = 10;
+const TOTAL_OPS: usize = NUM_THREADS * OPS_PER_THREAD;
 
 #[derive(Clone)]
 struct TestClient;
@@ -160,7 +162,7 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 
 fn bench_submit(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
-	let statements: Vec<_> = (INITIAL_STATEMENTS..INITIAL_STATEMENTS + OPERATIONS_COUNT)
+	let statements: Vec<_> = (INITIAL_STATEMENTS..INITIAL_STATEMENTS + TOTAL_OPS)
 		.map(|i| create_signed_statement(i as u64, &[], None, &keypair))
 		.collect();
 
@@ -168,13 +170,23 @@ fn bench_submit(c: &mut Criterion) {
 		b.iter_batched(
 			|| {
 				let (store, _temp) = setup_store(&keypair);
-				(store, _temp)
+				(Arc::new(store), _temp)
 			},
 			|(store, _temp)| {
-				for statement in statements.clone() {
-					let result = store.submit(statement, StatementSource::Local);
-					assert!(matches!(result, SubmitResult::New(_)));
-				}
+				std::thread::scope(|s| {
+					for thread_id in 0..NUM_THREADS {
+						let store = store.clone();
+						let start = thread_id * OPS_PER_THREAD;
+						let end = start + OPS_PER_THREAD;
+						let thread_statements = statements[start..end].to_vec();
+						s.spawn(move || {
+							for statement in thread_statements {
+								let result = store.submit(statement, StatementSource::Local);
+								assert!(matches!(result, SubmitResult::New(_)));
+							}
+						});
+					}
+				});
 			},
 			criterion::BatchSize::LargeInput,
 		)
@@ -192,15 +204,25 @@ fn bench_remove(c: &mut Criterion) {
 					.statements()
 					.unwrap()
 					.into_iter()
-					.take(OPERATIONS_COUNT)
+					.take(TOTAL_OPS)
 					.map(|(hash, _)| hash)
 					.collect();
-				(store, hashes, _temp)
+				(Arc::new(store), hashes, _temp)
 			},
 			|(store, hashes, _temp)| {
-				for hash in hashes {
-					let _ = store.remove(&hash);
-				}
+				std::thread::scope(|s| {
+					for thread_id in 0..NUM_THREADS {
+						let store = store.clone();
+						let start = thread_id * OPS_PER_THREAD;
+						let end = start + OPS_PER_THREAD;
+						let thread_hashes = hashes[start..end].to_vec();
+						s.spawn(move || {
+							for hash in thread_hashes {
+								let _ = store.remove(&hash);
+							}
+						});
+					}
+				});
 			},
 			criterion::BatchSize::LargeInput,
 		)
@@ -218,15 +240,25 @@ fn bench_statement_lookup(c: &mut Criterion) {
 					.statements()
 					.unwrap()
 					.into_iter()
-					.take(OPERATIONS_COUNT)
+					.take(TOTAL_OPS)
 					.map(|(hash, _)| hash)
 					.collect();
-				(store, hashes, _temp)
+				(Arc::new(store), hashes, _temp)
 			},
 			|(store, hashes, _temp)| {
-				for hash in hashes {
-					let _ = store.statement(&hash);
-				}
+				std::thread::scope(|s| {
+					for thread_id in 0..NUM_THREADS {
+						let store = store.clone();
+						let start = thread_id * OPS_PER_THREAD;
+						let end = start + OPS_PER_THREAD;
+						let thread_hashes = hashes[start..end].to_vec();
+						s.spawn(move || {
+							for hash in thread_hashes {
+								let _ = store.statement(&hash);
+							}
+						});
+					}
+				});
 			},
 			criterion::BatchSize::LargeInput,
 		)
@@ -236,10 +268,20 @@ fn bench_statement_lookup(c: &mut Criterion) {
 fn bench_statements_all(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let (store, _temp) = setup_store(&keypair);
+	let store = Arc::new(store);
 
 	c.bench_function("statements_all", |b| {
 		b.iter(|| {
-			let _ = store.statements();
+			std::thread::scope(|s| {
+				for _ in 0..NUM_THREADS {
+					let store = store.clone();
+					s.spawn(move || {
+						for _ in 0..OPS_PER_THREAD {
+							let _ = store.statements();
+						}
+					});
+				}
+			});
 		})
 	});
 }
@@ -247,11 +289,22 @@ fn bench_statements_all(c: &mut Criterion) {
 fn bench_broadcasts(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let (store, _temp) = setup_store(&keypair);
+	let store = Arc::new(store);
 	let topics = vec![topic(0), topic(1)];
 
 	c.bench_function("broadcasts", |b| {
 		b.iter(|| {
-			let _ = store.broadcasts(&topics);
+			std::thread::scope(|s| {
+				for _ in 0..NUM_THREADS {
+					let store = store.clone();
+					let topics = topics.clone();
+					s.spawn(move || {
+						for _ in 0..OPS_PER_THREAD {
+							let _ = store.broadcasts(&topics);
+						}
+					});
+				}
+			});
 		})
 	});
 }
@@ -259,11 +312,21 @@ fn bench_broadcasts(c: &mut Criterion) {
 fn bench_posted(c: &mut Criterion) {
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let (store, _temp) = setup_store(&keypair);
+	let store = Arc::new(store);
 	let key = dec_key(42);
 
 	c.bench_function("posted", |b| {
 		b.iter(|| {
-			let _ = store.posted(&[], key);
+			std::thread::scope(|s| {
+				for _ in 0..NUM_THREADS {
+					let store = store.clone();
+					s.spawn(move || {
+						for _ in 0..OPS_PER_THREAD {
+							let _ = store.posted(&[], key);
+						}
+					});
+				}
+			});
 		})
 	});
 }
@@ -280,7 +343,7 @@ fn bench_maintain(c: &mut Criterion) {
 					.statements()
 					.unwrap()
 					.into_iter()
-					.take(OPERATIONS_COUNT)
+					.take(TOTAL_OPS)
 					.map(|(hash, _)| hash)
 					.collect();
 				for hash in hashes {
