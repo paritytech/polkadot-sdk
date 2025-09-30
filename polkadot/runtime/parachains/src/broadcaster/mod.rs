@@ -23,7 +23,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	storage::child::ChildInfo,
-	traits::{Get, ConstU32},
+	traits::{defensive_prelude::*, Get, ConstU32},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::Id as ParaId;
@@ -57,7 +57,10 @@ mod tests;
 pub mod pallet {
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -65,21 +68,25 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// Maximum number of items that can be published in one operation
+		/// Maximum number of items that can be published in one operation.
 		#[pallet::constant]
 		type MaxPublishItems: Get<u32>;
 
-		/// Maximum length of a key in bytes
+		/// Maximum length of a key in bytes.
 		#[pallet::constant]
 		type MaxKeyLength: Get<u32>;
 
-		/// Maximum length of a value in bytes
+		/// Maximum length of a value in bytes.
 		#[pallet::constant]
 		type MaxValueLength: Get<u32>;
 
-		/// Maximum number of publishers a subscriber can subscribe to
+		/// Maximum number of publishers a subscriber can subscribe to.
 		#[pallet::constant]
 		type MaxSubscriptions: Get<u32>;
+
+		/// Maximum number of publishers that can have published data.
+		#[pallet::constant]
+		type MaxPublishers: Get<u32>;
 	}
 
 	#[pallet::event]
@@ -136,21 +143,19 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PublishedDataRoots<T: Config> = StorageValue<
 		_,
-		BoundedVec<(ParaId, BoundedVec<u8, ConstU32<32>>), ConstU32<1000>>,
+		BoundedVec<(ParaId, BoundedVec<u8, ConstU32<32>>), T::MaxPublishers>,
 		ValueQuery,
 	>;
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Too many items in a single publish operation
+		/// Too many items in a single publish operation.
 		TooManyPublishItems,
-		/// Key length exceeds maximum allowed
+		/// Key length exceeds maximum allowed.
 		KeyTooLong,
-		/// Value length exceeds maximum allowed
+		/// Value length exceeds maximum allowed.
 		ValueTooLong,
-		/// Child trie operation failed
-		ChildTrieError,
-		/// Too many subscriptions for this subscriber
+		/// Too many subscriptions for this subscriber.
 		TooManySubscriptions,
 	}
 
@@ -206,7 +211,7 @@ pub mod pallet {
 
 				// Track the key for enumeration (convert to BoundedVec)
 				if let Ok(bounded_key) = BoundedVec::try_from(key) {
-					let _ = published_keys.try_insert(bounded_key);
+					published_keys.try_insert(bounded_key).defensive_ok();
 				}
 			}
 
@@ -220,22 +225,14 @@ pub mod pallet {
 			// Update the aggregated roots storage
 			let mut roots = PublishedDataRoots::<T>::get();
 
-			// Find and update existing entry or add new one
-			let mut found = false;
-			for (para_id, root_hash) in roots.iter_mut() {
-				if *para_id == origin_para_id {
-					if let Ok(bounded_root) = BoundedVec::try_from(child_root.clone()) {
-						*root_hash = bounded_root;
-					}
-					found = true;
-					break;
-				}
-			}
-
-			// If not found, add new entry
-			if !found {
-				if let Ok(bounded_root) = BoundedVec::try_from(child_root.clone()) {
-					let _ = roots.try_push((origin_para_id, bounded_root));
+			// Convert child_root once
+			if let Ok(bounded_root) = BoundedVec::try_from(child_root) {
+				// Find and update existing entry or add new one
+				if let Some((_, root_hash)) = roots.iter_mut().find(|(para_id, _)| *para_id == origin_para_id) {
+					*root_hash = bounded_root;
+				} else {
+					// Not found, add new entry
+					roots.try_push((origin_para_id, bounded_root)).defensive_ok();
 				}
 			}
 
@@ -247,17 +244,14 @@ pub mod pallet {
 		}
 
 		/// Get the child trie root hash for a specific publisher.
-		/// 
+		///
 		/// This root is always included in PersistedValidationData to prove
 		/// the current state of the publisher's data.
 		pub fn get_publisher_child_root(para_id: ParaId) -> Option<Vec<u8>> {
-			if PublisherExists::<T>::get(para_id) {
+			PublisherExists::<T>::get(para_id).then(|| {
 				let child_info = Self::derive_child_info(para_id);
-				Some(frame_support::storage::child::root(&child_info, 
-					sp_runtime::StateVersion::V1))
-			} else {
-				None
-			}
+				frame_support::storage::child::root(&child_info, sp_runtime::StateVersion::V1)
+			})
 		}
 
 		/// Get or create child trie info for a publisher.
@@ -269,8 +263,11 @@ pub mod pallet {
 
 		/// Derive a deterministic child trie identifier from parachain ID.
 		pub fn derive_child_info(para_id: ParaId) -> ChildInfo {
-			let mut key = b"pubsub".to_vec();
-			key.extend_from_slice(&para_id.encode());
+			const PREFIX: &[u8] = b"pubsub";
+			let encoded = para_id.encode();
+			let mut key = Vec::with_capacity(PREFIX.len() + encoded.len());
+			key.extend_from_slice(PREFIX);
+			key.extend_from_slice(&encoded);
 
 			ChildInfo::new_default(&key)
 		}
@@ -279,12 +276,10 @@ pub mod pallet {
 		///
 		/// Returns None if the publisher doesn't exist or the key is not found.
 		pub fn get_published_value(para_id: ParaId, key: &[u8]) -> Option<Vec<u8>> {
-			if PublisherExists::<T>::get(para_id) {
+			PublisherExists::<T>::get(para_id).then(|| {
 				let child_info = Self::derive_child_info(para_id);
 				frame_support::storage::child::get(&child_info, key)
-			} else {
-				None
-			}
+			})?
 		}
 
 		/// Get all published data for a parachain.
@@ -308,9 +303,7 @@ pub mod pallet {
 
 		/// Get list of all parachains that have published data.
 		pub fn get_all_publishers() -> Vec<ParaId> {
-			PublisherExists::<T>::iter()
-				.filter_map(|(para_id, exists)| if exists { Some(para_id) } else { None })
-				.collect()
+			PublisherExists::<T>::iter_keys().collect()
 		}
 
 		/// Toggle subscription: subscribe if not subscribed, unsubscribe if subscribed.
@@ -321,17 +314,18 @@ pub mod pallet {
 			let mut subscriptions = Subscriptions::<T>::get(subscriber);
 
 			// Check if already subscribed
-			if let Some(pos) = subscriptions.iter().position(|&p| p == publisher) {
+			let event = if let Some(pos) = subscriptions.iter().position(|&p| p == publisher) {
 				// Already subscribed -> unsubscribe
 				subscriptions.swap_remove(pos);
-				Subscriptions::<T>::insert(subscriber, subscriptions);
-				Self::deposit_event(Event::Unsubscribed { subscriber, publisher });
+				Event::Unsubscribed { subscriber, publisher }
 			} else {
 				// Not subscribed -> subscribe
 				subscriptions.try_push(publisher).map_err(|_| Error::<T>::TooManySubscriptions)?;
-				Subscriptions::<T>::insert(subscriber, subscriptions);
-				Self::deposit_event(Event::Subscribed { subscriber, publisher });
-			}
+				Event::Subscribed { subscriber, publisher }
+			};
+
+			Subscriptions::<T>::insert(subscriber, subscriptions);
+			Self::deposit_event(event);
 
 			Ok(())
 		}
@@ -350,17 +344,13 @@ pub mod pallet {
 		/// Returns a map of Publisher ParaId -> published data.
 		/// Only includes publishers that have actual data and are subscribed to.
 		pub fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
-			let subscriptions = Self::get_subscriptions(subscriber_para_id);
-			let mut result = BTreeMap::new();
-
-			for publisher in subscriptions {
-				let data = Self::get_all_published_data(publisher);
-				if !data.is_empty() {
-					result.insert(publisher, data);
-				}
-			}
-
-			result
+			Subscriptions::<T>::get(subscriber_para_id)
+				.into_iter()
+				.filter_map(|publisher| {
+					let data = Self::get_all_published_data(publisher);
+					(!data.is_empty()).then_some((publisher, data))
+				})
+				.collect()
 		}
 	}
 }

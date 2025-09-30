@@ -495,6 +495,7 @@ impl crate::broadcaster::Config for Test {
 	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;
 	type MaxSubscriptions = ConstU32<10>;
+	type MaxPublishers = ConstU32<1000>;
 }
 
 pub struct MockValidatorSet;

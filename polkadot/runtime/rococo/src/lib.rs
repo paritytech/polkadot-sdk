@@ -1228,6 +1228,7 @@ parameter_types! {
 	pub const MaxKeyLength: u32 = 256;
 	pub const MaxValueLength: u32 = 1024;
 	pub const MaxSubscriptions: u32 = 100;
+	pub const MaxPublishers: u32 = 1000;
 }
 
 impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
@@ -1236,6 +1237,7 @@ impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
 	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;
 	type MaxSubscriptions = MaxSubscriptions;
+	type MaxPublishers = MaxPublishers;
 }
 
 parameter_types! {
