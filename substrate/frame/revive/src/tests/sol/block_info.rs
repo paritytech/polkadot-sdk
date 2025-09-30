@@ -24,11 +24,11 @@ use crate::{
 	Code, Config,
 };
 
-use alloy_core::sol_types::SolInterface;
+use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, BlockInfo, FixtureType};
 use pretty_assertions::assert_eq;
-use sp_core::{H160, U256};
+use sp_core::H160;
 use test_case::test_case;
 
 /// Tests that the blocknumber opcode works as expected.
@@ -48,7 +48,8 @@ fn block_number_works(fixture_type: FixtureType) {
 				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
 			)
 			.build_and_unwrap_result();
-		assert_eq!(U256::from(42u32), U256::from_big_endian(&result.data));
+		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(42u64, decoded);
 	});
 }
 
@@ -86,9 +87,10 @@ fn chainid_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::chainid(BlockInfo::chainidCall {}).abi_encode())
 			.build_and_unwrap_result();
+		let decoded = BlockInfo::chainidCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(
-			U256::from(<Test as Config>::ChainId::get()),
-			U256::from_big_endian(&result.data)
+			<Test as Config>::ChainId::get() as u64,
+			decoded
 		);
 	});
 }
@@ -107,11 +109,12 @@ fn timestamp_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
 			.build_and_unwrap_result();
+		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(
 			// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
 			// milliseconds.
-			U256::from(Timestamp::get() / 1000),
-			U256::from_big_endian(&result.data)
+			(Timestamp::get() / 1000) as u64,
+			decoded
 		);
 	});
 }
@@ -129,9 +132,10 @@ fn gaslimit_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::gaslimit(BlockInfo::gaslimitCall {}).abi_encode())
 			.build_and_unwrap_result();
+		let decoded = BlockInfo::gaslimitCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(
-			U256::from(<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()),
-			U256::from_big_endian(&result.data)
+			<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time() as u64,
+			decoded
 		);
 	});
 }
@@ -149,7 +153,8 @@ fn basefee_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {}).abi_encode())
 			.build_and_unwrap_result();
-		assert_eq!(BASE_FEE, U256::from_big_endian(&result.data));
+		let decoded = BlockInfo::basefeeCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(0u64, decoded);
 	});
 }
 
@@ -166,10 +171,11 @@ fn difficulty_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::difficulty(BlockInfo::difficultyCall {}).abi_encode())
 			.build_and_unwrap_result();
+		let decoded = BlockInfo::difficultyCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(
-			// Alligned with the value set for PVM
-			U256::from(DIFFICULTY),
-			U256::from_big_endian(&result.data)
+			// Aligned with the value set for PVM (truncated to u64)
+			DIFFICULTY as u64,
+			decoded
 		);
 	});
 }

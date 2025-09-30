@@ -614,7 +614,7 @@ fn logs_denied_for_static_call(caller_type: FixtureType, callee_type: FixtureTyp
 				Caller::CallerCalls::staticCall(Caller::staticCallCall {
 					_callee: host_addr.0.into(),
 					_data: Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode().into(),
-					_gas: primitives::U256::MAX,
+					_gas: u64::MAX,
 				})
 				.abi_encode(),
 			)

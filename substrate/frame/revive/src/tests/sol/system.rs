@@ -228,11 +228,11 @@ fn returndatacopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 				SystemFixture::returndatacopyCall {
 					_callee: callee_addr.0.into(),
 					_data: Callee::echoCall {
-						_data: primitives::U256::from_be_bytes(magic_number.to_big_endian()),
+						_data: 42u64,
 					}
 					.abi_encode()
 					.into(),
-					_gas: primitives::U256::MAX,
+					_gas: u64::MAX,
 					destOffset: primitives::U256::ZERO,
 					offset: primitives::U256::ZERO,
 					size: primitives::U256::from(32u32),

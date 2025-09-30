@@ -11,9 +11,9 @@ contract ChildRevert {
 contract Caller {
     function normal(
         address _callee,
-        uint _value,
+        uint64 _value,
         bytes memory _data,
-        uint _gas
+        uint64 _gas
     ) external returns (bool success, bytes memory output) {
         (success, output) = _callee.call{value: _value, gas: _gas}(_data);
     }
@@ -21,7 +21,7 @@ contract Caller {
     function delegate(
         address _callee,
         bytes memory _data,
-        uint _gas
+        uint64 _gas
     ) external returns (bool success, bytes memory output) {
         (success, output) = _callee.delegatecall{gas: _gas}(_data);
     }
@@ -30,7 +30,7 @@ contract Caller {
         // Don't rename to `static` (it's a Rust keyword).
         address _callee,
         bytes memory _data,
-        uint _gas
+        uint64 _gas
     ) external view returns (bool success, bytes memory output) {
         (success, output) = _callee.staticcall{gas: _gas}(_data);
     }

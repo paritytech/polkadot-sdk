@@ -63,7 +63,7 @@ contract System {
     function returndatasize(
         address _callee,
         bytes memory _data,
-        uint _gas
+        uint64 _gas
     ) public returns (uint256) {
         uint256 size;
         _callee.staticcall{gas: _gas}(_data);
@@ -76,7 +76,7 @@ contract System {
     function returndatacopy(
         address _callee,
         bytes memory _data,
-        uint _gas,
+        uint64 _gas,
         uint256 destOffset,
         uint256 offset,
         uint256 size

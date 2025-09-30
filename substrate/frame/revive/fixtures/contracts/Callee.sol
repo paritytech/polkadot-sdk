@@ -2,9 +2,9 @@
 pragma solidity >=0.8.0;
 
 contract Callee {
-    uint public stored;
+    uint64 public stored;
 
-    function echo(uint _data) external pure returns (uint data) {
+    function echo(uint64 _data) external pure returns (uint64 data) {
         data = _data;
     }
 
@@ -12,7 +12,7 @@ contract Callee {
         return msg.sender;
     }
 
-    function store(uint _data) external {
+    function store(uint64 _data) external {
         stored = _data;
     }
 
