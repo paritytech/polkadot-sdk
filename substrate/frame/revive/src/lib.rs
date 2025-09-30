@@ -1535,6 +1535,21 @@ where
 		// replace the weight passed in the transaction with the dry_run result
 		call_info.call.set_weight_limit(dry_run.gas_required);
 
+		// we notify the wallet that the tx would not fit
+		let total_weight = T::FeeInfo::dispatch_info(&call_info.call).total_weight();
+		let max_weight = Self::evm_max_extrinsic_weight();
+		if total_weight.any_gt(max_weight) {
+			Err(EthTransactError::Message(format!(
+				"\
+				The transaction consumes more than the allowed weight. \
+				needed={total_weight} \
+				allowed={max_weight} \
+				overweight_by={}\
+				",
+				total_weight.saturating_sub(max_weight),
+			)))?;
+		}
+
 		let transaction_fee: U256 =
 			T::FeeInfo::unadjusted_tx_fee(call_info.encoded_len, &call_info.call).into();
 		let storage_deposit = T::FeeInfo::next_fee_multiplier_reciprocal()
@@ -1618,6 +1633,19 @@ where
 		);
 
 		Self::evm_gas_from_weight(max_block_weight).saturating_add(length_fee.into())
+	}
+
+	/// The maximum weight an `eth_transact` is allowed to consume.
+	pub fn evm_max_extrinsic_weight() -> Weight {
+		let factor = <T as Config>::MaxEthExtrinsicWeight::get();
+		let max_weight = <T as frame_system::Config>::BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_extrinsic
+			.unwrap_or_else(|| <T as frame_system::Config>::BlockWeights::get().max_block);
+		Weight::from_parts(
+			factor.saturating_mul_int(max_weight.ref_time()),
+			factor.saturating_mul_int(max_weight.proof_size()),
+		)
 	}
 
 	/// Get the base gas price.

@@ -19,8 +19,8 @@
 
 use crate::{
 	evm::{fees::InfoT, runtime::SetWeightLimit},
-	extract_code_and_data, BalanceOf, Call, CallOf, Config, DispatchClass, GenericTransaction,
-	MomentOf, Pallet, Weight, Zero, H256, LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
+	extract_code_and_data, BalanceOf, Call, CallOf, Config, GenericTransaction, MomentOf, Pallet,
+	Weight, Zero, H256, LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
 };
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
@@ -169,17 +169,7 @@ where
 
 		call.set_weight_limit(weight_limit);
 		let info = <T as Config>::FeeInfo::dispatch_info(&call);
-
-		let factor = <T as Config>::MaxEthExtrinsicWeight::get();
-		let max_weight = <T as frame_system::Config>::BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.max_extrinsic
-			.unwrap_or_else(|| <T as frame_system::Config>::BlockWeights::get().max_block);
-		let max_weight = Weight::from_parts(
-			factor.saturating_mul_int(max_weight.ref_time()),
-			factor.saturating_mul_int(max_weight.proof_size()),
-		);
-
+		let max_weight = <Pallet<T>>::evm_max_extrinsic_weight();
 		let overweight_by = info.total_weight().saturating_sub(max_weight);
 		let capped_weight = weight_limit.saturating_sub(overweight_by);
 		call.set_weight_limit(capped_weight);
