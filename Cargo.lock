@@ -22086,7 +22086,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
@@ -22099,6 +22098,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22128,7 +22128,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-beacon-primitives",
@@ -22142,6 +22141,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22183,7 +22183,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
@@ -22197,6 +22196,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22232,7 +22232,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -22248,6 +22247,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "static_assertions",
+ "tracing",
 ]
 
 [[package]]
@@ -22270,7 +22270,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -22287,6 +22286,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22311,7 +22311,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -22408,7 +22407,6 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
- "log",
  "pallet-balances",
  "pallet-message-queue",
  "parity-scale-codec",
@@ -22423,6 +22421,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22432,7 +22431,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-asset-conversion",
  "pallet-balances",
  "parity-scale-codec",
@@ -22457,7 +22455,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -22481,7 +22478,6 @@ version = "0.2.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "log",
  "pallet-xcm",
  "parity-scale-codec",
  "sp-arithmetic",
@@ -22489,6 +22485,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -22551,7 +22548,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-asset-conversion",
  "parity-scale-codec",
  "scale-info",

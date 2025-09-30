@@ -20,7 +20,6 @@ codec = { workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
-log = { workspace = true, default-features = true }
 pallet-asset-conversion = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 snowbridge-core = { workspace = true, default-features = true }
