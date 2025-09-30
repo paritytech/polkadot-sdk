@@ -22,7 +22,6 @@ use crate::{
 	tests::{builder, test_utils, ExtBuilder, RuntimeEvent, Test},
 	Code, Config, Error, Key, System, H256, U256,
 };
-use alloy_core::primitives;
 use frame_support::assert_err_ignore_postinfo;
 
 use alloy_core::sol_types::{SolCall, SolInterface};
@@ -65,8 +64,7 @@ fn balance_works(fixture_type: FixtureType) {
 			assert_eq!(
 				expected_balance.as_u64(),
 				decoded,
-				"BALANCE should return BOB's balance for {:?}",
-				fixture_type
+				"BALANCE should return BOB's balance for {fixture_type:?}",
 			);
 		}
 	});
@@ -138,8 +136,7 @@ fn extcodesize_works(fixture_type: FixtureType) {
 			assert_eq!(
 				expected_code_size.as_u64(),
 				decoded,
-				"EXTCODESIZE should return the code size for {:?}",
-				fixture_type
+				"EXTCODESIZE should return the code size for {fixture_type:?}",
 			);
 		}
 	});
@@ -177,8 +174,7 @@ fn extcodehash_works(fixture_type: FixtureType) {
 			assert_eq!(
 				expected_code_hash,
 				H256::from_slice(decoded.as_slice()),
-				"EXTCODEHASH should return the code hash for {:?}",
-				fixture_type
+				"EXTCODEHASH should return the code hash for {fixture_type:?}",
 			);
 		}
 	});
@@ -256,8 +252,8 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 				.data(
 					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
 						account: dummy_addr.0.into(),
-						offset: primitives::U256::from(test_case.offset),
-						size: primitives::U256::from(test_case.size),
+						offset: test_case.offset as u64,
+						size: test_case.size as u64,
 					})
 					.abi_encode(),
 				)
@@ -285,9 +281,7 @@ fn blockhash_works(fixture_type: FixtureType) {
 
 	ExtBuilder::default().build().execute_with(|| {
 		let block_number_to_test = 5u64;
-
 		System::<Test>::set_block_number(13);
-
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 		let Contract { addr, .. } =
@@ -310,14 +304,12 @@ fn blockhash_works(fixture_type: FixtureType) {
 			assert!(!result.did_revert(), "test reverted");
 
 			let decoded = Host::blockhashOpCall::abi_decode_returns(&result.data).unwrap();
-
 			let expected_block_hash = System::<Test>::block_hash(block_number_to_test);
 
 			assert_eq!(
 				expected_block_hash,
 				H256::from_slice(decoded.as_slice()),
-				"EXTBLOCKHASH should return the block hash for {:?}",
-				fixture_type
+				"EXTBLOCKHASH should return the block hash for {fixture_type:?}",
 			);
 		}
 	});
@@ -572,7 +564,7 @@ fn transient_storage_works(fixture_type: FixtureType) {
 		assert!(!result.did_revert(), "test reverted");
 		let decoded =
 			HostTransientMemory::transientMemoryTestCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(0u64, decoded, "transient storage should return zero for {:?}", fixture_type);
+		assert_eq!(0u64, decoded, "transient storage should return zero for {fixture_type:?}");
 	});
 }
 

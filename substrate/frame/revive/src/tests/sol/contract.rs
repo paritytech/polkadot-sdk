@@ -68,11 +68,7 @@ fn staticcall_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
 		assert!(result.success, "the call must succeed");
 		let echo_output = Callee::echoCall::abi_decode_returns(&result.output).unwrap();
-		assert_eq!(
-			magic_number,
-			echo_output,
-			"the call must reproduce the magic number"
-		);
+		assert_eq!(magic_number, echo_output, "the call must reproduce the magic number");
 
 		let result = builder::bare_call(caller_addr)
 			.data(
@@ -125,11 +121,7 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
 		assert!(result.success, "the call must succeed");
 		let echo_output = Callee::echoCall::abi_decode_returns(&result.output).unwrap();
-		assert_eq!(
-			magic_number,
-			echo_output,
-			"the call must reproduce the magic number"
-		);
+		assert_eq!(magic_number, echo_output, "the call must reproduce the magic number");
 
 		let result = builder::bare_call(caller_addr)
 			.data(
@@ -350,11 +342,7 @@ fn delegatecall_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let result = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
 		assert!(result.success, "the call must succeed");
 		let echo_output = Callee::echoCall::abi_decode_returns(&result.output).unwrap();
-		assert_eq!(
-			magic_number,
-			echo_output,
-			"the call must reproduce the magic number"
-		);
+		assert_eq!(magic_number, echo_output, "the call must reproduce the magic number");
 
 		let result = builder::bare_call(caller_addr)
 			.data(

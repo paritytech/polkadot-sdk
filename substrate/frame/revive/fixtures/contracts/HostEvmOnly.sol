@@ -8,7 +8,7 @@ contract HostEvmOnly {
         }
     }
 
-    function extcodecopyOp(address account, uint256 offset, uint256 size) public view returns (bytes memory code) {
+    function extcodecopyOp(address account, uint64 offset, uint64 size) public view returns (bytes memory code) {
         code = new bytes(size);
         assembly {
             extcodecopy(account, add(code, 32), offset, size)

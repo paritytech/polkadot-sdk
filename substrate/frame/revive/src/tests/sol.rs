@@ -87,12 +87,7 @@ fn basic_evm_flow_works() {
 			assert_refcount!(contract.code_hash, i as u64);
 
 			let result = builder::bare_call(addr)
-				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
-						n: 10u64,
-					})
-					.abi_encode(),
-				)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
 				.build_and_unwrap_result();
 			let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 			assert_eq!(55u64, decoded);
@@ -139,12 +134,7 @@ fn basic_evm_flow_tracing_works() {
 		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
-				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
-						n: 10u64,
-					})
-					.abi_encode(),
-				)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
 				.build_and_unwrap_result()
 		});
 
@@ -157,11 +147,9 @@ fn basic_evm_flow_tracing_works() {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
 				to: addr,
-				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
-					n: 10u64
-				})
-				.abi_encode()
-				.into(),
+				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 })
+					.abi_encode()
+					.into(),
 				output: result.data.into(),
 				value: Some(crate::U256::zero()),
 				..Default::default()
