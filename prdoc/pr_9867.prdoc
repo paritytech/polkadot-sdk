@@ -1,0 +1,14 @@
+title: "Snowbridge: Use AssetHub as the enqueued origin for V2"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Restrict the origin to AssetHub when enqueued to MessageQueue.
+crates:
+- name: snowbridge-outbound-queue-primitives
+  bump: patch
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: patch
+- name: snowbridge-pallet-system-v2
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
