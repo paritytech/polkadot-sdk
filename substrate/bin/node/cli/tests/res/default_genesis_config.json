@@ -39,6 +39,8 @@
     "nonAuthorityKeys": []
 
   },
+  "revive": {
+  },
   "democracy": {},
   "council": {
     "members": []

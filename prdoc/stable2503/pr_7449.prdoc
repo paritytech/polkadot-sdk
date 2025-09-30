@@ -1,0 +1,26 @@
+title: "remove handling of validation protocol versions 1 and 2"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR removes handling for validation protocol versions 1 and 2, as they are
+      no longer in use, leaving only version 3. Specifically, it eliminates handling
+      for V1 and V2 of `BitfieldDistributionMessage`, `ApprovalDistributionMessage`
+      and `StatementDistributionMessage`. However, the logic for handling different
+      versions remains to allow for future additions.
+
+crates:
+  - name: polkadot-node-core-approval-voting-parallel
+    bump: patch
+  - name: polkadot-approval-distribution
+    bump: patch
+  - name: polkadot-availability-bitfield-distribution
+    bump: patch
+  - name: polkadot-network-bridge
+    bump: patch
+  - name: polkadot-node-network-protocol
+    bump: major
+  - name: polkadot-statement-distribution
+    bump: major
+  - name: polkadot-service
+    bump: major

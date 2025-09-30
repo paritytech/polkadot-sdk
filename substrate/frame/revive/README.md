@@ -41,7 +41,7 @@ to handle that failure, either proceeding or reverting A's changes.
 ### Dispatchable functions
 
 Those are documented in the [reference
-documentation](https://paritytech.github.io/substrate/master/pallet_revive/index.html#dispatchable-functions).
+documentation](https://paritytech.github.io/polkadot-sdk/master/pallet_revive/pallet/dispatchables/index.html).
 
 ## Usage
 
@@ -69,7 +69,7 @@ Driven by the desire to have an iterative approach in developing new contract in
 concept of an unstable interface. Akin to the rust nightly compiler it allows us to add new interfaces but mark them as
 unstable so that contract languages can experiment with them and give feedback before we stabilize those.
 
-In order to access interfaces which don't have a stable `#[stable]` in [`runtime.rs`](src/wasm/runtime.rs)
+In order to access interfaces which don't have a stable `#[stable]` in [`runtime.rs`](src/vm/runtime.rs)
 one need to set `pallet_revive::Config::UnsafeUnstableInterface` to `ConstU32<true>`.
 **It should be obvious that any production runtime should never be compiled with this feature: In addition to be
 subject to change or removal those interfaces might not have proper weights associated with them and are therefore

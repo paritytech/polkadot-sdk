@@ -26,11 +26,6 @@ use frame_support::traits::UnfilteredDispatchable;
 use frame_system::{Pallet as System, RawOrigin};
 use sp_runtime::traits::Hash;
 
-#[cfg(feature = "std")]
-frame_support::parameter_types! {
-	pub static StorageRootHash: Option<alloc::vec::Vec<u8>> = None;
-}
-
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -395,32 +390,6 @@ mod benchmarks {
 				}
 			}
 		}
-	}
-
-	#[benchmark]
-	fn storage_root_is_the_same_every_time(i: Linear<0, 10>) {
-		#[cfg(feature = "std")]
-		let root = sp_io::storage::root(sp_runtime::StateVersion::V1);
-
-		#[cfg(feature = "std")]
-		match (i, StorageRootHash::get()) {
-			(0, Some(_)) => panic!("StorageRootHash should be None initially"),
-			(0, None) => StorageRootHash::set(Some(root)),
-			(_, Some(r)) if r == root => {},
-			(_, Some(r)) =>
-				panic!("StorageRootHash should be the same every time: {:?} vs {:?}", r, root),
-			(_, None) => panic!("StorageRootHash should be Some after the first iteration"),
-		}
-
-		// Also test that everything is reset correctly:
-		sp_io::storage::set(b"key1", b"value");
-
-		#[block]
-		{
-			sp_io::storage::set(b"key2", b"value");
-		}
-
-		sp_io::storage::set(b"key3", b"value");
 	}
 
 	impl_benchmark_test_suite!(Pallet, super::mock::new_test_ext(), super::mock::Test,);

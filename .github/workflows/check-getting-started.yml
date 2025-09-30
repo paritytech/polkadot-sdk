@@ -26,16 +26,19 @@ on:
     paths:
       - ".github/workflows/check-getting-started.yml"
       - "scripts/getting-started.sh"
+    types: [opened, synchronize, reopened, ready_for_review]
   schedule:
     - cron: "0 5 * * *"
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   check-getting-started:
+    needs: isdraft
     strategy:
       fail-fast: true
       matrix:
@@ -79,7 +82,7 @@ jobs:
         if: contains(matrix.name, 'opensuse')
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Set additional expect flags if necessary
         run: |
@@ -179,6 +182,7 @@ jobs:
         timeout-minutes: 5
 
   check-getting-started-macos:
+    needs: isdraft
     strategy:
       fail-fast: true
       matrix:
@@ -190,7 +194,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Set additional expect flags if necessary
         run: |

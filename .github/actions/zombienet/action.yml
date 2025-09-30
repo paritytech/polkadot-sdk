@@ -1,0 +1,112 @@
+name: "Zombienet test v1"
+description: "Runs zombienet tests"
+inputs:
+  test-definition:
+    description: "test definition (zndsl file)"
+    required: true
+  job-name:
+    description: "Job name to use for artifact uploading"
+    required: true
+  local-dir:
+    description: "Path to the directory tha contains the test file (.zndsl)"
+    required: true
+  concurrency:
+    description: "Concurrency to spawn nodes"
+    default: 4
+    required: false
+  build-id:
+    description: ""
+    required: true
+  ref-slug:
+    description: "Ref slug (e.g branch-name-short)"
+    required: true
+  gh-token:
+    description: "GITHUB_TOKEN to use for downloading artifacts"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: common_vars
+      shell: bash
+      env:
+        TEST_DEFINITION: ${{ inputs.test-definition }}
+        LOCAL_PATH: ${{ inputs.local-dir }}
+        CONCURRENCY: ${{ inputs.concurrency }}
+      run: |
+        echo "Vars"
+        echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+        echo "ZOMBIENET_PROVIDER: $ZOMBIENET_PROVIDER"
+        echo "COL_IMAGE: $COL_IMAGE"
+        echo "Inputs"
+        echo "test-definition: $TEST_DEFINITION"
+        echo "job-name: ${{ inputs.job-name }}"
+        echo "local-dir: $LOCAL_PATH"
+        echo "concurrency: $CONCURRENCY"
+
+    - name: Download binaries for zombienet native tests
+      if: env.ZOMBIENET_PROVIDER == 'native'
+      uses: ./.github/actions/download-binaries-for-zombienet-tests
+      with:
+        gh-token: ${{ inputs.gh-token }}
+        ref-slug: ${{ inputs.ref-slug }}
+        build-id: ${{ inputs.build-id }}
+        destination-path: ./bin
+
+    - name: k8s_auth
+      if: env.ZOMBIENET_PROVIDER == 'k8s'
+      shell: bash
+      run: |
+        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+        k8s_auth
+
+    - name: zombie_test
+      shell: bash
+      env:
+        TEST_DEFINITION: ${{ inputs.test-definition }}
+        LOCAL_PATH: ${{ inputs.local-dir }}
+        CONCURRENCY: ${{ inputs.concurrency }}
+      run: |
+        if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
+          # set path to downloaded binaries
+          export PATH=$(pwd)/bin:$PATH
+          chmod +x $(pwd)/bin/*
+
+          ./.github/scripts/run-zombienet-test.sh \
+            "$(pwd)/$LOCAL_PATH" \
+            $CONCURRENCY \
+            "$TEST_DEFINITION"
+        else
+          # no need to check other runner variables. for k8s they shall store the same value
+          if [[ $ZOMBIENET_DEFAULT_RUNNER == "parity-zombienet" ]]; then
+            export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
+          fi
+
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_PATH" \
+            --concurrency=$CONCURRENCY \
+            --test="$TEST_DEFINITION"
+        fi
+
+    - name: process_logs
+      if: ${{ ! cancelled() }}
+      shell: bash
+      run: |
+        echo "Processing log files"
+        echo "::group::Logs"
+        # do not fail the whole run if this step fails
+        if ! ./.github/scripts/process-logs-zombienet-sdk.sh ; then
+          echo "::endgroup::"
+          echo "::warning ::WARNING: Failed to process logs"
+        else
+          echo "::endgroup::"
+        fi
+
+    - name: upload_logs
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      if: ${{ ! cancelled() }}
+      with:
+        name: zombienet-logs-${{ inputs.job-name }}-${{ github.sha }}
+        path: |
+          /tmp/zombie*/logs/*
+

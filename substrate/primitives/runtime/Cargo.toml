@@ -38,8 +38,8 @@ sp-trie = { workspace = true }
 sp-weights = { workspace = true }
 tracing = { workspace = true, features = ["log"], default-features = false }
 
-simple-mermaid = { version = "0.1.1", optional = true }
-tuplex = { version = "0.1.2", default-features = false }
+simple-mermaid = { workspace = true, optional = true }
+tuplex = { workspace = true, default-features = false }
 
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
@@ -57,6 +57,7 @@ default = ["std"]
 std = [
 	"binary-merkle-tree/std",
 	"codec/std",
+	"either/std",
 	"either/use_std",
 	"hash256-std-hasher/std",
 	"log/std",

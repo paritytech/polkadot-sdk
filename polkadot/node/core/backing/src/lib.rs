@@ -99,22 +99,19 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::View as ImplicitView,
-	request_claim_queue, request_disabled_validators, request_session_executor_params,
-	request_session_index_for_child, request_validator_groups, request_validators,
-	runtime::{self, request_min_backing_votes, ClaimQueueSnapshot},
+	request_claim_queue, request_disabled_validators, request_min_backing_votes,
+	request_node_features, request_session_executor_params, request_session_index_for_child,
+	request_validator_groups, request_validators,
+	runtime::{self, ClaimQueueSnapshot},
 	Validator,
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	vstaging::{
-		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	},
-	CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData, SessionIndex,
-	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
-	ValidityAttestation,
+	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, ExecutorParams,
+	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures,
+	PersistedValidationData, SessionIndex, SigningContext, ValidationCode, ValidatorId,
+	ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
@@ -125,7 +122,6 @@ use polkadot_statement_table::{
 	Context as TableContextTrait, Table,
 };
 use sp_keystore::KeystorePtr;
-use util::runtime::request_node_features;
 
 mod error;
 
@@ -234,9 +230,6 @@ struct PerRelayParentState {
 	fallbacks: HashMap<CandidateHash, AttestingData>,
 	/// The minimum backing votes threshold.
 	minimum_backing_votes: u32,
-	/// If true, we're appending extra bits in the BackedCandidate validator indices bitfield,
-	/// which represent the assigned core index. True if ElasticScalingMVP is enabled.
-	inject_core_index: bool,
 	/// The number of cores.
 	n_cores: u32,
 	/// Claim queue state. If the runtime API is not available, it'll be populated with info from
@@ -260,7 +253,7 @@ struct PerSessionCache {
 	/// Cache for storing validators list, retrieved from the runtime.
 	validators_cache: LruMap<SessionIndex, Arc<Vec<ValidatorId>>>,
 	/// Cache for storing node features, retrieved from the runtime.
-	node_features_cache: LruMap<SessionIndex, Option<NodeFeatures>>,
+	node_features_cache: LruMap<SessionIndex, NodeFeatures>,
 	/// Cache for storing executor parameters, retrieved from the runtime.
 	executor_params_cache: LruMap<SessionIndex, Arc<ExecutorParams>>,
 	/// Cache for storing the minimum backing votes threshold, retrieved from the runtime.
@@ -322,15 +315,20 @@ impl PerSessionCache {
 		session_index: SessionIndex,
 		parent: Hash,
 		sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-	) -> Result<Option<NodeFeatures>, Error> {
+	) -> Result<NodeFeatures, RuntimeApiError> {
 		// Try to get the node features from the cache.
 		if let Some(node_features) = self.node_features_cache.get(&session_index) {
 			return Ok(node_features.clone());
 		}
 
 		// Fetch the node features from the runtime since it was not in the cache.
-		let node_features: Option<NodeFeatures> =
-			request_node_features(parent, session_index, sender).await?;
+		let node_features = request_node_features(parent, session_index, sender)
+			.await
+			.await
+			.map_err(|err| RuntimeApiError::Execution {
+				runtime_api_name: "NodeFeatures",
+				source: Arc::new(err),
+			})??;
 
 		// Cache the fetched node features for future use.
 		self.node_features_cache.insert(session_index, node_features.clone());
@@ -389,10 +387,11 @@ impl PerSessionCache {
 		// Fetch the value from the runtime since it was not in the cache.
 		let minimum_backing_votes = request_min_backing_votes(parent, session_index, sender)
 			.await
+			.await
 			.map_err(|err| RuntimeApiError::Execution {
 				runtime_api_name: "MinimumBackingVotes",
 				source: Arc::new(err),
-			})?;
+			})??;
 
 		// Cache the fetched value for future use.
 		self.minimum_backing_votes_cache.insert(session_index, minimum_backing_votes);
@@ -610,7 +609,6 @@ fn table_attested_to_backed(
 		ValidatorSignature,
 	>,
 	table_context: &TableContext,
-	inject_core_index: bool,
 ) -> Option<BackedCandidate> {
 	let TableAttestedCandidate { candidate, validity_votes, group_id: core_index } = attested;
 
@@ -649,7 +647,7 @@ fn table_attested_to_backed(
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-		inject_core_index.then_some(core_index),
+		core_index,
 	))
 }
 
@@ -1152,21 +1150,14 @@ async fn construct_per_relay_parent_state<Context>(
 	let validators = per_session_cache.validators(session_index, parent, ctx.sender()).await;
 	let validators = try_runtime_api!(validators);
 
-	let node_features = per_session_cache
-		.node_features(session_index, parent, ctx.sender())
-		.await?
-		.unwrap_or(NodeFeatures::EMPTY);
-
-	let inject_core_index = node_features
-		.get(FeatureIndex::ElasticScalingMVP as usize)
-		.map(|b| *b)
-		.unwrap_or(false);
+	let node_features = per_session_cache.node_features(session_index, parent, ctx.sender()).await;
+	let node_features = try_runtime_api!(node_features);
 
 	let executor_params =
 		per_session_cache.executor_params(session_index, parent, ctx.sender()).await;
 	let executor_params = try_runtime_api!(executor_params);
 
-	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
+	gum::debug!(target: LOG_TARGET, ?parent, "New state");
 
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
 
@@ -1237,7 +1228,6 @@ async fn construct_per_relay_parent_state<Context>(
 		awaiting_validation: HashSet::new(),
 		fallbacks: HashMap::new(),
 		minimum_backing_votes,
-		inject_core_index,
 		n_cores: validator_groups.len() as u32,
 		claim_queue: ClaimQueueSnapshot::from(claim_queue),
 		validator_to_group,
@@ -1672,11 +1662,7 @@ async fn post_import_statement_actions<Context>(
 
 		// `HashSet::insert` returns true if the thing wasn't in there already.
 		if rp_state.backed.insert(candidate_hash) {
-			if let Some(backed) = table_attested_to_backed(
-				attested,
-				&rp_state.table_context,
-				rp_state.inject_core_index,
-			) {
+			if let Some(backed) = table_attested_to_backed(attested, &rp_state.table_context) {
 				let para_id = backed.candidate().descriptor.para_id();
 				gum::debug!(
 					target: LOG_TARGET,
@@ -2153,13 +2139,7 @@ fn handle_get_backable_candidates_message(
 					&rp_state.table_context,
 					rp_state.minimum_backing_votes,
 				)
-				.and_then(|attested| {
-					table_attested_to_backed(
-						attested,
-						&rp_state.table_context,
-						rp_state.inject_core_index,
-					)
-				});
+				.and_then(|attested| table_attested_to_backed(attested, &rp_state.table_context));
 
 			if let Some(backed_candidate) = maybe_backed_candidate {
 				backed

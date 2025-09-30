@@ -22,11 +22,11 @@ pub mod meter;
 use crate::{
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
-	limits,
 	storage::meter::Diff,
+	tracing::if_tracing,
 	weights::WeightInfo,
-	BalanceOf, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter, Error,
-	StorageDeposit, TrieId, SENTINEL,
+	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
+	TrieId, SENTINEL,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -34,23 +34,70 @@ use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::{Weight, WeightMeter},
-	CloneNoBound, DefaultNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound,
 };
-use meter::DepositOf;
 use scale_info::TypeInfo;
-use sp_core::{ConstU32, Get, H160};
+use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
+	DispatchError, RuntimeDebug,
 };
 
-type DelegateDependencyMap<T> =
-	BoundedBTreeMap<sp_core::H256, BalanceOf<T>, ConstU32<{ limits::DELEGATE_DEPENDENCIES }>>;
+pub enum AccountIdOrAddress<T: Config> {
+	/// An account that is a contract.
+	AccountId(AccountIdOf<T>),
+	/// An externally owned account (EOA).
+	Address(H160),
+}
+
+/// Represents the account information for a contract or an externally owned account (EOA).
+#[derive(
+	DefaultNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(T))]
+pub struct AccountInfo<T: Config> {
+	/// The type of the account.
+	pub account_type: AccountType<T>,
+
+	// The  amount that was transferred to this account that is less than the
+	// NativeToEthRatio, and can be represented in the native currency
+	pub dust: u32,
+}
+
+/// The account type is used to distinguish between contracts and externally owned accounts.
+#[derive(
+	DefaultNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(T))]
+pub enum AccountType<T: Config> {
+	/// An account that is a contract.
+	Contract(ContractInfo<T>),
+
+	/// An account that is an externally owned account (EOA).
+	#[default]
+	EOA,
+}
 
 /// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, DebugNoBound, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct ContractInfo<T: Config> {
 	/// Unique ID for the subtree encoded as a bytes vector.
@@ -70,14 +117,75 @@ pub struct ContractInfo<T: Config> {
 	/// We need to store this information separately so it is not used when calculating any refunds
 	/// since the base deposit can only ever be refunded on contract termination.
 	storage_base_deposit: BalanceOf<T>,
-	/// Map of code hashes and deposit balances.
-	///
-	/// Tracks the code hash and deposit held for locking delegate dependencies. Dependencies added
-	/// to the map can not be removed from the chain state and can be safely used for delegate
-	/// calls.
-	delegate_dependencies: DelegateDependencyMap<T>,
 	/// The size of the immutable data of this contract.
 	immutable_data_len: u32,
+}
+
+impl<T: Config> From<H160> for AccountIdOrAddress<T> {
+	fn from(address: H160) -> Self {
+		AccountIdOrAddress::Address(address)
+	}
+}
+
+impl<T: Config> AccountIdOrAddress<T> {
+	pub fn address(&self) -> H160 {
+		match self {
+			AccountIdOrAddress::AccountId(id) =>
+				<T::AddressMapper as AddressMapper<T>>::to_address(id),
+			AccountIdOrAddress::Address(address) => *address,
+		}
+	}
+
+	pub fn account_id(&self) -> AccountIdOf<T> {
+		match self {
+			AccountIdOrAddress::AccountId(id) => id.clone(),
+			AccountIdOrAddress::Address(address) => T::AddressMapper::to_account_id(address),
+		}
+	}
+}
+
+impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
+	fn from(contract_info: ContractInfo<T>) -> Self {
+		AccountType::Contract(contract_info)
+	}
+}
+
+impl<T: Config> AccountInfo<T> {
+	/// Returns true if the account is a contract.
+	pub fn is_contract(address: &H160) -> bool {
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
+		matches!(info.account_type, AccountType::Contract(_))
+	}
+
+	/// Returns the balance of the account at the given address.
+	pub fn balance(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
+		use frame_support::traits::{
+			fungible::Inspect,
+			tokens::{Fortitude::Polite, Preservation::Preserve},
+		};
+
+		let value = T::Currency::reducible_balance(&account.account_id(), Preserve, Polite);
+		let dust = <AccountInfoOf<T>>::get(account.address()).map(|a| a.dust).unwrap_or_default();
+		BalanceWithDust::new_unchecked::<T>(value, dust)
+	}
+
+	/// Loads the contract information for a given address.
+	pub fn load_contract(address: &H160) -> Option<ContractInfo<T>> {
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return None };
+		let AccountType::Contract(contract_info) = info.account_type else { return None };
+		Some(contract_info)
+	}
+
+	/// Insert a contract, existing dust if any will be unchanged.
+	pub fn insert_contract(address: &H160, contract: ContractInfo<T>) {
+		AccountInfoOf::<T>::mutate(address, |account| {
+			if let Some(account) = account {
+				account.account_type = contract.clone().into();
+			} else {
+				*account = Some(AccountInfo { account_type: contract.clone().into(), dust: 0 });
+			}
+		});
+	}
 }
 
 impl<T: Config> ContractInfo<T> {
@@ -90,7 +198,7 @@ impl<T: Config> ContractInfo<T> {
 		nonce: T::Nonce,
 		code_hash: sp_core::H256,
 	) -> Result<Self, DispatchError> {
-		if <ContractInfoOf<T>>::contains_key(address) {
+		if <AccountInfo<T>>::is_contract(address) {
 			return Err(Error::<T>::DuplicateContract.into());
 		}
 
@@ -110,16 +218,10 @@ impl<T: Config> ContractInfo<T> {
 			storage_byte_deposit: Zero::zero(),
 			storage_item_deposit: Zero::zero(),
 			storage_base_deposit: Zero::zero(),
-			delegate_dependencies: Default::default(),
 			immutable_data_len: 0,
 		};
 
 		Ok(contract)
-	}
-
-	/// Returns the number of locked delegate dependencies.
-	pub fn delegate_dependencies_count(&self) -> usize {
-		self.delegate_dependencies.len()
 	}
 
 	/// Associated child trie unique id is built from the hash part of the trie id.
@@ -147,7 +249,11 @@ impl<T: Config> ContractInfo<T> {
 	/// The read is performed from the `trie_id` only. The `address` is not necessary. If the
 	/// contract doesn't store under the given `key` `None` is returned.
 	pub fn read(&self, key: &Key) -> Option<Vec<u8>> {
-		child::get_raw(&self.child_trie_info(), key.hash().as_slice())
+		let value = child::get_raw(&self.child_trie_info(), key.hash().as_slice());
+		if_tracing(|t| {
+			t.storage_read(key, value.as_deref());
+		});
+		return value
 	}
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
@@ -173,7 +279,12 @@ impl<T: Config> ContractInfo<T> {
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let hashed_key = key.hash();
-		self.write_raw(&hashed_key, new_value, storage_meter, take)
+		if_tracing(|t| {
+			let old = child::get_raw(&self.child_trie_info(), hashed_key.as_slice());
+			t.storage_write(key, old, new_value.as_deref());
+		});
+
+		self.write_raw(&hashed_key, new_value.as_deref(), storage_meter, take)
 	}
 
 	/// Update a storage entry into a contract's kv storage.
@@ -185,13 +296,13 @@ impl<T: Config> ContractInfo<T> {
 		new_value: Option<Vec<u8>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		self.write_raw(key, new_value, None, take)
+		self.write_raw(key, new_value.as_deref(), None, take)
 	}
 
 	fn write_raw(
 		&self,
 		key: &[u8],
-		new_value: Option<Vec<u8>>,
+		new_value: Option<&[u8]>,
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
@@ -205,6 +316,7 @@ impl<T: Config> ContractInfo<T> {
 
 		if let Some(storage_meter) = storage_meter {
 			let mut diff = meter::Diff::default();
+			let key_len = key.len() as u32;
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
 				(Some(old_len), Some(new_len)) =>
 					if new_len > old_len {
@@ -213,11 +325,11 @@ impl<T: Config> ContractInfo<T> {
 						diff.bytes_removed = old_len - new_len;
 					},
 				(None, Some(new_len)) => {
-					diff.bytes_added = new_len;
+					diff.bytes_added = new_len.saturating_add(key_len);
 					diff.items_added = 1;
 				},
 				(Some(old_len), None) => {
-					diff.bytes_removed = old_len;
+					diff.bytes_removed = old_len.saturating_add(key_len);
 					diff.items_removed = 1;
 				},
 				(None, None) => (),
@@ -240,56 +352,25 @@ impl<T: Config> ContractInfo<T> {
 	/// Sets and returns the contract base deposit.
 	///
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
-	/// the deposit paid to upload the contract's code.
-	pub fn update_base_deposit(&mut self, code_info: &CodeInfo<T>) -> BalanceOf<T> {
-		let info_deposit =
-			Diff { bytes_added: self.encoded_size() as u32, items_added: 1, ..Default::default() }
-				.update_contract::<T>(None)
-				.charge_or_zero();
+	/// the deposit paid to upload the contract's code. It also depends on the size of immutable
+	/// storage which is also changed when the code hash of a contract is changed.
+	pub fn update_base_deposit(&mut self, code_deposit: BalanceOf<T>) -> BalanceOf<T> {
+		let contract_deposit = Diff {
+			bytes_added: (self.encoded_size() as u32).saturating_add(self.immutable_data_len),
+			items_added: if self.immutable_data_len == 0 { 1 } else { 2 },
+			..Default::default()
+		}
+		.update_contract::<T>(None)
+		.charge_or_zero();
 
 		// Instantiating the contract prevents its code to be deleted, therefore the base deposit
 		// includes a fraction (`T::CodeHashLockupDepositPercent`) of the original storage deposit
 		// to prevent abuse.
-		let upload_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
+		let code_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_deposit);
 
-		let deposit = info_deposit.saturating_add(upload_deposit);
+		let deposit = contract_deposit.saturating_add(code_deposit);
 		self.storage_base_deposit = deposit;
 		deposit
-	}
-
-	/// Adds a new delegate dependency to the contract.
-	/// The `amount` is the amount of funds that will be reserved for the dependency.
-	///
-	/// Returns an error if the maximum number of delegate_dependencies is reached or if
-	/// the delegate dependency already exists.
-	pub fn lock_delegate_dependency(
-		&mut self,
-		code_hash: sp_core::H256,
-		amount: BalanceOf<T>,
-	) -> DispatchResult {
-		self.delegate_dependencies
-			.try_insert(code_hash, amount)
-			.map_err(|_| Error::<T>::MaxDelegateDependenciesReached)?
-			.map_or(Ok(()), |_| Err(Error::<T>::DelegateDependencyAlreadyExists))
-			.map_err(Into::into)
-	}
-
-	/// Removes the delegate dependency from the contract and returns the deposit held for this
-	/// dependency.
-	///
-	/// Returns an error if the entry doesn't exist.
-	pub fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &sp_core::H256,
-	) -> Result<BalanceOf<T>, DispatchError> {
-		self.delegate_dependencies
-			.remove(code_hash)
-			.ok_or(Error::<T>::DelegateDependencyNotFound.into())
-	}
-
-	/// Returns the delegate_dependencies of the contract.
-	pub fn delegate_dependencies(&self) -> &DelegateDependencyMap<T> {
-		&self.delegate_dependencies
 	}
 
 	/// Push a contract's trie to the deletion queue for lazy removal.
@@ -358,7 +439,7 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Returns the code hash of the contract specified by `account` ID.
 	pub fn load_code_hash(account: &AccountIdOf<T>) -> Option<sp_core::H256> {
-		<ContractInfoOf<T>>::get(&T::AddressMapper::to_address(account)).map(|i| i.code_hash)
+		<AccountInfo<T>>::load_contract(&T::AddressMapper::to_address(account)).map(|i| i.code_hash)
 	}
 
 	/// Returns the amount of immutable bytes of this contract.
@@ -367,32 +448,13 @@ impl<T: Config> ContractInfo<T> {
 	}
 
 	/// Set the number of immutable bytes of this contract.
-	///
-	/// On success, returns the storage deposit to be charged.
-	///
-	/// Returns `Err(InvalidImmutableAccess)` if:
-	/// - The immutable bytes of this contract are not 0. This indicates that the immutable data
-	///   have already been set; it is only valid to set the immutable data exactly once.
-	/// - The provided `immutable_data_len` value was 0; it is invalid to set empty immutable data.
-	pub fn set_immutable_data_len(
-		&mut self,
-		immutable_data_len: u32,
-	) -> Result<DepositOf<T>, DispatchError> {
-		if self.immutable_data_len != 0 || immutable_data_len == 0 {
-			return Err(Error::<T>::InvalidImmutableAccess.into());
-		}
-
+	pub fn set_immutable_data_len(&mut self, immutable_data_len: u32) {
 		self.immutable_data_len = immutable_data_len;
-
-		let amount = T::DepositPerByte::get()
-			.saturating_mul(immutable_data_len.into())
-			.saturating_add(T::DepositPerItem::get());
-		Ok(StorageDeposit::Charge(amount))
 	}
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
@@ -494,7 +556,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// Note:
 	/// we use the delete counter to get the next value to read from the queue and thus don't pay
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
-	fn next(&mut self) -> Option<DeletionQueueEntry<T>> {
+	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
 			return None
 		}

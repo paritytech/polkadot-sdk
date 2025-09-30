@@ -1,0 +1,42 @@
+title: "workaround: XcmPaymentApi::query_weight_to_asset_fee simple common impl"
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds a common implementation for `XcmPaymentApi::query_weight_to_asset_fee` to `pallet-xcm`.
+
+    This PR is a simple alternative to #8202 (which could still be useful for other reasons). 
+    It uses a workaround instead of a big refactoring.
+
+    The workaround is described in the doc comment `query_weight_to_asset_fee` in `pallet-xcm`
+
+crates:
+- name: pallet-xcm
+  bump: patch
+- name: parachains-runtimes-test-utils
+  bump: minor
+- name: asset-test-utils
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor

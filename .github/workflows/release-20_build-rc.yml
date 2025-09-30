@@ -13,15 +13,30 @@ on:
           - polkadot-omni-node
           - frame-omni-bencher
           - chain-spec-builder
+          - substrate-node
+          - eth-rpc
+          - subkey
           - all
 
       release_tag:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX or polkadot-stableYYMM(-X)
         type: string
 
+  workflow_call:
+    inputs:
+      binary:
+        description: Binary to be built for the release
+        default: all
+        type: string
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
+        type: string
+
 jobs:
   check-synchronization:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+    uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    secrets:
+      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [check-synchronization]
@@ -32,7 +47,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Validate inputs
         id: validate_inputs
@@ -45,20 +60,14 @@ jobs:
   build-polkadot-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
       package: polkadot
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+
     permissions:
       id-token: write
       attestations: write
@@ -67,20 +76,13 @@ jobs:
   build-polkadot-parachain-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot-parachain"]'
       package: "polkadot-parachain-bin"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -89,20 +91,14 @@ jobs:
   build-polkadot-omni-node-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot-omni-node"]'
       package: "polkadot-omni-node"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+      features: runtime-benchmarks
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -111,20 +107,13 @@ jobs:
   build-frame-omni-bencher-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'frame-omni-bencher' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["frame-omni-bencher"]'
       package: "frame-omni-bencher"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -133,20 +122,58 @@ jobs:
   build-chain-spec-builder-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'chain-spec-builder' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["chain-spec-builder"]'
       package: staging-chain-spec-builder
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-substrate-node-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'substrate-node' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
+    with:
+      binary: '["substrate-node"]'
+      package: staging-node-cli
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      target: x86_64-unknown-linux-gnu
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-eth-rpc-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'eth-rpc' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
+    with:
+      binary: '["eth-rpc"]'
+      package: pallet-revive-eth-rpc
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      target: x86_64-unknown-linux-gnu
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-subkey-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'subkey' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
+    with:
+      binary: '["subkey"]'
+      package: subkey
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      target: x86_64-unknown-linux-gnu
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -155,20 +182,13 @@ jobs:
   build-polkadot-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
       package: polkadot
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -177,20 +197,13 @@ jobs:
   build-polkadot-parachain-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot-parachain"]'
       package: polkadot-parachain-bin
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -199,20 +212,14 @@ jobs:
   build-polkadot-omni-node-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot-omni-node"]'
       package: polkadot-omni-node
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+      features: runtime-benchmarks
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -221,20 +228,13 @@ jobs:
   build-frame-omni-bencher-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'frame-omni-bencher' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["frame-omni-bencher"]'
       package: frame-omni-bencher
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -243,20 +243,58 @@ jobs:
   build-chain-spec-builder-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'chain-spec-builder' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["chain-spec-builder"]'
       package: staging-chain-spec-builder
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-substrate-node-macos-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'substrate-node' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
+    with:
+      binary: '["substrate-node"]'
+      package: staging-node-cli
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      target: aarch64-apple-darwin
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-eth-rpc-macos-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'eth-rpc' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
+    with:
+      binary: '["eth-rpc"]'
+      package: pallet-revive-eth-rpc
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      target: aarch64-apple-darwin
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-subkey-macos-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'subkey' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
+    with:
+      binary: '["subkey"]'
+      package: subkey
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      target: aarch64-apple-darwin
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write

@@ -81,6 +81,8 @@ where
 	pub validator_set_count: u32,
 	/// The authority which produced this equivocation.
 	pub offender: Offender,
+	/// Optional slash fraction
+	maybe_slash_fraction: Option<Perbill>,
 }
 
 impl<Offender: Clone, N> Offence<Offender> for EquivocationOffence<Offender, N>
@@ -106,10 +108,14 @@ where
 		self.time_slot
 	}
 
-	// The formula is min((3k / n)^2, 1)
-	// where k = offenders_number and n = validators_number
 	fn slash_fraction(&self, offenders_count: u32) -> Perbill {
-		// Perbill type domain is [0, 1] by definition
+		if let Some(slash_fraction) = self.maybe_slash_fraction {
+			return slash_fraction;
+		}
+
+		// `Perbill` type domain is [0, 1] by definition
+		// The formula is min((3k / n)^2, 1)
+		// where k = offenders_number and n = validators_number
 		Perbill::from_rational(3 * offenders_count, self.validator_set_count).square()
 	}
 }
@@ -263,12 +269,20 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 			},
 		}
 	}
+
+	fn slash_fraction(&self) -> Option<Perbill> {
+		match self {
+			EquivocationEvidenceFor::DoubleVotingProof(_, _) => None,
+			EquivocationEvidenceFor::ForkVotingProof(_, _) |
+			EquivocationEvidenceFor::FutureBlockVotingProof(_, _) => Some(Perbill::from_percent(50)),
+		}
+	}
 }
 
 impl<T, R, P, L> OffenceReportSystem<Option<T::AccountId>, EquivocationEvidenceFor<T>>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::CreateInherent<Call<T>>,
+	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -284,7 +298,7 @@ where
 		use frame_system::offchain::SubmitTransaction;
 
 		let call: Call<T> = evidence.into();
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
@@ -311,13 +325,14 @@ where
 		reporter: Option<T::AccountId>,
 		evidence: EquivocationEvidenceFor<T>,
 	) -> Result<(), DispatchError> {
+		let maybe_slash_fraction = evidence.slash_fraction();
 		let reporter = reporter.or_else(|| pallet_authorship::Pallet::<T>::author());
 
 		// We check the equivocation within the context of its set id (and associated session).
 		let set_id = evidence.set_id();
 		let round = *evidence.round_number();
 		let set_id_session_index = crate::SetIdSession::<T>::get(set_id)
-			.ok_or(Error::<T>::InvalidEquivocationProofSession)?;
+			.ok_or(Error::<T>::InvalidEquivocationProofSessionMember)?;
 
 		// Check that the session id for the membership proof is within the bounds
 		// of the set id reported in the equivocation.
@@ -339,6 +354,7 @@ where
 			session_index,
 			validator_set_count: validator_count,
 			offender,
+			maybe_slash_fraction,
 		};
 		R::report_offence(reporter.into_iter().collect(), offence)
 			.map_err(|_| Error::<T>::DuplicateOffenceReport.into())

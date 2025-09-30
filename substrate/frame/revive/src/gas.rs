@@ -22,7 +22,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -73,11 +73,12 @@ impl<T: Config> EngineMeter<T> {
 
 	/// How much ref time does each PolkaVM gas correspond to.
 	fn ref_time_per_fuel() -> u64 {
-		// We execute 6 different instructions therefore we have to divide the actual
-		// computed gas costs by 6 to have a rough estimate as to how expensive each
-		// single executed instruction is going to be.
-		let instr_cost = T::WeightInfo::instr(1).saturating_sub(T::WeightInfo::instr(0)).ref_time();
-		instr_cost / 6
+		let loop_iteration =
+			T::WeightInfo::instr(1).saturating_sub(T::WeightInfo::instr(0)).ref_time();
+		let empty_loop_iteration = T::WeightInfo::instr_empty_loop(1)
+			.saturating_sub(T::WeightInfo::instr_empty_loop(0))
+			.ref_time();
+		loop_iteration.saturating_sub(empty_loop_iteration)
 	}
 }
 
@@ -218,6 +219,18 @@ impl<T: Config> GasMeter<T> {
 		Ok(ChargedAmount(amount))
 	}
 
+	/// Charge the specified amount of EVM gas.
+	/// This is used for basic opcodes (e.g arithmetic, bitwise, ...) that don't have a dedicated
+	/// benchmark
+	pub fn charge_evm_gas(&mut self, gas: u64) -> Result<(), DispatchError> {
+		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
+		self.gas_left = self
+			.gas_left
+			.checked_sub(&base_cost.saturating_mul(gas))
+			.ok_or_else(|| Error::<T>::OutOfGas)?;
+		Ok(())
+	}
+
 	/// Adjust a previously charged amount down to its actual amount.
 	///
 	/// This is when a maximum a priori amount was charged and then should be partially
@@ -310,6 +323,10 @@ impl<T: Config> GasMeter<T> {
 	#[cfg(test)]
 	pub fn tokens(&self) -> &[ErasedToken] {
 		&self.tokens
+	}
+
+	pub fn consume_all(&mut self) {
+		self.gas_left = Zero::zero();
 	}
 }
 

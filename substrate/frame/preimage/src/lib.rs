@@ -65,7 +65,17 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 
 /// A type to note whether a preimage is owned by a user or the system.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebug,
+	DecodeWithMemTracking,
+)]
 pub enum OldRequestStatus<AccountId, Balance> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.
@@ -77,7 +87,17 @@ pub enum OldRequestStatus<AccountId, Balance> {
 }
 
 /// A type to note whether a preimage is owned by a user or the system.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebug,
+	DecodeWithMemTracking,
+)]
 pub enum RequestStatus<AccountId, Ticket> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.
@@ -88,12 +108,12 @@ pub enum RequestStatus<AccountId, Ticket> {
 	Requested { maybe_ticket: Option<(AccountId, Ticket)>, count: u32, maybe_len: Option<u32> },
 }
 
-type BalanceOf<T> =
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type TicketOf<T> = <T as Config>::Consideration;
+pub type TicketOf<T> = <T as Config>::Consideration;
 
 /// Maximum size of preimage we can store is 4mb.
-const MAX_SIZE: u32 = 4 * 1024 * 1024;
+pub const MAX_SIZE: u32 = 4 * 1024 * 1024;
 /// Hard-limit on the number of hashes that can be passed to `ensure_updated`.
 ///
 /// Exists only for benchmarking purposes.
@@ -110,6 +130,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The Weight information for this pallet.
@@ -132,7 +153,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A preimage has been noted.
 		Noted { hash: T::Hash },
@@ -172,16 +193,16 @@ pub mod pallet {
 	/// The request status of a given hash.
 	#[deprecated = "RequestStatusFor"]
 	#[pallet::storage]
-	pub(super) type StatusFor<T: Config> =
+	pub type StatusFor<T: Config> =
 		StorageMap<_, Identity, T::Hash, OldRequestStatus<T::AccountId, BalanceOf<T>>>;
 
 	/// The request status of a given hash.
 	#[pallet::storage]
-	pub(super) type RequestStatusFor<T: Config> =
+	pub type RequestStatusFor<T: Config> =
 		StorageMap<_, Identity, T::Hash, RequestStatus<T::AccountId, TicketOf<T>>>;
 
 	#[pallet::storage]
-	pub(super) type PreimageFor<T: Config> =
+	pub type PreimageFor<T: Config> =
 		StorageMap<_, Identity, (T::Hash, u32), BoundedVec<u8, ConstU32<MAX_SIZE>>>;
 
 	#[pallet::call(weight = T::WeightInfo)]

@@ -33,21 +33,21 @@ use polkadot_node_network_protocol::{
 		BackedCandidateAcknowledgement, StatementDistributionMessage, StatementFilter,
 		ValidationProtocol,
 	},
-	Versioned,
+	ValidationProtocols,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
 use polkadot_overseer::BlockInfo;
+
+use polkadot_primitives::MutateDescriptorV2;
+
 use polkadot_primitives::{
-	vstaging::{
-		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
-	},
-	BlockNumber, CandidateHash, CompactStatement, CoreIndex, Hash, Header, Id,
-	PersistedValidationData, SessionInfo, SignedStatement, SigningContext, UncheckedSigned,
-	ValidatorIndex, ValidatorPair,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement, CoreIndex, Hash,
+	Header, Id, PersistedValidationData, SessionInfo, SignedStatement, SigningContext,
+	UncheckedSigned, ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt_v2, dummy_hash, dummy_head_data, dummy_pvd,
@@ -272,7 +272,8 @@ impl HandleNetworkMessage for TestState {
 		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			NetworkMessage::RequestFromNode(_authority_id, Requests::AttestedCandidateV2(req)) => {
+			NetworkMessage::RequestFromNode(_authority_id, requests) => {
+				let Requests::AttestedCandidateV2(req) = *requests else { return None };
 				let payload = req.payload;
 				let candidate_receipt = self
 					.commited_candidate_receipts
@@ -293,7 +294,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::Statement(relay_parent, statement),
 				)),
 			) => {
@@ -344,7 +345,7 @@ impl HandleNetworkMessage for TestState {
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).unwrap(),
-						Versioned::V3(ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::Statement(relay_parent, statement),
 						)),
 					))
@@ -353,7 +354,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::BackedCandidateManifest(manifest),
 				)),
 			) => {
@@ -411,7 +412,7 @@ impl HandleNetworkMessage for TestState {
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).unwrap(),
-						Versioned::V3(ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::BackedCandidateKnown(ack),
 						)),
 					))
@@ -427,7 +428,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				_authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::BackedCandidateKnown(ack),
 				)),
 			) => {

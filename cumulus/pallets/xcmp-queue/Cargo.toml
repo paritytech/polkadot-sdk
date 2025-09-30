@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.7.0"
+version = "0.7.1"
 authors.workspace = true
 edition.workspace = true
 description = "Pallet to queue outbound and inbound XCMP messages."
@@ -13,8 +13,8 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -34,6 +34,8 @@ xcm-executor = { workspace = true }
 # Cumulus
 cumulus-primitives-core = { workspace = true }
 
+# Optional import for weight accuracy testing
+approx = { workspace = true }
 # Optional import for benchmarking
 bounded-collections = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
@@ -42,7 +44,6 @@ frame-benchmarking = { optional = true, workspace = true }
 bp-xcm-bridge-hub-router = { optional = true, workspace = true }
 
 [dev-dependencies]
-
 # Substrate
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
@@ -54,6 +55,7 @@ cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"approx/std",
 	"bounded-collections/std",
 	"bp-xcm-bridge-hub-router?/std",
 	"codec/std",
@@ -61,7 +63,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
@@ -69,11 +70,11 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",

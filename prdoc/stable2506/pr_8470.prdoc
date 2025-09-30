@@ -1,0 +1,20 @@
+title: Stabilize the FRAME umbrella crate
+doc:
+- audience: [Runtime User, Runtime Dev]
+  description: |-
+    Stabilizing the FRAME umbrella crate, which is no longer marked as experimental. 
+    Improving the related documentation, including README and maintenance notes.
+
+    After integrating the FRAME umbrella crate in 17 pallets as May 9 2025 and modifying it in the process (see #6504),
+    it is now stable and it can be used for pallet development.
+
+    Key improvements:
+    - Enhanced documentation with clear usage guidelines
+    - Added comprehensive maintenance notes for future contributors
+    - Established clear design principles for prelude usage and module organization
+    - Updated documentation links to point to the official hosted docs
+crates:
+- name: polkadot-sdk-frame
+  bump: none
+- name: polkadot-sdk
+  bump: none

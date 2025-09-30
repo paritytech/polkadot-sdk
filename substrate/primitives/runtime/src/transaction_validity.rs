@@ -23,6 +23,7 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use scale_info::TypeInfo;
+use sp_weights::Weight;
 
 /// Priority for a transaction. Additive. Higher is better.
 pub type TransactionPriority = u64;
@@ -217,6 +218,11 @@ impl std::fmt::Display for TransactionValidityError {
 /// Information on a transaction's validity and, if valid, on how it relates to other transactions.
 pub type TransactionValidity = Result<ValidTransaction, TransactionValidityError>;
 
+/// Information on a transaction's validity and, if valid, on how it relates to other transactions
+/// and some refund for the operation.
+pub type TransactionValidityWithRefund =
+	Result<(ValidTransaction, Weight), TransactionValidityError>;
+
 impl From<InvalidTransaction> for TransactionValidity {
 	fn from(invalid_transaction: InvalidTransaction) -> Self {
 		Err(TransactionValidityError::Invalid(invalid_transaction))
@@ -277,6 +283,16 @@ pub struct ValidTransaction {
 	/// will enable other transactions that depend on (require) those tags to be included as well.
 	/// Provided and required tags allow Substrate to build a dependency graph of transactions
 	/// and import them in the right (linear) order.
+	///
+	/// <div class="warning">
+	///
+	/// If two different transactions have the same `provides` tags, the transaction pool
+	/// treats them as conflicting. One of these transactions will be dropped - e.g. depending on
+	/// submission time, priority of transaction.
+	///
+	/// A transaction that has no provided tags, will be dropped by the transaction pool.
+	///
+	/// </div>
 	pub provides: Vec<TransactionTag>,
 	/// Transaction longevity
 	///

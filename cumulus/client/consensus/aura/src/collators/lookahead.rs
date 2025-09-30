@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! A collator for Aura that looks ahead of the most recently included parachain block
 //! when determining what to build upon.
@@ -36,17 +37,15 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{ClaimQueueOffset, CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_node_primitives::{PoV, SubmitCollationParams};
+use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, BlockNumber as RBlockNumber, CollatorPair, Hash as RHash,
-	HeadData, Id as ParaId, OccupiedCoreAssumption,
-};
+use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
+use crate::{collator as collator_util, collators::claim_queue_at, export_pov_to_path};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
@@ -57,49 +56,8 @@ use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
-use std::{
-	fs::{self, File},
-	path::PathBuf,
-	sync::Arc,
-	time::Duration,
-};
-
-use crate::{collator as collator_util, LOG_TARGET};
-
-/// Export the given `pov` to the file system at `path`.
-///
-/// The file will be named `block_hash_block_number.pov`.
-///
-/// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
-/// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
-fn export_pov_to_path<Block: BlockT>(
-	path: PathBuf,
-	pov: PoV,
-	block_hash: Block::Hash,
-	block_number: NumberFor<Block>,
-	parent_header: Block::Header,
-	relay_parent_storage_root: RHash,
-	relay_parent_number: RBlockNumber,
-) {
-	if let Err(error) = fs::create_dir_all(&path) {
-		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
-		return
-	}
-
-	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
-		Ok(f) => f,
-		Err(error) => {
-			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
-			return
-		},
-	};
-
-	pov.encode_to(&mut file);
-	HeadData(parent_header.encode()).encode_to(&mut file);
-	relay_parent_storage_root.encode_to(&mut file);
-	relay_parent_number.encode_to(&mut file);
-}
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
 pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
@@ -135,6 +93,9 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }
 
 /// Run async-backing-friendly Aura.
@@ -172,6 +133,7 @@ where
 pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// The parameters.
 	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
 }
@@ -256,17 +218,11 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
-				relay_parent,
-				params.para_id,
-				&mut params.relay_client,
-				ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
-			)
-			.await
-			.get(0)
-			{
-				*core_index
-			} else {
+			let Some(core_index) = claim_queue_at(relay_parent, &mut params.relay_client)
+				.await
+				.iter_claims_at_depth_for_para(0, params.para_id)
+				.next()
+			else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
@@ -339,7 +295,7 @@ where
 					relay_slot,
 					timestamp,
 					block_hash,
-					included_block,
+					included_block.hash(),
 					para_client,
 					&keystore,
 				))
@@ -414,14 +370,14 @@ where
 				)
 				.await;
 
-				let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-					validation_data.max_pov_size
+				let allowed_pov_size = if let Some(max_pov_percentage) = params.max_pov_percentage {
+					validation_data.max_pov_size * max_pov_percentage / 100
 				} else {
-					// Set the block limit to 50% of the maximum PoV size.
+					// Set the block limit to 85% of the maximum PoV size.
 					//
-					// TODO: If we got benchmarking that includes the proof size,
-					// we should be able to use the maximum pov size.
-					validation_data.max_pov_size / 2
+					// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+					// fixed, the reservation should be removed.
+					validation_data.max_pov_size * 85 / 100
 				} as usize;
 
 				match collator
@@ -435,7 +391,16 @@ where
 					)
 					.await
 				{
-					Ok(Some((collation, block_data, new_block_hash))) => {
+					Ok(Some((collation, block_data))) => {
+						let Some(new_block_header) =
+							block_data.blocks().first().map(|b| b.header().clone())
+						else {
+							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
+							break
+						};
+
+						let new_block_hash = new_block_header.hash();
+
 						// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						collator.collator_service().announce_block(new_block_hash, None);
@@ -445,10 +410,11 @@ where
 								export_pov.clone(),
 								collation.proof_of_validity.clone().into_compressed(),
 								new_block_hash,
-								*block_data.header().number(),
+								*new_block_header.number(),
 								parent_header.clone(),
 								*relay_parent_header.state_root(),
 								*relay_parent_header.number(),
+								validation_data.max_pov_size,
 							);
 						}
 
@@ -474,7 +440,7 @@ where
 							.await;
 
 						parent_hash = new_block_hash;
-						parent_header = block_data.into_header();
+						parent_header = new_block_header;
 					},
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");

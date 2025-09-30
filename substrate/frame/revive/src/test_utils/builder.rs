@@ -17,9 +17,10 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, Code, Config, ContractResult, DepositLimit,
-	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
+	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
+	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
 };
+use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
 use sp_core::H160;
@@ -131,13 +132,28 @@ builder!(
 builder!(
 	bare_instantiate(
 		origin: OriginFor<T>,
-		value: BalanceOf<T>,
+		evm_value: U256,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
+
+	pub fn concat_evm_data(mut self, more_data: &[u8]) -> Self {
+		let Code::Upload(code) = &mut self.code else {
+			panic!("concat_evm_data should only be used with Code::Upload");
+		};
+		code.extend_from_slice(more_data);
+		self
+	}
+
+	/// Set the call's evm_value using a native_value amount.
+	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
+		self.evm_value = Pallet::<T>::convert_native_to_evm(value);
+		self
+	}
 
 	/// Build the instantiate call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue {
@@ -146,7 +162,10 @@ builder!(
 
 	/// Build the instantiate call and unwrap the account id.
 	pub fn build_and_unwrap_contract(self) -> Contract<T> {
-		let addr = self.build().result.unwrap().addr;
+		let result = self.build().result.unwrap();
+		assert!(!result.result.did_revert(), "instantiation did revert");
+
+		let addr = result.addr;
 		let account_id = T::AddressMapper::to_account_id(&addr);
 		Contract{ account_id,  addr }
 	}
@@ -155,12 +174,13 @@ builder!(
 	pub fn bare_instantiate(origin: OriginFor<T>, code: Code) -> Self {
 		Self {
 			origin,
-			value: 0u32.into(),
+			evm_value: Default::default(),
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
+			bump_nonce: BumpNonce::Yes,
 		}
 	}
 );
@@ -192,11 +212,17 @@ builder!(
 	bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
-		value: BalanceOf<T>,
+		evm_value: U256,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
+
+	/// Set the call's evm_value using a native_value amount.
+	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
+		self.evm_value = Pallet::<T>::convert_native_to_evm(value);
+		self
+	}
 
 	/// Build the call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> ExecReturnValue {
@@ -208,9 +234,32 @@ builder!(
 		Self {
 			origin,
 			dest,
-			value: 0u32.into(),
+			evm_value: Default::default(),
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
+			data: vec![],
+		}
+	}
+);
+
+builder!(
+	eth_call(
+		origin: OriginFor<T>,
+		dest: H160,
+		value: U256,
+		gas_limit: Weight,
+		storage_deposit_limit: BalanceOf<T>,
+		data: Vec<u8>,
+	) -> DispatchResultWithPostInfo;
+
+	/// Create a [`EthCallBuilder`] with default values.
+	pub fn eth_call(origin: OriginFor<T>, dest: H160) -> Self {
+		Self {
+			origin,
+			dest,
+			value: 0u32.into(),
+			gas_limit: GAS_LIMIT,
+			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
 		}
 	}

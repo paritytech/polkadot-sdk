@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,25 +9,28 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! The Cumulus [`Proposer`] is a wrapper around a Substrate [`sp_consensus::Environment`]
+//! The Cumulus [`ProposerInterface`] is an extension of the Substrate [`ProposerFactory`]
 //! for creating new parachain blocks.
 //!
 //! This utility is designed to be composed within any collator consensus algorithm.
 
 use async_trait::async_trait;
-
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
-use sp_consensus::{EnableProofRecording, Environment, Proposal, Proposer as SubstrateProposer};
-use sp_inherents::InherentData;
+use sc_basic_authorship::{ProposeArgs, ProposerFactory};
+use sc_block_builder::BlockBuilderApi;
+use sc_transaction_pool_api::TransactionPool;
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sp_blockchain::HeaderBackend;
+use sp_consensus::{EnableProofRecording, Environment, Proposal};
+use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::{traits::Block as BlockT, Digest};
 use sp_state_machine::StorageProof;
-
 use std::{fmt::Debug, time::Duration};
 
 /// Errors that can occur when proposing a parachain block.
@@ -49,7 +53,7 @@ impl Error {
 }
 
 /// A type alias for easily referring to the type of a proposal produced by a specific
-/// [`Proposer`].
+/// [`ProposerInterface`].
 pub type ProposalOf<B> = Proposal<B, StorageProof>;
 
 /// An interface for proposers.
@@ -79,53 +83,42 @@ pub trait ProposerInterface<Block: BlockT> {
 	) -> Result<Option<Proposal<Block, StorageProof>>, Error>;
 }
 
-/// A simple wrapper around a Substrate proposer for creating collations.
-pub struct Proposer<B, T> {
-	inner: T,
-	_marker: std::marker::PhantomData<B>,
-}
-
-impl<B, T> Proposer<B, T> {
-	/// Create a new Cumulus [`Proposer`].
-	pub fn new(inner: T) -> Self {
-		Proposer { inner, _marker: std::marker::PhantomData }
-	}
-}
-
 #[async_trait]
-impl<B, T> ProposerInterface<B> for Proposer<B, T>
+impl<Block, A, C> ProposerInterface<Block> for ProposerFactory<A, C, EnableProofRecording>
 where
-	B: sp_runtime::traits::Block,
-	T: Environment<B> + Send,
-	T::Error: Send + Sync + 'static,
-	T::Proposer: SubstrateProposer<B, ProofRecording = EnableProofRecording, Proof = StorageProof>,
-	<T::Proposer as SubstrateProposer<B>>::Error: Send + Sync + 'static,
+	A: TransactionPool<Block = Block> + 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
+	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	Block: sp_runtime::traits::Block,
 {
 	async fn propose(
 		&mut self,
-		parent_header: &B::Header,
+		parent_header: &Block::Header,
 		paras_inherent_data: &ParachainInherentData,
 		other_inherent_data: InherentData,
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: Option<usize>,
-	) -> Result<Option<Proposal<B, StorageProof>>, Error> {
+	) -> Result<Option<Proposal<Block, StorageProof>>, Error> {
 		let proposer = self
-			.inner
 			.init(parent_header)
 			.await
 			.map_err(|e| Error::proposer_creation(anyhow::Error::new(e)))?;
 
 		let mut inherent_data = other_inherent_data;
-		inherent_data
-			.put_data(
-				cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
-				&paras_inherent_data,
-			)
+		paras_inherent_data
+			.provide_inherent_data(&mut inherent_data)
+			.await
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)))?;
 
 		proposer
-			.propose(inherent_data, inherent_digests, max_duration, block_size_limit)
+			.propose_block(ProposeArgs {
+				inherent_data,
+				inherent_digests,
+				max_duration,
+				block_size_limit,
+				ignored_nodes_by_proof_recording: None,
+			})
 			.await
 			.map(Some)
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)).into())

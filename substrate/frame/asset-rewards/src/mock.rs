@@ -90,6 +90,7 @@ impl pallet_assets::Config<Instance1> for MockRuntime {
 	type ApprovalDeposit = ConstU128<1>;
 	type StringLimit = ConstU32<50>;
 	type Freezer = AssetsFreezer;
+	type Holder = ();
 	type Extra = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
@@ -166,6 +167,7 @@ impl Config for MockRuntime {
 		CreationHoldReason,
 		LinearStoragePrice<ConstU128<100>, ConstU128<0>, u128>,
 	>;
+	type BlockNumberProvider = frame_system::Pallet<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }

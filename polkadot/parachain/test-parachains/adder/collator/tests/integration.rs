@@ -44,7 +44,8 @@ async fn collating_using_adder_collator() {
 	workers_path.pop();
 
 	// start alice
-	let alice = polkadot_test_service::run_validator_node(alice_config, Some(workers_path.clone()));
+	let alice =
+		polkadot_test_service::run_validator_node(alice_config, Some(workers_path.clone())).await;
 
 	let bob_config = polkadot_test_service::node_config(
 		|| {},
@@ -55,7 +56,7 @@ async fn collating_using_adder_collator() {
 	);
 
 	// start bob
-	let bob = polkadot_test_service::run_validator_node(bob_config, Some(workers_path));
+	let bob = polkadot_test_service::run_validator_node(bob_config, Some(workers_path)).await;
 
 	let collator = test_parachain_adder_collator::Collator::new();
 
@@ -72,7 +73,8 @@ async fn collating_using_adder_collator() {
 		|| {},
 		vec![alice.addr.clone(), bob.addr.clone()],
 		collator.collator_key(),
-	);
+	)
+	.await;
 
 	charlie
 		.register_collator(

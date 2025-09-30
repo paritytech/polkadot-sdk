@@ -30,17 +30,14 @@ doctest = false
 [dependencies]
 clap = { features = ["derive"], workspace = true }
 docify = { workspace = true }
-log = { workspace = true, default-features = true }
-sc-chain-spec = { features = [
-	"clap",
-], workspace = true, default-features = true }
+sc-chain-spec = { features = ["clap"], workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 cmd_lib = { workspace = true }
-docify = { workspace = true }
+pretty_assertions = { workspace = true }
 substrate-test-runtime = { workspace = true }
 
 [features]

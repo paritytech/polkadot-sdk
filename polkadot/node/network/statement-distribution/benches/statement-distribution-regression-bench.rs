@@ -43,7 +43,7 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let (mut env, _cfgs) = prepare_test(&state, false);
+			let mut env = prepare_test(&state, false);
 			env.runtime().block_on(benchmark_statement_distribution(&mut env, &state))
 		})
 		.collect();
@@ -63,7 +63,7 @@ fn main() -> Result<(), String> {
 		("Received from peers", 106.4000, 0.001),
 		("Sent to peers", 127.9100, 0.001),
 	]));
-	messages.extend(average_usage.check_cpu_usage(&[("statement-distribution", 0.0374, 0.1)]));
+	messages.extend(average_usage.check_cpu_usage(&[("statement-distribution", 0.0341, 0.1)]));
 
 	if messages.is_empty() {
 		Ok(())

@@ -114,15 +114,12 @@
 //! separated from the stable primitives.
 
 use crate::{
-	slashing,
-	vstaging::{
-		self, async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateHash,
-	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing::{BackingState, Constraints},
+	slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use alloc::{
@@ -264,7 +261,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns the state of parachain backing for a given para.
 		#[api_version(7)]
-		fn para_backing_state(_: ppp::Id) -> Option<vstaging::async_backing::BackingState<Hash, BlockNumber>>;
+		fn para_backing_state(_: ppp::Id) -> Option<BackingState<Hash, BlockNumber>>;
 
 		/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
 		#[api_version(7)]
@@ -299,9 +296,25 @@ sp_api::decl_runtime_apis! {
 		fn candidates_pending_availability(para_id: ppp::Id) -> Vec<CommittedCandidateReceipt<Hash>>;
 
 		/***** Added in v12 *****/
+		/// Retrieve the maximum uncompressed code size.
+		#[api_version(12)]
+		fn validation_code_bomb_limit() -> u32;
+
+		/***** Added in v13 *****/
 		/// Returns the constraints on the actions that can be taken by a new parachain
 		/// block.
-		#[api_version(12)]
+		#[api_version(13)]
 		fn backing_constraints(para_id: ppp::Id) -> Option<Constraints>;
+
+		/***** Added in v13 *****/
+		/// Retrieve the scheduling lookahead
+		#[api_version(13)]
+		fn scheduling_lookahead() -> u32;
+
+		/***** Added in v14 *****/
+		/// Retrieve paraids at relay parent
+		#[api_version(14)]
+		fn para_ids() -> Vec<ppp::Id>;
+
 	}
 }

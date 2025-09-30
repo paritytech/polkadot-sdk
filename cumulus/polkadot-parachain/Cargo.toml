@@ -25,7 +25,7 @@ serde_json = { workspace = true, default-features = true }
 
 # Local
 asset-hub-rococo-runtime = { workspace = true, default-features = true }
-asset-hub-westend-runtime = { workspace = true }
+asset-hub-westend-runtime = { workspace = true, default-features = true }
 bridge-hub-rococo-runtime = { workspace = true, default-features = true }
 bridge-hub-westend-runtime = { workspace = true, default-features = true }
 collectives-westend-runtime = { workspace = true }
@@ -36,7 +36,10 @@ parachains-common = { workspace = true, default-features = true }
 penpal-runtime = { workspace = true }
 people-rococo-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
-polkadot-omni-node-lib = { features = ["rococo-native", "westend-native"], workspace = true }
+polkadot-omni-node-lib = { features = [
+	"rococo-native",
+	"westend-native",
+], workspace = true }
 rococo-parachain-runtime = { workspace = true }
 
 # Substrate
@@ -51,7 +54,12 @@ sp-keyring = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-consensus-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
+yet-another-parachain-runtime = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
@@ -77,6 +85,7 @@ runtime-benchmarks = [
 	"people-westend-runtime/runtime-benchmarks",
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"yet-another-parachain-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",
@@ -89,6 +98,7 @@ try-runtime = [
 	"coretime-rococo-runtime/try-runtime",
 	"coretime-westend-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
+	"parachains-common/try-runtime",
 	"penpal-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",

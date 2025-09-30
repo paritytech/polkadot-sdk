@@ -1,0 +1,12 @@
+title: '`fatxpool`: improved handling of finality stalls'
+doc:
+- audience: Node Dev
+  description: |-
+    This pull request introduces measures to handle finality stalls by :
+    - notifying outdated transactions with a `FinalityTimeout` event.
+    - removing outdated views from the `view_store`
+
+    An item is considered _outdated_ when the difference between its associated block and the current block exceeds a pre-defined threshold.
+crates:
+- name: sc-transaction-pool
+  bump: minor

@@ -39,14 +39,15 @@ pub mod watcher;
 
 pub use self::pool::{
 	BlockHash, ChainApi, ExtrinsicFor, ExtrinsicHash, NumberFor, Options, Pool, RawExtrinsicFor,
-	TransactionFor, ValidatedTransactionFor,
+	TransactionFor, ValidateTransactionPriority, ValidatedTransactionFor,
 };
 pub use validated_pool::{
-	BaseSubmitOutcome, IsValidator, Listener, ValidatedPoolSubmitOutcome, ValidatedTransaction,
+	BaseSubmitOutcome, EventDispatcher, IsValidator, ValidatedPoolSubmitOutcome,
+	ValidatedTransaction,
 };
 
 pub(crate) use self::pool::CheckBannedBeforeVerify;
-pub(crate) use listener::DroppedByLimitsEvent;
+pub(crate) use listener::EventHandler;
 
 #[cfg(doc)]
 pub(crate) use validated_pool::ValidatedPool;

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Parachain-specific RPCs implementation.
 
@@ -23,7 +23,10 @@ use crate::common::{
 	ConstructNodeRuntimeApi,
 };
 use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-use sc_rpc::dev::{Dev, DevApiServer};
+use sc_rpc::{
+	dev::{Dev, DevApiServer},
+	statement::{StatementApiServer, StatementStore},
+};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -32,11 +35,12 @@ use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-pub(crate) trait BuildRpcExtensions<Client, Backend, Pool> {
+pub(crate) trait BuildRpcExtensions<Client, Backend, Pool, StatementStore> {
 	fn build_rpc_extensions(
 		client: Arc<Client>,
 		backend: Arc<Backend>,
 		pool: Arc<Pool>,
+		statement_store: Option<Arc<StatementStore>>,
 	) -> sc_service::error::Result<RpcExtension>;
 }
 
@@ -47,6 +51,7 @@ impl<Block: BlockT, RuntimeApi>
 		ParachainClient<Block, RuntimeApi>,
 		ParachainBackend<Block>,
 		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_statement_store::Store,
 	> for BuildParachainRpcExtensions<Block, RuntimeApi>
 where
 	RuntimeApi:
@@ -60,6 +65,7 @@ where
 		pool: Arc<
 			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 		>,
+		statement_store: Option<Arc<sc_statement_store::Store>>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());
@@ -67,6 +73,9 @@ where
 			module.merge(System::new(client.clone(), pool).into_rpc())?;
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 			module.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
+			if let Some(statement_store) = statement_store {
+				module.merge(StatementStore::new(statement_store).into_rpc())?;
+			}
 			module.merge(Dev::new(client).into_rpc())?;
 
 			Ok(module)

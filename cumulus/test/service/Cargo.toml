@@ -22,7 +22,6 @@ prometheus = { workspace = true }
 rand = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tempfile = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 url = { workspace = true }
@@ -92,13 +91,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 [dev-dependencies]
 cumulus-test-client = { workspace = true }
 futures = { workspace = true }
-sp-authority-discovery = { workspace = true, default-features = true }
-
-# Polkadot dependencies
-polkadot-test-service = { workspace = true }
-
-# Substrate dependencies
-sc-cli = { workspace = true, default-features = true }
 
 [features]
 runtime-benchmarks = [

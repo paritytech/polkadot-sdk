@@ -11,6 +11,12 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bench]]
+name = "approval-voting-regression-bench"
+path = "benches/approval-voting-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
+
 [dependencies]
 async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
@@ -20,7 +26,6 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 itertools = { workspace = true }
-kvdb = { workspace = true }
 merlin = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 schnorrkel = { workspace = true, default-features = true }
@@ -32,21 +37,19 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
+rand = { workspace = true, default-features = true }
+rand_chacha = { workspace = true, default-features = true }
+# rand_core should match schnorrkel
+rand_core = { workspace = true }
 sc-keystore = { workspace = true }
 sp-application-crypto = { features = ["full_crypto"], workspace = true }
 sp-consensus = { workspace = true }
 sp-consensus-slots = { workspace = true }
 sp-runtime = { workspace = true }
-# rand_core should match schnorrkel
-rand = { workspace = true, default-features = true }
-rand_chacha = { workspace = true, default-features = true }
-rand_core = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-async-trait = { workspace = true }
 kvdb-memorydb = { workspace = true }
-log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
@@ -58,12 +61,6 @@ sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
 
 polkadot-subsystem-bench = { workspace = true }
-
-[[bench]]
-name = "approval-voting-regression-bench"
-path = "benches/approval-voting-regression-bench.rs"
-harness = false
-required-features = ["subsystem-benchmarks"]
 
 [features]
 subsystem-benchmarks = []

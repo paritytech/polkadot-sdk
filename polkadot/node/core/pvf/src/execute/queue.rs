@@ -503,6 +503,26 @@ async fn handle_job_finish(
 				None,
 			)
 		},
+		Ok(WorkerInterfaceResponse {
+			worker_response: WorkerResponse { job_response: JobResponse::CorruptedArtifact, .. },
+			idle_worker,
+		}) => {
+			let (tx, rx) = oneshot::channel();
+			queue
+				.from_queue_tx
+				.unbounded_send(FromQueue::RemoveArtifact {
+					artifact: artifact_id.clone(),
+					reply_to: tx,
+				})
+				.expect("from execute queue receiver is listened by the host; qed");
+			(
+				Some(idle_worker),
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::CorruptedArtifact)),
+				None,
+				Some(rx),
+				None,
+			)
+		},
 
 		Err(WorkerInterfaceError::InternalError(err)) |
 		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) =>
@@ -906,7 +926,11 @@ mod tests {
 		});
 		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 		ExecuteJob {
-			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			artifact: ArtifactPathId {
+				id: artifact_id(0),
+				path: PathBuf::new(),
+				checksum: Default::default(),
+			},
 			exec_timeout: Duration::from_secs(10),
 			exec_kind: PvfExecKind::Approval,
 			pvd,
@@ -1070,7 +1094,11 @@ mod tests {
 		let mut result_rxs = vec![];
 		let (result_tx, _result_rx) = oneshot::channel();
 		let relevant_job = ExecuteJob {
-			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			artifact: ArtifactPathId {
+				id: artifact_id(0),
+				path: PathBuf::new(),
+				checksum: Default::default(),
+			},
 			exec_timeout: Duration::from_secs(1),
 			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
 			pvd: Arc::new(PersistedValidationData::default()),
@@ -1083,7 +1111,11 @@ mod tests {
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
 			let expired_job = ExecuteJob {
-				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+				artifact: ArtifactPathId {
+					id: artifact_id(0),
+					path: PathBuf::new(),
+					checksum: Default::default(),
+				},
 				exec_timeout: Duration::from_secs(1),
 				exec_kind: PvfExecKind::Backing(old_relay_parent),
 				pvd: Arc::new(PersistedValidationData::default()),

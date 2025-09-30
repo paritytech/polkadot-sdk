@@ -18,7 +18,7 @@
 //! Miscellaneous types.
 
 use crate::{traits::Contains, TypeInfo};
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use core::fmt::Debug;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
@@ -178,7 +178,16 @@ pub enum ExistenceRequirement {
 
 /// Status of funds.
 #[derive(
-	PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum BalanceStatus {
 	/// Funds are free, as corresponding to `free` item in Balances.
@@ -225,11 +234,26 @@ impl WithdrawReasons {
 
 /// Simple amalgamation trait to collect together properties for an AssetId under one roof.
 pub trait AssetId:
-	FullCodec + Clone + Eq + PartialEq + Debug + scale_info::TypeInfo + MaxEncodedLen
+	FullCodec
+	+ DecodeWithMemTracking
+	+ Clone
+	+ Eq
+	+ PartialEq
+	+ Debug
+	+ scale_info::TypeInfo
+	+ MaxEncodedLen
 {
 }
-impl<T: FullCodec + Clone + Eq + PartialEq + Debug + scale_info::TypeInfo + MaxEncodedLen> AssetId
-	for T
+impl<
+		T: FullCodec
+			+ DecodeWithMemTracking
+			+ Clone
+			+ Eq
+			+ PartialEq
+			+ Debug
+			+ scale_info::TypeInfo
+			+ MaxEncodedLen,
+	> AssetId for T
 {
 }
 
@@ -237,6 +261,8 @@ impl<T: FullCodec + Clone + Eq + PartialEq + Debug + scale_info::TypeInfo + MaxE
 pub trait Balance:
 	AtLeast32BitUnsigned
 	+ FullCodec
+	+ DecodeWithMemTracking
+	+ HasCompact<Type: DecodeWithMemTracking>
 	+ Copy
 	+ Default
 	+ Debug
@@ -251,6 +277,8 @@ pub trait Balance:
 impl<
 		T: AtLeast32BitUnsigned
 			+ FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ Default
 			+ Debug
@@ -359,7 +387,17 @@ impl<A, R, B, C: Convert<R, B>> GetSalary<R, A, B> for ConvertRank<C> {
 }
 
 /// An identifier and balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct IdAmount<Id, Balance> {
 	/// An identifier for this item.
 	pub id: Id,

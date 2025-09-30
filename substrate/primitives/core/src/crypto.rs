@@ -19,10 +19,10 @@
 
 use crate::{ed25519, sr25519, U256};
 use alloc::{format, str, vec::Vec};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
+#[cfg(feature = "serde")]
 use alloc::{string::String, vec};
 use bip39::{Language, Mnemonic};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::hash::Hash;
 #[doc(hidden)]
 pub use core::ops::Deref;
@@ -32,7 +32,6 @@ use itertools::Itertools;
 use rand::{rngs::OsRng, RngCore};
 use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
-use sp_runtime_interface::pass_by::PassByInner;
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
@@ -338,7 +337,7 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 				let first = ((ident & 0b0000_0000_1111_1100) as u8) >> 2;
 				// lower two bits of the lower byte in the high pos,
 				// lower bits of the upper byte in the low pos
-				let second = ((ident >> 8) as u8) | ((ident & 0b0000_0000_0000_0011) as u8) << 6;
+				let second = ((ident >> 8) as u8) | (((ident & 0b0000_0000_0000_0011) as u8) << 6);
 				vec![first | 0b01000000, second]
 			},
 			_ => unreachable!("masked out the upper two bits; qed"),
@@ -501,7 +500,18 @@ pub trait Public: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync 
 pub trait Signature: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync {}
 
 /// An opaque 32-byte cryptographic identifier.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct AccountId32([u8; 32]);
 
@@ -680,6 +690,7 @@ mod dummy {
 		type Public = Dummy;
 		type Seed = Dummy;
 		type Signature = Dummy;
+		type ProofOfPossession = Dummy;
 
 		#[cfg(feature = "std")]
 		fn generate_with_phrase(_: Option<&str>) -> (Self, String, Self::Seed) {
@@ -826,6 +837,11 @@ pub trait Pair: CryptoType + Sized {
 	/// The type used to represent a signature. Can be created from a key pair and a message
 	/// and verified with the message and a public key.
 	type Signature: Signature;
+
+	/// The type used to represent proof of possession and ownership of private key is usually
+	/// one or a set of signatures. Can be created from a key pair and message (owner id) and
+	/// and verified with the owner id and public key.
+	type ProofOfPossession: Signature;
 
 	/// Generate new secure (random) key pair.
 	///
@@ -1041,11 +1057,11 @@ pub trait CryptoType {
 	Hash,
 	Encode,
 	Decode,
-	PassByInner,
 	crate::RuntimeDebug,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(transparent)]
 pub struct KeyTypeId(pub [u8; 4]);
 
 impl From<u32> for KeyTypeId {
@@ -1057,6 +1073,18 @@ impl From<u32> for KeyTypeId {
 impl From<KeyTypeId> for u32 {
 	fn from(x: KeyTypeId) -> Self {
 		u32::from_le_bytes(x.0)
+	}
+}
+
+impl From<[u8; 4]> for KeyTypeId {
+	fn from(value: [u8; 4]) -> Self {
+		Self(value)
+	}
+}
+
+impl AsRef<[u8]> for KeyTypeId {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
 	}
 }
 
@@ -1197,6 +1225,7 @@ impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, U256);
 mod tests {
 	use super::*;
 	use crate::DeriveJunction;
+	use alloc::{string::String, vec};
 
 	struct TestCryptoTag;
 
@@ -1235,6 +1264,7 @@ mod tests {
 		type Public = TestPublic;
 		type Seed = [u8; 8];
 		type Signature = TestSignature;
+		type ProofOfPossession = TestSignature;
 
 		fn generate() -> (Self, <Self as Pair>::Seed) {
 			(TestPair::Generated, [0u8; 8])

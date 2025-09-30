@@ -50,12 +50,13 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CollatorId, Hash, HeadData,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CollatorId, Hash, HeadData,
 	Id as ParaId, PersistedValidationData,
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{error::SecondingError, LOG_TARGET};
+use super::error::SecondingError;
+use crate::LOG_TARGET;
 
 /// Candidate supplied with a para head it's built on top of.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -295,6 +296,7 @@ impl Collations {
 			target: LOG_TARGET,
 			waiting_queue=?self.waiting_queue,
 			candidates_state=?self.candidates_state,
+			?unfulfilled_claim_queue_entries,
 			"Pick a collation to fetch."
 		);
 
@@ -317,6 +319,10 @@ impl Collations {
 			.get(&para_id)
 			.map(|state| state.seconded_per_para)
 			.unwrap_or_default()
+	}
+
+	pub(super) fn queued_for_para(&self, para_id: &ParaId) -> usize {
+		self.waiting_queue.get(para_id).map(|queue| queue.len()).unwrap_or_default()
 	}
 }
 

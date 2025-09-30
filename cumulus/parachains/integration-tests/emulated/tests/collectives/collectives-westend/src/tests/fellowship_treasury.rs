@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use frame_support::{
 	assert_ok, dispatch::RawOrigin, instances::Instance1, sp_runtime::traits::Dispatchable,
 	traits::fungible::Inspect,
@@ -38,6 +38,12 @@ fn fellowship_treasury_spend() {
 			&AssetHubWestend::account_id_of(ALICE),
 		)
 	});
+
+	let check_account = AssetHubWestend::execute_with(|| {
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
+	});
+	// prefund Asset Hub checking account so we accept teleport from relay
+	AssetHubWestend::fund_accounts(vec![(check_account, treasury_balance)]);
 
 	Westend::execute_with(|| {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;

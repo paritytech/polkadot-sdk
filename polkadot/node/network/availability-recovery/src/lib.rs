@@ -66,8 +66,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{ExtendedSessionInfo, RuntimeInfo},
 };
 use polkadot_primitives::{
-	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash,
-	ChunkIndex, CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex,
+	node_features, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
+	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex,
 };
 
 mod error;
@@ -485,7 +485,7 @@ async fn handle_recover<Context>(
 				) && chunk_mapping_enabled
 				{
 					let chunk_indices =
-						availability_chunk_indices(Some(node_features), n_validators, core_index)?;
+						availability_chunk_indices(node_features, n_validators, core_index)?;
 
 					let chunk_indices: VecDeque<_> = chunk_indices
 						.iter()

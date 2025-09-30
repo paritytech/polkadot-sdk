@@ -41,8 +41,8 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features, vstaging::MutateDescriptorV2, AuthorityDiscoveryId, Block, ExecutorParams, Hash,
-	HeadData, IndexedVec, NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
+	node_features, AuthorityDiscoveryId, Block, ExecutorParams, Hash, HeadData, IndexedVec,
+	MutateDescriptorV2, NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
@@ -715,7 +715,7 @@ fn map_chunks(
 	core_index: CoreIndex,
 ) -> IndexedVec<ValidatorIndex, ErasureChunk> {
 	let chunk_indices =
-		availability_chunk_indices(Some(node_features), n_validators, core_index).unwrap();
+		availability_chunk_indices(node_features, n_validators, core_index).unwrap();
 
 	(0..n_validators)
 		.map(|val_idx| chunks[chunk_indices[val_idx].0 as usize].clone())
