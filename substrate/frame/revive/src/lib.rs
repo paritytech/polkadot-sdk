@@ -1193,6 +1193,9 @@ where
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
+			return contract_result;
+		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 
@@ -1250,6 +1253,10 @@ where
 		salt: Option<[u8; 32]>,
 		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
+		// Enforce EIP-3607 for top-level signed origins: deny signed contract addresses.
+		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
+			return contract_result;
+		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let unchecked_deposit_limit = storage_deposit_limit.is_unchecked();
@@ -1549,17 +1556,28 @@ where
 	/// consistent with `evm_balance` which returns the spendable balance excluding the existential
 	/// deposit.
 	pub fn set_evm_balance(address: &H160, evm_value: U256) -> Result<(), Error<T>> {
-		let ed = T::Currency::minimum_balance();
-		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)
+		let (balance, dust) = Self::new_balance_with_dust(evm_value)
 			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
-		let (value, dust) = balance_with_dust.deconstruct();
 		let account_id = T::AddressMapper::to_account_id(&address);
-		T::Currency::set_balance(&account_id, ed.saturating_add(value));
+		T::Currency::set_balance(&account_id, balance);
 		AccountInfoOf::<T>::mutate(address, |account| {
 			account.as_mut().map(|a| a.dust = dust);
 		});
 
 		Ok(())
+	}
+
+	/// Construct native balance from EVM balance.
+	///
+	/// Adds the existential deposit and returns the native balance plus the dust.
+	pub fn new_balance_with_dust(
+		evm_value: U256,
+	) -> Result<(BalanceOf<T>, u32), BalanceConversionError> {
+		let ed = T::Currency::minimum_balance();
+		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)?;
+		let (value, dust) = balance_with_dust.deconstruct();
+
+		Ok((ed.saturating_add(value), dust))
 	}
 
 	/// Get the nonce for the given `address`.
@@ -1587,7 +1605,8 @@ where
 	/// Convert a gas value into a substrate fee
 	fn evm_gas_to_fee(gas: U256, gas_price: U256) -> Result<BalanceOf<T>, Error<T>> {
 		let fee = gas.saturating_mul(gas_price);
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(fee)?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(fee)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		Ok(value.into_rounded_balance())
 	}
 
@@ -1662,6 +1681,27 @@ where
 		Ok(maybe_value)
 	}
 
+	/// Get the immutable data of a specified contract.
+	///
+	/// Returns `None` if the contract does not exist or has no immutable data.
+	pub fn get_immutables(address: H160) -> Option<ImmutableData> {
+		let immutable_data = <ImmutableDataOf<T>>::get(address);
+		immutable_data
+	}
+
+	/// Sets immutable data of a contract
+	///
+	/// Returns an error if the contract does not exist.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
+		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+		<ImmutableDataOf<T>>::insert(address, data);
+		Ok(())
+	}
+
 	/// Query storage of a specified contract under a specified variable-sized key.
 	pub fn get_storage_var_key(address: H160, key: Vec<u8>) -> GetStorageResult {
 		let contract_info =
@@ -1673,6 +1713,54 @@ where
 				.into(),
 		);
 		Ok(maybe_value)
+	}
+
+	/// Set storage of a specified contract under a specified key.
+	///
+	/// If the `value` is `None`, the storage entry is deleted.
+	///
+	/// Returns an error if the contract does not exist or if the write operation fails.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	pub fn set_storage(address: H160, key: [u8; 32], value: Option<Vec<u8>>) -> SetStorageResult {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		contract_info
+			.write(&Key::from_fixed(key), value, None, false)
+			.map_err(ContractAccessError::StorageWriteFailed)
+	}
+
+	/// Set the storage of a specified contract under a specified variable-sized key.
+	///
+	/// If the `value` is `None`, the storage entry is deleted.
+	///
+	/// Returns an error if the contract does not exist, if the key decoding fails,
+	/// or if the write operation fails.
+	///
+	/// # Warning
+	///
+	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	pub fn set_storage_var_key(
+		address: H160,
+		key: Vec<u8>,
+		value: Option<Vec<u8>>,
+	) -> SetStorageResult {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		contract_info
+			.write(
+				&Key::try_from_var(key)
+					.map_err(|_| ContractAccessError::KeyDecodingFailed)?
+					.into(),
+				value,
+				None,
+				false,
+			)
+			.map_err(ContractAccessError::StorageWriteFailed)
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
@@ -1714,6 +1802,47 @@ where
 			.into()
 			.saturating_mul(T::NativeToEthRatio::get().into())
 			.saturating_add(dust.into())
+	}
+
+	/// Ensure the origin has no code deplyoyed if it is a signed origin.
+	fn ensure_non_contract_if_signed<ReturnValue>(
+		origin: &OriginFor<T>,
+	) -> Result<(), ContractResult<ReturnValue, BalanceOf<T>>> {
+		use crate::exec::is_precompile;
+		let Ok(who) = ensure_signed(origin.clone()) else { return Ok(()) };
+		let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
+
+		// EIP_1052: precompile can never be used as EOA.
+		if is_precompile::<T, ContractBlob<T>>(&address) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject externally-signed tx from precompile account {:?}",
+				address
+			);
+			return Err(ContractResult {
+				result: Err(DispatchError::BadOrigin),
+				gas_consumed: Weight::default(),
+				gas_required: Weight::default(),
+				storage_deposit: Default::default(),
+			});
+		}
+
+		// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
+		// (account exists but no code).
+		if <AccountInfo<T>>::is_contract(&address) {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"EIP-3607: reject externally-signed tx from contract account {:?}",
+				address
+			);
+			return Err(ContractResult {
+				result: Err(DispatchError::BadOrigin),
+				gas_consumed: Weight::default(),
+				gas_required: Weight::default(),
+				storage_deposit: Default::default(),
+			});
+		}
+		Ok(())
 	}
 }
 
@@ -1896,11 +2025,17 @@ sp_api::decl_runtime_apis! {
 		/// Get the H160 address associated to this account id
 		fn address(account_id: AccountId) -> H160;
 
+		/// Get the account id associated to this H160 address.
+		fn account_id(address: H160) -> AccountId;
+
 		/// The address used to call the runtime's pallets dispatchables
 		fn runtime_pallets_address() -> H160;
 
 		/// The code at the specified address taking pre-compiles into account.
 		fn code(address: H160) -> Vec<u8>;
+
+		/// Construct the new balance and dust components of this EVM balance.
+		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
 	}
 }
 
@@ -2126,6 +2261,15 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn code(address: $crate::H160) -> Vec<u8> {
 					$crate::Pallet::<Self>::code(&address)
+				}
+
+				fn account_id(address: $crate::H160) -> AccountId {
+					use $crate::AddressMapper;
+					<Self as $crate::Config>::AddressMapper::to_account_id(&address)
+				}
+
+				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
+					$crate::Pallet::<Self>::new_balance_with_dust(balance)
 				}
 			}
 		}

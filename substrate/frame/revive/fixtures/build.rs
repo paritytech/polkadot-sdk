@@ -28,6 +28,10 @@ use std::{
 const OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN";
 const OVERRIDE_STRIP_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_STRIP";
 const OVERRIDE_OPTIMIZE_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_OPTIMIZE";
+/// Do not build the fixtures, they will resolve to `None`.
+///
+/// Depending on the usage, they will probably panic at runtime.
+const SKIP_PALLET_REVIVE_FIXTURES: &str = "SKIP_PALLET_REVIVE_FIXTURES";
 
 /// A contract entry.
 #[derive(Clone)]
@@ -250,7 +254,10 @@ fn compile_with_standard_json(
 		.stderr(std::process::Stdio::piped())
 		.spawn()
 		.with_context(|| {
-			format!("Failed to execute {}. Make sure {} is installed.", compiler, compiler)
+			format!(
+				"Failed to execute {compiler}. Make sure {compiler} is installed or \
+				set env variable `{SKIP_PALLET_REVIVE_FIXTURES}=1` to skip fixtures compilation."
+			)
 		})?;
 
 	let mut stdin = compiler_output.stdin.as_ref().unwrap();
@@ -443,6 +450,21 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 	let mut file = fs::File::create(temp_dir.join("fixture_location.rs"))
 		.context("Failed to create fixture_location.rs")?;
 
+	let (fixtures, fixtures_resolc) = if env::var(SKIP_PALLET_REVIVE_FIXTURES).is_err() {
+		(
+			format!(
+				r#"Some(include_bytes!(concat!("{}", "/", $name, ".polkavm")))"#,
+				out_dir.display()
+			),
+			format!(
+				r#"Some(include_bytes!(concat!("{}", "/", $name, ".resolc.polkavm")))"#,
+				out_dir.display()
+			),
+		)
+	} else {
+		("None".into(), "None".into())
+	};
+
 	write!(
 		file,
 		r#"
@@ -452,14 +474,14 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 			#[macro_export]
 			macro_rules! fixture {{
 				($name: literal) => {{
-					include_bytes!(concat!("{0}", "/", $name, ".polkavm"))
+					{fixtures}
 				}};
 			}}
 
 			#[macro_export]
 			macro_rules! fixture_resolc {{
 				($name: literal) => {{
-					include_bytes!(concat!("{0}", "/", $name, ".resolc.polkavm"))
+					{fixtures_resolc}
 				}};
 			}}
 		"#,
@@ -501,19 +523,21 @@ pub fn main() -> Result<()> {
 		return Ok(());
 	}
 
-	// Compile Rust contracts
-	let rust_entries: Vec<_> = entries
-		.iter()
-		.filter(|e| matches!(e.contract_type, ContractType::Rust))
-		.collect();
-	if !rust_entries.is_empty() {
-		create_cargo_toml(&fixtures_dir, rust_entries.into_iter(), &build_dir)?;
-		invoke_build(&build_dir)?;
-		write_output(&build_dir, &out_dir, entries.clone())?;
-	}
+	if env::var(SKIP_PALLET_REVIVE_FIXTURES).is_err() {
+		// Compile Rust contracts
+		let rust_entries: Vec<_> = entries
+			.iter()
+			.filter(|e| matches!(e.contract_type, ContractType::Rust))
+			.collect();
+		if !rust_entries.is_empty() {
+			create_cargo_toml(&fixtures_dir, rust_entries.into_iter(), &build_dir)?;
+			invoke_build(&build_dir)?;
+			write_output(&build_dir, &out_dir, entries.clone())?;
+		}
 
-	// Compile Solidity contracts
-	compile_solidity_contracts(&contracts_dir, &out_dir, &entries)?;
+		// Compile Solidity contracts
+		compile_solidity_contracts(&contracts_dir, &out_dir, &entries)?;
+	}
 
 	let temp_dir: PathBuf =
 		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
