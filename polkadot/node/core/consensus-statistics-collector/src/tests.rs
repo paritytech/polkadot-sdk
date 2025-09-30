@@ -5,6 +5,7 @@ type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ConsensusStatisticsCollectorMessage>;
 use polkadot_node_subsystem::{ActivatedLeaf};
 use polkadot_node_subsystem_test_helpers as test_helpers;
+use sp_core::traits::CodeNotFound;
 use test_helpers::mock::new_leaf;
 
 async fn activate_leaf(
@@ -33,6 +34,46 @@ async fn candidate_approved(
 	};
 	virtual_overseer.send(msg).await;
 }
+
+async fn no_shows(
+	virtual_overseer: &mut VirtualOverseer,
+	candidate_hash: CandidateHash,
+	rb_hash: Hash,
+	no_shows: Vec<ValidatorIndex>,
+) {
+	let msg = FromOrchestra::Communication {
+		msg: ConsensusStatisticsCollectorMessage::NoShows(
+			candidate_hash.clone(),
+			rb_hash.clone(),
+			no_shows,
+		),
+	};
+	virtual_overseer.send(msg).await;
+}
+
+macro_rules! approvals_stats_assertion {
+    ($fn_name:ident, $field:ident) => {
+        fn $fn_name(
+            view: &View,
+            rb_hash: Hash,
+            candidate_hash: CandidateHash,
+            expected_votes: Vec<ValidatorIndex>,
+        ) {
+            let stats_for = view.per_relay.get(&rb_hash).unwrap();
+            let approvals_for = stats_for.approvals_stats.get(&candidate_hash).unwrap();
+            let collected_votes = approvals_for
+                .$field
+                .clone()
+                .into_iter()
+                .collect::<Vec<ValidatorIndex>>();
+
+            assert_eq!(expected_votes, collected_votes);
+        }
+    };
+}
+
+approvals_stats_assertion!(assert_votes, votes);
+approvals_stats_assertion!(assert_no_shows, no_shows);
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	test: impl FnOnce(VirtualOverseer) -> T,
@@ -149,13 +190,47 @@ fn candidate_approved_for_different_forks() {
 	assert_eq!(view.per_relay.len(), 2);
 
 	let expected_fork_0 = vec![validator_idx1];
-	assert_votes_for(&view, rb_hash_fork_0, candidate_hash.clone(), expected_fork_0);
+	assert_votes(&view, rb_hash_fork_0, candidate_hash.clone(), expected_fork_0);
 
 	let expected_fork_1 = vec![validator_idx0];
-	assert_votes_for(&view, rb_hash_fork_1, candidate_hash.clone(), expected_fork_1);
+	assert_votes(&view, rb_hash_fork_1, candidate_hash.clone(), expected_fork_1);
 }
 
-fn assert_votes_for(view: &View, rb_hash: Hash, candidate_hash: CandidateHash, expected_votes: Vec<ValidatorIndex>) {
+#[test]
+fn candidate_approval_stats_with_no_shows() {
+	let approvals_from = vec![ValidatorIndex(0), ValidatorIndex(3)];
+	let no_show_validators = vec![ValidatorIndex(1), ValidatorIndex(2)];
+
+	let rb_hash = Hash::from_low_u64_be(111);
+	let candidate_hash: CandidateHash = CandidateHash(Hash::from_low_u64_be(132));
+
+	let view = test_harness(|mut virtual_overseer| async move {
+		let leaf1 = new_leaf(rb_hash.clone(), 1);
+		activate_leaf(&mut virtual_overseer, leaf1.clone()).await;
+
+		candidate_approved(
+			&mut virtual_overseer,
+			candidate_hash,
+			rb_hash,
+			approvals_from,
+		).await;
+
+		no_shows(
+			&mut virtual_overseer,
+			candidate_hash,
+			rb_hash,
+			no_show_validators
+		).await;
+
+		virtual_overseer
+	});
+
+	assert_eq!(view.per_relay.len(), 1);
+	let expected_validators = vec![ValidatorIndex(0), ValidatorIndex(3)];
+	assert_votes(&view, rb_hash, candidate_hash.clone(), expected_validators);
+}
+
+fn assert_bak_votes_for(view: &View, rb_hash: Hash, candidate_hash: CandidateHash, expected_votes: Vec<ValidatorIndex>) {
 	let stats_for = view.per_relay.get(&rb_hash).unwrap();
 	let approvals_for = stats_for.approvals_stats.get(&candidate_hash).unwrap();
 	let collected_votes= approvals_for

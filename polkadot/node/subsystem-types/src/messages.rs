@@ -1470,5 +1470,5 @@ pub enum ConsensusStatisticsCollectorMessage {
 	CandidateApproved(CandidateHash, Hash, Vec<ValidatorIndex>),
 
 	// Set of candidates that has not shared votes in time
-	NoShows(SessionIndex, Vec<ValidatorIndex>),
+	NoShows(CandidateHash, Hash, Vec<ValidatorIndex>),
 }

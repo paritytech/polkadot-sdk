@@ -68,7 +68,6 @@ impl PerRelayView {
 
 struct View {
     per_relay: HashMap<Hash, PerRelayView>,
-    no_shows_per_session: HashMap<SessionIndex, HashMap<ValidatorIndex, usize>>,
     candidates_per_session: HashMap<SessionIndex, HashSet<CandidateHash>>,
     chunks_downloaded: AvailabilityDownloads,
 }
@@ -77,7 +76,6 @@ impl View {
     fn new() -> Self {
         return View{
             per_relay: HashMap::new(),
-            no_shows_per_session: HashMap::new(),
             candidates_per_session: HashMap::new(),
             chunks_downloaded: AvailabilityDownloads::new(),
         };
@@ -157,10 +155,11 @@ pub(crate) async fn run_iteration<Context>(
                             approvals,
                         );
                     }
-                    ConsensusStatisticsCollectorMessage::NoShows(session_idx, no_show_validators) => {
+                    ConsensusStatisticsCollectorMessage::NoShows(candidate_hash, block_hash, no_show_validators) => {
                         handle_observed_no_shows(
                             view,
-                            session_idx,
+                            block_hash,
+                            candidate_hash,
                             no_show_validators,
                         );
                     },

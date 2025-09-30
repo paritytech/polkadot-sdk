@@ -6,11 +6,12 @@ use crate::View;
 #[derive(Debug, Clone, Default)]
 pub struct ApprovalsStats {
     pub votes: HashSet<ValidatorIndex>,
+    pub no_shows: HashSet<ValidatorIndex>,
 }
 
 impl ApprovalsStats {
-    pub fn new(votes: HashSet<ValidatorIndex>) -> Self {
-        Self { votes }
+    pub fn new(votes: HashSet<ValidatorIndex>, no_shows: HashSet<ValidatorIndex>) -> Self {
+        Self { votes, no_shows }
     }
 }
 
@@ -23,25 +24,21 @@ pub fn handle_candidate_approved(
     if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
         relay_view.approvals_stats
             .entry(candidate_hash)
-            .and_modify(|a: &mut ApprovalsStats| {
-                a.votes.extend(approvals.iter());
-            }).or_insert(ApprovalsStats::new(HashSet::from_iter(approvals)));
+            .and_modify(|a: &mut ApprovalsStats| a.votes.extend(approvals.iter()))
+            .or_insert(ApprovalsStats::new(HashSet::from_iter(approvals), HashSet::new()));
     }
 }
 
 pub fn  handle_observed_no_shows(
     view: &mut View,
-    session_index: SessionIndex,
+    block_hash: Hash,
+    candidate_hash: CandidateHash,
     no_show_validators: Vec<ValidatorIndex>,
 ) {
-    view.no_shows_per_session
-        .entry(session_index)
-        .and_modify(|q: &mut HashMap<ValidatorIndex, usize>| {
-            for v_idx in no_show_validators {
-                q.entry(v_idx)
-                    .and_modify(|v: &mut usize| *v += 1)
-                    .or_insert(1);
-            }
-        })
-        .or_insert(HashMap::new());
+    if let Some(relay_view) = view.per_relay.get_mut(&block_hash) {
+        relay_view.approvals_stats
+            .entry(candidate_hash)
+            .and_modify(|a: &mut ApprovalsStats| a.no_shows.extend(no_show_validators.iter()))
+            .or_insert(ApprovalsStats::new(HashSet::new(), HashSet::from_iter(no_show_validators)));
+    }
 }
