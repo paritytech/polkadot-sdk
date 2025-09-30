@@ -78,6 +78,7 @@ impl ReceiptExtractor {
 			earliest_receipt_block,
 			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
 		)
+		.await
 	}
 
 	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
@@ -85,11 +86,11 @@ impl ReceiptExtractor {
 	/// Specify also a custom Ethereum address recovery logic.
 	/// Use `ReceiptExtractor::new` if the default Ethereum address recovery
 	/// logic ([`TransactionSigned::recover_eth_address`] based) is enough.
-	pub fn new_with_custom_address_recovery(
+	pub async fn new_with_custom_address_recovery(
 		api: OnlineClient<SrcChainConfig>,
 		earliest_receipt_block: Option<SubstrateBlockNumber>,
 		recover_eth_address_fn: RecoverEthAddressFn,
-	) -> Self {
+	) -> Result<Self, ClientError> {
 		let native_to_eth_ratio = native_to_eth_ratio(&api).await?;
 
 		let fetch_gas_price = Arc::new(move |block_hash| {
