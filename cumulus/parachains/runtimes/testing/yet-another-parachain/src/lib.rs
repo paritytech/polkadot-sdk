@@ -15,7 +15,6 @@
 // limitations under the License.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
 // Make the WASM binary available.
@@ -27,10 +26,16 @@ extern crate alloc;
 mod genesis_config_presets;
 mod xcm_config;
 
-use crate::xcm_config::XcmOriginToTransactDispatchOrigin;
+use crate::xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
+
+use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
+pub use polkadot_sdk::{staging_parachain_info as parachain_info, *};
+use staging_xcm_builder as xcm_builder;
+use staging_xcm_executor as xcm_executor;
+
 use cumulus_primitives_core::ParaId;
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
+use polkadot_runtime_common::{prod_or_fast, xcm_sender::NoPriceForMessageDelivery};
 
 use alloc::{borrow::Cow, vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
@@ -62,7 +67,7 @@ pub use frame_support::{
 		ConstantMultiplier, IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 		WeightToFeePolynomial,
 	},
-	BoundedSlice, StorageValue,
+	BoundedSlice, PalletId, StorageValue,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -77,6 +82,7 @@ pub use sp_runtime::{Perbill, Permill};
 
 use cumulus_primitives_core::AggregateMessageOrigin; //, ClaimQueueOffset, CoreSelector};
 use parachains_common::{AccountId, Signature};
+use staging_xcm::latest::prelude::BodyId;
 
 pub type SessionHandlers = ();
 
@@ -92,7 +98,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_002_000,
+	spec_version: 1_003_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -227,6 +233,56 @@ impl pallet_timestamp::Config for Runtime {
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = ConstU64<0>;
 	type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Self>;
+}
+
+parameter_types! {
+	pub const Period: u32 = prod_or_fast!(10 * MINUTES, 10);
+	pub const Offset: u32 = 0;
+}
+
+impl pallet_session::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = <Self as frame_system::Config>::AccountId;
+	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = CollatorSelection;
+	// Essentially just Aura, but let's be pedantic.
+	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = SessionKeys;
+	type DisablingStrategy = ();
+	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
+}
+
+parameter_types! {
+	pub const PotId: PalletId = PalletId(*b"PotStake");
+	pub const SessionLength: BlockNumber = prod_or_fast!(10 * MINUTES, 10);
+	// StakingAdmin pluralistic body.
+	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
+}
+
+/// We allow root and the StakingAdmin to execute privileged collator selection operations.
+pub type CollatorSelectionUpdateOrigin = EitherOfDiverse<
+	EnsureRoot<AccountId>,
+	EnsureXcm<IsVoiceOfBody<RelayLocation, StakingAdminBodyId>>,
+>;
+
+impl pallet_collator_selection::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type UpdateOrigin = CollatorSelectionUpdateOrigin;
+	type PotId = PotId;
+	type MaxCandidates = ConstU32<100>;
+	type MinEligibleCollators = ConstU32<4>;
+	type MaxInvulnerables = ConstU32<20>;
+	// should be a multiple of session or things will get inconsistent
+	type KickThreshold = Period;
+	type ValidatorId = <Self as frame_system::Config>::AccountId;
+	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
+	type ValidatorRegistration = Session;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -417,32 +473,67 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = VerifySignatureBenchmarkHelper;
 }
 
-construct_runtime! {
-	pub enum Runtime
-	{
-		System: frame_system,
-		Timestamp: pallet_timestamp,
-		Sudo: pallet_sudo,
-		TransactionPayment: pallet_transaction_payment,
-		WeightReclaim: cumulus_pallet_weight_reclaim,
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask,
+		RuntimeViewFunction
+	)]
+	pub struct Runtime;
 
-		ParachainSystem: cumulus_pallet_parachain_system = 20,
-		ParachainInfo: parachain_info = 21,
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(1)]
+	pub type Timestamp = pallet_timestamp;
+	#[runtime::pallet_index(2)]
+	pub type Sudo = pallet_sudo;
+	#[runtime::pallet_index(3)]
+	pub type TransactionPayment = pallet_transaction_payment;
+	#[runtime::pallet_index(4)]
+	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
 
-		Balances: pallet_balances = 30,
+	#[runtime::pallet_index(20)]
+	pub type ParachainSystem = cumulus_pallet_parachain_system;
+	#[runtime::pallet_index(21)]
+	pub type ParachainInfo = parachain_info;
 
-		Aura: pallet_aura = 31,
-		AuraExt: cumulus_pallet_aura_ext = 32,
+	#[runtime::pallet_index(25)]
+	pub type Authorship = pallet_authorship;
+	#[runtime::pallet_index(26)]
+	pub type CollatorSelection = pallet_collator_selection;
+	#[runtime::pallet_index(27)]
+	pub type Session = pallet_session;
 
-		Utility: pallet_utility = 40,
-		VerifySignature: pallet_verify_signature = 41,
+	#[runtime::pallet_index(30)]
+	pub type Balances = pallet_balances;
 
-		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue = 51,
-		PolkadotXcm: pallet_xcm = 52,
-		CumulusXcm: cumulus_pallet_xcm = 53,
-		MessageQueue: pallet_message_queue = 54,
-	}
+	#[runtime::pallet_index(31)]
+	pub type Aura = pallet_aura;
+	#[runtime::pallet_index(32)]
+	pub type AuraExt = cumulus_pallet_aura_ext;
+
+	#[runtime::pallet_index(40)]
+	pub type Utility = pallet_utility;
+	#[runtime::pallet_index(41)]
+	pub type VerifySignature = pallet_verify_signature;
+
+	#[runtime::pallet_index(51)]
+	pub type XcmpQueue = cumulus_pallet_xcmp_queue;
+	#[runtime::pallet_index(52)]
+	pub type PolkadotXcm = pallet_xcm;
+	#[runtime::pallet_index(53)]
+	pub type CumulusXcm = cumulus_pallet_xcm;
+	#[runtime::pallet_index(54)]
+	pub type MessageQueue = pallet_message_queue;
 }
 
 /// Balance of an account.
