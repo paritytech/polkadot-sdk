@@ -131,6 +131,8 @@ pub struct Message {
 	pub fee: u128,
 	/// Commands
 	pub commands: BoundedVec<Command, ConstU32<MAX_COMMANDS>>,
+	/// From governance
+	pub from_governance: bool,
 }
 
 /// A command which is executable by the Gateway contract on Ethereum

@@ -40,6 +40,7 @@ mod benchmarks {
 			id: H256::default(),
 			fee: 0,
 			commands: BoundedVec::try_from(commands.clone()).unwrap(),
+			from_governance: false,
 		};
 		let wrapped_commands: Vec<OutboundCommandWrapper> = commands
 			.into_iter()

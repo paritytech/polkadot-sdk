@@ -81,7 +81,7 @@ use frame_support::{
 };
 use snowbridge_core::{
 	reward::{AddTip, AddTipError},
-	BasicOperatingMode,
+	BasicOperatingMode, ParaId,
 };
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
@@ -163,6 +163,9 @@ pub mod pallet {
 		type EthereumNetwork: Get<NetworkId>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
+
+		/// AssetHub ParaId
+		type AssetHubParaId: Get<ParaId>;
 	}
 
 	#[pallet::event]
@@ -349,7 +352,7 @@ pub mod pallet {
 			}
 
 			// Decode bytes into Message
-			let Message { origin, id, fee, commands } =
+			let Message { origin, id, fee, commands, .. } =
 				Message::decode(&mut message).map_err(|_| {
 					Self::deposit_event(Event::MessageRejected {
 						id: None,

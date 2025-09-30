@@ -36,12 +36,16 @@ where
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
-		// Todo: Inject AH as a type parameter, and the agent_id should be same as in V1
-		let asset_hub_agent_id =
-			AgentIdOf::convert_location(&ParentThen(Parachain(1000_u32.into()).into()).into())
-				.ok_or(SendError::InvalidOrigin)?;
+		// The agent_id should be same as in V1
+		let asset_hub_agent_id = AgentIdOf::convert_location(
+			&ParentThen(Parachain(T::AssetHubParaId::get().into()).into()).into(),
+		)
+		.ok_or(SendError::InvalidOrigin)?;
 
-		let origin = AggregateMessageOrigin::SnowbridgeV2(asset_hub_agent_id);
+		let mut origin = AggregateMessageOrigin::SnowbridgeV2(ticket.origin);
+		if !ticket.from_governance {
+			origin = AggregateMessageOrigin::SnowbridgeV2(asset_hub_agent_id);
+		}
 
 		let message =
 			BoundedVec::try_from(ticket.encode()).map_err(|_| SendError::MessageTooLarge)?;

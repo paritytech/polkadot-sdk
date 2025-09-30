@@ -171,7 +171,7 @@ pub mod pallet {
 			let initializer_params_hash: H256 = blake2_256(initializer.params.as_ref()).into();
 
 			let command = Command::Upgrade { impl_address, impl_code_hash, initializer };
-			Self::send(origin, command, 0)?;
+			Self::send(origin, command, 0, true)?;
 
 			Self::deposit_event(Event::<T>::Upgrade {
 				impl_address,
@@ -193,7 +193,7 @@ pub mod pallet {
 			let origin = Self::location_to_message_origin(origin_location)?;
 
 			let command = Command::SetOperatingMode { mode };
-			Self::send(origin, command, 0)?;
+			Self::send(origin, command, 0, true)?;
 
 			Self::deposit_event(Event::<T>::SetOperatingMode { mode });
 			Ok(())
@@ -238,7 +238,7 @@ pub mod pallet {
 			};
 
 			let message_origin = Self::location_to_message_origin(sender_location)?;
-			Self::send(message_origin, command, amount)?;
+			Self::send(message_origin, command, amount, false)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken {
 				location: location.into(),
@@ -283,12 +283,18 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Send `command` to the Gateway from a specific origin/agent
-		fn send(origin: H256, command: Command, fee: u128) -> DispatchResult {
+		fn send(
+			origin: H256,
+			command: Command,
+			fee: u128,
+			from_governance: bool,
+		) -> DispatchResult {
 			let message = Message {
 				origin,
 				id: frame_system::unique((origin, &command, fee)).into(),
 				fee,
 				commands: BoundedVec::try_from(vec![command]).unwrap(),
+				from_governance,
 			};
 
 			let ticket = <T as pallet::Config>::OutboundQueue::validate(&message)

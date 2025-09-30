@@ -96,6 +96,7 @@ parameter_types! {
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 	pub DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
+	pub AssetHubParaId: ParaId = ParaId::new(1000);
 }
 
 pub const DOT: u128 = 10_000_000_000;
@@ -119,6 +120,7 @@ impl crate::Config for Test {
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
+	type AssetHubParaId = AssetHubParaId;
 }
 
 fn setup() {
@@ -171,6 +173,7 @@ where
 			},
 		}])
 		.unwrap(),
+		from_governance: true,
 	}
 }
 
@@ -194,6 +197,7 @@ where
 			},
 		}])
 		.unwrap(),
+		from_governance: true,
 	}
 }
 
@@ -208,6 +212,7 @@ pub fn mock_message(sibling_para_id: u32) -> Message {
 			amount: 1_000_000,
 		}])
 		.unwrap(),
+		from_governance: false,
 	}
 }
 
@@ -223,6 +228,7 @@ pub fn mock_register_token_message(sibling_para_id: u32) -> Message {
 			decimals: 12,
 		}])
 		.unwrap(),
+		from_governance: false,
 	}
 }
 
