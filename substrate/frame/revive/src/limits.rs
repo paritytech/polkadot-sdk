@@ -58,6 +58,9 @@ pub const NUM_EMITTED_EVENTS: u32 = 512;
 /// Maximum size of events (including topics) and storage values.
 pub const PAYLOAD_BYTES: u32 = 416;
 
+/// Maximum size of of the transaction payload
+pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = 1024 * 1024;
+
 /// The maximum size for calldata and return data.
 ///
 /// Please note that the calldata is limited to 128KB on geth anyways.
