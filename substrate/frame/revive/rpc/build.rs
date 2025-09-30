@@ -56,29 +56,25 @@ fn build_ah_westend_wasm() {
 	let manifest_dir = env::var("CARGO_MANIFEST_DIR")
 		.expect("`CARGO_MANIFEST_DIR` is always set for `build.rs` files; qed");
 
+	let symlink_path = Path::new(&manifest_dir).join("asset_hub_westend_runtime.wasm");
 	let runtime_cargo_toml = Path::new(&manifest_dir)
 		.join("../../../../cumulus/parachains/runtimes/assets/asset-hub-westend/Cargo.toml")
 		.canonicalize()
 		.expect("Failed to resolve runtime path");
-
-	substrate_wasm_builder::WasmBuilder::new()
-		.with_project(runtime_cargo_toml.to_str().expect("Invalid path"))
-		.unwrap()
-		.build();
-
-	let target_dir = env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| {
+	let wasm_path = Path::new(&env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| {
 		Path::new(&manifest_dir)
 			.join("../../../../target")
 			.to_str()
 			.unwrap()
 			.to_string()
-	});
+	}))
+	.join(env::var("PROFILE").unwrap_or_else(|_| "debug".to_string()))
+	.join("wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm");
 
-	let wasm_path = Path::new(&target_dir)
-		.join(env::var("PROFILE").unwrap_or_else(|_| "debug".to_string()))
-		.join("wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm");
-
-	let symlink_path = Path::new(&manifest_dir).join("asset_hub_westend_runtime.wasm");
+	substrate_wasm_builder::WasmBuilder::new()
+		.with_project(runtime_cargo_toml.to_str().expect("Invalid path"))
+		.unwrap()
+		.build();
 
 	// Remove existing symlink/file if it exists
 	let _ = fs::remove_file(&symlink_path);
