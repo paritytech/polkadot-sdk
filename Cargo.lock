@@ -4291,7 +4291,7 @@ dependencies = [
  "sp-api 38.0.0",
  "sp-consensus",
  "sp-core 38.0.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "sp-runtime 43.0.0",
  "sp-state-machine 0.47.0",
  "sp-tracing 18.0.0",
@@ -4501,7 +4501,7 @@ dependencies = [
  "sp-api 38.0.0",
  "sp-blockchain",
  "sp-consensus",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "sp-runtime 43.0.0",
  "sp-tracing 18.0.0",
  "sp-version 41.0.0",
@@ -4759,7 +4759,7 @@ dependencies = [
  "sc-executor 0.44.0",
  "sp-core 38.0.0",
  "sp-io 42.0.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "tracing",
  "tracing-subscriber",
 ]
@@ -15376,7 +15376,7 @@ dependencies = [
  "sp-core 38.0.0",
  "sp-keyring",
  "sp-keystore 0.44.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "tracing-gum",
 ]
 
@@ -15536,7 +15536,7 @@ dependencies = [
  "sc-tracing",
  "slotmap",
  "sp-core 38.0.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "strum 0.26.3",
  "tempfile",
  "test-parachain-adder",
@@ -15607,7 +15607,7 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "tracing-gum",
 ]
 
@@ -15623,7 +15623,7 @@ dependencies = [
  "polkadot-node-core-pvf-common",
  "polkadot-primitives",
  "rococo-runtime",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "staging-tracking-allocator",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
@@ -15717,7 +15717,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-keystore 0.44.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
@@ -16522,7 +16522,7 @@ dependencies = [
  "sp-io 42.0.0",
  "sp-keyring",
  "sp-keystore 0.44.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "sp-metadata-ir 0.12.0",
  "sp-mixnet",
  "sp-mmr-primitives",
@@ -19940,7 +19940,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.30.0",
  "sp-io 42.0.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "sp-panic-handler 13.0.2",
  "sp-runtime 43.0.0",
  "sp-runtime-interface 31.0.0",
@@ -19964,7 +19964,7 @@ checksum = "aad16187c613f81feab35f0d6c12c15c1d88eea0794c886b5dca3495d26746de"
 dependencies = [
  "polkavm 0.9.3",
  "sc-allocator 28.0.0",
- "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 21.0.1",
  "thiserror 1.0.65",
  "wasm-instrument",
@@ -19976,7 +19976,7 @@ version = "0.40.0"
 dependencies = [
  "polkavm 0.26.0",
  "sc-allocator 33.0.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "sp-wasm-interface 23.0.0",
  "thiserror 1.0.65",
  "wasm-instrument",
@@ -20504,7 +20504,7 @@ dependencies = [
  "sp-consensus",
  "sp-core 38.0.0",
  "sp-externalities 0.30.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "sp-rpc",
  "sp-runtime 43.0.0",
  "sp-version 41.0.0",
@@ -23497,6 +23497,8 @@ dependencies = [
 [[package]]
 name = "sp-maybe-compressed-blob"
 version = "11.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0c768c11afbe698a090386876911da4236af199cd38a5866748df4d8628aeff"
 dependencies = [
  "thiserror 1.0.65",
  "zstd 0.12.4",
@@ -23504,9 +23506,7 @@ dependencies = [
 
 [[package]]
 name = "sp-maybe-compressed-blob"
-version = "11.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0c768c11afbe698a090386876911da4236af199cd38a5866748df4d8628aeff"
+version = "11.0.1"
 dependencies = [
  "thiserror 1.0.65",
  "zstd 0.12.4",
@@ -25205,7 +25205,7 @@ dependencies = [
  "shlex",
  "sp-core 38.0.0",
  "sp-io 42.0.0",
- "sp-maybe-compressed-blob 11.0.0",
+ "sp-maybe-compressed-blob 11.0.1",
  "sp-tracing 18.0.0",
  "sp-version 41.0.0",
  "strum 0.26.3",
@@ -27342,7 +27342,7 @@ dependencies = [
  "multihash 0.19.1",
  "serde",
  "serde_json",
- "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-maybe-compressed-blob 11.0.0",
  "subrpcer",
  "thiserror 1.0.65",
  "tungstenite 0.21.0",
