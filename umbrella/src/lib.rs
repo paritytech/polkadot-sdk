@@ -579,6 +579,14 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// FRAME oracle pallet for off-chain data.
+#[cfg(feature = "pallet-oracle")]
+pub use pallet_oracle;
+
+/// Runtime API for the oracle pallet.
+#[cfg(feature = "pallet-oracle-runtime-api")]
+pub use pallet_oracle_runtime_api;
+
 /// Pallet to give some execution allowance for some origins.
 #[cfg(feature = "pallet-origin-restriction")]
 pub use pallet_origin_restriction;
@@ -979,6 +987,10 @@ pub use polkadot_parachain_primitives;
 /// Shared primitives used by Polkadot runtime.
 #[cfg(feature = "polkadot-primitives")]
 pub use polkadot_primitives;
+
+/// Test helpers for Polkadot runtime primitives.
+#[cfg(feature = "polkadot-primitives-test-helpers")]
+pub use polkadot_primitives_test_helpers;
 
 /// Polkadot specific RPC functionality.
 #[cfg(feature = "polkadot-rpc")]

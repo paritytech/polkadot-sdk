@@ -19,23 +19,20 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex,
+	BlockId, CandidateCommitments, CandidateDescriptorV2, CoreIndex, CoreState,
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
 	PersistedValidationData, RelayChainResult, StorageValue, ValidationCodeHash, ValidatorId,
 };
-use cumulus_test_client::{
-	runtime::{Block, Header},
-	Sr25519Keyring,
-};
+use cumulus_test_client::runtime::{Block, Header};
 use futures::{channel::mpsc, SinkExt, Stream};
 use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{
 	messages::{AvailabilityRecoveryMessage, RuntimeApiRequest},
 	RecoveryError, TimeoutExt,
 };
-use polkadot_primitives::vstaging::CandidateEvent;
+use polkadot_primitives::CandidateEvent;
 use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,
@@ -520,7 +517,6 @@ impl RelayChainInterface for Relaychain {
 }
 
 fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCandidateReceipt> {
-	let collator = Sr25519Keyring::Ferdie;
 	let mut latest_parent_hash = GENESIS_HASH;
 	let mut candidates = vec![];
 
@@ -536,18 +532,17 @@ fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCand
 		latest_parent_hash = head_data.hash();
 
 		candidates.push(CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
-				para_id: ParaId::from(1000),
-				relay_parent: PHash::zero(),
-				collator: collator.public().into(),
-				persisted_validation_data_hash: PHash::zero(),
-				pov_hash: PHash::zero(),
-				erasure_root: PHash::zero(),
-				signature: collator.sign(&[0u8; 132]).into(),
-				para_head: PHash::zero(),
-				validation_code_hash: PHash::zero().into(),
-			}
-			.into(),
+			descriptor: CandidateDescriptorV2::new(
+				ParaId::from(1000),
+				PHash::zero(),
+				CoreIndex(0),
+				0,
+				PHash::zero(),
+				PHash::zero(),
+				PHash::zero(),
+				PHash::zero(),
+				PHash::zero().into(),
+			),
 			commitments: CandidateCommitments {
 				head_data: head_data.encode().into(),
 				upward_messages: vec![].try_into().expect("empty vec fits within bounds"),

@@ -44,13 +44,12 @@ fn default_config() -> MockGenesisConfig {
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
-	use polkadot_primitives::vstaging::{
-		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal,
-	};
+	use polkadot_primitives::{ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal};
 	use rstest::rstest;
+	use sp_core::ByteArray;
 
 	use crate::{
-		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
+		builder::{Bench, BenchBuilder, CandidateModifier},
 		disputes::clear_dispute_storage,
 		initializer::BufferedSessionChange,
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
@@ -63,11 +62,10 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		vstaging::{
-			CandidateDescriptorV2, CommittedCandidateReceiptV2, InternalVersion, MutateDescriptorV2,
-		},
-		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
+		AvailabilityBitfield, CandidateDescriptorV2, CollatorId, CollatorSignature,
+		CommittedCandidateReceiptV2, InternalVersion, MutateDescriptorV2, UncheckedSigned,
 	};
+	use polkadot_primitives_test_helpers::CandidateDescriptor;
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
@@ -137,6 +135,18 @@ mod enter {
 		}
 	}
 
+	/// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
+	fn junk_collator() -> CollatorId {
+		CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
+			.expect("32 bytes; qed")
+	}
+
+	/// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
+	fn junk_collator_signature() -> CollatorSignature {
+		CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
+			.expect("64 bytes; qed")
+	}
+
 	#[rstest]
 	#[case(true)]
 	#[case(false)]
@@ -147,11 +157,11 @@ mod enter {
 		let config = MockGenesisConfig::default();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
+			// V2 receipts are always enabled.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
+				true,
 			)
 			.unwrap();
 
@@ -243,11 +253,11 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
+			// V2 receipts are always enabled.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
+				true,
 			)
 			.unwrap();
 
@@ -345,11 +355,11 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
+			// V2 receipts are always enabled.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
+				true,
 			)
 			.unwrap();
 
@@ -1087,6 +1097,14 @@ mod enter {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			use crate::inclusion::WeightInfo as _;
 
+			// V2 receipts are always enabled.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
+
 			let mut backed_and_concluding = BTreeMap::new();
 			// The number of candidates is chosen to go over the weight limit
 			// of the mock runtime together with the `enact_candidate`s weight.
@@ -1193,6 +1211,13 @@ mod enter {
 		let config = MockGenesisConfig::default();
 
 		new_test_ext(config).execute_with(|| {
+			// V2 receipts are always enabled.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
 			// Create the inherent data for this block
 			let mut dispute_statements = BTreeMap::new();
 			// Control the number of statements per dispute to ensure we have enough space
@@ -1375,7 +1400,14 @@ mod enter {
 			u64::MAX,
 			u64::MAX,
 		)));
-		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		new_test_ext(default_config()).execute_with(|| {
+			// V2 receipts are always enabled.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
 			// Create the inherent data for this block
 			let dispute_statements = BTreeMap::new();
 
@@ -1447,6 +1479,13 @@ mod enter {
 			u64::MAX,
 		)));
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// V2 receipts are always enabled.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
 			let mut backed_and_concluding = BTreeMap::new();
 			// 2 backed candidates shall be scheduled
 			backed_and_concluding.insert(0, 2);
@@ -1460,7 +1499,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				v2_descriptor: true,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -2238,11 +2277,11 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
+			// V2 receipts are always enabled.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
+				true,
 			)
 			.unwrap();
 

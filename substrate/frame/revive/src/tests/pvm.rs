@@ -27,7 +27,11 @@ use crate::{
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
-	storage::DeletionQueueManager,
+	precompiles::alloy::sol_types::{
+		sol_data::{Bool, FixedBytes},
+		SolType,
+	},
+	storage::{DeletionQueueManager, WriteOutcome},
 	test_utils::builder::Contract,
 	tests::{
 		builder, initialize_block, test_utils::*, Balances, CodeHashLockupDepositPercent,
@@ -46,7 +50,7 @@ use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok,
 	storage::child,
 	traits::{
-		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
+		fungible::{BalancedHold, Inspect, Mutate},
 		tokens::Preservation,
 		OnIdle, OnInitialize,
 	},
@@ -58,7 +62,7 @@ use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::{Get, U256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{testing::H256, traits::Zero, AccountId32, DispatchError, TokenError};
+use sp_runtime::{testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, TokenError};
 
 #[test]
 fn transfer_with_dust_works() {
@@ -190,6 +194,22 @@ fn eth_call_transfer_with_dust_works() {
 		assert_ok!(builder::eth_call(addr).value(balance).build());
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), balance);
+	});
+}
+
+#[test]
+fn set_evm_balance_works() {
+	let (binary, _) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+		let native_with_dust = BalanceWithDust::new_unchecked::<Test>(100, 10);
+		let evm_value = Pallet::<Test>::convert_native_to_evm(native_with_dust);
+
+		assert_ok!(Pallet::<Test>::set_evm_balance(&addr, evm_value));
+
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value);
 	});
 }
 
@@ -455,7 +475,7 @@ fn run_out_of_fuel_host() {
 
 #[test]
 fn gas_syncs_work() {
-	let (code, _code_hash) = compile_module("caller_is_origin_n").unwrap();
+	let (code, _code_hash) = compile_module("gas_price_n").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let contract = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -467,7 +487,7 @@ fn gas_syncs_work() {
 		let result = builder::bare_call(contract.addr).data(1u32.encode()).build();
 		assert_ok!(result.result);
 		let gas_consumed_once = result.gas_consumed.ref_time();
-		let host_consumed_once = <Test as Config>::WeightInfo::seal_caller_is_origin().ref_time();
+		let host_consumed_once = <Test as Config>::WeightInfo::seal_gas_price().ref_time();
 		let engine_consumed_once = gas_consumed_once - host_consumed_once - engine_consumed_noop;
 
 		let result = builder::bare_call(contract.addr).data(2u32.encode()).build();
@@ -490,8 +510,12 @@ fn instantiate_unique_trie_id() {
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, deposit_limit::<Test>())
-			.unwrap();
+		Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			binary.clone(),
+			deposit_limit::<Test>(),
+		)
+		.unwrap();
 
 		// Instantiate the contract and store its trie id for later comparison.
 		let Contract { addr, .. } =
@@ -508,6 +532,8 @@ fn instantiate_unique_trie_id() {
 		assert_ok!(builder::call(addr).build());
 
 		// Re-Instantiate after termination.
+		Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, deposit_limit::<Test>())
+			.unwrap();
 		assert_ok!(builder::instantiate(code_hash).build());
 
 		// Trie ids shouldn't match or we might have a collision
@@ -722,7 +748,7 @@ fn deploy_and_call_other_contract() {
 						),
 						source: ALICE,
 						dest: callee_account.clone(),
-						transferred: 555,
+						transferred: 556,
 					}),
 					topics: vec![],
 				},
@@ -1000,6 +1026,7 @@ fn self_destruct_works() {
 			.build_and_unwrap_contract();
 
 		let hold_balance = contract_base_deposit(&contract.addr);
+		let upload_deposit = get_code_deposit(&code_hash);
 
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&contract.addr);
@@ -1010,8 +1037,8 @@ fn self_destruct_works() {
 		// Call BOB without input data which triggers termination.
 		assert_matches!(builder::call(contract.addr).build(), Ok(_));
 
-		// Check that code is still there but refcount dropped to zero.
-		assert_refcount!(&code_hash, 0);
+		// Check that the code is gone
+		assert!(PristineCode::<Test>::get(&code_hash).is_none());
 
 		// Check that account is gone
 		assert!(get_contract_checked(&contract.addr).is_none());
@@ -1033,6 +1060,18 @@ fn self_destruct_works() {
 		pretty_assertions::assert_eq!(
 			System::events(),
 			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						source: Pallet::<Test>::account_id(),
+						dest: ALICE,
+						amount: upload_deposit,
+					}),
+					topics: vec![],
+				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
@@ -1711,10 +1750,7 @@ fn refcounter() {
 
 		// remove the last contract
 		assert_ok!(builder::call(addr2).build());
-		assert_refcount!(code_hash, 0);
-
-		// refcount is `0` but code should still exists because it needs to be removed manually
-		assert!(crate::PristineCode::<Test>::contains_key(&code_hash));
+		assert!(PristineCode::<Test>::get(&code_hash).is_none());
 	});
 }
 
@@ -1951,7 +1987,6 @@ fn remove_code_works() {
 		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
 	});
 }
-
 #[test]
 fn remove_code_wrong_origin() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
@@ -2042,12 +2077,13 @@ fn instantiate_with_zero_balance_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						source: ALICE,
+						dest: Pallet::<Test>::account_id(),
+						transferred: 777,
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
-						who: ALICE,
-						amount: 776,
 					}),
 					topics: vec![],
 				},
@@ -2091,7 +2127,7 @@ fn instantiate_with_zero_balance_works() {
 						),
 						source: ALICE,
 						dest: account_id,
-						transferred: 336,
+						transferred: 337,
 					}),
 					topics: vec![],
 				},
@@ -2130,12 +2166,13 @@ fn instantiate_with_below_existential_deposit_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						source: ALICE,
+						dest: Pallet::<Test>::account_id(),
+						transferred: 777,
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
-						who: ALICE,
-						amount: 776,
 					}),
 					topics: vec![],
 				},
@@ -2188,7 +2225,7 @@ fn instantiate_with_below_existential_deposit_works() {
 						),
 						source: ALICE,
 						dest: account_id.clone(),
-						transferred: 336,
+						transferred: 337,
 					}),
 					topics: vec![],
 				},
@@ -2367,7 +2404,7 @@ fn set_code_extrinsic() {
 		// successful call
 		assert_ok!(Contracts::set_code(RuntimeOrigin::root(), addr, new_code_hash));
 		assert_eq!(get_contract(&addr).code_hash, new_code_hash);
-		assert_refcount!(&code_hash, 0);
+		assert!(PristineCode::<Test>::get(&code_hash).is_none());
 		assert_refcount!(&new_code_hash, 1);
 	});
 }
@@ -2770,10 +2807,9 @@ fn deposit_limit_in_nested_instantiate() {
 fn deposit_limit_honors_liquidity_restrictions() {
 	let (binary, _code_hash) = compile_module("store_call").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let bobs_balance = 1_000;
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&BOB, bobs_balance);
 		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, min_balance);
 
 		// Instantiate the BOB contract.
 		let Contract { addr, account_id } =
@@ -2787,13 +2823,6 @@ fn deposit_limit_honors_liquidity_restrictions() {
 			info_deposit + min_balance
 		);
 
-		// check that the hold is honored
-		<Test as Config>::Currency::hold(
-			&HoldReason::CodeUploadDepositReserve.into(),
-			&BOB,
-			bobs_balance - min_balance,
-		)
-		.unwrap();
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
 				.origin(RuntimeOrigin::signed(BOB))
@@ -2802,7 +2831,6 @@ fn deposit_limit_honors_liquidity_restrictions() {
 				.build(),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
-		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), min_balance);
 	});
 }
 
@@ -2893,7 +2921,7 @@ fn native_dependency_deposit_works() {
 				.build_and_unwrap_result();
 
 			// Check updated storage_deposit due to code size changes
-			let deposit_diff = lockup_deposit_percent.mul_ceil(get_code_deposit(&code_hash)) -
+			let deposit_diff = lockup_deposit_percent.mul_ceil(upload_deposit) -
 				lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
 			let new_base_deposit = contract_base_deposit(&addr);
 			assert_ne!(deposit_diff, 0);
@@ -3442,6 +3470,74 @@ fn call_diverging_out_len_works() {
 		// correct output if the supplied output length was smaller than
 		// than what the callee returned.
 		assert_ok!(builder::call(addr).build());
+	});
+}
+
+#[test]
+fn call_own_code_hash_works() {
+	let (code, code_hash) = compile_module("call_own_code_hash").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create the contract: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		let ret_hash = FixedBytes::<32>::abi_decode(&ret.data).unwrap();
+		assert_eq!(ret_hash, code_hash.0);
+	});
+}
+
+#[test]
+fn call_caller_is_root() {
+	let (code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create the contract: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).origin(RuntimeOrigin::root()).build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_root_from_non_root() {
+	let (code, _) = compile_module("call_caller_is_root").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create the contract: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(!is_root);
+	});
+}
+
+#[test]
+fn call_caller_is_origin() {
+	let (code, _) = compile_module("call_caller_is_origin").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create the contract: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		let is_origin = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(is_origin);
 	});
 }
 
@@ -4027,8 +4123,9 @@ fn call_tracing_works() {
 
 		let tracer_configs = vec![
 			 CallTracerConfig{ with_logs: false, only_top_call: false},
-			 CallTracerConfig{ with_logs: false, only_top_call: false},
+			 CallTracerConfig{ with_logs: true, only_top_call: false},
 			 CallTracerConfig{ with_logs: false, only_top_call: true},
+			 CallTracerConfig{ with_logs: true, only_top_call: true},
 		];
 
 		// Verify that the first trace report the same weight reported by bare_call
@@ -4130,12 +4227,15 @@ fn call_tracing_works() {
 													..Default::default()
 												}
 											],
+											child_call_count: 1,
 											..Default::default()
 										},
 									],
+									child_call_count: 2,
 									..Default::default()
 								},
 							],
+							child_call_count: 2,
 							..Default::default()
 						},
 					]
@@ -4155,6 +4255,7 @@ fn call_tracing_works() {
 					logs: logs.clone(),
 					value: Some(U256::from(0)),
 					calls: calls,
+					child_call_count: 2,
 					..Default::default()
 				};
 
@@ -4220,6 +4321,7 @@ fn create_call_tracing_works() {
 					call_type: CallType::Create2,
 					..Default::default()
 				},],
+				child_call_count: 1,
 				..Default::default()
 			}
 		);
@@ -4888,5 +4990,185 @@ fn return_data_limit_is_enforced() {
 			let result = builder::bare_call(addr).data(return_size.encode()).build().result;
 			assert_result(result);
 		}
+	});
+}
+
+/// EIP-3607
+/// Test that a top-level signed transaction that uses a contract address as the signer is rejected.
+#[test]
+fn reject_signed_tx_from_contract_address() {
+	let (binary, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: contract_addr, account_id: contract_account_id, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		assert!(AccountInfoOf::<Test>::contains_key(&contract_addr));
+
+		let call_result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(contract_account_id.clone()))
+			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
+
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(contract_account_id))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn reject_signed_tx_from_primitive_precompile_address() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		// blake2f precompile address
+		let precompile_addr = H160::from_low_u64_be(9);
+		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+
+		let call_result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(fake_account.clone()))
+			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
+
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(fake_account))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn reject_signed_tx_from_builtin_precompile_address() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		// system precompile address
+		let precompile_addr = H160::from_low_u64_be(0x900);
+		let fake_account = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&fake_account, 1_000_000);
+
+		let call_result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(fake_account.clone()))
+			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
+
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(fake_account))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn get_set_storage_key_works() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let contract_key_to_test = [1; 32];
+		// Checking non-existing keys gets created.
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, None);
+
+		let value_to_write = Some(vec![1, 2, 3]);
+		let write_result =
+			Pallet::<Test>::set_storage(addr, contract_key_to_test, value_to_write.clone())
+				.unwrap();
+		assert_eq!(write_result, WriteOutcome::New);
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, value_to_write);
+
+		// Check existing keys overwrite
+
+		let new_value_to_write = Some(vec![5, 1, 2, 3]);
+		let write_result =
+			Pallet::<Test>::set_storage(addr, contract_key_to_test, new_value_to_write.clone())
+				.unwrap();
+		assert_eq!(
+			write_result,
+			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+		);
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, new_value_to_write);
+	});
+}
+
+#[test]
+fn get_set_storage_var_key_works() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let contract_key_to_test = vec![1; 85];
+		// Checking non-existing keys gets created.
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, None);
+
+		let value_to_write = Some(vec![1, 2, 3]);
+		let write_result = Pallet::<Test>::set_storage_var_key(
+			addr,
+			contract_key_to_test.clone(),
+			value_to_write.clone(),
+		)
+		.unwrap();
+		assert_eq!(write_result, WriteOutcome::New);
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, value_to_write);
+
+		// Check existing keys overwrite
+
+		let new_value_to_write = Some(vec![5, 1, 2, 3]);
+		let write_result = Pallet::<Test>::set_storage_var_key(
+			addr,
+			contract_key_to_test.clone(),
+			new_value_to_write.clone(),
+		)
+		.unwrap();
+		assert_eq!(
+			write_result,
+			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+		);
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, new_value_to_write);
+	});
+}
+
+#[test]
+fn get_set_immutables_works() {
+	let (code, _code_hash) = compile_module("immutable_data").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let data = [0xfe; 8];
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.data(data.to_vec())
+			.build_and_unwrap_contract();
+
+		// Checking non-existing keys gets created.
+		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
+		assert_eq!(immutable_data, data.to_vec());
+
+		let new_data = [0xdeu8; 8].to_vec();
+
+		Pallet::<Test>::set_immutables(addr, BoundedVec::truncate_from(new_data.clone())).unwrap();
+		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
+		assert_eq!(immutable_data, new_data);
 	});
 }
