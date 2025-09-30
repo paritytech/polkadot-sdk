@@ -1,0 +1,17 @@
+title: Improve inbound_queue::BenchmarkHelper to add more flexibility
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Improve the usage of the `inbound_queue::BenchmarkHelper` to decouple the mocks from the benchmark.
+    This change will enable any user to benchmark custom messages since now it's harcoded to the register_token_message only
+crates:
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor

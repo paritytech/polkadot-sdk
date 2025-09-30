@@ -258,7 +258,9 @@ fn lock_should_work_reserve() {
 				<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath),
 				TokenError::Frozen
 			);
-			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
+			// We can use frozen balance for reserves
+			assert_ok!(Balances::reserve(&1, 9));
+			assert_noop!(Balances::reserve(&1, 1), DispatchError::ConsumerRemaining,);
 			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(1),
 				Some(1).into(),
@@ -281,6 +283,47 @@ fn lock_should_work_reserve() {
 }
 
 #[test]
+fn reserve_should_work_for_frozen_balance() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			// Check balances
+			let account = Balances::account(&1);
+			assert_eq!(account.free, 10);
+			assert_eq!(account.frozen, 0);
+			assert_eq!(account.reserved, 0);
+
+			Balances::set_lock(ID_1, &1, 9, WithdrawReasons::RESERVE);
+
+			let account = Balances::account(&1);
+			assert_eq!(account.free, 10);
+			assert_eq!(account.frozen, 9);
+			assert_eq!(account.reserved, 0);
+
+			assert_ok!(Balances::reserve(&1, 5));
+
+			let account = Balances::account(&1);
+			assert_eq!(account.free, 5);
+			assert_eq!(account.frozen, 9);
+			assert_eq!(account.reserved, 5);
+
+			assert_ok!(Balances::reserve(&1, 4));
+
+			let account = Balances::account(&1);
+			assert_eq!(account.free, 1);
+			assert_eq!(account.frozen, 9);
+			assert_eq!(account.reserved, 9);
+
+			// Check usable balance
+			// usable_balance = free - max(frozen - reserved, ExistentialDeposit)
+			// 0 = 1 - max(9 - 9, 1)
+			let usable_balance = Balances::usable_balance(&1);
+			assert_eq!(usable_balance, 0);
+		});
+}
+
+#[test]
 fn lock_should_work_tx_fee() {
 	ExtBuilder::default()
 		.existential_deposit(1)
@@ -291,7 +334,9 @@ fn lock_should_work_tx_fee() {
 				<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath),
 				TokenError::Frozen
 			);
-			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
+			// We can use frozen balance for reserves
+			assert_ok!(Balances::reserve(&1, 9));
+			assert_noop!(Balances::reserve(&1, 1), DispatchError::ConsumerRemaining,);
 			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(1),
 				Some(1).into(),
@@ -1273,8 +1318,14 @@ fn reserve_must_succeed_if_can_reserve_does() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 1);
 		let _ = Balances::deposit_creating(&2, 2);
+		let _ = Balances::deposit_creating(&3, 3);
 		assert!(Balances::can_reserve(&1, 1) == Balances::reserve(&1, 1).is_ok());
 		assert!(Balances::can_reserve(&2, 1) == Balances::reserve(&2, 1).is_ok());
+
+		// Ensure that we can reserve as long (free + reserved) remains above
+		// the maximum of frozen balance.
+		Balances::set_lock(ID_1, &3, 2, WithdrawReasons::RESERVE);
+		assert_eq!(Balances::can_reserve(&3, 2), Balances::reserve(&3, 2).is_ok());
 	});
 }
 

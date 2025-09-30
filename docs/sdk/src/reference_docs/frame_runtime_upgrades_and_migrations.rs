@@ -59,8 +59,8 @@
 //!
 //! ### Scheduling the Single Block Migrations to Run Next Runtime Upgrade
 //!
-//! Schedule migrations to run next runtime upgrade passing them as a generic parameter to your
-//! [`Executive`](frame_executive) pallet:
+//! Schedule migrations to run next runtime upgrade passing them as a parameter to your
+//! [`Config`](frame_system) pallet:
 //!
 //! ```ignore
 //! /// Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
@@ -69,14 +69,9 @@
 //! 	MyCustomMigration,
 //! 	// ...more migrations here
 //! );
-//! pub type Executive = frame_executive::Executive<
-//! 	Runtime,
-//! 	Block,
-//! 	frame_system::ChainContext<Runtime>,
-//! 	Runtime,
-//! 	AllPalletsWithSystem,
-//! 	Migrations, // <-- pass your migrations to Executive here
-//! >;
+//! impl frame_system::Config for Runtime {
+//! 	type SingleBlockMigrations = Migrations;
+//! }
 //! ```
 //!
 //! ### Ensuring Single Block Migration Safety
