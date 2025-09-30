@@ -262,12 +262,12 @@ const fn memory_required() -> u32 {
 	let max_call_depth = CALL_STACK_DEPTH + 1;
 
 	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
-    let evm_overhead = EVM_MEMORY_LIMIT + EVM_MAX_INITCODE_SIZE + EVM_STACK_LIMIT;
-    let per_frame_memory = if code::BASELINE_MEMORY_LIMIT > evm_overhead {
-        code::BASELINE_MEMORY_LIMIT
-    } else {
-        evm_overhead
-    } + CALLDATA_BYTES * 2;
+	let evm_overhead = EVM_MEMORY_LIMIT + EVM_MAX_INITCODE_SIZE + EVM_STACK_LIMIT;
+	let per_frame_memory = if code::BASELINE_MEMORY_LIMIT > evm_overhead {
+		code::BASELINE_MEMORY_LIMIT
+	} else {
+		evm_overhead
+	} + CALLDATA_BYTES * 2;
 
 	per_stack_memory + max_call_depth * per_frame_memory
 }

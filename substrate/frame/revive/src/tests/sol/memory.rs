@@ -47,9 +47,7 @@ fn memory_limit_works() {
 			),
 			(
 				"Writing 1 byte from the limit should revert.",
-				Memory::expandMemoryCall {
-					memorySize: crate::limits::EVM_MEMORY_LIMIT as u64,
-				},
+				Memory::expandMemoryCall { memorySize: crate::limits::EVM_MEMORY_LIMIT as u64 },
 				Err(Error::<Test>::OutOfGas.into()),
 			),
 		];
