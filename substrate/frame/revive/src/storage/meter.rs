@@ -501,17 +501,6 @@ impl<T: Config> Ext<T> for ReservingExt {
 		state: &ContractState<T>,
 	) -> Result<(), DispatchError> {
 		log::info!("meter.rs charge() amount: {amount:?}, state: {state:?}");
-
-		if let ContractState::<T>::Terminated { beneficiary } = state {
-			// Clean up on-chain storage
-			let contract_address = T::AddressMapper::to_address(contract);
-			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
-				.ok_or(Error::<T>::ContractNotFound)?;
-			contract_info.queue_trie_for_deletion();
-			AccountInfoOf::<T>::remove(contract_address);
-			ImmutableDataOf::<T>::remove(contract_address);
-			let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-		}
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => {
 				// We cannot return here because need to handle the terminated state below.
@@ -559,6 +548,15 @@ impl<T: Config> Ext<T> for ReservingExt {
 			},
 		}
 		if let ContractState::<T>::Terminated { beneficiary } = state {
+			// Clean up on-chain storage
+			let contract_address = T::AddressMapper::to_address(contract);
+			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
+				.ok_or(Error::<T>::ContractNotFound)?;
+			contract_info.queue_trie_for_deletion();
+			AccountInfoOf::<T>::remove(contract_address);
+			ImmutableDataOf::<T>::remove(contract_address);
+			let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+
 			System::<T>::dec_consumers(&contract);
 			// Whatever is left in the contract is sent to the termination beneficiary.
 			T::Currency::transfer(

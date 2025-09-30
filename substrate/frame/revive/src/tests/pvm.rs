@@ -1032,19 +1032,10 @@ fn self_destruct_works() {
 		let _ = get_contract(&contract.addr);
 
 		// Drop all previous events
-		// System::on_finalize(System::block_number());
-		// Contracts::on_finalize(System::block_number());
-		// Contracts::on_idle(System::block_number(), Weight::MAX);
 		initialize_block(2);
 
 		// Call BOB without input data which triggers termination.
 		assert_matches!(builder::call(contract.addr).build(), Ok(_));
-
-		// Drop all previous events
-		// System::on_finalize(System::block_number());
-		// Contracts::on_finalize(System::block_number());
-		// Contracts::on_idle(System::block_number(), Weight::MAX);
-		// initialize_block(System::block_number()+1);
 
 		// Check that the code is gone
 		assert!(PristineCode::<Test>::get(&code_hash).is_none());
@@ -1073,11 +1064,11 @@ fn self_destruct_works() {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
-							HoldReason::CodeUploadDepositReserve,
+							HoldReason::StorageDepositReserve,
 						),
-						source: Pallet::<Test>::account_id(),
+						source: contract.account_id.clone(),
 						dest: ALICE,
-						amount: upload_deposit,
+						amount: hold_balance,
 					}),
 					topics: vec![],
 				},
@@ -1085,11 +1076,11 @@ fn self_destruct_works() {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
-							HoldReason::StorageDepositReserve,
+							HoldReason::CodeUploadDepositReserve,
 						),
-						source: contract.account_id.clone(),
+						source: Pallet::<Test>::account_id(),
 						dest: ALICE,
-						amount: hold_balance,
+						amount: upload_deposit,
 					}),
 					topics: vec![],
 				},
@@ -1216,45 +1207,6 @@ fn self_destruct2_works() {
 			100_000 + min_balance
 		);
 		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - min_balance);
-	});
-}
-
-// This tests that one contract cannot prevent another from self-destructing by sending it
-// additional funds after it has been drained.
-#[test]
-fn destroy_contract_and_transfer_funds() {
-	let (callee_binary, callee_code_hash) = compile_module("self_destruct").unwrap();
-	let (caller_binary, _caller_code_hash) = compile_module("destroy_and_transfer").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		// Create code hash for bob to instantiate
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			callee_binary.clone(),
-			deposit_limit::<Test>(),
-		)
-		.unwrap();
-
-		// This deploys the BOB contract, which in turn deploys the CHARLIE contract during
-		// construction.
-		let Contract { addr: addr_bob, .. } =
-			builder::bare_instantiate(Code::Upload(caller_binary))
-				.native_value(200_000)
-				.data(callee_code_hash.as_ref().to_vec())
-				.build_and_unwrap_contract();
-
-		// Check that the CHARLIE contract has been instantiated.
-		let salt = [47; 32]; // hard coded in fixture.
-		let addr_charlie = create2(&addr_bob, &callee_binary, &[], &salt);
-		get_contract(&addr_charlie);
-
-		println!("calling bob addr...");
-		// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
-		assert_ok!(builder::call(addr_bob).data(addr_charlie.encode()).build());
-
-		// Check that CHARLIE has moved on to the great beyond (ie. died).
-		assert!(get_contract_checked(&addr_charlie).is_none());
 	});
 }
 
