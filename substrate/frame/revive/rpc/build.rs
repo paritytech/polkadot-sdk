@@ -94,6 +94,4 @@ fn build_ah_westend_wasm() {
 	#[cfg(windows)]
 	std::os::windows::fs::symlink_file(&wasm_path, &symlink_path)
 		.expect("Failed to create symlink to WASM file");
-
-	println!("cargo:rerun-if-changed={}", symlink_path.display());
 }
