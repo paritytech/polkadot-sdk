@@ -96,12 +96,66 @@ pub struct IncrementalHashBuilder {
 	index: u64,
 	/// RLP encoded value.
 	first_value: Option<Vec<u8>>,
+	/// Optional stats for testing purposes.
+	#[cfg(test)]
+	stats: Option<HashBuilderStats>,
+}
+
+/// Accounting data for the hash builder, used for testing and analysis.
+#[cfg(test)]
+#[derive(Debug, Clone)]
+pub struct HashBuilderStats {
+	/// Total size of data fed to the hash builder via add_value.
+	pub total_data_size: usize,
+	/// Current size of the hash builder state.
+	pub hb_current_size: usize,
+	/// Maximum size the hash builder has reached: (size, index).
+	pub hb_max_size: (usize, u64),
+	/// Largest individual data size passed to add_value: (size, index).
+	pub largest_data: (usize, u64),
+}
+
+#[cfg(test)]
+impl core::fmt::Display for HashBuilderStats {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		writeln!(
+			f,
+			"  Total data processed: {} bytes ({:.2} MB)",
+			self.total_data_size,
+			self.total_data_size as f64 / 1_048_576.0
+		)?;
+		writeln!(
+			f,
+			"  Current HB size: {} bytes ({:.2} KB)",
+			self.hb_current_size,
+			self.hb_current_size as f64 / 1024.0
+		)?;
+		writeln!(
+			f,
+			"  Max HB size: {:?} ({:.2} KB at index {})",
+			self.hb_max_size,
+			self.hb_max_size.0 as f64 / 1024.0,
+			self.hb_max_size.1
+		)?;
+		writeln!(f, "  Largest data item: {:?}", self.largest_data)?;
+		write!(
+			f,
+			"  Memory efficiency: {:.4}% (current size vs total data)",
+			(self.hb_current_size as f64 / self.total_data_size as f64) * 100.0
+		)
+	}
 }
 
 impl IncrementalHashBuilder {
 	/// Construct the hash builder from the first value.
 	pub fn new() -> Self {
-		Self { hash_builder: HashBuilder::default(), index: 1, first_value: None }
+		Self {
+			hash_builder: HashBuilder::default(),
+			index: 1,
+			first_value: None,
+			#[cfg(test)]
+			stats: None,
+		}
 	}
 
 	/// Converts the intermediate representation back into a builder.
@@ -146,7 +200,13 @@ impl IncrementalHashBuilder {
 			rlp_buf: serialized.rlp_buf,
 		};
 
-		IncrementalHashBuilder { hash_builder, index: serialized.index, first_value: None }
+		IncrementalHashBuilder {
+			hash_builder,
+			index: serialized.index,
+			first_value: None,
+			#[cfg(test)]
+			stats: None,
+		}
 	}
 
 	/// Converts the builder into an intermediate representation.
@@ -176,6 +236,11 @@ impl IncrementalHashBuilder {
 	pub fn add_value(&mut self, value: Vec<u8>) {
 		let rlp_index = rlp::encode_fixed_size(&self.index);
 		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
+		// Update accounting if enabled
+		#[cfg(test)]
+		if self.stats.is_some() {
+			self.process_stats(value.len(), self.index);
+		}
 
 		if self.index == 0x7f {
 			// Pushing the previous item since we are expecting the index
@@ -185,6 +250,12 @@ impl IncrementalHashBuilder {
 
 				let rlp_index = rlp::encode_fixed_size(&0usize);
 				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
+
+				// Update accounting if enabled
+				#[cfg(test)]
+				if self.stats.is_some() {
+					self.process_stats(value.len(), 0);
+				}
 			}
 		}
 
@@ -214,9 +285,70 @@ impl IncrementalHashBuilder {
 
 			let rlp_index = rlp::encode_fixed_size(&0usize);
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
+			// Update accounting if enabled
+			#[cfg(test)]
+			if self.stats.is_some() {
+				self.process_stats(encoded_value.len(), 0);
+			}
 		}
 
 		self.hash_builder.root().0.into()
+	}
+
+	/// Calculate the current hash builder size without updating accounting.
+	#[cfg(test)]
+	fn calculate_current_size(&self) -> usize {
+		// Each mask in these vectors holds a u16.
+		let masks_len = (self.hash_builder.state_masks.len() +
+			self.hash_builder.tree_masks.len() +
+			self.hash_builder.hash_masks.len()) *
+			2;
+
+		self.hash_builder.key.len() +
+			self.hash_builder.value.as_slice().len() +
+			self.hash_builder.stack.len() * 33 +
+			masks_len + self.hash_builder.rlp_buf.len()
+	}
+
+	/// Update accounting metrics after processing data.
+	#[cfg(test)]
+	fn process_stats(&mut self, data_len: usize, index: u64) {
+		let hb_current_size = self.calculate_current_size();
+		let stats = self.stats.as_mut().unwrap();
+
+		// Update total data size
+		stats.total_data_size += data_len;
+
+		// Update current hash builder size
+		stats.hb_current_size = hb_current_size;
+
+		// Track maximum hash builder size and its index
+		if hb_current_size > stats.hb_max_size.0 {
+			stats.hb_max_size = (hb_current_size, index);
+		}
+
+		// Track largest individual data size and its index
+		if data_len > stats.largest_data.0 {
+			stats.largest_data = (data_len, index);
+		}
+	}
+
+	/// Enable stats for the hash builder (test-only).
+	#[cfg(test)]
+	pub fn enable_stats(&mut self) {
+		let initial_size = self.calculate_current_size();
+		self.stats = Some(HashBuilderStats {
+			total_data_size: 0,
+			hb_current_size: initial_size,
+			hb_max_size: (initial_size, 0),
+			largest_data: (0, 0),
+		});
+	}
+
+	/// Get the accounting data if available (test-only).
+	#[cfg(test)]
+	pub fn get_stats(&self) -> Option<&HashBuilderStats> {
+		self.stats.as_ref()
 	}
 }
 
@@ -257,6 +389,38 @@ pub struct IncrementalHashBuilderIR {
 	pub index: u64,
 }
 
+impl IncrementalHashBuilderIR {
+	/// Calculate the total size of the IR in bytes.
+	#[cfg(test)]
+	pub fn calculate_size(&self) -> usize {
+		// Fixed-size fields
+		let fixed_size = core::mem::size_of::<u64>() + // index
+			core::mem::size_of::<u8>() + // value_type
+			core::mem::size_of::<bool>(); // stored_in_database
+
+		// Variable-size fields
+		let key_size = self.key.len();
+		let builder_value_size = self.builder_value.len();
+		let stack_size: usize = self.stack.iter().map(|item| item.len()).sum();
+		let state_masks_size = self.state_masks.len() * core::mem::size_of::<u16>();
+		let tree_masks_size = self.tree_masks.len() * core::mem::size_of::<u16>();
+		let hash_masks_size = self.hash_masks.len() * core::mem::size_of::<u16>();
+		let rlp_buf_size = self.rlp_buf.len();
+
+		// Vector metadata overhead (capacity info, etc.)
+		let vec_overhead = 8 * core::mem::size_of::<usize>(); // 8 Vec structures
+
+		fixed_size +
+			key_size + builder_value_size +
+			stack_size +
+			state_masks_size +
+			tree_masks_size +
+			hash_masks_size +
+			rlp_buf_size +
+			vec_overhead
+	}
+}
+
 impl Default for IncrementalHashBuilderIR {
 	fn default() -> Self {
 		Self {
@@ -273,5 +437,147 @@ impl Default for IncrementalHashBuilderIR {
 			stored_in_database: false,
 			rlp_buf: Vec::new(),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_hash_builder_stats() {
+		let mut builder = IncrementalHashBuilder::new();
+		builder.enable_stats();
+
+		let stats = builder.get_stats().expect("Stats should be enabled");
+
+		assert_eq!(stats.total_data_size, 0);
+		let initial_size = stats.hb_current_size;
+		assert_eq!(stats.hb_max_size, (initial_size, 0));
+		assert_eq!(stats.largest_data, (0, 0));
+		let _ = stats;
+
+		// Add some test data (different sizes to test largest tracking)
+		let test_data1 = vec![10; 500]; // 500 bytes
+		let test_data2 = vec![20; 700]; // 700 bytes
+		let test_data3 = vec![30; 300]; // 300 bytes
+
+		builder.set_first_value(test_data1.clone());
+		builder.add_value(test_data2.clone());
+		builder.add_value(test_data3.clone());
+		let _root = builder.finish();
+
+		let stats = builder.get_stats().expect("Stats should be enabled");
+		assert_eq!(stats.total_data_size, 1500);
+		assert_eq!(stats.hb_max_size.1, 2);
+		assert_eq!(stats.largest_data, (700, 1)); // (size, index)
+	}
+
+	#[test]
+	fn test_hash_builder_without_stats() {
+		let mut builder = IncrementalHashBuilder::new();
+
+		// Without enabling stats
+		assert!(builder.get_stats().is_none());
+
+		// Adding values should not crash
+		builder.add_value(vec![1, 2, 3]);
+
+		// Still no stats
+		assert!(builder.get_stats().is_none());
+	}
+
+	#[test]
+	fn test_stats_item_count_and_sizes() {
+		for (item_count, item_size) in [
+			// 100k items of 1kB each
+			(100 * 1024, 1024),
+			// 1024 items of 1MB each
+			(1024, 1024 * 1024),
+			// 5 items of 512 each
+			(5, 512),
+		] {
+			println!("\n=== Testing Hash Builder with {item_count} items ===");
+
+			let mut builder = IncrementalHashBuilder::new();
+			builder.enable_stats();
+
+			let initial_stats = builder.get_stats().unwrap();
+			println!("Initial size: {} bytes", initial_stats.hb_current_size);
+
+			let test_data = vec![42u8; item_size];
+
+			println!(
+				"Adding {} items of {} bytes ({:.2} KB) each...",
+				item_count,
+				item_size,
+				item_size as f64 / 1024.0
+			);
+
+			builder.set_first_value(test_data.clone());
+			for _ in 0..(item_count - 1) {
+				builder.add_value(test_data.clone());
+			}
+			let final_stats = builder.get_stats().unwrap().clone();
+			println!("\nFinal Stats - {item_count} Items of {item_size} bytes each:");
+			println!("{}", final_stats);
+
+			let builder_ir = builder.to_ir();
+			let ir_size = builder_ir.calculate_size();
+			println!("  Builder IR size: {ir_size} bytes ({} KB)", ir_size as f64 / 1024.0);
+
+			// Verify expected values
+			let expected_data_size = if item_count > 128 {
+				item_count * item_size
+			} else {
+				// items_count - 1, because the first value is not taken into account (index < 128)
+				(item_count - 1) * item_size
+			};
+			assert_eq!(final_stats.total_data_size, expected_data_size);
+			assert!(final_stats.hb_current_size < final_stats.total_data_size);
+		}
+	}
+
+	#[test]
+	fn test_ir_size_calculation() {
+		println!("\n=== Testing IncrementalHashBuilderIR Size Calculation ===");
+
+		let mut builder = IncrementalHashBuilder::new();
+		builder.enable_stats();
+
+		// Calculate initial IR size (we need to restore the builder after to_ir())
+		println!("Initial builder state");
+		let initial_ir = builder.to_ir();
+		let initial_size = initial_ir.calculate_size();
+		println!("Initial IR size: {} bytes", initial_size);
+		builder = IncrementalHashBuilder::from_ir(initial_ir);
+
+		// Add some test data and track IR size changes
+		let test_data_small = vec![42u8; 100];
+		let test_data_large = vec![99u8; 2048];
+
+		builder.set_first_value(test_data_small.clone());
+		let ir_after_first = builder.to_ir();
+		let size_after_first = ir_after_first.calculate_size();
+		println!("IR size after first value: {} bytes", size_after_first);
+		builder = IncrementalHashBuilder::from_ir(ir_after_first.clone());
+
+		builder.add_value(test_data_large.clone());
+		let ir_after_add = builder.to_ir();
+		let size_after_add = ir_after_add.calculate_size();
+		println!("IR size after adding large value: {} bytes", size_after_add);
+
+		// Test serialization round-trip
+		let restored_builder = IncrementalHashBuilder::from_ir(ir_after_add.clone());
+		let restored_ir = restored_builder.to_ir();
+		let restored_size = restored_ir.calculate_size();
+		println!("IR size after round-trip: {} bytes", restored_size);
+
+		// Verify sizes make sense
+		// Note: first value doesn't immediately change IR size, but adding values does
+		assert!(size_after_add > size_after_first);
+		assert!(size_after_add > initial_size);
+		assert_eq!(size_after_add, restored_size);
+		assert!(restored_size > 0);
 	}
 }
