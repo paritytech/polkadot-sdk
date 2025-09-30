@@ -356,12 +356,12 @@ impl<T: Default> Drop for NoDrop<T> {
 	}
 }
 
-/// Sealed trait that marks types with suppressed Drop implementations.
+/// Sealed trait that marks a type with a suppressed Drop implementation.
 ///
-/// Usefull for constraining your storage items types by this bound to make
-/// sure they wont't runt Drop when stored.
+/// Useful for constraining your storage items types by this bound to make
+/// sure they won't run drop when stored.
 pub trait SuppressedDrop: sealed::Sealed {
-	/// The wrapped whoe drop function is ignored,
+	/// The wrapped whose drop function is ignored.
 	type Inner;
 
 	fn new(inner: Self::Inner) -> Self;

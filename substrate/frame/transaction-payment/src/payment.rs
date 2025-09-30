@@ -16,16 +16,16 @@
 // limitations under the License.
 
 /// ! Traits and default implementation for paying transaction fees.
-use crate::{Config, LOG_TARGET, Pallet, TxPaymentCredit};
+use crate::{Config, Pallet, TxPaymentCredit, LOG_TARGET};
 
 use codec::{DecodeWithMemTracking, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	traits::{
-		Currency, ExistenceRequirement, Imbalance, NoDrop, OnUnbalanced, SuppressedDrop,
-		WithdrawReasons,
 		fungible::{Balanced, Credit, Inspect},
 		tokens::{Precision, WithdrawConsequence},
+		Currency, ExistenceRequirement, Imbalance, NoDrop, OnUnbalanced, SuppressedDrop,
+		WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
 };
@@ -48,23 +48,21 @@ pub trait OnChargeTransaction<T: Config>: TxCreditHold<T> {
 	/// Before the transaction is executed the payment of the transaction fees
 	/// need to be secured.
 	///
-	/// Note: The `fee` already includes the `tip`.
+	/// Returns the tip credit
 	fn withdraw_fee(
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: Self::Balance,
+		fee_with_tip: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError>;
 
 	/// Check if the predicted fee from the transaction origin can be withdrawn.
-	///
-	/// Note: The `fee` already includes the `tip`.
 	fn can_withdraw_fee(
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: Self::Balance,
+		fee_with_tip: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<(), TransactionValidityError>;
 
@@ -77,7 +75,7 @@ pub trait OnChargeTransaction<T: Config>: TxCreditHold<T> {
 		who: &T::AccountId,
 		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
-		corrected_fee: Self::Balance,
+		corrected_fee_with_tip: Self::Balance,
 		tip: Self::Balance,
 		liquidity_info: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError>;
@@ -128,41 +126,41 @@ where
 		who: &<T>::AccountId,
 		_call: &<T>::RuntimeCall,
 		_dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
-		fee: Self::Balance,
+		fee_with_tip: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-		if fee.is_zero() {
+		if fee_with_tip.is_zero() {
 			return Ok(None)
 		}
 
 		let credit = F::withdraw(
 			who,
-			fee,
+			fee_with_tip,
 			Precision::Exact,
 			frame_support::traits::tokens::Preservation::Preserve,
 			frame_support::traits::tokens::Fortitude::Polite,
 		)
 		.map_err(|_| InvalidTransaction::Payment)?;
 
-		let (tip, fee) = credit.split(tip);
+		let (tip_credit, inclusion_fee) = credit.split(tip);
 
-		<Pallet<T>>::deposit_txfee(fee);
+		<Pallet<T>>::deposit_txfee(inclusion_fee);
 
-		Ok(Some(tip))
+		Ok(Some(tip_credit))
 	}
 
 	fn can_withdraw_fee(
 		who: &T::AccountId,
 		_call: &T::RuntimeCall,
 		_dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: Self::Balance,
+		fee_with_tip: Self::Balance,
 		_tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
-		if fee.is_zero() {
+		if fee_with_tip.is_zero() {
 			return Ok(())
 		}
 
-		match F::can_withdraw(who, fee) {
+		match F::can_withdraw(who, fee_with_tip) {
 			WithdrawConsequence::Success => Ok(()),
 			_ => Err(InvalidTransaction::Payment.into()),
 		}
@@ -172,11 +170,11 @@ where
 		who: &<T>::AccountId,
 		_dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
 		_post_info: &PostDispatchInfoOf<<T>::RuntimeCall>,
-		corrected_fee: Self::Balance,
+		corrected_fee_with_tip: Self::Balance,
 		tip: Self::Balance,
 		tip_credit: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
-		let corrected_fee = corrected_fee.saturating_sub(tip);
+		let corrected_fee = corrected_fee_with_tip.saturating_sub(tip);
 
 		let remaining_credit = <TxPaymentCredit<T>>::take()
 			.map(|stored_credit| stored_credit.into_inner())
@@ -194,10 +192,10 @@ where
 			let (mut fee_credit, refund_credit) = remaining_credit.split(corrected_fee);
 			// resolve might fail if refund is below the ed and account
 			// is kept alive by other providers
-			if let false = refund_credit.peek().is_zero() &&
-				let Err(not_refunded) = F::resolve(who, refund_credit)
-			{
-				fee_credit.subsume(not_refunded);
+			if !refund_credit.peek().is_zero() {
+				if let Err(not_refunded) = F::resolve(who, refund_credit) {
+					fee_credit.subsume(not_refunded);
+				}
 			}
 			fee_credit
 		} else {
@@ -268,10 +266,10 @@ where
 		who: &T::AccountId,
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: Self::Balance,
+		fee_with_tip: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-		if fee.is_zero() {
+		if fee_with_tip.is_zero() {
 			return Ok(None)
 		}
 
@@ -281,7 +279,7 @@ where
 			WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
 		};
 
-		match C::withdraw(who, fee, withdraw_reason, ExistenceRequirement::KeepAlive) {
+		match C::withdraw(who, fee_with_tip, withdraw_reason, ExistenceRequirement::KeepAlive) {
 			Ok(imbalance) => Ok(Some(imbalance)),
 			Err(_) => Err(InvalidTransaction::Payment.into()),
 		}
@@ -294,10 +292,10 @@ where
 		who: &T::AccountId,
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: Self::Balance,
+		fee_with_tip: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
-		if fee.is_zero() {
+		if fee_with_tip.is_zero() {
 			return Ok(())
 		}
 
@@ -307,9 +305,10 @@ where
 			WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
 		};
 
-		let new_balance =
-			C::free_balance(who).checked_sub(&fee).ok_or(InvalidTransaction::Payment)?;
-		C::ensure_can_withdraw(who, fee, withdraw_reason, new_balance)
+		let new_balance = C::free_balance(who)
+			.checked_sub(&fee_with_tip)
+			.ok_or(InvalidTransaction::Payment)?;
+		C::ensure_can_withdraw(who, fee_with_tip, withdraw_reason, new_balance)
 			.map(|_| ())
 			.map_err(|_| InvalidTransaction::Payment.into())
 	}
@@ -323,13 +322,13 @@ where
 		who: &T::AccountId,
 		_dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
 		_post_info: &PostDispatchInfoOf<T::RuntimeCall>,
-		corrected_fee: Self::Balance,
+		corrected_fee_with_tip: Self::Balance,
 		tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
 		if let Some(paid) = already_withdrawn {
 			// Calculate how much refund we should return
-			let refund_amount = paid.peek().saturating_sub(corrected_fee);
+			let refund_amount = paid.peek().saturating_sub(corrected_fee_with_tip);
 			// refund to the the account that paid the fees. If this fails, the
 			// account might have dropped below the existential balance. In
 			// that case we don't refund anything.

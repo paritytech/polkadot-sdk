@@ -393,7 +393,7 @@ pub struct VmBinaryModule {
 impl VmBinaryModule {
 	/// Return a contract code that does nothing.
 	pub fn dummy() -> Self {
-		Self::new(bench_fixtures::DUMMY.to_vec())
+		Self::new(bench_fixtures::dummy().to_vec())
 	}
 
 	fn new(code: Vec<u8>) -> Self {
@@ -461,7 +461,7 @@ impl VmBinaryModule {
 
 	/// A contract code that calls the "noop" host function in a loop depending in the input.
 	pub fn noop() -> Self {
-		Self::new(bench_fixtures::NOOP.to_vec())
+		Self::new(bench_fixtures::noop().to_vec())
 	}
 
 	/// A contract code that does unaligned memory accessed in a loop.
