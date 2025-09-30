@@ -4,17 +4,16 @@ doc:
   - Runtime Dev
   - Runtime User
   description: |-
-    Before this change we did not case about parachain slots in manual-seal mode, because para slots that are smaller than their relay parents where allowed. I have changes planned that change this, so the manual-seal needs to be parameterized closer to reality.
-
-    In this PR I use the `AuraConsensusDataprovider` to read the inherent timestamp provided and emit a corresponding slot digest. I also removed the `DynNodeSpecExt` and added manual seal methods directly to the `NodeSpec` trait. The assumption before  was that the manual seal mode can work independently of consensus information. But this no longer holds true, as we need the proper `AuraId` and runtime APIs attached for example. This was the fastest and simplest way to get this working, and we currently only support `AuraNode` anyway.
-
-    closes #7453
-
-    Prerequisite for mergine #9712, as the old way we did things now causes errors.
+    Omni-node in dev mode is now operating closer to reality. The runtime is supplied with appropriate AURA digests.
+    Breaking changes:
+      - `sc-consensus-manual-seal`: The trait bounds have been relaxed, it should be easier to accomodate now. Code might break since the generics changed.
+      - `polkadot-omni-node-lib`: `DynNodeSpecExt` trait has been removed and can no longer be used. Implementers ofthe `NodeSpec` trait now need to provide an implementation for starting a dev node.
 crates:
 - name: polkadot-omni-node-lib
   bump: major
 - name: sc-consensus-manual-seal
   bump: major
 - name: frame-benchmarking-cli
-  bump: major
+  bump: patch
+
+
