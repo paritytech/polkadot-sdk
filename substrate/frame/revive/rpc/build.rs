@@ -14,13 +14,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use asset_hub_westend_runtime::Runtime;
-use parachains_runtimes_test_utils::ExtBuilder;
-use std::{fs, path::Path, process::Command};
+use std::{env, fs, path::Path, process::Command};
 
 fn main() {
 	generate_git_revision();
-	generate_metadata_file();
+	build_ah_westend_wasm();
 }
 
 fn generate_git_revision() {
@@ -54,20 +52,48 @@ fn generate_git_revision() {
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
 }
 
-fn generate_metadata_file() {
-	let metadata_path = Path::new("revive_chain.scale");
+fn build_ah_westend_wasm() {
+	let manifest_dir = env::var("CARGO_MANIFEST_DIR")
+		.expect("`CARGO_MANIFEST_DIR` is always set for `build.rs` files; qed");
 
-	if metadata_path.exists() {
-		println!("cargo:warning=Using cached revive_chain.scale metadata");
-		return;
-	}
+	let runtime_cargo_toml = Path::new(&manifest_dir)
+		.parent()
+		.and_then(|p| p.parent())
+		.and_then(|p| p.parent())
+		.and_then(|p| p.parent())
+		.unwrap()
+		.join("cumulus/parachains/runtimes/assets/asset-hub-westend/Cargo.toml");
 
-	ExtBuilder::<Runtime>::default().build().execute_with(|| {
-		let metadata = Runtime::metadata_at_version(16).unwrap();
-		let bytes: &[u8] = &metadata;
-		fs::write(metadata_path, bytes).unwrap();
+	substrate_wasm_builder::WasmBuilder::new()
+		.with_project(runtime_cargo_toml.to_str().expect("Invalid path"))
+		.unwrap()
+		.build();
+
+	let target_dir = env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| {
+		Path::new(&manifest_dir)
+			.join("../../../../target")
+			.to_str()
+			.unwrap()
+			.to_string()
 	});
 
-	println!("cargo:rerun-if-changed={}", metadata_path.display());
-	println!("cargo:warning=Updated revive_chain.scale metadata");
+	let wasm_path = Path::new(&target_dir)
+		.join(env::var("PROFILE").unwrap_or_else(|_| "debug".to_string()))
+		.join("wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm");
+
+	let symlink_path = Path::new(&manifest_dir).join("asset_hub_westend_runtime.wasm");
+
+	// Remove existing symlink/file if it exists
+	let _ = fs::remove_file(&symlink_path);
+
+	// Create symlink
+	#[cfg(unix)]
+	std::os::unix::fs::symlink(&wasm_path, &symlink_path)
+		.expect("Failed to create symlink to WASM file");
+
+	#[cfg(windows)]
+	std::os::windows::fs::symlink_file(&wasm_path, &symlink_path)
+		.expect("Failed to create symlink to WASM file");
+
+	println!("cargo:rerun-if-changed={}", symlink_path.display());
 }
