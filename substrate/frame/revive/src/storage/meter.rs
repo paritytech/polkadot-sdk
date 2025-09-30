@@ -367,7 +367,6 @@ where
 		origin: &Origin<T>,
 		skip_transfer: bool,
 	) -> Result<DepositOf<T>, DispatchError> {
-		use itertools::Itertools;
 		if !skip_transfer {
 			// Only refund or charge deposit if the origin is not root.
 			let origin = match origin {
@@ -375,32 +374,26 @@ where
 				Origin::Signed(o) => o,
 			};
 			self.charges.sort_by(|a, b| a.contract.cmp(&b.contract));
-			self.charges = self
-				.charges
-				.into_iter()
-				.coalesce(|a, b| {
-					if a.contract != b.contract {
-						return Err((a, b));
+			// Coalesce charges of the same contract.
+			self.charges = {
+				let mut coalesced: Vec<Charge<T>> = Vec::with_capacity(self.charges.len());
+				for ch in self.charges {
+					if let Some(last) = coalesced.last_mut() {
+						if last.contract == ch.contract {
+							// merge amounts (uses Deposit::saturating_add)
+							last.amount = last.amount.saturating_add(&ch.amount);
+							// prefer terminated state if any entry is terminated (keep whichever is
+							// terminated)
+							if matches!(ch.state, ContractState::Terminated { .. }) {
+								last.state = ch.state.clone();
+							}
+							continue;
+						}
 					}
-
-					// If the contracts are the same any charge and refund can be coalesced
-					// together. So long as the terminate state does not disappear.
-					let resulting_amount = a.amount.saturating_add(&b.amount);
-					if matches!(b.state, ContractState::Terminated { .. }) {
-						Ok(Charge {
-							contract: b.contract,
-							amount: resulting_amount,
-							state: b.state,
-						})
-					} else {
-						Ok(Charge {
-							contract: a.contract,
-							amount: resulting_amount,
-							state: a.state,
-						})
-					}
-				})
-				.collect();
+					coalesced.push(ch);
+				}
+				coalesced
+			};
 			let try_charge = || {
 				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
 				{
