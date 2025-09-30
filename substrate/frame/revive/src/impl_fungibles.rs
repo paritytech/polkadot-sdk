@@ -39,13 +39,10 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError};
 
-use super::{
-	address::AddressMapper, pallet, BalanceOf, Bounded, Config, ContractResult, ExecConfig,
-	MomentOf, Pallet, Weight,
-};
+use super::{address::AddressMapper, pallet, Config, ContractResult, ExecConfig, Pallet, Weight};
 use ethereum_standards::IERC20;
 
 const GAS_LIMIT: Weight = Weight::from_parts(1_000_000_000, 100_000);
@@ -59,12 +56,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for Pallet<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
+impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for Pallet<T> {
 	// The asset id of an ERC20 is its origin contract's address.
 	type AssetId = H160;
 	// The balance is always u128.
@@ -164,12 +156,7 @@ where
 // We implement `fungibles::Mutate` to override `burn_from` and `mint_to`.
 //
 // These functions are used in [`xcm_builder::FungiblesAdapter`].
-impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pallet<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
+impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pallet<T> {
 	fn burn_from(
 		asset_id: Self::AssetId,
 		who: &T::AccountId,
@@ -250,12 +237,7 @@ where
 // However, we don't have this type of access to smart contracts.
 // Withdraw and deposit happen via the custom `fungibles::Mutate` impl above.
 // Because of this, all functions here return an error, when possible.
-impl<T: Config> fungibles::Unbalanced<<T as frame_system::Config>::AccountId> for Pallet<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
+impl<T: Config> fungibles::Unbalanced<<T as frame_system::Config>::AccountId> for Pallet<T> {
 	fn handle_raw_dust(_: Self::AssetId, _: Self::Balance) {}
 	fn handle_dust(_: fungibles::Dust<T::AccountId, Self>) {}
 	fn write_balance(

@@ -19,8 +19,8 @@
 
 use crate::{
 	evm::{fees::InfoT, runtime::SetWeightLimit},
-	extract_code_and_data, BalanceOf, Call, CallOf, Config, GenericTransaction, MomentOf, Pallet,
-	Weight, Zero, H256, LOG_TARGET, RUNTIME_PALLETS_ADDR, U256,
+	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
@@ -43,10 +43,7 @@ pub fn create_call<T>(
 ) -> Result<CallInfo<T>, InvalidTransaction>
 where
 	T: Config,
-	T::Hash: frame_support::traits::IsType<H256>,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	CallOf<T>: From<Call<T>> + SetWeightLimit,
+	CallOf<T>: SetWeightLimit,
 {
 	let base_fee = <Pallet<T>>::evm_gas_price();
 

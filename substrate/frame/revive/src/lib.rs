@@ -66,7 +66,8 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	traits::{
 		fungible::{Balanced, Inspect, Mutate, MutateHold},
-		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
+		tokens::Balance,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
@@ -101,11 +102,10 @@ pub use weights::WeightInfo;
 #[cfg(doc)]
 pub use crate::vm::pvm::SyscallDoc;
 
-pub type BalanceOf<T> =
-	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> = <T as Config>::Balance;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
-type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
+type CallOf<T> = <T as Config>::RuntimeCall;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -140,11 +140,17 @@ pub mod pallet {
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
-		type Time: Time;
+		type Time: Time<Moment: Into<U256>>;
+
+		/// The balance type of [`Self::Currency`].
+		///
+		/// Just added here to add additional trait bounds.
+		#[pallet::no_default]
+		type Balance: Balance + TryFrom<U256> + Into<U256> + Bounded;
 
 		/// The fungible in which fees are paid and contract balances are held.
 		#[pallet::no_default]
-		type Currency: Inspect<Self::AccountId>
+		type Currency: Inspect<Self::AccountId, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ Balanced<Self::AccountId>;
@@ -157,7 +163,13 @@ pub mod pallet {
 		/// The overarching call type.
 		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
-			+ Dispatchable<RuntimeOrigin = OriginFor<Self>, PostInfo = PostDispatchInfo>
+			+ Dispatchable<
+				RuntimeOrigin = OriginFor<Self>,
+				Info = DispatchInfo,
+				PostInfo = PostDispatchInfo,
+			> + IsType<<Self as frame_system::Config>::RuntimeCall>
+			+ From<Call<Self>>
+			+ IsSubType<Call<Self>>
 			+ GetDispatchInfo;
 
 		/// The overarching origin type.
@@ -618,12 +630,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
-	where
-		BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-		MomentOf<T>: Into<U256>,
-		T::Hash: frame_support::traits::IsType<H256>,
-	{
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			use crate::{exec::Key, vm::ContractBlob};
 			use frame_support::traits::fungible::Mutate;
@@ -819,12 +826,7 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-		MomentOf<T>: Into<U256>,
-		T::Hash: frame_support::traits::IsType<H256>,
-	{
+	impl<T: Config> Pallet<T> {
 		/// A raw EVM transaction, typically dispatched by an Ethereum JSON-RPC server.
 		///
 		/// # Parameters
@@ -1222,12 +1224,7 @@ fn dispatch_result<R>(
 		.map_err(|e| DispatchErrorWithPostInfo { post_info, error: e })
 }
 
-impl<T: Config> Pallet<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
+impl<T: Config> Pallet<T> {
 	/// A generalized version of [`Self::call`].
 	///
 	/// Identical to [`Self::call`] but tailored towards being called by other code within the
@@ -1375,9 +1372,8 @@ where
 		mut tx: GenericTransaction,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
-		CallOf<T>: From<crate::Call<T>> + SetWeightLimit,
 		T::Nonce: Into<U256>,
-		T::Hash: frame_support::traits::IsType<H256>,
+		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
 
@@ -1872,9 +1868,7 @@ where
 		}
 		Ok(())
 	}
-}
 
-impl<T: Config> Pallet<T> {
 	/// Pallet account, used to hold funds for contracts upload deposit.
 	pub fn account_id() -> T::AccountId {
 		use frame_support::PalletId;

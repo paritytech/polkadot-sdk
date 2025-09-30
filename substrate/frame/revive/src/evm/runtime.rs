@@ -21,7 +21,7 @@ use crate::{
 		create_call,
 		fees::InfoT,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, MomentOf, Pallet, Zero, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, Pallet, Zero, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -35,13 +35,10 @@ use frame_support::{
 };
 use pallet_transaction_payment::Config as TxConfig;
 use scale_info::{StaticTypeInfo, TypeInfo};
-use sp_core::{H256, U256};
+use sp_core::U256;
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
-	traits::{
-		Checkable, Dispatchable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata,
-		TransactionExtension,
-	},
+	traits::{Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, TransactionExtension},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug, Weight,
 };
@@ -119,11 +116,7 @@ where
 	E: EthExtra,
 	Self: Encode,
 	<E::Config as frame_system::Config>::Nonce: TryFrom<U256>,
-	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
-	MomentOf<E::Config>: Into<U256>,
-	CallOf<E::Config>:
-		From<crate::Call<E::Config>> + IsSubType<crate::Call<E::Config>> + SetWeightLimit,
-	<E::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+	CallOf<E::Config>: SetWeightLimit,
 	// required by Checkable for `generic::UncheckedExtrinsic`
 	generic::UncheckedExtrinsic<LookupSource, CallOf<E::Config>, Signature, E::Extension>:
 		Checkable<
@@ -152,9 +145,8 @@ where
 	}
 }
 
-impl<Address, Signature, E: EthExtra> GetDispatchInfo for UncheckedExtrinsic<Address, Signature, E>
-where
-	CallOf<E::Config>: GetDispatchInfo + Dispatchable,
+impl<Address, Signature, E: EthExtra> GetDispatchInfo
+	for UncheckedExtrinsic<Address, Signature, E>
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.0.get_dispatch_info()
@@ -189,7 +181,6 @@ impl<Address, Signature, E: EthExtra> SignedTransactionBuilder
 	for UncheckedExtrinsic<Address, Signature, E>
 where
 	Address: TypeInfo,
-	CallOf<E::Config>: TypeInfo,
 	Signature: TypeInfo,
 	E::Extension: TypeInfo,
 {
@@ -210,7 +201,6 @@ where
 impl<Address, Signature, E: EthExtra> InherentBuilder for UncheckedExtrinsic<Address, Signature, E>
 where
 	Address: TypeInfo,
-	CallOf<E::Config>: TypeInfo,
 	Signature: TypeInfo,
 	E::Extension: TypeInfo,
 {
@@ -224,7 +214,6 @@ impl<Address, Signature, E: EthExtra> From<UncheckedExtrinsic<Address, Signature
 where
 	Address: Encode,
 	Signature: Encode,
-	CallOf<E::Config>: Encode,
 	E::Extension: Encode,
 {
 	fn from(extrinsic: UncheckedExtrinsic<Address, Signature, E>) -> Self {
@@ -275,10 +264,7 @@ pub trait EthExtra {
 	>
 	where
 		<Self::Config as frame_system::Config>::Nonce: TryFrom<U256>,
-		BalanceOf<Self::Config>: Into<U256> + TryFrom<U256>,
-		MomentOf<Self::Config>: Into<U256>,
-		CallOf<Self::Config>: From<crate::Call<Self::Config>> + SetWeightLimit,
-		<Self::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+		CallOf<Self::Config>: SetWeightLimit,
 	{
 		let tx = TransactionSigned::decode(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");

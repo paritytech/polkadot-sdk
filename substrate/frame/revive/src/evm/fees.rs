@@ -173,7 +173,7 @@ impl<const P: u128, const Q: u128, T: Config> WeightToFee for BlockRatioFee<P, Q
 impl<Address, Signature, E: EthExtra> InfoT<E::Config> for Info<Address, Signature, E>
 where
 	BalanceOf<E::Config>: From<OnChargeTransactionBalanceOf<E::Config>>,
-	CallOf<E::Config>: Dispatchable<Info = DispatchInfo>,
+	<E::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	<<E::Config as SysConfig>::Block as BlockT>::Extrinsic:
 		From<UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>,
 	<E::Config as TxConfig>::WeightToFee: BlockRatioWeightToFee<T = E::Config>,
@@ -208,7 +208,7 @@ where
 	) -> BalanceOf<E::Config> {
 		// We need to divide because the eth wallet will multiply with the gas price
 		let fee = Self::tx_fee(encoded_len, dispatch_call);
-		Self::next_fee_multiplier_reciprocal().saturating_mul_int(fee.into())
+		Self::next_fee_multiplier_reciprocal().saturating_mul_int(fee)
 	}
 
 	fn tx_fee(len: u32, call: &CallOf<E::Config>) -> BalanceOf<E::Config> {

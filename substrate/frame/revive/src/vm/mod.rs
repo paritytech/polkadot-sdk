@@ -43,7 +43,7 @@ use frame_support::{
 	},
 };
 use pallet_revive_uapi::ReturnErrorCode;
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, H256};
 use sp_runtime::DispatchError;
 
 /// Validated Vm module ready for execution.
@@ -162,10 +162,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 	Token::<crate::tests::Test>::weight(&CodeLoadToken { code_len, code_type: BytecodeType::Pvm })
 }
 
-impl<T: Config> ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> ContractBlob<T> {
 	/// Remove the code from storage and refund the deposit to its owner.
 	///
 	/// Applies all necessary checks before removing the code.
@@ -319,10 +316,7 @@ impl<T: Config> CodeInfo<T> {
 	}
 }
 
-impl<T: Config> Executable<T> for ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> Executable<T> for ContractBlob<T> {
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		gas_meter.charge(CodeLoadToken::from_code_info(&code_info))?;

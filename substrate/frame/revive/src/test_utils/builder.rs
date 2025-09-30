@@ -49,10 +49,6 @@ macro_rules! builder {
 
 		#[allow(dead_code)]
 		impl<T: Config> $name<T>
-		where
-			BalanceOf<T>: Into<sp_core::U256> + TryFrom<sp_core::U256>,
-			crate::MomentOf<T>: Into<sp_core::U256>,
-			T::Hash: frame_support::traits::IsType<sp_core::H256>,
 		{
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]

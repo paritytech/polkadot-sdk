@@ -28,7 +28,7 @@ use crate::{
 	limits,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	BalanceOf, Code, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
+	Code, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -893,11 +893,7 @@ pub struct PreparedCall<'a, E: Ext> {
 	runtime: Runtime<'a, E, polkavm::RawInstance>,
 }
 
-impl<'a, E: Ext> PreparedCall<'a, E>
-where
-	BalanceOf<E::T>: Into<U256>,
-	BalanceOf<E::T>: TryFrom<U256>,
-{
+impl<'a, E: Ext> PreparedCall<'a, E> {
 	pub fn call(mut self) -> ExecResult {
 		let exec_result = loop {
 			let interrupt = self.instance.run();

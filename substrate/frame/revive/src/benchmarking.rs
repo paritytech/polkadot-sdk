@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	exec::{Key, MomentOf, PrecompileExt},
+	exec::{Key, PrecompileExt},
 	limits,
 	precompiles::{
 		self,
@@ -112,9 +112,7 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 
 #[benchmarks(
 	where
-		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config,
-		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,

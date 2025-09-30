@@ -126,10 +126,7 @@ impl<Balance> BalanceWithDust<Balance> {
 	/// Creates a new `BalanceWithDust` from the given EVM value.
 	pub fn from_value<T: Config>(
 		value: U256,
-	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError>
-	where
-		BalanceOf<T>: TryFrom<U256>,
-	{
+	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError> {
 		if value.is_zero() {
 			return Ok(Default::default())
 		}

@@ -33,7 +33,7 @@ use crate::{
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
 	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, GasMeter, MomentOf, OriginFor, Pallet as Contracts,
+	Error, ExecConfig, ExecOrigin as Origin, GasMeter, OriginFor, Pallet as Contracts,
 	PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
@@ -62,9 +62,6 @@ pub struct CallSetup<T: Config> {
 impl<T> Default for CallSetup<T>
 where
 	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn default() -> Self {
 		Self::new(VmBinaryModule::dummy())
@@ -74,9 +71,6 @@ where
 impl<T> CallSetup<T>
 where
 	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Setup a new call for the given module.
 	pub fn new(module: VmBinaryModule) -> Self {
@@ -227,9 +221,6 @@ pub struct Contract<T: Config> {
 impl<T> Contract<T>
 where
 	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create new contract and use a default account id as instantiator.
 	pub fn new(module: VmBinaryModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {

@@ -23,7 +23,7 @@ use crate::{
 	limits,
 	primitives::ExecReturnValue,
 	vm::{calculate_code_deposit, BytecodeType, ExportedFunction, RuntimeCosts},
-	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
+	AccountIdOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
 };
 use alloc::vec::Vec;
 use core::mem;
@@ -98,10 +98,7 @@ impl<T: Config> ContractBlob<T> {
 	}
 }
 
-impl<T: Config> ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> ContractBlob<T> {
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do validation only when new code is deployed. This allows us to increase

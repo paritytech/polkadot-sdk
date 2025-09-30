@@ -54,7 +54,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -772,10 +772,7 @@ impl<T: Config> CachedContract<T> {
 impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create and run a new call stack by calling into `dest`.
 	///
@@ -1658,7 +1655,8 @@ where
 		if block_number < self.block_number.saturating_sub(256u32.into()) {
 			return None;
 		}
-		Some(System::<T>::block_hash(&block_number).into())
+		let block_hash = System::<T>::block_hash(&block_number);
+		Decode::decode(&mut TrailingZeroInput::new(block_hash.as_ref())).ok()
 	}
 }
 
@@ -1666,9 +1664,6 @@ impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
 	E: Executable<T>,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn delegate_call(
 		&mut self,
@@ -1802,9 +1797,6 @@ impl<'a, T, E> PrecompileWithInfoExt for Stack<'a, T, E>
 where
 	T: Config,
 	E: Executable<T>,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
 		self.top_frame_mut().contract_info().read(key)
@@ -1881,9 +1873,6 @@ impl<'a, T, E> PrecompileExt for Stack<'a, T, E>
 where
 	T: Config,
 	E: Executable<T>,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	type T = T;
 
@@ -2211,12 +2200,7 @@ where
 }
 
 /// Returns true if the address has a precompile contract, else false.
-pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
+pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
 	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
 }
 

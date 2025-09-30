@@ -334,6 +334,7 @@ impl pallet_revive::Config for Runtime {
 	type AddressMapper = AccountId32Mapper<Self>;
 	type ChainId = ConstU64<420_420_420>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+	type Balance = Balance;
 	type Currency = Balances;
 	type NativeToEthRatio = ConstU32<1_000_000>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;

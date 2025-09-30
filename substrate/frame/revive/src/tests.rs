@@ -377,6 +377,7 @@ impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
 impl Config for Test {
 	type Time = Timestamp;
 	type AddressMapper = AccountId32Mapper<Self>;
+	type Balance = u64;
 	type Currency = Balances;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
