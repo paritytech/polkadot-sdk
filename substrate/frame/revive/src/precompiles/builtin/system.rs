@@ -17,7 +17,7 @@
 
 use crate::{
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, ExtWithInfo, Revert},
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, Revert},
 	vm::RuntimeCosts,
 	Config, H160,
 };

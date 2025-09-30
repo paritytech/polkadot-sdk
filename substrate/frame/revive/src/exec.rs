@@ -677,11 +677,6 @@ enum CachedContract<T: Config> {
 	///
 	/// In this case the cached contract is stale and needs to be reloaded from storage.
 	Invalidated,
-	/// The current contract executed `terminate` and removed the contract.
-	///
-	/// In this case a reload is neither allowed nor possible. Please note that recursive
-	/// calls cannot remove a contract as this is checked and denied.
-	Terminated,
 	/// The frame is associated with pre-compile that has no contract info.
 	None,
 }
@@ -690,16 +685,6 @@ impl<T: Config> Frame<T> {
 	/// Return the `contract_info` of the current contract.
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
 		self.cached_contract_info.get(&self.account_id)
-	}
-
-	/// Terminate and return the `contract_info` of the current contract.
-	///
-	/// # Note
-	///
-	/// Under no circumstances the contract is allowed to access the `contract_info` after
-	/// a call to this function. This would constitute a programming error in the exec module.
-	fn terminate(&mut self) -> ContractInfo<T> {
-		self.cached_contract_info.terminate(&self.account_id)
 	}
 }
 
@@ -776,12 +761,6 @@ impl<T: Config> CachedContract<T> {
 	fn get(&mut self, account_id: &T::AccountId) -> &mut ContractInfo<T> {
 		self.load(account_id);
 		get_cached_or_panic_after_load!(self)
-	}
-
-	/// Terminate and return the contract info.
-	fn terminate(&mut self, account_id: &T::AccountId) -> ContractInfo<T> {
-		self.load(account_id);
-		get_cached_or_panic_after_load!(mem::replace(self, Self::Terminated))
 	}
 
 	/// Set the status to invalidate if is cached.
@@ -1641,12 +1620,6 @@ where
 	/// Same as `frames` but with a mutable reference as iterator item.
 	fn frames_mut(&mut self) -> impl Iterator<Item = &mut Frame<T>> {
 		core::iter::once(&mut self.first_frame).chain(&mut self.frames).rev()
-	}
-
-	/// Returns whether the current contract is on the stack multiple times.
-	fn is_recursive(&self) -> bool {
-		let account_id = &self.top_frame().account_id;
-		self.frames().skip(1).any(|f| &f.account_id == account_id)
 	}
 
 	/// Returns whether the specified contract allows to be reentered right now.

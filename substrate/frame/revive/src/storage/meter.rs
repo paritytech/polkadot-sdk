@@ -22,7 +22,7 @@ use crate::{
 	BalanceOf, CodeInfo, Config, Error, HoldReason, ImmutableDataOf, Inspect, Origin,
 	StorageDeposit as Deposit, System, LOG_TARGET,
 };
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::{
@@ -375,10 +375,10 @@ where
 				Origin::Signed(o) => o,
 			};
 			self.charges.sort_by(|a, b| a.contract.cmp(&b.contract));
-			let coalesced: Vec<Charge<T>> = self
+			self.charges = self
 				.charges
 				.into_iter()
-				.coalesce(|mut a, b| {
+				.coalesce(|a, b| {
 					if a.contract != b.contract {
 						return Err((a, b));
 					}
@@ -401,12 +401,13 @@ where
 					}
 				})
 				.collect();
-			log::info!("meter.rs coalesced: {:#?}", coalesced);
 			let try_charge = || {
-				for charge in coalesced.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
+				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
+				{
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
-				for charge in coalesced.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
+				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
+				{
 					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
 				}
 				Ok(())
@@ -417,19 +418,6 @@ where
 		log::info!("meter.rs try_into_deposit DONE");
 
 		Ok(self.total_deposit)
-	}
-
-	fn coalesce_and_refund_destroyed_contracts(
-		&mut self,
-		origin: &Origin<T>,
-		destroyed_contracts: BTreeSet<ContractInfo<T>>,
-	) -> Result<(), DispatchError> {
-		// sort and coalesce charges
-		// remove the charge for each contract that is in destroyed_contracts
-		// execute refund of Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(),
-		// contract) for each of those update self.total_deposit to reflect the change
-		// error out if any of the charges fail
-		Ok(())
 	}
 }
 
