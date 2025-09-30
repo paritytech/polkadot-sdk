@@ -431,17 +431,13 @@ impl Client {
 		call: subxt::tx::DefaultPayload<EthTransact>,
 	) -> Result<H256, ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
+		// Related to https://github.com/paritytech/hardhat-polkadot/issues/334
+		let x = ext.submit_and_watch().await?;
 		if self.get_automine().await? {
-			// Related to https://github.com/paritytech/hardhat-polkadot/issues/334
-			let x = ext.submit_and_watch().await?;
 			let hash = x.extrinsic_hash();
 			x.wait_for_finalized_success().await?;
 			return Ok(hash);
-
-			let hash = ext.submit().await?;
-			return Ok(hash);
 		} else {
-			let _ = ext.submit_and_watch().await?;
 			return Ok(H256::zero());
 		}
 	}
