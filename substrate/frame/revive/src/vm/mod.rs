@@ -206,8 +206,7 @@ impl<T: Config> ContractBlob<T> {
 				None => {
 					let deposit = self.code_info.deposit;
 
-					if !exec_config.unsafe_skip_transfers {
-						<Pallet<T>>::charge_deposit(
+					<Pallet<T>>::charge_deposit(
 							Some(HoldReason::CodeUploadDepositReserve),
 							&self.code_info.owner,
 							&Pallet::<T>::account_id(),
@@ -218,7 +217,6 @@ impl<T: Config> ContractBlob<T> {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
-					}
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());

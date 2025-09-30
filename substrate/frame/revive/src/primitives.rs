@@ -342,12 +342,6 @@ pub struct ExecConfig {
 	/// Whether deposits will be withdrawn from the pallet_transaction_payment credit (true) or
 	/// free balance (false).
 	pub collect_deposit_from_hold: bool,
-	/// Skip all transfers (deposits, contract instantiation, value transfer).
-	///
-	/// Must only be used in dry runs where no wallet is available to charge those funds from,
-	/// Using it for on-chain code is unsafe as it will allow execution without taking any money
-	/// from the origin,
-	pub unsafe_skip_transfers: bool,
 	/// The gas price that was chosen for this transaction.
 	///
 	/// It is determined when transforming `eth_transact` into a proper extrinsic.
@@ -357,12 +351,7 @@ pub struct ExecConfig {
 impl ExecConfig {
 	/// Create a default config appropriate when the call originated from a subtrate tx.
 	pub fn new_substrate_tx() -> Self {
-		Self {
-			bump_nonce: true,
-			collect_deposit_from_hold: false,
-			unsafe_skip_transfers: false,
-			effective_gas_price: None,
-		}
+		Self { bump_nonce: true, collect_deposit_from_hold: false, effective_gas_price: None }
 	}
 
 	/// Create a default config appropriate when the call originated from a ethereum tx.
@@ -370,7 +359,6 @@ impl ExecConfig {
 		Self {
 			bump_nonce: false,
 			collect_deposit_from_hold: true,
-			unsafe_skip_transfers: false,
 			effective_gas_price: Some(effective_gas_price),
 		}
 	}

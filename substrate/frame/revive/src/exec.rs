@@ -1156,7 +1156,6 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
-			let skip_transfer = self.exec_config.unsafe_skip_transfers;
 			let is_first_frame = self.frames.len() == 0;
 			let bump_nonce = self.exec_config.bump_nonce;
 			let frame = top_frame_mut!(self);
@@ -1178,12 +1177,8 @@ where
 
 				let ed = <Contracts<T>>::min_balance();
 				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
-				if skip_transfer {
-					T::Currency::set_balance(account_id, ed);
-				} else {
-					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
-						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
-				}
+				<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
+					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
 
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
@@ -1557,12 +1552,8 @@ where
 			match storage_meter
 				.record_charge(&StorageDeposit::Charge(ed))
 				.and_then(|_| {
-					if !exec_config.unsafe_skip_transfers {
-						<Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config)
-							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-					} else {
-						T::Currency::set_balance(to, ed);
-					}
+					<Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config)
+						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 					Ok(())
 				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value))

@@ -310,7 +310,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(origin, evm_value, Weight::MAX, storage_deposit, code, input, 0u32.into());
+		_(origin, evm_value, Weight::MAX, storage_deposit, code, input, 0u32.into(), 0);
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
@@ -440,12 +440,17 @@ mod benchmarks {
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 
+		// need to pass the overdraw check
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
 		let caller_addr = T::AddressMapper::to_address(&instance.caller);
 		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
-		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data, 0u32.into());
+		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data, 0u32.into(), 0);
 		let deposit = T::Currency::balance_on_hold(
 			&HoldReason::StorageDepositReserve.into(),
 			&instance.account_id,

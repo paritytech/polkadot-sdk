@@ -34,6 +34,7 @@ pub struct CallInfo<T: Config> {
 	pub call: CallOf<T>,
 	pub weight_limit: Weight,
 	pub encoded_len: u32,
+	pub tx_fee: BalanceOf<T>,
 	pub storage_deposit: BalanceOf<T>,
 }
 
@@ -110,6 +111,7 @@ where
 				storage_deposit_limit: BalanceOf::<T>::max_value(),
 				data,
 				effective_gas_price,
+				encoded_len,
 			}
 			.into();
 			call
@@ -132,6 +134,7 @@ where
 			code,
 			data,
 			effective_gas_price,
+			encoded_len,
 		}
 		.into();
 
@@ -182,5 +185,5 @@ where
 		InvalidTransaction::Payment
 	})?.saturated_into();
 
-	Ok(CallInfo { call, weight_limit, encoded_len, storage_deposit })
+	Ok(CallInfo { call, weight_limit, encoded_len, tx_fee, storage_deposit })
 }

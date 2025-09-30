@@ -19,7 +19,8 @@
 
 use crate::{
 	evm::{runtime::EthExtra, OnChargeTransactionBalanceOf},
-	BalanceOf, CallOf, Config,
+	BalanceOf, CallOf, Config, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Error,
+	PostDispatchInfo, LOG_TARGET,
 };
 use codec::Encode;
 use core::marker::PhantomData;
@@ -114,6 +115,15 @@ pub trait InfoT<T: Config>: seal::Sealed {
 		Zero::zero()
 	}
 
+	/// Makes sure that not too much storage deposit was withdrawn.
+	fn ensure_not_overdrawn(
+		_encoded_len: u32,
+		_info: &DispatchInfo,
+		result: DispatchResultWithPostInfo,
+	) -> DispatchResultWithPostInfo {
+		result
+	}
+
 	/// Get the dispatch info of a call with the proper extension weight set.
 	fn dispatch_info(_call: &CallOf<T>) -> DispatchInfo {
 		Default::default()
@@ -173,7 +183,8 @@ impl<const P: u128, const Q: u128, T: Config> WeightToFee for BlockRatioFee<P, Q
 impl<Address, Signature, E: EthExtra> InfoT<E::Config> for Info<Address, Signature, E>
 where
 	BalanceOf<E::Config>: From<OnChargeTransactionBalanceOf<E::Config>>,
-	<E::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	<E::Config as frame_system::Config>::RuntimeCall:
+		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<<E::Config as SysConfig>::Block as BlockT>::Extrinsic:
 		From<UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>,
 	<E::Config as TxConfig>::WeightToFee: BlockRatioWeightToFee<T = E::Config>,
@@ -214,6 +225,43 @@ where
 	fn tx_fee(len: u32, call: &CallOf<E::Config>) -> BalanceOf<E::Config> {
 		let dispatch_info = Self::dispatch_info(call);
 		TxPallet::<E::Config>::compute_fee(len, &dispatch_info, 0u32.into()).into()
+	}
+
+	fn ensure_not_overdrawn(
+		encoded_len: u32,
+		info: &DispatchInfo,
+		result: DispatchResultWithPostInfo,
+	) -> DispatchResultWithPostInfo {
+		// if tx is already failing we can ignore
+		// as it will be rolled back anyways
+		let Ok(post_info) = result else {
+			return result;
+		};
+
+		let fee: BalanceOf<E::Config> =
+			<TxPallet<E::Config>>::compute_actual_fee(encoded_len, info, &post_info, Zero::zero())
+				.into();
+		let available = Self::remaining_txfee();
+		if fee > available {
+			log::debug!(target: LOG_TARGET, "Drew too much from the txhold. \
+				fee={fee:?} \
+				available={available:?} \
+				overdrawn_by={:?}",
+				fee.saturating_sub(available),
+			);
+			Err(DispatchErrorWithPostInfo {
+				post_info,
+				error: <Error<E::Config>>::TxFeeOverdraw.into(),
+			})
+		} else {
+			log::trace!(target: LOG_TARGET, "Enough left in the txhold. \
+				fee={fee:?} \
+				available={available:?} \
+				refund={:?}",
+				available.saturating_sub(fee),
+			);
+			result
+		}
 	}
 
 	fn dispatch_info(call: &CallOf<E::Config>) -> DispatchInfo {

@@ -367,37 +367,21 @@ where
 		origin: &Origin<T>,
 		exec_config: &ExecConfig,
 	) -> Result<DepositOf<T>, DispatchError> {
-		if !exec_config.unsafe_skip_transfers {
-			// Only refund or charge deposit if the origin is not root.
-			let origin = match origin {
-				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
-				Origin::Signed(o) => o,
-			};
-			let try_charge = || {
-				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
-				{
-					E::charge(
-						origin,
-						&charge.contract,
-						&charge.amount,
-						&charge.state,
-						exec_config,
-					)?;
-				}
-				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
-				{
-					E::charge(
-						origin,
-						&charge.contract,
-						&charge.amount,
-						&charge.state,
-						exec_config,
-					)?;
-				}
-				Ok(())
-			};
-			try_charge().map_err(|_: DispatchError| <Error<T>>::StorageDepositNotEnoughFunds)?;
-		}
+		// Only refund or charge deposit if the origin is not root.
+		let origin = match origin {
+			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
+			Origin::Signed(o) => o,
+		};
+		let try_charge = || {
+			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
+				E::charge(origin, &charge.contract, &charge.amount, &charge.state, exec_config)?;
+			}
+			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
+				E::charge(origin, &charge.contract, &charge.amount, &charge.state, exec_config)?;
+			}
+			Ok(())
+		};
+		try_charge().map_err(|_: DispatchError| <Error<T>>::StorageDepositNotEnoughFunds)?;
 
 		Ok(self.total_deposit)
 	}

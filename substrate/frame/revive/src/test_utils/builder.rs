@@ -48,8 +48,7 @@ macro_rules! builder {
 		}
 
 		#[allow(dead_code)]
-		impl<T: Config> $name<T>
-		{
+		impl<T: Config> $name<T> {
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]
 				pub fn $field(mut self, value: $type) -> Self {
@@ -249,6 +248,7 @@ builder!(
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
 		effective_gas_price: U256,
+		encoded_len: u32,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -261,6 +261,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
 			effective_gas_price: 0u32.into(),
+			encoded_len: 0,
 		}
 	}
 );

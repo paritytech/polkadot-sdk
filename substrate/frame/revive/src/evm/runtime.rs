@@ -433,8 +433,10 @@ mod test {
 
 		fn check(
 			self,
-		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction, Weight), TransactionValidityError>
-		{
+		) -> Result<
+			(u32, RuntimeCall, SignedExtra, GenericTransaction, Weight),
+			TransactionValidityError,
+		> {
 			self.mutate_estimate_and_check(Box::new(|_| ()))
 		}
 
@@ -442,8 +444,10 @@ mod test {
 		fn mutate_estimate_and_check(
 			mut self,
 			f: Box<dyn FnOnce(&mut GenericTransaction) -> ()>,
-		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction, Weight), TransactionValidityError>
-		{
+		) -> Result<
+			(u32, RuntimeCall, SignedExtra, GenericTransaction, Weight),
+			TransactionValidityError,
+		> {
 			ExtBuilder::default().build().execute_with(|| self.estimate_gas());
 			f(&mut self.tx);
 			ExtBuilder::default().build().execute_with(|| {
@@ -461,8 +465,8 @@ mod test {
 					.signed_payload();
 				let call = RuntimeCall::Contracts(crate::Call::eth_transact { payload });
 
-				let encoded_len = call.encoded_size();
 				let uxt: UncheckedExtrinsic = generic::UncheckedExtrinsic::new_bare(call).into();
+				let encoded_len = uxt.encoded_size();
 				let result: CheckedExtrinsic<_, _, _> = uxt.check(&TestContext {})?;
 				let (account_id, extra): (AccountId32, SignedExtra) = match result.format {
 					ExtrinsicFormat::Signed(signer, extra) => (signer, extra),
@@ -478,7 +482,13 @@ mod test {
 					0,
 				)?;
 
-				Ok((result.function, extra, tx, self.dry_run.unwrap().gas_required))
+				Ok((
+					encoded_len as u32,
+					result.function,
+					extra,
+					tx,
+					self.dry_run.unwrap().gas_required,
+				))
 			})
 		}
 	}
@@ -486,7 +496,7 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (call, _, tx, gas_required) = builder.check().unwrap();
+		let (expected_encoded_len, call, _, tx, gas_required) = builder.check().unwrap();
 		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
 
 		match call {
@@ -497,12 +507,14 @@ mod test {
 				gas_limit,
 				storage_deposit_limit,
 				effective_gas_price,
+				encoded_len,
 			}) if dest == tx.to.unwrap() &&
 				value == tx.value.unwrap_or_default().as_u64().into() &&
 				data == tx.input.to_vec() &&
 				storage_deposit_limit == <BalanceOf<Test>>::max_value() &&
 				effective_gas_price == expected_effective_gas_price.into() =>
 			{
+				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
 					gas_limit.all_gte(gas_required),
 					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
@@ -520,7 +532,7 @@ mod test {
 			expected_code.clone(),
 			expected_data.clone(),
 		);
-		let (call, _, tx, gas_required) = builder.check().unwrap();
+		let (expected_encoded_len, call, _, tx, gas_required) = builder.check().unwrap();
 		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
 		let expected_value = tx.value.unwrap_or_default().as_u64().into();
 
@@ -532,12 +544,14 @@ mod test {
 				gas_limit,
 				storage_deposit_limit,
 				effective_gas_price,
+				encoded_len,
 			}) if value == expected_value &&
 				code == expected_code &&
 				data == expected_data &&
 				storage_deposit_limit == <BalanceOf<Test>>::max_value() &&
 				effective_gas_price == expected_effective_gas_price.into() =>
 			{
+				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
 					gas_limit.all_gte(gas_required),
 					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
@@ -626,7 +640,7 @@ mod test {
 		let (code, _) = compile_module("dummy").unwrap();
 		// create some dummy data to increase the gas fee
 		let data = vec![42u8; crate::limits::CALLDATA_BYTES as usize];
-		let (_, extra, _tx, _gas_required) =
+		let (_, _, extra, _tx, _gas_required) =
 			UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.mutate_estimate_and_check(Box::new(|tx| {
 					tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
@@ -644,7 +658,7 @@ mod test {
 
 		let builder =
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
-		let (call, _, _, _) = builder.check().unwrap();
+		let (_, call, _, _, _) = builder.check().unwrap();
 
 		assert_eq!(call, remark);
 	}

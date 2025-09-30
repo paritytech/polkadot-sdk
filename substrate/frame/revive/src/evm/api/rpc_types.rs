@@ -211,12 +211,16 @@ impl GenericTransaction {
 
 	/// The gas price that is actually paid (including priority fee).
 	pub fn effective_gas_price(&self, base_gas_price: U256) -> Option<U256> {
-		if let Some(prio_price) = self.max_priority_fee_per_gas {
+		let effective_gas_price = if let Some(prio_price) = self.max_priority_fee_per_gas {
 			let max_price = self.max_fee_per_gas?;
 			Some(max_price.min(base_gas_price.saturating_add(prio_price)))
 		} else {
 			self.gas_price
-		}
+		};
+
+		// we do not implement priority fee as it does not map to tip well
+		// hence the effective gas price cannot be higher than the base price
+		effective_gas_price.map(|e| e.min(base_gas_price))
 	}
 
 	/// Create a new [`GenericTransaction`] from a unsigned transaction.
@@ -387,12 +391,12 @@ fn from_unsigned_works_for_legacy() {
 		value: U256::from(1),
 		to: Some(H160::zero()),
 		gas: U256::from(1),
-		gas_price: U256::from(11),
+		gas_price: U256::from(10),
 		..Default::default()
 	});
 
 	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
-	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	assert_eq!(generic.gas_price, Some(U256::from(10)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);
@@ -415,7 +419,7 @@ fn from_unsigned_works_for_1559() {
 	});
 
 	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
-	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	assert_eq!(generic.gas_price, Some(U256::from(10)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);
@@ -446,7 +450,7 @@ fn from_unsigned_works_for_7702() {
 	});
 
 	let generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, None);
-	assert_eq!(generic.gas_price, Some(U256::from(11)));
+	assert_eq!(generic.gas_price, Some(U256::from(10)));
 
 	let tx2 = generic.try_into_unsigned().unwrap();
 	assert_eq!(tx, tx2);

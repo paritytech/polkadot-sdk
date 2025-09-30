@@ -516,6 +516,10 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
+		/// Too much deposit was drawn from the shared txfee and deposit credit.
+		///
+		/// This happens if the passed `gas` inside the ethereum transaction is too low.
+		TxFeeOverdraw = 0x32,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -1019,8 +1023,21 @@ pub mod pallet {
 			code: Vec<u8>,
 			data: Vec<u8>,
 			effective_gas_price: U256,
+			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
 			let origin = Self::ensure_eth_origin(origin)?;
+			let info = T::FeeInfo::dispatch_info(
+				&Call::<T>::eth_instantiate_with_code {
+					value,
+					gas_limit,
+					storage_deposit_limit,
+					code: code.clone(),
+					data: data.clone(),
+					effective_gas_price,
+					encoded_len,
+				}
+				.into(),
+			);
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1039,7 +1056,7 @@ pub mod pallet {
 					output.result = Err(<Error<T>>::ContractReverted.into());
 				}
 			}
-			dispatch_result(
+			let result = dispatch_result(
 				output.result.map(|result| result.result),
 				output.gas_consumed,
 				<T as Config>::WeightInfo::eth_instantiate_with_code(
@@ -1047,7 +1064,8 @@ pub mod pallet {
 					data_len,
 					Pallet::<T>::has_dust(value).into(),
 				),
-			)
+			);
+			T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
 		}
 
 		/// Same as [`Self::call`], but intended to be dispatched **only**
@@ -1062,8 +1080,21 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
 			effective_gas_price: U256,
+			encoded_len: u32,
 		) -> DispatchResultWithPostInfo {
 			let origin = Self::ensure_eth_origin(origin)?;
+			let info = T::FeeInfo::dispatch_info(
+				&Call::<T>::eth_call {
+					dest,
+					value,
+					gas_limit,
+					storage_deposit_limit,
+					data: data.clone(),
+					effective_gas_price,
+					encoded_len,
+				}
+				.into(),
+			);
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1073,17 +1104,17 @@ pub mod pallet {
 				data,
 				ExecConfig::new_eth_tx(effective_gas_price),
 			);
-
 			if let Ok(return_value) = &output.result {
 				if return_value.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
 				}
 			}
-			dispatch_result(
+			let result = dispatch_result(
 				output.result,
 				output.gas_consumed,
 				<T as Config>::WeightInfo::eth_call(Pallet::<T>::has_dust(value).into()),
-			)
+			);
+			T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
 		}
 
 		/// Upload new `code` without instantiating a contract from it.
@@ -1381,13 +1412,16 @@ impl<T: Config> Pallet<T> {
 		let origin = T::AddressMapper::to_account_id(&from);
 		Self::prepare_dry_run(&origin);
 
-		let effective_gas_price = {
-			let base_fee = Self::evm_gas_price();
-			tx.effective_gas_price(base_fee).unwrap_or(base_fee)
-		};
-		let mut exec_config = ExecConfig::new_eth_tx(effective_gas_price);
-		exec_config.unsafe_skip_transfers = tx.gas.is_none();
-		exec_config.collect_deposit_from_hold = false;
+		let base_fee = Self::evm_gas_price();
+		let effective_gas_price = tx.effective_gas_price(base_fee).unwrap_or(base_fee);
+
+		if effective_gas_price < base_fee {
+			Err(EthTransactError::Message(format!(
+				"Effective gas price {effective_gas_price:?} lower than base fee {base_fee:?}"
+			)))?;
+		}
+
+		let exec_config = ExecConfig::new_eth_tx(effective_gas_price);
 
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
@@ -1421,6 +1455,11 @@ impl<T: Config> Pallet<T> {
 		// using the exact weight limit passed by the eth wallet
 		let mut call_info = create_call::<T>(tx, None)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
+
+		// emulate transaction behavior
+		T::FeeInfo::deposit_txfee(T::Currency::issue(
+			call_info.tx_fee.saturating_add(call_info.storage_deposit),
+		));
 
 		let extract_error = |err| {
 			if err == Error::<T>::TransferFailed.into() ||
@@ -1550,6 +1589,18 @@ impl<T: Config> Pallet<T> {
 				overweight_by={}\
 				",
 				total_weight.saturating_sub(max_weight),
+			)))?;
+		}
+
+		let available_fee = T::FeeInfo::remaining_txfee();
+		if call_info.tx_fee > available_fee {
+			Err(EthTransactError::Message(format!(
+				"Drew too much from the txhold. \
+					fee={:?} \
+					available={available_fee:?} \
+					overdrawn_by={:?}",
+				call_info.tx_fee,
+				call_info.tx_fee.saturating_sub(available_fee),
 			)))?;
 		}
 

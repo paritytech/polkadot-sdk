@@ -24,7 +24,7 @@ use super::{
 use crate::{
 	address::{create1, create2, AddressMapper},
 	assert_refcount, assert_return_code,
-	evm::{fees::InfoT, CallTrace, CallTracer, CallType, GenericTransaction},
+	evm::{fees::InfoT, CallTrace, CallTracer, CallType},
 	exec::Key,
 	limits,
 	precompiles::alloy::sol_types::{
@@ -41,8 +41,7 @@ use crate::{
 	tracing::trace,
 	weights::WeightInfo,
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueueCounter,
-	Error, EthTransactError, ExecConfig, HoldReason, Origin, Pallet, PristineCode, StorageDeposit,
-	H160,
+	Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode, StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -188,6 +187,8 @@ fn eth_call_transfer_with_dust_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
 
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
@@ -3897,123 +3898,6 @@ fn recovery_works() {
 			.unwrap();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 100);
-	});
-}
-
-#[test]
-fn skip_transfer_works() {
-	let (code_caller, _) = compile_module("call").unwrap();
-	let (code, _) = compile_module("store_call").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		<Test as Config>::Currency::set_balance(&BOB, 0);
-		let gas_limit = <Pallet<Test>>::evm_block_gas_limit();
-
-		// when gas is some (transfers enabled): bob has no money: fail
-		assert_err!(
-			Pallet::<Test>::dry_run_eth_transact(
-				GenericTransaction {
-					from: Some(BOB_ADDR),
-					input: code.clone().into(),
-					gas: Some(gas_limit),
-					..Default::default()
-				},
-			),
-			EthTransactError::Message(format!(
-				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas {gas_limit})"
-			))
-		);
-
-		// no gas specified (all transfers are skipped): even without money bob can deploy
-		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
-			GenericTransaction {
-				from: Some(BOB_ADDR),
-				input: code.clone().into(),
-				..Default::default()
-			},
-		));
-
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-		let Contract { addr: caller_addr, .. } =
-			builder::bare_instantiate(Code::Upload(code_caller)).build_and_unwrap_contract();
-
-		// call directly: fails with enabled transfers
-		assert_err!(
-			Pallet::<Test>::dry_run_eth_transact(
-				GenericTransaction {
-					from: Some(BOB_ADDR),
-					to: Some(addr),
-					input: 0u32.encode().into(),
-					gas: Some(gas_limit),
-					..Default::default()
-				},
-			),
-			EthTransactError::Message(format!(
-				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas {gas_limit})"
-			))
-		);
-
-		// fails to call through other contract
-		// we didn't roll back the storage changes done by the previous
-		// call. So the item already exists. We simply increase the size of
-		// the storage item to incur some deposits (which bob can't pay).
-		assert!(Pallet::<Test>::dry_run_eth_transact(
-			GenericTransaction {
-				from: Some(BOB_ADDR),
-				to: Some(caller_addr),
-				input: (1u32, &addr).encode().into(),
-				gas: Some(1u32.into()),
-				..Default::default()
-			},
-		)
-		.is_err(),);
-
-		// works when no gas is specified (skip transfer)
-		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
-			GenericTransaction {
-				from: Some(BOB_ADDR),
-				to: Some(addr),
-				input: 2u32.encode().into(),
-				..Default::default()
-			},
-		));
-
-		// call through contract works when transfers are skipped
-		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
-			GenericTransaction {
-				from: Some(BOB_ADDR),
-				to: Some(caller_addr),
-				input: (3u32, &addr).encode().into(),
-				..Default::default()
-			},
-		));
-
-		// works with transfers enabled if we don't incur a storage cost
-		// we shrink the item so its actually a refund
-		assert_ok!(Pallet::<Test>::dry_run_eth_transact(
-			GenericTransaction {
-				from: Some(BOB_ADDR),
-				to: Some(caller_addr),
-				input: (2u32, &addr).encode().into(),
-				gas: Some(gas_limit),
-				..Default::default()
-			},
-		));
-
-		// fails when trying to increase the storage item size
-		assert!(Pallet::<Test>::dry_run_eth_transact(
-			GenericTransaction {
-				from: Some(BOB_ADDR),
-				to: Some(caller_addr),
-				input: (3u32, &addr).encode().into(),
-				gas: Some(1u32.into()),
-				..Default::default()
-			},
-		)
-		.is_err());
 	});
 }
 
