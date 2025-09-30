@@ -14,11 +14,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
-	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
+	address::AddressMapper,
+	tracing::{trace, Tracing},
+	AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult, DepositLimit, ExecReturnValue,
+	InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -43,12 +44,13 @@ macro_rules! builder {
         $($extra:item)*
 	) => {
 		#[doc = concat!("A builder to construct a ", stringify!($method), " call")]
-		pub struct $name<T: Config> {
+		pub struct $name<'a, T: Config> {
 			$($field: $type,)*
+			tracer: Option<&'a mut (dyn Tracing + 'static)>,
 		}
 
 		#[allow(dead_code)]
-		impl<T: Config> $name<T>
+		impl<'a, T: Config> $name<'a, T>
 		where
 			BalanceOf<T>: Into<sp_core::U256> + TryFrom<sp_core::U256>,
 			crate::MomentOf<T>: Into<sp_core::U256>,
@@ -63,10 +65,24 @@ macro_rules! builder {
 			)*
 
 			#[doc = concat!("Build the ", stringify!($method), " call")]
-			pub fn build(self) -> $result {
-				Pallet::<T>::$method(
-					$(self.$field,)*
-				)
+			pub fn build(mut self) -> $result {
+				if let Some(tracer) = self.tracer.take() {
+					trace(tracer, || {
+						Pallet::<T>::$method(
+							$(self.$field,)*
+						)
+					})
+				} else {
+					Pallet::<T>::$method(
+						$(self.$field,)*
+					)
+				}
+			}
+
+			/// Attach a tracer to the transaction
+			pub fn with_tracer(mut self, tracer: &'a mut (dyn Tracing + 'static)) -> Self {
+				self.tracer = Some(tracer);
+				self
 			}
 
             $($extra)*
@@ -100,6 +116,7 @@ builder!(
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
+			tracer: None,
 		}
 	}
 );
@@ -125,6 +142,7 @@ builder!(
 			code_hash,
 			data: vec![],
 			salt: Some([0; 32]),
+			tracer: None,
 		}
 	}
 );
@@ -181,6 +199,7 @@ builder!(
 			data: vec![],
 			salt: Some([0; 32]),
 			bump_nonce: BumpNonce::Yes,
+			tracer: None,
 		}
 	}
 );
@@ -204,6 +223,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
+			tracer: None,
 		}
 	}
 );
@@ -238,6 +258,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			data: vec![],
+			tracer: None,
 		}
 	}
 );
@@ -261,6 +282,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
+			tracer: None,
 		}
 	}
 );

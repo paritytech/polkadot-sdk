@@ -17,19 +17,23 @@
 
 use crate::{
 	assert_refcount,
-	test_utils::{builder::Contract, ALICE},
+	evm::{
+		CallTrace, CallTracer, CallType, OpcodeStep, OpcodeTrace, OpcodeTracer, OpcodeTracerConfig,
+	},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{
 		builder,
+		sol::revm_tracing::RevmTracer,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		ExtBuilder, Test,
 	},
-	Code, Config, PristineCode,
+	tracing::trace,
+	Code, Config, PristineCode, U256,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
-
 use revm::bytecode::opcode::*;
 
 mod arithmetic;
@@ -39,6 +43,7 @@ mod contract;
 mod control;
 mod host;
 mod memory;
+mod revm_tracing;
 mod stack;
 mod system;
 mod tx_info;
@@ -100,20 +105,15 @@ fn basic_evm_flow_works() {
 
 #[test]
 fn basic_evm_flow_tracing_works() {
-	use crate::{
-		evm::{CallTrace, CallTracer, CallType},
-		test_utils::ALICE_ADDR,
-		tracing::trace,
-	};
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let mut tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		let Contract { addr, .. } = trace(&mut tracer, || {
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract()
-		});
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.with_tracer(&mut tracer)
+			.build_and_unwrap_contract();
 
 		let contract = get_contract(&addr);
 		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
@@ -156,4 +156,127 @@ fn basic_evm_flow_tracing_works() {
 			},
 		);
 	});
+}
+
+#[test]
+fn opcode_tracing_works() {
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let config = OpcodeTracerConfig {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: true,
+			enable_return_data: true,
+			limit: Some(5),
+			memory_word_limit: 16,
+		};
+
+		let mut tracer = OpcodeTracer::new(config, |_| sp_core::U256::from(0u64));
+		builder::bare_call(addr)
+			.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
+			.with_tracer(&mut tracer)
+			.build_and_unwrap_result();
+
+		let actual_trace = tracer.collect_trace();
+		let expected_trace = OpcodeTrace {
+			gas: actual_trace.gas,
+			failed: false,
+			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
+			struct_logs: vec![
+				OpcodeStep {
+					pc: 0,
+					op: PUSH1,
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
+					..Default::default()
+				},
+				OpcodeStep {
+					pc: 2,
+					op: PUSH1,
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
+					stack: vec![U256::from(0x80)],
+					..Default::default()
+				},
+				OpcodeStep {
+					pc: 4,
+					op: MSTORE,
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
+					stack: vec![U256::from(0x80), U256::from(0x40)],
+					..Default::default()
+				},
+				OpcodeStep {
+					pc: 5,
+					op: CALLVALUE,
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
+					..Default::default()
+				},
+				OpcodeStep {
+					pc: 6,
+					op: DUP1,
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
+					stack: vec![U256::from(0)],
+					..Default::default()
+				},
+			],
+		};
+
+		assert_eq!(actual_trace, expected_trace);
+	});
+}
+
+#[test]
+fn opcode_tracing_match_revm_works() {
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+	let config = OpcodeTracerConfig {
+		enable_memory: true,
+		// flip once https://github.com/paradigmxyz/revm-inspectors/pull/359 merged
+		enable_return_data: false,
+		disable_stack: false,
+		disable_storage: false,
+		memory_word_limit: 16,
+		limit: None,
+	};
+
+	let revive_traces = ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		let mut tracer = OpcodeTracer::new(config.clone(), |_| U256::from(0u64));
+		builder::bare_call(addr)
+			.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 2u64 }).abi_encode())
+			.with_tracer(&mut tracer)
+			.build_and_unwrap_result();
+
+		tracer.collect_trace()
+	});
+
+	let revm_traces = {
+		use revm::{context::TxEnv, context_interface::TransactTo, primitives::Bytes};
+
+		let mut tracer = RevmTracer::new(config);
+		let addr = tracer.deploy(TxEnv { data: Bytes::from(code), ..Default::default() });
+		tracer.call(TxEnv {
+			kind: TransactTo::Call(addr),
+			data: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 2u64 })
+				.abi_encode()
+				.into(),
+			..Default::default()
+		})
+	};
+
+	assert_eq!(OpcodeTrace::from(revm_traces), revive_traces);
 }

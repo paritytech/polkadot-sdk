@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
-use alloc::vec::Vec;
+use crate::{primitives::ExecReturnValue, Code, Key, Weight};
+use alloc::{string::String, vec::Vec};
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
 
@@ -42,6 +42,26 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 
 /// Defines methods to trace contract interactions.
 pub trait Tracing {
+	/// Check if opcode tracing is enabled.
+	fn is_opcode_tracing_enabled(&self) -> bool {
+		false
+	}
+
+	/// Called before an opcode is executed.
+	fn enter_opcode(
+		&mut self,
+		_pc: u64,
+		_opcode: u8,
+		_gas_before: Weight,
+		_stack: &[U256],
+		_memory: &[u8],
+		_last_frame_output: &crate::ExecReturnValue,
+	) {
+	}
+
+	/// Called after an opcode is executed to record the gas cost.
+	fn exit_opcode(&mut self, _gas_left: Weight) {}
+
 	/// Register an address that should be traced.
 	fn watch_address(&mut self, _addr: &H160) {}
 
@@ -83,5 +103,5 @@ pub trait Tracing {
 	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_left: Weight) {}
 
 	/// Called when a contract call terminates with an error
-	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_left: Weight) {}
+	fn exit_child_span_with_error(&mut self, _error: String, _gas_left: Weight) {}
 }

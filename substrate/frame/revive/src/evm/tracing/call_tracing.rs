@@ -18,9 +18,9 @@ use crate::{
 	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError, Weight,
+	Code, Weight,
 };
-use alloc::{format, string::ToString, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
@@ -167,7 +167,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, error: String, gas_used: Weight) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -175,13 +175,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
 			trace.gas_used = (self.gas_mapper)(gas_used);
-
-			trace.error = match error {
-				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>
-					Some(message.unwrap_or_default().to_string()),
-				_ => Some(format!("{:?}", error)),
-			};
-
+			trace.error = Some(error);
 			if self.config.only_top_call {
 				return
 			}

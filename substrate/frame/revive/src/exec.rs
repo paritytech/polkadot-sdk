@@ -17,6 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
+	evm::error_string,
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -829,7 +830,7 @@ where
 
 			if_tracing(|t| match result {
 				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+				Err(e) => t.exit_child_span_with_error(error_string::<T>(e.error), Weight::zero()),
 			});
 
 			result
@@ -1340,7 +1341,8 @@ where
 					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
 					match &output {
 						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
-						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+						Err(e) => tracer
+							.exit_child_span_with_error(error_string::<T>(e.error), gas_consumed),
 					}
 				});
 
@@ -1351,7 +1353,7 @@ where
 			Err(error) => {
 				if_tracing(|tracer| {
 					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
-					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+					tracer.exit_child_span_with_error(error_string::<T>(error), gas_consumed);
 				});
 
 				(false, Err(error.into()))
@@ -1963,7 +1965,8 @@ where
 
 				if_tracing(|t| match result {
 					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+					Err(e) =>
+						t.exit_child_span_with_error(error_string::<T>(e.error), Weight::zero()),
 				});
 
 				result.map(|_| ())

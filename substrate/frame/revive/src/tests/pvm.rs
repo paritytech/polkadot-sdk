@@ -4087,9 +4087,10 @@ fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
-		trace(&mut tracer, || {
-			builder::bare_call(BOB_ADDR).evm_value(10.into()).build_and_unwrap_result();
-		});
+		builder::bare_call(BOB_ADDR)
+			.evm_value(10.into())
+			.with_tracer(&mut tracer)
+			.build_and_unwrap_result();
 
 		let trace = tracer.collect_trace();
 		assert_eq!(
@@ -4242,9 +4243,10 @@ fn call_tracing_works() {
 			};
 
 			let mut tracer = CallTracer::new(config, |_| U256::zero());
-			trace(&mut tracer, || {
-				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
-			});
+			let _ = builder::bare_call(addr)
+				.data((3u32, addr_callee).encode())
+				.with_tracer(&mut tracer)
+				.build();
 
 			let trace = tracer.collect_trace();
 			let expected_trace = CallTrace {
@@ -4259,10 +4261,7 @@ fn call_tracing_works() {
 					..Default::default()
 				};
 
-			assert_eq!(
-				trace,
-				expected_trace.into(),
-			);
+			assert_eq!(trace, Some(expected_trace));
 		}
 	});
 }
@@ -4275,13 +4274,11 @@ fn create_call_tracing_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 
 		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
-
-		let Contract { addr, .. } = trace(&mut tracer, || {
-			builder::bare_instantiate(Code::Upload(code.clone()))
-				.evm_value(100.into())
-				.salt(None)
-				.build_and_unwrap_contract()
-		});
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.evm_value(100.into())
+			.salt(None)
+			.with_tracer(&mut tracer)
+			.build_and_unwrap_contract();
 
 		let call_trace = tracer.collect_trace().unwrap();
 		assert_eq!(
@@ -4299,9 +4296,7 @@ fn create_call_tracing_works() {
 		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
 		let data = b"garbage";
 		let input = (code_hash, data).encode();
-		trace(&mut tracer, || {
-			assert_ok!(builder::call(addr).data(input.clone()).build());
-		});
+		assert_ok!(builder::call(addr).data(input.clone()).with_tracer(&mut tracer).build());
 
 		let call_trace = tracer.collect_trace().unwrap();
 		let child_addr = crate::address::create2(&addr, &code, data, &[1u8; 32]);

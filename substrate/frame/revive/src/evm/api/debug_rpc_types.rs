@@ -21,13 +21,13 @@ use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
+	de::Deserializer,
 	ser::{SerializeMap, Serializer},
 	Deserialize, Serialize,
 };
 use sp_core::{H160, H256, U256};
 
 /// The type of tracer to use.
-/// Only "callTracer" is supported for now.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
 pub enum TracerType {
@@ -36,11 +36,26 @@ pub enum TracerType {
 
 	/// A tracer that traces the prestate.
 	PrestateTracer(Option<PrestateTracerConfig>),
+
+	/// A tracer that traces opcodes.
+	StructLogger(Option<OpcodeTracerConfig>),
 }
 
 impl From<CallTracerConfig> for TracerType {
 	fn from(config: CallTracerConfig) -> Self {
 		TracerType::CallTracer(Some(config))
+	}
+}
+
+impl From<PrestateTracerConfig> for TracerType {
+	fn from(config: PrestateTracerConfig) -> Self {
+		TracerType::PrestateTracer(Some(config))
+	}
+}
+
+impl From<OpcodeTracerConfig> for TracerType {
+	fn from(config: OpcodeTracerConfig) -> Self {
+		TracerType::StructLogger(Some(config))
 	}
 }
 
@@ -52,7 +67,7 @@ impl Default for TracerType {
 
 /// Tracer configuration used to trace calls.
 #[derive(TypeInfo, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "std", derive(Deserialize, Serialize), serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", derive(Serialize), serde(rename_all = "camelCase"))]
 pub struct TracerConfig {
 	/// The tracer type.
 	#[cfg_attr(feature = "std", serde(flatten, default))]
@@ -61,6 +76,33 @@ pub struct TracerConfig {
 	/// Timeout for the tracer.
 	#[cfg_attr(feature = "std", serde(with = "humantime_serde", default))]
 	pub timeout: Option<core::time::Duration>,
+}
+
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for TracerConfig {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		#[derive(Default, Deserialize)]
+		#[serde(default, rename_all = "camelCase")]
+		struct TracerConfigInner {
+			#[serde(flatten)]
+			config: Option<TracerType>,
+
+			#[serde(flatten)]
+			opcode_config: Option<OpcodeTracerConfig>,
+
+			#[serde(with = "humantime_serde")]
+			timeout: Option<core::time::Duration>,
+		}
+
+		let inner = TracerConfigInner::deserialize(deserializer)?;
+		Ok(TracerConfig {
+			config: inner.config.unwrap_or_else(|| TracerType::StructLogger(inner.opcode_config)),
+			timeout: inner.timeout,
+		})
+	}
 }
 
 /// The configuration for the call tracer.
@@ -100,6 +142,54 @@ impl Default for PrestateTracerConfig {
 	}
 }
 
+fn zero_to_none<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let opt = Option::<u64>::deserialize(deserializer)?;
+	Ok(match opt {
+		Some(0) => None,
+		other => other,
+	})
+}
+
+/// The configuration for the opcode tracer.
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default, rename_all = "camelCase")]
+pub struct OpcodeTracerConfig {
+	/// Whether to enable memory capture
+	pub enable_memory: bool,
+
+	/// Whether to disable stack capture
+	pub disable_stack: bool,
+
+	/// Whether to disable storage capture
+	pub disable_storage: bool,
+
+	/// Whether to enable return data capture
+	pub enable_return_data: bool,
+
+	/// Limit number of steps captured
+	#[serde(skip_serializing_if = "Option::is_none", deserialize_with = "zero_to_none")]
+	pub limit: Option<u64>,
+
+	/// Maximum number of memory words to capture per step (default: 16)
+	pub memory_word_limit: u32,
+}
+
+impl Default for OpcodeTracerConfig {
+	fn default() -> Self {
+		Self {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: false,
+			enable_return_data: false,
+			limit: None,
+			memory_word_limit: 16,
+		}
+	}
+}
+
 /// Serialization should support the following JSON format:
 ///
 /// ```json
@@ -109,9 +199,36 @@ impl Default for PrestateTracerConfig {
 /// ```json
 /// { "tracer": "callTracer" }
 /// ```
+///
+/// By default if not specified the tracer is a  StructLogger, and it's config is passed inline
+///
+/// ```json
+/// { "tracer": null,  "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true  }
+/// ```
 #[test]
 fn test_tracer_config_serialization() {
 	let tracers = vec![
+		(
+			r#"{ "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true }"#,
+			TracerConfig {
+				config: TracerType::StructLogger(Some(OpcodeTracerConfig {
+					enable_memory: true,
+					disable_stack: false,
+					disable_storage: false,
+					enable_return_data: true,
+					limit: None,
+					memory_word_limit: 16,
+				})),
+				timeout: None,
+			},
+		),
+		(
+			r#"{  }"#,
+			TracerConfig {
+				config: TracerType::StructLogger(Some(OpcodeTracerConfig::default())),
+				timeout: None,
+			},
+		),
 		(
 			r#"{"tracer": "callTracer"}"#,
 			TracerConfig { config: TracerType::CallTracer(None), timeout: None },
@@ -135,6 +252,17 @@ fn test_tracer_config_serialization() {
 			TracerConfig {
 				config: CallTracerConfig { with_logs: true, only_top_call: true }.into(),
 				timeout: Some(core::time::Duration::from_millis(10)),
+			},
+		),
+		(
+			r#"{"tracer": "structLogger"}"#,
+			TracerConfig { config: TracerType::StructLogger(None), timeout: None },
+		),
+		(
+			r#"{"tracer": "structLogger", "tracerConfig": { "enableMemory": true }}"#,
+			TracerConfig {
+				config: OpcodeTracerConfig { enable_memory: true, ..Default::default() }.into(),
+				timeout: None,
 			},
 		),
 	];
@@ -173,6 +301,8 @@ pub enum Trace {
 	Call(CallTrace),
 	/// A prestate trace.
 	Prestate(PrestateTrace),
+	/// An opcode trace.
+	Opcode(OpcodeTrace),
 }
 
 /// A prestate Trace
@@ -254,6 +384,264 @@ where
 	ser_map.end()
 }
 
+/// An opcode trace containing the step-by-step execution of EVM instructions.
+/// This matches Geth's structLogger output format.
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct OpcodeTrace<Gas = U256> {
+	/// Total gas used by the transaction.
+	pub gas: Gas,
+	/// Whether the transaction failed.
+	pub failed: bool,
+	/// The return value of the transaction.
+	pub return_value: Bytes,
+	/// The list of opcode execution steps (structLogs in Geth).
+	pub struct_logs: Vec<OpcodeStep<Gas>>,
+}
+
+impl<Gas: Default> Default for OpcodeTrace<Gas> {
+	fn default() -> Self {
+		Self {
+			gas: Gas::default(),
+			failed: false,
+			return_value: Bytes::default(),
+			struct_logs: Vec::new(),
+		}
+	}
+}
+
+/// A single opcode execution step.
+/// This matches Geth's structLog format exactly.
+#[derive(
+	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct OpcodeStep<Gas = U256> {
+	/// The program counter.
+	pub pc: u64,
+	/// The opcode being executed.
+	#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
+	pub op: u8,
+	/// Remaining gas before executing this opcode.
+	pub gas: Gas,
+	/// Cost of executing this opcode.
+	pub gas_cost: Gas,
+	/// Current call depth.
+	pub depth: u32,
+	/// EVM stack contents.
+	pub stack: Vec<U256>,
+	/// EVM memory contents.
+	#[serde(skip_serializing_if = "Vec::is_empty", serialize_with = "serialize_memory_no_prefix")]
+	pub memory: Vec<Bytes>,
+	/// Contract storage changes.
+	#[serde(skip_serializing_if = "BTreeMap::is_empty")]
+	pub storage: BTreeMap<Bytes, Bytes>,
+	/// Return data from last frame output.
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	pub return_data: Bytes,
+	/// Any error that occurred during opcode execution.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub error: Option<String>,
+}
+
+/// Macro to generate opcode conversion functions
+macro_rules! opcode_conversions {
+	($($op:ident),*) => {
+		/// Get opcode name from byte value using REVM opcode names
+		fn get_opcode_name(opcode: u8) -> &'static str {
+			use revm::bytecode::opcode::*;
+			match opcode {
+				$(
+					$op => stringify!($op),
+				)*
+				_ => "INVALID",
+			}
+		}
+
+		/// Get opcode byte from name string
+		pub fn get_opcode_byte(name: &str) -> Option<u8> {
+			use revm::bytecode::opcode::*;
+			match name {
+				$(
+					stringify!($op) => Some($op),
+				)*
+				_ => None,
+			}
+		}
+	};
+}
+
+opcode_conversions! {
+	STOP,
+	ADD,
+	MUL,
+	SUB,
+	DIV,
+	SDIV,
+	MOD,
+	SMOD,
+	ADDMOD,
+	MULMOD,
+	EXP,
+	SIGNEXTEND,
+	LT,
+	GT,
+	SLT,
+	SGT,
+	EQ,
+	ISZERO,
+	AND,
+	OR,
+	XOR,
+	NOT,
+	BYTE,
+	SHL,
+	SHR,
+	SAR,
+	KECCAK256,
+	ADDRESS,
+	BALANCE,
+	ORIGIN,
+	CALLER,
+	CALLVALUE,
+	CALLDATALOAD,
+	CALLDATASIZE,
+	CALLDATACOPY,
+	CODESIZE,
+	CODECOPY,
+	GASPRICE,
+	EXTCODESIZE,
+	EXTCODECOPY,
+	RETURNDATASIZE,
+	RETURNDATACOPY,
+	EXTCODEHASH,
+	BLOCKHASH,
+	COINBASE,
+	TIMESTAMP,
+	NUMBER,
+	DIFFICULTY,
+	GASLIMIT,
+	CHAINID,
+	SELFBALANCE,
+	BASEFEE,
+	BLOBHASH,
+	BLOBBASEFEE,
+	POP,
+	MLOAD,
+	MSTORE,
+	MSTORE8,
+	SLOAD,
+	SSTORE,
+	JUMP,
+	JUMPI,
+	PC,
+	MSIZE,
+	GAS,
+	JUMPDEST,
+	TLOAD,
+	TSTORE,
+	MCOPY,
+	PUSH0,
+	PUSH1,
+	PUSH2,
+	PUSH3,
+	PUSH4,
+	PUSH5,
+	PUSH6,
+	PUSH7,
+	PUSH8,
+	PUSH9,
+	PUSH10,
+	PUSH11,
+	PUSH12,
+	PUSH13,
+	PUSH14,
+	PUSH15,
+	PUSH16,
+	PUSH17,
+	PUSH18,
+	PUSH19,
+	PUSH20,
+	PUSH21,
+	PUSH22,
+	PUSH23,
+	PUSH24,
+	PUSH25,
+	PUSH26,
+	PUSH27,
+	PUSH28,
+	PUSH29,
+	PUSH30,
+	PUSH31,
+	PUSH32,
+	DUP1,
+	DUP2,
+	DUP3,
+	DUP4,
+	DUP5,
+	DUP6,
+	DUP7,
+	DUP8,
+	DUP9,
+	DUP10,
+	DUP11,
+	DUP12,
+	DUP13,
+	DUP14,
+	DUP15,
+	DUP16,
+	SWAP1,
+	SWAP2,
+	SWAP3,
+	SWAP4,
+	SWAP5,
+	SWAP6,
+	SWAP7,
+	SWAP8,
+	SWAP9,
+	SWAP10,
+	SWAP11,
+	SWAP12,
+	SWAP13,
+	SWAP14,
+	SWAP15,
+	SWAP16,
+	LOG0,
+	LOG1,
+	LOG2,
+	LOG3,
+	LOG4,
+	CREATE,
+	CALL,
+	CALLCODE,
+	RETURN,
+	DELEGATECALL,
+	CREATE2,
+	STATICCALL,
+	REVERT,
+	INVALID,
+	SELFDESTRUCT
+}
+
+/// Serialize opcode as string using REVM opcode names
+fn serialize_opcode<S>(opcode: &u8, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	let name = get_opcode_name(*opcode);
+	serializer.serialize_str(name)
+}
+
+/// Deserialize opcode from string using reverse lookup table
+fn deserialize_opcode<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+	D: serde::Deserializer<'de>,
+{
+	let s = String::deserialize(deserializer)?;
+	get_opcode_byte(&s)
+		.ok_or_else(|| serde::de::Error::custom(alloc::format!("Unknown opcode: {}", s)))
+}
+
 /// A smart contract execution call trace.
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
@@ -323,4 +711,13 @@ pub struct TransactionTrace {
 	/// The trace of the transaction.
 	#[serde(rename = "result")]
 	pub trace: Trace,
+}
+
+/// Serialize memory values without "0x" prefix (like Geth)
+fn serialize_memory_no_prefix<S>(memory: &Vec<Bytes>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	let hex_values: Vec<String> = memory.iter().map(|bytes| bytes.to_hex_no_prefix()).collect();
+	hex_values.serialize(serializer)
 }

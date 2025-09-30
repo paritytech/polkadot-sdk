@@ -16,6 +16,7 @@
 // limitations under the License.
 use crate::{
 	precompiles::Token,
+	tracing,
 	vm::{evm::instructions::exec_instruction, BytecodeType, ExecResult, Ext},
 	weights::WeightInfo,
 	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, Weight, H256, LOG_TARGET,
@@ -130,7 +131,15 @@ impl<T: Config> ContractBlob<T> {
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResult {
 	let mut interpreter = Interpreter::new(ExtBytecode::new(bytecode), input, ext);
-	let ControlFlow::Break(halt) = run_plain(&mut interpreter);
+	let use_opcode_tracing =
+		tracing::if_tracing(|tracer| tracer.is_opcode_tracing_enabled()).unwrap_or(false);
+
+	let ControlFlow::Break(halt) = if use_opcode_tracing {
+		run_plain_with_tracing(&mut interpreter)
+	} else {
+		run_plain(&mut interpreter)
+	};
+
 	halt.into()
 }
 
@@ -139,5 +148,31 @@ fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infa
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);
 		exec_instruction(interpreter, opcode)?;
+	}
+}
+
+fn run_plain_with_tracing<E: Ext>(
+	interpreter: &mut Interpreter<E>,
+) -> ControlFlow<Halt, Infallible> {
+	loop {
+		let opcode = interpreter.bytecode.opcode();
+		tracing::if_tracing(|tracer| {
+			let gas_before = interpreter.ext.gas_meter().gas_left();
+			tracer.enter_opcode(
+				interpreter.bytecode.pc() as u64,
+				opcode,
+				gas_before,
+				&interpreter.stack.as_ref(),
+				&interpreter.memory.as_ref(),
+				interpreter.ext.last_frame_output(),
+			);
+		});
+		interpreter.bytecode.relative_jump(1);
+		let res = exec_instruction(interpreter, opcode);
+		tracing::if_tracing(|tracer| {
+			let gas_left = interpreter.ext.gas_meter().gas_left();
+			tracer.exit_opcode(gas_left);
+		});
+		res?;
 	}
 }

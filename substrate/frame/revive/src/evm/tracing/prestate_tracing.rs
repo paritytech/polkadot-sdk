@@ -20,7 +20,7 @@ use crate::{
 	AccountInfo, BalanceOf, Bounded, Code, Config, ExecReturnValue, Key, MomentOf, Pallet,
 	PristineCode, Weight,
 };
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// A tracer that traces the prestate.
@@ -219,7 +219,7 @@ where
 		}
 	}
 
-	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, _error: String, _gas_used: Weight) {
 		self.is_create = None;
 	}
 

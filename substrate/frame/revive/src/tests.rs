@@ -186,30 +186,30 @@ pub(crate) mod builder {
 	};
 	use sp_core::{H160, H256};
 
-	pub fn bare_instantiate(code: Code) -> BareInstantiateBuilder<Test> {
+	pub fn bare_instantiate(code: Code) -> BareInstantiateBuilder<'static, Test> {
 		BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed(ALICE), code)
 	}
 
-	pub fn bare_call(dest: H160) -> BareCallBuilder<Test> {
+	pub fn bare_call(dest: H160) -> BareCallBuilder<'static, Test> {
 		BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), dest)
 	}
 
-	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
+	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<'static, Test> {
 		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
 			RuntimeOrigin::signed(ALICE),
 			code,
 		)
 	}
 
-	pub fn instantiate(code_hash: H256) -> InstantiateBuilder<Test> {
+	pub fn instantiate(code_hash: H256) -> InstantiateBuilder<'static, Test> {
 		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
 	}
 
-	pub fn call(dest: H160) -> CallBuilder<Test> {
+	pub fn call(dest: H160) -> CallBuilder<'static, Test> {
 		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
 	}
 
-	pub fn eth_call(dest: H160) -> EthCallBuilder<Test> {
+	pub fn eth_call(dest: H160) -> EthCallBuilder<'static, Test> {
 		EthCallBuilder::<Test>::eth_call(RuntimeOrigin::signed(ALICE), dest)
 	}
 }

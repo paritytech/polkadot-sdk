@@ -32,6 +32,12 @@ pub struct Stack<T: Config> {
 	_phantom: core::marker::PhantomData<T>,
 }
 
+impl<T: Config> AsRef<[U256]> for Stack<T> {
+	fn as_ref(&self) -> &[U256] {
+		&self.stack
+	}
+}
+
 /// A trait for converting types into an unsigned 256-bit integer (`U256`).
 pub trait ToU256 {
 	/// Converts `self` into a `U256`.

@@ -26,6 +26,12 @@ pub struct Memory<T> {
 	_phantom: core::marker::PhantomData<T>,
 }
 
+impl<T: Config> AsRef<[u8]> for Memory<T> {
+	fn as_ref(&self) -> &[u8] {
+		&self.data
+	}
+}
+
 impl<T: Config> Memory<T> {
 	/// Create a new empty memory
 	pub fn new() -> Self {
