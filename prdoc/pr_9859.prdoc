@@ -11,6 +11,8 @@ doc:
     Runtimes using this pallet must change the `Currency` type for `Balances`, add the `OldCurrency`
     benchmarking type, and run the migration.
 crates:
+- name: pallet-balances
+  bump: major
 - name: pallet-identity
   bump: major
 - name: polkadot-runtime-common
