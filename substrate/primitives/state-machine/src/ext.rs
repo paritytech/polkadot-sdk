@@ -1159,6 +1159,83 @@ mod tests {
 	}
 
 	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_2() {
+		sp_tracing::try_init_simple();
+		let keys =
+			(0..100000u32)
+				.map(|i| (i.encode(), vec![i; 100].encode()))
+				.chain((0..1000u32).map(|i| {
+					let mut key = 1u32.encode();
+					key.extend(i.encode());
+					(key, vec![i; 100].encode())
+				}));
+
+		// info!("keys: {:#?}", keys.clone().map(|(k,v)| (hex::encode(k),
+		// hex::encode(v))).collect::<std::collections::HashMap<_,_>>());
+
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_info = &child_info;
+
+		let backend = (
+			Storage {
+				top: keys.clone().collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: keys.collect(),
+						child_info: child_info.to_owned(),
+					}
+				],
+				// children_default: Default::default(),
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		let recorder = Recorder::<Blake2Hasher>::default();
+
+		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+
+		let mut overlay = Default::default();
+		let mut ext = Ext::new(&mut overlay, &backend, None);
+
+		let key1 = 5000u32;
+		let key2 = 100000u32;
+		ext.storage_start_transaction();
+		ext.place_storage(key1.encode(), Some(vec![30]));
+		ext.place_storage(key2.encode(), Some(vec![40]));
+
+		ext.place_child_storage(child_info, key1.encode(), Some(vec![30]));
+		ext.place_child_storage(child_info, key2.encode(), Some(vec![40]));
+		let _ = ext.storage_commit_transaction();
+
+		ext.trigger_storage_root_size_estimation(StateVersion::V1);
+		let size_after_reading = recorder.estimate_encoded_size();
+
+		ext.storage_start_transaction();
+		ext.place_storage(key1.encode(), None);
+		ext.place_storage(key2.encode(), None);
+
+		ext.place_child_storage(child_info, key1.encode(), None);
+		ext.place_child_storage(child_info, key2.encode(), None);
+		let _ = ext.storage_commit_transaction();
+
+		ext.trigger_storage_root_size_estimation(StateVersion::V1);
+
+		let size_before = recorder.estimate_encoded_size();
+
+		ext.storage_root(StateVersion::V1);
+		let size_after = recorder.estimate_encoded_size();
+
+		// TODO: https://github.com/paritytech/polkadot-sdk/issues/6020
+		// When the issue is fixed properly, `size_before == size_after`.
+		info!(
+			"size_after_reading: {}, size_before: {}, size_after:{}",
+			size_after_reading, size_before, size_after
+		);
+		assert_eq!(size_before, size_after);
+	}
+
+	#[test]
 	fn calculating_storage_root_should_not_change_storage_proof_random() {
 		sp_tracing::try_init_simple();
 		let keys_count = 1000000u32;
