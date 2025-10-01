@@ -273,14 +273,7 @@ where
 		self.write_gadget_state_or_log();
 
 		// Remove offchain MMR nodes for stale forks.
-		let stale_forks = self.client.expand_forks(&notification.stale_heads).unwrap_or_else(|e| {
-			warn!(target: LOG_TARGET, "{:?}", e);
-
-			Default::default()
-		});
-		for hash in stale_forks.iter() {
-			self.prune_branch(hash);
-		}
+		notification.stale_blocks.iter().for_each(|s| self.prune_branch(&s.hash));
 	}
 }
 
