@@ -36,8 +36,11 @@ impl<T: Config> Memory<T> {
 	///
 	/// # Panics
 	///
-	/// Panics on out of bounds.
+	/// Panics on out of bounds,if the range is non-empty.
 	pub fn slice(&self, range: Range<usize>) -> &[u8] {
+		if range.is_empty() {
+			return &[]
+		}
 		&self.data[range]
 	}
 
