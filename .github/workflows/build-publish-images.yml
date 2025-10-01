@@ -154,6 +154,8 @@ jobs:
           mv ./target/release/test-parachain ./artifacts/.
           mkdir -p ./artifacts/zombienet
           mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm ./artifacts/zombienet/.
+          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_elastic_scaling.rs.compact.compressed.wasm ./artifacts/zombienet/.
+          mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_elastic_scaling_12s_slot.rs.compact.compressed.wasm ./artifacts/zombienet/.
 
       - name: tar
         run: tar -cvf artifacts.tar artifacts
