@@ -731,7 +731,7 @@ impl Client {
 		&self,
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
-	) -> Option<Block> {
+	) -> Result<Option<Block>, ClientError> {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
 
 		let storage_api = self.storage_api(block.hash());
@@ -772,11 +772,11 @@ impl Client {
 			},
 			Err(err) => {
 				log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
-				return None;
+				return Err(err);
 			},
 		};
 
-		Some(block)
+		Ok(Some(block))
 	}
 
 	/// Get the EVM block for the given block and receipts.

@@ -217,7 +217,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let Some(block) = self.client.block_by_ethereum_hash(&block_hash).await? else {
 			return Ok(None);
 		};
-		Ok(self.client.evm_block(block, hydrated_transactions).await)
+		Ok(self.client.evm_block(block, hydrated_transactions).await?)
 	}
 
 	async fn get_balance(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<U256> {
@@ -261,7 +261,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let Some(block) = self.client.block_by_number_or_tag(&block_number).await? else {
 			return Ok(None);
 		};
-		Ok(self.client.evm_block(block, hydrated_transactions).await)
+		Ok(self.client.evm_block(block, hydrated_transactions).await?)
 	}
 
 	async fn get_block_transaction_count_by_hash(
