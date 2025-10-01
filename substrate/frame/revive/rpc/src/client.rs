@@ -193,6 +193,34 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 	Some(ext.value.now / 1000)
 }
 
+/// Calculate the trie root using IncrementalHashBuilder.
+///
+/// This method takes a slice of items that implement the `Encode2718` trait,
+/// encodes each item, and adds them to the hash builder to compute the trie root.
+///
+/// # Arguments
+/// * `items` - A vector of items that implement the `Encode2718` trait
+///
+/// # Returns
+/// The computed trie root as `H256`
+fn get_trie_root<T: pallet_revive::evm::Encode2718>(items: &[T]) -> H256 {
+	use pallet_revive::evm::block_hash::IncrementalHashBuilder;
+
+	let mut builder = IncrementalHashBuilder::new();
+
+	// Handle the first item separately
+	if let Some(first_item) = items.first() {
+		builder.set_first_value(first_item.encode_2718());
+	}
+
+	// Add remaining items
+	for item in items.into_iter().skip(1) {
+		builder.add_value(item.encode_2718());
+	}
+
+	builder.finish()
+}
+
 /// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
 /// clients.
 pub async fn connect(
@@ -735,8 +763,9 @@ impl Client {
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
-		let state_root = header.state_root.0.into();
-		let extrinsics_root = header.extrinsics_root.0.into();
+
+		let transactions_root = get_trie_root(&signed_txs);
+		let receipts_root = get_trie_root(receipts);
 
 		let gas_used = receipts.iter().fold(U256::zero(), |acc, receipt| acc + receipt.gas_used);
 		let transactions = if hydrated_transactions {
@@ -757,15 +786,15 @@ impl Client {
 		Block {
 			hash: block.hash(),
 			parent_hash,
-			state_root,
+			state_root: transactions_root,
 			miner: block_author,
-			transactions_root: extrinsics_root,
+			transactions_root,
 			number: header.number.into(),
 			timestamp: timestamp.into(),
 			base_fee_per_gas: runtime_api.gas_price().await.ok().unwrap_or_default(),
 			gas_limit,
 			gas_used,
-			receipts_root: extrinsics_root,
+			receipts_root,
 			transactions,
 			..Default::default()
 		}
