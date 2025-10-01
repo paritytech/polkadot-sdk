@@ -56,6 +56,9 @@ pub trait DebugRpc {
 		block: BlockNumberOrTagOrHash,
 		tracer_config: TracerConfig,
 	) -> RpcResult<Trace>;
+
+	#[method(name = "debug_getAutomine")]
+	async fn get_automine(&self) -> RpcResult<bool>;
 }
 
 pub struct DebugRpcServerImpl {
@@ -114,5 +117,12 @@ impl DebugRpcServer for DebugRpcServerImpl {
 	) -> RpcResult<Trace> {
 		let TracerConfig { config, timeout } = tracer_config;
 		with_timeout(timeout, self.client.trace_call(transaction, block, config)).await
+	}
+
+	async fn get_automine(&self) -> RpcResult<bool> {
+		self.client.get_automine().await.map_err(|err| {
+			log::error!(target: LOG_TARGET, "Get automine failed: {err:?}");
+			ErrorCode::InternalError.into()
+		})
 	}
 }

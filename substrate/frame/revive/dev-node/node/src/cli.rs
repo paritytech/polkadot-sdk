@@ -17,7 +17,7 @@
 
 use polkadot_sdk::{sc_cli::RunCmd, *};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Consensus {
 	ManualSeal(u64),
 	InstantSeal,

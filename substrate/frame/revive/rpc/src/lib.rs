@@ -169,8 +169,16 @@ impl EthRpcServer for EthRpcServerImpl {
 			err
 		})?;
 
-		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
-		Ok(hash)
+		// If automine is enabled, wait for the transaction receipt to be available.
+		// This ensures that the transaction is mined before returning the hash.
+		if self.client.is_automine() {
+			self.client.wait_for_transaction_receipt(hash).await.map_err(|err| {
+				log::error!(target: LOG_TARGET, "Wait for receipt failed: {err:?}");
+				err
+			})?;
+		}
+
+		return Ok(hash);
 	}
 
 	async fn send_transaction(&self, mut transaction: GenericTransaction) -> RpcResult<H256> {
