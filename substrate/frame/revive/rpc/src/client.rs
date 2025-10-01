@@ -33,7 +33,7 @@ use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
 		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256, U256,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256,
 	},
 	EthTransactError,
 };
@@ -190,35 +190,7 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 		.find_first::<crate::subxt_client::timestamp::calls::types::Set>()
 		.ok()??;
 
-	Some(ext.value.now / 1000)
-}
-
-/// Calculate the trie root using IncrementalHashBuilder.
-///
-/// This method takes a slice of items that implement the `Encode2718` trait,
-/// encodes each item, and adds them to the hash builder to compute the trie root.
-///
-/// # Arguments
-/// * `items` - A vector of items that implement the `Encode2718` trait
-///
-/// # Returns
-/// The computed trie root as `H256`
-fn get_trie_root<T: pallet_revive::evm::Encode2718>(items: &[T]) -> H256 {
-	use pallet_revive::evm::block_hash::IncrementalHashBuilder;
-
-	let mut builder = IncrementalHashBuilder::new();
-
-	// Handle the first item separately
-	if let Some(first_item) = items.first() {
-		builder.set_first_value(first_item.encode_2718());
-	}
-
-	// Add remaining items
-	for item in items.into_iter().skip(1) {
-		builder.add_value(item.encode_2718());
-	}
-
-	builder.finish()
+	Some(ext.value.now)
 }
 
 /// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
@@ -731,7 +703,6 @@ impl Client {
 			return eth_block;
 		}
 
-		log::trace!(target: LOG_TARGET, "Reconstructing ethereum block for substrate block {:?}", block.hash());
 		// We need to reconstruct the ETH block fully.
 		let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
 			.receipt_provider
@@ -746,6 +717,9 @@ impl Client {
 	}
 
 	/// Get the EVM block for the given block and receipts.
+	///
+	/// This method properly reconstructs an Ethereum block using the same logic as on-chain
+	/// block building, ensuring correct parent_hash linkage in the EVM block chain.
 	pub async fn evm_block_from_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -753,51 +727,73 @@ impl Client {
 		signed_txs: Vec<TransactionSigned>,
 		hydrated_transactions: bool,
 	) -> Block {
-		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?} from receipts", block.hash());
-		let runtime_api = self.runtime_api(block.hash());
-		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
-
-		let header = block.header();
-		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
-		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
-
-		// TODO: remove once subxt is updated
-		let parent_hash = header.parent_hash.0.into();
-
-		let transactions_root = get_trie_root(&signed_txs);
-		let receipts_root = get_trie_root(receipts);
-
-		let gas_used = receipts.iter().fold(U256::zero(), |acc, receipt| acc + receipt.gas_used);
-		let transactions = if hydrated_transactions {
-			signed_txs
-				.into_iter()
-				.zip(receipts.iter())
-				.map(|(signed_tx, receipt)| TransactionInfo::new(receipt, signed_tx))
-				.collect::<Vec<TransactionInfo>>()
-				.into()
-		} else {
-			receipts
-				.iter()
-				.map(|receipt| receipt.transaction_hash)
-				.collect::<Vec<_>>()
-				.into()
+		use pallet_revive::evm::block_hash::{
+			AccumulateReceipt, EthereumBlockBuilder, InMemoryStorage,
 		};
 
-		Block {
-			hash: block.hash(),
-			parent_hash,
-			state_root: transactions_root,
-			miner: block_author,
-			transactions_root,
-			number: header.number.into(),
-			timestamp: timestamp.into(),
-			base_fee_per_gas: runtime_api.gas_price().await.ok().unwrap_or_default(),
-			gas_limit,
-			gas_used,
-			receipts_root,
-			transactions,
-			..Default::default()
+		log::trace!(target: LOG_TARGET, "Reconstructing Ethereum block for substrate block {:?}", block.hash());
+
+		let runtime_api = self.runtime_api(block.hash());
+		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
+		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
+		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+
+		// Build block using the proper EthereumBlockBuilder
+		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
+
+		// Process each transaction with its receipt
+		for (signed_tx, receipt) in signed_txs.iter().zip(receipts.iter()) {
+			let tx_encoded = signed_tx.signed_payload();
+
+			// Reconstruct logs from receipt
+			let mut accumulate_receipt = AccumulateReceipt::new();
+			for log in &receipt.logs {
+				let data = log.data.as_ref().map(|d| d.0.as_slice()).unwrap_or(&[]);
+				accumulate_receipt.add_log(&log.address, data, &log.topics);
+			}
+
+			// Process the transaction
+			builder.process_transaction(
+				tx_encoded,
+				receipt.status.unwrap_or_default() == 1.into(),
+				receipt.gas_used.as_u64().into(),
+				accumulate_receipt.encoding,
+				accumulate_receipt.bloom,
+			);
 		}
+
+		// Get parent EVM block hash (not Substrate hash!)
+		// This is crucial for maintaining the EVM block chain integrity
+		let parent_evm_hash = if block.number() > 1 {
+			let parent_substrate_hash = block.header().parent_hash;
+			// Try to resolve to EVM hash, fallback to substrate hash for backwards compatibility
+			self.resolve_ethereum_hash(&parent_substrate_hash)
+				.await
+				.unwrap_or(parent_substrate_hash)
+		} else {
+			H256::zero() // Genesis block
+		};
+
+		// Build the Ethereum block with correct parent hash
+		let (mut evm_block, _gas_info) = builder.build(
+			block.header().number.into(),
+			parent_evm_hash,
+			timestamp.into(),
+			block_author,
+			gas_limit,
+		);
+
+		// Optionally hydrate with full transaction info
+		if hydrated_transactions {
+			evm_block.transactions = signed_txs
+				.into_iter()
+				.zip(receipts.iter())
+				.map(|(tx, receipt)| TransactionInfo::new(receipt, tx))
+				.collect::<Vec<_>>()
+				.into();
+		}
+
+		evm_block
 	}
 
 	/// Get the chain ID.
