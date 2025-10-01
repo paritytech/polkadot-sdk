@@ -18,13 +18,14 @@
 use crate::{
 	assert_refcount,
 	call_builder::VmBinaryModule,
+	debug::DebugSettings,
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		DebugFlag, ExtBuilder, Test,
 	},
-	Code, Config, DebugSettings, Error, GenesisConfig, PristineCode,
+	Code, Config, Error, GenesisConfig, PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
@@ -159,7 +160,6 @@ fn basic_evm_flow_tracing_works() {
 	});
 }
 
-
 #[test]
 fn eth_contract_too_large() {
 	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
@@ -175,7 +175,7 @@ fn eth_contract_too_large() {
 
 		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
-			debug_settings: Some(DebugSettings { allow_unlimited_contract_size }),
+			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size)),
 			..Default::default()
 		};
 

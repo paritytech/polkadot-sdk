@@ -37,7 +37,6 @@ use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound,
 };
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
 use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
@@ -565,24 +564,6 @@ impl<T: Config> DeletionQueueManager<T> {
 		let entry = <DeletionQueue<T>>::get(self.delete_counter);
 		entry.map(|trie_id| DeletionQueueEntry { trie_id, queue: self })
 	}
-}
-
-/// Debugging settings that can be configured when DebugEnabled config is true.
-#[derive(
-	Default,
-	Encode,
-	Decode,
-	Clone,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-pub struct DebugSettings {
-	/// Whether to allow unlimited contract size.
-	pub allow_unlimited_contract_size: bool,
 }
 
 #[cfg(test)]

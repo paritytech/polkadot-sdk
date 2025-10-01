@@ -25,6 +25,7 @@ extern crate alloc;
 mod address;
 mod benchmarking;
 mod call_builder;
+mod debug;
 mod exec;
 mod gas;
 mod impl_fungibles;
@@ -87,9 +88,10 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
+	debug::DebugSettings,
 	exec::{Key, MomentOf, Origin},
 	pallet::{genesis, *},
-	storage::{AccountInfo, ContractInfo, DebugSettings},
+	storage::{AccountInfo, ContractInfo},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -547,8 +549,7 @@ pub mod pallet {
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
-	#[pallet::getter(fn debug_settings)]
-	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, OptionQuery>;
+	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
 
 	pub mod genesis {
 		use super::*;
@@ -682,7 +683,9 @@ pub mod pallet {
 			}
 
 			// Set debug settings.
-			Pallet::<T>::set_debug_settings(&self.debug_settings)
+			if let Some(settings) = self.debug_settings.as_ref() {
+				settings.write_to_storage::<T>()
+			}
 		}
 	}
 
@@ -1920,25 +1923,6 @@ impl<T: Config> Pallet<T> {
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
 			.map(|code| code.into())
 			.unwrap_or_default()
-	}
-
-	/// Returns true if unlimited contract size is allowed.
-	pub fn is_unlimited_contract_size_allowed() -> bool {
-		T::DebugEnabled::get() &&
-			DebugSettingsOf::<T>::get().unwrap_or_default().allow_unlimited_contract_size
-	}
-
-	/// Set the debug settings for the pallet.
-	pub fn set_debug_settings(settings: &Option<DebugSettings>) {
-		if let Some(settings) = settings {
-			DebugSettingsOf::<T>::put(settings);
-			if !T::DebugEnabled::get() {
-				log::warn!(
-					target: crate::LOG_TARGET,
-					"Debug settings changed, but debug features are disabled in the runtime configuration."
-				);
-			}
-		}
 	}
 }
 

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	debug::DebugSettings,
 	exec::ExecError,
 	gas, vec,
 	vm::{BytecodeType, ExecResult, Ext},
@@ -64,7 +65,7 @@ impl<T: Config> ContractBlob<T> {
 	/// Create a new contract from EVM init code.
 	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE &&
-			!crate::Pallet::<T>::is_unlimited_contract_size_allowed()
+			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
@@ -100,7 +101,7 @@ impl<T: Config> ContractBlob<T> {
 		owner: AccountIdOf<T>,
 	) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE &&
-			!crate::Pallet::<T>::is_unlimited_contract_size_allowed()
+			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
