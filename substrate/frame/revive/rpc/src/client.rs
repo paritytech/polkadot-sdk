@@ -224,7 +224,7 @@ impl Client {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
 
-		Ok(Self {
+		let client = Self {
 			api,
 			rpc_client,
 			rpc,
@@ -233,7 +233,69 @@ impl Client {
 			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
-		})
+		};
+
+		// Initialize genesis block (block 0) if not already present
+		client.ensure_genesis_block().await?;
+
+		Ok(client)
+	}
+
+	/// Ensure the genesis block (block 0) is reconstructed and stored.
+	///
+	/// This method checks if block 0 exists in storage. If not, it reconstructs
+	/// an empty EVM genesis block and stores the mapping between its EVM hash
+	/// and the Substrate hash.
+	async fn ensure_genesis_block(&self) -> Result<(), ClientError> {
+		use pallet_revive::evm::block_hash::{EthereumBlockBuilder, InMemoryStorage};
+
+		// Try to get genesis block
+		let genesis_block = match self.block_by_number(0).await? {
+			Some(block) => block,
+			None => {
+				log::warn!(target: LOG_TARGET, "Genesis block (0) not found, skipping initialization");
+				return Ok(());
+			},
+		};
+
+		let substrate_hash = genesis_block.hash();
+
+		// Check if genesis block mapping already exists
+		if self.receipt_provider.get_ethereum_hash(&substrate_hash).await.is_some() {
+			log::debug!(target: LOG_TARGET, "Genesis block mapping already exists");
+			return Ok(());
+		}
+
+		log::info!(target: LOG_TARGET, "🏗️ Reconstructing genesis block (block 0)");
+
+		let runtime_api = self.runtime_api(substrate_hash);
+		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
+		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
+		let timestamp = extract_block_timestamp(&genesis_block).await.unwrap_or_default();
+
+		// Build genesis block with no transactions
+		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
+		let (genesis_evm_block, _gas_info) = builder.build(
+			0u64.into(),          // block number 0
+			H256::zero(),         // parent hash is zero for genesis
+			timestamp.into(),     // timestamp from substrate block
+			block_author,         // block author
+			gas_limit,            // gas limit
+		);
+
+		let ethereum_hash = genesis_evm_block.hash;
+
+		// Store the mapping
+		self.receipt_provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, 0)
+			.await?;
+
+		log::info!(
+			target: LOG_TARGET,
+			"✅ Genesis block reconstructed: EVM hash {ethereum_hash:?} -> Substrate hash {substrate_hash:?}"
+		);
+
+		Ok(())
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
