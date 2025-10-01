@@ -1,10 +1,12 @@
 [package]
 name = "pallet-auction"
-description = "Auction module that implements `Auction` trait."
-license = "Apache-2.0"
 version = "1.0.0"
+license = "Apache-2.0"
 authors = ["Acala Developers", "Parity Technologies <admin@parity.io>"]
 edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME auction pallet that implements `Auction` trait."
 readme = "README.md"
 
 [dependencies]
