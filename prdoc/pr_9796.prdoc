@@ -8,6 +8,6 @@ doc:
 
 crates:
   - name: pallet-assets
-    bump: minor
+    bump: major
   - name: pallet-assets-precompiles
     bump: minor
