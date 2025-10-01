@@ -170,7 +170,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
 			} else {
-				log::error!(target: LOG_TARGET, "First transaction and receipt must be present at build phase");
+				log::debug!(target: LOG_TARGET, "Building an empty block");
 			}
 		}
 
