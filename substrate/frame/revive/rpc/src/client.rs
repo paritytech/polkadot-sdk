@@ -53,6 +53,7 @@ use subxt::{
 	Config, OnlineClient,
 };
 use thiserror::Error;
+use tokio::time::sleep;
 
 /// The substrate block type.
 pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
@@ -121,6 +122,9 @@ pub enum ClientError {
 	/// Failed to filter logs.
 	#[error("Failed to filter logs")]
 	LogFilterFailed(#[from] anyhow::Error),
+	/// The transaction receipt was not found.
+	#[error("Transaction receipt not found")]
+	TransactReceiptNotFound,
 }
 
 const REVERT_CODE: i32 = 3;
@@ -160,6 +164,7 @@ pub struct Client {
 	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
+	automine: bool,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -217,7 +222,7 @@ impl Client {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
 
-		Ok(Self {
+		let mut client = Self {
 			api,
 			rpc_client,
 			rpc,
@@ -226,7 +231,10 @@ impl Client {
 			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
-		})
+			automine: false,
+		};
+		client.update_automine().await;
+		Ok(client)
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -702,5 +710,58 @@ impl Client {
 		self.fee_history_provider
 			.fee_history(block_count, latest_block.number(), reward_percentiles)
 			.await
+	}
+
+	/// Wait for a transaction receipt to be available in the database for the given transaction
+	/// hash.
+	pub async fn wait_for_transaction_receipt(&self, hash: H256) -> Result<(), ClientError> {
+		// It retries for a maximum of 10 times, waiting 100 milliseconds between each attempt
+		let max_retries = 10;
+		let wait_time_millis = 100;
+		for attempt in 0..max_retries {
+			if let Some(_receipt) = self.receipt(&hash).await {
+				log::debug!(target: LOG_TARGET, "Transaction receipt found for hash: {hash:?} after {attempt} attempts.");
+				return Ok(());
+			}
+
+			sleep(Duration::from_millis(wait_time_millis)).await;
+		}
+
+		let total_wait = wait_time_millis * max_retries;
+		log::error!(target: LOG_TARGET, "Transaction {hash:?} receipt not found after {total_wait}ms");
+		Err(ClientError::TransactReceiptNotFound)
+	}
+
+	/// Check if automine is enabled.
+	pub fn is_automine(&self) -> bool {
+		self.automine
+	}
+
+	/// Get the automine status from the node.
+	pub async fn get_automine(&self) -> Result<bool, ClientError> {
+		let result = self.rpc_client.request("getAutomine", rpc_params![]).await;
+
+		match &result {
+			Ok(automine) => {
+				log::debug!(target: LOG_TARGET, "Automine status fetched successfully: {automine}");
+				Ok(*automine)
+			},
+			Err(err) => {
+				log::error!(target: LOG_TARGET, "Get automine failed: {err:?}");
+				Err(ClientError::TransactError(EthTransactError::Message(
+					"Get automine failed".to_string(),
+				)))
+			},
+		}
+	}
+
+	/// Update the automine status by querying the node.
+	/// If the query fails, automine is set to false.
+	async fn update_automine(&mut self) {
+		if let Ok(automine) = self.get_automine().await {
+			self.automine = automine;
+		} else {
+			self.automine = false;
+		}
 	}
 }
