@@ -445,7 +445,8 @@ pub fn main() -> Result<()> {
 	let contracts_dir = fixtures_dir.join("contracts");
 
 	// output pathes
-	let out_dir: PathBuf = env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
+	let out_dir: PathBuf =
+		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
 	let out_fixtures_dir = out_dir.join("fixtures");
 	let out_build_dir = out_dir.join("build");
 	fs::create_dir_all(&out_fixtures_dir).context("Failed to create output fixture directory")?;
