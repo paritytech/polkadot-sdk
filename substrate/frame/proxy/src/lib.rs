@@ -676,8 +676,9 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+
 		/// A proxy was executed correctly, with the given.
-		ProxyExecuted { result: DispatchResult },
+		ProxyExecuted { result: DispatchResult, post_info: Option<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo> },
 		/// A pure account has been created by new proxy with given
 		/// disambiguation index and proxy type.
 		PureCreated {
@@ -1017,8 +1018,23 @@ impl<T: Config> Pallet<T> {
 				_ => def.proxy_type.filter(c),
 			}
 		});
+        
+        let dispatch_result = call.dispatch(origin);
+
+        // Extract the actual DispatchResult and optional PostInfo
+        let (result, post_info) = match dispatch_result {
+            Ok(post_info) => (Ok(()), Some(post_info)),
+            Err(err) => (Err(err.error), None),
+        };
+    
+        Self::deposit_event(Event::ProxyExecuted { 
+            result,
+            post_info,
+        });
+        /*
 		let e = call.dispatch(origin);
-		Self::deposit_event(Event::ProxyExecuted { result: e.map(|_| ()).map_err(|e| e.error) });
+		Self::deposit_event(Event::ProxyExecuted { result: e.map(|w| w).map_err(|e| e.error) });
+        */
 	}
 
 	/// Removes all proxy delegates for a given delegator.
