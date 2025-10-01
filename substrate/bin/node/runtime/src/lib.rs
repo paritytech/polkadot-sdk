@@ -141,6 +141,7 @@ use impls::{AllianceProposalProvider, Author};
 /// Constant values used within the runtime.
 pub mod constants;
 use constants::{currency::*, time::*};
+use polkadot_sdk::pallet_balances::CreditToNegativeImbalanceAdapter;
 use sp_runtime::generic::Era;
 
 /// Generated voter bag information.
@@ -1679,7 +1680,7 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = MaxSubAccounts;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
-	type Slashed = Treasury;
+	type Slashed = CreditToNegativeImbalanceAdapter<Treasury, Self>;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
 	type RegistrarOrigin = EnsureRootOrHalfCouncil;
 	type OffchainSignature = Signature;

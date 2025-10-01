@@ -21,6 +21,7 @@ use frame_support::{
 	parameter_types, traits::ConstU32, CloneNoBound, EqNoBound, PartialEqNoBound,
 	RuntimeDebugNoBound,
 };
+use pallet_balances::CreditToNegativeImbalanceAdapter;
 use pallet_identity::{Data, IdentityInformationProvider};
 use parachains_common::{impls::ToParentTreasury, DAYS};
 use scale_info::TypeInfo;
@@ -53,7 +54,10 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = ConstU32<100>;
 	type IdentityInformation = IdentityInfo;
 	type MaxRegistrars = ConstU32<20>;
-	type Slashed = ToParentTreasury<RelayTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slashed = CreditToNegativeImbalanceAdapter<
+		ToParentTreasury<RelayTreasuryAccount, LocationToAccountId, Runtime>,
+		Runtime,
+	>;
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
 	type OffchainSignature = Signature;
