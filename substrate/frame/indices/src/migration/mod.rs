@@ -16,7 +16,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage migrations for the Indices pallet.
+use super::*;
+
+/// Storage migrations for the Indices pallet.
 pub mod v1;
 
 /// A unique identifier across all pallets.
