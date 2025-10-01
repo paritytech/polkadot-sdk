@@ -1,6 +1,6 @@
 title: 'Increase PARENT_SEARCH_DEPTH to 40'
 doc:
-- audience: Todo
+- audience: [Runtime Dev, Node Dev]
   description: |-
     Required to support 500ms blocks for parachains using Elastic Scaling.
     
@@ -13,3 +13,4 @@ doc:
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch
+
