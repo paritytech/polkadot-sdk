@@ -276,11 +276,11 @@ impl Client {
 		// Build genesis block with no transactions
 		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
 		let (genesis_evm_block, _gas_info) = builder.build(
-			0u64.into(),      // block number 0
-			H256::zero(),     // parent hash is zero for genesis
-			timestamp.into(), // timestamp from substrate block
-			block_author,     // block author
-			gas_limit,        // gas limit
+			0u64.into(),          // block number 0
+			H256::zero(),         // parent hash is zero for genesis
+			timestamp.into(),     // timestamp from substrate block
+			block_author,         // block author
+			gas_limit,            // gas limit
 		);
 
 		let ethereum_hash = genesis_evm_block.hash;
@@ -731,52 +731,51 @@ impl Client {
 		&self,
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
-	) -> Result<Option<Block>, ClientError> {
+	) -> Block {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
 
 		let storage_api = self.storage_api(block.hash());
-		let block = match storage_api.get_ethereum_block().await {
-			Ok(mut eth_block) => {
-				log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.hash);
+		let ethereum_block = storage_api.get_ethereum_block().await.inspect_err(|err| {
+			log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
+		});
 
-				// If no need for hydrating transactions then we can live with the hashes returned
-				// by the Revive pallet.
-				if hydrated_transactions {
-					// Hydrate the block.
-					let tx_infos = self
-						.receipt_provider
-						.receipts_from_block(&block)
-						.await
-						.unwrap_or_default()
-						.into_iter()
-						.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
-						.collect::<Vec<_>>();
+		// This could potentially fail under two circumstances:
+		//  - the block author cannot be obtained from the digest logs (highly unlikely)
+		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
+		//    disabled)
+		if let Ok(mut eth_block) = ethereum_block {
+			log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.hash);
 
-					eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
-				}
+			// This means we can live with the hashes returned by the Revive pallet.
+			if !hydrated_transactions {
+				return eth_block;
+			}
 
-				eth_block
-			},
-			Err(ClientError::EthereumBlockNotFound) => {
-				log::warn!(target: LOG_TARGET, "Failed to find Ethereum block for hash {:?}, trying to reconstruct", block.hash());
-				// We need to reconstruct the ETH block fully.
-				let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
-					.receipt_provider
-					.receipts_from_block(&block)
-					.await
-					.unwrap_or_default()
-					.into_iter()
-					.unzip();
-				self.evm_block_from_receipts(&block, &receipts, signed_txs, hydrated_transactions)
-					.await
-			},
-			Err(err) => {
-				log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
-				return Err(err);
-			},
-		};
+			// Hydrate the block.
+			let tx_infos = self
+				.receipt_provider
+				.receipts_from_block(&block)
+				.await
+				.unwrap_or_default()
+				.into_iter()
+				.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
+				.collect::<Vec<_>>();
 
-		Ok(Some(block))
+			eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
+			return eth_block;
+		}
+
+		// We need to reconstruct the ETH block fully.
+		let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
+			.receipt_provider
+			.receipts_from_block(&block)
+			.await
+			.unwrap_or_default()
+			.into_iter()
+			.unzip();
+		return self
+			.evm_block_from_receipts(&block, &receipts, signed_txs, hydrated_transactions)
+			.await
 	}
 
 	/// Get the EVM block for the given block and receipts.
