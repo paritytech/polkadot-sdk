@@ -194,17 +194,17 @@ impl ReceiptExtractor {
 		let base_gas_price = (self.fetch_gas_price)(substrate_block.hash()).await?;
 		let tx_info =
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
+
 		let gas_price = tx_info.gas_price.unwrap_or_default();
 		let gas_used = if let Some(receipt) = maybe_receipt {
 			// If we have a receipt, use it to accurately represent the gas.
 			U256::from(receipt.gas_used)
 		} else {
 			// Otherwise, calculate gas used from the transaction fees.
-			let gas_used = U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
+			U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
 				.saturating_mul(self.native_to_eth_ratio.into())
 				.checked_div(gas_price)
-				.unwrap_or_default();
-			gas_used
+				.unwrap_or_default()
 		};
 
 		// get logs from ContractEmitted event
