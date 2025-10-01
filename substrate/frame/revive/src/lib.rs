@@ -1927,7 +1927,10 @@ impl<T: Config> Pallet<T> {
 		if let Some(settings) = settings {
 			DebugSettingsOf::<T>::put(settings);
 			if !T::DebugEnabled::get() {
-				log::warn!("Revive: Debug settings changed, but debug features are disabled in the runtime configuration.");
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"Debug settings changed, but debug features are disabled in the runtime configuration."
+				);
 			}
 		}
 	}

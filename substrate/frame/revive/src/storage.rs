@@ -569,12 +569,11 @@ impl<T: Config> DeletionQueueManager<T> {
 
 /// Debugging settings that can be configured when DebugEnabled config is true.
 #[derive(
-	DefaultNoBound,
+	Default,
 	Encode,
 	Decode,
-	CloneNoBound,
+	Clone,
 	PartialEq,
-	Eq,
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
