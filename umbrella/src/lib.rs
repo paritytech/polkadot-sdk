@@ -348,6 +348,10 @@ pub use pallet_assets_precompiles;
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
 
+/// Auction module that implements `Auction` trait.
+#[cfg(feature = "pallet-auction")]
+pub use pallet_auction;
+
 /// FRAME AURA consensus pallet.
 #[cfg(feature = "pallet-aura")]
 pub use pallet_aura;
