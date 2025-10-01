@@ -53,7 +53,7 @@ async fn should_return_storage() {
 		.add_extra_storage(b":map:acc2".to_vec(), vec![1, 2, 3])
 		.build();
 	let genesis_hash = client.genesis_hash();
-	let (client, child) = new_full(Arc::new(client), test_executor());
+	let (client, child) = new_full(Arc::new(client), test_executor(), None);
 	let key = StorageKey(KEY.to_vec());
 	let ext = allow_unsafe();
 
