@@ -17,9 +17,9 @@ This pallet is designed to be flexible and can be used to implement various auct
 
 ### Auction Lifecycle
 
-1.  **Creation:** An auction is created using the `new_auction` function from the `Auction` trait. It can be configured with a start time and an optional end time.
-2.  **Bidding:** Once an auction has started, users can place bids using the `bid` extrinsic. The `AuctionHandler` implementation validates each bid. For example, it can enforce that a new bid must be higher than the current highest bid.
-3.  **Ending:** If an auction has an end time, it will be automatically concluded in the `on_finalize` hook of the block where it's scheduled to end. When an auction ends, the `on_auction_ended` function of the `AuctionHandler` is called to process the result (e.g., transfer the auctioned item to the winner and the bid amount to the seller).
+1. **Creation:** An auction is created using the `new_auction` function from the `Auction` trait. It can be configured with a start time and an optional end time.
+2. **Bidding:** Once an auction has started, users can place bids using the `bid` extrinsic. The `AuctionHandler` implementation validates each bid. For example, it can enforce that a new bid must be higher than the current highest bid.
+3. **Ending:** If an auction has an end time, it will be automatically concluded in the `on_finalize` hook of the block where it's scheduled to end. When an auction ends, the `on_auction_ended` function of the `AuctionHandler` is called to process the result (e.g., transfer the auctioned item to the winner and the bid amount to the seller).
 
 ### `AuctionHandler` Trait
 
@@ -34,7 +34,7 @@ By implementing this trait, developers can define the specific rules and outcome
 
 To use this pallet in a runtime, you need to:
 
-1.  Add it as a dependency in your runtime's `Cargo.toml`.
-2.  Implement the `Config` trait for the pallet.
-3.  Implement the `AuctionHandler` trait with your custom auction logic.
-4.  Include the pallet in your runtime's `construct_runtime!` macro.
+1. Add it as a dependency in your runtime's `Cargo.toml`.
+2. Implement the `Config` trait for the pallet.
+3. Implement the `AuctionHandler` trait with your custom auction logic.
+4. Include the pallet in your runtime's `construct_runtime!` macro.
