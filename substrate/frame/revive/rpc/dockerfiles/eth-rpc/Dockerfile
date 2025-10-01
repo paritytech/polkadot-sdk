@@ -1,13 +1,7 @@
-FROM rust AS builder
-
-RUN apt-get update && \
-		DEBIAN_FRONTEND=noninteractive apt-get install -y \
-		protobuf-compiler \
-		clang libclang-dev
+FROM docker.io/paritytech/ci-unified:latest AS builder
 
 WORKDIR /polkadot
 COPY . /polkadot
-RUN rustup component add rust-src
 RUN cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
 
 FROM docker.io/parity/base-bin:latest
