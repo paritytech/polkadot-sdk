@@ -106,7 +106,7 @@ async fn block_bundling_tracing_block() -> Result<(), anyhow::Error> {
 	// Decode and verify the BlockTrace is successful
 	match trace_result {
 		TraceBlockResponse::TraceError(error) => {
-			Err(anyhow!("Block tracing failed: {}", error.error));
+			Err(anyhow!("Block tracing failed: {}", error.error))
 		},
 		TraceBlockResponse::BlockTrace(_) => {
 			log::info!("✅ Block trace successful!");
