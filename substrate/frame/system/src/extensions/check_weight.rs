@@ -25,7 +25,8 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension, ValidateResult,
+		CheckedConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 	DispatchResult,
@@ -50,10 +51,13 @@ where
 	/// with given `DispatchClass` can have.
 	fn check_extrinsic_weight(
 		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let max = T::BlockWeights::get().get(info.class).max_extrinsic;
+		let total_weight_including_length =
+			info.total_weight().add_proof_size(len.try_into().unwrap_or(u64::MAX));
 		match max {
-			Some(max) if info.total_weight().any_gt(max) => {
+			Some(max) if total_weight_including_length.any_gt(max) => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Extrinsic {} is greater than the max extrinsic {}",
@@ -111,7 +115,7 @@ where
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
 		// consumption from causing false negatives.
-		Self::check_extrinsic_weight(info)?;
+		Self::check_extrinsic_weight(info, len)?;
 
 		Ok((Default::default(), next_len))
 	}
