@@ -271,8 +271,8 @@ impl ElectionProvider for MockFallback {
 		Ok(())
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 }
 
@@ -645,10 +645,7 @@ pub fn verifier_events_since_last_call() -> Vec<crate::verifier::Event<Runtime>>
 
 /// proceed block number to `n`.
 pub fn roll_to(n: BlockNumber) {
-	crate::Pallet::<Runtime>::roll_to(
-		n,
-		true,
-	);
+	crate::Pallet::<Runtime>::roll_to(n, true);
 }
 
 /// proceed block number to whenever the snapshot is fully created (`Phase::Snapshot(0)`).

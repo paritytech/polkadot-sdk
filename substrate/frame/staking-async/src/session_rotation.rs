@@ -83,6 +83,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
 };
+use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
@@ -859,47 +860,58 @@ impl<T: Config> EraElectionPlanner<T> {
 			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
 	}
 
-	/// Hook to be used in the pallet's on-initialize.
-	pub(crate) fn maybe_fetch_election_results() {
-		if let Ok(true) = T::ElectionProvider::status() {
-			crate::log!(
-				debug,
-				"Election provider is ready, our status is {:?}",
-				NextElectionPage::<T>::get()
-			);
+	pub(crate) fn per_block_exec_maybe_fetch_election_results(
+	) -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+		if let Ok(Some(required_weight)) = T::ElectionProvider::status() {
+			(
+				required_weight,
+				Box::new(|| {
+					crate::log!(
+						debug,
+						"Election provider is ready, our status is {:?}",
+						NextElectionPage::<T>::get()
+					);
 
-			debug_assert!(
-				CurrentEra::<T>::get().unwrap_or(0) ==
-					ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
-				"Next era must be already planned."
-			);
+					debug_assert!(
+						CurrentEra::<T>::get().unwrap_or(0) ==
+							ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
+						"Next era must be already planned."
+					);
 
-			let current_page = NextElectionPage::<T>::get()
-				.unwrap_or(Self::election_pages().defensive_saturating_sub(1));
-			let maybe_next_page = current_page.checked_sub(1);
-			crate::log!(debug, "fetching page {:?}, next {:?}", current_page, maybe_next_page);
+					let current_page = NextElectionPage::<T>::get()
+						.unwrap_or(Self::election_pages().defensive_saturating_sub(1));
+					let maybe_next_page = current_page.checked_sub(1);
+					crate::log!(
+						debug,
+						"fetching page {:?}, next {:?}",
+						current_page,
+						maybe_next_page
+					);
 
-			Self::do_elect_paged(current_page);
-			NextElectionPage::<T>::set(maybe_next_page);
+					Self::do_elect_paged(current_page);
+					NextElectionPage::<T>::set(maybe_next_page);
 
-			// if current page was `Some`, and next is `None`, we have finished an election and
-			// we can report it now.
-			if maybe_next_page.is_none() {
-				use pallet_staking_async_rc_client::RcClientInterface;
-				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
-				let prune_up_to = Self::get_prune_up_to();
-				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
+					if maybe_next_page.is_none() {
+						let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+						let prune_up_to = Self::get_prune_up_to();
+						let rc_validators =
+							ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
 
-				crate::log!(
-					info,
-					"Sending new validator set of size {:?} to RC. ID: {:?}, prune_up_to: {:?}",
-					rc_validators.len(),
-					id,
-					prune_up_to
-				);
+						crate::log!(
+							info,
+							"Sending new validator set of size {:?} to RC. ID: {:?}, prune_up_to: {:?}",
+							rc_validators.len(),
+							id,
+							prune_up_to
+						);
+						T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
+					}
 
-				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
-			}
+					None
+				}),
+			)
+		} else {
+			(Default::default(), Box::new(|| None))
 		}
 	}
 

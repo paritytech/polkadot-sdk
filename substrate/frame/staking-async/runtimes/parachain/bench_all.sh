@@ -5,7 +5,7 @@ STEPS=2
 REPEAT=2
 
 # if any of the command line arguments are equal to `--log=X`, set X to the below log levels
-LOG="runtime::multiblock-election=info,runtime::staking-async=info,polkadot_sdk_frame::benchmark=info"
+LOG="runtime::multiblock-election=info,runtime::staking-async=info,frame::benchmark=info"
 
 if [[ "${NO_COMPILE}" == "1" ]]; then
     echo "Skipping compilation because 'NO_COMPILE' was set"

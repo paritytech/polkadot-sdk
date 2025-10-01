@@ -133,6 +133,7 @@
 //! mod generic_election_provider {
 //!     use super::*;
 //!     use sp_runtime::traits::Zero;
+//! 	use frame_support::pallet_prelude::Weight;
 //!
 //!     pub struct GenericElectionProvider<T: Config>(std::marker::PhantomData<T>);
 //!
@@ -161,7 +162,7 @@
 //!             unimplemented!()
 //!         }
 //!
-//!         fn status() -> Result<bool, ()> {
+//!         fn status() -> Result<Option<Weight>, ()> {
 //!             unimplemented!()
 //!         }
 //!     }
@@ -523,10 +524,13 @@ pub trait ElectionProvider {
 
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
 	///
-	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be
-	/// called. `Ok(false)` means we are doing something, but work is still ongoing. `elect` should
-	/// not be called. `Ok(true)` means we are done and ready for a call to `elect`.
-	fn status() -> Result<bool, ()>;
+	/// * `Err(())` should signal that we are not doing anything, and `elect` should def. not be
+	/// called.
+	/// * `Ok(None)` means we are doing something, but we are not done. `elect` should
+	/// not be called.
+	/// * `Ok(Some(Weight))` means we are done and ready for a call to `elect`, which should consume
+	///   at most the given weight when called.
+	fn status() -> Result<Option<Weight>, ()>;
 
 	/// Signal the election provider that we are about to call `elect` asap, and it should prepare
 	/// itself.
@@ -585,7 +589,7 @@ where
 		Zero::zero()
 	}
 
-	fn status() -> Result<bool, ()> {
+	fn status() -> Result<Option<Weight>, ()> {
 		Err(())
 	}
 }

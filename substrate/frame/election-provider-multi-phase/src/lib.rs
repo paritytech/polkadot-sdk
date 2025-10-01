@@ -1841,13 +1841,13 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		Ok(())
 	}
 
-	fn status() -> Result<bool, ()> {
+	fn status() -> Result<Option<Weight>, ()> {
 		let has_queued = QueuedSolution::<T>::exists();
 		let phase = CurrentPhase::<T>::get();
 		match (phase, has_queued) {
-			(Phase::Unsigned(_), true) => Ok(true),
+			(Phase::Unsigned(_), true) => Ok(Some(Default::default())),
 			(Phase::Off, _) => Err(()),
-			_ => Ok(false),
+			_ => Ok(None),
 		}
 	}
 

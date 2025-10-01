@@ -256,8 +256,8 @@ impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 		Err("Emergency phase started.")
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 
 	fn start() -> Result<(), Self::Error> {
@@ -309,8 +309,8 @@ impl<T: Config> ElectionProvider for Continue<T> {
 		Zero::zero()
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 }
 
@@ -683,6 +683,7 @@ pub mod pallet {
 			);
 
 			// TODO: we are not registering export weight anywhere.
+			// TODO: basic tests for all weight registeration.
 			log!(
 				debug,
 				"required weight for transition from {:?} to {:?} is {:?}",
@@ -1599,10 +1600,7 @@ where
 
 	/// Roll to next block.
 	pub(crate) fn roll_next(try_state: bool) {
-		Self::roll_to(
-			frame_system::Pallet::<T>::block_number() + 1u32.into(),
-			try_state,
-		);
+		Self::roll_to(frame_system::Pallet::<T>::block_number() + 1u32.into(), try_state);
 	}
 }
 
@@ -1680,7 +1678,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		Self::average_election_duration().into()
 	}
 
-	fn status() -> Result<bool, ()> {
+	fn status() -> Result<Option<Weight>, ()> {
 		match <CurrentPhase<T>>::get() {
 			// we're not doing anything.
 			Phase::Off => Err(()),
@@ -1690,10 +1688,16 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |
 			Phase::Snapshot(_) |
-			Phase::Emergency => Ok(false),
+			Phase::Emergency => Ok(None),
 
 			// we're ready
-			Phase::Done | Phase::Export(_) => Ok(true),
+			Phase::Done => Ok(Some(T::WeightInfo::export_non_terminal())),
+			Phase::Export(p) =>
+				if p.is_zero() {
+					Ok(Some(T::WeightInfo::export_terminal()))
+				} else {
+					Ok(Some(T::WeightInfo::export_non_terminal()))
+				},
 		}
 	}
 
@@ -2836,7 +2840,7 @@ mod election_provider {
 	fn elect_call_when_not_ongoing() {
 		ExtBuilder::full().fallback_mode(FallbackModes::Onchain).build_and_execute(|| {
 			roll_to_snapshot_created();
-			assert_eq!(MultiBlock::status(), Ok(false));
+			assert_eq!(MultiBlock::status(), Ok(None));
 			assert!(MultiBlock::elect(0).is_ok());
 		});
 		ExtBuilder::full().fallback_mode(FallbackModes::Onchain).build_and_execute(|| {
