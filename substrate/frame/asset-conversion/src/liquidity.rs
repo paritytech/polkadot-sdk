@@ -17,56 +17,67 @@
 
 //! Trait for providing methods to mutate liquidity pools.
 
-use frame_support::transactional;
+use frame_support::{transactional, traits::tokens::Balance};
 use sp_runtime::DispatchError;
 
 use crate::{Config, Pallet};
 
 /// Trait for providing methods to mutate liquidity pools.
-pub trait MutateLiquidity<AccountId, AssetKind, Balance, PoolId> {
+pub trait MutateLiquidity<AccountId> {
+	/// Measure units of the asset classes for swapping.
+	type Balance: Balance;
+	/// Kind of assets that are going to be swapped.
+	type AssetKind;
+	/// Pool identifier.
+	type PoolId;
+
 	/// Create a new liquidity pool.
 	///
 	/// Returns the ID of the newly created pool.
 	fn create_pool(
 		creator: &AccountId,
-		asset1: Box<AssetKind>,
-		asset2: Box<AssetKind>,
-	) -> Result<PoolId, DispatchError>;
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+	) -> Result<Self::PoolId, DispatchError>;
 
 	/// Add liquidity to a pool.
 	///
 	/// Returns the amount of LP tokens minted.
 	fn add_liquidity(
 		who: &AccountId,
-		asset1: Box<AssetKind>,
-		asset2: Box<AssetKind>,
-		amount1_desired: Balance,
-		amount2_desired: Balance,
-		amount1_min: Balance,
-		amount2_min: Balance,
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount1_desired: Self::Balance,
+		amount2_desired: Self::Balance,
+		amount1_min: Self::Balance,
+		amount2_min: Self::Balance,
 		mint_to: &AccountId,
-	) -> Result<Balance, DispatchError>;
+	) -> Result<Self::Balance, DispatchError>;
 
 	/// Remove liquidity from a pool.
 	///
 	/// Returns the amounts of assets withdrawn.
 	fn remove_liquidity(
 		who: &AccountId,
-		asset1: Box<AssetKind>,
-		asset2: Box<AssetKind>,
-		lp_token_burn: Balance,
-		amount1_min_receive: Balance,
-		amount2_min_receive: Balance,
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		lp_token_burn: Self::Balance,
+		amount1_min_receive: Self::Balance,
+		amount2_min_receive: Self::Balance,
 		withdraw_to: &AccountId,
-	) -> Result<(Balance, Balance), DispatchError>;
+	) -> Result<(Self::Balance, Self::Balance), DispatchError>;
 }
 
-impl<T: Config> MutateLiquidity<T::AccountId, T::AssetKind, T::Balance, T::PoolId> for Pallet<T> {
+impl<T: Config> MutateLiquidity<T::AccountId> for Pallet<T> {
+	type Balance = T::Balance;
+	type AssetKind = T::AssetKind;
+	type PoolId = T::PoolId;
+
 	#[transactional]
 	fn create_pool(
 		creator: &T::AccountId,
-		asset1: Box<T::AssetKind>,
-		asset2: Box<T::AssetKind>,
+		asset1: T::AssetKind,
+		asset2: T::AssetKind,
 	) -> Result<T::PoolId, DispatchError> {
 		Self::do_create_pool(creator, asset1, asset2)
 	}
@@ -74,8 +85,8 @@ impl<T: Config> MutateLiquidity<T::AccountId, T::AssetKind, T::Balance, T::PoolI
 	#[transactional]
 	fn add_liquidity(
 		who: &T::AccountId,
-		asset1: Box<T::AssetKind>,
-		asset2: Box<T::AssetKind>,
+		asset1: T::AssetKind,
+		asset2: T::AssetKind,
 		amount1_desired: T::Balance,
 		amount2_desired: T::Balance,
 		amount1_min: T::Balance,
@@ -97,8 +108,8 @@ impl<T: Config> MutateLiquidity<T::AccountId, T::AssetKind, T::Balance, T::PoolI
 	#[transactional]
 	fn remove_liquidity(
 		who: &T::AccountId,
-		asset1: Box<T::AssetKind>,
-		asset2: Box<T::AssetKind>,
+		asset1: T::AssetKind,
+		asset2: T::AssetKind,
 		lp_token_burn: T::Balance,
 		amount1_min_receive: T::Balance,
 		amount2_min_receive: T::Balance,

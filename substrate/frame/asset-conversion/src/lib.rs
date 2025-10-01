@@ -374,7 +374,7 @@ pub mod pallet {
 			asset2: Box<T::AssetKind>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			Self::do_create_pool(&sender, asset1, asset2)?;
+			Self::do_create_pool(&sender, *asset1, *asset2)?;
 			Ok(())
 		}
 
@@ -407,8 +407,8 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			Self::do_add_liquidity(
 				&sender,
-				asset1,
-				asset2,
+				*asset1,
+				*asset2,
 				amount1_desired,
 				amount2_desired,
 				amount1_min,
@@ -435,8 +435,8 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			Self::do_remove_liquidity(
 				&sender,
-				asset1,
-				asset2,
+				*asset1,
+				*asset2,
 				lp_token_burn,
 				amount1_min_receive,
 				amount2_min_receive,
@@ -549,8 +549,8 @@ pub mod pallet {
 		/// Create a new liquidity pool.
 		pub(crate) fn do_create_pool(
 			creator: &T::AccountId,
-			asset1: Box<T::AssetKind>,
-			asset2: Box<T::AssetKind>,
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
 		) -> Result<T::PoolId, DispatchError> {
 			ensure!(asset1 != asset2, Error::<T>::InvalidAssetPair);
 
@@ -567,12 +567,12 @@ pub mod pallet {
 				Self::withdraw(T::PoolSetupFeeAsset::get(), creator, T::PoolSetupFee::get(), true)?;
 			T::PoolSetupFeeTarget::on_unbalanced(fee);
 
-			if T::Assets::should_touch(*asset1.clone(), &pool_account) {
-				T::Assets::touch(*asset1, &pool_account, creator)?
+			if T::Assets::should_touch(asset1.clone(), &pool_account) {
+				T::Assets::touch(asset1.clone(), &pool_account, creator)?
 			};
 
-			if T::Assets::should_touch(*asset2.clone(), &pool_account) {
-				T::Assets::touch(*asset2, &pool_account, creator)?
+			if T::Assets::should_touch(asset2.clone(), &pool_account) {
+				T::Assets::touch(asset2.clone(), &pool_account, creator)?
 			};
 
 			let lp_token = NextPoolAssetId::<T>::get()
@@ -602,8 +602,8 @@ pub mod pallet {
 		/// Add liquidity to a pool.
 		pub(crate) fn do_add_liquidity(
 			who: &T::AccountId,
-			asset1: Box<T::AssetKind>,
-			asset2: Box<T::AssetKind>,
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
 			amount1_desired: T::Balance,
 			amount2_desired: T::Balance,
 			amount1_min: T::Balance,
@@ -622,8 +622,8 @@ pub mod pallet {
 			let pool_account =
 				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
 
-			let reserve1 = Self::get_balance(&pool_account, *asset1.clone());
-			let reserve2 = Self::get_balance(&pool_account, *asset2.clone());
+			let reserve1 = Self::get_balance(&pool_account, asset1.clone());
+			let reserve2 = Self::get_balance(&pool_account, asset2.clone());
 
 			let amount1: T::Balance;
 			let amount2: T::Balance;
@@ -656,16 +656,16 @@ pub mod pallet {
 			}
 
 			ensure!(
-				amount1.saturating_add(reserve1) >= T::Assets::minimum_balance(*asset1.clone()),
+				amount1.saturating_add(reserve1) >= T::Assets::minimum_balance(asset1.clone()),
 				Error::<T>::AmountOneLessThanMinimal
 			);
 			ensure!(
-				amount2.saturating_add(reserve2) >= T::Assets::minimum_balance(*asset2.clone()),
+				amount2.saturating_add(reserve2) >= T::Assets::minimum_balance(asset2.clone()),
 				Error::<T>::AmountTwoLessThanMinimal
 			);
 
-			T::Assets::transfer(*asset1, who, &pool_account, amount1, Preserve)?;
-			T::Assets::transfer(*asset2, who, &pool_account, amount2, Preserve)?;
+			T::Assets::transfer(asset1, who, &pool_account, amount1, Preserve)?;
+			T::Assets::transfer(asset2, who, &pool_account, amount2, Preserve)?;
 
 			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
 
@@ -706,8 +706,8 @@ pub mod pallet {
 		/// Remove liquidity from a pool.
 		pub(crate) fn do_remove_liquidity(
 			who: &T::AccountId,
-			asset1: Box<T::AssetKind>,
-			asset2: Box<T::AssetKind>,
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
 			lp_token_burn: T::Balance,
 			amount1_min_receive: T::Balance,
 			amount2_min_receive: T::Balance,
@@ -722,8 +722,8 @@ pub mod pallet {
 
 			let pool_account =
 				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
-			let reserve1 = Self::get_balance(&pool_account, *asset1.clone());
-			let reserve2 = Self::get_balance(&pool_account, *asset2.clone());
+			let reserve1 = Self::get_balance(&pool_account, asset1.clone());
+			let reserve2 = Self::get_balance(&pool_account, asset2.clone());
 
 			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
 			let withdrawal_fee_amount = T::LiquidityWithdrawalFee::get() * lp_token_burn;
@@ -743,11 +743,11 @@ pub mod pallet {
 			let reserve1_left = reserve1.saturating_sub(amount1);
 			let reserve2_left = reserve2.saturating_sub(amount2);
 			ensure!(
-				reserve1_left >= T::Assets::minimum_balance(*asset1.clone()),
+				reserve1_left >= T::Assets::minimum_balance(asset1.clone()),
 				Error::<T>::ReserveLeftLessThanMinimal
 			);
 			ensure!(
-				reserve2_left >= T::Assets::minimum_balance(*asset2.clone()),
+				reserve2_left >= T::Assets::minimum_balance(asset2.clone()),
 				Error::<T>::ReserveLeftLessThanMinimal
 			);
 
@@ -761,8 +761,8 @@ pub mod pallet {
 				Polite,
 			)?;
 
-			T::Assets::transfer(*asset1, &pool_account, withdraw_to, amount1, Expendable)?;
-			T::Assets::transfer(*asset2, &pool_account, withdraw_to, amount2, Expendable)?;
+			T::Assets::transfer(asset1, &pool_account, withdraw_to, amount1, Expendable)?;
+			T::Assets::transfer(asset2, &pool_account, withdraw_to, amount2, Expendable)?;
 
 			Self::deposit_event(Event::LiquidityRemoved {
 				who: who.clone(),
