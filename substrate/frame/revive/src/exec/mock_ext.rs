@@ -17,10 +17,7 @@
 
 #![cfg(test)]
 use crate::{
-	exec::{
-		AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt,
-		PrecompileWithInfoExt,
-	},
+	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
 	gas::GasMeter,
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
