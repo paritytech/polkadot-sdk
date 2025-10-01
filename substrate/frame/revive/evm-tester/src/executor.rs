@@ -55,29 +55,26 @@ pub enum StateTestError {
 impl std::fmt::Display for StateTestError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			StateTestError::ExecutionError(e) => write!(f, "Execution error: {}", e),
-			StateTestError::EvmError(e) => write!(f, "EVM error: {}", e),
+			StateTestError::ExecutionError(e) => write!(f, "Execution error: {e}"),
+			StateTestError::EvmError(e) => write!(f, "EVM error: {e}"),
 			StateTestError::LogsRootMismatch { got, expected } =>
-				write!(f, "Logs root mismatch: got {:?}, expected {:?}", got, expected),
+				write!(f, "Logs root mismatch: got {got:?}, expected {expected:?}"),
 			StateTestError::AccountBalanceMismatch { address, got, expected } => write!(
 				f,
-				"Account balance mismatch for {}: got {:?}, expected {:?}",
-				address, got, expected
+				"Account balance mismatch for {address}: got {got:?}, expected {expected:?}",
 			),
 			StateTestError::AccountNonceMismatch { address, got, expected } => write!(
 				f,
-				"Account nonce mismatch for {}: got {:?}, expected {:?}",
-				address, got, expected
+				"Account nonce mismatch for {address}: got {got:?}, expected {expected:?}",
 			),
 			StateTestError::AccountCodeMismatch { address } =>
-				write!(f, "Account code mismatch for {}", address),
+				write!(f, "Account code mismatch for {address}"),
 			StateTestError::AccountStorageMismatch { address, key, got, expected } => write!(
-				f,
-				"Account storage mismatch for {}, slot {:?}: got {:?}, expected {:?}",
-				address, key, got, expected
-			),
+        f,
+        "Account storage mismatch for {address}, slot {key:?}: got {got:?}, expected {expected:?}",
+        ),
 			StateTestError::UnexpectedException { expected, got } =>
-				write!(f, "Unexpected exception: got {:?}, expected {:?}", got, expected),
+				write!(f, "Unexpected exception: got {got:?}, expected {expected:?}"),
 		}
 	}
 }
