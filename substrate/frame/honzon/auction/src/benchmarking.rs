@@ -17,21 +17,8 @@
 
 //! Benchmarks for auction pallet
 //!
-//! This module provides comprehensive benchmarking for the auction pallet, measuring the
-//! performance characteristics of key operations under various conditions. The benchmarks
-//! are designed to provide accurate weight estimates for runtime optimization.
-//!
-//! ## Benchmark Coverage
-//!
-//! - **Bid Operations:** Measures the cost of placing bids in auctions
-//! - **Auction Finalization:** Measures the cost of processing ending auctions
-//! - **Storage Operations:** Evaluates the efficiency of storage reads and writes
-//!
-//! ## Benchmark Handler
-//!
-//! The `BenchmarkHandler` provides a minimal implementation of the `AuctionHandler` trait
-//! specifically designed for benchmarking purposes. It accepts all bids without additional
-//! validation to focus on the core pallet performance rather than handler-specific logic.
+//! Note: The benchmarking code in this file serves as a mock implementation. The true worst-case
+//! scenarios depend on the behavior of the [`AuctionHandler`], which is specific to each runtime.
 
 #![cfg(feature = "runtime-benchmarks")]
 
