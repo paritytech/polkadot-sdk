@@ -290,8 +290,23 @@ fn generate_crate_skip_build_env_name() -> String {
 	)
 }
 
+/// Generate the name of the force build environment variable for the current crate.
+fn generate_crate_force_build_env_name() -> String {
+	format!(
+		"FORCE_{}_WASM_BUILD",
+		env::var("CARGO_PKG_NAME")
+			.expect("Package name is set")
+			.to_uppercase()
+			.replace('-', "_"),
+	)
+}
+
 /// Checks if the build of the WASM binary should be skipped.
 fn check_skip_build() -> bool {
+	if env::var(generate_crate_force_build_env_name()).is_ok() {
+		return false
+	}
+
 	env::var(crate::SKIP_BUILD_ENV).is_ok() ||
 		env::var(generate_crate_skip_build_env_name()).is_ok() ||
 		// If we are running in docs.rs, let's skip building.
