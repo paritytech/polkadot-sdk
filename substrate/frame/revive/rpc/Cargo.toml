@@ -42,7 +42,7 @@ sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
-subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client", "runtime-wasm-path"] }
+subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
@@ -56,4 +56,7 @@ substrate-cli-test-utils = { workspace = true }
 
 [build-dependencies]
 git2 = { workspace = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
 revive-dev-runtime = { workspace = true, default-features = true }

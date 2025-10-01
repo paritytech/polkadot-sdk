@@ -14,11 +14,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{env, fs, path::Path, process::Command};
+use std::{fs, process::Command};
 
 fn main() {
 	generate_git_revision();
-	generate_wasm_runtime();
+	generate_metadata_file();
 }
 
 fn generate_git_revision() {
@@ -52,25 +52,15 @@ fn generate_git_revision() {
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
 }
 
-fn generate_wasm_runtime() {
-	let manifest_dir = env::var("CARGO_MANIFEST_DIR")
-		.expect("`CARGO_MANIFEST_DIR` is always set for `build.rs` files; qed");
+fn generate_metadata_file() {
+	use revive_dev_runtime::Runtime;
+	use sp_runtime::BuildStorage;
 
-	let symlink_path = Path::new(&manifest_dir).join("revive_runtime.wasm");
-
-	// Get the WASM binary path from the runtime crate
-	let wasm_source = revive_dev_runtime::WASM_BINARY_PATH
-		.expect("WASM_BINARY_PATH is not set. Please build the runtime with WASM support enabled.");
-
-	// Remove existing symlink/file if it exists
-	let _ = fs::remove_file(&symlink_path);
-
-	// Create symlink to the runtime's WASM file
-	#[cfg(unix)]
-	std::os::unix::fs::symlink(wasm_source, &symlink_path)
-		.expect("Failed to create symlink to WASM file");
-
-	#[cfg(windows)]
-	std::os::windows::fs::symlink_file(wasm_source, &symlink_path)
-		.expect("Failed to create symlink to WASM file");
+	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| {
+		let metadata = Runtime::metadata_at_version(16).unwrap();
+		let bytes: &[u8] = &metadata;
+		fs::write("revive_chain.scale", bytes).unwrap();
+	});
 }
