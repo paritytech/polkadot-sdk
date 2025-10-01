@@ -34,6 +34,8 @@ const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 pub enum RuntimeCosts {
 	/// Base Weight of calling a host function.
 	HostFn,
+	/// Weight charged for executing the extcodecopy instruction.
+	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
 	CopyFromContract(u32),
 	/// Weight charged for copying data to the sandbox.
@@ -48,25 +50,25 @@ pub enum RuntimeCosts {
 	CallDataSize,
 	/// Weight of calling `seal_return_data_size`.
 	ReturnDataSize,
-	/// Weight of calling `to_account_id`.
+	/// Weight of calling `toAccountId` on the `System` pre-compile.
 	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_code_hash`.
 	CodeHash,
-	/// Weight of calling `seal_own_code_hash`.
+	/// Weight of calling `ownCodeHash` on the `System` pre-compile.
 	OwnCodeHash,
 	/// Weight of calling `seal_code_size`.
 	CodeSize,
-	/// Weight of calling `seal_caller_is_origin`.
+	/// Weight of calling `callerIsOrigin` on the `System` pre-compile.
 	CallerIsOrigin,
-	/// Weight of calling `caller_is_root`.
+	/// Weight of calling `callerIsRoot` on the `System` pre-compile.
 	CallerIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
 	/// Weight of calling `seal_ref_time_left`.
 	RefTimeLeft,
-	/// Weight of calling `seal_weight_left`.
+	/// Weight of calling `weightLeft` on the `System` pre-compile.
 	WeightLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
@@ -74,7 +76,7 @@ pub enum RuntimeCosts {
 	BalanceOf,
 	/// Weight of calling `seal_value_transferred`.
 	ValueTransferred,
-	/// Weight of calling `seal_minimum_balance`.
+	/// Weight of calling `minimumBalance` on the `System` pre-compile.
 	MinimumBalance,
 	/// Weight of calling `seal_block_number`.
 	BlockNumber,
@@ -225,6 +227,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
+			ExtCodeCopy(len) => T::WeightInfo::extcodecopy(len),
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
@@ -236,16 +239,16 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ToAccountId => T::WeightInfo::to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
-			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
-			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
-			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
+			OwnCodeHash => T::WeightInfo::own_code_hash(),
+			CallerIsOrigin => T::WeightInfo::caller_is_origin(),
+			CallerIsRoot => T::WeightInfo::caller_is_root(),
 			Address => T::WeightInfo::seal_address(),
 			RefTimeLeft => T::WeightInfo::seal_ref_time_left(),
-			WeightLeft => T::WeightInfo::seal_weight_left(),
+			WeightLeft => T::WeightInfo::weight_left(),
 			Balance => T::WeightInfo::seal_balance(),
 			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
-			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
+			MinimumBalance => T::WeightInfo::minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
 			BlockAuthor => T::WeightInfo::seal_block_author(),
