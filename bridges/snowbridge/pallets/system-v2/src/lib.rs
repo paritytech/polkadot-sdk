@@ -46,7 +46,7 @@ use snowbridge_outbound_queue_primitives::{
 use snowbridge_pallet_system::ForeignToNativeId;
 use sp_core::{H160, H256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::MaybeConvert;
+use sp_runtime::traits::{MaybeConvert, MaybeEquivalence};
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -316,6 +316,15 @@ pub mod pallet {
 	impl<T: Config> MaybeConvert<TokenId, Location> for Pallet<T> {
 		fn maybe_convert(foreign_id: TokenId) -> Option<Location> {
 			snowbridge_pallet_system::Pallet::<T>::maybe_convert(foreign_id)
+		}
+	}
+
+	impl<T: Config> MaybeEquivalence<TokenId, Location> for Pallet<T> {
+		fn convert(foreign_id: &TokenId) -> Option<Location> {
+			snowbridge_pallet_system::Pallet::<T>::convert(foreign_id)
+		}
+		fn convert_back(location: &Location) -> Option<TokenId> {
+			snowbridge_pallet_system::Pallet::<T>::convert_back(location)
 		}
 	}
 }

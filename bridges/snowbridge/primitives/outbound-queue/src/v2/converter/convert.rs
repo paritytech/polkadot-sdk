@@ -5,7 +5,7 @@
 use codec::DecodeAll;
 use core::slice::Iter;
 use frame_support::{ensure, BoundedVec};
-use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
+use snowbridge_core::{AgentIdOf, TokenId};
 
 use crate::v2::{
 	message::{Command, Message},
@@ -14,7 +14,7 @@ use crate::v2::{
 
 use crate::v2::convert::XcmConverterError::{AssetResolutionFailed, FilterDoesNotConsumeAllAssets};
 use sp_core::H160;
-use sp_runtime::traits::MaybeConvert;
+use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -64,7 +64,7 @@ pub struct XcmConverter<'a, ConvertAssetId, Call> {
 }
 impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
 where
-	ConvertAssetId: MaybeConvert<TokenId, Location>,
+	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 {
 	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId) -> Self {
 		Self {
@@ -173,8 +173,7 @@ where
 			ensure!(amount > 0, ZeroAssetTransfer);
 
 			// Ensure PNA already registered
-			let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-			ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
+			let token_id = ConvertAssetId::convert_back(&asset_id).ok_or(InvalidAsset)?;
 
 			commands.push(Command::MintForeignToken { token_id, recipient, amount });
 		}
