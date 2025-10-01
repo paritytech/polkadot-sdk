@@ -31,6 +31,7 @@ use crate::{
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector,
@@ -547,7 +548,7 @@ where
 		let mut extra_extensions = Extensions::default();
 		extra_extensions.register(ProofSizeExt::new(proof_size_recorder.clone()));
 
-		let Ok(Some((built_block, import_block))) = collator
+		let Ok(Some((built_block, mut import_block))) = collator
 			.build_block(BuildBlockAndImportParams {
 				parent_header: &parent_header,
 				slot_claim,
@@ -572,13 +573,28 @@ where
 			return Ok(None);
 		};
 
+		parent_hash = built_block.block.header().hash();
+		parent_header = built_block.block.header().clone();
+
+		// Extract and add proof size recordings to the import block
+		let recorded_sizes = proof_size_recorder
+			.recorded_estimations()
+			.into_iter()
+			.map(|size| size as u32)
+			.collect::<Vec<u32>>();
+
+		if !recorded_sizes.is_empty() {
+			prepare_proof_size_recording_transaction(parent_hash, recorded_sizes).for_each(
+				|(k, v)| {
+					import_block.auxiliary.push((k, Some(v)));
+				},
+			);
+		}
+
 		if let Err(error) = collator.import_block(import_block).await {
 			tracing::error!(target: crate::LOG_TARGET, ?error, "Failed to import built block.");
 			return Ok(None);
 		}
-
-		parent_hash = built_block.block.header().hash();
-		parent_header = built_block.block.header().clone();
 
 		// Announce the newly built block to our peers.
 		collator.collator_service().announce_block(parent_hash, None);

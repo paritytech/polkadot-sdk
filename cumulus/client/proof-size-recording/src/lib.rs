@@ -48,21 +48,18 @@ where
 	}
 }
 
-/// Write the proof size recordings of a block to aux storage.
-pub fn write_proof_size_recording<H: Encode, F, R>(
+/// Prepare a transaction to write the proof size recordings to the aux storage.
+///
+/// Returns the key-value pairs that need to be written to the aux storage.
+pub fn prepare_proof_size_recording_transaction<H: Encode>(
 	block_hash: H,
 	recordings: Vec<u32>,
-	write_aux: F,
-) -> R
-where
-	F: FnOnce(&[(Vec<u8>, &[u8])]) -> R,
-{
-	PROOF_SIZE_RECORDING_CURRENT_VERSION.using_encoded(|version| {
-		let key = proof_size_recording_key(block_hash);
-		recordings.using_encoded(|s| {
-			write_aux(&[(key, s), (PROOF_SIZE_RECORDING_VERSION.to_vec(), version)])
-		})
-	})
+) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
+	let current_version = PROOF_SIZE_RECORDING_CURRENT_VERSION.encode();
+	let key = proof_size_recording_key(block_hash);
+	let recordings = recordings.encode();
+
+	[(key, recordings), (PROOF_SIZE_RECORDING_VERSION.to_vec(), current_version)].into_iter()
 }
 
 /// Load the proof size recordings associated with a block.

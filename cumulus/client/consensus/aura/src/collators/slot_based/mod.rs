@@ -71,6 +71,7 @@ pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{RelayParentOffsetApi, SlotSchedule};
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -78,7 +79,7 @@ use futures::FutureExt;
 use polkadot_primitives::{
 	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
 };
-use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
+use sc_client_api::{backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_utils::mpsc::tracing_unbounded;
 use sp_api::{ProvideRuntimeApi, StorageProof};
@@ -157,6 +158,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
 		+ UsageProvider<Block>
+		+ PreCommitActions<Block>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -198,6 +200,9 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		relay_chain_slot_duration,
 		max_pov_percentage,
 	} = params;
+
+	// Initialize proof size recording cleanup
+	register_proof_size_recording_cleanup(para_client.clone());
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {

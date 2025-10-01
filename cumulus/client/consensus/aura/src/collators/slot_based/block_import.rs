@@ -16,6 +16,7 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Codec;
+use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
 use cumulus_primitives_core::{CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{stream::FusedStream, StreamExt};
 use parking_lot::Mutex;
@@ -29,7 +30,7 @@ use sp_api::{
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::AuraApi;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
-use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
+use sp_trie::{proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider}, recorder::IgnoredNodes};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 /// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
@@ -130,13 +131,14 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 		let nodes_to_ignore = nodes_to_ignore.entry(pov_bundle).or_default();
 
 		let recorder = ProofRecorder::<Block>::with_ignored_nodes(nodes_to_ignore.clone());
+		let proof_size_recorder = RecordingProofSizeProvider::new(recorder.clone());
 
 		let mut runtime_api = self.client.runtime_api();
 
 		runtime_api.set_call_context(CallContext::Onchain);
 
 		runtime_api.record_proof_with_recorder(recorder.clone());
-		runtime_api.register_extension(ProofSizeExt::new(recorder));
+		runtime_api.register_extension(ProofSizeExt::new(proof_size_recorder.clone()));
 
 		let parent_hash = *params.header.parent_hash();
 
@@ -162,6 +164,22 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&storage_proof));
 		nodes_to_ignore
 			.extend(IgnoredNodes::from_memory_db(gen_storage_changes.transaction.clone()));
+
+		// Extract and store proof size recordings
+		let recorded_sizes = proof_size_recorder
+			.recorded_estimations()
+			.into_iter()
+			.map(|size| size as u32)
+			.collect::<Vec<u32>>();
+
+		if !recorded_sizes.is_empty() {
+			let block_hash = params.header.hash();
+			prepare_proof_size_recording_transaction(block_hash, recorded_sizes).for_each(
+				|(k, v)| {
+					params.auxiliary.push((k, Some(v)));
+				},
+			);
+		}
 
 		params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(gen_storage_changes));

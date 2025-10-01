@@ -20,6 +20,7 @@ use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success;
 use futures::stream::StreamExt;
 use serde_json::json;
+use sp_rpc::tracing::{BlockTrace, TraceBlockResponse};
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
@@ -88,7 +89,7 @@ async fn block_bundling_tracing_block() -> Result<(), anyhow::Error> {
 	log::info!("Calling tracing_block RPC for the block containing the transfer");
 
 	// Make the tracing_block RPC call for the block containing our transfer
-	let trace_result: serde_json::Value = rpc_client
+	let trace_result: TraceBlockResponse = rpc_client
 		.request(
 			"state_traceBlock",
 			rpc_params![
@@ -102,26 +103,16 @@ async fn block_bundling_tracing_block() -> Result<(), anyhow::Error> {
 
 	log::info!("Successfully received tracing result for transfer block");
 
-	// Verify that we got a valid response (non-empty)
-	if trace_result.is_null() {
-		return Err(anyhow!("tracing_block returned null result"));
+	// Decode and verify the BlockTrace is successful
+	match trace_result {
+		TraceBlockResponse::TraceError(error) => {
+			Err(anyhow!("Block tracing failed: {}", error.error));
+		},
+		TraceBlockResponse::BlockTrace(_) => {
+			log::info!("✅ Block trace successful!");
+			Ok(())
+		},
 	}
-
-	// Verify the trace contains information about our transfer
-	if let Some(trace_obj) = trace_result.as_object() {
-		log::info!("Trace result contains {} top-level keys", trace_obj.len());
-
-		// Log some details about the trace for debugging
-		if let Some(storage_changes) = trace_obj.get("storageChanges") {
-			log::info!("Found storage changes in trace");
-		}
-		if let Some(block_trace) = trace_obj.get("block") {
-			log::info!("Found block trace information");
-		}
-	}
-
-	log::info!("Block bundling tracing test with transfer finished successfully");
-	Ok(())
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
