@@ -385,60 +385,6 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 	Ok(())
 }
 
-/// Create a directory in the `target` as output directory
-fn create_out_dir() -> Result<PathBuf> {
-	let temp_dir: PathBuf =
-		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
-
-	// this is set in case the user has overridden the target directory
-	let out_dir = if let Ok(path) = env::var("CARGO_TARGET_DIR") {
-		let path = PathBuf::from(path);
-
-		if path.is_absolute() {
-			path
-		} else {
-			let output = std::process::Command::new(env!("CARGO"))
-				.arg("locate-project")
-				.arg("--workspace")
-				.arg("--message-format=plain")
-				.output()
-				.context("Failed to determine workspace root")?
-				.stdout;
-
-			let workspace_root = Path::new(
-				std::str::from_utf8(&output)
-					.context("Invalid output from `locate-project`")?
-					.trim(),
-			)
-			.parent()
-			.expect("Workspace root path contains the `Cargo.toml`; qed");
-
-			PathBuf::from(workspace_root).join(path)
-		}
-	} else {
-		// otherwise just traverse up from the out dir
-		let mut out_dir: PathBuf = temp_dir.clone();
-		loop {
-			if !out_dir.pop() {
-				bail!("Cannot find project root.")
-			}
-			if out_dir.join("Cargo.lock").exists() {
-				break;
-			}
-		}
-		out_dir.join("target")
-	}
-	.join("release")
-	.join("pallet-revive-fixtures");
-
-	if !out_dir.exists() {
-		fs::create_dir_all(&out_dir)
-			.context(format!("Failed to create output directory: {})", out_dir.display(),))?;
-	}
-
-	Ok(out_dir)
-}
-
 /// Generate the fixture_location.rs file with macros and sol! definitions.
 fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry]) -> Result<()> {
 	let mut file = fs::File::create(temp_dir.join("fixture_location.rs"))
@@ -494,11 +440,16 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 }
 
 pub fn main() -> Result<()> {
+	// input pathes
 	let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 	let contracts_dir = fixtures_dir.join("contracts");
-	let out_dir = create_out_dir().context("Cannot determine output directory")?;
-	let build_dir = out_dir.join("build");
-	fs::create_dir_all(&build_dir).context("Failed to create build directory")?;
+
+	// output pathes
+	let out_dir: PathBuf = env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
+	let out_fixtures_dir = out_dir.join("fixtures");
+	let out_build_dir = out_dir.join("build");
+	fs::create_dir_all(&out_fixtures_dir).context("Failed to create output fixture directory")?;
+	fs::create_dir_all(&out_build_dir).context("Failed to create output build directory")?;
 
 	println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
 	println!("cargo::rerun-if-env-changed={OVERRIDE_STRIP_ENV_VAR}");
@@ -523,20 +474,17 @@ pub fn main() -> Result<()> {
 			.filter(|e| matches!(e.contract_type, ContractType::Rust))
 			.collect();
 		if !rust_entries.is_empty() {
-			create_cargo_toml(&fixtures_dir, rust_entries.into_iter(), &build_dir)?;
-			invoke_build(&build_dir)?;
-			write_output(&build_dir, &out_dir, entries.clone())?;
+			create_cargo_toml(&fixtures_dir, rust_entries.into_iter(), &out_build_dir)?;
+			invoke_build(&out_build_dir)?;
+			write_output(&out_build_dir, &out_fixtures_dir, entries.clone())?;
 		}
 
 		// Compile Solidity contracts
-		compile_solidity_contracts(&contracts_dir, &out_dir, &entries)?;
+		compile_solidity_contracts(&contracts_dir, &out_fixtures_dir, &entries)?;
 	}
 
-	let temp_dir: PathBuf =
-		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
-
 	// Generate fixture_location.rs with sol! macros
-	generate_fixture_location(&temp_dir, &out_dir, &entries)?;
+	generate_fixture_location(&out_dir, &out_fixtures_dir, &entries)?;
 
 	Ok(())
 }
