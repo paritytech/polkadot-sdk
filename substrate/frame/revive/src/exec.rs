@@ -204,6 +204,9 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// Contract is deleted only if it was created in the same call stack.
 	///
 	/// This function will fail if called from constructor.
+	///
+	/// TODO: `allow_from_outside_tx` is a workaround to allow selfdestruct to be called from
+	/// outside the tx in which the contract was created. This parameter should be removed.
 	fn terminate(
 		&mut self,
 		beneficiary: &H160,
@@ -285,7 +288,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges the gas meter with the given weight.
 	fn charge(&mut self, weight: Weight) -> Result<crate::gas::ChargedAmount, DispatchError> {
-		log::info!("meter.rs charge() amount: {weight:?}");
 		self.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))
 	}
 
@@ -446,10 +448,11 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// - If `buf.len()` = 0: Nothing happens
 	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
 	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
-	///   are filled with zeros
+	///   are filled with zerosn
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 
-	/// Register the caller of the current contract for destruction at the end of the call stack.
+	/// Register the caller of the current contract for destruction.
+	//. Destruction happens at the end of the call stack.
 	/// This is supposed to be used by the selfdestruct precompile.
 	///
 	/// Transfer all funds to `beneficiary`.
@@ -1260,10 +1263,7 @@ where
 				}
 				Ok(output)
 			})
-			.map_err(|e| {
-				log::error!("exec.rs run() error: {:?}", e);
-				ExecError { error: e.error, origin: ErrorOrigin::Callee }
-			})?;
+			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1549,12 +1549,8 @@ where
 
 			Ok(())
 		}
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value).map_err(|e| {
-			log::error!(
-				"exec.rs transfer() from: {from:?}, to: {to:?}, value: {value:?}, error: {e:?}"
-			);
-			Error::<T>::BalanceConversionFailed
-		})?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
+			.map_err(|e| Error::<T>::BalanceConversionFailed)?;
 		if value.is_zero() {
 			return Ok(());
 		}
@@ -1664,8 +1660,6 @@ where
 		contract_info: &ContractInfo<T>,
 		beneficiary_address: &H160,
 	) -> Result<CodeRemoved, DispatchError> {
-		// derive account ids
-		log::info!("exec.rs destroy_contract contract_address: {contract_address:?}, beneficiary_address: {beneficiary_address:?}, contract_info: {contract_info:?}");
 		let contract_account = T::AddressMapper::to_account_id(contract_address);
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
@@ -1677,9 +1671,10 @@ where
 			let mut info = Some(contract_info.clone());
 			self.storage_meter
 				.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
+			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered for destruction.");
 			Ok(CodeRemoved::Yes)
 		} else {
-			log::info!("exec.rs destroy_contract NOT removed??");
+			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} NOT registered for destruction.");
 			Ok(CodeRemoved::No)
 		}
 	}
@@ -1742,7 +1737,7 @@ where
 			T::AddressMapper::to_address(&frame.account_id)
 		};
 		if allow_from_outside_tx {
-			// Pretend the contract was created in the current tx
+			// Pretend the contract was created in the current tx so that it can be destroyed.
 			let account_id = self.top_frame_mut().account_id.clone();
 			self.contracts_created.insert(account_id);
 		}
@@ -1903,13 +1898,10 @@ where
 			)?
 		};
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
-		// Mark the contract as created in this tx.
 
-		log::info!(
-			"exec.rs instantiate() contract created account_id: {:?}",
-			self.top_frame().account_id
-		);
+		// Mark the contract as created in this tx.
 		self.contracts_created.insert(self.top_frame().account_id.clone());
+
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
 		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)

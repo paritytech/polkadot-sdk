@@ -413,7 +413,6 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
-		log::info!("storage.rs process_deletion_queue_batch");
 		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
 			return
 		};

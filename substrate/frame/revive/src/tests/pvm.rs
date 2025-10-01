@@ -1116,40 +1116,18 @@ fn self_destruct2_works() {
 		let min_balance = Contracts::min_balance();
 		let initial_contract_balance = 100_000;
 
-		println!("-- before upload selfdestruct");
-		println!(
-			"DJANGO_FALLBACK: {:?}",
-			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
-		);
-		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
-		println!("BOB: {:?}", <Test as Config>::Currency::total_balance(&BOB));
-
 		// Upload both contracts
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(BOB),
 			selfdestruct_binary,
 			deposit_limit::<Test>(),
 		));
-		println!("-- after upload selfdestruct");
-		println!(
-			"DJANGO_FALLBACK: {:?}",
-			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
-		);
-		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
-		println!("BOB: {:?}", <Test as Config>::Currency::total_balance(&BOB));
 
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(BOB),
 			factory_binary,
 			deposit_limit::<Test>(),
 		));
-		println!("-- after upload factory");
-		println!(
-			"DJANGO_FALLBACK: {:?}",
-			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
-		);
-		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
-		println!("BOB: {:?}", <Test as Config>::Currency::total_balance(&BOB));
 
 		// Deploy factory
 		let factory =
@@ -1157,26 +1135,11 @@ fn self_destruct2_works() {
 				.native_value(initial_contract_balance)
 				.build_and_unwrap_contract();
 
-		println!("-- after deploy factory");
-		println!(
-			"DJANGO_FALLBACK: {:?}",
-			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
-		);
-		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
-		println!("BOB: {:?}", <Test as Config>::Currency::total_balance(&BOB));
-
 		let mut input_data = Vec::new();
 		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
 
 		// Call factory
 		let result = builder::bare_call(factory.addr).data(input_data.clone()).build();
-		println!("-- after call factory");
-		println!(
-			"DJANGO_FALLBACK: {:?}",
-			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
-		);
-		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
-		println!("BOB: {:?}", <Test as Config>::Currency::total_balance(&BOB));
 		assert!(result.result.is_ok());
 
 		let returned_data = result.result.unwrap().data;
@@ -1185,24 +1148,13 @@ fn self_destruct2_works() {
 		contract_addr_bytes.copy_from_slice(&returned_data[0..20]);
 		let contract_addr = H160::from(contract_addr_bytes);
 
-		System::on_finalize(System::block_number());
-		Contracts::on_finalize(System::block_number());
-		Contracts::on_idle(System::block_number(), Weight::MAX);
 		initialize_block(System::block_number() + 1);
-		println!("-- after new block");
-		println!(
-			"DJANGO_FALLBACK: {:?}",
-			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK)
-		);
-		println!("ALICE: {:?}", <Test as Config>::Currency::total_balance(&ALICE));
-		println!("BOB: {:?}", <Test as Config>::Currency::total_balance(&BOB));
 
 		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
 
-		println!("min_balance: {}", min_balance);
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK),
-			100_000 + min_balance
+			initial_contract_balance + min_balance
 		);
 		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - min_balance);
 	});

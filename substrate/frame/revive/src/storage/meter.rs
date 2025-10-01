@@ -408,8 +408,6 @@ where
 			try_charge().map_err(|_: DispatchError| <Error<T>>::StorageDepositNotEnoughFunds)?;
 		}
 
-		log::info!("meter.rs try_into_deposit DONE");
-
 		Ok(self.total_deposit)
 	}
 }
@@ -481,13 +479,11 @@ impl<T: Config> Ext<T> for ReservingExt {
 		amount: &DepositOf<T>,
 		state: &ContractState<T>,
 	) -> Result<(), DispatchError> {
-		log::info!("meter.rs charge() amount: {amount:?}, state: {state:?}");
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => {
 				// We cannot return here because need to handle the terminated state below.
 			},
 			Deposit::Charge(amount) => {
-				log::info!("meter.rs charge() CHARGE amount: {:?}", amount);
 				T::Currency::transfer_and_hold(
 					&HoldReason::StorageDepositReserve.into(),
 					origin,
@@ -497,10 +493,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				)?;
-				log::info!("meter.rs charge() CHARGE done");
 			},
 			Deposit::Refund(amount) => {
-				log::info!("meter.rs charge() REFUND amount: {:?}", amount);
 				let transferred = T::Currency::transfer_on_hold(
 					&HoldReason::StorageDepositReserve.into(),
 					contract,
@@ -510,11 +504,6 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
-				log::info!(
-					"meter.rs charge() amount: {:?}, transferred: {:?}",
-					amount,
-					transferred
-				);
 
 				if transferred < *amount {
 					// This should never happen, if it does it means that there is a bug in the
@@ -547,7 +536,6 @@ impl<T: Config> Ext<T> for ReservingExt {
 				Preservation::Expendable,
 			)?;
 		}
-		log::info!("meter.rs charge() DONE");
 		Ok(())
 	}
 }

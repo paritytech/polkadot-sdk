@@ -19,7 +19,7 @@ use crate::{
 	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, Revert},
 	vm::RuntimeCosts,
-	Config, H160,
+	Config, Origin, H160,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -89,7 +89,6 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				Ok(res.abi_encode())
 			},
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
-				use crate::Origin;
 				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
 				let caller_account_id = match env.caller() {
@@ -101,7 +100,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 					Origin::<T>::Signed(c) => c,
 				};
 				let caller_h160: H160 = T::AddressMapper::to_address(&caller_account_id);
-				let _ = env.terminate_caller(&h160, &caller_h160)?;
+				let _code_removed = env.terminate_caller(&h160, &caller_h160)?;
 				Ok(Vec::new())
 			},
 		}
