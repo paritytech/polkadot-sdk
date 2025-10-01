@@ -13,5 +13,7 @@ crates:
     bump: none
   - name: pallet-auction
     bump: major
+  - name: frame-support
+    bump: minor
   - name: polkadot-sdk
     bump: minor

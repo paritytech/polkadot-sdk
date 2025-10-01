@@ -29,7 +29,7 @@ use mock::*;
 #[test]
 fn cannot_add_new_auction_when_no_available_id() {
 	new_test_ext().execute_with(|| {
-		<AuctionsIndex<Runtime>>::put(AuctionId::max_value());
+		<AuctionsIndex<Runtime>>::put(AuctionId::MAX);
 		assert_noop!(AuctionModule::new_auction(0, None), Error::<Runtime>::NoAvailableAuctionId);
 	});
 }
@@ -147,14 +147,14 @@ fn cleanup_auction_should_work() {
 
 		AuctionModule::on_finalize(50);
 		assert!(AuctionModule::auctions(0).is_some());
-		assert!(!AuctionModule::auctions(1).is_some());
+		assert!(AuctionModule::auctions(1).is_none());
 		assert_eq!(<AuctionEndTime<Runtime>>::iter_prefix(0).count(), 0);
 		assert_eq!(<AuctionEndTime<Runtime>>::iter_prefix(50).count(), 0);
 		assert_eq!(<AuctionEndTime<Runtime>>::iter_prefix(100).count(), 1);
 
 		AuctionModule::on_finalize(100);
-		assert!(!AuctionModule::auctions(0).is_some());
-		assert!(!AuctionModule::auctions(1).is_some());
+		assert!(AuctionModule::auctions(0).is_none());
+		assert!(AuctionModule::auctions(1).is_none());
 		assert_eq!(<AuctionEndTime<Runtime>>::iter_prefix(0).count(), 0);
 		assert_eq!(<AuctionEndTime<Runtime>>::iter_prefix(50).count(), 0);
 		assert_eq!(<AuctionEndTime<Runtime>>::iter_prefix(100).count(), 0);
