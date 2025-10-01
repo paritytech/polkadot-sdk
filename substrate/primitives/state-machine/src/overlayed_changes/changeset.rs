@@ -725,10 +725,6 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 		self.transaction_depth() > self.num_client_transactions
 	}
 
-	pub fn storage_root_snaphost_delta_keys(&mut self) -> xxx::DeltaKeys<K> {
-		self.storage_root_dirty_keys.create_snapshot_and_get_delta()
-	}
-
 	pub fn storage_root_snaphost_delta_keys2(&mut self) -> xxx::DeltaKeys<K> {
 		self.storage_root_dirty_keys.create_snapshot_and_get_delta2()
 	}
