@@ -344,7 +344,10 @@ impl CollationTracker {
 			.collect::<Vec<_>>()
 	}
 
-	/// Drain and then returns all the collations that possibly finalized at `block_number`
+	/// Drain and return all collations that are possibly finalized at `block_number`.
+	///
+	/// We only track the inclusion block number, not the inclusion block hash.
+	/// There is a small chance that a collation was included in a fork that is not finalized.
 	pub fn drain_finalized(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
 		let finalized = self
 			.entries
@@ -547,7 +550,12 @@ impl CollationStats {
 		expiry_block <= current_block
 	}
 
-	/// Returns true if the collation was included in a block before (or in) last finalized.
+	/// Check if this collation is possibly finalized based on block number.
+	///
+	/// Returns `true` if the collation was included at or before `last_finalized`.
+	///
+	/// We only track the inclusion block number, not the inclusion block hash.
+	/// There is a small chance that a collation was included in a fork that is not finalized.
 	pub fn is_possibly_finalized(&self, last_finalized: BlockNumber) -> bool {
 		self.included_at
 			.map(|included_at| included_at <= last_finalized)

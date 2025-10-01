@@ -1555,6 +1555,12 @@ fn process_expired_collations(
 /// Process collations that may have been finalized on the relay chain.
 ///
 /// Collations are no longer tracked after this call.
+///
+/// ## Limitations
+///
+/// We only track the inclusion block number, not the inclusion block hash.
+/// This means a collation included in a fork that was later dropped could still be counted as
+/// finalized. This is acceptable for metrics because such cases are rare.
 async fn process_possibly_finalized_collations(
 	collations: Vec<CollationStats>,
 	last_finalized: (Hash, BlockNumber),
