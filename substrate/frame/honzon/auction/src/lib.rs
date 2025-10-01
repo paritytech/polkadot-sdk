@@ -30,7 +30,7 @@
 //! This pallet provides a generic framework for on-chain auctions. It allows for the creation
 //! and management of auctions for any type of asset. The core logic of the auction, such as
 //! bid validation and what happens when an auction ends, is customizable through the
-//! [`AuctionHandler`](frame_support::traits::AuctionHandler) trait.
+//! [`AuctionHandler`] trait.
 //!
 //! This pallet is designed to be flexible and can be used to implement various auction
 //! types, such as English auctions, Dutch auctions, or other custom formats.
@@ -38,12 +38,12 @@
 //! ### Features
 //!
 //! - **Generic Auction Mechanism:** Can be used for auctioning any asset.
-//! - **Customizable Logic:** The [`AuctionHandler`](frame_support::traits::AuctionHandler) trait
+//! - **Customizable Logic:** The [`AuctionHandler`] trait
 //!   allows for custom implementation of auction logic.
 //! - **Scheduled Auctions:** Auctions can be scheduled to start at a future block number.
 //! - **Automatic Auction Closing:** Auctions are automatically closed at their end block number in
-//!   the [`on_finalize`] hook.
-//! - **Standard Interface:** Implements the [`Auction`](frame_support::traits::Auction) trait so
+//!   the on_finalize hook.
+//! - **Standard Interface:** Implements the [`Auction`] trait so
 //!   other pallets can query and update auctions via a shared API.
 //!
 //! ## Low Level / Implementation Details
@@ -71,7 +71,7 @@
 //! - **Auction:** A process where participants place bids for an item, with the highest bidder
 //!   winning
 //! - **Bid:** An offer of a specific price by a participant
-//! - **Auction Handler:** A [`AuctionHandler`](frame_support::traits::AuctionHandler)
+//! - **Auction Handler:** A [`AuctionHandler`]
 //!   implementation that defines custom auction logic and validation rules
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -233,15 +233,15 @@ pub mod pallet {
 		///
 		/// ## Errors
 		///
-		/// - [`BadOrigin`]: The dispatch origin is not a signed account
-		/// - [`AuctionNotExist`]: The specified auction ID does not exist
-		/// - [`AuctionNotStarted`]: The auction has not started yet
-		/// - [`BidNotAccepted`]: The bid was rejected by the auction handler
-		/// - [`InvalidBidPrice`]: The bid amount is zero or not higher than the current highest bid
+        /// - BadOrigin: The dispatch origin is not a signed account
+        /// - [`Error::AuctionNotExist`]: The specified auction ID does not exist
+        /// - [`Error::AuctionNotStarted`]: The auction has not started yet
+        /// - [`Error::BidNotAccepted`]: The bid was rejected by the auction handler
+        /// - [`Error::InvalidBidPrice`]: The bid amount is zero or not higher than the current highest bid
 		///
 		/// ## Events
 		///
-		/// - [`Bid`]: Emitted when a bid is successfully placed
+        /// - [`Event::Bid`]: Emitted when a bid is successfully placed
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::bid())]
 		pub fn bid(
