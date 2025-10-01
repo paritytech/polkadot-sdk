@@ -718,7 +718,13 @@ impl<H: Hasher> OverlayedChanges<H> {
 				.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
 
 			let child_delta = self.children.values_mut().map(|v| {
-				(&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..]))))
+				let child_snapshot = v.0.storage_root_snaphost_delta_keys2();
+				(
+					&v.1,
+					v.0.changes_mut2(&child_snapshot)
+						.into_iter()
+						.map(|(k, v)| (&k[..], v.map(|v| &v[..]))),
+				)
 			});
 
 			backend.trigger_storage_root_size_estimation_full(delta, child_delta, state_version);
