@@ -54,11 +54,15 @@ const REQUIRED_EVENT_FIELD: &str = "method";
 
 /// Something that can execute a block in a tracing context.
 pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
-	/// Execute the given `block` on top of the state of `parent_hash`.
+	/// Execute the given `block`.
+	///
+	/// The `block` is prepared to be executed right away, this means that any `Seal` was already
+	/// removed from the header. As this changes the `hash` of the block, `orig_hash` is passed
+	/// alongside to the callee.
 	///
 	/// The execution should be done sync on the same thread, because the caller will register
 	/// special tracing collectors.
-	fn execute_block(&self, parent_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()>;
+	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()>;
 }
 
 /// Default implementation of [`ExecuteBlock`].
@@ -81,8 +85,11 @@ where
 	Client::Api: Core<Block>,
 	Block: BlockT,
 {
-	fn execute_block(&self, parent_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
-		self.client.runtime_api().execute_block(parent_hash, block).map_err(Into::into)
+	fn execute_block(&self, _: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
+		self.client
+			.runtime_api()
+			.execute_block(*block.header().parent_hash(), block)
+			.map_err(Into::into)
 	}
 }
 
@@ -274,7 +281,7 @@ where
 			if let Err(e) = dispatcher::with_default(&dispatch, || {
 				let span = tracing::info_span!(target: TRACE_TARGET, "trace_block");
 				let _enter = span.enter();
-				self.execute_block.execute_block(parent_hash, block)
+				self.execute_block.execute_block(self.block, block)
 			}) {
 				return Err(Error::Dispatch(format!(
 					"Failed to collect traces and execute block: {}",

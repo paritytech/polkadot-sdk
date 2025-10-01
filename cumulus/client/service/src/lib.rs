@@ -621,12 +621,14 @@ where
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
 	Client::Api: Core<Block>,
 {
-	fn execute_block(&self, parent_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
+	fn execute_block(&self, _: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
 		let mut runtime_api = self.client.runtime_api();
 		let storage_proof_recorder = ProofRecorder::<Block>::default();
 		runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
 		runtime_api.record_proof_with_recorder(storage_proof_recorder);
 
-		runtime_api.execute_block(parent_hash, block).map_err(Into::into)
+		runtime_api
+			.execute_block(*block.header().parent_hash(), block)
+			.map_err(Into::into)
 	}
 }
