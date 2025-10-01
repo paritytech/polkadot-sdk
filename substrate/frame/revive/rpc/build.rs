@@ -54,10 +54,7 @@ fn generate_git_revision() {
 
 fn generate_metadata_file() {
 	use revive_dev_runtime::Runtime;
-	use sp_runtime::BuildStorage;
-
-	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = sp_io::TestExternalities::new(Default::default());
 	ext.execute_with(|| {
 		let metadata = Runtime::metadata_at_version(16).unwrap();
 		let bytes: &[u8] = &metadata;

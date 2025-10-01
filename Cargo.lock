@@ -13254,7 +13254,6 @@ dependencies = [
  "anyhow",
  "clap",
  "env_logger 0.11.3",
- "frame-system",
  "futures",
  "git2",
  "hex",

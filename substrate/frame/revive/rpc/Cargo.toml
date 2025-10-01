@@ -58,5 +58,4 @@ substrate-cli-test-utils = { workspace = true }
 git2 = { workspace = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
 revive-dev-runtime = { workspace = true, default-features = true }
