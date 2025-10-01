@@ -645,6 +645,8 @@ where
 		runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
 		runtime_api.record_proof_with_recorder(storage_proof_recorder);
 
-		runtime_api.execute_block(parent_hash, block).map_err(Into::into)
+		runtime_api
+			.execute_block(*block.header().parent_hash(), block)
+			.map_err(Into::into)
 	}
 }
