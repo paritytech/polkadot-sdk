@@ -16,16 +16,16 @@
 // limitations under the License.
 
 /// ! Traits and default implementation for paying transaction fees.
-use crate::{Config, Pallet, TxPaymentCredit, LOG_TARGET};
+use crate::{Config, LOG_TARGET, Pallet, TxPaymentCredit};
 
 use codec::{DecodeWithMemTracking, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	traits::{
-		fungible::{Balanced, Credit, Inspect},
-		tokens::{Precision, WithdrawConsequence},
 		Currency, ExistenceRequirement, Imbalance, NoDrop, OnUnbalanced, SuppressedDrop,
 		WithdrawReasons,
+		fungible::{Balanced, Credit, Inspect},
+		tokens::{Precision, WithdrawConsequence},
 	},
 	unsigned::TransactionValidityError,
 };
