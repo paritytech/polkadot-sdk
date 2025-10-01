@@ -532,8 +532,9 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	///
 	/// Returns true if we are currently have at least one open transaction and if this
 	/// is the first write to the given key that transaction.
-	fn insert_dirty(&mut self, key: K) -> bool {
-		self.storage_root_dirty_keys.add_key(key.clone());
+	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
+		self.storage_root_dirty_keys
+			.add_key(key.clone(), if deleted { xxx::KeyOp::Deleted } else { xxx::KeyOp::Updated });
 		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
 	}
 }
@@ -572,7 +573,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	///
 	/// Can be rolled back or committed when called inside a transaction.
 	pub fn set_offchain(&mut self, key: K, value: V, at_extrinsic: Option<u32>) {
-		let first_write_in_tx = self.insert_dirty(key.clone());
+		let first_write_in_tx = self.insert_dirty(key.clone(), false);
 		let overlayed = self.changes.entry(key).or_default();
 		overlayed.set_offchain(value, first_write_in_tx, at_extrinsic);
 	}
@@ -908,7 +909,7 @@ impl OverlayedChangeSet {
 	///
 	/// Can be rolled back or committed when called inside a transaction.
 	pub fn set(&mut self, key: StorageKey, value: Option<StorageValue>, at_extrinsic: Option<u32>) {
-		let first_write_in_tx = self.insert_dirty(key.clone());
+		let first_write_in_tx = self.insert_dirty(key.clone(), value.is_none());
 		let overlayed = self.changes.entry(key).or_default();
 		overlayed.set(value, first_write_in_tx, at_extrinsic);
 	}
@@ -921,7 +922,7 @@ impl OverlayedChangeSet {
 		init: impl Fn() -> StorageValue,
 		at_extrinsic: Option<u32>,
 	) {
-		let first_write_in_tx = self.insert_dirty(key.clone());
+		let first_write_in_tx = self.insert_dirty(key.clone(), false);
 		let overlayed = self.changes.entry(key).or_default();
 		overlayed.append(value, first_write_in_tx, init, at_extrinsic);
 	}
@@ -941,7 +942,7 @@ impl OverlayedChangeSet {
 			.filter_map(|(k, v)| predicate(k, v).then(|| k.clone()))
 			.collect::<Vec<_>>();
 		for key in keys {
-			let first_write_in_tx = { self.insert_dirty(key.clone()) };
+			let first_write_in_tx = { self.insert_dirty(key.clone(), true) };
 			self.changes.get_mut(&key).map(|val| {
 				if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
 					count += 1;
