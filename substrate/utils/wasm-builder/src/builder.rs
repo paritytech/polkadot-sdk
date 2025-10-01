@@ -333,6 +333,7 @@ fn generate_rerun_if_changed_instructions() {
 	println!("cargo:rerun-if-env-changed={}", crate::SKIP_BUILD_ENV);
 	println!("cargo:rerun-if-env-changed={}", crate::FORCE_WASM_BUILD_ENV);
 	println!("cargo:rerun-if-env-changed={}", generate_crate_skip_build_env_name());
+	println!("cargo:rerun-if-env-changed={}", generate_crate_force_build_env_name());
 }
 
 /// Build the currently built project as wasm binary.
