@@ -78,8 +78,6 @@ pub const EVM_MEMORY_LIMIT: u32 = 1024 * 1024;
 
 /// EVM interpreter stack limit.
 pub const EVM_STACK_LIMIT: u32 = 1024;
-pub const EVM_MAX_CODE_SIZE: u32 = 0x6000;
-pub const EVM_MAX_INITCODE_SIZE: u32 = 2 * EVM_MAX_CODE_SIZE;
 
 /// Limits that are only enforced on code upload.
 ///
@@ -254,6 +252,13 @@ pub mod code {
 	}
 }
 
+// Make sure that the EVM initcode size fits into u32.
+const _: [(); if revm::primitives::eip3860::MAX_INITCODE_SIZE <= u32::MAX as usize {
+	1
+} else {
+	0
+}] = [(); 1];
+
 /// The amount of total memory we require.
 ///
 /// Unchecked math is okay since we evaluate at compile time.
@@ -262,6 +267,8 @@ const fn memory_required() -> u32 {
 	let max_call_depth = CALL_STACK_DEPTH + 1;
 
 	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
+
+	let EVM_MAX_INITCODE_SIZE = revm::primitives::eip3860::MAX_INITCODE_SIZE as u32;
 	let evm_overhead = EVM_MEMORY_LIMIT + EVM_MAX_INITCODE_SIZE + EVM_STACK_LIMIT;
 	let per_frame_memory = if code::BASELINE_MEMORY_LIMIT > evm_overhead {
 		code::BASELINE_MEMORY_LIMIT
