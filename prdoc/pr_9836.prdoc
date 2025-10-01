@@ -10,5 +10,7 @@ doc:
 crates:
 - name: sp-statement-store
   bump: minor
+  validate: false
 - name: sc-statement-store
   bump: minor
+  validate: false
