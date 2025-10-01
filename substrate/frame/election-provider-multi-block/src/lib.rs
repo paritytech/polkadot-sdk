@@ -649,8 +649,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// see [`create::types::Phase`].
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
+			// we need current phase to be read in any case -- we can live wiht it.
 			let current_phase = Self::current_phase();
 			let next_phase = current_phase.next();
 
@@ -682,9 +682,26 @@ pub mod pallet {
 				}),
 			);
 
-			// TODO: check weight
-			let final_combined_weight = combined_exec();
-			Self::phase_transition(next_phase);
+			// TODO: we are not registering export weight anywhere.
+			log!(
+				debug,
+				"required weight for transition from {:?} to {:?} is {:?}",
+				current_phase,
+				next_phase,
+				combined_weight
+			);
+			if weight_meter.can_consume(combined_weight) {
+				let final_combined_weight = combined_exec();
+				Self::phase_transition(next_phase);
+				weight_meter.consume(final_combined_weight.unwrap_or(combined_weight))
+			} else {
+				Self::deposit_event(Event::UnexpectedPhaseTransitionOutOfWeight {
+					from: current_phase,
+					to: next_phase,
+					required: combined_weight,
+					had: weight_meter.remaining(),
+				});
+			}
 
 			// NOTE: why in here? bc it is more accessible, for example `roll_to_with_ocw`.
 			#[cfg(test)]
@@ -699,8 +716,6 @@ pub mod pallet {
 					crate::mock::MultiBlock::start().unwrap();
 				}
 			}
-
-			final_combined_weight.unwrap_or(combined_weight)
 		}
 
 		fn integrity_test() {
@@ -783,6 +798,13 @@ pub mod pallet {
 		UnexpectedTargetSnapshotFailed,
 		/// Voter snapshot creation failed
 		UnexpectedVoterSnapshotFailed,
+		/// Phase transition could not proceed due to being out of weight
+		UnexpectedPhaseTransitionOutOfWeight {
+			from: Phase<T>,
+			to: Phase<T>,
+			required: Weight,
+			had: Weight,
+		},
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -1223,7 +1245,7 @@ impl<T: Config> Pallet<T> {
 	///     execution.
 	fn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
 		type ExecuteFn = Box<dyn Fn() -> Option<Weight>>;
-		let noop: (Weight, ExecuteFn) = (Weight::default(), Box::new(|| None));
+		let noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|| None));
 
 		match current_phase {
 			Phase::Snapshot(x) if x == T::Pages::get() => {
@@ -1232,7 +1254,7 @@ impl<T: Config> Pallet<T> {
 					Self::create_targets_snapshot();
 					None
 				});
-				(T::WeightInfo::on_initialize_into_snapshot_msp(), exec)
+				(T::WeightInfo::per_block_snapshot_msp(), exec)
 			},
 
 			Phase::Snapshot(x) => {
@@ -1241,7 +1263,7 @@ impl<T: Config> Pallet<T> {
 					Self::create_voters_snapshot_paged(x);
 					None
 				});
-				(T::WeightInfo::on_initialize_into_snapshot_rest(), exec)
+				(T::WeightInfo::per_block_snapshot_rest(), exec)
 			},
 			Phase::Signed(x) => {
 				// Signed pallet should prep the best winner, and send the start signal, if some
@@ -1258,7 +1280,7 @@ impl<T: Config> Pallet<T> {
 						let _ = T::Verifier::start().defensive();
 						None
 					});
-					(T::WeightInfo::on_initialize_into_signed_validation(), exec)
+					(T::WeightInfo::per_block_start_signed_validation(), exec)
 				} else {
 					noop
 				}
@@ -1561,14 +1583,14 @@ where
 		while i <= n {
 			frame_system::Pallet::<T>::set_block_number(i);
 
-			Pallet::<T>::on_initialize(i);
-			verifier::Pallet::<T>::on_initialize(i);
-			unsigned::Pallet::<T>::on_initialize(i);
+			Pallet::<T>::on_poll(i, &mut WeightMeter::new());
+			// verifier::Pallet::<T>::on_poll(i);
+			// unsigned::Pallet::<T>::on_poll(i);
 
-			// TODO: remove as not sensible anymore.
-			if with_signed {
-				signed::Pallet::<T>::on_initialize(i);
-			}
+			// // TODO: remove as not sensible anymore.
+			// if with_signed {
+			// 	signed::Pallet::<T>::on_poll(i);
+			// }
 
 			// invariants must hold at the end of each block.
 			if try_state {

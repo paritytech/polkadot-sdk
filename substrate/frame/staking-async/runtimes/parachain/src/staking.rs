@@ -67,7 +67,6 @@ pub(crate) fn enable_ksm_preset(fast: bool) {
 // `build_state` runtime-api) to enable dot/ksm presets.
 /// This macro contains all of the variable parameters that we intend to use for Polkadot and
 /// Kusama.
-
 parameter_types! {
 	/// Number of election pages that we operate upon.
 	///
@@ -296,6 +295,7 @@ impl multi_block::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
+	type Signed = Self;
 	type Verifier = MultiBlockElectionVerifier;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockWeightInfo<Self>;

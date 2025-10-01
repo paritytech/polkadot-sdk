@@ -741,19 +741,14 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 
 		System::set_block_number(i);
 
-		MultiBlock::on_initialize(i);
-		VerifierPallet::on_initialize(i);
-		UnsignedPallet::on_initialize(i);
-		if matches!(SignedPhaseSwitch::get(), SignedSwitch::Real) {
-			SignedPallet::on_initialize(i);
-		}
+		MultiBlock::on_poll(i, &mut WeightMeter::new());
+		// VerifierPallet::on_poll(i);
+		// UnsignedPallet::on_poll(i);
+		// if matches!(SignedPhaseSwitch::get(), SignedSwitch::Real) {
+		// 	SignedPallet::on_poll(i);
+		// }
 
-		MultiBlock::offchain_worker(i);
-		VerifierPallet::offchain_worker(i);
 		UnsignedPallet::offchain_worker(i);
-		if matches!(SignedPhaseSwitch::get(), SignedSwitch::Real) {
-			SignedPallet::offchain_worker(i);
-		}
 
 		// invariants must hold at the end of each block.
 		all_pallets_sanity_checks()

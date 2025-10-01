@@ -84,7 +84,7 @@ export async function spawnMiner(): Promise<() => void> {
 		[
 			"--uri",
 			"ws://127.0.0.1:9946",
-			"experimental-monitor-multi-block",
+			"monitor",
 			"--seed-or-path",
 			"//Bob",
 		],

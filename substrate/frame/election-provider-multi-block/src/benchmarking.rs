@@ -35,7 +35,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_nothing() -> Result<(), BenchmarkError> {
+	fn per_block_nothing() -> Result<(), BenchmarkError> {
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
 
 		#[block]
@@ -48,7 +48,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_snapshot_msp() -> Result<(), BenchmarkError> {
+	fn per_block_snapshot_msp() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 
 		#[cfg(test)]
@@ -76,7 +76,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_snapshot_rest() -> Result<(), BenchmarkError> {
+	fn per_block_snapshot_rest() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 
 		#[cfg(test)]
@@ -115,29 +115,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_signed() -> Result<(), BenchmarkError> {
-		#[cfg(test)]
-		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
-		crate::Pallet::<T>::start().unwrap();
-
-		Pallet::<T>::roll_until_before_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
-		});
-
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(0));
-
-		#[block]
-		{
-			Pallet::<T>::roll_next(true, false);
-		}
-
-		assert!(CurrentPhase::<T>::get().is_signed());
-
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_signed_validation() -> Result<(), BenchmarkError> {
+	fn per_block_start_signed_validation() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
 		crate::Pallet::<T>::start().unwrap();
@@ -153,26 +131,8 @@ mod benchmarks {
 			Pallet::<T>::roll_next(true, false);
 		}
 
-		Ok(())
-	}
+		assert!(CurrentPhase::<T>::get().is_signed_validation());
 
-	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_unsigned() -> Result<(), BenchmarkError> {
-		#[cfg(test)]
-		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
-		crate::Pallet::<T>::start().unwrap();
-
-		Pallet::<T>::roll_until_before_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
-		});
-		assert!(matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_)));
-
-		#[block]
-		{
-			Pallet::<T>::roll_next(true, false);
-		}
-
-		assert!(matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_)));
 		Ok(())
 	}
 
