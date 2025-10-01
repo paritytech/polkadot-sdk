@@ -212,10 +212,11 @@ parameter_types! {
 	pub MaxPalletsInfo: u32 = 64;
 	pub MaxAssetTransferFilters: u32 = 6;
 	pub MaxPublishItems: u32 = 16;
+	pub MaxPublishKeyLength: u32 = 256;
+	pub MaxPublishValueLength: u32 = 1024;
 }
 
-/// Type alias for published data to avoid macro issues
-pub type PublishData = BoundedVec<(Vec<u8>, Vec<u8>), MaxPublishItems>;
+pub type PublishData = BoundedVec<(BoundedVec<u8, MaxPublishKeyLength>, BoundedVec<u8, MaxPublishValueLength>), MaxPublishItems>;
 
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,

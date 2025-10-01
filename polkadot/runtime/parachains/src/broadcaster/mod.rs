@@ -69,14 +69,17 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Maximum number of items that can be published in one operation.
+		/// Must not exceed `xcm::v5::MaxPublishItems`.
 		#[pallet::constant]
 		type MaxPublishItems: Get<u32>;
 
 		/// Maximum length of a key in bytes.
+		/// Must not exceed `xcm::v5::MaxPublishKeyLength`.
 		#[pallet::constant]
 		type MaxKeyLength: Get<u32>;
 
 		/// Maximum length of a value in bytes.
+		/// Must not exceed `xcm::v5::MaxPublishValueLength`.
 		#[pallet::constant]
 		type MaxValueLength: Get<u32>;
 
@@ -167,6 +170,19 @@ pub mod pallet {
 				polkadot_primitives::well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS,
 				"`well_known_keys::BROADCASTER_PUBLISHED_DATA_ROOTS` doesn't match key of `PublishedDataRoots`! \
 				Make sure that the name of the broadcaster pallet is `Broadcaster` in the runtime!",
+			);
+
+			assert!(
+				T::MaxPublishItems::get() <= xcm::v5::MaxPublishItems::get(),
+				"Broadcaster MaxPublishItems exceeds XCM MaxPublishItems upper bound"
+			);
+			assert!(
+				T::MaxKeyLength::get() <= xcm::v5::MaxPublishKeyLength::get(),
+				"Broadcaster MaxKeyLength exceeds XCM MaxPublishKeyLength upper bound"
+			);
+			assert!(
+				T::MaxValueLength::get() <= xcm::v5::MaxPublishValueLength::get(),
+				"Broadcaster MaxValueLength exceeds XCM MaxPublishValueLength upper bound"
 			);
 		}
 	}

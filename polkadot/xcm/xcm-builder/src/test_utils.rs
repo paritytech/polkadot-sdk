@@ -79,7 +79,10 @@ impl BroadcastHandler for TestBroadcastHandler {
 		};
 
 		let mut published = PublishedData::get();
-		let data_vec: Vec<(Vec<u8>, Vec<u8>)> = data.into_inner();
+		let data_vec: Vec<(Vec<u8>, Vec<u8>)> = data.into_inner()
+			.into_iter()
+			.map(|(k, v)| (k.into_inner(), v.into_inner()))
+			.collect();
 
 		// Merge with existing data for this parachain
 		published.entry(para_id).or_insert_with(Vec::new).extend(data_vec);

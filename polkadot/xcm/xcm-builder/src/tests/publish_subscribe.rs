@@ -18,14 +18,30 @@
 
 use super::*;
 use crate::test_utils::{BroadcastSubscriptions, PublishedData};
-use sp_runtime::bounded_vec;
+use sp_runtime::BoundedVec;
+use xcm::latest::{MaxPublishKeyLength, MaxPublishValueLength};
+
+// Helper to create test publish data
+fn test_publish_data(items: Vec<(&[u8], &[u8])>) -> PublishData {
+	items
+		.into_iter()
+		.map(|(k, v)| {
+			(
+				BoundedVec::<u8, MaxPublishKeyLength>::try_from(k.to_vec()).unwrap(),
+				BoundedVec::<u8, MaxPublishValueLength>::try_from(v.to_vec()).unwrap(),
+			)
+		})
+		.collect::<Vec<_>>()
+		.try_into()
+		.unwrap()
+}
 
 #[test]
 fn publish_from_parachain_works() {
 	// Allow unpaid execution from Parachain(1000)
 	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
 
-	let data: PublishData = bounded_vec![(b"key1".to_vec(), b"value1".to_vec()),];
+	let data = test_publish_data(vec![(b"key1", b"value1")]);
 
 	let message = Xcm::<TestCall>(vec![Publish { data: data.clone() }]);
 	let mut hash = fake_message_hash(&message);
@@ -52,7 +68,7 @@ fn publish_from_non_parachain_fails() {
 	// Allow unpaid execution from Parent to test that origin validation happens
 	AllowUnpaidFrom::set(vec![Parent.into()]);
 
-	let data: PublishData = bounded_vec![(b"key1".to_vec(), b"value1".to_vec()),];
+	let data = test_publish_data(vec![(b"key1", b"value1")]);
 
 	let message = Xcm::<TestCall>(vec![Publish { data }]);
 	let mut hash = fake_message_hash(&message);
@@ -81,7 +97,7 @@ fn publish_without_origin_fails() {
 	// Allow unpaid execution from Parachain(1000)
 	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
 
-	let data: PublishData = bounded_vec![(b"key1".to_vec(), b"value1".to_vec()),];
+	let data = test_publish_data(vec![(b"key1", b"value1")]);
 
 	let message = Xcm::<TestCall>(vec![ClearOrigin, Publish { data }]);
 	let mut hash = fake_message_hash(&message);
@@ -226,10 +242,10 @@ fn publish_multiple_items_works() {
 	// Allow unpaid execution from Parachain(1000)
 	AllowUnpaidFrom::set(vec![Parachain(1000).into()]);
 
-	let data: PublishData = bounded_vec![
-		(b"key1".to_vec(), b"value1".to_vec()),
-		(b"key2".to_vec(), b"value2".to_vec()),
-	];
+	let data = test_publish_data(vec![
+		(b"key1", b"value1"),
+		(b"key2", b"value2"),
+	]);
 
 	let message = Xcm::<TestCall>(vec![Publish { data: data.clone() }]);
 	let mut hash = fake_message_hash(&message);
