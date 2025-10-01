@@ -649,7 +649,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// [`create::types::Phase`]
+		/// see [`create::types::Phase`].
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			let current_phase = Self::current_phase();
 			let next_phase = current_phase.next();
@@ -658,8 +658,8 @@ pub mod pallet {
 			let (verifier_weight, verifier_exc) = T::Verifier::per_block_exec();
 
 			// The following will combine `Self::per_block_exec` and `T::Verifier::per_block_exec`
-			// into a single set of `(Weight, Box<_>)`. Can be moved into a function if we have this
-			// pattern in more places.
+			// into a single tuple of `(Weight, Box<_>)`. Can be moved into a reusable combinator
+			// function if we have this pattern in more places.
 			let (combined_weight, combined_exec) = (
 				// pre-exec weight is simply addition.
 				meta_weight.saturating_add(verifier_weight),
@@ -667,7 +667,7 @@ pub mod pallet {
 				Box::new(move || {
 					// execute both this..
 					let corrected_meta_weight = meta_exec();
-					// .. and that
+					// .. and that.
 					let corrected_verifier_weight = verifier_exc();
 					// for each, if they have returned an updated weight, use that, else the
 					// pre-exec weight, and re-sum them up.

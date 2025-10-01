@@ -51,8 +51,6 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// start signal must have been sent by now
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
@@ -83,8 +81,6 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// start signal must have been sent by now
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
@@ -137,8 +133,6 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 		// verify all pages, except for the last one.
@@ -206,8 +200,6 @@ mod benchmarks {
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
-		// send start signal
-		crate::Pallet::<T>::roll_next(true, false);
 
 		// we should be ready to go
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
