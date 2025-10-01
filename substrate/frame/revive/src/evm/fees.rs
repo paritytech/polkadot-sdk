@@ -37,7 +37,7 @@ use pallet_transaction_payment::{
 };
 use sp_runtime::{
 	generic::UncheckedExtrinsic,
-	traits::{Block as BlockT, Dispatchable, TransactionExtension, UniqueSaturatedFrom},
+	traits::{Block as BlockT, Dispatchable, TransactionExtension},
 	FixedPointNumber, FixedU128, SaturatedConversion, Saturating,
 };
 
@@ -190,7 +190,6 @@ where
 	<E::Config as TxConfig>::WeightToFee: BlockRatioWeightToFee<T = E::Config>,
 	<<E::Config as TxConfig>::OnChargeTransaction as TxCreditHold<E::Config>>::Credit:
 		SuppressedDrop<Inner = CreditOf<E::Config>>,
-	u64: UniqueSaturatedFrom<BalanceOf<E::Config>>,
 {
 	fn integrity_test() {
 		let min_multiplier = <E::Config as TxConfig>::FeeMultiplierUpdate::min();
