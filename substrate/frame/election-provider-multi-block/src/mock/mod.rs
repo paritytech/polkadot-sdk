@@ -329,14 +329,7 @@ impl ExtBuilder {
 		Self {}
 	}
 
-	pub fn verifier() -> Self {
-		SignedPhase::set(0);
-		SignedValidationPhase::set(0);
-		signed::SignedPhaseSwitch::set(signed::SignedSwitch::Mock);
-		Self {}
-	}
-
-	pub fn unsigned() -> Self {
+	pub fn mock_signed() -> Self {
 		SignedPhase::set(0);
 		SignedValidationPhase::set(0);
 		signed::SignedPhaseSwitch::set(signed::SignedSwitch::Mock);
@@ -654,7 +647,6 @@ pub fn verifier_events_since_last_call() -> Vec<crate::verifier::Event<Runtime>>
 pub fn roll_to(n: BlockNumber) {
 	crate::Pallet::<Runtime>::roll_to(
 		n,
-		matches!(SignedPhaseSwitch::get(), SignedSwitch::Real),
 		true,
 	);
 }
@@ -742,11 +734,6 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 		System::set_block_number(i);
 
 		MultiBlock::on_poll(i, &mut WeightMeter::new());
-		// VerifierPallet::on_poll(i);
-		// UnsignedPallet::on_poll(i);
-		// if matches!(SignedPhaseSwitch::get(), SignedSwitch::Real) {
-		// 	SignedPallet::on_poll(i);
-		// }
 
 		UnsignedPallet::offchain_worker(i);
 

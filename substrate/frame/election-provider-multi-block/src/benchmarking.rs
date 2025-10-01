@@ -40,7 +40,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::roll_next(true, false);
+			Pallet::<T>::roll_next(false);
 		}
 
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
@@ -59,7 +59,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::roll_next(true, false);
+			Pallet::<T>::roll_next(false);
 		}
 
 		// we have collected the target snapshot only
@@ -99,7 +99,7 @@ mod benchmarks {
 		// take one more snapshot page.
 		#[block]
 		{
-			Pallet::<T>::roll_next(true, false);
+			Pallet::<T>::roll_next(false);
 		}
 
 		// we have now collected the first page of voters.
@@ -128,7 +128,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::roll_next(true, false);
+			Pallet::<T>::roll_next(false);
 		}
 
 		assert!(CurrentPhase::<T>::get().is_signed_validation());

@@ -57,7 +57,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp() - 1));
 
@@ -85,7 +85,7 @@ mod benchmarks {
 		// start signal must have been sent by now
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 		for _ in 0..(T::Pages::get() - 1) {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we must have verified all pages by now, minus the last one.
@@ -97,7 +97,7 @@ mod benchmarks {
 		// verify the last page.
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are done
@@ -137,7 +137,7 @@ mod benchmarks {
 		assert_eq!(StatusStorage::<T>::get(), Status::Ongoing(crate::Pallet::<T>::msp()));
 		// verify all pages, except for the last one.
 		for i in 0..T::Pages::get() - 1 {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 			assert_eq!(
 				StatusStorage::<T>::get(),
 				Status::Ongoing(crate::Pallet::<T>::msp() - 1 - i)
@@ -153,7 +153,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are now reset.
@@ -206,7 +206,7 @@ mod benchmarks {
 
 		// validate the the parameterized number of valid pages.
 		for _ in 0..v {
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are still ready to continue
@@ -215,7 +215,7 @@ mod benchmarks {
 		// verify one page, which will be invalid.
 		#[block]
 		{
-			crate::Pallet::<T>::roll_next(true, false);
+			crate::Pallet::<T>::roll_next(false);
 		}
 
 		// we are now reset, because this page was invalid.

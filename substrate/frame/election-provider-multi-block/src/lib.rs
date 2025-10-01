@@ -1495,7 +1495,7 @@ where
 	/// Progress blocks until the criteria is met.
 	pub(crate) fn roll_until_matches(criteria: impl FnOnce() -> bool + Copy) {
 		loop {
-			Self::roll_next(true, false);
+			Self::roll_next(false);
 			if criteria() {
 				break;
 			}
@@ -1508,7 +1508,7 @@ where
 		loop {
 			let should_break = frame_support::storage::with_transaction(
 				|| -> TransactionOutcome<Result<_, DispatchError>> {
-					Pallet::<T>::roll_next(true, false);
+					Pallet::<T>::roll_next(false);
 					if criteria() {
 						TransactionOutcome::Rollback(Ok(true))
 					} else {
@@ -1575,7 +1575,7 @@ where
 	}
 
 	/// Roll all pallets forward, for the given number of blocks.
-	pub(crate) fn roll_to(n: BlockNumberFor<T>, with_signed: bool, try_state: bool) {
+	pub(crate) fn roll_to(n: BlockNumberFor<T>, try_state: bool) {
 		let now = frame_system::Pallet::<T>::block_number();
 		assert!(n > now, "cannot roll to current or past block");
 		let one: BlockNumberFor<T> = 1u32.into();
@@ -1584,13 +1584,6 @@ where
 			frame_system::Pallet::<T>::set_block_number(i);
 
 			Pallet::<T>::on_poll(i, &mut WeightMeter::new());
-			// verifier::Pallet::<T>::on_poll(i);
-			// unsigned::Pallet::<T>::on_poll(i);
-
-			// // TODO: remove as not sensible anymore.
-			// if with_signed {
-			// 	signed::Pallet::<T>::on_poll(i);
-			// }
 
 			// invariants must hold at the end of each block.
 			if try_state {
@@ -1605,10 +1598,9 @@ where
 	}
 
 	/// Roll to next block.
-	pub(crate) fn roll_next(with_signed: bool, try_state: bool) {
+	pub(crate) fn roll_next(try_state: bool) {
 		Self::roll_to(
 			frame_system::Pallet::<T>::block_number() + 1u32.into(),
-			with_signed,
 			try_state,
 		);
 	}
