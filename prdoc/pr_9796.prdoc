@@ -10,4 +10,10 @@ crates:
   - name: pallet-assets
     bump: major
   - name: pallet-assets-precompiles
+    bump: patch
+  - name: polkadot-sdk
     bump: minor
+  - name: asset-hub-westend-runtime
+    bump: none
+    validate: false
+  
