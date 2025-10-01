@@ -1106,7 +1106,6 @@ fn self_destruct_works() {
 
 #[test]
 fn self_destruct2_works() {
-	use frame_support::traits::OnFinalize;
 	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
 	let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
 
