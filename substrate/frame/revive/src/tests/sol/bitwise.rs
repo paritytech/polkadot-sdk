@@ -28,8 +28,8 @@ use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Bitwise, FixtureType};
 use test_case::test_case;
 
-#[test_case(FixtureType::Solc;   "solc")]
-#[test_case(FixtureType::Resolc; "resolc")]
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
 fn bitwise_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Bitwise", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -40,14 +40,13 @@ fn bitwise_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {}).abi_encode())
 			.build_and_unwrap_result();
+
 		if result.did_revert() {
 			if let Some(revert_msg) = decode_revert_reason(&result.data) {
-				log::error!("Revert message: {}", revert_msg);
+				panic!("Revert message: {revert_msg}");
 			} else {
-				log::error!("Revert without message, raw data: {:?}", result.data);
+				panic!("Revert without message, raw data: {:?}", result.data);
 			}
 		}
-
-		assert!(!result.did_revert(), "bitwise test reverted");
 	});
 }
