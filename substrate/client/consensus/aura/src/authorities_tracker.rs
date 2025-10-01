@@ -157,6 +157,27 @@ where
 		Ok(())
 	}
 
+	/// If there is an authorities change digest in the header, import it into the tracker.
+	pub fn import_from_runtime(&self, post_header: &B::Header) -> Result<(), String> {
+		let hash = post_header.hash();
+		let number = *post_header.number();
+
+		let authorities =
+			fetch_authorities_from_runtime(&*self.client, hash, number, &CompatibilityMode::None)
+				.map_err(|e| format!("Could not fetch authorities "))?;
+
+		self.authorities
+			.write()
+			.import(hash, number, authorities, &|_, _| {
+				Ok::<_, fork_tree::Error<sp_blockchain::Error>>(true)
+			})
+			.map_err(|e| {
+				format!("Could not import authorities for block {hash:?} at number {number}: {e}")
+			})?;
+
+		Ok(())
+	}
+
 	fn prune_finalized(&self) -> Result<(), String> {
 		let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
 		let info = self.client.info();

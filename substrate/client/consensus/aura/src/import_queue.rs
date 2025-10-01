@@ -29,6 +29,7 @@ use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
 	block_import::{BlockImport, BlockImportParams, ForkChoiceStrategy},
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
+	BlockCheckParams, ImportResult,
 };
 use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProviderExt};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
@@ -104,7 +105,7 @@ pub struct AuraVerifier<C, P: Pair, CIDP, B: BlockT> {
 	create_inherent_data_providers: CIDP,
 	check_for_equivocation: CheckForEquivocation,
 	telemetry: Option<TelemetryHandle>,
-	authorities_tracker: AuthoritiesTracker<P, B, C>,
+	authorities_tracker: Arc<AuthoritiesTracker<P, B, C>>,
 }
 
 impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B>
@@ -125,7 +126,7 @@ where
 			create_inherent_data_providers,
 			check_for_equivocation,
 			telemetry,
-			authorities_tracker: AuthoritiesTracker::new(client, &compatibility_mode)?,
+			authorities_tracker: Arc::new(AuthoritiesTracker::new(client, &compatibility_mode)?),
 		})
 	}
 }
@@ -361,7 +362,53 @@ where
 	})
 	.map_err(|e| sp_consensus::Error::Other(e.into()))?;
 
+	let authorities_tracker = verifier.authorities_tracker.clone();
+
+	let block_import = AuraBlockImport { block_import, authorities_tracker };
+
 	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
+}
+
+struct AuraBlockImport<Client, P: Pair, Block: BlockT, BI: BlockImport<Block>> {
+	block_import: BI,
+	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+}
+
+#[async_trait::async_trait]
+impl<Client: Sync + Send, P: Pair, Block: BlockT, BI: BlockImport<Block> + Send + Sync>
+	BlockImport<Block> for AuraBlockImport<Client, P, Block, BI>
+where
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>,
+	P::Public: Codec + Debug,
+	Client::Api: AuraApi<Block, AuthorityId<P>>,
+{
+	type Error = BI::Error;
+
+	async fn check_block(
+		&self,
+		block: BlockCheckParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		self.block_import.check_block(block).await
+	}
+
+	/// Import a block.
+	async fn import_block(
+		&self,
+		block: BlockImportParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		let with_state = block.with_state();
+		let post_header = block.post_header();
+
+		let res = self.block_import.import_block(block).await?;
+
+		if with_state {
+			self.authorities_tracker.import_from_runtime(&post_header).unwrap();
+		}
+
+		Ok(res)
+	}
 }
 
 /// Parameters of [`build_verifier`].
