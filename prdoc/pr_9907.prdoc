@@ -1,11 +1,7 @@
 title: 'CheckWeight: Take transaction length into account during validation'
 doc:
 - audience: Runtime Dev
-  description: During validation of extrinsics we currently check that the benchmarked
-    weight does not exceed the overall block limit for the given extrinsic class.  For
-    the proof weight, this should also take into account the length of the transaction.
-    This creates parity with the checks we already do at extrinsic application time
-    where we take the length [into account](https://github.com/paritytech/polkadot-sdk/blob/7086502b242c7984a13e198d2373e69a640e5c58/substrate/frame/system/src/extensions/check_weight.rs#L166-L166).
+  description: The `CheckWeight` extension now takes the length into account when checking whether a transaction fits into a block at validation time.
 crates:
 - name: frame-system
   bump: patch
