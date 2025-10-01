@@ -25,8 +25,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		CheckedConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		ValidateResult,
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 	DispatchResult,
@@ -446,7 +445,7 @@ mod tests {
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), block_weight_limit().set_proof_size(0));
 			// Checking single extrinsic should not take current block weight into account.
-			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&rest_operational), Ok(()));
+			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&rest_operational, len), Ok(()));
 		});
 	}
 
@@ -508,7 +507,10 @@ mod tests {
 				InvalidTransaction::ExhaustsResources
 			);
 			// Even with full block, validity of single transaction should be correct.
-			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&dispatch_operational), Ok(()));
+			assert_eq!(
+				CheckWeight::<Test>::check_extrinsic_weight(&dispatch_operational, len),
+				Ok(())
+			);
 		});
 	}
 
@@ -894,7 +896,7 @@ mod tests {
 			assert_ok!(CheckWeight::<Test>::do_prepare(&mandatory, len, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(1024 + 768, 0));
-			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory), Ok(()));
+			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory, len), Ok(()));
 		});
 	}
 
@@ -949,6 +951,66 @@ mod tests {
 			),
 			InvalidTransaction::ExhaustsResources
 		);
+	}
+
+	#[test]
+	fn check_extrinsic_proof_weight_includes_length() {
+		new_test_ext().execute_with(|| {
+			// Test that check_extrinsic_weight properly includes length in proof size check
+			let weights = block_weights();
+			let max_extrinsic = weights.get(DispatchClass::Normal).max_extrinsic.unwrap();
+
+			let max_proof_size = max_extrinsic.proof_size() as usize;
+			// Extrinsic weight that fits without length
+			let info = DispatchInfo {
+				call_weight: max_extrinsic.clone().set_proof_size(0),
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			// With zero length, should succeed
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, 0));
+
+			// With small length, should succeed
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, 100));
+
+			// With small length, should succeed
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, max_proof_size));
+
+			// One byte above limit, should fail
+			assert_err!(
+				CheckWeight::<Test>::check_extrinsic_weight(&info, max_proof_size + 1),
+				InvalidTransaction::ExhaustsResources
+			);
+
+			// Now test an extrinsic that's at the limit for proof size
+			let info_at_limit = DispatchInfo {
+				call_weight: max_extrinsic,
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			// At limit with zero length should succeed
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info_at_limit, 0));
+
+			// Over limit when length is added should fail
+			assert_err!(
+				CheckWeight::<Test>::check_extrinsic_weight(&info_at_limit, 1),
+				InvalidTransaction::ExhaustsResources
+			);
+
+			// Test with very large length (near usize::MAX on 32-bit systems)
+			let info_zero = DispatchInfo {
+				call_weight: Weight::zero(),
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+			// Should handle large lengths gracefully via saturating conversion
+			let large_len = usize::MAX;
+			let result = CheckWeight::<Test>::check_extrinsic_weight(&info_zero, large_len);
+			// This should fail because u64::MAX proof size exceeds limits
+			assert_err!(result, InvalidTransaction::ExhaustsResources);
+		});
 	}
 
 	#[test]
