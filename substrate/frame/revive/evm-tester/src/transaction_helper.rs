@@ -1,13 +1,16 @@
 //! Transaction helper utilities
 
 use anyhow::{Context, Result};
-use pallet_revive::{
-	evm::{
-		Account, Byte, Bytes as ReviveBytes, GenericTransaction, InputOrData, TransactionSigned,
-	},
-	vm::U256Converter,
+use pallet_revive::evm::{
+	Account, Byte, Bytes as ReviveBytes, GenericTransaction, InputOrData, TransactionSigned,
 };
 use revm_statetest_types::{recover_address, TestUnit, TxPartIndices};
+use sp_core::U256;
+
+fn from_revm_u256(value: &revm::primitives::U256) -> U256 {
+	let bytes = value.to_be_bytes::<32>();
+	U256::from_big_endian(&bytes)
+}
 
 /// Convert a StateTest transaction to a GenericTransaction from pallet-revive
 ///
@@ -25,29 +28,15 @@ pub fn create_generic_transaction(
 	let data = test.transaction.data.get(indices.data).context("Invalid data index")?;
 
 	// Convert revm types to pallet-revive types
-	let chain_id = test
-		.env
-		.current_chain_id
-		.map(|v| pallet_revive::evm::U256::from_revm_u256(&v))
-		.unwrap_or(1u32.into());
+	let chain_id = test.env.current_chain_id.map(from_revm_u256).unwrap_or(1u32.into());
 
 	let gas = Some(pallet_revive::evm::U256::from_revm_u256(gas_limit));
-	let gas_price =
-		test.transaction.gas_price.map(|v| pallet_revive::evm::U256::from_revm_u256(&v));
-	let max_fee_per_gas = test
-		.transaction
-		.max_fee_per_gas
-		.map(|v| pallet_revive::evm::U256::from_revm_u256(&v));
-	let max_priority_fee_per_gas = test
-		.transaction
-		.max_priority_fee_per_gas
-		.map(|v| pallet_revive::evm::U256::from_revm_u256(&v));
-	let max_fee_per_blob_gas = test
-		.transaction
-		.max_fee_per_blob_gas
-		.map(|v| pallet_revive::evm::U256::from_revm_u256(&v));
-	let nonce = Some(pallet_revive::evm::U256::from_revm_u256(&test.transaction.nonce));
-	let value = Some(pallet_revive::evm::U256::from_revm_u256(value));
+	let gas_price = test.transaction.gas_price.map(from_revm_u256);
+	let max_fee_per_gas = test.transaction.max_fee_per_gas.map(from_revm_u256);
+	let max_priority_fee_per_gas = test.transaction.max_priority_fee_per_gas.map(from_revm_u256);
+	let max_fee_per_blob_gas = test.transaction.max_fee_per_blob_gas.map(from_revm_u256);
+	let nonce = Some(&test.transaction.nonce).map(from_revm_u256);
+	let value = Some(value).map(from_revm_u256);
 	// Handle recipient - following go-ethereum pattern
 	let to = test
 		.transaction

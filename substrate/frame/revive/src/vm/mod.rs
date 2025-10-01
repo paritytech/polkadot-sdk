@@ -23,7 +23,6 @@ pub mod pvm;
 mod runtime_costs;
 
 pub use runtime_costs::RuntimeCosts;
-pub use evm::U256Converter;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
