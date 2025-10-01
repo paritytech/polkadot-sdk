@@ -67,7 +67,7 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets::precompiles::{InlineIdConfig, ERC20};
+use pallet_assets_precompiles::{InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
@@ -525,6 +525,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		ConstantStoragePrice<StakePoolCreationDeposit, Balance>,
 	>;
 	type WeightInfo = weights::pallet_asset_rewards::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;
 }
