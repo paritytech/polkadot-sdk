@@ -51,6 +51,7 @@ jobs:
         id: required
         env:
           SKIP_WASM_BUILD: 1
+          FORCE_REVIVE_DEV_RUNTIME_WASM_BUILD: 1
           RUSTDOCFLAGS: "-Dwarnings --default-theme=ayu --html-in-header ./docs/sdk/assets/header.html --extend-css ./docs/sdk/assets/theme.css --html-after-content ./docs/sdk/assets/after-content.html"
       - run: rm -f ./target/doc/.lock
       - run: mv ./target/doc ./crate-docs
