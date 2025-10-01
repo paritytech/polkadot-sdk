@@ -143,6 +143,12 @@ pub enum Error {
 	/// Too many assets matched the given asset filter.
 	#[codec(index = 35)]
 	TooManyAssets,
+	/// Publishing data failed.
+	#[codec(index = 36)]
+	PublishFailed,
+	/// Subscribing to a publisher failed.
+	#[codec(index = 37)]
+	SubscribeFailed,
 
 	// Errors that happen prior to instructions being executed. These fall outside of the XCM
 	// spec.
@@ -227,8 +233,9 @@ impl MaxEncodedLen for Error {
 impl From<SendError> for Error {
 	fn from(e: SendError) -> Self {
 		match e {
-			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument =>
-				Error::Unroutable,
+			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument => {
+				Error::Unroutable
+			},
 			SendError::Transport(s) => Error::Transport(s),
 			SendError::DestinationUnsupported => Error::DestinationUnsupported,
 			SendError::ExceedsMaxMessageSize => Error::ExceedsMaxMessageSize,

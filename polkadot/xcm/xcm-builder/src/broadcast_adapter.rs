@@ -21,8 +21,8 @@ use core::marker::PhantomData;
 use frame_support::traits::Contains;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::broadcaster::publish;
-use xcm::latest::{Junction, Location, PublishData, Result as XcmResult};
 use xcm::latest::prelude::XcmError;
+use xcm::latest::{Junction, Location, PublishData, Result as XcmResult};
 use xcm_executor::traits::BroadcastHandler;
 
 /// Configurable broadcast adapter that validates parachain origins.
@@ -41,17 +41,18 @@ where
 
 		// Extract parachain ID from authorized origin
 		let para_id = match origin.unpack() {
-			(0, [Junction::Parachain(id)]) => ParaId::from(*id),        // Direct parachain
-			(1, [Junction::Parachain(id), ..]) => ParaId::from(*id),    // Sibling parachain
-			_ => return Err(XcmError::BadOrigin),          // Should be caught by filter
+			(0, [Junction::Parachain(id)]) => ParaId::from(*id), // Direct parachain
+			(1, [Junction::Parachain(id), ..]) => ParaId::from(*id), // Sibling parachain
+			_ => return Err(XcmError::BadOrigin),                // Should be caught by filter
 		};
 
 		// Call the actual handler
-		let data_vec: Vec<(Vec<u8>, Vec<u8>)> = data.into_inner()
+		let data_vec: Vec<(Vec<u8>, Vec<u8>)> = data
+			.into_inner()
 			.into_iter()
 			.map(|(k, v)| (k.into_inner(), v.into_inner()))
 			.collect();
-		Handler::publish_data(para_id, data_vec).map_err(|_| XcmError::Unimplemented)
+		Handler::publish_data(para_id, data_vec).map_err(|_| XcmError::PublishFailed)
 	}
 
 	fn handle_subscribe(origin: &Location, publisher: u32) -> XcmResult {
@@ -62,18 +63,18 @@ where
 
 		// Extract subscriber parachain ID from authorized origin
 		let subscriber_id = match origin.unpack() {
-			(0, [Junction::Parachain(id)]) => ParaId::from(*id),        // Direct parachain
-			(1, [Junction::Parachain(id), ..]) => ParaId::from(*id),    // Sibling parachain
-			_ => return Err(XcmError::BadOrigin),          // Should be caught by filter
+			(0, [Junction::Parachain(id)]) => ParaId::from(*id), // Direct parachain
+			(1, [Junction::Parachain(id), ..]) => ParaId::from(*id), // Sibling parachain
+			_ => return Err(XcmError::BadOrigin),                // Should be caught by filter
 		};
 
 		let publisher_id = ParaId::from(publisher);
 
 		// Call the handler for subscribe toggle
-		Handler::toggle_subscription(subscriber_id, publisher_id).map_err(|_| XcmError::Unimplemented)
+		Handler::toggle_subscription(subscriber_id, publisher_id)
+			.map_err(|_| XcmError::SubscribeFailed)
 	}
 }
-
 
 /// Allows only direct parachains (parents=0, interior=[Parachain(_)]).
 pub struct DirectParachainsOnly;
@@ -83,14 +84,11 @@ impl Contains<Location> for DirectParachainsOnly {
 	}
 }
 
-/// Allows both direct and sibling parachains. 
+/// Allows both direct and sibling parachains.
 pub struct AllParachains;
 impl Contains<Location> for AllParachains {
 	fn contains(origin: &Location) -> bool {
-		matches!(
-			origin.unpack(),
-			(0, [Junction::Parachain(_)]) | (1, [Junction::Parachain(_), ..])
-		)
+		matches!(origin.unpack(), (0, [Junction::Parachain(_)]) | (1, [Junction::Parachain(_), ..]))
 	}
 }
 
@@ -113,9 +111,11 @@ mod tests {
 	use super::*;
 	use frame_support::parameter_types;
 	use polkadot_runtime_parachains::broadcaster::publish;
-	use sp_runtime::{bounded_vec, BoundedVec};
-	use xcm::latest::{PublishData, Location, Junction, MaxPublishKeyLength, MaxPublishValueLength};
+	use sp_runtime::BoundedVec;
 	use xcm::latest::prelude::XcmError;
+	use xcm::latest::{
+		Junction, Location, MaxPublishKeyLength, MaxPublishValueLength, PublishData,
+	};
 
 	// Mock handler that tracks calls
 	parameter_types! {
@@ -182,7 +182,10 @@ mod tests {
 	#[test]
 	fn publish_from_sibling_parachain_works() {
 		PublishCalls::set(vec![]);
-		let origin = Location::new(1, [Junction::Parachain(2000), Junction::AccountId32 { network: None, id: [1; 32] }]);
+		let origin = Location::new(
+			1,
+			[Junction::Parachain(2000), Junction::AccountId32 { network: None, id: [1; 32] }],
+		);
 		let data = test_publish_data(vec![(b"key1", b"value1")]);
 
 		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_publish(
@@ -203,8 +206,7 @@ mod tests {
 		let data = test_publish_data(vec![(b"key1", b"value1")]);
 
 		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_publish(
-			&origin,
-			data,
+			&origin, data,
 		);
 
 		assert!(matches!(result, Err(XcmError::NoPermission)));
@@ -217,10 +219,10 @@ mod tests {
 		let origin = Location::new(1, [Junction::Parachain(1000)]);
 		let data = test_publish_data(vec![(b"key1", b"value1")]);
 
-		let result = ParachainBroadcastAdapter::<DirectParachainsOnly, MockPublishHandler>::handle_publish(
-			&origin,
-			data,
-		);
+		let result =
+			ParachainBroadcastAdapter::<DirectParachainsOnly, MockPublishHandler>::handle_publish(
+				&origin, data,
+			);
 
 		assert!(matches!(result, Err(XcmError::NoPermission)));
 		assert!(PublishCalls::get().is_empty());
@@ -232,10 +234,10 @@ mod tests {
 		let origin = Location::new(0, [Junction::Parachain(1000)]);
 		let publisher = 2000;
 
-		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
-			&origin,
-			publisher,
-		);
+		let result =
+			ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
+				&origin, publisher,
+			);
 
 		assert!(result.is_ok());
 		let calls = SubscribeCalls::get();
@@ -246,13 +248,16 @@ mod tests {
 	#[test]
 	fn subscribe_from_sibling_parachain_works() {
 		SubscribeCalls::set(vec![]);
-		let origin = Location::new(1, [Junction::Parachain(3000), Junction::AccountId32 { network: None, id: [1; 32] }]);
+		let origin = Location::new(
+			1,
+			[Junction::Parachain(3000), Junction::AccountId32 { network: None, id: [1; 32] }],
+		);
 		let publisher = 2000;
 
-		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
-			&origin,
-			publisher,
-		);
+		let result =
+			ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
+				&origin, publisher,
+			);
 
 		assert!(result.is_ok());
 		let calls = SubscribeCalls::get();
@@ -266,10 +271,10 @@ mod tests {
 		let origin = Location::here();
 		let publisher = 2000;
 
-		let result = ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
-			&origin,
-			publisher,
-		);
+		let result =
+			ParachainBroadcastAdapter::<AllParachains, MockPublishHandler>::handle_subscribe(
+				&origin, publisher,
+			);
 
 		assert!(matches!(result, Err(XcmError::NoPermission)));
 		assert!(SubscribeCalls::get().is_empty());
@@ -281,10 +286,10 @@ mod tests {
 		let origin = Location::new(1, [Junction::Parachain(1000)]);
 		let publisher = 2000;
 
-		let result = ParachainBroadcastAdapter::<DirectParachainsOnly, MockPublishHandler>::handle_subscribe(
-			&origin,
-			publisher,
-		);
+		let result =
+			ParachainBroadcastAdapter::<DirectParachainsOnly, MockPublishHandler>::handle_subscribe(
+				&origin, publisher,
+			);
 
 		assert!(matches!(result, Err(XcmError::NoPermission)));
 		assert!(SubscribeCalls::get().is_empty());
@@ -308,7 +313,10 @@ mod tests {
 		assert!(AllParachains::contains(&Location::new(0, [Junction::Parachain(1000)])));
 
 		// Sibling parachain allowed
-		assert!(AllParachains::contains(&Location::new(1, [Junction::Parachain(2000), Junction::AccountId32 { network: None, id: [1; 32] }])));
+		assert!(AllParachains::contains(&Location::new(
+			1,
+			[Junction::Parachain(2000), Junction::AccountId32 { network: None, id: [1; 32] }]
+		)));
 
 		// Root not allowed
 		assert!(!AllParachains::contains(&Location::here()));
