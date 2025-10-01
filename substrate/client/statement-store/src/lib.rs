@@ -488,12 +488,7 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block>
-			+ HeaderBackend<Block>
-			+ sc_client_api::ExecutorProvider<Block>
-			+ Send
-			+ Sync
-			+ 'static,
+		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 		Client::Api: ValidateStatement<Block>,
 	{
 		let store = Arc::new(Self::new(path, options, client, keystore, prometheus)?);
@@ -671,21 +666,25 @@ impl Store {
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		let deleted = self.index.write().maintain(self.timestamp());
+		let (deleted, active_count, expired_count): (Vec<_>, usize, usize) = {
+			let mut index = self.index.write();
+			let deleted = index.maintain(self.timestamp());
+			(deleted, index.entries.len(), index.expired.len())
+		};
 		let deleted: Vec<_> =
 			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
-		let count = deleted.len() as u64;
+		let deleted_count = deleted.len() as u64;
 		if let Err(e) = self.db.commit(deleted) {
 			log::warn!(target: LOG_TARGET, "Error writing to the statement database: {:?}", e);
 		} else {
-			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(count));
+			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
 		log::trace!(
 			target: LOG_TARGET,
 			"Completed store maintenance. Purged: {}, Active: {}, Expired: {}",
-			count,
-			self.index.read().entries.len(),
-			self.index.read().expired.len()
+			deleted_count,
+			active_count,
+			expired_count
 		);
 	}
 
@@ -764,7 +763,7 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for h in self.index.read().entries.keys() {
+		for h in index.entries.keys() {
 			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
 			if let Some(encoded) = encoded {
 				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
