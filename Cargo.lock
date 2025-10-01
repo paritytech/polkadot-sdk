@@ -4348,6 +4348,7 @@ dependencies = [
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
  "cumulus-client-parachain-inherent",
+ "cumulus-client-proof-size-recording",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -4536,6 +4537,16 @@ dependencies = [
  "sp-version",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "cumulus-client-proof-size-recording"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sc-client-api",
+ "sp-blockchain",
+ "sp-runtime",
 ]
 
 [[package]]

@@ -71,6 +71,7 @@ members = [
 	"cumulus/client/network",
 	"cumulus/client/parachain-inherent",
 	"cumulus/client/pov-recovery",
+	"cumulus/client/proof-size-recording",
 	"cumulus/client/relay-chain-inprocess-interface",
 	"cumulus/client/relay-chain-interface",
 	"cumulus/client/relay-chain-minimal-node",
@@ -743,6 +744,7 @@ cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-
 cumulus-client-network = { path = "cumulus/client/network", default-features = false }
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
+cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-recording", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
 cumulus-pallet-dmp-queue = { default-features = false, path = "cumulus/pallets/dmp-queue" }
