@@ -18,7 +18,7 @@ use std::{env, fs, path::Path, process::Command};
 
 fn main() {
 	generate_git_revision();
-	write_ah_westend_wasm();
+	generate_wasm_runtime();
 }
 
 fn generate_git_revision() {
@@ -52,14 +52,14 @@ fn generate_git_revision() {
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
 }
 
-fn write_ah_westend_wasm() {
+fn generate_wasm_runtime() {
 	let manifest_dir = env::var("CARGO_MANIFEST_DIR")
 		.expect("`CARGO_MANIFEST_DIR` is always set for `build.rs` files; qed");
 
-	let symlink_path = Path::new(&manifest_dir).join("asset_hub_westend_runtime.wasm");
+	let symlink_path = Path::new(&manifest_dir).join("revive_runtime.wasm");
 
 	// Get the WASM binary path from the runtime crate
-	let wasm_source = asset_hub_westend_runtime::WASM_BINARY_PATH
+	let wasm_source = revive_dev_runtime::WASM_BINARY_PATH
 		.expect("WASM_BINARY_PATH is not set. Please build the runtime with WASM support enabled.");
 
 	// Remove existing symlink/file if it exists
