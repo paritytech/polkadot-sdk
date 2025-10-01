@@ -7,7 +7,7 @@ use pallet_revive::evm::{
 use revm_statetest_types::{recover_address, TestUnit, TxPartIndices};
 use sp_core::U256;
 
-fn from_revm_u256(value: &revm::primitives::U256) -> U256 {
+fn from_revm_u256(value: revm::primitives::U256) -> U256 {
 	let bytes = value.to_be_bytes::<32>();
 	U256::from_big_endian(&bytes)
 }
@@ -28,15 +28,15 @@ pub fn create_generic_transaction(
 	let data = test.transaction.data.get(indices.data).context("Invalid data index")?;
 
 	// Convert revm types to pallet-revive types
-	let chain_id = test.env.current_chain_id.map(from_revm_u256).unwrap_or(1u32.into());
+	let chain_id = test.env.current_chain_id.map(from_revm_u256);
 
-	let gas = Some(pallet_revive::evm::U256::from_revm_u256(gas_limit));
+	let gas = Some(*gas_limit).map(from_revm_u256);
 	let gas_price = test.transaction.gas_price.map(from_revm_u256);
 	let max_fee_per_gas = test.transaction.max_fee_per_gas.map(from_revm_u256);
 	let max_priority_fee_per_gas = test.transaction.max_priority_fee_per_gas.map(from_revm_u256);
 	let max_fee_per_blob_gas = test.transaction.max_fee_per_blob_gas.map(from_revm_u256);
-	let nonce = Some(&test.transaction.nonce).map(from_revm_u256);
-	let value = Some(value).map(from_revm_u256);
+	let nonce = Some(test.transaction.nonce).map(from_revm_u256);
+	let value = Some(*value).map(from_revm_u256);
 	// Handle recipient - following go-ethereum pattern
 	let to = test
 		.transaction
@@ -80,7 +80,7 @@ pub fn create_generic_transaction(
 		access_list,
 		blob_versioned_hashes,
 		blobs: Vec::new(), // State tests don't typically include raw blob data
-		chain_id: Some(chain_id),
+		chain_id,
 		from,
 		gas,
 		gas_price,

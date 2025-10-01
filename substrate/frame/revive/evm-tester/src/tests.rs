@@ -7,7 +7,7 @@ use serde_json;
 
 #[test]
 fn execute_state_test_with_revm() {
-	let json = include_str!("test.json");
+	let json = include_str!("/home/pg/github/execution-spec-tests/fixtures/state_tests/frontier/opcodes/all_opcodes/all_opcodes.json");
 	let test_suite: TestSuite = serde_json::from_str(json).expect("Failed to parse test JSON");
 	let (test_name, test_case) = test_suite.0.iter().next().expect("No test case found");
 	let post_states = test_case.post.get(&SpecName::Prague).expect("Prague fork not found");
@@ -27,7 +27,10 @@ fn execute_state_test_with_revm() {
 		.expect("Failed to execute state test");
 
 	assert!(result.pass, "State test should pass, got: {:?}", result.error);
-	assert_eq!(result.name, "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_g1mul.py::test_valid[fork_Prague-state_test-bls_g1mul_(0*g1=inf)-]");
+	assert_eq!(
+		result.name,
+		"tests/frontier/opcodes/test_all_opcodes.py::test_all_opcodes[fork_Prague-state_test]"
+	);
 	assert_eq!(result.fork, "Prague");
 	assert!(result.error.is_none(), "Should have no error: {:?}", result.error);
 }
@@ -50,7 +53,7 @@ fn execute_state_test_with_revive() {
 		})
 		.init();
 	// env_logger::init();
-	let json = include_str!("test.json");
+	let json = include_str!("/home/pg/github/execution-spec-tests/fixtures/state_tests/frontier/opcodes/all_opcodes/all_opcodes.json");
 	let test_suite: TestSuite = serde_json::from_str(json).expect("Failed to parse test JSON");
 	let (test_name, test_case) = test_suite.0.iter().next().expect("No test case found");
 	let post_states = test_case.post.get(&SpecName::Prague).expect("Prague fork not found");
@@ -70,7 +73,10 @@ fn execute_state_test_with_revive() {
 		.expect("Failed to execute state test");
 
 	assert!(result.pass, "State test should pass, got: {:?}", result.error);
-	assert_eq!(result.name, "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_g1mul.py::test_valid[fork_Prague-state_test-bls_g1mul_(0*g1=inf)-]");
+	assert_eq!(
+		result.name,
+		"tests/frontier/opcodes/test_all_opcodes.py::test_all_opcodes[fork_Prague-state_test]"
+	);
 	assert_eq!(result.fork, "Prague");
 	assert!(result.error.is_none(), "Should have no error: {:?}", result.error);
 }

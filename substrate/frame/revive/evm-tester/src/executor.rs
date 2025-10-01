@@ -350,23 +350,29 @@ pub fn execute_revive_statetest(
 
 	// Execute transaction and capture results
 	let (execution_result, logs) = ext.execute_with(|| {
-		let result =
-			pallet_revive::Pallet::<Runtime>::dry_run_eth_transact(tx, Weight::MAX, |_, _| 0u128);
+		let tracer_type = pallet_revive::evm::TracerType::CallTracer(Some(
+			pallet_revive::evm::CallTracerConfig { with_logs: true, only_top_call: false },
+		));
+		let mut tracer = pallet_revive::Pallet::<Runtime>::evm_tracer(tracer_type.clone());
+		let t = tracer.as_tracing();
+
+		let result = pallet_revive::tracing::trace(t, || {
+			pallet_revive::Pallet::<Runtime>::dry_run_eth_transact(tx, Weight::MAX, |_, _| 0u128)
+		});
 		// TODO: Extract actual logs from the execution
 		// For now, return empty logs as placeholder
 		let logs = vec![];
 		(result, logs)
 	});
 
-	// Create ExecutionResult from the pallet result
 	let result: ExecutionResult<HaltReason> = match execution_result {
 		Ok(_) => ExecutionResult::Success {
 			reason: revm::context::result::SuccessReason::Return,
-			gas_used: 0, // TODO: Extract actual gas used
+			gas_used: 0, // Untested for now since we have a different gas model
 			gas_refunded: 0,
 			logs,
-			output: revm::context::result::Output::Call(Default::default()), /* TODO: Extract
-			                                                                  * actual output */
+			// TODO: Extract actual output
+			output: revm::context::result::Output::Call(Default::default()),
 		},
 		Err(_) => {
 			// TODO: Map pallet errors to appropriate ExecutionResult variants
@@ -391,7 +397,7 @@ pub fn execute_revive_statetest(
 				}
 			}
 
-			// Verify logs root
+			// TODO this is going to require scc block work
 			let actual_logs_root = compute_logs_root(logs);
 			if actual_logs_root != expected_post_state.logs {
 				return Ok(Err(StateTestError::LogsRootMismatch {
@@ -400,17 +406,12 @@ pub fn execute_revive_statetest(
 				}));
 			}
 
-			// TODO: Add account state verification for Substrate/Revive
-			// This requires accessing the Substrate storage after execution
-			// and comparing with expected_post_state.post_state
-			/*
 			for (address, expected_account) in &expected_post_state.post_state {
 				// Convert EVM address to Substrate AccountId
 				// Query account state from Substrate storage
 				// Compare balance, nonce, code, storage
 				// Return StateTestError on mismatch
 			}
-			*/
 
 			Ok(Ok(result))
 		},
