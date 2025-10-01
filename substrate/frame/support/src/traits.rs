@@ -140,6 +140,8 @@ pub use proving::*;
 
 mod rewards;
 pub use rewards::RewardsPool;
+mod honzon;
+pub use honzon::*;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;

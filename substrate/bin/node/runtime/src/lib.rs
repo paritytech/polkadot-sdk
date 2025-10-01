@@ -2529,11 +2529,11 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		match key {
 			RuntimeParametersKey::Storage(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(());
+				return Ok(())
 			},
 			RuntimeParametersKey::Referenda(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(());
+				return Ok(())
 			},
 		}
 	}
@@ -2570,6 +2570,34 @@ impl pallet_meta_tx::Config for Runtime {
 	type Extension = MetaTxExtension;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+}
+
+// Auction pallet configuration
+pub struct AuctionHandler;
+
+impl frame_support::traits::AuctionHandler<AccountId, Balance, BlockNumber, u64>
+	for AuctionHandler
+{
+	fn on_new_bid(
+		_now: BlockNumber,
+		_id: u64,
+		_new_bid: (AccountId, Balance),
+		_last_bid: Option<(AccountId, Balance)>,
+	) -> frame_support::traits::OnNewBidResult<BlockNumber> {
+		frame_support::traits::OnNewBidResult {
+			accept_bid: true,
+			auction_end_change: frame_support::traits::Change::NoChange,
+		}
+	}
+
+	fn on_auction_ended(_id: u64, _winner: Option<(AccountId, Balance)>) {}
+}
+
+impl pallet_auction::Config for Runtime {
+	type Balance = Balance;
+	type AuctionId = u64;
+	type Handler = AuctionHandler;
+	type WeightInfo = ();
 }
 
 #[frame_support::runtime]
@@ -2849,6 +2877,9 @@ mod runtime {
 
 	#[runtime::pallet_index(85)]
 	pub type Oracle = pallet_oracle::Pallet<Runtime>;
+
+	#[runtime::pallet_index(86)]
+	pub type Auction = pallet_auction::Pallet<Runtime>;
 
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
@@ -3136,6 +3167,7 @@ mod benches {
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]
 		[pallet_oracle, Oracle]
+		[pallet_auction, Auction]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_ranked_collective, RankedCollective]

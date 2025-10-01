@@ -63,6 +63,7 @@ std = [
 	"pallet-assets-precompiles?/std",
 	"pallet-assets?/std",
 	"pallet-atomic-swap?/std",
+	"pallet-auction?/std",
 	"pallet-aura?/std",
 	"pallet-authority-discovery?/std",
 	"pallet-authorship?/std",
@@ -263,6 +264,7 @@ runtime-benchmarks = [
 	"pallet-assets-holder?/runtime-benchmarks",
 	"pallet-assets-precompiles?/runtime-benchmarks",
 	"pallet-assets?/runtime-benchmarks",
+	"pallet-auction?/runtime-benchmarks",
 	"pallet-babe?/runtime-benchmarks",
 	"pallet-bags-list?/runtime-benchmarks",
 	"pallet-balances?/runtime-benchmarks",
@@ -400,6 +402,7 @@ try-runtime = [
 	"pallet-assets-precompiles?/try-runtime",
 	"pallet-assets?/try-runtime",
 	"pallet-atomic-swap?/try-runtime",
+	"pallet-auction?/try-runtime",
 	"pallet-aura?/try-runtime",
 	"pallet-authority-discovery?/try-runtime",
 	"pallet-authorship?/try-runtime",
@@ -611,6 +614,7 @@ runtime-full = [
 	"pallet-assets-holder",
 	"pallet-assets-precompiles",
 	"pallet-atomic-swap",
+	"pallet-auction",
 	"pallet-aura",
 	"pallet-authority-discovery",
 	"pallet-authorship",
@@ -1299,6 +1303,11 @@ path = "../substrate/frame/assets/precompiles"
 default-features = false
 optional = true
 path = "../substrate/frame/atomic-swap"
+
+[dependencies.pallet-auction]
+default-features = false
+optional = true
+path = "../substrate/frame/honzon/auction"
 
 [dependencies.pallet-aura]
 default-features = false
