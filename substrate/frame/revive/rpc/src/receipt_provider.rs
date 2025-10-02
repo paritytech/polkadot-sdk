@@ -16,6 +16,7 @@
 // limitations under the License.
 use crate::{
 	client::{SubstrateBlock, SubstrateBlockNumber},
+	receipt_extractor::{build_receipt_from_tx, decode_and_recover_tx},
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
 	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
 };
@@ -301,14 +302,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 	}
 
-	/// Reconstruct receipts from the database when on-chain state has been pruned.
+	/// Reconstruct a single receipt from the database by transaction index.
 	/// This method can work even when events and storage are unavailable.
-	pub async fn receipts_from_db(
+	async fn receipt_from_db_by_index(
 		&self,
 		block: &SubstrateBlock,
-	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		use crate::receipt_extractor::{build_receipt_from_tx, decode_and_recover_tx};
-
+		transaction_index: usize,
+		call: &crate::subxt_client::revive::calls::types::EthTransact,
+	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let substrate_block_hash = block.hash();
 		let substrate_block_number = block.number() as u64;
 		let block_number: U256 = substrate_block_number.into();
@@ -319,78 +320,88 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.await
 			.unwrap_or(substrate_block_hash);
 
+		// Decode transaction and recover sender
+		let (signed_tx, transaction_hash, from) = decode_and_recover_tx(call)?;
+
+		// Query receipt metadata from DB
+		let (status, gas_used, gas_price) =
+			self.fetch_receipt_metadata(&transaction_hash).await.ok_or_else(|| {
+				log::warn!(
+					target: LOG_TARGET,
+					"Receipt metadata not found in DB for tx {transaction_hash:?}"
+				);
+				ClientError::TxFeeNotFound
+			})?;
+
+		// Query logs from DB
+		let block_hash_ref = substrate_block_hash.as_ref();
+		let transaction_index_i32 = transaction_index as i32;
+		let logs_rows = query!(
+			r#"
+			SELECT log_index, address, transaction_hash, topic_0, topic_1, topic_2, topic_3, data
+			FROM logs
+			WHERE block_hash = $1 AND transaction_index = $2
+			ORDER BY log_index ASC
+			"#,
+			block_hash_ref,
+			transaction_index_i32
+		)
+		.fetch_all(&self.pool)
+		.await?;
+
+		let logs: Vec<Log> = logs_rows
+			.into_iter()
+			.map(|row| {
+				let topics = [row.topic_0, row.topic_1, row.topic_2, row.topic_3]
+					.iter()
+					.filter_map(|t| t.as_ref().map(|bytes| H256::from_slice(bytes)))
+					.collect();
+
+				Log {
+					address: H160::from_slice(&row.address),
+					block_hash: eth_block_hash,
+					block_number,
+					data: row.data.map(Bytes::from),
+					log_index: U256::from(row.log_index as u64),
+					topics,
+					transaction_hash,
+					transaction_index: transaction_index.into(),
+					removed: false,
+				}
+			})
+			.collect();
+
+		// Build the receipt using the common helper
+		let receipt = build_receipt_from_tx(
+			&signed_tx,
+			transaction_hash,
+			from,
+			gas_price,
+			gas_used,
+			status,
+			logs,
+			eth_block_hash,
+			block_number,
+			transaction_index,
+		)?;
+
+		Ok((signed_tx, receipt))
+	}
+
+	/// Reconstruct receipts from the database when on-chain state has been pruned.
+	/// This method can work even when events and storage are unavailable.
+	pub async fn receipts_from_db(
+		&self,
+		block: &SubstrateBlock,
+	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		// Get extrinsics from block (this works even when state is pruned)
 		let ext_iter = self.receipt_extractor.get_block_extrinsics(block).await?;
 
 		let mut receipts = Vec::new();
 
 		for (transaction_index, (_, call, _)) in ext_iter.enumerate() {
-			// Decode transaction and recover sender
-			let (signed_tx, transaction_hash, from) = decode_and_recover_tx(&call)?;
-
-			// Query receipt metadata from DB
-			let (status, gas_used, gas_price) =
-				self.fetch_receipt_metadata(&transaction_hash).await.ok_or_else(|| {
-					log::warn!(
-						target: LOG_TARGET,
-						"Receipt metadata not found in DB for tx {transaction_hash:?}"
-					);
-					ClientError::TxFeeNotFound
-				})?;
-
-			// Query logs from DB
-			let block_hash_ref = substrate_block_hash.as_ref();
-			let transaction_index_i32 = transaction_index as i32;
-			let logs_rows = query!(
-				r#"
-				SELECT log_index, address, transaction_hash, topic_0, topic_1, topic_2, topic_3, data
-				FROM logs
-				WHERE block_hash = $1 AND transaction_index = $2
-				ORDER BY log_index ASC
-				"#,
-				block_hash_ref,
-				transaction_index_i32
-			)
-			.fetch_all(&self.pool)
-			.await?;
-
-			let logs: Vec<Log> = logs_rows
-				.into_iter()
-				.map(|row| {
-					let topics = [row.topic_0, row.topic_1, row.topic_2, row.topic_3]
-						.iter()
-						.filter_map(|t| t.as_ref().map(|bytes| H256::from_slice(bytes)))
-						.collect();
-
-					Log {
-						address: H160::from_slice(&row.address),
-						block_hash: eth_block_hash,
-						block_number,
-						data: row.data.map(Bytes::from),
-						log_index: U256::from(row.log_index as u64),
-						topics,
-						transaction_hash,
-						transaction_index: transaction_index.into(),
-						removed: false,
-					}
-				})
-				.collect();
-
-			// Build the receipt using the common helper
-			let receipt = build_receipt_from_tx(
-				&signed_tx,
-				transaction_hash,
-				from,
-				gas_price,
-				gas_used,
-				status,
-				logs,
-				eth_block_hash,
-				block_number,
-				transaction_index,
-			)?;
-
-			receipts.push((signed_tx, receipt));
+			let receipt = self.receipt_from_db_by_index(block, transaction_index, &call).await?;
+			receipts.push(receipt);
 		}
 
 		Ok(receipts)
@@ -758,58 +769,58 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(rows.into_iter().collect())
 	}
 
+	/// Get the signed transaction and receipt for the given block hash and transaction index.
+	/// This method first attempts to extract the receipt from on-chain data (events/storage).
+	/// If that fails (e.g., due to pruned state), it falls back to reconstructing from the
+	/// database.
+	async fn signed_tx_and_receipt_by_block_hash_and_index(
+		&self,
+		block_hash: &H256,
+		transaction_index: usize,
+	) -> Option<(TransactionSigned, ReceiptInfo)> {
+		let block = self.block_provider.block_by_hash(block_hash).await.ok()??;
+
+		// Try on-chain extraction first
+		match self.receipt_extractor.extract_from_transaction(&block, transaction_index).await {
+			Ok((tx, receipt)) => Some((tx, receipt)),
+			Err(err) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"On-chain receipt extraction failed for block {block_hash:?} tx index {transaction_index}, falling back to DB: {err:?}"
+				);
+
+				// Fall back to DB reconstruction
+				let ext_iter = self.receipt_extractor.get_block_extrinsics(&block).await.ok()?;
+				let (_, call, _) = ext_iter.into_iter().nth(transaction_index)?;
+				self.receipt_from_db_by_index(&block, transaction_index, &call).await.ok()
+			},
+		}
+	}
+
 	/// Get the receipt for the given block hash and transaction index.
 	pub async fn receipt_by_block_hash_and_index(
 		&self,
 		block_hash: &H256,
 		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
-		let block = self.block_provider.block_by_hash(block_hash).await.ok()??;
 		let (_, receipt) = self
-			.receipt_extractor
-			.extract_from_transaction(&block, transaction_index)
-			.await
-			.ok()?;
+			.signed_tx_and_receipt_by_block_hash_and_index(block_hash, transaction_index)
+			.await?;
 		Some(receipt)
 	}
 
 	/// Get the receipt for the given transaction hash.
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
 		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
-
-		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (_, receipt) = self
-			.receipt_extractor
-			.extract_from_transaction(&block, transaction_index)
-			.await
-			.ok()?;
-		Some(receipt)
+		self.receipt_by_block_hash_and_index(&block_hash, transaction_index).await
 	}
 
 	/// Get the signed transaction for the given transaction hash.
 	pub async fn signed_tx_by_hash(&self, transaction_hash: &H256) -> Option<TransactionSigned> {
-		let transaction_hash = transaction_hash.as_ref();
-		let result = query!(
-			r#"
-			SELECT block_hash, transaction_index
-			FROM transaction_hashes
-			WHERE transaction_hash = $1
-			"#,
-			transaction_hash
-		)
-		.fetch_optional(&self.pool)
-		.await
-		.ok()??;
-
-		let block_hash = H256::from_slice(&result.block_hash[..]);
-		let transaction_index = result.transaction_index.try_into().ok()?;
-
-		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
 		let (signed_tx, _) = self
-			.receipt_extractor
-			.extract_from_transaction(&block, transaction_index)
-			.await
-			.ok()?;
+			.signed_tx_and_receipt_by_block_hash_and_index(&block_hash, transaction_index)
+			.await?;
 		Some(signed_tx)
 	}
 }
