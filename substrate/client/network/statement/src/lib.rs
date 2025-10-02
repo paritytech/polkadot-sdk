@@ -31,7 +31,7 @@ use crate::config::*;
 use codec::{Decode, Encode};
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered, FutureExt};
 use prometheus_endpoint::{
-	register, Counter, Histogram, HistogramOpts, PrometheusError, Registry, U64,
+	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
 };
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
@@ -93,6 +93,7 @@ struct Metrics {
 	known_statements_received: Counter<U64>,
 	skipped_oversized_statements: Counter<U64>,
 	propagated_statements_chunks: Histogram,
+	pending_statements: Gauge<U64>,
 }
 
 impl Metrics {
@@ -124,7 +125,14 @@ impl Metrics {
 					HistogramOpts::new(
 						"substrate_sync_propagated_statements_chunks",
 						"Distribution of chunk sizes when propagating statements",
-					),
+					).buckets(prometheus::exponential_buckets(1.0, 2.0, 14)?),
+				)?,
+				r,
+			)?,
+			pending_statements: register(
+				Gauge::new(
+					"substrate_sync_pending_statement_validations",
+					"Number of pending statement validations",
 				)?,
 				r,
 			)?,
@@ -292,6 +300,9 @@ where
 			futures::select! {
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements();
+					if let Some(ref metrics) = self.metrics {
+						metrics.pending_statements.set(self.pending_statements.len() as u64);
+					}
 				},
 				(hash, result) = self.pending_statements.select_next_some() => {
 					if let Some(peers) = self.pending_statements_peers.remove(&hash) {
