@@ -252,13 +252,6 @@ pub mod code {
 	}
 }
 
-// Make sure that the EVM initcode size fits into u32.
-const _: [(); if revm::primitives::eip3860::MAX_INITCODE_SIZE <= u32::MAX as usize {
-	1
-} else {
-	0
-}] = [(); 1];
-
 /// The amount of total memory we require.
 ///
 /// Unchecked math is okay since we evaluate at compile time.
