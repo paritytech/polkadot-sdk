@@ -518,26 +518,42 @@ impl<T: Config> Ext<T> for ReservingExt {
 			},
 		}
 		if let ContractState::<T>::Terminated { beneficiary } = state {
-			// Clean up on-chain storage
-			let contract_address = T::AddressMapper::to_address(contract);
-			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
-				.ok_or(Error::<T>::ContractNotFound)?;
-			contract_info.queue_trie_for_deletion();
-			AccountInfoOf::<T>::remove(contract_address);
-			ImmutableDataOf::<T>::remove(contract_address);
-			let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-
-			System::<T>::dec_consumers(&contract);
-			// Whatever is left in the contract is sent to the termination beneficiary.
-			T::Currency::transfer(
-				&contract,
-				&beneficiary,
-				T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite),
-				Preservation::Expendable,
-			)?;
+			terminate::<T>(contract, &beneficiary)?;
 		}
 		Ok(())
 	}
+}
+
+fn terminate<T: Config>(
+	contract: &T::AccountId,
+	beneficiary: &T::AccountId,
+) -> Result<(), DispatchError>  {
+	// Clean up on-chain storage
+	let contract_address = T::AddressMapper::to_address(contract);
+	let contract_info = AccountInfo::<T>::load_contract(&contract_address)
+		.ok_or(Error::<T>::ContractNotFound)?;
+	contract_info.queue_trie_for_deletion();
+	AccountInfoOf::<T>::remove(contract_address);
+	ImmutableDataOf::<T>::remove(contract_address);
+	let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+
+	System::<T>::dec_consumers(&contract);
+	// Whatever is left in the contract is sent to the termination beneficiary.
+	T::Currency::transfer(
+		&contract,
+		&beneficiary,
+		T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite),
+		Preservation::Expendable,
+	)?;
+	Ok(())
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn terminate_for_benchmark<T: Config>(
+	contract: &T::AccountId,
+	beneficiary: &T::AccountId,
+) -> Result<(), DispatchError>  {
+	terminate::<T>(contract, beneficiary)
 }
 
 mod private {

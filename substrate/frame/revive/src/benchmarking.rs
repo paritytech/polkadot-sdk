@@ -1222,28 +1222,22 @@ mod benchmarks {
 		Ok(())
 	}
 	#[benchmark(pov_mode = Measured)]
-	fn terminate(n: Linear<1, 5>) -> Result<(), BenchmarkError> {
+	fn terminate_logic_for_benchmark() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		let beneficiary_address = T::AddressMapper::to_address(&beneficiary);
-        // setup: create `count` contracts (not measured)
-        let count = n as usize;
-        let mut instances: Vec<Contract<T>> = Vec::with_capacity(count);
 
-        for i in 0..count {
-            let inst = Contract::<T>::with_index((i + 1) as u32, VmBinaryModule::dummy(), vec![])?;
-            instances.push(inst);
-        }
-        
-        for inst in &instances {
-            inst.info()?.queue_trie_for_deletion();
-        }
+		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
+		let code_hash = instance.info()?.code_hash;
 
-        #[block]
-        {
-            ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new());
-        }
+		// Increment the refcount of the code hash so that it does not get deleted
+		<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
+
+		#[block]
+		{
+			crate::storage::meter::terminate_logic_for_benchmark::<T>(&instance.account_id, &beneficiary).unwrap();
+		}
 		Ok(())
 	}
+
 	// Benchmark the overhead that topics generate.
 	// `t`: Number of topics
 	// `n`: Size of event payload in bytes
