@@ -30,7 +30,9 @@ use crate::config::*;
 
 use codec::{Decode, Encode};
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered, FutureExt};
-use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
+use prometheus_endpoint::{
+	register, Counter, Histogram, HistogramOpts, PrometheusError, Registry, U64,
+};
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
@@ -89,6 +91,8 @@ const LOG_TARGET: &str = "statement-gossip";
 struct Metrics {
 	propagated_statements: Counter<U64>,
 	known_statements_received: Counter<U64>,
+	skipped_oversized_statements: Counter<U64>,
+	propagated_statements_chunks: Histogram,
 }
 
 impl Metrics {
@@ -105,6 +109,22 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_known_statement_received",
 					"Number of statements received via gossiping that were already in the statement store",
+				)?,
+				r,
+			)?,
+			skipped_oversized_statements: register(
+				Counter::new(
+					"substrate_sync_skipped_oversized_statements",
+					"Number of oversized statements that were skipped to be gossiped",
+				)?,
+				r,
+			)?,
+			propagated_statements_chunks: register(
+				Histogram::with_opts(
+					HistogramOpts::new(
+						"substrate_sync_propagated_statements_chunks",
+						"Distribution of chunk sizes when propagating statements",
+					),
 				)?,
 				r,
 			)?,
@@ -139,7 +159,7 @@ impl StatementHandlerPrototype {
 		let (config, notification_service) = Net::notification_config(
 			protocol_name.clone().into(),
 			Vec::new(),
-			MAX_STATEMENT_SIZE,
+			MAX_STATEMENT_NOTIFICATION_SIZE,
 			None,
 			SetConfig {
 				in_peers: 0,
@@ -485,9 +505,56 @@ where
 
 			propagated_statements += to_send.len();
 
-			if !to_send.is_empty() {
-				log::trace!(target: LOG_TARGET, "Sending {} statements to {}", to_send.len(), who);
-				self.notification_service.send_sync_notification(who, to_send.encode());
+			let mut offset = 0;
+			while offset < to_send.len() {
+				// Try to send as many statements as possible in one notification
+				let chunk_size = to_send.len() - offset;
+				let chunk_end = offset + chunk_size;
+				let mut current_end = chunk_end;
+
+				loop {
+					let chunk = &to_send[offset..current_end];
+					let encoded = chunk.encode();
+
+					// If chunk fits, send it
+					if encoded.len() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
+						log::trace!(
+							target: LOG_TARGET,
+							"Sending {} statements ({} KB) to {}",
+							chunk.len(),
+							encoded.len() / 1024,
+							who
+						);
+						self.notification_service.send_sync_notification(who, encoded);
+						offset = current_end;
+						if let Some(ref metrics) = self.metrics {
+							metrics.propagated_statements_chunks.observe(chunk.len() as f64);
+						}
+						break;
+					}
+
+					// Size exceeded - split the chunk
+					let split_factor =
+						(encoded.len() / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
+					let new_chunk_size = (current_end - offset) / split_factor;
+
+					// Single statement is too large
+					if new_chunk_size == 0 {
+						log::warn!(
+							target: LOG_TARGET,
+							"Statement too large ({} KB), skipping",
+							encoded.len() / 1024
+						);
+						if let Some(ref metrics) = self.metrics {
+							metrics.skipped_oversized_statements.inc();
+						}
+						offset = current_end;
+						break;
+					}
+
+					// Reduce chunk size and try again
+					current_end = offset + new_chunk_size;
+				}
 			}
 		}
 
