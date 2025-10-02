@@ -368,6 +368,11 @@ where
 			size
 		}
 	}
+
+	/// Returns the [`ProofRecorder`] used by the block builder.
+	pub fn proof_recorder(&self) -> Option<ProofRecorder<Block>> {
+		self.api.proof_recorder()
+	}
 }
 
 #[cfg(test)]
@@ -390,7 +395,7 @@ mod tests {
 
 		let storage_proof_recorder = ProofRecorder::<Block>::default();
 
-		let block = BlockBuilderBuilder::new(&client)
+		BlockBuilderBuilder::new(&client)
 			.on_parent_block(genesis_hash)
 			.with_parent_block_number(0)
 			.with_proof_recorder(storage_proof_recorder.clone())
@@ -444,13 +449,13 @@ mod tests {
 
 		block_builder.push(ExtrinsicBuilder::new_read(8).build()).unwrap();
 
-		let block = block_builder.build().unwrap();
+		block_builder.build().unwrap();
 
 		let proof_without_panic = proof_recorder.drain_storage_proof().encoded_size();
 
 		let proof_recorder = ProofRecorder::<Block>::default();
 
-		let block = BlockBuilderBuilder::new(&client)
+		BlockBuilderBuilder::new(&client)
 			.on_parent_block(genesis_hash)
 			.with_parent_block_number(0)
 			.with_proof_recorder(proof_recorder.clone())

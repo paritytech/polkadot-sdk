@@ -106,4 +106,9 @@ where
 
 		Ok(RelayChainData { relay_parent_header, claim_queue, max_pov_size })
 	}
+
+	#[cfg(test)]
+	pub fn insert_test_data(&mut self, relay_parent_hash: RelayHash, data: RelayChainData) {
+		self.cached_data.insert(relay_parent_hash, data);
+	}
 }

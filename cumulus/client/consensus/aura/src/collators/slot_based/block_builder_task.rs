@@ -685,7 +685,7 @@ fn adjust_para_to_relay_parent_slot(
 ///
 /// The function traverses backwards from the best block until it finds the block at the specified
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
-async fn offset_relay_parent_find_descendants<RelayClient>(
+pub async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	relay_best_block: RelayHash,
 	relay_parent_offset: u32,
@@ -736,7 +736,7 @@ where
 }
 
 /// Return value of [`determine_cores`].
-struct Cores {
+pub struct Cores {
 	selector: CoreSelector,
 	claim_queue_offset: ClaimQueueOffset,
 	core_indices: Vec<CoreIndex>,
@@ -744,7 +744,7 @@ struct Cores {
 
 impl Cores {
 	/// Returns the current [`CoreInfo`].
-	fn core_info(&self) -> CoreInfo {
+	pub fn core_info(&self) -> CoreInfo {
 		CoreInfo {
 			selector: self.selector,
 			claim_queue_offset: self.claim_queue_offset,
@@ -758,7 +758,7 @@ impl Cores {
 	}
 
 	/// Returns the current [`CoreIndex`].
-	fn core_index(&self) -> CoreIndex {
+	pub fn core_index(&self) -> CoreIndex {
 		self.core_indices[self.selector.0 as usize]
 	}
 
@@ -775,7 +775,7 @@ impl Cores {
 	}
 
 	/// Returns the total number of cores.
-	fn total_cores(&self) -> u32 {
+	pub fn total_cores(&self) -> u32 {
 		self.core_indices.len() as u32
 	}
 
@@ -793,7 +793,7 @@ impl Cores {
 /// Determine the cores for the given `para_id`.
 ///
 /// Takes into account the `parent` core to find the next available cores.
-async fn determine_cores<Header: HeaderT, RI: RelayChainInterface + 'static>(
+pub async fn determine_cores<Header: HeaderT, RI: RelayChainInterface + 'static>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RI>,
 	relay_parent: &RelayHeader,
 	para_id: ParaId,

@@ -26,7 +26,7 @@ use codec::Encode;
 use cumulus_primitives_core::{relay_chain::HeadData, PersistedValidationData};
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::{fs, fs::File, path::PathBuf};
 
 mod import_queue;

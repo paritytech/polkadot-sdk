@@ -26,8 +26,8 @@ pub use polkadot_parachain_primitives::primitives::{
 	BlockData, HeadData, ValidationParams, ValidationResult,
 };
 use runtime::{
-	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload, TxExtension,
-	UncheckedExtrinsic, VERSION,
+	test_pallet, Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload,
+	TxExtension, UncheckedExtrinsic, VERSION,
 };
 use sc_consensus_aura::{
 	find_pre_digest,
@@ -152,6 +152,7 @@ pub fn generate_extrinsic_with_pair(
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			test_pallet::TestTransactionExtension::<Runtime>::default(),
 		)
 			.into(),
 	);
@@ -161,7 +162,7 @@ pub fn generate_extrinsic_with_pair(
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), (), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), (), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 

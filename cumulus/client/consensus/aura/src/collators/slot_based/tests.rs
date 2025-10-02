@@ -16,7 +16,7 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	block_builder_task::{determine_core, offset_relay_parent_find_descendants},
+	block_builder_task::{determine_cores, offset_relay_parent_find_descendants},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 };
 use async_trait::async_trait;
@@ -125,11 +125,11 @@ async fn determine_core_new_relay_parent() {
 	// Setup claim queue data for the cache
 	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1)]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), &para_parent).await;
 
 	let core = result.unwrap();
 	let core = core.unwrap();
-	assert_eq!(core.core_selector(), CoreSelector(0));
+	assert_eq!(core.core_info().selector, CoreSelector(0));
 	assert_eq!(core.core_index(), CoreIndex(0));
 	assert_eq!(core.total_cores(), 2);
 }
@@ -174,11 +174,11 @@ async fn determine_core_with_core_info() {
 	// Setup claim queue data for the cache
 	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), &para_parent).await;
 
 	match result {
 		Ok(Some(core)) => {
-			assert_eq!(core.core_selector(), CoreSelector(1)); // Should be next selector (0 + 1)
+			assert_eq!(core.core_info().selector, CoreSelector(1)); // Should be next selector (0 + 1)
 			assert_eq!(core.core_index(), CoreIndex(1));
 			assert_eq!(core.total_cores(), 3);
 		},
@@ -208,7 +208,7 @@ async fn determine_core_no_cores_available() {
 	// Setup empty claim queue
 	cache.set_test_data(relay_parent.clone(), vec![]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), &para_parent).await;
 
 	let core = result.unwrap();
 	assert!(core.is_none());
@@ -253,7 +253,7 @@ async fn determine_core_selector_overflow() {
 	// Setup claim queue with only 2 cores
 	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1)]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), &para_parent).await;
 
 	let core = result.unwrap();
 	assert!(core.is_none()); // Should return None when selector overflows
@@ -297,12 +297,12 @@ async fn determine_core_uses_last_claimed_core_selector() {
 		Some(CoreSelector(1)),
 	);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), &para_parent).await;
 
 	match result {
 		Ok(Some(core)) => {
 			// Should use last_claimed_core_selector (1) + 1 = 2
-			assert_eq!(core.core_selector(), CoreSelector(2));
+			assert_eq!(core.core_info().selector, CoreSelector(2));
 			assert_eq!(core.core_index(), CoreIndex(2));
 			assert_eq!(core.total_cores(), 3);
 		},
@@ -350,7 +350,7 @@ async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
 		Some(CoreSelector(2)),
 	);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), &para_parent).await;
 
 	match result {
 		Ok(Some(_)) => panic!("Expected None due to selector overflow"),
@@ -399,12 +399,12 @@ async fn determine_core_no_last_claimed_core_selector() {
 		None,
 	);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), &para_parent).await;
 
 	match result {
 		Ok(Some(core)) => {
 			// Should start from selector 0 + 1 = 1 when no last selector
-			assert_eq!(core.core_selector(), CoreSelector(1));
+			assert_eq!(core.core_info().selector, CoreSelector(1));
 			assert_eq!(core.core_index(), CoreIndex(1));
 			assert_eq!(core.total_cores(), 3);
 		},
@@ -645,7 +645,6 @@ impl RelayChainDataCache<TestRelayClient> {
 			relay_parent_header,
 			claim_queue: claim_queue_snapshot,
 			max_pov_size: 1024 * 1024,
-			last_claimed_core_selector,
 		};
 
 		self.insert_test_data(relay_parent_hash, data);
