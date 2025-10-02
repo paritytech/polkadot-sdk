@@ -2750,22 +2750,6 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl polkadot_runtime_parachains::broadcaster::runtime_api::BroadcasterApi<Block> for Runtime {
-		fn get_published_value(para_id: polkadot_primitives::Id, key: Vec<u8>) -> Option<Vec<u8>> {
-			Broadcaster::get_published_value(para_id, &key)
-		}
-
-		fn get_publisher_child_root(para_id: polkadot_primitives::Id) -> Option<Vec<u8>> {
-			Broadcaster::get_publisher_child_root(para_id)
-		}
-
-		fn get_all_published_data(para_id: polkadot_primitives::Id) -> Vec<(Vec<u8>, Vec<u8>)> {
-			Broadcaster::get_all_published_data(para_id)
-		}
-
-		fn get_all_publishers() -> Vec<polkadot_primitives::Id> {
-			Broadcaster::get_all_publishers()
-		}
-
 		fn get_subscribed_data(subscriber_para_id: polkadot_primitives::Id) -> alloc::collections::BTreeMap<polkadot_primitives::Id, Vec<(Vec<u8>, Vec<u8>)>> {
 			Broadcaster::get_subscribed_data(subscriber_para_id)
 		}
