@@ -594,7 +594,7 @@ pub mod pallet {
 		pub accounts: Vec<genesis::Account<T>>,
 
 		/// Optional debugging settings applied at genesis.
-		#[serde(default, skip_serializing_if = "Option::is_some")]
+		#[serde(default, skip_serializing_if = "Option::is_none")]
 		pub debug_settings: Option<DebugSettings>,
 	}
 
