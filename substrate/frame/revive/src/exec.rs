@@ -1270,7 +1270,6 @@ where
 			let frame = if entry_point == ExportedFunction::Constructor {
 				let origin = self.origin.account_id()?.clone();
 				let frame = top_frame_mut!(self);
-				let contract_info = frame.contract_info();
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
@@ -1282,14 +1281,15 @@ where
 					};
 
 					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
-					module.store_code(&self.exec_config)?;
+					module.store_code(&self.exec_config, Some(&mut frame.nested_storage))?;
 					code_deposit = module.code_info().deposit();
-					contract_info.code_hash = *module.code_hash();
 
+					let contract_info = frame.contract_info();
+					contract_info.code_hash = *module.code_hash();
 					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
 				}
 
-				let deposit = contract_info.update_base_deposit(code_deposit);
+				let deposit = frame.contract_info().update_base_deposit(code_deposit);
 				frame
 					.nested_storage
 					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));

@@ -28,10 +28,10 @@ use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
 	gas::{GasMeter, Token},
-	storage::meter::Diff,
+	storage::meter::{Diff, NestedMeter},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, Pallet, PristineCode, Weight, LOG_TARGET,
+	HoldReason, Pallet, PristineCode, StorageDeposit, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -191,7 +191,11 @@ impl<T: Config> ContractBlob<T> {
 	}
 
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(&mut self, exec_config: &ExecConfig) -> Result<BalanceOf<T>, Error<T>> {
+	pub fn store_code(
+		&mut self,
+		exec_config: &ExecConfig,
+		storage_meter: Option<&mut NestedMeter<T>>,
+	) -> Result<BalanceOf<T>, DispatchError> {
 		let code_hash = *self.code_hash();
 		ensure!(code_hash != H256::zero(), <Error<T>>::CodeNotFound);
 
@@ -217,6 +221,10 @@ impl<T: Config> ContractBlob<T> {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
+
+					if let Some(meter) = storage_meter {
+						meter.record_charge(&StorageDeposit::Charge(deposit))?;
+					}
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());

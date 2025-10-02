@@ -1853,7 +1853,7 @@ impl<T: Config> Pallet<T> {
 		exec_config: &ExecConfig,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = ContractBlob::from_pvm_code(code, origin)?;
-		let deposit = module.store_code(exec_config)?;
+		let deposit = module.store_code(exec_config, None)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
 	}
