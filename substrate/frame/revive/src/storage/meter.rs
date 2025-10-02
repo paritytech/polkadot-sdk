@@ -527,11 +527,11 @@ impl<T: Config> Ext<T> for ReservingExt {
 fn terminate<T: Config>(
 	contract: &T::AccountId,
 	beneficiary: &T::AccountId,
-) -> Result<(), DispatchError>  {
+) -> Result<(), DispatchError> {
 	// Clean up on-chain storage
 	let contract_address = T::AddressMapper::to_address(contract);
-	let contract_info = AccountInfo::<T>::load_contract(&contract_address)
-		.ok_or(Error::<T>::ContractNotFound)?;
+	let contract_info =
+		AccountInfo::<T>::load_contract(&contract_address).ok_or(Error::<T>::ContractNotFound)?;
 	contract_info.queue_trie_for_deletion();
 	AccountInfoOf::<T>::remove(contract_address);
 	ImmutableDataOf::<T>::remove(contract_address);
@@ -552,7 +552,7 @@ fn terminate<T: Config>(
 pub fn terminate_logic_for_benchmark<T: Config>(
 	contract: &T::AccountId,
 	beneficiary: &T::AccountId,
-) -> Result<(), DispatchError>  {
+) -> Result<(), DispatchError> {
 	terminate::<T>(contract, beneficiary)
 }
 
