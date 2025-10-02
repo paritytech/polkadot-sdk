@@ -394,7 +394,17 @@ mod test {
 			self
 		}
 
+		fn fund_account(account: &Account) {
+			let _ = <Test as Config>::Currency::set_balance(
+				&account.substrate_account(),
+				100_000_000_000_000,
+			);
+		}
+
 		fn estimate_gas(&mut self) {
+			let account = Account::default();
+			Self::fund_account(&account);
+
 			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone());
 			self.tx.gas_price = Some(<Pallet<Test>>::evm_gas_price());
 
@@ -447,16 +457,13 @@ mod test {
 			TransactionValidityError,
 		> {
 			ExtBuilder::default().build().execute_with(|| self.estimate_gas());
-			f(&mut self.tx);
 			ExtBuilder::default().build().execute_with(|| {
+				f(&mut self.tx);
 				let UncheckedExtrinsicBuilder { tx, before_validate, .. } = self.clone();
 
 				// Fund the account.
 				let account = Account::default();
-				let _ = <Test as Config>::Currency::set_balance(
-					&account.substrate_account(),
-					100_000_000_000_000,
-				);
+				Self::fund_account(&account);
 
 				let payload = account
 					.sign_transaction(tx.clone().try_into_unsigned().unwrap())

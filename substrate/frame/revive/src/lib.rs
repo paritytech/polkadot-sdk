@@ -1411,8 +1411,7 @@ impl<T: Config> Pallet<T> {
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
 
-		let from = tx.from.unwrap_or_default();
-		let origin = T::AddressMapper::to_account_id(&from);
+		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
 
 		let base_fee = Self::evm_gas_price();
@@ -1451,6 +1450,7 @@ impl<T: Config> Pallet<T> {
 		// Store values before moving the tx
 		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
+		let from = tx.from;
 		let to = tx.to;
 		let gas = tx.gas.unwrap_or_default();
 
@@ -1460,19 +1460,23 @@ impl<T: Config> Pallet<T> {
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		// emulate transaction behavior
-		T::FeeInfo::deposit_txfee(T::Currency::issue(
-			call_info.tx_fee.saturating_add(call_info.storage_deposit),
-		));
+		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
+		if let Some(ref from) = from {
+			let balance = Self::evm_balance(&from);
+			log::debug!(target: LOG_TARGET, "insufficient funds for gas * price + value: address {from:?} have {balance:?} (supplied gas {gas})");
+			if balance < Pallet::<T>::convert_native_to_evm(fees) {
+				return Err(EthTransactError::Message(format!(
+					"insufficient funds for gas * price + value: address {from:?} have {balance:?} (supplied gas {gas})",
+				)));
+			}
+		}
+		T::FeeInfo::deposit_txfee(T::Currency::issue(fees));
 
 		let extract_error = |err| {
-			if err == Error::<T>::TransferFailed.into() ||
-				err == Error::<T>::StorageDepositNotEnoughFunds.into() ||
+			if err == Error::<T>::StorageDepositNotEnoughFunds.into() ||
 				err == Error::<T>::StorageDepositLimitExhausted.into()
 			{
-				let balance = Self::evm_balance(&from);
-				return Err(EthTransactError::Message(format!(
-					"insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {gas})",
-				)));
+				return Err(EthTransactError::Message(format!("Not enough gas suppled: {err:?}")));
 			}
 
 			return Err(EthTransactError::Message(format!(
