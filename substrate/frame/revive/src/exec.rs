@@ -1708,7 +1708,7 @@ where
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
 		AccountInfoOf::<T>::remove(&account_address);
 		ImmutableDataOf::<T>::remove(&account_address);
-		let removed = <CodeInfo<T>>::decrement_refcount(info.code_hash, self.exec_config)?;
+		let removed = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
 		Ok(removed)
 	}
@@ -1750,7 +1750,7 @@ where
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
 		<CodeInfo<T>>::increment_refcount(hash)?;
-		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash, self.exec_config)?;
+		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
 		Ok(removed)
 	}
 
