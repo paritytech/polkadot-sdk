@@ -1224,7 +1224,7 @@ mod benchmarks {
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
-		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
+		build_runtime!(_runtime, instance, memory: [beneficiary.encode(),]);
 		let code_hash = instance.info()?.code_hash;
 
 		// Increment the refcount of the code hash so that it does not get deleted
