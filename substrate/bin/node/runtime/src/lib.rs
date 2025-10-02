@@ -78,7 +78,7 @@ pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets::precompiles::{InlineIdConfig, ERC20};
+use pallet_assets_precompiles::{InlineIdConfig, ERC20};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -2480,11 +2480,11 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		match key {
 			RuntimeParametersKey::Storage(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(())
+				return Ok(());
 			},
 			RuntimeParametersKey::Referenda(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(())
+				return Ok(());
 			},
 		}
 	}
