@@ -54,7 +54,7 @@ where
 	) -> Result<(), TransactionValidityError> {
 		let max = T::BlockWeights::get().get(info.class).max_extrinsic;
 		let total_weight_including_length =
-			info.total_weight().add_proof_size(len.try_into().unwrap_or(u64::MAX));
+			info.total_weight().add_proof_size(len as u64);
 		match max {
 			Some(max) if total_weight_including_length.any_gt(max) => {
 				log::debug!(
