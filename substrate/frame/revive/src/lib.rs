@@ -2163,22 +2163,28 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
-/// This macro wraps substrate's `impl_runtime_apis!` and implements `pallet_revive` runtime APIs.
+/// This macro wraps substrate's `impl_runtime_apis!` and implements `pallet_revive` runtime APIs
+/// and other required traits.
+///
+/// # Note
+///
+/// This also implements [`SetWeightLimit`] for the runtime call.
 ///
 /// # Parameters
 /// - `$Runtime`: The runtime type to implement the APIs for.
+/// - `$Revive`: The name under which revive is declared in `construct_runtime`.
 /// - `$Executive`: The Executive type of the runtime.
 /// - `$EthExtra`: Type for additional Ethereum runtime extension.
 /// - `$($rest:tt)*`: Remaining input to be forwarded to the underlying `impl_runtime_apis!`.
 #[macro_export]
-macro_rules! impl_runtime_apis_plus_revive {
-	($Runtime: ty, $Executive: ty, $EthExtra: ty, $($rest:tt)*) => {
+macro_rules! impl_runtime_apis_plus_revive_traits {
+	($Runtime: ty, $Revive: ident, $Executive: ty, $EthExtra: ty, $($rest:tt)*) => {
 
 		impl $crate::evm::runtime::SetWeightLimit for RuntimeCall {
 			fn set_weight_limit(&mut self, weight_limit: Weight) {
 				use $crate::pallet::Call as ReviveCall;
 				match self {
-					Self::Revive(
+					Self::$Revive(
 						ReviveCall::eth_call{ gas_limit, .. } |
 						ReviveCall::eth_instantiate_with_code{ gas_limit, .. }
 					) => *gas_limit = weight_limit,

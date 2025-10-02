@@ -343,8 +343,9 @@ impl pallet_revive::Config for Runtime {
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 }
 
-pallet_revive::impl_runtime_apis_plus_revive!(
+pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	Runtime,
+	Revive,
 	Executive,
 	EthExtraImpl,
 
