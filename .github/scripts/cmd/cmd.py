@@ -256,11 +256,6 @@ def get_allowed_labels():
         # Fail if API fetch fails
         raise RuntimeError("Failed to fetch labels from repository. Please check your connection and try again.")
 
-# Auto-correction will replace hardcoded aliases
-
-# Get the allowed labels (fetched dynamically)
-ALLOWED_LABELS = get_allowed_labels()
-
 def validate_and_auto_correct_labels(input_labels, valid_labels):
     """Validate labels and auto-correct when confidence is high"""
     final_labels = []
@@ -543,8 +538,14 @@ def main():
             if not is_org_member and not is_pr_author:
                 raise ValueError("Only the PR author or organization members can modify labels")
 
+            # Get allowed labels dynamically
+            try:
+                allowed_labels = get_allowed_labels()
+            except RuntimeError as e:
+                raise ValueError(str(e))
+
             # Validate and auto-correct labels
-            final_labels, correction_messages = validate_and_auto_correct_labels(args.labels, ALLOWED_LABELS)
+            final_labels, correction_messages = validate_and_auto_correct_labels(args.labels, allowed_labels)
 
             # Show auto-correction messages
             for message in correction_messages:
