@@ -276,18 +276,18 @@ impl Client {
 		// Build genesis block with no transactions
 		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
 		let (genesis_evm_block, _gas_info) = builder.build(
-			0u64.into(),          // block number 0
-			H256::zero(),         // parent hash is zero for genesis
-			timestamp.into(),     // timestamp from substrate block
-			block_author,         // block author
-			gas_limit,            // gas limit
+			0u64.into(),      // block number 0
+			H256::zero(),     // parent hash is zero for genesis
+			timestamp.into(), // timestamp from substrate block
+			block_author,     // block author
+			gas_limit,        // gas limit
 		);
 
 		let ethereum_hash = genesis_evm_block.hash;
 
-		// Store the mapping
+		// Store the mapping with metadata
 		self.receipt_provider
-			.insert_block_mapping(&ethereum_hash, &substrate_hash, 0)
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, 0, &gas_limit, &block_author)
 			.await?;
 
 		log::info!(
