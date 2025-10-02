@@ -77,8 +77,8 @@ where
 		encoded_len
 	} else {
 		let unsigned_tx = tx.clone().try_into_unsigned().map_err(|_| {
-			log::debug!(target: LOG_TARGET, "Not enough gas supplied to cover the weight of the extrinsic.");
-			InvalidTransaction::Payment
+			log::debug!(target: LOG_TARGET, "Invalid transaction type.");
+			InvalidTransaction::Call
 		})?;
 		let eth_transact_call =
 			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
