@@ -152,7 +152,8 @@ def auto_correct_labels(invalid_labels, valid_labels, auto_correct_threshold=0.8
                 # Lower confidence - suggest alternatives
                 all_matches = find_closest_labels(invalid_label, valid_labels, max_suggestions=3)
                 if all_matches:
-                    suggestion = f"'{invalid_label}' → did you mean: {', '.join(f\"'{label}'\" for label in all_matches)}?"
+                    labels_str = ', '.join(f"'{label}'" for label in all_matches)
+                    suggestion = f"'{invalid_label}' → did you mean: {labels_str}?"
                 else:
                     suggestion = f"'{invalid_label}' → no close matches found"
                 suggestions.append(suggestion)

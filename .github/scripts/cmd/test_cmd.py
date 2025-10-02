@@ -428,11 +428,14 @@ class TestCmd(unittest.TestCase):
             mock_exit.assert_not_called()
             self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0])
 
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
     @patch('cmd.fetch_repo_labels')
+    @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_valid_labels(self, mock_parse_args, mock_fetch_labels):
+    def test_label_command_valid_labels(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
         """Test label command with valid labels"""
         mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
             labels=['T1-FRAME', 'R0-no-crate-publish-required']
@@ -454,11 +457,14 @@ class TestCmd(unittest.TestCase):
             self.assertIn('T1-FRAME', str(json_call))
             self.assertIn('R0-no-crate-publish-required', str(json_call))
 
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
     @patch('cmd.fetch_repo_labels')
+    @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_auto_correction(self, mock_parse_args, mock_fetch_labels):
+    def test_label_command_auto_correction(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
         """Test label command with auto-correctable typos"""
         mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
             labels=['T1-FRAM', 'R0-no-crate-publish']  # Typos that should be auto-corrected
@@ -484,11 +490,14 @@ class TestCmd(unittest.TestCase):
             self.assertIn('T1-FRAME', str(json_call))
             self.assertIn('R0-no-crate-publish-required', str(json_call))
 
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
     @patch('cmd.fetch_repo_labels')
+    @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_prefix_correction(self, mock_parse_args, mock_fetch_labels):
+    def test_label_command_prefix_correction(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
         """Test label command with prefix matching"""
         mock_fetch_labels.return_value = ['T1-FRAME', 'T2-pallets', 'R0-no-crate-publish-required']
+        mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
             labels=['T1-something']  # Should match T1-FRAME as the only T1- label
@@ -558,11 +567,14 @@ class TestCmd(unittest.TestCase):
 
             self.assertIsNotNone(error_json_call)
 
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
     @patch('cmd.fetch_repo_labels')
+    @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_fetch_failure(self, mock_parse_args, mock_fetch_labels):
+    def test_label_command_fetch_failure(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
         """Test label command when label fetching fails"""
         mock_fetch_labels.return_value = None  # Simulate fetch failure
+        mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
             labels=['T1-FRAME']
@@ -570,10 +582,8 @@ class TestCmd(unittest.TestCase):
 
         with patch('sys.exit') as mock_exit:
             import cmd
-            with self.assertRaises(RuntimeError) as context:
-                cmd.main()
-
-            self.assertIn('Failed to fetch labels from repository', str(context.exception))
+            cmd.main()
+            mock_exit.assert_called_with(1)  # Should exit with error code
 
     def test_auto_correct_labels_function(self):
         """Test the auto_correct_labels function directly"""
