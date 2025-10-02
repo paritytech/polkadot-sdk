@@ -1301,6 +1301,13 @@ pub mod pallet {
 			}
 		}
 
+		/// Gets a quote for swapping an exact amount of `asset1` for `asset2`.
+		///
+		/// If `include_fee` is true, the quote will include the liquidity provider fee.
+		/// If the pool does not exist or has no liquidity, `None` is returned.
+		/// Note that the price may have changed by the time the transaction is executed.
+		/// (Use `amount_out_min` to control slippage.)
+		/// Returns `Some(quoted_amount)` on success.
 		pub fn quote_price_exact_tokens_for_tokens(
 			asset1: T::AssetKind,
 			asset2: T::AssetKind,
@@ -1322,6 +1329,13 @@ pub mod pallet {
 			}
 		}
 
+		/// Gets a quote for swapping `amount` of `asset1` for an exact amount of `asset2`.
+		///
+		/// If `include_fee` is true, the quote will include the liquidity provider fee.
+		/// If the pool does not exist or has no liquidity, `None` is returned.
+		/// Note that the price may have changed by the time the transaction is executed.
+		/// (Use `amount_in_max` to control slippage.)
+		/// Returns `Some(quoted_amount)` on success.
 		pub fn quote_price_tokens_for_exact_tokens(
 			asset1: T::AssetKind,
 			asset2: T::AssetKind,
