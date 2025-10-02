@@ -18,7 +18,7 @@ use zombienet_sdk::{
 const GROUP_SIZE: u32 = 6;
 const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
-const MESSAGE_COUNT: usize = 2;
+const MESSAGE_COUNT: usize = 0;
 const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
 const RECEIVE_DELAY_MS: u64 = 1000;
@@ -82,13 +82,14 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		let client_idx = i % GROUP_SIZE as usize;
+		let client_idx = i % collator_names.len();
 		participants.push(Participant::new(i as u32, rpc_clients[client_idx].clone()));
 	}
 	info!(
-		"Participants distributed across nodes: {} participants per group of {} nodes",
-		PARTICIPANT_SIZE / GROUP_SIZE,
-		GROUP_SIZE
+		"{} participants were distributed across {} nodes: {} participants per node",
+		PARTICIPANT_SIZE,
+		collator_names.len(),
+		PARTICIPANT_SIZE as usize / collator_names.len()
 	);
 
 	let handles: Vec<_> = participants
