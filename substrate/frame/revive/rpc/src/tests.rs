@@ -275,3 +275,96 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 
 	Ok(())
 }
+
+#[tokio::test]
+async fn reconstructed_block_matches_storage_block() -> anyhow::Result<()> {
+	use pallet_revive::evm::BlockNumberOrTag;
+
+	// Start nodes with state pruning enabled
+	// let _node_handle = thread::spawn(move || {
+	// 	if let Err(e) = start_node_inline(vec![
+	// 		"--dev",
+	// 		"--rpc-port=45791",
+	// 		"--no-telemetry",
+	// 		"--no-prometheus",
+	// 		"--state-pruning=16",
+	// 		"-lerror,evm=debug,sc_rpc_server=info,runtime::revive=trace",
+	// 	]) {
+	// 		panic!("Node exited with error: {e:?}");
+	// 	}
+	// });
+
+	// let args = CliCommand::parse_from([
+	// 	"--dev",
+	// 	"--rpc-port=45790",
+	// 	"--node-rpc-url=ws://localhost:45791",
+	// 	"--no-prometheus",
+	// 	"-linfo,eth-rpc=debug",
+	// ]);
+
+	// let _rpc_handle = thread::spawn(move || {
+	// 	if let Err(e) = cli::run(args) {
+	// 		panic!("eth-rpc exited with error: {e:?}");
+	// 	}
+	// });
+
+	// let client = Arc::new(ws_client_with_retry("ws://localhost:45790").await);
+	let client = Arc::new(ws_client_with_retry("ws://localhost:8545").await);
+	let account = Account::default();
+
+	// Deploy a contract to have some interesting blocks
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let value = U256::from(5_000_000_000_000u128);
+	let tx = TransactionBuilder::new(&client)
+		.value(value)
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+
+	let receipt = tx.wait_for_receipt().await?;
+	let block_number = receipt.block_number;
+	println!("block_number = {block_number:?}");
+
+	// Fetch the block immediately (should come from storage via get_ethereum_block)
+	let storage_block = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number.into()), false)
+		.await?
+		.expect("Block should exist");
+
+	println!("storage block = {storage_block:?}");
+
+	// Wait for state pruning (16 blocks + buffer)
+	let target_block = block_number + U256::from(20);
+	loop {
+		let current = client.block_number().await?;
+
+		println!("block current = {current:?} target = {target_block:?}");
+		if current >= target_block {
+			break;
+		}
+
+		// Submit a dummy transaction to produce new blocks
+		let _ = TransactionBuilder::new(&client)
+			.value(U256::from(1_000_000u128))
+			.to(account.address())
+			.send()
+			.await?
+			.wait_for_receipt()
+			.await?;
+	}
+
+	// Fetch the same block again (should use evm_block_from_receipts reconstruction)
+	let reconstructed_block = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number.into()), false)
+		.await?
+		.expect("Block should still exist");
+	println!("reconstructed block = {reconstructed_block:?}");
+
+	// Compare the entire blocks
+	assert_eq!(
+		storage_block, reconstructed_block,
+		"Reconstructed block should match storage block exactly"
+	);
+
+	Ok(())
+}
