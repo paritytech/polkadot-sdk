@@ -1,0 +1,7 @@
+title: Added pallet-root-offences to Westend relay-chain runtime
+doc:
+- audience: Runtime Dev
+  description: "Needed to let us test a manual slash on Westend relay-chain."
+crates:
+- name: westend-runtime
+  bump: major

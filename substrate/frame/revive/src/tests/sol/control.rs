@@ -18,13 +18,11 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
-	Code, Config,
+	Code, Config, Error, U256,
 };
-use alloy_core::primitives::U256;
-use frame_support::traits::fungible::Mutate;
+use frame_support::{assert_err, traits::fungible::Mutate};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
-
 use revm::bytecode::opcode::*;
 
 #[test]
@@ -63,7 +61,7 @@ fn jump_works() {
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);
@@ -92,17 +90,8 @@ fn jumpdest_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr).build();
-
-		assert!(result.result.is_err(), "test did not error");
-		if let Err(err) = result.result {
-			if let sp_runtime::DispatchError::Module(module_error) = err {
-				let message = module_error.message.as_ref().unwrap();
-				assert_eq!(*message, "InvalidInstruction");
-			} else {
-				assert!(false, "unexpected error: {err:?}");
-			}
-		}
+		let result = builder::bare_call(addr).build().result;
+		assert_err!(result, Error::<Test>::InvalidInstruction);
 	});
 }
 
@@ -146,12 +135,12 @@ fn jumpi_works() {
 
 		{
 			// JUMPI was *not* triggered, contract returns 0xfefefefe
-			let argument = U256::from(expected_value).to_be_bytes::<32>().to_vec();
+			let argument = U256::from(expected_value).to_big_endian().to_vec();
 
 			let result = builder::bare_call(addr).data(argument).build_and_unwrap_result();
 			assert!(!result.did_revert(), "test reverted");
 			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				U256::from_big_endian(&result.data),
 				U256::from(expected_value),
 				"memory test should return {expected_value}"
 			);
@@ -159,13 +148,13 @@ fn jumpi_works() {
 
 		{
 			// JUMPI was triggered, contract returns 0xdeadbeef
-			let argument = U256::from(unexpected_value).to_be_bytes::<32>().to_vec();
+			let argument = U256::from(unexpected_value).to_big_endian().to_vec();
 
 			let result = builder::bare_call(addr).data(argument).build_and_unwrap_result();
 			assert!(!result.did_revert(), "test reverted");
 
 			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				U256::from_big_endian(&result.data),
 				U256::from(0xdeadbeef_u64),
 				"memory test should return 0xdeadbeef"
 			);
@@ -198,7 +187,7 @@ fn ret_works() {
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);
@@ -230,7 +219,7 @@ fn revert_works() {
 
 		assert!(result.flags == ReturnFlags::REVERT, "test did not revert");
 		assert_eq!(
-			U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+			U256::from_big_endian(&result.data),
 			U256::from(expected_value),
 			"memory test should return {expected_value}"
 		);
@@ -267,27 +256,16 @@ fn invalid_works() {
 		let output = builder::bare_call(addr).gas_limit(expected_gas.into()).data(vec![]).build();
 
 		let result = output.result;
-		assert!(result.is_err(), "test did not error");
-		let err = result.err().unwrap();
-		if let sp_runtime::DispatchError::Module(module_error) = err {
-			assert!(module_error.message.is_some(), "no message in module error");
-			assert_eq!(
-				module_error.message.unwrap(),
-				"InvalidInstruction",
-				"Expected InvalidInstruction error"
-			);
-			assert_eq!(
-				output.gas_consumed.ref_time(),
-				expected_gas,
-				"Gas consumed does not match expected gas"
-			);
-			assert_eq!(
-				output.gas_consumed.proof_size(),
-				expected_gas,
-				"Gas consumed does not match expected gas"
-			);
-		} else {
-			panic!("Expected ModuleError, got: {:?}", err);
-		}
+		assert_err!(result, Error::<Test>::InvalidInstruction);
+		assert_eq!(
+			output.gas_consumed.ref_time(),
+			expected_gas,
+			"Gas consumed does not match expected gas"
+		);
+		assert_eq!(
+			output.gas_consumed.proof_size(),
+			expected_gas,
+			"Gas consumed does not match expected gas"
+		);
 	});
 }

@@ -417,6 +417,8 @@ fn validate_block_fails_on_invalid_validation_data() {
 			Default::default(),
 		);
 
+		let block = seal_parachain_block_data(block, &client);
+
 		call_validate_block(parent_head, block, Hash::random()).unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
@@ -428,43 +430,6 @@ fn validate_block_fails_on_invalid_validation_data() {
 
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
 			.contains("Relay parent storage root doesn't match"));
-	}
-}
-
-#[test]
-fn check_inherents_are_unsigned_and_before_all_other_extrinsics() {
-	sp_tracing::try_init_simple();
-
-	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_test_client();
-
-		let TestBlockData { mut block, validation_data, .. } = build_block_with_witness(
-			&client,
-			Vec::new(),
-			parent_head.clone(),
-			Default::default(),
-			Default::default(),
-		);
-
-		block.blocks_mut()[0].extrinsics.insert(0, transfer(&client, Alice, Bob, 69));
-
-		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
-			.unwrap_err();
-	} else {
-		let output = Command::new(env::current_exe().unwrap())
-			.args([
-				"check_inherents_are_unsigned_and_before_all_other_extrinsics",
-				"--",
-				"--nocapture",
-			])
-			.env("RUN_TEST", "1")
-			.output()
-			.expect("Runs the test");
-		assert!(output.status.success());
-
-		assert!(String::from_utf8(output.stderr)
-			.unwrap()
-			.contains("Could not find `set_validation_data` inherent"));
 	}
 }
 

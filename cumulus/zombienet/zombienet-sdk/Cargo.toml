@@ -27,6 +27,7 @@ sp-core = { workspace = true, default-features = true }
 frame-support = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-test-runtime = { workspace = true }
+rstest = { workspace = true }
 
 [features]
 zombie-ci = []

@@ -337,6 +337,10 @@ pub use pallet_assets_freezer;
 #[cfg(feature = "pallet-assets-holder")]
 pub use pallet_assets_holder;
 
+/// Provides precompiles for `pallet-assets`.
+#[cfg(feature = "pallet-assets-precompiles")]
+pub use pallet_assets_precompiles;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
@@ -575,6 +579,14 @@ pub use pallet_offences;
 /// FRAME offences pallet benchmarking.
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
+
+/// FRAME oracle pallet for off-chain data.
+#[cfg(feature = "pallet-oracle")]
+pub use pallet_oracle;
+
+/// Runtime API for the oracle pallet.
+#[cfg(feature = "pallet-oracle-runtime-api")]
+pub use pallet_oracle_runtime_api;
 
 /// Pallet to give some execution allowance for some origins.
 #[cfg(feature = "pallet-origin-restriction")]

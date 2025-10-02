@@ -17,4 +17,6 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 zombienet-sdk = { workspace = true }
 futures = { workspace = true }
 sp-runtime = { workspace = true }
+zombienet-configuration = { workspace = true }
+
 

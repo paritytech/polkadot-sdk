@@ -65,6 +65,13 @@ impl WeightMeter {
 		Self::with_limit(Weight::MAX)
 	}
 
+	/// Change the limit to the given `weight`.
+	///
+	/// The actual weight will be determined by `min(weight, self.remaining())`.
+	pub fn limit_to(self, weight: Weight) -> Self {
+		Self::with_limit(self.remaining().min(weight))
+	}
+
 	/// The already consumed weight.
 	pub fn consumed(&self) -> Weight {
 		self.consumed

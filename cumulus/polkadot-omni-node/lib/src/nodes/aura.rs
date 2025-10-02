@@ -46,7 +46,6 @@ use cumulus_client_consensus_aura::{
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
-#[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, GetParachainInfo, ParaId, SlotSchedule,
