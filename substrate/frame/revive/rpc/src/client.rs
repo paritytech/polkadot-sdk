@@ -795,10 +795,14 @@ impl Client {
 
 		log::trace!(target: LOG_TARGET, "Reconstructing Ethereum block for substrate block {:?}", block.hash());
 
-		let runtime_api = self.runtime_api(block.hash());
-		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
-		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
 		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+
+		let (_, gas_limit, block_author) =
+			self.receipt_provider.get_block_mapping(&block.hash()).await
+				.unwrap_or_else(|| {
+					log::warn!(target: LOG_TARGET, "No mapping found for substrate block {:?}, restoring defaults", block.hash());
+					Default::default()
+				});
 
 		// Build block using the proper EthereumBlockBuilder
 		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
