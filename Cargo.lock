@@ -5209,6 +5209,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-tic-tac-toe"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
+]
+
+[[package]]
 name = "cumulus-zombienet-sdk-helpers"
 version = "0.1.0"
 dependencies = [
@@ -28209,6 +28221,7 @@ name = "yet-another-parachain-runtime"
 version = "0.6.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
+ "cumulus-tic-tac-toe",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",

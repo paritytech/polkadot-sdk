@@ -119,6 +119,7 @@ members = [
 	"cumulus/parachains/pallets/collective-content",
 	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
+	"cumulus/parachains/pallets/tic-tac-toe",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
@@ -762,6 +763,7 @@ cumulus-pallet-weight-reclaim = { path = "cumulus/pallets/weight-reclaim", defau
 cumulus-pallet-xcm = { path = "cumulus/pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "cumulus/pallets/xcmp-queue", default-features = false }
 cumulus-ping = { path = "cumulus/parachains/pallets/ping", default-features = false }
+cumulus-tic-tac-toe = { path = "cumulus/parachains/pallets/tic-tac-toe", default-features = false }
 cumulus-primitives-aura = { path = "cumulus/primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "cumulus/primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "cumulus/primitives/parachain-inherent", default-features = false }
