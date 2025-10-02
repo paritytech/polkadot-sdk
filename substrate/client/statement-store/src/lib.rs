@@ -833,6 +833,10 @@ impl StatementStore for Store {
 		)
 	}
 
+	fn has_statement(&self, hash: &Hash) -> bool {
+		self.index.read().entries.contains_key(hash)
+	}
+
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.
 	fn broadcasts(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {

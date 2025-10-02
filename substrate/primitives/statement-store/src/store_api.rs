@@ -75,6 +75,11 @@ pub trait StatementStore: Send + Sync {
 	/// Get statement by hash.
 	fn statement(&self, hash: &Hash) -> Result<Option<Statement>>;
 
+	/// Check if statement exists in the store
+	///
+	/// Fast index check without accessing the DB.
+	fn has_statement(&self, hash: &Hash) -> bool;
+
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.
 	fn broadcasts(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>>;

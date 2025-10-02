@@ -88,6 +88,7 @@ const LOG_TARGET: &str = "statement-gossip";
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
+	known_statements_received: Counter<U64>,
 }
 
 impl Metrics {
@@ -97,6 +98,13 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_propagated_statements",
 					"Number of statements propagated to at least one peer",
+				)?,
+				r,
+			)?,
+			known_statements_received: register(
+				Counter::new(
+					"substrate_sync_known_statement_received",
+					"Number of statements received via gossiping that were already in the statement store",
 				)?,
 				r,
 			)?,
@@ -387,6 +395,13 @@ where
 				peer.known_statements.insert(hash);
 
 				self.network.report_peer(who, rep::ANY_STATEMENT);
+
+				if self.statement_store.has_statement(&hash) {
+					if let Some(ref metrics) = self.metrics {
+						metrics.known_statements_received.inc();
+					}
+					continue;
+				}
 
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
