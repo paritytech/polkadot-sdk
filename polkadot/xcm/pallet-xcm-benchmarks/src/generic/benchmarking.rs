@@ -983,7 +983,7 @@ mod benchmarks {
 
 		let data = BoundedVec::try_from(data_vec).unwrap();
 
-		let origin = Location::new(0, [Junction::Parachain(1000)]);
+		let origin = T::publish_origin()?;
 		let mut executor = new_executor::<T>(origin);
 
 		let instruction = Instruction::Publish { data };
@@ -999,10 +999,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn subscribe() -> Result<(), BenchmarkError> {
-		let origin = Location::new(0, [Junction::Parachain(1000)]);
-		let mut executor = new_executor::<T>(origin);
+		let origin = T::publish_origin()?;
+		let publisher = T::valid_publisher()?;
 
-		let publisher = 2000u32;
+		let mut executor = new_executor::<T>(origin);
 		let instruction = Instruction::Subscribe { publisher };
 		let xcm = Xcm(vec![instruction]);
 

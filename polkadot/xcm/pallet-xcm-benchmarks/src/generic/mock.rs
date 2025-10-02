@@ -194,6 +194,14 @@ impl generic::Config for Test {
 		let target: Location = AccountId32 { network: None, id: [0; 32] }.into();
 		Ok((origin, target))
 	}
+
+	fn publish_origin() -> Result<Location, BenchmarkError> {
+		Ok(Parachain(1000).into())
+	}
+
+	fn valid_publisher() -> Result<u32, BenchmarkError> {
+		Ok(2000)
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
