@@ -54,9 +54,7 @@ type FetchBlockGasLimitFn = Arc<
 >;
 
 type FetchBlockAuthorFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<sp_core::H160, ClientError>> + Send>>
-		+ Send
-		+ Sync,
+	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<H160, ClientError>> + Send>> + Send + Sync,
 >;
 
 /// Utility to extract receipts from extrinsics.
@@ -194,9 +192,8 @@ impl ReceiptExtractor {
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 		let fetch_block_gas_limit =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(30_000_000)))) as Pin<Box<_>>);
-		let fetch_block_author = Arc::new(|_| {
-			Box::pin(std::future::ready(Ok(sp_core::H160::zero()))) as Pin<Box<_>>
-		});
+		let fetch_block_author =
+			Arc::new(|_| Box::pin(std::future::ready(Ok(H160::zero()))) as Pin<Box<_>>);
 
 		Self {
 			fetch_receipt_data,
@@ -445,7 +442,7 @@ impl ReceiptExtractor {
 	}
 
 	/// Get the block author for the given block hash.
-	pub async fn block_author(&self, block_hash: H256) -> Result<sp_core::H160, ClientError> {
+	pub async fn block_author(&self, block_hash: H256) -> Result<H160, ClientError> {
 		(self.fetch_block_author)(block_hash).await
 	}
 }
