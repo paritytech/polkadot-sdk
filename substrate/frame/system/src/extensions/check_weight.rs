@@ -963,7 +963,7 @@ mod tests {
 			let max_proof_size = max_extrinsic.proof_size() as usize;
 			// Extrinsic weight that fits without length
 			let info = DispatchInfo {
-				call_weight: max_extrinsic.clone().set_proof_size(0),
+				call_weight: max_extrinsic.set_proof_size(0),
 				class: DispatchClass::Normal,
 				..Default::default()
 			};
