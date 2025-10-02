@@ -2,17 +2,9 @@ title: '[WIP] Fix statement-store gossiping'
 doc:
 - audience: Node Dev
   description: |-
-    # Description
-
-    Fixes gossiping and scalability issues in the statement-store networking.
-
-    1. Reduced gossiping traffic by propagating only recent statements instead of all.
-    2. Added early check for statements that the node already has to skip duplicate processing.
-    3. Added splitting of large statement batches to stay under MAX_STATEMENT_NOTIFICATION_SIZE; oversized individual statements are skipped.
-
-    ## Integration
-
-    Internal optimizations to the gossip protocol. No downstream changes required.
+    Fixes gossiping and scalability issues in the statement-store networking:
+    reduces traffic by propagating only recent statements, skips duplicate processing,
+    and splits large batches to stay under MAX_STATEMENT_NOTIFICATION_SIZE.
 crates:
 - name: sc-network-statement
   bump: patch
