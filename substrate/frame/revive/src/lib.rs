@@ -1440,6 +1440,8 @@ impl<T: Config> Pallet<T> {
 		if tx.max_fee_per_gas.is_none() {
 			tx.max_fee_per_gas = Some(effective_gas_price);
 		}
+
+		let gas = tx.gas;
 		if tx.gas.is_none() {
 			tx.gas = Some(Self::evm_block_gas_limit());
 		}
@@ -1452,7 +1454,6 @@ impl<T: Config> Pallet<T> {
 		let input = tx.input.clone().to_vec();
 		let from = tx.from;
 		let to = tx.to;
-		let gas = tx.gas.unwrap_or_default();
 
 		// we need to parse the weight from the transaction so that it is run
 		// using the exact weight limit passed by the eth wallet
@@ -1461,15 +1462,18 @@ impl<T: Config> Pallet<T> {
 
 		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
-		if let Some(ref from) = from {
-			let balance = Self::evm_balance(&from);
-			log::debug!(target: LOG_TARGET, "insufficient funds for gas * price + value: address {from:?} have {balance:?} (supplied gas {gas})");
-			if balance < Pallet::<T>::convert_native_to_evm(fees) {
-				return Err(EthTransactError::Message(format!(
-					"insufficient funds for gas * price + value: address {from:?} have {balance:?} (supplied gas {gas})",
-				)));
-			}
+		match (gas, from, value.is_zero()) {
+			(Some(_), Some(from), _) | (_, Some(from), false) => {
+				let balance = Self::evm_balance(&from).saturating_add(value);
+				if balance < Pallet::<T>::convert_native_to_evm(fees) {
+					return Err(EthTransactError::Message(format!(
+								"insufficient funds for gas * price + value: address {from:?} have {balance:?} (supplied gas {gas:?})",
+					)));
+				}
+			},
+			_ => {},
 		}
+
 		T::FeeInfo::deposit_txfee(T::Currency::issue(fees));
 
 		let extract_error = |err| {
