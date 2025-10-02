@@ -21,10 +21,10 @@ use crate as pallet_transaction_payment;
 use codec::Encode;
 
 use sp_runtime::{
-	BuildStorage,
 	generic::UncheckedExtrinsic,
 	traits::{DispatchTransaction, One},
 	transaction_validity::{InvalidTransaction, TransactionSource::External},
+	BuildStorage,
 };
 
 use frame_support::{

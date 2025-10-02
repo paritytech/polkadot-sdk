@@ -16,16 +16,16 @@
 // limitations under the License.
 
 /// ! Traits and default implementation for paying transaction fees.
-use crate::{Config, LOG_TARGET, Pallet, TxPaymentCredit};
+use crate::{Config, Pallet, TxPaymentCredit, LOG_TARGET};
 
 use codec::{DecodeWithMemTracking, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	traits::{
-		Currency, ExistenceRequirement, Imbalance, NoDrop, OnUnbalanced, SuppressedDrop,
-		WithdrawReasons,
 		fungible::{Balanced, Credit, Inspect},
 		tokens::{Precision, WithdrawConsequence},
+		Currency, ExistenceRequirement, Imbalance, NoDrop, OnUnbalanced, SuppressedDrop,
+		WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
 };
@@ -247,13 +247,13 @@ where
 	T: Config,
 	C: Currency<<T as frame_system::Config>::AccountId>,
 	C::PositiveImbalance: Imbalance<
-			<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-			Opposite = C::NegativeImbalance,
-		>,
+		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+		Opposite = C::NegativeImbalance,
+	>,
 	C::NegativeImbalance: Imbalance<
-			<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-			Opposite = C::PositiveImbalance,
-		>,
+		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+		Opposite = C::PositiveImbalance,
+	>,
 	OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
 {
 	type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
