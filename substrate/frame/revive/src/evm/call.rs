@@ -30,14 +30,23 @@ use sp_runtime::{
 	transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion, Saturating,
 };
 
+/// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
+	/// The dispatchable call with the correct weights assigned.
+	///
+	/// This will be either `eth_call` or `eth_instantiate_with_code`.
 	pub call: CallOf<T>,
+	/// The weight that was set inside [`Self::call`].
 	pub weight_limit: Weight,
+	/// The encoded length of the bare transaction carrying the ethereum payload.
 	pub encoded_len: u32,
+	/// The adjusted transaction fee of [`Self::call`].
 	pub tx_fee: BalanceOf<T>,
+	/// The additional storage deposit to be deposited into the txhold.
 	pub storage_deposit: BalanceOf<T>,
 }
 
+/// Decode `tx` into a dispatchable call.
 pub fn create_call<T>(
 	tx: GenericTransaction,
 	encoded_len: Option<u32>,
