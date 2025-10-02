@@ -9,8 +9,6 @@ doc:
 
 crates:
 - name: sp-statement-store
-  bump: major
-  validate: false
+  bump: minor
 - name: sc-statement-store
-  bump: major
-  validate: false
+  bump: minor
