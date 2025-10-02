@@ -47,7 +47,7 @@ pub trait RewardsPool<AccountId, PoolId, Balance> {
 
 	/// Modify a pool reward rate.
 	///
-	/// Currently the reward rate can only be increased.
+	/// The reward rate can only be increased.
 	///
 	/// Only the pool admin may perform this operation.
 	fn set_pool_reward_rate_per_block(
@@ -63,7 +63,7 @@ pub trait RewardsPool<AccountId, PoolId, Balance> {
 
 	/// Set when the pool should expire.
 	///
-	/// Currently the expiry block can only be extended.
+	/// The expiry block can only be extended.
 	///
 	/// Only the pool admin may perform this operation.
 	fn set_pool_expiry_block(
