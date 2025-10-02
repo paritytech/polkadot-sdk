@@ -1473,15 +1473,11 @@ impl<T: Config> Pallet<T> {
 		T::FeeInfo::deposit_txfee(T::Currency::issue(fees));
 
 		let extract_error = |err| {
-			if err == Error::<T>::StorageDepositNotEnoughFunds.into() ||
-				err == Error::<T>::StorageDepositLimitExhausted.into()
-			{
-				return Err(EthTransactError::Message(format!("Not enough gas suppled: {err:?}")));
+			if err == Error::<T>::StorageDepositNotEnoughFunds.into() {
+				Err(EthTransactError::Message(format!("Not enough gas supplied: {err:?}")))
+			} else {
+				Err(EthTransactError::Message(format!("failed to run contract: {err:?}")))
 			}
-
-			return Err(EthTransactError::Message(format!(
-				"Failed to instantiate contract: {err:?}"
-			)));
 		};
 
 		// Dry run the call
@@ -1603,11 +1599,7 @@ impl<T: Config> Pallet<T> {
 		let available_fee = T::FeeInfo::remaining_txfee();
 		if transaction_fee > available_fee {
 			Err(EthTransactError::Message(format!(
-				"Drew too much from the txhold. \
-					fee={:?} \
-					available={available_fee:?} \
-					overdrawn_by={:?}",
-				call_info.tx_fee,
+				"Not enough gas supplied: Off by: {:?}",
 				call_info.tx_fee.saturating_sub(available_fee),
 			)))?;
 		}
