@@ -484,9 +484,10 @@ impl crate::paras_inherent::Config for Test {
 }
 
 parameter_types! {
-	pub const MaxPublishItems: u32 = 10;
-	pub const MaxKeyLength: u32 = 100; 
-	pub const MaxValueLength: u32 = 1000;
+	pub const MaxPublishItems: u32 = 16;
+	pub const MaxKeyLength: u32 = 256;
+	pub const MaxValueLength: u32 = 1024;
+	pub const MaxStoredKeys: u32 = 100;
 }
 
 impl crate::broadcaster::Config for Test {
@@ -494,6 +495,7 @@ impl crate::broadcaster::Config for Test {
 	type MaxPublishItems = MaxPublishItems;
 	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;
+	type MaxStoredKeys = MaxStoredKeys;
 	type MaxSubscriptions = ConstU32<10>;
 	type MaxPublishers = ConstU32<1000>;
 }

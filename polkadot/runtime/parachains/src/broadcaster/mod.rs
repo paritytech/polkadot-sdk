@@ -83,6 +83,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxValueLength: Get<u32>;
 
+		/// Maximum number of unique keys a publisher can have stored across all publishes.
+		#[pallet::constant]
+		type MaxStoredKeys: Get<u32>;
+
 		/// Maximum number of publishers a subscriber can subscribe to.
 		#[pallet::constant]
 		type MaxSubscriptions: Get<u32>;
@@ -122,7 +126,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		ParaId,
-		BoundedBTreeSet<BoundedVec<u8, T::MaxKeyLength>, T::MaxPublishItems>,
+		BoundedBTreeSet<BoundedVec<u8, T::MaxKeyLength>, T::MaxStoredKeys>,
 		ValueQuery,
 	>;
 
@@ -158,6 +162,8 @@ pub mod pallet {
 		KeyTooLong,
 		/// Value length exceeds maximum allowed.
 		ValueTooLong,
+		/// Too many unique keys stored for this publisher.
+		TooManyStoredKeys,
 		/// Too many subscriptions for this subscriber.
 		TooManySubscriptions,
 	}
@@ -221,12 +227,31 @@ pub mod pallet {
 			// Get current published keys set for tracking
 			let mut published_keys = PublishedKeys::<T>::get(origin_para_id);
 
+			// Check if adding new keys would exceed MaxStoredKeys limit
+			// Count how many unique new keys we're adding
+			let mut new_keys_count = 0u32;
+			for (key, _) in &data {
+				if let Ok(bounded_key) = BoundedVec::try_from(key.clone()) {
+					if !published_keys.contains(&bounded_key) {
+						new_keys_count += 1;
+					}
+				}
+			}
+
+			// Ensure we won't exceed the total stored keys limit
+			let current_keys_count = published_keys.len() as u32;
+			ensure!(
+				current_keys_count.saturating_add(new_keys_count) <= T::MaxStoredKeys::get(),
+				Error::<T>::TooManyStoredKeys
+			);
+
 			// Store each key-value pair in the child trie and track the key
 			for (key, value) in data {
 				frame_support::storage::child::put(&child_info, &key, &value);
 
 				// Track the key for enumeration (convert to BoundedVec)
 				if let Ok(bounded_key) = BoundedVec::try_from(key) {
+					// This should never fail now since we checked the limit above
 					published_keys.try_insert(bounded_key).defensive_ok();
 				}
 			}

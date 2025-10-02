@@ -97,13 +97,12 @@ fn empty_publish_still_creates_publisher() {
 fn handle_publish_respects_max_items_limit() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(1000);
-		
-		// Create 11 items (exceeds MaxPublishItems=10)
+
 		let mut data = Vec::new();
-		for i in 0..11 {
+		for i in 0..17 {
 			data.push((format!("key{}", i).into_bytes(), b"value".to_vec()));
 		}
-		
+
 		let result = Broadcaster::handle_publish(para_id, data);
 		assert!(result.is_err());
 		assert!(!PublisherExists::<Test>::get(para_id));
@@ -114,11 +113,10 @@ fn handle_publish_respects_max_items_limit() {
 fn handle_publish_respects_key_length_limit() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(1000);
-		
-		// Create key longer than MaxKeyLength=100
-		let long_key = vec![b'a'; 101];
+
+		let long_key = vec![b'a'; 257];
 		let data = vec![(long_key, b"value".to_vec())];
-		
+
 		let result = Broadcaster::handle_publish(para_id, data);
 		assert!(result.is_err());
 		assert!(!PublisherExists::<Test>::get(para_id));
@@ -130,8 +128,7 @@ fn handle_publish_respects_value_length_limit() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(1000);
 
-		// Create value longer than MaxValueLength=1000
-		let long_value = vec![b'v'; 1001];
+		let long_value = vec![b'v'; 1025];
 		let data = vec![(b"key".to_vec(), long_value)];
 
 		let result = Broadcaster::handle_publish(para_id, data);
@@ -229,5 +226,45 @@ fn max_subscriptions_limit_enforced() {
 		let existing_publisher = ParaId::from(2000);
 		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, existing_publisher)); // Unsubscribe
 		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, publisher)); // Subscribe to new one
+	});
+}
+
+#[test]
+fn max_stored_keys_limit_enforced() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(1000);
+
+		for batch in 0..7 {
+			let mut data = Vec::new();
+			for i in 0..16 {
+				let key_num = batch * 16 + i;
+				if key_num < 100 {
+					data.push((format!("key{}", key_num).into_bytes(), b"value".to_vec()));
+				}
+			}
+			if !data.is_empty() {
+				assert_ok!(Broadcaster::handle_publish(para_id, data));
+			}
+		}
+
+		let published_keys = PublishedKeys::<Test>::get(para_id);
+		assert_eq!(published_keys.len(), 100);
+
+		let result = Broadcaster::handle_publish(
+			para_id,
+			vec![(b"new_key".to_vec(), b"value".to_vec())]
+		);
+		assert_err!(result, Error::<Test>::TooManyStoredKeys);
+
+		let result = Broadcaster::handle_publish(
+			para_id,
+			vec![(b"key0".to_vec(), b"updated_value".to_vec())]
+		);
+		assert_ok!(result);
+
+		assert_eq!(
+			Broadcaster::get_published_value(para_id, b"key0"),
+			Some(b"updated_value".to_vec())
+		);
 	});
 }
