@@ -109,6 +109,14 @@ type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
+pub struct InjectExecEnv<T: frame_system::Config> {
+	pub caller: OriginFor<T>,
+	pub delegated_caller: Option<OriginFor<T>>,
+	pub callee: H160,
+
+	pub first_call_only: bool,
+}
+
 /// Used as a sentinel value when reading and writing contract memory.
 ///
 /// It is usually used to signal `None` to a contract when only a primitive is allowed
@@ -837,6 +845,7 @@ pub mod pallet {
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
+				None,
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -875,6 +884,7 @@ pub mod pallet {
 				data,
 				salt,
 				BumpNonce::Yes,
+				None,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -940,6 +950,7 @@ pub mod pallet {
 				data,
 				salt,
 				BumpNonce::Yes,
+				None,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -984,6 +995,7 @@ pub mod pallet {
 				data,
 				None,
 				BumpNonce::No,
+				None,
 			);
 
 			if let Ok(retval) = &output.result {
@@ -1021,6 +1033,7 @@ pub mod pallet {
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
+				None,
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -1192,6 +1205,7 @@ where
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
+		injected_exec_env: Option<InjectExecEnv<T>>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
 			return contract_result;
@@ -1210,6 +1224,7 @@ where
 				evm_value,
 				data,
 				storage_deposit_limit.is_unchecked(),
+				injected_exec_env,
 			)?;
 			storage_deposit = storage_meter
 				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
@@ -1252,6 +1267,7 @@ where
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
 		bump_nonce: BumpNonce,
+		injected_exec_env: Option<InjectExecEnv<T>>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		// Enforce EIP-3607 for top-level signed origins: deny signed contract addresses.
 		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
@@ -1300,6 +1316,7 @@ where
 				salt.as_ref(),
 				unchecked_deposit_limit,
 				bump_nonce,
+				injected_exec_env,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1430,6 +1447,7 @@ where
 						gas_limit,
 						storage_deposit_limit,
 						input.clone(),
+						None,
 					);
 
 					let data = match result.result {
@@ -1486,6 +1504,7 @@ where
 					data.clone(),
 					None,
 					BumpNonce::No,
+					None,
 				);
 
 				let returned_data = match result.result {
@@ -2135,6 +2154,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						input_data,
+						None,
 					)
 				}
 
@@ -2161,6 +2181,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						data,
 						salt,
 						$crate::BumpNonce::Yes,
+						None,
 					)
 				}
 

@@ -18,7 +18,8 @@
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
 	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
-	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
+	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, InjectExecEnv,
+	Weight, U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -139,6 +140,7 @@ builder!(
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
 		bump_nonce: BumpNonce,
+		stack_inject_env: Option<InjectExecEnv<T>>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
 	pub fn concat_evm_data(mut self, more_data: &[u8]) -> Self {
@@ -181,6 +183,7 @@ builder!(
 			data: vec![],
 			salt: Some([0; 32]),
 			bump_nonce: BumpNonce::Yes,
+			stack_inject_env: None,
 		}
 	}
 );
@@ -216,6 +219,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
+		stack_inject_env: Option<InjectExecEnv<T>>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
 	/// Set the call's evm_value using a native_value amount.
@@ -238,6 +242,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			data: vec![],
+			stack_inject_env: None,
 		}
 	}
 );

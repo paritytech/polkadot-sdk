@@ -26,7 +26,7 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
+	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, InjectExecEnv,
 	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
@@ -538,6 +538,10 @@ pub struct Stack<'a, T: Config, E> {
 	/// Whether or not actual transfer of funds should be performed.
 	/// This is set to `true` exclusively when we simulate a call through eth_transact.
 	skip_transfer: bool,
+	/// Optional environment that is injected into each frame, it is meant to be used by foundry
+	/// to be able modify the things like `msg.sender` and `tx.origin`, that the contracts sees.
+	injected_exec_env: Option<InjectExecEnv<T>>,
+
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -791,6 +795,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		skip_transfer: bool,
+		injected_exec_env: Option<InjectExecEnv<T>>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
@@ -800,6 +805,7 @@ where
 			storage_meter,
 			value,
 			skip_transfer,
+			injected_exec_env,
 		)? {
 			stack
 				.run(executable, input_data, BumpNonce::Yes)
@@ -843,6 +849,7 @@ where
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
 		bump_nonce: BumpNonce,
+		injected_exec_env: Option<InjectExecEnv<T>>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let deployer = T::AddressMapper::to_address(&origin);
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
@@ -857,6 +864,7 @@ where
 			storage_meter,
 			value,
 			skip_transfer,
+			injected_exec_env,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
@@ -907,6 +915,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
 		skip_transfer: bool,
+		injected_exec_env: Option<InjectExecEnv<T>>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
@@ -918,6 +927,7 @@ where
 			BalanceOf::<T>::max_value(),
 			false,
 			true,
+			injected_exec_env.as_ref(),
 		)?
 		else {
 			return Ok(None);
@@ -933,6 +943,7 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			skip_transfer,
+			injected_exec_env,
 			_phantom: Default::default(),
 		};
 
@@ -952,6 +963,7 @@ where
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
 		origin_is_caller: bool,
+		injected_exec_env: Option<&InjectExecEnv<T>>,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -979,6 +991,15 @@ where
 					(None, Some(_)) => CachedContract::None,
 				};
 
+				let delegated_call = delegated_call.or_else(|| {
+					injected_exec_env.as_ref().and_then(|env| env.delegated_caller.as_ref()).map(
+						|delegate_caller| DelegateInfo {
+							caller: Origin::<T>::from_runtime_origin(delegate_caller.clone())
+								.expect("Injected origin is always valid; qed"),
+							callee: injected_exec_env.as_ref().unwrap().callee,
+						},
+					)
+				});
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
 					if let Some(precompile) =
@@ -1104,6 +1125,7 @@ where
 			deposit_limit,
 			read_only,
 			false,
+			None,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
@@ -1996,6 +2018,17 @@ where
 	}
 
 	fn caller(&self) -> Origin<T> {
+		if let Some(injected_env) = &self.injected_exec_env {
+			if (self.frames.len() == 0 || !injected_env.first_call_only) &&
+				injected_env.delegated_caller.is_none()
+			{
+				if let Ok(injected_caller) =
+					Origin::<T>::from_runtime_origin(injected_env.caller.clone())
+				{
+					return injected_caller;
+				}
+			}
+		}
 		if let Some(DelegateInfo { caller, .. }) = &self.top_frame().delegate {
 			caller.clone()
 		} else {
