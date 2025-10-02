@@ -476,7 +476,7 @@ pub enum NetworkBridgeTxMessage {
 }
 
 /// Availability Distribution Message.
-#[derive(Debug)]
+#[derive(Debug, derive_more::From)]
 pub enum AvailabilityDistributionMessage {
 	/// Instruct availability distribution to fetch a remote PoV.
 	///
@@ -499,6 +499,10 @@ pub enum AvailabilityDistributionMessage {
 		/// The sender will be canceled if the fetching failed for some reason.
 		tx: oneshot::Sender<PoV>,
 	},
+
+	/// Event from the network bridge.
+	#[from]
+	NetworkBridgeUpdate(NetworkBridgeEvent<()>),
 }
 
 /// Availability Recovery Message.
@@ -1465,6 +1469,7 @@ pub enum ProspectiveParachainsMessage {
 #[derive(Debug)]
 pub enum ConsensusStatisticsCollectorMessage {
 	ChunksDownloaded(SessionIndex, CandidateHash, HashMap<ValidatorIndex, u64>),
+	ChunksUploaded(CandidateHash, HashSet<()>)
 
 	// Candidate received enough approval and now is approved
 	CandidateApproved(CandidateHash, Hash, Vec<ValidatorIndex>),

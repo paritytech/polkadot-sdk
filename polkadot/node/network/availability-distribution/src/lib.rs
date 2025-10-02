@@ -165,35 +165,41 @@ impl AvailabilityDistributionSubsystem {
 				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _finalized_number)) => {
 				},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
-				FromOrchestra::Communication {
-					msg:
-						AvailabilityDistributionMessage::FetchPoV {
-							relay_parent,
-							from_validator,
-							para_id,
-							candidate_hash,
-							pov_hash,
-							tx,
-						},
-				} => {
-					log_error(
-						pov_requester::fetch_pov(
-							&mut ctx,
-							&mut runtime,
-							relay_parent,
-							from_validator,
-							para_id,
-							candidate_hash,
-							pov_hash,
-							tx,
-							metrics.clone(),
-						)
-						.await,
-						"pov_requester::fetch_pov",
-						&mut warn_freq,
-					)?;
+				FromOrchestra::Communication { msg} => match msg {
+					AvailabilityDistributionMessage::FetchPoV {
+						relay_parent,
+						from_validator,
+						para_id,
+						candidate_hash,
+						pov_hash,
+						tx,
+					} => {
+						log_error(
+							pov_requester::fetch_pov(
+								&mut ctx,
+								&mut runtime,
+								relay_parent,
+								from_validator,
+								para_id,
+								candidate_hash,
+								pov_hash,
+								tx,
+								metrics.clone(),
+							)
+								.await,
+							"pov_requester::fetch_pov",
+							&mut warn_freq,
+						)?;
+					},
+					AvailabilityDistributionMessage::NetworkBridgeUpdate(event) => {
+
+					},
 				},
 			}
 		}
 	}
+}
+
+async fn handle_network_update<Context>() {
+
 }
