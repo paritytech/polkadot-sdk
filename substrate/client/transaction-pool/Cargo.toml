@@ -64,4 +64,4 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
 txtesttool = { workspace = true }
 zombienet-configuration = { workspace = true }
-zombienet-sdk = { workspace = true }
+# zombienet-sdk = { workspace = true }
