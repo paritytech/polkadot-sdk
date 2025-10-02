@@ -516,10 +516,16 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
+		/// Invalid jump destination. Dynamic jumps points to invalid not jumpdest opcode.
+		InvalidJump = 0x32,
+		/// Attempting to pop a value from an empty stack.
+		StackUnderflow = 0x33,
+		/// Attempting to push a value onto a full stack.
+		StackOverflow = 0x34,
 		/// Too much deposit was drawn from the shared txfee and deposit credit.
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
-		TxFeeOverdraw = 0x32,
+		TxFeeOverdraw = 0x35,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
