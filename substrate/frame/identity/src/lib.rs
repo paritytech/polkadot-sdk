@@ -1637,7 +1637,7 @@ impl<T: Config> Pallet<T> {
 		let deposit = id.total_deposit();
 		let released_amount =
 			T::Balances::release(&HoldReason::Identity.into(), &who, deposit, Precision::Exact)?;
-		debug_assert!(!released_amount.is_zero());
+		debug_assert!(deposit.is_zero() || !released_amount.is_zero());
 
 		// subs
 		let (subs_deposit, sub_ids) = SubsOf::<T>::take(&who);
@@ -1652,7 +1652,7 @@ impl<T: Config> Pallet<T> {
 			subs_deposit,
 			Precision::Exact,
 		)?;
-		debug_assert!(!released_amount.is_zero());
+		debug_assert!(subs_deposit.is_zero() || !released_amount.is_zero());
 
 		Ok((registrars, encoded_byte_size, actual_subs))
 	}

@@ -213,7 +213,10 @@ mod benchmarks {
 		let target_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::OldCurrency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&target,
+			BalanceOf::<T>::max_value() / 2u16.into(),
+		);
 
 		// set identity
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
