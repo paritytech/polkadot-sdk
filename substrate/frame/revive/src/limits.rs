@@ -268,8 +268,8 @@ const fn memory_required() -> u32 {
 
 	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
 
-	let EVM_MAX_INITCODE_SIZE = revm::primitives::eip3860::MAX_INITCODE_SIZE as u32;
-	let evm_overhead = EVM_MEMORY_LIMIT + EVM_MAX_INITCODE_SIZE + EVM_STACK_LIMIT;
+	let evm_max_initcode_size = revm::primitives::eip3860::MAX_INITCODE_SIZE as u32;
+	let evm_overhead = EVM_MEMORY_LIMIT + evm_max_initcode_size + EVM_STACK_LIMIT;
 	let per_frame_memory = if code::BASELINE_MEMORY_LIMIT > evm_overhead {
 		code::BASELINE_MEMORY_LIMIT
 	} else {
