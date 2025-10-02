@@ -26,7 +26,7 @@ pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
-	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
+	frame_support::{ensure, error::BadOrigin},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	weights::WeightInfo,
@@ -35,13 +35,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	dispatch::DispatchResult,
-	traits::{
-		fungible::MutateHold,
-		tokens::{Fortitude, Precision},
-	},
-};
+use frame_support::dispatch::DispatchResult;
 use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256};
 use sp_runtime::DispatchError;
@@ -166,19 +160,21 @@ impl<T: Config> ContractBlob<T> {
 	/// Remove the code from storage and refund the deposit to its owner.
 	///
 	/// Applies all necessary checks before removing the code.
-	pub fn remove(origin: &T::AccountId, code_hash: H256) -> DispatchResult {
+	pub fn remove(
+		origin: &T::AccountId,
+		code_hash: H256,
+		exec_config: &ExecConfig,
+	) -> DispatchResult {
 		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
 			if let Some(code_info) = existing {
 				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
 				ensure!(&code_info.owner == origin, BadOrigin);
-				T::Currency::transfer_on_hold(
-					&HoldReason::CodeUploadDepositReserve.into(),
+				<Pallet<T>>::refund_deposit(
+					HoldReason::CodeUploadDepositReserve,
 					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
-					Precision::Exact,
-					Restriction::Free,
-					Fortitude::Polite,
+					exec_config,
 				)?;
 
 				*existing = None;
@@ -284,19 +280,20 @@ impl<T: Config> CodeInfo<T> {
 
 	/// Decrement the reference count of a stored code by one.
 	/// Remove the code from storage when the reference count is zero.
-	pub fn decrement_refcount(code_hash: H256) -> Result<CodeRemoved, DispatchError> {
+	pub fn decrement_refcount(
+		code_hash: H256,
+		exec_config: &ExecConfig,
+	) -> Result<CodeRemoved, DispatchError> {
 		<CodeInfoOf<T>>::try_mutate_exists(code_hash, |existing| {
 			let Some(code_info) = existing else { return Err(Error::<T>::CodeNotFound.into()) };
 
 			if code_info.refcount == 1 {
-				T::Currency::transfer_on_hold(
-					&HoldReason::CodeUploadDepositReserve.into(),
+				<Pallet<T>>::refund_deposit(
+					HoldReason::CodeUploadDepositReserve,
 					&crate::Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
-					Precision::Exact,
-					Restriction::Free,
-					Fortitude::Polite,
+					exec_config,
 				)?;
 
 				*existing = None;

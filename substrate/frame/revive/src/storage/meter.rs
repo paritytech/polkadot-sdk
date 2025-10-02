@@ -25,8 +25,8 @@ use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::{
-		fungible::{Mutate, MutateHold},
-		tokens::{Fortitude, Fortitude::Polite, Precision, Preservation, Restriction},
+		fungible::Mutate,
+		tokens::{Fortitude::Polite, Preservation},
 		Get,
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
@@ -467,14 +467,12 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 			},
 			Deposit::Refund(amount) => {
-				let transferred = T::Currency::transfer_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
+				let transferred = <Pallet<T>>::refund_deposit(
+					HoldReason::StorageDepositReserve,
 					contract,
 					origin,
 					*amount,
-					Precision::BestEffort,
-					Restriction::Free,
-					Fortitude::Polite,
+					exec_config,
 				)?;
 
 				if transferred < *amount {

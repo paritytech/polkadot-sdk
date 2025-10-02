@@ -1158,7 +1158,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
-			<ContractBlob<T>>::remove(&origin, code_hash)?;
+			<ContractBlob<T>>::remove(&origin, code_hash, &ExecConfig::new_substrate_tx())?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
 		}
@@ -1191,7 +1191,10 @@ pub mod pallet {
 				};
 
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
-				let _ = <CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
+				let _ = <CodeInfo<T>>::decrement_refcount(
+					contract.code_hash,
+					&ExecConfig::new_substrate_tx(),
+				)?;
 				contract.code_hash = code_hash;
 
 				Ok(())
@@ -1972,10 +1975,13 @@ impl<T: Config> Pallet<T> {
 				T::FeeInfo::withdraw_txfee(amount)
 					.ok_or(())
 					.and_then(|credit| T::Currency::resolve(to, credit).map_err(|_| ()))
+					.and_then(|_| {
+						if let Some(hold_reason) = hold_reason {
+							T::Currency::hold(&hold_reason.into(), to, amount).map_err(|_| ())?;
+						}
+						Ok(())
+					})
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-				if let Some(hold_reason) = hold_reason {
-					T::Currency::hold(&hold_reason.into(), to, amount).unwrap();
-				}
 			},
 			(false, Some(hold_reason)) => {
 				T::Currency::transfer_and_hold(
@@ -1986,13 +1992,66 @@ impl<T: Config> Pallet<T> {
 					Precision::Exact,
 					Preservation::Preserve,
 					Fortitude::Polite,
-				)?;
+				)
+				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 			(false, None) => {
-				T::Currency::transfer(from, to, amount, Preservation::Preserve)?;
+				T::Currency::transfer(from, to, amount, Preservation::Preserve)
+					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 		}
 		Ok(())
+	}
+
+	/// Refund a deposit.
+	///
+	/// `to` is usually the transaction origin and `from` a contract or
+	/// the pallets own account.
+	fn refund_deposit(
+		hold_reason: HoldReason,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: BalanceOf<T>,
+		exec_config: &ExecConfig,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		use frame_support::traits::{
+			tokens::{Fortitude, Precision, Preservation, Restriction},
+			Imbalance,
+		};
+		if exec_config.collect_deposit_from_hold {
+			let amount =
+				T::Currency::release(&hold_reason.into(), from, amount, Precision::BestEffort)
+					.and_then(|amount| {
+						T::Currency::withdraw(
+							from,
+							amount,
+							Precision::Exact,
+							Preservation::Preserve,
+							Fortitude::Polite,
+						)
+						.and_then(|credit| {
+							let amount = credit.peek();
+							T::FeeInfo::deposit_txfee(credit);
+							Ok(amount)
+						})
+					})
+					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+			amount
+		} else {
+			let amount = T::Currency::transfer_on_hold(
+				&hold_reason.into(),
+				from,
+				to,
+				amount,
+				Precision::BestEffort,
+				Restriction::Free,
+				Fortitude::Polite,
+			)
+			.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+			amount
+		};
+
+		Ok(amount)
 	}
 
 	/// Returns true if the evm value carries dust.
