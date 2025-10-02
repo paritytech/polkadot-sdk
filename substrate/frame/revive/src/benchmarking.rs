@@ -1221,7 +1221,29 @@ mod benchmarks {
 
 		Ok(())
 	}
+	#[benchmark(pov_mode = Measured)]
+	fn terminate(n: Linear<1, 5>) -> Result<(), BenchmarkError> {
+		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+		let beneficiary_address = T::AddressMapper::to_address(&beneficiary);
+        // setup: create `count` contracts (not measured)
+        let count = n as usize;
+        let mut instances: Vec<Contract<T>> = Vec::with_capacity(count);
 
+        for i in 0..count {
+            let inst = Contract::<T>::with_index((i + 1) as u32, VmBinaryModule::dummy(), vec![])?;
+            instances.push(inst);
+        }
+        
+        for inst in &instances {
+            inst.info()?.queue_trie_for_deletion();
+        }
+
+        #[block]
+        {
+            ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new());
+        }
+		Ok(())
+	}
 	// Benchmark the overhead that topics generate.
 	// `t`: Number of topics
 	// `n`: Size of event payload in bytes
