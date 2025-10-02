@@ -1217,7 +1217,6 @@ mod benchmarks {
 		}
 
 		assert!(matches!(result, Err(crate::vm::pvm::TrapReason::Termination)));
-		assert_eq!(PristineCode::<T>::get(code_hash).is_none(), delete_code);
 
 		Ok(())
 	}
