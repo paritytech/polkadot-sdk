@@ -549,7 +549,7 @@ fn terminate<T: Config>(
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn terminate_for_benchmark<T: Config>(
+pub fn terminate_logic_for_benchmark<T: Config>(
 	contract: &T::AccountId,
 	beneficiary: &T::AccountId,
 ) -> Result<(), DispatchError>  {

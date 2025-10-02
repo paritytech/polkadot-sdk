@@ -1198,7 +1198,7 @@ mod benchmarks {
 	///
 	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+	fn seal_terminate_call(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let delete_code = r == 1;
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
@@ -1222,7 +1222,7 @@ mod benchmarks {
 		Ok(())
 	}
 	#[benchmark(pov_mode = Measured)]
-	fn terminate_logic_for_benchmark() -> Result<(), BenchmarkError> {
+	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
 		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
