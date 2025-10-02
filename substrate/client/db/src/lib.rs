@@ -937,6 +937,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(root)
 	}
 
+	fn commit_complete_partial_state(&mut self) {
+		self.commit_state = true;
+	}
+
 	fn set_genesis_state(
 		&mut self,
 		storage: Storage,
@@ -2617,6 +2621,17 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pruning_mode(),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical
 		)
+	}
+
+	fn import_partial_state(&self, mut partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
+		self.storage.db.commit(Transaction(
+			partial_state
+				.drain()
+				.into_iter()
+				.map(|(key, (value, _))| sp_database::Change::Set(columns::STATE, key, value))
+				.collect(),
+		))?;
+		Ok(())
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {
