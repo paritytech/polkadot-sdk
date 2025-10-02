@@ -32,7 +32,7 @@ use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
 use sp_core::{H160, H256, U256};
 use sp_io::hashing::keccak_256;
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, SaturatedConversion};
 
 impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
@@ -649,7 +649,7 @@ pub mod env {
 	#[stable]
 	fn gas_price(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasPrice)?;
-		Ok(self.ext.effective_gas_price())
+		Ok(self.ext.effective_gas_price().saturated_into())
 	}
 
 	/// Returns the simulated ethereum `BASEFEE` value.

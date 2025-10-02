@@ -20,6 +20,7 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
+	vm::evm::U256Converter,
 	Code, Config, Pallet,
 };
 
@@ -47,7 +48,7 @@ fn gasprice_works(fixture_type: FixtureType) {
 			)
 			.build_and_unwrap_result();
 		let decoded = TransactionInfo::gaspriceCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(<Pallet<Test>>::evm_gas_price(), decoded.into());
+		assert_eq!(<Pallet<Test>>::evm_gas_price().into_revm_u256(), decoded);
 	});
 }
 

@@ -443,7 +443,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 
 	/// Returns the effective gas price of this transaction.
-	fn effective_gas_price(&self) -> u64;
+	fn effective_gas_price(&self) -> U256;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2181,12 +2181,10 @@ where
 		buf[len..].fill(0);
 	}
 
-	fn effective_gas_price(&self) -> u64 {
+	fn effective_gas_price(&self) -> U256 {
 		self.exec_config
 			.effective_gas_price
 			.unwrap_or_else(|| <Contracts<T>>::evm_gas_price())
-			.try_into()
-			.unwrap_or(u64::MAX)
 	}
 }
 

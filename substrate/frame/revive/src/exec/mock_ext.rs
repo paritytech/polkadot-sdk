@@ -210,7 +210,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::to_account_id")
 	}
 
-	fn effective_gas_price(&self) -> u64 {
+	fn effective_gas_price(&self) -> U256 {
 		panic!("MockExt::effective_gas_price")
 	}
 }
