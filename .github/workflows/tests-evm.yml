@@ -77,9 +77,10 @@ jobs:
           wget https://github.com/ethereum/solidity/releases/download/v0.8.30/solc-static-linux -q
           chmod +x solc-static-linux
           mv solc-static-linux /usr/local/bin/solc
-          echo "Run the tests"
-          echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
-          bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
+          # TODO restore once tests can be run against the revive-dev-node
+          # echo "Run the tests"
+          # echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
+          # bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
           echo "Run eth-rpc tests"
           bash init.sh --kitchensink http://localhost:9944 --eth-rpc -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
 
