@@ -1,0 +1,49 @@
+title: Rework gas mapping
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replacement of https://github.com/paritytech/polkadot-sdk/pull/9740.
+
+    Build on top of the new tx payment changes: https://github.com/paritytech/polkadot-sdk/pull/9780
+
+    Started a new PR because due to the rebase on top of the new tx payment changes this PR is substantially different and I don't want to invalidate the existing comments on https://github.com/paritytech/polkadot-sdk/pull/9740 which are not implemented, yet.
+
+    ## Overview
+
+    This will change the weight to eth fee mapping according to [this model](https://shade-verse-e97.notion.site/Gas-Mapping-Challenges-Revised-26c8532a7ab580db8222c2ce3023669e).
+
+    ## Follow ups
+
+    This only changes the estimate returned from the dry run and how the weights are derived from an ethereum transaction. It does not change how contracts observe the gas. This will be done in a follow up. More specifically:
+
+    1.  The `GAS` opcode should return the new gas. As of right now it returns `ref_time.`
+    2. The `*_CALL` opcodes should use the passed `gas` parameter and decode it into `Weight`. As of right now the parameter is ignored.
+
+    That said, even without those follow ups this PR should fix all `InvalidTransaction` errors we are observing.
+crates:
+- name: pallet-origin-restriction
+  bump: major
+- name: frame-support
+  bump: major
+- name: pallet-transaction-payment
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: assets-common
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: pallet-assets
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: pallet-assets-precompiles
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
