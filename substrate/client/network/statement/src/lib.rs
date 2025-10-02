@@ -489,7 +489,7 @@ where
 		}
 
 		log::debug!(target: LOG_TARGET, "Propagating statements");
-		if let Ok(statements) = self.statement_store.statements() {
+		if let Ok(statements) = self.statement_store.take_recent_statements() {
 			self.do_propagate_statements(&statements);
 		}
 	}

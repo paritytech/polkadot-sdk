@@ -66,6 +66,12 @@ pub trait StatementStore: Send + Sync {
 	/// Return all statements.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>>;
 
+	/// Return recent statements and clear the internal index.
+	///
+	/// This consumes and clears the recently received statements,
+	/// allowing new statements to be collected from this point forward.
+	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;
+
 	/// Get statement by hash.
 	fn statement(&self, hash: &Hash) -> Result<Option<Statement>>;
 
