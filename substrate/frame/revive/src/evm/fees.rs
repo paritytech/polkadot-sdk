@@ -62,7 +62,7 @@ pub struct BlockRatioFee<const P: u128, const Q: u128, T: Config>(PhantomData<T>
 /// pallet_transaction_payment. This way we bundle all the trait bounds in once place.
 pub struct Info<Address, Signature, Extra>(PhantomData<(Address, Signature, Extra)>);
 
-/// A that signals that [`BlockRatioFee`] is used by the runtime.
+/// A trait that signals that [`BlockRatioFee`] is used by the runtime.
 ///
 /// This trait is sealed. Use [`BlockRatioFee`].
 pub trait BlockRatioWeightToFee: seal::Sealed {
