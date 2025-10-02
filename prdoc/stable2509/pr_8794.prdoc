@@ -8,4 +8,4 @@ crates:
 - name: pallet-revive-fixtures
   bump: patch
 - name: pallet-revive-proc-macro
-  bump: patch
+  bump: major
