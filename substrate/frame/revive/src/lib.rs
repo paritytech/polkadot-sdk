@@ -1402,9 +1402,6 @@ impl<T: Config> Pallet<T> {
 	/// # Parameters
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
-	/// - `gas_limit`: The gas limit enforced during contract execution.
-	/// - `tx_fee`: A function that returns the fee for the computed eth_transact and actual
-	/// dispatched call
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>

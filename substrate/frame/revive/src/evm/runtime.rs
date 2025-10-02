@@ -252,8 +252,6 @@ pub trait EthExtra {
 	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
-	/// - `gas_limit`: The gas limit for the extrinsic
-	/// - `storage_deposit_limit`: The storage deposit limit for the extrinsic,
 	/// - `encoded_len`: The encoded length of the extrinsic.
 	fn try_into_checked_extrinsic(
 		payload: Vec<u8>,
