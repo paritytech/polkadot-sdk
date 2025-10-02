@@ -1301,7 +1301,6 @@ pub mod pallet {
 			}
 		}
 
-		/// Used by the RPC service to provide current prices.
 		pub fn quote_price_exact_tokens_for_tokens(
 			asset1: T::AssetKind,
 			asset2: T::AssetKind,
@@ -1323,7 +1322,6 @@ pub mod pallet {
 			}
 		}
 
-		/// Used by the RPC service to provide current prices.
 		pub fn quote_price_tokens_for_exact_tokens(
 			asset1: T::AssetKind,
 			asset2: T::AssetKind,
