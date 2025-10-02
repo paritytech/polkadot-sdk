@@ -77,12 +77,13 @@ impl<H> Transaction<H> {
 	}
 }
 
-pub trait OrderedDatabase {
-	fn get_lower_bound(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>>;
+pub trait SeekableIterator {
+	fn seek(&self, col: ColumnId, key: &[u8]) -> bool;
+	fn get(&self) -> Option<(Vec<u8>, Vec<u8>)>;
 }
 
-pub trait MaybeOrderedDatabase {
-	fn as_ordered_database(&self) -> Option<&dyn OrderedDatabase>;
+pub trait DatabaseWithSeekableIterator {
+	fn seekable_iter(&self) -> Box<dyn SeekableIterator>;
 }
 
 pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {

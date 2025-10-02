@@ -18,7 +18,9 @@
 /// A wrapper around `kvdb::Database` that implements `sp_database::Database` trait
 use ::kvdb::{DBTransaction, KeyValueDB};
 
-use crate::{error, Change, ColumnId, Database, MaybeOrderedDatabase, OrderedDatabase, Transaction};
+#[cfg(feature = "rocksdb")]
+use crate::DatabaseWithSeekableIterator;
+use crate::{error, Change, ColumnId, Database, Transaction};
 
 struct DbAdapter<D: KeyValueDB + 'static>(D);
 
@@ -115,4 +117,15 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 	fn contains(&self, col: ColumnId, key: &[u8]) -> bool {
 		handle_err(self.0.has_key(col, key))
 	}
+}
+
+#[cfg(feature = "rocksdb")]
+impl DatabaseWithSeekableIterator for kvdb_rocksdb:: {
+
+}
+
+
+#[cfg(feature = "rocksdb")]
+impl DatabaseWithSeekableIterator for kvdb_rocksdb::Database {
+	
 }
