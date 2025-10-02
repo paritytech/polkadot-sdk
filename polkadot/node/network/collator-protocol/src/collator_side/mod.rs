@@ -53,8 +53,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash, HeadData,
-	Id as ParaId, SessionIndex,
+	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash, HeadData, Id as ParaId,
+	SessionIndex,
 };
 
 use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};
@@ -402,7 +402,7 @@ async fn distribute_collation<Context>(
 
 	// We should already be connected to the validators, but if we aren't, we will try to connect to
 	// them now.
-	connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent).await;
+	connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, id).await;
 
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
 		Some(per_relay_parent) => per_relay_parent,
@@ -645,14 +645,21 @@ fn has_assigned_cores(
 fn list_of_backing_validators_in_view(
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	para_id: ParaId,
 ) -> Vec<AuthorityDiscoveryId> {
 	let mut backing_validators = HashSet::new();
 	let Some(implicit_view) = implicit_view else { return vec![] };
 
 	for leaf in implicit_view.leaves() {
-		if let Some(relay_parent) = per_relay_parent.get(leaf) {
-			for group in relay_parent.validator_group.values() {
-				backing_validators.extend(group.validators.iter().cloned());
+		let allowed_ancestry = implicit_view
+			.known_allowed_relay_parents_under(leaf, Some(para_id))
+			.unwrap_or_default();
+
+		for allowed_relay_parent in allowed_ancestry {
+			if let Some(relay_parent) = per_relay_parent.get(allowed_relay_parent) {
+				for group in relay_parent.validator_group.values() {
+					backing_validators.extend(group.validators.iter().cloned());
+				}
 			}
 		}
 	}
@@ -667,13 +674,14 @@ async fn connect_to_validators<Context>(
 	ctx: &mut Context,
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	para_id: ParaId,
 ) {
 	let cores_assigned = has_assigned_cores(implicit_view, per_relay_parent);
 	// If no cores are assigned to the para, we still need to send a ConnectToValidators request to
 	// the network bridge passing an empty list of validator ids. Otherwise, it will keep connecting
 	// to the last requested validators until a new request is issued.
 	let validator_ids = if cores_assigned {
-		list_of_backing_validators_in_view(implicit_view, per_relay_parent)
+		list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id)
 	} else {
 		Vec::new()
 	};
@@ -1260,7 +1268,11 @@ async fn handle_network_msg<Context>(
 		OurViewChange(view) => {
 			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
 			handle_our_view_change(ctx, runtime, state, view).await?;
-			connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent).await;
+			// Connect only if we are collating on a para.
+			if let Some(para_id) = state.collating_on {
+				connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, para_id)
+					.await;
+			}
 		},
 		PeerMessage(remote, msg) => {
 			handle_incoming_peer_message(ctx, runtime, state, remote, msg).await?;
@@ -1363,7 +1375,16 @@ async fn handle_our_view_change<Context>(
 
 		state.per_relay_parent.insert(
 			*leaf,
-			PerRelayParent::new(ctx, runtime, para_id, claim_queue, block_number, *leaf, session_index).await?,
+			PerRelayParent::new(
+				ctx,
+				runtime,
+				para_id,
+				claim_queue,
+				block_number,
+				*leaf,
+				session_index,
+			)
+			.await?,
 		);
 
 		process_block_events(
@@ -1426,7 +1447,7 @@ async fn handle_our_view_change<Context>(
 							claim_queue,
 							block_number,
 							*block_hash,
-							session_index
+							session_index,
 						)
 						.await?,
 					)
@@ -1740,7 +1761,10 @@ async fn run_inner<Context>(
 			}
 			_ = reconnect_timeout => {
 
-				connect_to_validators(&mut ctx, &state.implicit_view, &state.per_relay_parent).await;
+				// Connect only if we are collating on a para.
+				if let Some(para_id) = state.collating_on {
+					connect_to_validators(&mut ctx, &state.implicit_view, &state.per_relay_parent, para_id).await;
+				}
 
 				gum::trace!(
 					target: LOG_TARGET,
