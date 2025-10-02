@@ -296,7 +296,7 @@ pub mod pallet {
 		/// The fraction the maximum extrinsic weight `eth_transact` extrinsics are capped to.
 		///
 		/// This is not a security measure but a requirement due to how we map gas to `(Weight,
-		/// StorageDeposit)`. The mapping might derive a `Weight` that is too large to fit into a
+		/// StorageDeposit)`. The mapping might derive a `Weight` that is too large to fit into an
 		/// extrinsic. In this case we cap it to the limit specified here.
 		///
 		/// `eth_transact` transactions that use more weight than specified will fail with an out of
