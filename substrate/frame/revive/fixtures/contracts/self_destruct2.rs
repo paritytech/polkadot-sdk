@@ -32,9 +32,8 @@ pub extern "C" fn deploy() {
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	// If the input data is not empty, then recursively call self with empty input data.
-	// This should trap instead of self-destructing since a contract cannot be removed, while it's
-	// in the execution stack. If the recursive call traps, then trap here as well.
+	// If the input data is not empty, then recursively call self with empty input data to 
+	// trigger reentry.
 	input!(input, 4,);
 
 	if !input.is_empty() {
