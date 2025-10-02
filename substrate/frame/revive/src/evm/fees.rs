@@ -47,7 +47,7 @@ type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>:
 ///
 /// `P,Q`: Rational number that defines the ref_time to fee mapping.
 ///
-/// This enforces a ration of ref_time and proof_time that is proportional
+/// This enforces a ratio of ref_time and proof_time that is proportional
 /// to their distribution in the block limits. We enforce the usage of this fee
 /// structure because our gas mapping depends on it.
 ///
