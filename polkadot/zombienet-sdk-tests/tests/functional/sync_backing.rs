@@ -48,7 +48,7 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 				.with_chain("sync-backing")
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug").into(),
-					("--make-it-fail").into()
+					("--make-it-fail").into(),
 				])
 				.with_collator(|n| n.with_name("collator-2500"))
 		})
