@@ -20,7 +20,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::Contains;
 use polkadot_primitives::Id as ParaId;
-use polkadot_runtime_parachains::broadcaster::publish;
+use polkadot_runtime_parachains::broadcaster::PublishSubscribe;
 use xcm::latest::prelude::XcmError;
 use xcm::latest::{Junction, Location, PublishData, Result as XcmResult};
 use xcm_executor::traits::BroadcastHandler;
@@ -31,7 +31,7 @@ pub struct ParachainBroadcastAdapter<Filter, Handler>(PhantomData<(Filter, Handl
 impl<Filter, Handler> BroadcastHandler for ParachainBroadcastAdapter<Filter, Handler>
 where
 	Filter: Contains<Location>,
-	Handler: publish::Publish,
+	Handler: PublishSubscribe,
 {
 	fn handle_publish(origin: &Location, data: PublishData) -> XcmResult {
 		// Check if origin is authorized to publish
@@ -110,7 +110,7 @@ impl<const PARA1: u32, const PARA2: u32> Contains<Location> for SpecificParachai
 mod tests {
 	use super::*;
 	use frame_support::parameter_types;
-	use polkadot_runtime_parachains::broadcaster::publish;
+	use polkadot_runtime_parachains::broadcaster::PublishSubscribe;
 	use sp_runtime::BoundedVec;
 	use xcm::latest::prelude::XcmError;
 	use xcm::latest::{
@@ -139,7 +139,7 @@ mod tests {
 	}
 
 	struct MockPublishHandler;
-	impl publish::Publish for MockPublishHandler {
+	impl PublishSubscribe for MockPublishHandler {
 		fn publish_data(
 			publisher: ParaId,
 			data: Vec<(Vec<u8>, Vec<u8>)>,

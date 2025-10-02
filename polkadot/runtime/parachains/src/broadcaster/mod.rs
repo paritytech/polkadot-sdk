@@ -31,23 +31,8 @@ use polkadot_primitives::Id as ParaId;
 pub use pallet::*;
 
 pub mod runtime_api;
-
-/// Trait for publishing key-value data.
-/// Inspired by fungibles trait.
-/// TODO: Check if we need to move out of pallets into a separate crate.
-/// TODO: Check if sufficient level of abstraction, for now we will leave ParaId.
-pub mod publish {
-	use super::*;
-
-	/// Trait for publishing key-value data for parachains.
-	pub trait Publish {
-		/// Publish key-value data for a specific parachain.
-		fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult;
-
-		/// Toggle subscription to a publisher's data.
-		fn toggle_subscription(subscriber: ParaId, publisher: ParaId) -> DispatchResult;
-	}
-}
+mod traits;
+pub use traits::PublishSubscribe;
 
 #[cfg(test)]
 mod tests;
@@ -397,8 +382,8 @@ pub mod pallet {
 	}
 }
 
-// Implement publish::Publish trait
-impl<T: Config> publish::Publish for Pallet<T> {
+// Implement PublishSubscribe trait
+impl<T: Config> PublishSubscribe for Pallet<T> {
 	fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult {
 		Self::handle_publish(publisher, data)
 	}

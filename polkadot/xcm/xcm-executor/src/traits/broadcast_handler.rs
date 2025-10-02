@@ -16,7 +16,6 @@
 
 //! Traits for handling publish/subscribe operations in XCM.
 
-use alloc::vec::Vec;
 use xcm::latest::{Location, PublishData, Result as XcmResult};
 
 /// Trait for handling publish/subscribe operations on the relay chain.
@@ -28,12 +27,6 @@ pub trait BroadcastHandler {
 	/// Handle subscribe/unsubscribe operation from the given origin.
 	/// Toggles subscription state for the given publisher.
 	fn handle_subscribe(origin: &Location, publisher: u32) -> XcmResult;
-}
-
-/// Trait for the actual publish handling logic.
-/// Implemented by pallets that store published data.
-pub trait HandlePublish {
-	fn handle_publish(publisher: u32, data: Vec<(Vec<u8>, Vec<u8>)>) -> Result<(), ()>;
 }
 
 /// Implementation of `BroadcastHandler` for the unit type `()`.
