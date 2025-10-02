@@ -389,6 +389,10 @@ where
 
 		self.inner.import_block(block).await.map_err(Into::into)
 	}
+
+	fn name(&self) -> String {
+		todo!()
+	}
 }
 
 /// A verifier for PoW blocks.
