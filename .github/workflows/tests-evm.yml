@@ -64,8 +64,8 @@ jobs:
           resolc --version
 
           echo "Check that binaries are in place"
-          export NODE_BIN_PATH=$(readlink -f ../target/debug/revive-dev-node)
-          export ETH_RPC_PATH=$(readlink -f ../target/production/eth-rpc)
+          export NODE_BIN_PATH=$(readlink -f ../target/release/revive-dev-node)
+          export ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
           export RESOLC_PATH=/usr/local/bin/resolc
           echo $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
 
