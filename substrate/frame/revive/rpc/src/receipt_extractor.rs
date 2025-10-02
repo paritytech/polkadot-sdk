@@ -34,9 +34,75 @@ use pallet_revive::{
 		U256,
 	},
 };
-use sp_core::keccak_256;
+use sp_core::{keccak_256, H160};
 use std::{future::Future, pin::Pin, sync::Arc};
 use subxt::{blocks::ExtrinsicDetails, OnlineClient};
+
+/// Helper function to decode a transaction and recover the sender address.
+/// Returns (signed_tx, transaction_hash, from_address)
+pub fn decode_and_recover_tx(
+	call: &EthTransact,
+) -> Result<(TransactionSigned, H256, H160), ClientError> {
+	let transaction_hash = H256(keccak_256(&call.payload));
+	let signed_tx =
+		TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
+	let from = signed_tx.recover_eth_address().map_err(|_| {
+		log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
+		ClientError::RecoverEthAddressFailed
+	})?;
+	Ok((signed_tx, transaction_hash, from))
+}
+
+/// Helper function to calculate contract address for CREATE transactions.
+pub fn calculate_contract_address(
+	from: &H160,
+	to: Option<H160>,
+	nonce: Option<U256>,
+) -> Result<Option<H160>, ClientError> {
+	if to.is_none() {
+		let nonce_u64 = nonce
+			.unwrap_or_default()
+			.try_into()
+			.map_err(|_| ClientError::ConversionFailed)?;
+		Ok(Some(create1(from, nonce_u64)))
+	} else {
+		Ok(None)
+	}
+}
+
+/// Helper to build a receipt from decoded transaction and collected data.
+/// This encapsulates the common logic of creating GenericTransaction, calculating
+/// contract address, and assembling the final ReceiptInfo.
+pub fn build_receipt_from_tx(
+	signed_tx: &TransactionSigned,
+	transaction_hash: H256,
+	from: H160,
+	gas_price: U256,
+	gas_used: U256,
+	status: bool,
+	logs: Vec<Log>,
+	eth_block_hash: H256,
+	block_number: U256,
+	transaction_index: usize,
+) -> Result<ReceiptInfo, ClientError> {
+	let tx_info = GenericTransaction::from_signed(signed_tx.clone(), gas_price, Some(from));
+	let contract_address = calculate_contract_address(&from, tx_info.to, tx_info.nonce)?;
+
+	Ok(ReceiptInfo::new(
+		eth_block_hash,
+		block_number,
+		contract_address,
+		from,
+		logs,
+		tx_info.to,
+		gas_price,
+		gas_used,
+		status,
+		transaction_hash,
+		transaction_index.into(),
+		tx_info.r#type.unwrap_or_default(),
+	))
+}
 
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
@@ -232,14 +298,8 @@ impl ReceiptExtractor {
 		.inspect_err(
 			|err| log::debug!(target: LOG_TARGET, "TransactionFeePaid not found in events for block {block_number}\n{err:?}")
 		)?;
-		let transaction_hash = H256(keccak_256(&call.payload));
 
-		let signed_tx =
-			TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
-		let from = signed_tx.recover_eth_address().map_err(|_| {
-			log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
-			ClientError::RecoverEthAddressFailed
-		})?;
+		let (signed_tx, transaction_hash, from) = decode_and_recover_tx(&call)?;
 
 		let base_gas_price = (self.fetch_gas_price)(substrate_block.hash()).await?;
 		let tx_info =
@@ -278,33 +338,19 @@ impl ReceiptExtractor {
 			})
 			.collect();
 
-		let contract_address = if tx_info.to.is_none() {
-			Some(create1(
-				&from,
-				tx_info
-					.nonce
-					.unwrap_or_default()
-					.try_into()
-					.map_err(|_| ClientError::ConversionFailed)?,
-			))
-		} else {
-			None
-		};
-
-		let receipt = ReceiptInfo::new(
-			eth_block_hash,
-			block_number,
-			contract_address,
+		let receipt = build_receipt_from_tx(
+			&signed_tx,
+			transaction_hash,
 			from,
-			logs,
-			tx_info.to,
 			gas_price,
 			gas_used,
 			success,
-			transaction_hash,
-			transaction_index.into(),
-			tx_info.r#type.unwrap_or_default(),
-		);
+			logs,
+			eth_block_hash,
+			block_number,
+			transaction_index,
+		)?;
+
 		Ok((signed_tx, receipt))
 	}
 
@@ -344,7 +390,7 @@ impl ReceiptExtractor {
 	}
 
 	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info.
-	async fn get_block_extrinsics(
+	pub async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<

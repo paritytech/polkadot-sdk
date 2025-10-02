@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT status, gas_used, gas_price\n\t\t\tFROM transaction_hashes\n\t\t\tWHERE transaction_hash = $1\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "status",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "gas_used",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "gas_price",
+        "ordinal": 2,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cddbc4c024622fb7ceaeaa7e1f7d39ac9a81aa8ccaa583dd7160c287e1b9dc2c"
+}

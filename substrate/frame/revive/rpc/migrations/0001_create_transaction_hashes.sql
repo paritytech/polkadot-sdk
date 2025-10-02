@@ -14,7 +14,10 @@
 CREATE TABLE IF NOT EXISTS transaction_hashes (
   transaction_hash BLOB NOT NULL PRIMARY KEY,
   transaction_index INTEGER NOT NULL,
-  block_hash BLOB NOT NULL
+  block_hash BLOB NOT NULL,
+  status INTEGER NOT NULL,
+  gas_used BLOB NOT NULL,
+  gas_price BLOB NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_block_hash ON transaction_hashes (
