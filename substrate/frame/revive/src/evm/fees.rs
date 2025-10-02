@@ -105,11 +105,6 @@ pub trait InfoT<T: Config>: seal::Sealed {
 			.expect("The minimum multiplier is not 0. We check that in `integrity_test`; qed")
 	}
 
-	/// Calculate the fee of a transaction divided by the next fee multiplier.
-	fn unadjusted_tx_fee(_encoded_len: u32, _dispatch_call: &CallOf<T>) -> BalanceOf<T> {
-		Zero::zero()
-	}
-
 	/// Calculate the fee of a transaction including the next fee multiplier adjustment.
 	fn tx_fee(_len: u32, _call: &CallOf<T>) -> BalanceOf<T> {
 		Zero::zero()
@@ -210,15 +205,6 @@ where
 
 	fn next_fee_multiplier() -> FixedU128 {
 		<NextFeeMultiplier<E::Config>>::get()
-	}
-
-	fn unadjusted_tx_fee(
-		encoded_len: u32,
-		dispatch_call: &CallOf<E::Config>,
-	) -> BalanceOf<E::Config> {
-		// We need to divide because the eth wallet will multiply with the gas price
-		let fee = Self::tx_fee(encoded_len, dispatch_call);
-		Self::next_fee_multiplier_reciprocal().saturating_mul_int(fee)
 	}
 
 	fn tx_fee(len: u32, call: &CallOf<E::Config>) -> BalanceOf<E::Config> {

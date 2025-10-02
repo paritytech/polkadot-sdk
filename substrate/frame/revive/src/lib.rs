@@ -1595,8 +1595,9 @@ impl<T: Config> Pallet<T> {
 			)))?;
 		}
 
+		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
 		let available_fee = T::FeeInfo::remaining_txfee();
-		if call_info.tx_fee > available_fee {
+		if transaction_fee > available_fee {
 			Err(EthTransactError::Message(format!(
 				"Drew too much from the txhold. \
 					fee={:?} \
@@ -1607,22 +1608,17 @@ impl<T: Config> Pallet<T> {
 			)))?;
 		}
 
-		let transaction_fee: U256 =
-			T::FeeInfo::unadjusted_tx_fee(call_info.encoded_len, &call_info.call).into();
-		let storage_deposit = T::FeeInfo::next_fee_multiplier_reciprocal()
-			.saturating_mul_int(dry_run.storage_deposit);
-
-		// We add `2` to account for one potential rounding error in each of the terms.
+		// We add `1` to account for the potential rounding error of the multiplication.
 		// Returning a larger value here just increases the the pre-dispatch weight.
-		let eth_gas: U256 = transaction_fee
-			.saturating_add(storage_deposit.into())
-			.saturating_add(2_u32.into())
+		let eth_gas: U256 = T::FeeInfo::next_fee_multiplier_reciprocal()
+			.saturating_mul_int(transaction_fee.saturating_add(dry_run.storage_deposit))
+			.saturating_add(1_u32.into())
 			.into();
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \
 			weight_limit={:?}: \
-			(transaction_fee={transaction_fee:?}) + (storage_deposit={storage_deposit:?}) = (eth_gas={eth_gas:?})\
+			eth_gas={eth_gas:?})\
 			",
 			dry_run.gas_required,
 
