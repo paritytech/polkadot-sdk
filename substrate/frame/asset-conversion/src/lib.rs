@@ -1284,6 +1284,7 @@ pub mod pallet {
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
 		/// Returns the balance of each asset in the pool.
+		///
 		/// The tuple result is in the order requested (not necessarily the same as pool order).
 		pub fn get_reserves(
 			asset1: T::AssetKind,
