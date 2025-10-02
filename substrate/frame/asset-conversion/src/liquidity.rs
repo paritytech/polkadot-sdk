@@ -22,16 +22,29 @@ use sp_runtime::DispatchError;
 
 use crate::{Config, Pallet};
 
-/// Trait for providing methods to mutate liquidity pools.
+/// A struct to represent an asset and its desired and minimum amounts for adding liquidity.
+pub struct AddLiquidityAsset<AssetKind, Balance> {
+	/// The kind of asset.
+	pub asset: AssetKind,
+	/// The desired amount of the asset to add.
+	pub amount_desired: Balance,
+	/// The minimum amount of the asset to add.
+	pub amount_min: Balance,
+}
+
+/// Trait for providing methods to mutate liquidity pools. This includes creating pools,
+/// adding liquidity, and removing liquidity.
 pub trait MutateLiquidity<AccountId> {
-	/// Measure units of the asset classes for swapping.
+	/// The balance type for assets.
 	type Balance: Balance;
-	/// Kind of assets that are going to be swapped.
+	/// The type used to identify assets.
 	type AssetKind;
-	/// Pool identifier.
+	/// The type used to identify a liquidity pool.
 	type PoolId;
 
-	/// Create a new liquidity pool.
+	/// Creates a new liquidity pool for the given assets.
+	///
+	/// Mints LP tokens to the `creator` account.
 	///
 	/// Returns the ID of the newly created pool.
 	fn create_pool(
@@ -40,21 +53,22 @@ pub trait MutateLiquidity<AccountId> {
 		asset2: Self::AssetKind,
 	) -> Result<Self::PoolId, DispatchError>;
 
-	/// Add liquidity to a pool.
+	/// Adds liquidity to an existing pool.
+	///
+	/// Mints LP tokens to the `mint_to` account.
 	///
 	/// Returns the amount of LP tokens minted.
 	fn add_liquidity(
 		who: &AccountId,
-		asset1: Self::AssetKind,
-		asset2: Self::AssetKind,
-		amount1_desired: Self::Balance,
-		amount2_desired: Self::Balance,
-		amount1_min: Self::Balance,
-		amount2_min: Self::Balance,
+		asset1: AddLiquidityAsset<Self::AssetKind, Self::Balance>,
+		asset2: AddLiquidityAsset<Self::AssetKind, Self::Balance>,
 		mint_to: &AccountId,
 	) -> Result<Self::Balance, DispatchError>;
 
-	/// Remove liquidity from a pool.
+	/// Removes liquidity from a pool.
+	///
+	/// Burns LP tokens from the `who` account and transfers the withdrawn assets to the
+	/// `withdraw_to` account.
 	///
 	/// Returns the amounts of assets withdrawn.
 	fn remove_liquidity(
@@ -85,22 +99,18 @@ impl<T: Config> MutateLiquidity<T::AccountId> for Pallet<T> {
 	#[transactional]
 	fn add_liquidity(
 		who: &T::AccountId,
-		asset1: T::AssetKind,
-		asset2: T::AssetKind,
-		amount1_desired: T::Balance,
-		amount2_desired: T::Balance,
-		amount1_min: T::Balance,
-		amount2_min: T::Balance,
+		asset1: AddLiquidityAsset<Self::AssetKind, Self::Balance>,
+		asset2: AddLiquidityAsset<Self::AssetKind, Self::Balance>,
 		mint_to: &T::AccountId,
 	) -> Result<T::Balance, DispatchError> {
 		Self::do_add_liquidity(
 			who,
-			asset1,
-			asset2,
-			amount1_desired,
-			amount2_desired,
-			amount1_min,
-			amount2_min,
+			asset1.asset,
+			asset2.asset,
+			asset1.amount_desired,
+			asset2.amount_desired,
+			asset1.amount_min,
+			asset2.amount_min,
 			mint_to,
 		)
 	}
