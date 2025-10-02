@@ -7,8 +7,8 @@ doc:
     and splits large batches to stay under MAX_STATEMENT_NOTIFICATION_SIZE.
 crates:
 - name: sc-network-statement
-  bump: patch
+  bump: minor
 - name: sc-statement-store
-  bump: patch
+  bump: minor
 - name: sp-statement-store
-  bump: patch
+  bump: minor
