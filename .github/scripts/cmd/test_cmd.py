@@ -429,12 +429,12 @@ class TestCmd(unittest.TestCase):
             self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0])
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_valid_labels(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_valid_labels(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command with valid labels"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
         mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
@@ -458,12 +458,12 @@ class TestCmd(unittest.TestCase):
             self.assertIn('R0-no-crate-publish-required', str(json_call))
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_auto_correction(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_auto_correction(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command with auto-correctable typos"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
         mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
@@ -491,12 +491,12 @@ class TestCmd(unittest.TestCase):
             self.assertIn('R0-no-crate-publish-required', str(json_call))
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_prefix_correction(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_prefix_correction(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command with prefix matching"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'T2-pallets', 'R0-no-crate-publish-required']
+        mock_get_labels.return_value = ['T1-FRAME', 'T2-pallets', 'R0-no-crate-publish-required']
         mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
@@ -518,11 +518,14 @@ class TestCmd(unittest.TestCase):
             self.assertIsNotNone(json_call)
             self.assertIn('T1-FRAME', str(json_call))
 
-    @patch('cmd.fetch_repo_labels')
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_invalid_labels(self, mock_parse_args, mock_fetch_labels):
+    def test_label_command_invalid_labels(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command with invalid labels that cannot be corrected"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
             labels=['INVALID-LABEL', 'ANOTHER-BAD-LABEL']
@@ -543,11 +546,14 @@ class TestCmd(unittest.TestCase):
             self.assertIsNotNone(error_json_call)
             self.assertIn('validation_failed', str(error_json_call))
 
-    @patch('cmd.fetch_repo_labels')
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
+    @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_mixed_valid_invalid(self, mock_parse_args, mock_fetch_labels):
+    def test_label_command_mixed_valid_invalid(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command with mix of valid and invalid labels"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required', 'D2-substantial']
+        mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
             labels=['T1-FRAME', 'INVALID-LABEL', 'D2-substantial']
@@ -568,22 +574,32 @@ class TestCmd(unittest.TestCase):
             self.assertIsNotNone(error_json_call)
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_fetch_failure(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_fetch_failure(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command when label fetching fails"""
-        mock_fetch_labels.return_value = None  # Simulate fetch failure
+        mock_get_labels.side_effect = RuntimeError("Failed to fetch labels from repository. Please check your connection and try again.")
         mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
             labels=['T1-FRAME']
         ), [])
 
-        with patch('sys.exit') as mock_exit:
+        with patch('sys.exit') as mock_exit, patch('builtins.print') as mock_print:
             import cmd
             cmd.main()
             mock_exit.assert_called_with(1)  # Should exit with error code
+
+            # Check for error JSON output
+            error_json_call = None
+            for call in mock_print.call_args_list:
+                if 'ERROR_JSON:' in str(call):
+                    error_json_call = call
+                    break
+
+            self.assertIsNotNone(error_json_call)
+            self.assertIn('Failed to fetch labels from repository', str(error_json_call))
 
     def test_auto_correct_labels_function(self):
         """Test the auto_correct_labels function directly"""
@@ -616,13 +632,13 @@ class TestCmd(unittest.TestCase):
         matches = cmd.find_closest_labels('COMPLETELY-DIFFERENT', valid_labels, cutoff=0.8)
         self.assertEqual(len(matches), 0)
 
-    @patch.dict('os.environ', {'PR_NUM': '123', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_merged_pr(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_merged_pr(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command on merged PR should fail"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
         mock_check_pr_status.return_value = False  # PR is merged/closed
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
@@ -644,13 +660,13 @@ class TestCmd(unittest.TestCase):
             self.assertIsNotNone(error_json_call)
             self.assertIn('Cannot modify labels on merged PRs', str(error_json_call))
 
-    @patch.dict('os.environ', {'PR_NUM': '123', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_open_pr(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_open_pr(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command on open PR should succeed"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
         mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
@@ -672,12 +688,12 @@ class TestCmd(unittest.TestCase):
             self.assertIsNotNone(json_call)
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'false', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_unauthorized_user(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_unauthorized_user(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command by unauthorized user should fail"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
         mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
@@ -700,12 +716,12 @@ class TestCmd(unittest.TestCase):
             self.assertIn('Only the PR author or organization members can modify labels', str(error_json_call))
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'false', 'IS_PR_AUTHOR': 'true', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_pr_author(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_pr_author(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command by PR author should succeed"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
         mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',
@@ -727,12 +743,12 @@ class TestCmd(unittest.TestCase):
             self.assertIsNotNone(json_call)
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
-    @patch('cmd.fetch_repo_labels')
+    @patch('cmd.get_allowed_labels')
     @patch('cmd.check_pr_status')
     @patch('argparse.ArgumentParser.parse_known_args')
-    def test_label_command_org_member(self, mock_parse_args, mock_check_pr_status, mock_fetch_labels):
+    def test_label_command_org_member(self, mock_parse_args, mock_check_pr_status, mock_get_labels):
         """Test label command by org member should succeed"""
-        mock_fetch_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
+        mock_get_labels.return_value = ['T1-FRAME', 'R0-no-crate-publish-required']
         mock_check_pr_status.return_value = True  # PR is open
         mock_parse_args.return_value = (argparse.Namespace(
             command='label',

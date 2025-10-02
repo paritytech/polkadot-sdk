@@ -121,15 +121,6 @@ def find_closest_labels(invalid_label, valid_labels, max_suggestions=3, cutoff=0
         cutoff=cutoff
     )
 
-    if not close_matches:
-        # If no close matches with high cutoff, try with lower cutoff for very similar labels
-        close_matches = difflib.get_close_matches(
-            invalid_label,
-            valid_labels,
-            n=max_suggestions,
-            cutoff=0.3
-        )
-
     return close_matches
 
 def auto_correct_labels(invalid_labels, valid_labels, auto_correct_threshold=0.8):
