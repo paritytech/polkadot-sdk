@@ -448,7 +448,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// - If `buf.len()` = 0: Nothing happens
 	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
 	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
-	///   are filled with zerosn
+	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 
 	/// Register the caller of the current contract for destruction.
