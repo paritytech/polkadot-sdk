@@ -180,7 +180,7 @@ fn local_nfts() {
 		// Create NFT collection
 		let collection_id = AutoIdCollections::create(WithConfig::new(
 			ConfigValue(collection_owner),
-			AutoId::auto(),
+			AutoId::default(),
 		))
 		.unwrap();
 

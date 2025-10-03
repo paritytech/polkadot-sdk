@@ -55,6 +55,10 @@ pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L =
 pub type CollectionIdForUniquesConvert<UniquesPalletLocation> =
 	AsPrefixedGeneralIndex<UniquesPalletLocation, CollectionId, TryConvertInto>;
 
+/// `Location` vs `CollectionId` converter for `Nfts`
+pub type CollectionIdForNftsConvert<NftsPalletLocation> =
+	AsPrefixedGeneralIndex<NftsPalletLocation, CollectionId, TryConvertInto>;
+
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
 pub type TrustBackedAssetsConvertedConcreteId<
 	TrustBackedAssetsPalletLocation,
@@ -76,6 +80,17 @@ pub type UniquesConvertedConcreteId<UniquesPalletLocation> = MatchedConvertedCon
 	// junction within the pallet itself.
 	StartsWith<UniquesPalletLocation>,
 	CollectionIdForUniquesConvert<UniquesPalletLocation>,
+	TryConvertInto,
+>;
+
+/// [`MatchedConvertedConcreteId`] converter dedicated for `Nfts`
+pub type NftsConvertedConcreteId<NftsPalletLocation> = MatchedConvertedConcreteId<
+	CollectionId,
+	ItemId,
+	// The asset starts with the nfts pallet. The `CollectionId` of the asset is specified as a
+	// junction within the pallet itself.
+	StartsWith<NftsPalletLocation>,
+	CollectionIdForNftsConvert<NftsPalletLocation>,
 	TryConvertInto,
 >;
 

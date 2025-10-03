@@ -45,6 +45,7 @@ mod features;
 mod impl_nonfungibles;
 mod types;
 
+pub mod asset_ops;
 pub mod macros;
 pub mod weights;
 
@@ -688,6 +689,8 @@ pub mod pallet {
 		CollectionNotEmpty,
 		/// The witness data should be provided.
 		WitnessRequired,
+		/// The collection has no admin.
+		NoAdmin,
 	}
 
 	#[pallet::call]
@@ -1249,7 +1252,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let new_owner = T::Lookup::lookup(owner)?;
-			Self::do_force_collection_owner(collection, new_owner)
+			let maybe_check_owner = None;
+			Self::do_change_collection_owner(collection, &new_owner, maybe_check_owner)
 		}
 
 		/// Change the config of a collection.

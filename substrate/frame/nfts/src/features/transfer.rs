@@ -130,35 +130,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let acceptable_collection = OwnershipAcceptance::<T, I>::get(&new_owner);
 		ensure!(acceptable_collection.as_ref() == Some(&collection), Error::<T, I>::Unaccepted);
 
-		// Try to retrieve and mutate the collection details.
-		Collection::<T, I>::try_mutate(collection, |maybe_details| {
-			let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
-			// Check if the `origin` is the current owner of the collection.
-			ensure!(origin == details.owner, Error::<T, I>::NoPermission);
-			if details.owner == new_owner {
-				return Ok(())
-			}
+		Self::do_change_collection_owner(collection, &new_owner, Some(origin))?;
 
-			// Move the deposit to the new owner.
-			T::Currency::repatriate_reserved(
-				&details.owner,
-				&new_owner,
-				details.owner_deposit,
-				Reserved,
-			)?;
+		OwnershipAcceptance::<T, I>::remove(&new_owner);
+		frame_system::Pallet::<T>::dec_consumers(&new_owner);
 
-			// Update account ownership information.
-			CollectionAccount::<T, I>::remove(&details.owner, &collection);
-			CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
-
-			details.owner = new_owner.clone();
-			OwnershipAcceptance::<T, I>::remove(&new_owner);
-			frame_system::Pallet::<T>::dec_consumers(&new_owner);
-
-			// Emit `OwnerChanged` event.
-			Self::deposit_event(Event::OwnerChanged { collection, new_owner });
-			Ok(())
-		})
+		Ok(())
 	}
 	/// Set or unset the ownership acceptance for an account regarding a specific collection.
 	///
@@ -197,37 +174,45 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Forcefully change the owner of a collection.
 	///
 	/// - `collection`: The ID of the collection to change ownership.
-	/// - `owner`: The new account that will become the owner of the collection.
+	/// - `new_owner`: The new account that will become the owner of the collection.
+	/// - `maybe_check_owner`: Optionally check if the current owner is equal to the supplied
+	///   account.
 	///
-	/// This function allows for changing the ownership of a collection without any checks.
+	/// This function allows for changing the ownership of a collection.
 	/// It moves the deposit to the new owner, updates the collection's owner, and emits
 	/// an `OwnerChanged` event.
-	pub(crate) fn do_force_collection_owner(
+	pub(crate) fn do_change_collection_owner(
 		collection: T::CollectionId,
-		owner: T::AccountId,
+		new_owner: &T::AccountId,
+		maybe_check_owner: Option<T::AccountId>,
 	) -> DispatchResult {
 		// Try to retrieve and mutate the collection details.
 		Collection::<T, I>::try_mutate(collection, |maybe_details| {
 			let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
-			if details.owner == owner {
+
+			if let Some(check_owner) = maybe_check_owner {
+				ensure!(check_owner == details.owner, Error::<T, I>::NoPermission);
+			}
+
+			if details.owner == *new_owner {
 				return Ok(())
 			}
 
 			// Move the deposit to the new owner.
 			T::Currency::repatriate_reserved(
 				&details.owner,
-				&owner,
+				new_owner,
 				details.owner_deposit,
 				Reserved,
 			)?;
 
 			// Update collection accounts and set the new owner.
 			CollectionAccount::<T, I>::remove(&details.owner, &collection);
-			CollectionAccount::<T, I>::insert(&owner, &collection, ());
-			details.owner = owner.clone();
+			CollectionAccount::<T, I>::insert(new_owner, &collection, ());
+			details.owner = new_owner.clone();
 
 			// Emit `OwnerChanged` event.
-			Self::deposit_event(Event::OwnerChanged { collection, new_owner: owner });
+			Self::deposit_event(Event::OwnerChanged { collection, new_owner: new_owner.clone() });
 			Ok(())
 		})
 	}

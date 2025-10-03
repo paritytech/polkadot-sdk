@@ -1326,6 +1326,10 @@ construct_runtime!(
 		// Snowbridge
 		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 36,
 
+		// NFT Derivatives
+		DerivativeNftCollections: pallet_derivatives::<Instance1> = 37,
+		DerivativeNfts: pallet_derivatives::<Instance2> = 38,
+
 		// Handy utilities.
 		Utility: pallet_utility = 40,
 		Multisig: pallet_multisig = 41,

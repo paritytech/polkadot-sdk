@@ -184,6 +184,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut collection_details =
 			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 
+		if let Some(item) = &maybe_item {
+			ensure!(Item::<T, I>::get(&collection, item).is_some(), Error::<T, I>::UnknownItem);
+		}
+
 		let attribute = Attribute::<T, I>::get((collection, maybe_item, &namespace, &key));
 		if let Some((_, deposit)) = attribute {
 			if deposit.account != set_as && deposit.amount != Zero::zero() {
@@ -202,6 +206,41 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Collection::<T, I>::insert(collection, &collection_details);
 		Self::deposit_event(Event::AttributeSet { collection, maybe_item, key, value, namespace });
 		Ok(())
+	}
+
+	/// Sets or clears the given attribute.
+	/// Depending on the `maybe_check_origin` parameter it will either the regular set/clear logic
+	/// or the force set/clear logic.
+	pub(crate) fn do_update_attribute(
+		maybe_check_origin: Option<T::AccountId>,
+		collection: T::CollectionId,
+		maybe_item: Option<T::ItemId>,
+		namespace: AttributeNamespace<T::AccountId>,
+		key: &[u8],
+		update: Option<&[u8]>,
+	) -> DispatchResult {
+		let key = Self::construct_attribute_key(key.to_vec())?;
+		let update = update
+			.map(|data| <Pallet<T, I>>::construct_attribute_value(data.to_vec()))
+			.transpose()?;
+
+		match (maybe_check_origin, update) {
+			(Some(origin), Some(value)) => {
+				let depositor = match namespace {
+					AttributeNamespace::CollectionOwner => Self::collection_owner(collection)
+						.ok_or(Error::<T, I>::UnknownCollection)?,
+					_ => origin.clone(),
+				};
+
+				Self::do_set_attribute(
+					origin, collection, maybe_item, namespace, key, value, depositor,
+				)
+			},
+			(None, Some(value)) =>
+				Self::do_force_set_attribute(None, collection, maybe_item, namespace, key, value),
+			(maybe_check_origin, None) =>
+				Self::do_clear_attribute(maybe_check_origin, collection, maybe_item, namespace, key),
+		}
 	}
 
 	/// Sets multiple attributes for an item or a collection.
@@ -289,7 +328,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		namespace: AttributeNamespace<T::AccountId>,
 		key: BoundedVec<u8, T::KeyLimit>,
 	) -> DispatchResult {
-		let (_, deposit) = Attribute::<T, I>::take((collection, maybe_item, &namespace, &key))
+		let (_, deposit) = Attribute::<T, I>::get((collection, maybe_item, &namespace, &key))
 			.ok_or(Error::<T, I>::AttributeNotFound)?;
 
 		if let Some(check_origin) = &maybe_check_origin {
@@ -340,6 +379,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 
 		collection_details.attributes.saturating_dec();
+
+		Attribute::<T, I>::remove((collection, maybe_item, &namespace, &key));
 
 		match deposit.account {
 			Some(deposit_account) => {
