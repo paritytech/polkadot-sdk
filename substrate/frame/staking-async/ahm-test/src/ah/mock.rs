@@ -54,6 +54,8 @@ pub fn roll_next() {
 	let next = now + 1;
 
 	System::set_block_number(next);
+	// Re-init frame-system, as execute would do. This resets the block weight usage counter, as we are using a realistic weight meter here.
+	frame_system::BlockWeight::<T>::kill();
 
 	Staking::on_initialize(next);
 	RcClient::on_initialize(next);
@@ -61,6 +63,14 @@ pub fn roll_next() {
 	MultiBlockVerifier::on_initialize(next);
 	MultiBlockSigned::on_initialize(next);
 	MultiBlockUnsigned::on_initialize(next);
+
+	let mut meter = System::remaining_block_weight();
+	Staking::on_poll(next, &mut meter);
+	RcClient::on_poll(next, &mut meter);
+	MultiBlock::on_poll(next, &mut meter);
+	MultiBlockVerifier::on_poll(next, &mut meter);
+	MultiBlockSigned::on_poll(next, &mut meter);
+	MultiBlockUnsigned::on_poll(next, &mut meter);
 }
 
 pub fn roll_many(blocks: BlockNumber) {
@@ -271,6 +281,7 @@ impl multi_block::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type Verifier = MultiBlockVerifier;
+	type Signed = Self;
 	type AreWeDone = multi_block::ProceedRegardlessOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = ();

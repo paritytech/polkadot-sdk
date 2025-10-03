@@ -65,8 +65,7 @@ pub(crate) fn enable_ksm_preset(fast: bool) {
 //
 // The default values here are related to `dev`. The above helper functions are used at launch (see
 // `build_state` runtime-api) to enable dot/ksm presets.
-/// This macro contains all of the variable parameters that we intend to use for Polkadot and
-/// Kusama.
+
 parameter_types! {
 	/// Number of election pages that we operate upon.
 	///

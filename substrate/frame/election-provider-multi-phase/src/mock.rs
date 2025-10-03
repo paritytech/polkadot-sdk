@@ -341,7 +341,7 @@ impl ElectionProvider for MockFallback {
 	}
 
 	fn status() -> Result<Option<Weight>, ()> {
-		Ok(Some(Default::default())
+		Ok(Some(Default::default()))
 	}
 }
 

@@ -6,16 +6,10 @@ use std::time::Duration;
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
-use cumulus_zombienet_sdk_helpers::{
-	create_assign_core_call, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-};
+use cumulus_zombienet_sdk_helpers::assign_cores;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
-	NetworkConfig, NetworkConfigBuilder,
-};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID_1: u32 = 2100;
 const PARA_ID_2: u32 = 2000;
@@ -43,19 +37,7 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	log::info!("Checking if collator-single-core is up");
 	assert!(collator_single_core.wait_until_is_up(60u64).await.is_ok());
 
-	log::info!("Assigning cores for the parachain");
-	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID_1), (1, PARA_ID_1)]);
-
-	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
-	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&relay_client,
-		&assign_cores_call,
-		&dev::alice(),
-		60u64,
-	)
-	.await;
-	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
-	log::info!("2 more cores assigned to the parachain");
+	assign_cores(alice, PARA_ID_1, vec![0, 1]).await?;
 
 	for (node, block_cnt) in [(collator_single_core, 20.0), (collator_elastic, 40.0)] {
 		log::info!("Checking block production for {}", node.name());

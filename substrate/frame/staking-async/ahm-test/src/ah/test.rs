@@ -185,12 +185,17 @@ fn on_receive_session_report() {
 			]
 		);
 
+		// outgoing set is queued, sent in the next block.
+		assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_some());
+		roll_next();
+		assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_none());
+
 		// New validator set xcm message is sent to RC.
 		assert_eq!(
 			LocalQueue::get().unwrap(),
 			vec![(
 				// this is the block number at which the message was sent.
-				43,
+				44,
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
@@ -340,6 +345,10 @@ fn validator_set_send_fail_retries() {
 			]
 		);
 
+		// outgoing set is queued, sent in the next block.
+		assert!(matches!(OutgoingValidatorSet::<T>::get(), Some((_, 3))));
+		roll_next();
+
 		// but..
 
 		// nothing is queued
@@ -360,7 +369,7 @@ fn validator_set_send_fail_retries() {
 			LocalQueue::get().unwrap(),
 			vec![(
 				// this is the block number at which the message was sent.
-				44,
+				45,
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
