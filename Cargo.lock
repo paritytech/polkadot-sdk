@@ -13263,6 +13263,7 @@ dependencies = [
  "pallet-revive-fixtures",
  "parity-scale-codec",
  "pretty_assertions",
+ "revive-dev-runtime",
  "rlp 0.6.1",
  "sc-cli",
  "sc-rpc",
@@ -13272,6 +13273,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
+ "sp-io",
  "sp-rpc",
  "sp-runtime",
  "sp-weights",
@@ -16500,7 +16502,6 @@ dependencies = [
  "pallet-referenda",
  "pallet-remark",
  "pallet-revive",
- "pallet-revive-eth-rpc",
  "pallet-revive-proc-macro",
  "pallet-revive-uapi",
  "pallet-root-offences",
@@ -18663,7 +18664,7 @@ dependencies = [
 
 [[package]]
 name = "revive-dev-runtime"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
  "parity-scale-codec",

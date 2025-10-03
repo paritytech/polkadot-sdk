@@ -636,10 +636,6 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
-/// An Ethereum JSON-RPC server for pallet-revive.
-#[cfg(feature = "pallet-revive-eth-rpc")]
-pub use pallet_revive_eth_rpc;
-
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;
