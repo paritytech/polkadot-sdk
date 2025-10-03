@@ -28,10 +28,10 @@ use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
 	gas::{GasMeter, Token},
-	storage::meter::Diff,
+	storage::meter::{Diff, NestedMeter},
 	weights::WeightInfo,
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecError, HoldReason,
-	PristineCode, Weight, LOG_TARGET,
+	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
+	HoldReason, Pallet, PristineCode, StorageDeposit, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -39,11 +39,11 @@ use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
 		fungible::MutateHold,
-		tokens::{Fortitude, Precision, Preservation},
+		tokens::{Fortitude, Precision},
 	},
 };
 use pallet_revive_uapi::ReturnErrorCode;
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, H256};
 use sp_runtime::DispatchError;
 
 /// Validated Vm module ready for execution.
@@ -162,10 +162,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 	Token::<crate::tests::Test>::weight(&CodeLoadToken { code_len, code_type: BytecodeType::Pvm })
 }
 
-impl<T: Config> ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> ContractBlob<T> {
 	/// Remove the code from storage and refund the deposit to its owner.
 	///
 	/// Applies all necessary checks before removing the code.
@@ -176,7 +173,7 @@ where
 				ensure!(&code_info.owner == origin, BadOrigin);
 				T::Currency::transfer_on_hold(
 					&HoldReason::CodeUploadDepositReserve.into(),
-					&crate::Pallet::<T>::account_id(),
+					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
 					Precision::Exact,
@@ -194,7 +191,11 @@ where
 	}
 
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
+	pub fn store_code(
+		&mut self,
+		exec_config: &ExecConfig,
+		storage_meter: Option<&mut NestedMeter<T>>,
+	) -> Result<BalanceOf<T>, DispatchError> {
 		let code_hash = *self.code_hash();
 		ensure!(code_hash != H256::zero(), <Error<T>>::CodeNotFound);
 
@@ -209,20 +210,20 @@ where
 				None => {
 					let deposit = self.code_info.deposit;
 
-					if !skip_transfer {
-						T::Currency::transfer_and_hold(
-							&HoldReason::CodeUploadDepositReserve.into(),
+					<Pallet<T>>::charge_deposit(
+							Some(HoldReason::CodeUploadDepositReserve),
 							&self.code_info.owner,
-							&crate::Pallet::<T>::account_id(),
+							&Pallet::<T>::account_id(),
 							deposit,
-							Precision::Exact,
-							Preservation::Preserve,
-							Fortitude::Polite,
+							&exec_config,
 						)
 					 .map_err(|err| {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
+
+					if let Some(meter) = storage_meter {
+						meter.record_charge(&StorageDeposit::Charge(deposit))?;
 					}
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
@@ -321,10 +322,7 @@ impl<T: Config> CodeInfo<T> {
 	}
 }
 
-impl<T: Config> Executable<T> for ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> Executable<T> for ContractBlob<T> {
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		gas_meter.charge(CodeLoadToken::from_code_info(&code_info))?;
