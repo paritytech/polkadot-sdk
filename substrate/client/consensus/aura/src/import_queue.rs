@@ -157,11 +157,7 @@ where
 		// This is done for example when gap syncing and it is expected that the block after the gap
 		// was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
 		// Or when we are importing state only and can not verify the seal.
-		let number = *block.header.number();
-		let info = self.client.info();
-		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-			block.with_state()
-		{
+		if block.with_state() || block.state_action.skip_execution_checks() {
 			// When we are importing only the state of a block, it will be the best block.
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(block.with_state()));
 
@@ -169,6 +165,7 @@ where
 		}
 
 		let hash = block.header.hash();
+		let number = *block.header.number();
 		let parent_hash = *block.header.parent_hash();
 		let post_header = block.post_header();
 
