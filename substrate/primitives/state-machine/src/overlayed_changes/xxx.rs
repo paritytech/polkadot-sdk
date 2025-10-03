@@ -1,3 +1,4 @@
+use crate::trace;
 use alloc::vec::Vec;
 use core::{
 	hash::{BuildHasher, Hash},
@@ -10,7 +11,6 @@ use indexmap::IndexSet as HashSet;
 use nohash_hasher::BuildNoHashHasher;
 #[cfg(feature = "std")]
 use std::collections::HashSet;
-use tracing::trace;
 
 const LOG_TARGET: &str = "changesetfilter";
 

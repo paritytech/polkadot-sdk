@@ -23102,7 +23102,6 @@ dependencies = [
  "assert_matches",
  "foldhash",
  "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
- "hex",
  "indexmap",
  "log",
  "nohash-hasher",
