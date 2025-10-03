@@ -492,6 +492,9 @@ pub async fn collator_protocol_helper<Block: BlockT, Client, P>(
 
 	log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Started collator protocol helper");
 
+	// Our own slot number, known in advance.
+	let mut our_slot = None;
+
 	while let Some(notification) = import_notifications.next().await {
 		// Determine if this node is the next author
 		let digest = notification.header.digest();
@@ -502,25 +505,44 @@ pub async fn collator_protocol_helper<Block: BlockT, Client, P>(
 
 		log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Imported block with slot: {:?}", slot);
 
-		if let Some(slot) = slot {
-			let authorities =
-				client.runtime_api().authorities(notification.header.hash()).unwrap_or_default();
+		let Some(slot) = slot else {
+			continue;
+		};
 
-			// Determine if this node is the next author.
-			if claim_slot::<P>(slot + 2, &authorities, &keystore).await.is_some() {
-				log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Our slot comes next, sending preconnect message");
+		let authorities =
+			client.runtime_api().authorities(notification.header.hash()).unwrap_or_default();
 
-				// Send a message to the collator protocol to pre-connect to backing groups
+		// Check if our slot has passed and we are not expected to author again in next slot.
+		match (our_slot, claim_slot::<P>(slot + 1, &authorities, &keystore).await.is_none()) {
+			(Some(last_slot), true) if slot > last_slot => {
+				log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Our slot {} has passed, current slot is {}, sending disconnect message", last_slot, slot);
+
+				// Send a message to the collator protocol to stop pre-connecting to backing
+				// groups
 				overseer_handle
 					.send_msg(
-						CollatorProtocolMessage::ConnectToBackingGroups,
+						CollatorProtocolMessage::DisconnectFromBackingGroups,
 						"CollatorProtocolHelper",
 					)
 					.await;
-			}
+
+				our_slot = None;
+			},
+			_ => {},
 		}
 
-		// TODO: Send disconnect after we've imported the last block of our slot.
+		// Check if our slot is coming up next. This means that there is still another slot
+		// before our turn.
+		let target_slot = slot + 2;
+		if claim_slot::<P>(target_slot, &authorities, &keystore).await.is_some() {
+			log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Our slot {} comes next, sending preconnect message ", target_slot );
+			// Send a message to the collator protocol to pre-connect to backing groups
+			overseer_handle
+				.send_msg(CollatorProtocolMessage::ConnectToBackingGroups, "CollatorProtocolHelper")
+				.await;
+
+			our_slot = Some(target_slot);
+		}
 	}
 }
 
