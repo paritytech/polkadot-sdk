@@ -1105,6 +1105,93 @@ fn self_destruct_works() {
 }
 
 #[test]
+fn self_destruct2_does_not_delete_code() {
+	// Test EIP-6780 behavior where self-destruct does not delete the code.
+	let (binary, code_hash) = compile_module("self_destruct2").unwrap();
+	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
+		let min_balance = Contracts::min_balance();
+
+		let initial_contract_balance = 100_000;
+
+		let alice_balance_before_instantiation = <Test as Config>::Currency::total_balance(&ALICE);
+
+		// Instantiate the BOB contract.
+		let contract = builder::bare_instantiate(Code::Upload(binary))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
+
+		let hold_balance = contract_base_deposit(&contract.addr);
+		let upload_deposit = get_code_deposit(&code_hash);
+
+		// Check that the BOB contract has been instantiated.
+		let _ = get_contract(&contract.addr);
+
+		// Drop all previous events
+		initialize_block(2);
+
+		let alice_balance_before_termination = <Test as Config>::Currency::total_balance(&ALICE);
+
+		// Call BOB without input data which triggers termination.
+		assert_matches!(builder::call(contract.addr).build(), Ok(_));
+
+		// Check that the code still exists
+		assert!(PristineCode::<Test>::get(&code_hash).is_some());
+
+		// Check that account still exists
+		assert!(get_contract_checked(&contract.addr).is_some());
+		assert_eq!(<Test as Config>::Currency::total_balance(&contract.account_id), 0);
+
+		// Check that the beneficiary (django) got remaining balance.
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(DJANGO_FALLBACK),
+			1_000_000 + initial_contract_balance + min_balance
+		);
+
+		// Check that the Alice balance went down because she did not get a deposit refund.
+		assert!(
+			<Test as Config>::Currency::total_balance(&ALICE) <
+				1_000_000 - (initial_contract_balance + min_balance)
+		);
+
+		pretty_assertions::assert_eq!(
+			System::events(),
+			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: contract.account_id.clone(),
+						dest: ALICE,
+						amount: hold_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::System(frame_system::Event::KilledAccount {
+						account: contract.account_id.clone()
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+						from: contract.account_id.clone(),
+						to: DJANGO_FALLBACK,
+						amount: initial_contract_balance + min_balance,
+					}),
+					topics: vec![],
+				},
+			],
+		);
+	});
+}
+
+#[test]
 fn self_destruct2_works() {
 	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
 	let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
