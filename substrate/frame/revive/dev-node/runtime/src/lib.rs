@@ -24,6 +24,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use array_bytes::hex_n_into_unchecked;
 use currency::*;
 use frame_support::weights::{
 	constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
@@ -33,19 +34,18 @@ use frame_system::limits::BlockWeights;
 use pallet_revive::{evm::runtime::EthExtra, is_eth_derived, AccountId32Mapper};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
+	pallet_revive::AddressMapper,
 	polkadot_sdk_frame::{
 		deps::sp_genesis_builder,
 		runtime::{apis, prelude::*},
 	},
 	*,
 };
-use sp_weights::{ConstantMultiplier, IdentityFee};
-
 pub use polkadot_sdk::{
 	parachains_common::{AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature},
 	polkadot_sdk_frame::runtime::types_common::OpaqueBlock,
 };
-
+use sp_weights::{ConstantMultiplier, IdentityFee};
 pub mod currency {
 	use super::Balance;
 	pub const MILLICENTS: Balance = 1_000_000_000;
@@ -66,92 +66,56 @@ pub mod genesis_config_presets {
 
 	pub const ENDOWMENT: Balance = 1_000_000_000_000_001 * DOLLARS;
 
-	fn well_known_accounts() -> Vec<AccountId> {
+	pub fn well_known_accounts() -> Vec<AccountId> {
+		let evm_addresses = [
+			// Alith
+			hex_n_into_unchecked::<_, H160, 20>("f24ff3a9cf04c71dbc94d0b566f7a27b94566cac"),
+			// Baltathar
+			hex_n_into_unchecked::<_, H160, 20>("3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0"),
+			// Charleth
+			hex_n_into_unchecked::<_, H160, 20>("798d4ba9baf0064ec19eb4f0a1a45785ae9d6dfc"),
+			// Dorothy
+			hex_n_into_unchecked::<_, H160, 20>("773539d4ac0e786233d90a233654ccee26a613d9"),
+			// Ethan
+			hex_n_into_unchecked::<_, H160, 20>("ff64d3f6efe2317ee2807d223a0bdc4c0c49dfdb"),
+			// Faith
+			hex_n_into_unchecked::<_, H160, 20>("c0f0f4ab324c46e55d02d0033343b4be8a55532d"),
+			// Gareth
+			hex_n_into_unchecked::<_, H160, 20>("7bf369283338e12c90514468aa3868a551ab2929"),
+			// Heather
+			hex_n_into_unchecked::<_, H160, 20>("931f3600a299fd9b24cefb3bff79388d19804bea"),
+			// Ithelia
+			hex_n_into_unchecked::<_, H160, 20>("c41c5f1123eccd5ce233578b2e7ebd5693869d73"),
+			// Jethro
+			hex_n_into_unchecked::<_, H160, 20>("2898fe7a42be376c8bc7af536a940f7fd5add423"),
+			// Keith
+			hex_n_into_unchecked::<_, H160, 20>("583e6cfb24ae212a36db2766597ff8e6ac796751"),
+			// Luther
+			hex_n_into_unchecked::<_, H160, 20>("bb827670b9dcb162daa8dbf3dff63a71c844d17d"),
+			// Martha
+			hex_n_into_unchecked::<_, H160, 20>("d9e8d42edd3bc20871fa6662e069e71483fc167a"),
+			// Nathan
+			hex_n_into_unchecked::<_, H160, 20>("9702df55600140d8e197aadfffa622f2a80564fd"),
+			// Othello
+			hex_n_into_unchecked::<_, H160, 20>("9fc969ace16fe2757e04a8bd32136a9ec258db6d"),
+			// Perth
+			hex_n_into_unchecked::<_, H160, 20>("fe25aad37c57c4b6bc85d96a4349dac5046a06ee"),
+			// Ruth
+			hex_n_into_unchecked::<_, H160, 20>("11e8697ef0f4bf2a4076ff46e42a0fdd8c4d6c41"),
+			// Seth
+			hex_n_into_unchecked::<_, H160, 20>("001eb6957eae09433a380504b11f807611686669"),
+			// Thomas
+			hex_n_into_unchecked::<_, H160, 20>("0a2e55fd44d1cee5fd482a2062a11c548c492e25"),
+			// Uthman
+			hex_n_into_unchecked::<_, H160, 20>("1b948ed0bbacc2ca68eecb5a9fc9ba2755669faf"),
+		]
+		.into_iter()
+		.map(|h| <Runtime as pallet_revive::Config>::AddressMapper::to_fallback_account_id(&h));
+
 		Sr25519Keyring::well_known()
 			.map(|k| k.to_account_id())
-			.chain([
-				// subxt_signer::eth::dev::alith()
-				array_bytes::hex_n_into_unchecked(
-					"f24ff3a9cf04c71dbc94d0b566f7a27b94566caceeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::baltathar()
-				array_bytes::hex_n_into_unchecked(
-					"3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::charleth()
-				array_bytes::hex_n_into_unchecked(
-					"798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFceeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::dorothy()
-				array_bytes::hex_n_into_unchecked(
-					"773539d4Ac0e786233D90A233654ccEE26a613D9eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::ethan()
-				array_bytes::hex_n_into_unchecked(
-					"Ff64d3F6efE2317EE2807d223a0Bdc4c0c49dfDBeeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::faith()
-				array_bytes::hex_n_into_unchecked(
-					"C0F0f4ab324C46e55D02D0033343B4Be8A55532deeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::gareth()
-				array_bytes::hex_n_into_unchecked(
-					"7BF369283338E12C90514468aa3868A551AB2929eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::heather()
-				array_bytes::hex_n_into_unchecked(
-					"931f3600a299fd9B24cEfB3BfF79388D19804BeAeeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::ithelia()
-				array_bytes::hex_n_into_unchecked(
-					"C41C5F1123ECCd5ce233578B2e7ebd5693869d73eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::jethro()
-				array_bytes::hex_n_into_unchecked(
-					"2898FE7a42Be376C8BC7AF536A940F7Fd5aDd423eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::keith()
-				array_bytes::hex_n_into_unchecked(
-					"583E6CFb24Ae212A36Db2766597fF8e6AC796751eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::luther()
-				array_bytes::hex_n_into_unchecked(
-					"bb827670B9dCb162Daa8DbF3dFF63a71c844d17deeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::martha()
-				array_bytes::hex_n_into_unchecked(
-					"D9E8D42eDD3Bc20871fA6662E069E71483fC167Aeeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::nathan()
-				array_bytes::hex_n_into_unchecked(
-					"9702DF55600140d8E197AAdfffa622F2A80564fdeeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::othello()
-				array_bytes::hex_n_into_unchecked(
-					"9FC969aCe16Fe2757E04a8BD32136a9EC258db6Deeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::perth()
-				array_bytes::hex_n_into_unchecked(
-					"Fe25AaD37c57C4b6Bc85d96a4349dac5046A06EEeeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::ruth()
-				array_bytes::hex_n_into_unchecked(
-					"11E8697Ef0f4BF2A4076ff46e42a0FdD8C4d6C41eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::seth()
-				array_bytes::hex_n_into_unchecked(
-					"001eB6957Eae09433A380504b11f807611686669eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::thomas()
-				array_bytes::hex_n_into_unchecked(
-					"0A2e55fd44d1cEe5fD482a2062A11C548C492E25eeeeeeeeeeeeeeeeeeeeeeee",
-				),
-				// subxt_signer::eth::dev::uthman()
-				array_bytes::hex_n_into_unchecked(
-					"1B948eD0bbacC2ca68eEcb5A9FC9Ba2755669faFeeeeeeeeeeeeeeeeeeeeeeee",
-				),
-			])
-			.collect::<Vec<_>>()
+			.chain(evm_addresses)
+			.collect()
 	}
 
 	/// Returns a development genesis config preset.
@@ -169,7 +133,7 @@ pub mod genesis_config_presets {
 					.filter(|x| !is_eth_derived(x))
 					.cloned()
 					.collect(),
-					gas_price: 1_000u64,
+				gas_price: 1_000u64,
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
 		})

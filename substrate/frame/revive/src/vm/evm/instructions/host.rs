@@ -222,12 +222,12 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);
-	if len as u32 > context.interpreter.extend.max_value_size() {
+	/*if len as u32 > context.interpreter.extend.max_value_size() {
 		context
 			.interpreter
 			.halt(revm::interpreter::InstructionResult::InvalidOperandOOG);
 		return;
-	}
+	}*/
 
 	gas!(context.interpreter, RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 });
 	let data = if len == 0 {

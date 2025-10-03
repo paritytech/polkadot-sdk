@@ -29,6 +29,7 @@ use pallet_revive_uapi::ReturnFlags;
 use revm::{
 	bytecode::Bytecode,
 	context::CreateScheme,
+	handler::instructions::{EthInstructions, InstructionProvider},
 	interpreter::{
 		host::DummyHost,
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
@@ -136,7 +137,9 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 		extend: ext,
 	};
 
-	let table = instruction_table::<'a, E>();
+	let base: [revm::interpreter::Instruction<_, _>; 256] = instruction_table::<'a, E>();
+	let instr = EthInstructions::<EVMInterpreter<'a, E>, DummyHost>::new(base);
+	let table = instr.instruction_table();
 	let result = run(&mut interpreter, &table);
 
 	instruction_result_into_exec_error::<E>(result.result)
@@ -162,7 +165,7 @@ fn run<'a, E: Ext>(
 		let action = run_plain(interpreter, table, host);
 		match action {
 			InterpreterAction::Return(result) => {
-				log::trace!(target: LOG_TARGET, "Evm return {:?}", result);
+				log::debug!(target: LOG_TARGET, "Evm return {:?}", result);
 				debug_assert!(
 					result.gas == Default::default(),
 					"Interpreter gas state is unused; found: {:?}",
@@ -262,7 +265,7 @@ fn run_plain<WIRE: InterpreterTypes>(
 		},
 	};
 	while interpreter.bytecode.is_not_end() {
-		log::trace!(target: LOG_TARGET,
+		log::debug!(target: LOG_TARGET,
 			"[{pc}]: {opcode}, stacktop: {stacktop}, memory size: {memsize} {memory:?}",
 			pc = interpreter.bytecode.pc(),
 			opcode = OpCode::new(interpreter.bytecode.opcode())
@@ -412,7 +415,7 @@ impl InputsTr for EVMInputs {
 /// the error is recoverable or not. This guarantees consistent behavior accross both
 /// VM backends.
 fn exec_error_into_halt_reason<E: Ext>(from: ExecError) -> Option<InstructionResult> {
-	log::trace!("call frame execution error in EVM caller: {:?}", &from);
+	log::debug!("call frame execution error in EVM caller: {:?}", &from);
 
 	if super::exec_error_into_return_code::<E>(from).is_ok() {
 		return None;
