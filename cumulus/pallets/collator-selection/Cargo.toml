@@ -17,17 +17,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
-rand = { features = ["std_rng"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+log = { workspace = true }
 pallet-authorship.workspace = true
 pallet-balances.workspace = true
 pallet-session.workspace = true
+rand = { features = ["std_rng"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 sp-staking.workspace = true
-frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-aura = { default-features = true, workspace = true }
@@ -45,9 +45,9 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
 ]
 std = [
 	"codec/std",
@@ -67,10 +67,10 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-aura/try-runtime",
-	"pallet-timestamp/try-runtime"
 ]

@@ -38,10 +38,10 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-balances = { optional = true, workspace = true }
-pallet-contracts-proc-macro.workspace = true
 pallet-contracts-proc-macro.default-features = true
-pallet-contracts-uapi.workspace = true
+pallet-contracts-proc-macro.workspace = true
 pallet-contracts-uapi.default-features = true
+pallet-contracts-uapi.workspace = true
 sp-api.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
@@ -95,23 +95,23 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
 	"sp-runtime/runtime-benchmarks",
 	"wasm-instrument",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
-	"pallet-utility/try-runtime"
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
 ]

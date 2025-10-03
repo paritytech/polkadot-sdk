@@ -26,8 +26,8 @@ cfg-expr = { workspace = true }
 derive-syn-parse = { workspace = true }
 docify = { workspace = true }
 expander = { workspace = true }
-frame-support-procedural-tools.workspace = true
 frame-support-procedural-tools.default-features = true
+frame-support-procedural-tools.workspace = true
 itertools = { workspace = true }
 macro_magic = { features = ["proc_support"], workspace = true }
 proc-macro-warning = { workspace = true }

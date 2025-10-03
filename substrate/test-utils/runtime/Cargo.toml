@@ -90,6 +90,7 @@ std = [
 	"pallet-utility/std",
 	"sc-service",
 	"scale-info/std",
+	"serde/std",
 	"serde_json/std",
 	"sp-api/std",
 	"sp-application-crypto/std",
@@ -115,7 +116,6 @@ std = [
 	"substrate-wasm-builder",
 	"tracing/std",
 	"trie-db/std",
-	"serde/std"
 ]
 
 # Special feature to disable logging

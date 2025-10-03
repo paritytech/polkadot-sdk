@@ -13,18 +13,18 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codec = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-tracing = { workspace = true }
 bp-header-chain.workspace = true
 bp-runtime.workspace = true
+bp-test-utils = { optional = true, workspace = true }
+codec = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-std.workspace = true
-bp-test-utils = { optional = true, workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 bp-runtime = { features = ["test-helpers"], workspace = true, default-features = false }

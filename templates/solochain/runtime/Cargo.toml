@@ -17,19 +17,24 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
-serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+frame-benchmarking = { optional = true, workspace = true }
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
 frame-support = { features = ["experimental"], workspace = true }
 frame-system.workspace = true
+frame-system-benchmarking = { optional = true, workspace = true }
+frame-system-rpc-runtime-api.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
 pallet-aura.workspace = true
 pallet-balances.workspace = true
 pallet-grandpa.workspace = true
 pallet-sudo.workspace = true
+pallet-template.workspace = true
 pallet-timestamp.workspace = true
 pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+scale-info = { features = ["derive", "serde"], workspace = true }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 sp-api.workspace = true
 sp-block-builder.workspace = true
 sp-consensus-aura = { features = ["serde"], workspace = true }
@@ -44,11 +49,6 @@ sp-session.workspace = true
 sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version = { features = ["serde"], workspace = true }
-frame-system-rpc-runtime-api.workspace = true
-pallet-transaction-payment-rpc-runtime-api.workspace = true
-frame-benchmarking = { optional = true, workspace = true }
-frame-system-benchmarking = { optional = true, workspace = true }
-pallet-template.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

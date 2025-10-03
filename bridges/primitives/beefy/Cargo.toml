@@ -12,14 +12,14 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { features = ["bit-vec", "derive"], workspace = true }
-scale-info = { features = ["bit-vec", "derive"], workspace = true }
-serde = { features = ["alloc", "derive"], workspace = true }
-bp-runtime.workspace = true
 binary-merkle-tree.workspace = true
+bp-runtime.workspace = true
+codec = { features = ["bit-vec", "derive"], workspace = true }
 frame-support.workspace = true
 pallet-beefy-mmr.workspace = true
 pallet-mmr.workspace = true
+scale-info = { features = ["bit-vec", "derive"], workspace = true }
+serde = { features = ["alloc", "derive"], workspace = true }
 sp-consensus-beefy.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true

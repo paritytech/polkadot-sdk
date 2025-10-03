@@ -21,8 +21,8 @@ bytes = { workspace = true }
 codec = { features = ["bytes"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 sp-externalities.workspace = true
-sp-runtime-interface-proc-macro.workspace = true
 sp-runtime-interface-proc-macro.default-features = true
+sp-runtime-interface-proc-macro.workspace = true
 sp-std.workspace = true
 sp-storage.workspace = true
 sp-tracing.workspace = true

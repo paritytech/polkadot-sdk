@@ -17,33 +17,33 @@ derive_more = { workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 orchestra = { features = ["futures_channel"], workspace = true }
-polkadot-node-network-protocol.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-primitives.default-features = true
-polkadot-statement-table.workspace = true
+polkadot-primitives.workspace = true
 polkadot-statement-table.default-features = true
-prometheus-endpoint.workspace = true
+polkadot-statement-table.workspace = true
 prometheus-endpoint.default-features = true
-sc-client-api.workspace = true
+prometheus-endpoint.workspace = true
 sc-client-api.default-features = true
-sc-network.workspace = true
+sc-client-api.workspace = true
 sc-network.default-features = true
-sc-network-types.workspace = true
+sc-network.workspace = true
 sc-network-types.default-features = true
-sc-transaction-pool-api.workspace = true
+sc-network-types.workspace = true
 sc-transaction-pool-api.default-features = true
+sc-transaction-pool-api.workspace = true
 smallvec = { workspace = true, default-features = true }
-sp-api.workspace = true
 sp-api.default-features = true
-sp-authority-discovery.workspace = true
+sp-api.workspace = true
 sp-authority-discovery.default-features = true
-sp-blockchain.workspace = true
+sp-authority-discovery.workspace = true
 sp-blockchain.default-features = true
-sp-consensus-babe.workspace = true
+sp-blockchain.workspace = true
 sp-consensus-babe.default-features = true
-sp-runtime.workspace = true
+sp-consensus-babe.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 thiserror = { workspace = true }

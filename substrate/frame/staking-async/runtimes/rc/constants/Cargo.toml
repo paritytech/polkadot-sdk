@@ -15,10 +15,10 @@ exclude-from-umbrella = true
 workspace = true
 
 [dependencies]
-smallvec = { workspace = true, default-features = true }
 frame-support.workspace = true
 polkadot-primitives.workspace = true
 polkadot-runtime-common.workspace = true
+smallvec = { workspace = true, default-features = true }
 sp-core.workspace = true
 sp-runtime.workspace = true
 sp-weights.workspace = true

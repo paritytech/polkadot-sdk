@@ -33,8 +33,8 @@ docify = { workspace = true }
 sc-chain-spec = { features = ["clap"], workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-tracing.workspace = true
 sp-tracing.default-features = true
+sp-tracing.workspace = true
 
 [dev-dependencies]
 cmd_lib = { workspace = true }

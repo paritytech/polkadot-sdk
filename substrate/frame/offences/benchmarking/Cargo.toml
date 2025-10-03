@@ -72,7 +72,7 @@ runtime-benchmarks = [
 	"pallet-offences/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
 ]

@@ -9,18 +9,18 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
+pallet-authorship.workspace = true
+pallet-session = { features = ["historical"], workspace = true }
+pallet-staking-async-rc-client.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-core.workspace = true
 sp-runtime.workspace = true
 sp-staking.workspace = true
-frame-benchmarking = { workspace = true, optional = true }
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-authorship.workspace = true
-pallet-session = { features = ["historical"], workspace = true }
-pallet-staking-async-rc-client.workspace = true
 
 [features]
 default = ["std"]
@@ -36,9 +36,9 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-io/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
