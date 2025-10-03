@@ -110,7 +110,6 @@ process_logs_from_fallback() {
         local_to=$(($(date +%s%3N) + 60000))
       fi
     fi
-
     echo -e "\t$name: $(make_url "$name" "$local_to")"
   done
   echo ""

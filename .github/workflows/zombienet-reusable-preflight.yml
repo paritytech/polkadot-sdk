@@ -357,6 +357,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          
           gh --version
 
           export SHA=${{ github.event.pull_request.head.sha }}
@@ -364,34 +366,108 @@ jobs:
             # Full SHA is needed to query GH run status
             export SHA="${GITHUB_SHA}";
           fi
+          
+          echo "Waiting for 'Build and push images' workflow for commit: $SHA"
+          
           DELAYER=10
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          TIMEOUT_MINUTES=85  # Less than job timeout (90 min)
+          START_TIME=$(date +%s)
+          
           while true; do
-            # In case of multiple runs take the most recent one (with greatest databaseId)
-            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json status,databaseId --jq 'max_by(.databaseId) | .status')
-            echo "CI workflow status: $STATUS"
-            if [[ $STATUS == "completed" ]]; then
-              echo "CI workflow is done."
-              break
+            # Check if we've exceeded the timeout
+            CURRENT_TIME=$(date +%s)
+            ELAPSED_MINUTES=$(( (CURRENT_TIME - START_TIME) / 60 ))
+            if [[ $ELAPSED_MINUTES -ge $TIMEOUT_MINUTES ]]; then
+              echo "::error::Timeout waiting for 'Build and push images' workflow after $ELAPSED_MINUTES minutes"
+              exit 1
             fi
+            
+            # Query workflow status with retry logic for rate limiting
+            STATUS=""
+            for ((i=0; i<MAX_RETRIES; i++)); do
+              if OUTPUT=$(gh run ls -c "$SHA" -w "Build and push images" --json status,databaseId --jq 'max_by(.databaseId) | .status' 2>&1); then
+                STATUS="$OUTPUT"
+                RETRY_COUNT=0
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                echo "::warning::Failed to query workflow status (attempt $((i+1))/$MAX_RETRIES): $OUTPUT"
+                
+                # Check if it's a rate limit error
+                if echo "$OUTPUT" | grep -qi "rate limit"; then
+                  BACKOFF=$((2 ** i * 30))  # Exponential backoff: 30s, 60s, 120s, 240s, 480s
+                  echo "Rate limit detected. Waiting ${BACKOFF}s before retry..."
+                  sleep $BACKOFF
+                else
+                  sleep 10
+                fi
+              fi
+            done
+            
+            # If all retries failed, exit
             if [[ -z "$STATUS" ]]; then
+              if [[ $RETRY_COUNT -ge $MAX_RETRIES ]]; then
+                echo "::error::Failed to query workflow status after $MAX_RETRIES retries"
+                exit 1
+              fi
               echo "::warning::No CI workflow runs found for this commit"
               exit 1
             fi
+            
+            echo "CI workflow status: $STATUS (elapsed: ${ELAPSED_MINUTES}m)"
+            
+            if [[ "$STATUS" == "completed" ]]; then
+              echo "CI workflow is done."
+              break
+            fi
+            
             sleep $((60 * DELAYER))
             DELAYER=1
           done
 
-          # check if the build succeeded
-          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json conclusion,databaseId --jq 'max_by(.databaseId) | .conclusion, .databaseId'))
+          # Check if the build succeeded with retry logic
+          echo "Checking workflow conclusion..."
+          RUN_INFO=""
+          for ((i=0; i<MAX_RETRIES; i++)); do
+            if OUTPUT=$(gh run ls -c "$SHA" -w "Build and push images" --json conclusion,databaseId --jq 'max_by(.databaseId) | .conclusion, .databaseId' 2>&1); then
+              RUN_INFO=($OUTPUT)
+              break
+            else
+              echo "::warning::Failed to query workflow conclusion (attempt $((i+1))/$MAX_RETRIES): $OUTPUT"
+              if echo "$OUTPUT" | grep -qi "rate limit"; then
+                BACKOFF=$((2 ** i * 30))
+                echo "Rate limit detected. Waiting ${BACKOFF}s before retry..."
+                sleep $BACKOFF
+              else
+                sleep 10
+              fi
+            fi
+          done
+          
+          if [[ -z "$RUN_INFO" ]]; then
+            echo "::error::Failed to get workflow conclusion after retries"
+            exit 1
+          fi
+          
           CONCLUSION=${RUN_INFO[@]:0:1}
           BUILD_RUN_ID=${RUN_INFO[@]:1:1}
-          if [[ $CONCLUSION == "success" ]]; then
+          
+          echo "Workflow conclusion: $CONCLUSION (run_id: $BUILD_RUN_ID)"
+          
+          if [[ "$CONCLUSION" == "success" ]]; then
             echo "CI workflow succeeded. (build run_id: ${BUILD_RUN_ID})"
             echo "BUILD_RUN_ID=${BUILD_RUN_ID}" >> $GITHUB_OUTPUT
+          elif [[ "$CONCLUSION" == "cancelled" ]]; then
+            echo "::warning::CI workflow ('Build and push images') was cancelled. This may indicate the images are already available or the workflow was manually cancelled."
+            echo "::notice::Proceeding with zombienet tests. If images are missing, tests will fail."
+            # Still output the run ID for reference
+            echo "BUILD_RUN_ID=${BUILD_RUN_ID}" >> $GITHUB_OUTPUT
           else
-            echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLUSION"
+            echo "::error::CI workflow ('Build and push images') failed with conclusion: $CONCLUSION"
             exit 1
-          fi;
+          fi
 
       # - name: Get artifacts url for pr
       #   id: get_artifacts_url
