@@ -1,12 +1,12 @@
 [package]
 name = "revive-dev-runtime"
 description = "A solochain dev runtime for revive."
-version = "0.0.0"
+version = "0.1.0"
+license = "Apache-2.0"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
-publish = false
 
 [dependencies]
 array-bytes = { workspace = true }
