@@ -300,7 +300,11 @@ where
 			.saturating_add(&absorbed.total_deposit)
 			.saturating_add(&own_deposit);
 		self.charges.extend_from_slice(&absorbed.charges);
-		if !own_deposit.is_zero() {
+
+		// Record zero deposit charge oly if the contract was terminated.
+		if !own_deposit.is_zero() ||
+			matches!(absorbed.contract_state(), ContractState::Terminated { .. })
+		{
 			self.charges.push(Charge {
 				contract: contract.clone(),
 				amount: own_deposit,
@@ -452,8 +456,9 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		delete_code: bool,
 	) {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
+		let deposit = if delete_code { info.total_deposit() } else { BalanceOf::<T>::zero() };
 		self.own_contribution = Contribution::Terminated {
-			deposit: Deposit::Refund(info.total_deposit()),
+			deposit: Deposit::Refund(deposit),
 			beneficiary,
 			delete_code,
 		};

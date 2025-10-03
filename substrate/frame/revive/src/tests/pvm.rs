@@ -1112,7 +1112,6 @@ fn self_destruct2_does_not_delete_code() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
 		let min_balance = Contracts::min_balance();
-		println!("min_balance: {}", min_balance);
 
 		let initial_contract_balance = 100_000;
 
@@ -1126,9 +1125,6 @@ fn self_destruct2_does_not_delete_code() {
 		let hold_balance = contract_base_deposit(&contract.addr);
 		let upload_deposit = get_code_deposit(&code_hash);
 
-		println!("hold_balance: {}", hold_balance);
-		println!("upload_deposit: {}", upload_deposit);
-
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&contract.addr);
 
@@ -1137,22 +1133,18 @@ fn self_destruct2_does_not_delete_code() {
 
 		let alice_balance_before_termination = <Test as Config>::Currency::total_balance(&ALICE);
 
-		println!(
-			"contract balance before termination: {}",
-			<Test as Config>::Currency::total_balance(&contract.account_id)
-		);
-
 		// Call BOB without input data which triggers termination.
 		assert_matches!(builder::call(contract.addr).build(), Ok(_));
-
-		println!("{:#?}", System::events());
 
 		// Check that the code still exists
 		assert!(PristineCode::<Test>::get(&code_hash).is_some());
 
 		// Check that account still exists
 		assert!(get_contract_checked(&contract.addr).is_some());
-		assert_eq!(<Test as Config>::Currency::total_balance(&contract.account_id), min_balance);
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&contract.account_id),
+			min_balance + hold_balance
+		);
 
 		// Check that the beneficiary (django) got remaining balance.
 		assert_eq!(
@@ -1160,13 +1152,7 @@ fn self_destruct2_does_not_delete_code() {
 			1_000_000 + initial_contract_balance
 		);
 
-		// Check that the Alice balance went down because she did not get a deposit refund.
-		println!("Alice balance before instantiation: {}", alice_balance_before_instantiation);
-		println!("Alice balance before termination: {}", alice_balance_before_termination);
-		println!(
-			"Alice balance after termination: {}",
-			<Test as Config>::Currency::total_balance(&ALICE)
-		);
+		// Check that the Alice did not get a refund.
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&ALICE),
 			alice_balance_before_termination
@@ -1174,29 +1160,15 @@ fn self_destruct2_does_not_delete_code() {
 
 		pretty_assertions::assert_eq!(
 			System::events(),
-			vec![
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
-						reason: <Test as Config>::RuntimeHoldReason::Contracts(
-							HoldReason::StorageDepositReserve,
-						),
-						source: contract.account_id.clone(),
-						dest: ALICE,
-						amount: hold_balance,
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: contract.account_id.clone(),
-						to: DJANGO_FALLBACK,
-						amount: initial_contract_balance,
-					}),
-					topics: vec![],
-				},
-			],
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: contract.account_id.clone(),
+					to: DJANGO_FALLBACK,
+					amount: initial_contract_balance,
+				}),
+				topics: vec![],
+			},],
 		);
 	});
 }
