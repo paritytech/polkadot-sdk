@@ -481,12 +481,11 @@ pub struct ValidationResult {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+	use super::*;
 
-
-    #[test]
-    fn para_id_debug() {
-        let id = Id::new(42);
+	#[test]
+	fn para_id_debug() {
+		let id = Id::new(42);
 		assert_eq!(format!("{:?}", id), "42");
-    }
+	}
 }
