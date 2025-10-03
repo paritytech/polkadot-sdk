@@ -739,21 +739,12 @@ pub mod pallet {
 			// Extract and store published data roots from relay chain state
 			let current_roots = if let Ok(Some(published_roots)) = relay_state_proof.read_published_data_roots() {
 				<PublishedDataRoots<T>>::put(&published_roots);
-				log::debug!(
-					target: "parachain_system::inherent",
-					"Stored published data roots from relay chain state"
-				);
 				published_roots
 			} else {
 				Vec::new()
 			};
 
 			// Process published data from the broadcaster pallet
-			log::info!(
-				target: "parachain_system::inherent",
-				"📨 Received inherent with published_data containing {} publishers",
-				published_data.len()
-			);
 			Self::process_published_data(&published_data, &current_roots);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
