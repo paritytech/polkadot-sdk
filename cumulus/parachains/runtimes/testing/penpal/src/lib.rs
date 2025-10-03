@@ -1078,7 +1078,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			PolkadotXcm::query_xcm_weight(message)
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, _asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
 			PolkadotXcm::query_delivery_fees(destination, message)
 		}
 	}
