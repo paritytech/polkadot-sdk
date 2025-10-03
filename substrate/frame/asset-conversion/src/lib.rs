@@ -547,6 +547,8 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Create a new liquidity pool.
+		///
+		/// **Warning**: The storage must be rolled back on error.
 		pub(crate) fn do_create_pool(
 			creator: &T::AccountId,
 			asset1: T::AssetKind,
