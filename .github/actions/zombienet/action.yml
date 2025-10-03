@@ -95,7 +95,7 @@ runs:
         echo "Processing log files"
         echo "::group::Logs"
         # do not fail the whole run if this step fails
-        if ! ./.github/scripts/process-logs-zombienet-sdk.sh ; then
+        if ! ./.github/scripts/process-logs-zombienet.sh ; then
           echo "::endgroup::"
           echo "::warning ::WARNING: Failed to process logs"
         else
