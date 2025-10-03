@@ -89,7 +89,8 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				Ok(res.abi_encode())
 			},
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
-				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
+				let charged =
+					env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
 				let caller_account_id = match env.caller() {
 					Origin::<T>::Root => {
@@ -100,7 +101,11 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 					Origin::<T>::Signed(c) => c,
 				};
 				let caller_h160: H160 = T::AddressMapper::to_address(&caller_account_id);
-				let _code_removed = env.terminate_caller(&h160, &caller_h160)?;
+				let code_removed = env.terminate_caller(&h160, &caller_h160)?;
+				if matches!(code_removed, crate::CodeRemoved::No) {
+					env.gas_meter_mut()
+						.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
+				}
 				Ok(Vec::new())
 			},
 		}

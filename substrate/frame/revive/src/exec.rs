@@ -2258,7 +2258,12 @@ where
 			contract_info.clone(),
 			*beneficiary,
 		));
-		Ok(CodeRemoved::Yes)
+		let account_id = T::AddressMapper::to_account_id(caller_address);
+		if self.contracts_created.contains(&account_id) {
+			Ok(CodeRemoved::Yes)
+		} else {
+			Ok(CodeRemoved::No)
+		}
 	}
 }
 
