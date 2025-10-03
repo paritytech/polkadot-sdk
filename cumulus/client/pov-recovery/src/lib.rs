@@ -50,6 +50,7 @@
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
 use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
 use sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
+use sp_maybe_compressed_blob::{decompress_as, MaybeCompressedBlobType};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
@@ -408,7 +409,7 @@ where
 		};
 
 		let raw_block_data =
-			match sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT) {
+			match decompress_as(MaybeCompressedBlobType::Pov, &pov.block_data.0, POV_BOMB_LIMIT) {
 				Ok(r) => r,
 				Err(error) => {
 					tracing::debug!(target: LOG_TARGET, ?error, "Failed to decompress PoV");

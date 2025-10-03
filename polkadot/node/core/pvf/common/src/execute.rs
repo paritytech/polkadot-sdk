@@ -19,7 +19,13 @@ use codec::{Decode, Encode};
 use polkadot_node_primitives::PoV;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{ExecutorParams, PersistedValidationData};
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+
+#[derive(Encode, Decode)]
+pub enum Execution {
+	Wasm,
+	Pvm(Arc<Vec<u8>>),
+}
 
 /// The payload of the one-time handshake that is done when a worker process is created. Carries
 /// data from the host to the worker.
@@ -32,6 +38,8 @@ pub struct Handshake {
 /// A request to execute a PVF
 #[derive(Encode, Decode)]
 pub struct ExecuteRequest {
+	/// Execution type
+	pub execution: Execution,
 	/// Persisted validation data.
 	pub pvd: PersistedValidationData,
 	/// Proof-of-validity.
@@ -40,6 +48,8 @@ pub struct ExecuteRequest {
 	pub execution_timeout: Duration,
 	/// Checksum of the artifact to execute.
 	pub artifact_checksum: ArtifactChecksum,
+	/// Decompression bomb limit.
+	pub code_bomb_limit: u32,
 }
 
 /// The response from the execution worker.

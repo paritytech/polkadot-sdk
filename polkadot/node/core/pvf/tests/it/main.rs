@@ -36,6 +36,8 @@ use sp_core::H256;
 
 const VALIDATION_CODE_BOMB_LIMIT: u32 = 30 * 1024 * 1024;
 
+use sp_maybe_compressed_blob::{compress_as, MaybeCompressedBlobType};
+
 use std::{io::Write, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
@@ -791,9 +793,12 @@ async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
 async fn invalid_compressed_code_fails_prechecking() {
 	let host = TestHost::new().await;
 	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT as usize + 1];
-	let validation_code =
-		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT as usize + 1)
-			.unwrap();
+	let validation_code = compress_as(
+		MaybeCompressedBlobType::Wasm,
+		&raw_code,
+		VALIDATION_CODE_BOMB_LIMIT as usize + 1,
+	)
+	.unwrap();
 
 	let res = host.precheck_pvf(&validation_code, Default::default()).await;
 
@@ -813,9 +818,12 @@ async fn invalid_compressed_code_fails_validation() {
 	let pov = PoV { block_data: BlockData(Vec::new()) };
 
 	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT as usize + 1];
-	let validation_code =
-		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT as usize + 1)
-			.unwrap();
+	let validation_code = compress_as(
+		MaybeCompressedBlobType::Wasm,
+		&raw_code,
+		VALIDATION_CODE_BOMB_LIMIT as usize + 1,
+	)
+	.unwrap();
 
 	let result = host
 		.validate_candidate(&validation_code, pvd, pov, Default::default(), H256::default())
@@ -839,7 +847,7 @@ async fn invalid_compressed_pov_fails_validation() {
 	};
 	let raw_block_data = vec![1u8; POV_BOMB_LIMIT + 1];
 	let block_data =
-		sp_maybe_compressed_blob::compress(&raw_block_data, POV_BOMB_LIMIT + 1).unwrap();
+		compress_as(MaybeCompressedBlobType::Pov, &raw_block_data, POV_BOMB_LIMIT + 1).unwrap();
 	let pov = PoV { block_data: BlockData(block_data) };
 
 	let result = host

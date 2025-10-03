@@ -32,6 +32,8 @@ pub mod glutton;
 pub mod penpal;
 pub mod people;
 pub mod rococo_parachain;
+pub mod westend_parachain;
+pub mod westend_pvm_parachain;
 pub mod yet_another_parachain;
 
 /// Extracts the normalized chain id and parachain id from the input chain id.
@@ -114,6 +116,14 @@ impl LoadSpec for ChainSpecLoader {
 			"collectives-westend" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/collectives-westend.json")[..],
 			)?),
+
+			// -- Westen testing parachain
+			"westend-parachain-local" =>
+				Box::new(westend_parachain::westend_parachain_local_config()),
+
+			// -- Westen PVM testing parachain
+			"westend-pvm-parachain-local" =>
+				Box::new(westend_pvm_parachain::westend_pvm_parachain_local_config()),
 
 			// -- BridgeHub
 			bridge_like_id
