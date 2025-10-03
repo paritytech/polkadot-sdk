@@ -20,8 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	evm::runtime::GAS_PRICE,
-	exec::{Key, MomentOf, PrecompileExt},
+	exec::{Key, PrecompileExt},
 	limits,
 	precompiles::{
 		self,
@@ -113,12 +112,11 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 
 #[benchmarks(
 	where
-		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config,
-		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+		OriginFor<T>: From<Origin<T>>,
 )]
 mod benchmarks {
 	use super::*;
@@ -294,12 +292,11 @@ mod benchmarks {
 		let dust = 42u32 * d;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
-		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		let origin = Origin::EthTransaction(caller.clone());
+		Contracts::<T>::map_account(OriginFor::<T>::signed(caller.clone())).unwrap();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
@@ -308,8 +305,12 @@ mod benchmarks {
 
 		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
 
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
 		#[extrinsic_call]
-		_(origin, evm_value, Weight::MAX, storage_deposit, code, input);
+		_(origin, evm_value, Weight::MAX, storage_deposit, code, input, 0u32.into(), 0);
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
@@ -322,13 +323,13 @@ mod benchmarks {
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 
 		assert_eq!(
+			<T as Config>::FeeInfo::remaining_txfee(),
+			caller_funding::<T>() - deposit - code_deposit - Pallet::<T>::min_balance(),
+		);
+		assert_eq!(
 			Pallet::<T>::evm_balance(&deployer),
 			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() -
-					Pallet::<T>::min_balance() -
-					Pallet::<T>::min_balance() -
-					value - deposit - code_deposit -
-					mapping_deposit,
+				caller_funding::<T>() - Pallet::<T>::min_balance() - value - mapping_deposit,
 			) - dust,
 		);
 
@@ -439,12 +440,17 @@ mod benchmarks {
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 
+		// need to pass the overdraw check
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
 		let caller_addr = T::AddressMapper::to_address(&instance.caller);
-		let origin = RawOrigin::Signed(instance.caller.clone());
+		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
-		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data);
+		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data, 0u32.into(), 0);
 		let deposit = T::Currency::balance_on_hold(
 			&HoldReason::StorageDepositReserve.into(),
 			&instance.account_id,
@@ -678,7 +684,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let contract_acc = call_setup.contract().account_id.clone();
 		let caller = call_setup.contract().address;
-		call_setup.set_origin(Origin::from_account_id(contract_acc));
+		call_setup.set_origin(ExecOrigin::from_account_id(contract_acc));
 		let (mut ext, _) = call_setup.ext();
 
 		let result;
@@ -737,7 +743,7 @@ mod benchmarks {
 			ISystem::ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}).abi_encode();
 
 		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(Origin::Root);
+		setup.set_origin(ExecOrigin::Root);
 		let (mut ext, _) = setup.ext();
 
 		let result;
@@ -994,7 +1000,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_gas_price(memory.as_mut_slice());
 		}
-		assert_eq!(result.unwrap(), u64::from(GAS_PRICE));
+		assert_eq!(U256::from(result.unwrap()), <Pallet<T>>::evm_gas_price());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1105,24 +1111,6 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().now());
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn seal_weight_to_fee() {
-		build_runtime!(runtime, memory: [[0u8;32], ]);
-		let weight = Weight::from_parts(500_000, 300_000);
-		let result;
-		#[block]
-		{
-			result = runtime.bench_weight_to_fee(
-				memory.as_mut_slice(),
-				weight.ref_time(),
-				weight.proof_size(),
-				0,
-			);
-		}
-		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().get_weight_price(weight));
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1828,7 +1816,7 @@ mod benchmarks {
 		// We benchmark the overhead of cloning the input. Not passing it to the contract.
 		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
 		setup.set_data(vec![42; i as usize]);
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
@@ -1932,7 +1920,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_storage_deposit_limit(deposit);
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 
 		let (mut ext, _) = setup.ext();
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
@@ -1981,7 +1969,7 @@ mod benchmarks {
 		let deposit_len = deposit_bytes.len() as u32;
 
 		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
 
 		let account_id = &setup.contract().account_id.clone();

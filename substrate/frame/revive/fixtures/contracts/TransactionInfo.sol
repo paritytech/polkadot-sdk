@@ -7,10 +7,10 @@ contract TransactionInfo {
     }
 
     function gasprice() public view returns (uint256) {
-        return tx.gasprice;
+        return uint64(tx.gasprice);
     }
 
-    function blobhash(uint256 index) public view returns (bytes32) {
+    function blobhash(uint64 index) public view returns (bytes32) {
         return blobhash(index);
     }
 }
