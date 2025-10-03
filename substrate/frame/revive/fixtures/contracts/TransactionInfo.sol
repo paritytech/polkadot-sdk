@@ -6,7 +6,7 @@ contract TransactionInfo {
         return tx.origin;
     }
 
-    function gasprice() public view returns (uint256) {
+    function gasprice() public view returns (uint64) {
         return uint64(tx.gasprice);
     }
 
