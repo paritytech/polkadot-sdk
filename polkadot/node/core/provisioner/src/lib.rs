@@ -30,8 +30,8 @@ use futures::{
 use futures_timer::Delay;
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage,
-		ProvisionableData, ProvisionerInherentData, ProvisionerMessage,
+		CandidateBackingMessage, ChainApiMessage, ProvisionableData, ProvisionerInherentData,
+		ProvisionerMessage,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError,
@@ -40,8 +40,7 @@ use polkadot_node_subsystem_util::{
 	request_availability_cores, request_backable_candidates, TimeoutExt,
 };
 use polkadot_primitives::{
-	BackedCandidate, CandidateEvent, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
-	SignedAvailabilityBitfield, ValidatorIndex,
+	BackedCandidate, CandidateEvent, CoreState, Hash, SignedAvailabilityBitfield, ValidatorIndex,
 };
 use sc_consensus_slots::time_until_next_slot;
 use schnellru::{ByLength, LruMap};

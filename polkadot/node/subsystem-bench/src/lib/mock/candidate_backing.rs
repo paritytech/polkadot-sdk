@@ -24,8 +24,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-    CandidateHash, CoreIndex, Hash, PersistedValidationData, SigningContext, ValidatorIndex,
-    ValidatorPair,
+	CandidateHash, CoreIndex, Hash, PersistedValidationData, SigningContext, ValidatorIndex,
+	ValidatorPair,
 };
 use sp_core::Pair;
 use std::collections::HashMap;
@@ -38,7 +38,7 @@ struct MockCandidateBackingState {
 	pair: ValidatorPair,
 	pvd: PersistedValidationData,
 	own_backing_group: Vec<ValidatorIndex>,
-    backed_map: HashMap<CandidateHash, polkadot_primitives::BackedCandidate>,
+	backed_map: HashMap<CandidateHash, polkadot_primitives::BackedCandidate>,
 }
 
 pub struct MockCandidateBacking {
@@ -53,34 +53,48 @@ impl MockCandidateBacking {
 		pvd: PersistedValidationData,
 		own_backing_group: Vec<ValidatorIndex>,
 	) -> Self {
-        Self {
-            config,
-            state: MockCandidateBackingState { pair, pvd, own_backing_group, backed_map: Default::default() },
-        }
+		Self {
+			config,
+			state: MockCandidateBackingState {
+				pair,
+				pvd,
+				own_backing_group,
+				backed_map: Default::default(),
+			},
+		}
 	}
 
-    pub fn from_state(config: TestConfiguration, pair: ValidatorPair, pvd: PersistedValidationData, own_backing_group: Vec<ValidatorIndex>, state: &TestState) -> Self {
-        use bitvec::prelude::BitVec;
-        use polkadot_primitives::{BackedCandidate, CandidateCommitments};
+	pub fn from_state(
+		config: TestConfiguration,
+		pair: ValidatorPair,
+		pvd: PersistedValidationData,
+		own_backing_group: Vec<ValidatorIndex>,
+		state: &TestState,
+	) -> Self {
+		use bitvec::prelude::BitVec;
+		use polkadot_primitives::{BackedCandidate, CandidateCommitments};
 
-        let mut backed_map = HashMap::new();
-        for (_relay, receipts) in state.candidate_receipts.iter() {
-            for receipt in receipts.iter() {
-                let core_index = *state
-                    .candidate_hash_to_core_index
-                    .get(&receipt.hash())
-                    .unwrap_or(&CoreIndex(0));
-                let committed = polkadot_primitives::CommittedCandidateReceiptV2 {
-                    descriptor: receipt.descriptor.clone(),
-                    commitments: CandidateCommitments::default(),
-                };
-                let bc = BackedCandidate::new(committed, Vec::new(), BitVec::default(), core_index);
-                backed_map.insert(receipt.hash(), bc);
-            }
-        }
+		let mut backed_map = HashMap::new();
+		for (_relay, receipts) in state.candidate_receipts.iter() {
+			for receipt in receipts.iter() {
+				let core_index = *state
+					.candidate_hash_to_core_index
+					.get(&receipt.hash())
+					.unwrap_or(&CoreIndex(0));
+				let committed = polkadot_primitives::CommittedCandidateReceiptV2 {
+					descriptor: receipt.descriptor.clone(),
+					commitments: CandidateCommitments::default(),
+				};
+				let bc = BackedCandidate::new(committed, Vec::new(), BitVec::default(), core_index);
+				backed_map.insert(receipt.hash(), bc);
+			}
+		}
 
-        Self { config, state: MockCandidateBackingState { pair, pvd, own_backing_group, backed_map } }
-    }
+		Self {
+			config,
+			state: MockCandidateBackingState { pair, pvd, own_backing_group, backed_map },
+		}
+	}
 
 	fn handle_statement(
 		&self,
@@ -180,19 +194,20 @@ impl MockCandidateBacking {
 					gum::trace!(target: LOG_TARGET, msg=?msg, "recv message");
 
 					match msg {
-                        CandidateBackingMessage::GetBackableCandidates(requested, tx) => {
-                            let mut resp: HashMap<_, Vec<polkadot_primitives::BackedCandidate>> = HashMap::new();
-                            for (para, list) in requested.into_iter() {
-                                let mut v = Vec::new();
-                                for (cand_hash, _relay_parent) in list {
-                                    if let Some(bc) = self.state.backed_map.get(&cand_hash) {
-                                        v.push(bc.clone());
-                                    }
-                                }
-                                resp.insert(para, v);
-                            }
-                            let _ = tx.send(resp);
-                        },
+						CandidateBackingMessage::GetBackableCandidates(requested, tx) => {
+							let mut resp: HashMap<_, Vec<polkadot_primitives::BackedCandidate>> =
+								HashMap::new();
+							for (para, list) in requested.into_iter() {
+								let mut v = Vec::new();
+								for (cand_hash, _relay_parent) in list {
+									if let Some(bc) = self.state.backed_map.get(&cand_hash) {
+										v.push(bc.clone());
+									}
+								}
+								resp.insert(para, v);
+							}
+							let _ = tx.send(resp);
+						},
 						CandidateBackingMessage::Statement(relay_parent, statement) => {
 							let messages = self.handle_statement(
 								relay_parent,

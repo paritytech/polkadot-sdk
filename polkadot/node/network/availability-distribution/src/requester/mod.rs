@@ -326,9 +326,8 @@ impl Requester {
 					.iter()
 					.enumerate()
 					.find_map(|(idx, core_state)| match core_state {
-						CoreState::Scheduled(s) if s.para_id == candidate.descriptor.para_id() => {
-							Some(CoreIndex(idx as u32))
-						},
+						CoreState::Scheduled(s) if s.para_id == candidate.descriptor.para_id() =>
+							Some(CoreIndex(idx as u32)),
 						_ => None,
 					})
 			},
@@ -423,8 +422,8 @@ impl Requester {
 			} else {
 				// If we are on the slow path and this candidate was already fetched early (even
 				// if the task has completed), skip starting a duplicate fetch and record it.
-				if matches!(origin, FetchOrigin::Slow)
-					&& self.early_candidates.contains(&core.candidate_hash)
+				if matches!(origin, FetchOrigin::Slow) &&
+					self.early_candidates.contains(&core.candidate_hash)
 				{
 					self.process_known_candidate(core.candidate_hash);
 					continue;
