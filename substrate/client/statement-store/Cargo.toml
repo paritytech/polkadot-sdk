@@ -30,9 +30,9 @@ sp-statement-store = { workspace = true, default-features = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]
+criterion = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
 tempfile = { workspace = true }
-criterion = { workspace = true, default-features = true }
 
 [[bench]]
 name = "statement_store"

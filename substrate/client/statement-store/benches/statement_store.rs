@@ -360,41 +360,41 @@ fn bench_maintain(c: &mut Criterion) {
 }
 
 fn bench_mixed_workload(c: &mut Criterion) {
-  let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
-  let statements: Vec<_> = (INITIAL_STATEMENTS..INITIAL_STATEMENTS + TOTAL_OPS)
-    .map(|i| create_signed_statement(i as u64, &[topic(0), topic(1)], None, &keypair))
-    .collect();
+	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
+	let statements: Vec<_> = (INITIAL_STATEMENTS..INITIAL_STATEMENTS + TOTAL_OPS)
+		.map(|i| create_signed_statement(i as u64, &[topic(0), topic(1)], None, &keypair))
+		.collect();
 
-  c.bench_function("mixed_workload", |b| {
-    b.iter_batched(
-      || {
-        let (store, _temp) = setup_store(&keypair);
-        (Arc::new(store), _temp)
-      },
-      |(store, _temp)| {
-        std::thread::scope(|s| {
-          for thread_id in 0..NUM_THREADS {
-            let store = store.clone();
-            let start = thread_id * OPS_PER_THREAD;
-            let end = start + OPS_PER_THREAD;
-            let thread_statements = statements[start..end].to_vec();
-            let topics = vec![topic(0), topic(1)];
-            s.spawn(move || {
-              for statement in thread_statements {
-                // Submit a statement
-                let result = store.submit(statement, StatementSource::Local);
-                assert!(matches!(result, SubmitResult::New(_)));
+	c.bench_function("mixed_workload", |b| {
+		b.iter_batched(
+			|| {
+				let (store, _temp) = setup_store(&keypair);
+				(Arc::new(store), _temp)
+			},
+			|(store, _temp)| {
+				std::thread::scope(|s| {
+					for thread_id in 0..NUM_THREADS {
+						let store = store.clone();
+						let start = thread_id * OPS_PER_THREAD;
+						let end = start + OPS_PER_THREAD;
+						let thread_statements = statements[start..end].to_vec();
+						let topics = vec![topic(0), topic(1)];
+						s.spawn(move || {
+							for statement in thread_statements {
+								// Submit a statement
+								let result = store.submit(statement, StatementSource::Local);
+								assert!(matches!(result, SubmitResult::New(_)));
 
-                // Query broadcasts
-                let _ = store.broadcasts(&topics);
-              }
-            });
-          }
-        });
-      },
-      criterion::BatchSize::LargeInput,
-    )
-  });
+								// Query broadcasts
+								let _ = store.broadcasts(&topics);
+							}
+						});
+					}
+				});
+			},
+			criterion::BatchSize::LargeInput,
+		)
+	});
 }
 
 criterion_group!(
