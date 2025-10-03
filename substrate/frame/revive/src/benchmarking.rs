@@ -34,7 +34,7 @@ use crate::{
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{instructions::instruction_table, EVMInterpreter},
+		evm::{instructions::host, Interpreter},
 		pvm,
 	},
 	Pallet as Contracts, *,
@@ -54,13 +54,7 @@ use frame_system::RawOrigin;
 use pallet_revive_uapi::{
 	pack_hi_lo, precompiles::system::ISystem, CallFlags, ReturnErrorCode, StorageFlags,
 };
-use revm::{
-	bytecode::{opcode::EXTCODECOPY, Bytecode},
-	interpreter::{
-		host::DummyHost, interpreter_types::MemoryTr, InstructionContext, Interpreter, SharedMemory,
-	},
-	primitives,
-};
+use revm::bytecode::Bytecode;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	digests::{PreDigest, PrimaryPreDigest},
@@ -2367,7 +2361,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let module = VmBinaryModule::evm_noop(r);
-		let inputs = evm::EVMInputs::new(vec![]);
+		let inputs = vec![];
 
 		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
 		let mut setup = CallSetup::<T>::new(module);
@@ -2472,38 +2466,22 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::new(module);
 		let contract = setup.contract();
 
-		let mut address: [u8; 32] = [0; 32];
-		address[12..].copy_from_slice(&contract.address.0);
-
 		let (mut ext, _) = setup.ext();
-		let mut interpreter: Interpreter<EVMInterpreter<'_, _>> = Interpreter {
-			extend: &mut ext,
-			input: Default::default(),
-			bytecode: Default::default(),
-			gas: Default::default(),
-			stack: Default::default(),
-			return_data: Default::default(),
-			memory: SharedMemory::new(),
-			runtime_flag: Default::default(),
-		};
-
-		let table = instruction_table::<'_, _>();
-		let extcodecopy_fn = table[EXTCODECOPY as usize];
+		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
 
 		// Setup stack for extcodecopy instruction: [address, dest_offset, offset, size]
-		let _ = interpreter.stack.push(primitives::U256::from(n));
-		let _ = interpreter.stack.push(primitives::U256::from(0u32));
-		let _ = interpreter.stack.push(primitives::U256::from(0u32));
-		let _ = interpreter.stack.push(primitives::U256::from_be_bytes(address));
+		let _ = interpreter.stack.push(U256::from(n));
+		let _ = interpreter.stack.push(U256::from(0u32));
+		let _ = interpreter.stack.push(U256::from(0u32));
+		let _ = interpreter.stack.push(contract.address);
 
-		let mut host = DummyHost {};
-		let context = InstructionContext { interpreter: &mut interpreter, host: &mut host };
-
+		let result;
 		#[block]
 		{
-			extcodecopy_fn(context);
+			result = host::extcodecopy(&mut interpreter);
 		}
 
+		assert!(result.is_continue());
 		assert_eq!(
 			*interpreter.memory.slice(0..n as usize),
 			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..n as usize],

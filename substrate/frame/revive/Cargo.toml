@@ -74,6 +74,7 @@ pallet-proxy = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
+proptest = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
