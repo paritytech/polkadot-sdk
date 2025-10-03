@@ -524,14 +524,15 @@ where
 
 				loop {
 					let chunk = &to_send[offset..current_end];
+					let encoded_size = chunk.encoded_size();
 
 					// If chunk fits, send it
-					if chunk.encoded_size() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
+					if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
 						log::trace!(
 							target: LOG_TARGET,
 							"Sending {} statements ({} KB) to {}",
 							chunk.len(),
-							encoded.len() / 1024,
+							encoded_size / 1024,
 							who
 						);
 						self.notification_service.send_sync_notification(who, chunk.encode());
