@@ -718,26 +718,6 @@ impl Default for TransactionSigned {
 	}
 }
 
-impl TransactionSigned {
-	/// Get the effective gas price.
-	pub fn effective_gas_price(&self, base_gas_price: U256) -> U256 {
-		match &self {
-			TransactionSigned::TransactionLegacySigned(tx) =>
-				tx.transaction_legacy_unsigned.gas_price,
-			TransactionSigned::Transaction7702Signed(tx) => base_gas_price
-				.saturating_add(tx.transaction_7702_unsigned.max_priority_fee_per_gas)
-				.min(tx.transaction_7702_unsigned.max_fee_per_gas),
-			TransactionSigned::Transaction4844Signed(tx) => base_gas_price
-				.saturating_add(tx.transaction_4844_unsigned.max_priority_fee_per_gas)
-				.min(tx.transaction_4844_unsigned.max_fee_per_blob_gas),
-			TransactionSigned::Transaction1559Signed(tx) => base_gas_price
-				.saturating_add(tx.transaction_1559_unsigned.max_priority_fee_per_gas)
-				.min(tx.transaction_1559_unsigned.max_fee_per_gas),
-			TransactionSigned::Transaction2930Signed(tx) => tx.transaction_2930_unsigned.gas_price,
-		}
-	}
-}
-
 /// Validator withdrawal
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
