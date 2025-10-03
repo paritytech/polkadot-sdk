@@ -346,6 +346,9 @@ struct State {
 
 	/// An utility for tracking all collations produced by the collator.
 	collation_tracker: CollationTracker,
+
+	/// Should we be connected to backers ?
+	connect_to_backers: bool,
 }
 
 impl State {
@@ -373,6 +376,7 @@ impl State {
 			advertisement_timeouts: Default::default(),
 			reputation,
 			collation_tracker: Default::default(),
+			connect_to_backers: false,
 		}
 	}
 }
@@ -796,6 +800,29 @@ async fn process_msg<Context>(
 	use CollatorProtocolMessage::*;
 
 	match msg {
+		ConnectToBackingGroups => {
+			// This message is used to instruct the collator to pre-connect to backing groups.
+			// For now, we do not need to take any action here.
+			gum::debug!(
+				target: LOG_TARGET,
+				"Received PreConnectToBackingGroups message."
+			);
+			state.connect_to_backers = true;
+
+			if let Some(para_id) = state.collating_on {
+				connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, para_id)
+					.await;
+			}
+		},
+		DisconnectFromBackingGroups => {
+			// This message is used to instruct the collator to disconnect from backing groups.
+			// For now, we do not need to take any action here.
+			gum::debug!(
+				target: LOG_TARGET,
+				"Received DisconnectFromBackingGroups message."
+			);
+			state.connect_to_backers = false;
+		},
 		CollateOn(id) => {
 			state.collating_on = Some(id);
 			state.implicit_view = Some(ImplicitView::new(Some(id)));
@@ -1270,8 +1297,15 @@ async fn handle_network_msg<Context>(
 			handle_our_view_change(ctx, runtime, state, view).await?;
 			// Connect only if we are collating on a para.
 			if let Some(para_id) = state.collating_on {
-				connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, para_id)
+				if state.connect_to_backers {
+					connect_to_validators(
+						ctx,
+						&state.implicit_view,
+						&state.per_relay_parent,
+						para_id,
+					)
 					.await;
+				}
 			}
 		},
 		PeerMessage(remote, msg) => {
@@ -1763,7 +1797,9 @@ async fn run_inner<Context>(
 
 				// Connect only if we are collating on a para.
 				if let Some(para_id) = state.collating_on {
-					connect_to_validators(&mut ctx, &state.implicit_view, &state.per_relay_parent, para_id).await;
+					if state.connect_to_backers {
+						connect_to_validators(&mut ctx, &state.implicit_view, &state.per_relay_parent, para_id).await;
+					}
 				}
 
 				gum::trace!(

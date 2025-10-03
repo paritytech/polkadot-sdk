@@ -48,7 +48,7 @@ use cumulus_client_consensus_aura::{
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
-use cumulus_client_service::CollatorSybilResistance;
+use cumulus_client_service::{collator_protocol_helper, CollatorSybilResistance};
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::prelude::*;
@@ -217,7 +217,8 @@ where
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 		+ GetParachainInfo<Block>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
 		Box::new(AuraNode::<
@@ -299,7 +300,8 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -320,7 +322,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
-		_overseer_handle: OverseerHandle,
+		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
@@ -339,6 +341,17 @@ where
 			Arc::new(task_manager.spawn_handle()),
 			announce_block,
 			client.clone(),
+		);
+
+		// Spawn the collator protocol helper task
+		task_manager.spawn_essential_handle().spawn(
+			"collator-protocol-helper",
+			None,
+			collator_protocol_helper::<_, _, <AuraId as AppCrypto>::Pair>(
+				client.clone(),
+				keystore.clone(),
+				overseer_handle,
+			),
 		);
 
 		let client_for_aura = client.clone();
@@ -430,7 +443,8 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -463,6 +477,17 @@ where
 			Arc::new(task_manager.spawn_handle()),
 			announce_block,
 			client.clone(),
+		);
+
+		// Spawn the collator protocol helper task
+		task_manager.spawn_essential_handle().spawn(
+			"collator-protocol-helper",
+			None,
+			collator_protocol_helper::<_, _, <AuraId as AppCrypto>::Pair>(
+				client.clone(),
+				keystore.clone(),
+				overseer_handle.clone(),
+			),
 		);
 
 		let params = aura::ParamsWithExport {
