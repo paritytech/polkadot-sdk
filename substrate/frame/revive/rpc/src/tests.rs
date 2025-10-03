@@ -124,7 +124,7 @@ static mut SHARED_RESOURCES: SharedResources = SharedResources::start();
 // Setting state-pruning to low value, to not wait long for state pruning, which is required for
 // some EVM reconstruction tests
 #[dynamic(lazy)]
-static mut SHARED_RESOURCES_ADVANCED: SharedResources =
+static mut SHARED_RESOURCES_QUICK_PRUNE: SharedResources =
 	SharedResources::start_advanced(55789, 55788, vec!["--state-pruning=8"]);
 
 macro_rules! unwrap_call_err(
@@ -351,8 +351,7 @@ async fn wait_until_state_pruned(client: OnlineClient<SrcChainConfig>) -> anyhow
 
 #[tokio::test]
 async fn reconstructed_block_matches_storage_block() -> anyhow::Result<()> {
-	// let client = Arc::new(ws_client_with_retry("ws://localhost:8545").await);
-	let shared_resources = SHARED_RESOURCES_ADVANCED.write();
+	let shared_resources = SHARED_RESOURCES_QUICK_PRUNE.write();
 	let client = Arc::new(shared_resources.client().await);
 
 	// Deploy a contract to have some interesting blocks
@@ -384,8 +383,6 @@ async fn reconstructed_block_matches_storage_block() -> anyhow::Result<()> {
 		"Storage blocks by number and hash should match"
 	);
 
-	// Wait for state pruning (8 blocks + buffer)
-	// wait_until_block(&client, block_number + U256::from(10)).await?;
 	wait_until_state_pruned(shared_resources.node_client().await).await?;
 
 	// Fetch the same block again - it should be reconstructed now
@@ -412,9 +409,7 @@ async fn reconstructed_block_matches_storage_block() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn reconstructed_tx_matches_storage_tx() -> anyhow::Result<()> {
-	// let client = Arc::new(ws_client_with_retry("ws://localhost:45790").await);
-	// let client = Arc::new(ws_client_with_retry("ws://localhost:8545").await);
-	let shared_resources = SHARED_RESOURCES_ADVANCED.write();
+	let shared_resources = SHARED_RESOURCES_QUICK_PRUNE.write();
 	let client = Arc::new(shared_resources.client().await);
 
 	// Deploy a contract to have some interesting blocks
@@ -458,8 +453,6 @@ async fn reconstructed_tx_matches_storage_tx() -> anyhow::Result<()> {
 		"Storage txs by hash and block number and tx id should match"
 	);
 
-	// Wait for state pruning (8 blocks + buffer)
-	// wait_until_block(&client, block_number + U256::from(10)).await?;
 	wait_until_state_pruned(shared_resources.node_client().await).await?;
 
 	// Fetch the same tx again - it should be reconstructed now
