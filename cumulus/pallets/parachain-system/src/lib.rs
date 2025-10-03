@@ -1379,23 +1379,10 @@ impl<T: Config> Pallet<T> {
 			if let Some(previous_root) = previous_roots_map.get(para_id) {
 				if current_root != previous_root {
 					changed_publishers.insert(*para_id);
-					log::info!(
-						target: "parachain_system::published_data",
-						"🔄 Publisher {:?} has changed root: {:?} -> {:?}",
-						para_id,
-						sp_core::hexdisplay::HexDisplay::from(&**previous_root),
-						sp_core::hexdisplay::HexDisplay::from(&**current_root)
-					);
 				}
 			} else {
 				// New publisher
 				changed_publishers.insert(*para_id);
-				log::info!(
-					target: "parachain_system::published_data",
-					"🆕 New publisher {:?} with root: {:?}",
-					para_id,
-					sp_core::hexdisplay::HexDisplay::from(&**current_root)
-				);
 			}
 		}
 
@@ -1403,78 +1390,28 @@ impl<T: Config> Pallet<T> {
 		for (para_id, _) in &previous_roots_map {
 			if !current_roots_map.contains_key(para_id) {
 				changed_publishers.insert(*para_id);
-				log::info!(
-					target: "parachain_system::published_data",
-					"🗑️ Publisher {:?} removed",
-					para_id
-				);
 			}
 		}
 
-		if changed_publishers.is_empty() {
-			log::info!(
-				target: "parachain_system::published_data",
-				"⚡ No publishers have changed data roots - skipping processing for optimization"
-			);
-		} else {
-			log::info!(
-				target: "parachain_system::published_data",
-				"📨 Processing published data from {} publishers with changed roots (out of {} total)",
-				changed_publishers.len(),
-				published_data.len()
-			);
-
-			// Only process data for publishers with changed roots
+		// Only process data for publishers with changed roots
+		if !changed_publishers.is_empty() {
 			for (publisher, data_entries) in published_data {
 				if !changed_publishers.contains(publisher) {
 					continue;
 				}
-
-				log::info!(
-					target: "parachain_system::published_data",
-					"📦 Processing {} data items from publisher parachain {:?}",
-					data_entries.len(),
-					publisher
-				);
 
 				// Clear existing data for this publisher
 				let _ = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
 
 				// Store new data for this publisher
 				for (key, value) in data_entries {
-					log::debug!(
-						target: "parachain_system::published_data",
-						"💾 Storing key {:?} ({}B) -> value ({}B) from publisher {:?}",
-						key,
-						key.len(),
-						value.len(),
-						publisher
-					);
 					PublishedData::<T>::insert(publisher, key, value);
 				}
-
-				log::info!(
-					target: "parachain_system::published_data",
-					"✅ Successfully stored {} items from publisher {:?}",
-					data_entries.len(),
-					publisher
-				);
 			}
-
-			log::info!(
-				target: "parachain_system::published_data",
-				"🎯 Finished processing published data from all publishers"
-			);
 		}
 
 		// Update previous roots storage for next comparison
 		<PreviousPublishedDataRoots<T>>::put(current_roots);
-
-		log::info!(
-			target: "parachain_system::published_data",
-			"💾 Updated previous published data roots for {} publishers",
-			current_roots.len()
-		);
 	}
 
 

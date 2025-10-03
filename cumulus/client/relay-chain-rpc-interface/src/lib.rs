@@ -87,6 +87,14 @@ impl RelayChainInterface for RelayChainRpcInterface {
 			.await
 	}
 
+	async fn retrieve_subscribed_published_data(
+		&self,
+		para_id: ParaId,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
+		self.rpc_client.broadcaster_get_subscribed_data(para_id, relay_parent).await
+	}
+
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
@@ -94,7 +102,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 				if let Some(hash) = self.rpc_client.chain_get_block_hash(Some(num)).await? {
 					hash
 				} else {
-					return Ok(None)
+					return Ok(None);
 				}
 			},
 		};
@@ -229,7 +237,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		let mut head_stream = self.rpc_client.get_imported_heads_stream()?;
 
 		if self.rpc_client.chain_get_header(Some(wait_for_hash)).await?.is_some() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let mut timeout = futures_timer::Delay::new(Duration::from_secs(TIMEOUT_IN_SECONDS)).fuse();

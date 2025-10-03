@@ -16,13 +16,12 @@
 
 //! Client side code for generating the parachain inherent.
 
-use codec::{Decode, Encode};
+use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain::{self, Block as RelayBlock, Hash as PHash, HrmpChannelId},
 	ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use std::collections::BTreeMap;
 
 mod mock;
 
@@ -151,54 +150,6 @@ async fn collect_relay_storage_proof(
 		.ok()
 }
 
-/// Collect published data from subscribed publishers for a specific parachain.
-async fn collect_published_data(
-	relay_chain_interface: &impl RelayChainInterface,
-	relay_parent: PHash,
-	subscriber_para_id: ParaId,
-) -> Option<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
-	tracing::info!(
-		target: LOG_TARGET,
-		relay_parent = ?relay_parent,
-		subscriber = ?subscriber_para_id,
-		"🔍 Collecting subscribed published data from broadcaster pallet"
-	);
-
-	// Get all published data that the subscriber is subscribed to
-	let published_data: BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> = cumulus_relay_chain_interface::call_runtime_api(
-		relay_chain_interface,
-		"BroadcasterApi_get_subscribed_data",
-		relay_parent,
-		subscriber_para_id,
-	)
-	.await
-	.map_err(|e| {
-		tracing::error!(
-			target: LOG_TARGET,
-			relay_parent = ?relay_parent,
-			subscriber = ?subscriber_para_id,
-			error = ?e,
-			"Cannot obtain subscribed published data.",
-		);
-	})
-	.ok()?;
-
-	let total_items: usize = published_data.values().map(|v| v.len()).sum();
-	tracing::info!(
-		target: LOG_TARGET,
-		relay_parent = ?relay_parent,
-		subscriber = ?subscriber_para_id,
-		publishers = published_data.len(),
-		total_items = total_items,
-		"🎯 Collected {} items from {} subscribed publishers for parachain {:?}",
-		total_items,
-		published_data.len(),
-		subscriber_para_id
-	);
-
-	Some(published_data)
-}
-
 pub struct ParachainInherentDataProvider;
 
 impl ParachainInherentDataProvider {
@@ -253,15 +204,10 @@ impl ParachainInherentDataProvider {
 				);
 			})
 			.ok()?;
-
-		// Fetch published data from subscribed publishers via broadcaster pallet
-		let published_data = collect_published_data(
-			relay_chain_interface,
-			relay_parent,
-			para_id,
-		)
-		.await
-		.unwrap_or_default();
+		let published_data = relay_chain_interface
+			.retrieve_subscribed_published_data(para_id, relay_parent)
+			.await
+			.unwrap_or_default();
 
 		Some(ParachainInherentData {
 			downward_messages,

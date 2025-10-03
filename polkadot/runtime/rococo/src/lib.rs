@@ -2034,7 +2034,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(13)]
+	#[api_version(14)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2211,6 +2211,10 @@ sp_api::impl_runtime_apis! {
 
 		fn validation_code_bomb_limit() -> u32 {
 			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
+		}
+
+		fn get_subscribed_data(subscriber_para_id: ParaId) -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
+			Broadcaster::get_subscribed_data(subscriber_para_id)
 		}
 	}
 
@@ -2749,11 +2753,6 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl polkadot_runtime_parachains::broadcaster::runtime_api::BroadcasterApi<Block> for Runtime {
-		fn get_subscribed_data(subscriber_para_id: polkadot_primitives::Id) -> alloc::collections::BTreeMap<polkadot_primitives::Id, Vec<(Vec<u8>, Vec<u8>)>> {
-			Broadcaster::get_subscribed_data(subscriber_para_id)
-		}
-	}
 }
 
 #[cfg(all(test, feature = "try-runtime"))]

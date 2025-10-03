@@ -367,6 +367,14 @@ impl RelayChainInterface for Relaychain {
 		unimplemented!("Not needed for test")
 	}
 
+	async fn retrieve_subscribed_published_data(
+		&self,
+		_: ParaId,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn persisted_validation_data(
 		&self,
 		_: PHash,
@@ -390,8 +398,8 @@ impl RelayChainInterface for Relaychain {
 		hash: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
-		if self.inner.lock().expect("Poisoned lock").runtime_version >=
-			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		if self.inner.lock().expect("Poisoned lock").runtime_version
+			>= RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
 			panic!("Should have used candidates_pending_availability instead");
 		}
@@ -413,8 +421,8 @@ impl RelayChainInterface for Relaychain {
 		hash: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
-		if self.inner.lock().expect("Poisoned lock").runtime_version <
-			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		if self.inner.lock().expect("Poisoned lock").runtime_version
+			< RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
 			panic!("Should have used candidate_pending_availability instead");
 		}

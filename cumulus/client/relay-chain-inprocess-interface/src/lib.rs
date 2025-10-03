@@ -106,6 +106,14 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 			.inbound_hrmp_channels_contents(relay_parent, para_id)?)
 	}
 
+	async fn retrieve_subscribed_published_data(
+		&self,
+		para_id: ParaId,
+		relay_parent: PHash,
+	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
+		Ok(self.full_client.runtime_api().get_subscribed_data(relay_parent, para_id)?)
+	}
+
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
