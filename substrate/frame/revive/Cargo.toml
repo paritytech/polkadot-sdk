@@ -42,6 +42,7 @@ revm = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
+serde_json = { features = ["alloc"], workspace = true, default-features = false }
 
 # Polkadot SDK Dependencies
 bn = { workspace = true }
