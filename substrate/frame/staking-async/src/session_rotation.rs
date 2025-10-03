@@ -88,6 +88,7 @@ use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
+use alloc::boxed::Box;
 
 /// A handler for all era-based storage items.
 ///
