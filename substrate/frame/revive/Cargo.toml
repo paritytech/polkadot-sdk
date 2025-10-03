@@ -110,6 +110,8 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"subxt-signer",
+	"secp256k1/std",
+	"serde_json/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -123,10 +125,18 @@ runtime-benchmarks = [
 	"sp-consensus-babe",
 	"sp-consensus-slots",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime"
 ]

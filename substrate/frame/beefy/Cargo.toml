@@ -53,6 +53,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
+	"sp-state-machine/std"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -60,4 +61,9 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-offences/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime"
 ]

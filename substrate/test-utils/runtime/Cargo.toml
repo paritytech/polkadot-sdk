@@ -115,6 +115,7 @@ std = [
 	"substrate-wasm-builder",
 	"tracing/std",
 	"trie-db/std",
+	"serde/std"
 ]
 
 # Special feature to disable logging

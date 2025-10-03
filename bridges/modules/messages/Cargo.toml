@@ -47,6 +47,11 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 	"tracing/std",
+	"bp-test-utils/std",
+	"pallet-balances/std",
+	"pallet-bridge-grandpa/std",
+	"sp-core/std",
+	"sp-io/std"
 ]
 runtime-benchmarks = [
 	"bp-runtime/test-helpers",
@@ -54,10 +59,14 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-grandpa/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-bridge-grandpa/try-runtime"
 ]
 test-helpers = ["bp-runtime/test-helpers", "sp-trie"]

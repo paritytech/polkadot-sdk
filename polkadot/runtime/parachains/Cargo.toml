@@ -136,6 +136,7 @@ runtime-benchmarks = [
 	"static_assertions",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support?/try-runtime",
@@ -152,6 +153,7 @@ try-runtime = [
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-support-test/try-runtime"
 ]
 runtime-metrics = [
 	"polkadot-runtime-metrics/runtime-metrics",

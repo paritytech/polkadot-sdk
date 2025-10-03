@@ -151,6 +151,7 @@ runtime-benchmarks = [
 	"polkadot-test-service/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks"
 ]
 
 [[bench]]

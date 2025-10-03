@@ -47,6 +47,7 @@ runtime-benchmarks = [
 	"pallet-session/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks"
 ]
 std = [
 	"codec/std",
@@ -70,4 +71,6 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-timestamp/try-runtime"
 ]
