@@ -2724,9 +2724,9 @@ mod benchmarks {
 
 					let block_builder_ir = EthBlockBuilderIR::<T>::get();
 					let mut block_builder = EthereumBlockBuilder::from_ir_with_storage(
-					block_builder_ir,
-					PalletStorage::<T>::new(),
-				);
+						block_builder_ir,
+						PalletStorage::<T>::new(),
+					);
 
 					block_builder.process_transaction(
 						signed_transaction,

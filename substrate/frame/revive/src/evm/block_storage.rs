@@ -88,11 +88,9 @@ pub fn on_finalize_build_eth_block<T: Config>(
 	EthBlockBuilderIR::<T>::kill();
 
 	// Load the first values if not already loaded.
-	let (block, receipt_data) = EthereumBlockBuilder::from_ir_with_storage(
-		block_builder_ir,
-		PalletStorage::<T>::new(),
-	)
-	.build(eth_block_num, parent_hash, timestamp, block_author, gas_limit);
+	let (block, receipt_data) =
+		EthereumBlockBuilder::from_ir_with_storage(block_builder_ir, PalletStorage::<T>::new())
+			.build(eth_block_num, parent_hash, timestamp, block_author, gas_limit);
 
 	// Put the block hash into storage.
 	BlockHash::<T>::insert(eth_block_num, block.hash);
