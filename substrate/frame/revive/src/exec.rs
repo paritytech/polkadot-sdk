@@ -1736,10 +1736,10 @@ where
 			}
 			T::AddressMapper::to_address(&frame.account_id)
 		};
+		let account_id = self.top_frame_mut().account_id.clone();
 		if allow_from_outside_tx {
 			// Pretend the contract was created in the current tx so that it can be destroyed.
-			let account_id = self.top_frame_mut().account_id.clone();
-			self.contracts_created.insert(account_id);
+			self.contracts_created.insert(account_id.clone());
 		}
 
 		{
@@ -1751,7 +1751,12 @@ where
 				*beneficiary,
 			));
 		}
-		Ok(CodeRemoved::Yes)
+
+		if self.contracts_created.contains(&account_id) {
+			Ok(CodeRemoved::Yes)
+		} else {
+			Ok(CodeRemoved::No)
+		}
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {

@@ -257,8 +257,15 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
-			Terminate { code_removed } => T::WeightInfo::seal_terminate(code_removed.into())
-				.saturating_add(T::WeightInfo::seal_terminate_logic()),
+			Terminate { code_removed } => {
+				// logic only runs if code is removed
+				if code_removed {
+					T::WeightInfo::seal_terminate(code_removed.into())
+						.saturating_add(T::WeightInfo::seal_terminate_logic())
+				} else {
+					T::WeightInfo::seal_terminate(code_removed.into())
+				}
+			},
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
