@@ -774,11 +774,11 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for h in index.entries.keys() {
-			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
+		for hash in index.entries.keys() {
+			let encoded =
+				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?;
 			if let Some(encoded) = encoded {
 				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-					let hash = statement.hash();
 					result.push((hash, statement));
 				}
 			}
@@ -790,11 +790,11 @@ impl StatementStore for Store {
 		let mut index = self.index.write();
 		let recent = index.take_recent();
 		let mut result = Vec::with_capacity(recent.len());
-		for h in recent {
-			let encoded = self.db.get(col::STATEMENTS, &h).map_err(|e| Error::Db(e.to_string()))?;
+		for hash in recent {
+			let encoded =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?;
 			if let Some(encoded) = encoded {
 				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-					let hash = statement.hash();
 					result.push((hash, statement));
 				}
 			}

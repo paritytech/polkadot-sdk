@@ -520,15 +520,13 @@ where
 			while offset < to_send.len() {
 				// Try to send as many statements as possible in one notification
 				let chunk_size = to_send.len() - offset;
-				let chunk_end = offset + chunk_size;
-				let mut current_end = chunk_end;
+				let mut current_end = to_send.len();
 
 				loop {
 					let chunk = &to_send[offset..current_end];
-					let encoded = chunk.encode();
 
 					// If chunk fits, send it
-					if encoded.len() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
+					if chunk.encoded_size() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
 						log::trace!(
 							target: LOG_TARGET,
 							"Sending {} statements ({} KB) to {}",
@@ -536,7 +534,7 @@ where
 							encoded.len() / 1024,
 							who
 						);
-						self.notification_service.send_sync_notification(who, encoded);
+						self.notification_service.send_sync_notification(who, chunk.encode());
 						offset = current_end;
 						if let Some(ref metrics) = self.metrics {
 							metrics.propagated_statements_chunks.observe(chunk.len() as f64);
