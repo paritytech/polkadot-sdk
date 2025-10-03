@@ -43,7 +43,12 @@ async fn early_availability_chunk_request_test() -> Result<(), anyhow::Error> {
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_collator(|n| n.with_name("collator-2000"))
+				.with_collator(|n| {
+					n.with_name("collator-2000").validator(true).with_args(vec![
+						"--authoring=slot-based".into(),
+						("-lparachain=debug").into(),
+					])
+				})
 		})
 		.build()
 		.map_err(|e| {
