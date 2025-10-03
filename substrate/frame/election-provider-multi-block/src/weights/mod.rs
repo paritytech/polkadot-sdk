@@ -94,23 +94,23 @@ pub mod traits {
 
 		/// Weight functions needed for `pallet_election_provider_multi_block_verifier`.
 		pub trait WeightInfo {
-			fn on_initialize_valid_non_terminal() -> Weight;
-			fn on_initialize_valid_terminal() -> Weight;
-			fn on_initialize_invalid_terminal() -> Weight;
-			fn on_initialize_invalid_non_terminal(v: u32) -> Weight;
+			fn verification_valid_non_terminal() -> Weight;
+			fn verification_valid_terminal() -> Weight;
+			fn verification_invalid_terminal() -> Weight;
+			fn verification_invalid_non_terminal(v: u32) -> Weight;
 		}
 
 		impl WeightInfo for () {
-			fn on_initialize_valid_non_terminal() -> Weight {
+			fn verification_valid_non_terminal() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_valid_terminal() -> Weight {
+			fn verification_valid_terminal() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_invalid_terminal() -> Weight {
+			fn verification_invalid_terminal() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_invalid_non_terminal(_v: u32) -> Weight {
+			fn verification_invalid_non_terminal(_v: u32) -> Weight {
 				Default::default()
 			}
 		}

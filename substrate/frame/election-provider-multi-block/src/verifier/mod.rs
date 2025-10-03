@@ -215,7 +215,10 @@ pub trait Verifier {
 		score: ElectionScore,
 	);
 
-	/// What this pallet has to be doing on-init.
+	/// Return the execution schedule of this pallet's work to be done per-block (`on_poll`,
+	/// `on_init` independent).
+	///
+	/// Returns a `(Weight, ExecFn)` tuple in-line with `per_block_exec` of the parent block.
 	fn per_block_exec() -> (Weight, Box<dyn Fn() -> Option<Weight>>);
 }
 

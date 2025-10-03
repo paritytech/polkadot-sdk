@@ -111,6 +111,12 @@ pub struct SubmissionMetadata<T: Config> {
 	pages: BoundedVec<bool, T::Pages>,
 }
 
+impl<T: Config> crate::types::SignedInterface for Pallet<T> {
+	fn has_leader(round: u32) -> bool {
+		Submissions::<T>::has_leader(round)
+	}
+}
+
 impl<T: Config> SolutionDataProvider for Pallet<T> {
 	type Solution = SolutionOf<T::MinerConfig>;
 
@@ -1019,7 +1025,6 @@ impl<T: Config> Pallet<T> {
 			{
 				// Only start verification if there are sufficient blocks remaining
 				// Note: SignedValidation(N) means N+1 blocks remaining in the phase
-				// TODO: check test cases for the edge cases of this.
 				if remaining_blocks >= T::Pages::get().into() {
 					if Submissions::<T>::has_leader(current_round) {
 						// defensive: verifier just reported back a result, it must be in clear

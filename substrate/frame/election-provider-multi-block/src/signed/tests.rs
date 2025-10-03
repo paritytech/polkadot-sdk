@@ -1215,6 +1215,7 @@ mod e2e {
 					]
 				);
 
+				// we are done _exactly on time_.
 				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::SignedValidation(0));
 				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 

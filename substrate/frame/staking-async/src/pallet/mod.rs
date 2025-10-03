@@ -1431,10 +1431,10 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
-			let (weight, exec) =
-				EraElectionPlanner::<T>::per_block_exec_maybe_fetch_election_results();
-			if weight_meter.try_consume(weight).is_ok() {
-				let _adjusted_weight = exec();
+			let (weight, exec) = EraElectionPlanner::<T>::maybe_fetch_election_results();
+			if weight_meter.can_consume(weight) {
+				let adjusted_weight = exec();
+				weight_meter.consume(adjusted_weight.unwrap_or(weight));
 			} else {
 				Self::deposit_event(Event::<T>::Unexpected(
 					UnexpectedKind::PagedElectionOutOfWeight {

@@ -77,7 +77,7 @@
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
 use crate::*;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
@@ -88,7 +88,6 @@ use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
-use alloc::boxed::Box;
 
 /// A handler for all era-based storage items.
 ///
@@ -861,59 +860,51 @@ impl<T: Config> EraElectionPlanner<T> {
 			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
 	}
 
-	pub(crate) fn per_block_exec_maybe_fetch_election_results(
+	pub(crate) fn maybe_fetch_election_results(
 	) -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
-		if let Ok(Some(required_weight)) = T::ElectionProvider::status() {
-			(
-				required_weight,
-				Box::new(|| {
-					crate::log!(
-						debug,
-						"Election provider is ready, our status is {:?}",
-						NextElectionPage::<T>::get()
-					);
+		let Ok((Some(required_weight))) = T::ElectionProvider::status() else {
+			// no election ongoing
+			return (Default::default(), Box::new(|| None))
+		};
+		let exec = Box::new(|| {
+			crate::log!(
+				debug,
+				"Election provider is ready, our status is {:?}",
+				NextElectionPage::<T>::get()
+			);
 
-					debug_assert!(
-						CurrentEra::<T>::get().unwrap_or(0) ==
-							ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
-						"Next era must be already planned."
-					);
+			debug_assert!(
+				CurrentEra::<T>::get().unwrap_or(0) ==
+					ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
+				"Next era must be already planned."
+			);
 
-					let current_page = NextElectionPage::<T>::get()
-						.unwrap_or(Self::election_pages().defensive_saturating_sub(1));
-					let maybe_next_page = current_page.checked_sub(1);
-					crate::log!(
-						debug,
-						"fetching page {:?}, next {:?}",
-						current_page,
-						maybe_next_page
-					);
+			let current_page = NextElectionPage::<T>::get()
+				.unwrap_or(Self::election_pages().defensive_saturating_sub(1));
+			let maybe_next_page = current_page.checked_sub(1);
+			crate::log!(debug, "fetching page {:?}, next {:?}", current_page, maybe_next_page);
 
-					Self::do_elect_paged(current_page);
-					NextElectionPage::<T>::set(maybe_next_page);
+			Self::do_elect_paged(current_page);
+			NextElectionPage::<T>::set(maybe_next_page);
 
-					if maybe_next_page.is_none() {
-						let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
-						let prune_up_to = Self::get_prune_up_to();
-						let rc_validators =
-							ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
+			if maybe_next_page.is_none() {
+				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+				let prune_up_to = Self::get_prune_up_to();
+				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
 
-						crate::log!(
-							info,
-							"Sending new validator set of size {:?} to RC. ID: {:?}, prune_up_to: {:?}",
-							rc_validators.len(),
-							id,
-							prune_up_to
-						);
-						T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
-					}
+				crate::log!(
+					info,
+					"Sending new validator set of size {:?} to RC. ID: {:?}, prune_up_to: {:?}",
+					rc_validators.len(),
+					id,
+					prune_up_to
+				);
+				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
+			}
 
-					None
-				}),
-			)
-		} else {
-			(Default::default(), Box::new(|| None))
-		}
+			None
+		});
+		(required_weight, exec)
 	}
 
 	/// Get the right value of the first session that needs to be pruned on the RC's historical

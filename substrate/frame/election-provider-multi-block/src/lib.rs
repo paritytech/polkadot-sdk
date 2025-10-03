@@ -55,10 +55,13 @@
 //! the shared information that all child pallets use. All child pallets depend on the top level
 //! pallet ONLY, but not the other way around. For those cases, traits are used.
 //!
-//! As in, notice that [`crate::verifier::Config`] relies on [`crate::Config`], but for the
-//! reverse, we rely on [`crate::verifier::Verifier`] trait, which is indeed part of
-//! [`crate::Config`]. This is merely an implementation opinion.
+//! For reverse linking, or child-linking, only explicit traits with clear interfaces are used. For
+//! example, the following traits facilitate other communication:
 //!
+//! * [`crate::types::SignedInterface`]: Parent talking to signed.
+//! * [`crate::verifier::Verifier`]: Parent talking to verifier.
+//! * [`crate::verifier::SolutionDataProvider`]: Verifier talking to signed.
+
 //!
 //! ## Pagination
 //!
@@ -80,7 +83,7 @@
 //!
 //! ## Phases
 //!
-//! The operations in this pallet are divided intor rounds, a `u32` number stored in [`Round`].
+//! The operations in this pallet are divided into rounds, a `u32` number stored in [`Round`].
 //! This value helps this pallet organize itself, and leaves the door open for lazy deletion of any
 //! stale data. A round, under the happy path, starts by receiving the call to
 //! [`ElectionProvider::start`], and is terminated by receiving a call to
@@ -112,6 +115,20 @@
 //!
 //! > Given this, it is rather important for the user of this pallet to ensure it always terminates
 //! > election via `elect` before requesting a new one.
+//!
+//! ### Phase Transition
+//!
+//! Within all 4 pallets only the parent pallet is allowed to move forward the phases. As of now,
+//! the transition happens `on-poll`, ensuring that we don't consume too much weight. The parent
+//! pallet is in charge of aggregating the work to be done by all pallets, checking if it can fit
+//! within the current block's weight limits, and executing it if so.
+//!
+//! Occasional phase transition stalling is not a critical issue. Every instance of phase transition
+//! failing is accompanied by a [`Event::UnexpectedPhaseTransitionOutOfWeight`] for visibility.
+//!
+//! Note this pallet transitions phases all the way into [`crate::types::Phase::Done`]. At this
+//! point, we will move to `Export` phase an onwards by calls into `elect`. A call to `elect(0)`
+//! rotates the round, as stated above.
 //!
 //! ## Feasible Solution (correct solution)
 //!
@@ -572,7 +589,7 @@ pub mod pallet {
 			> + verifier::AsynchronousVerifier;
 
 		/// Interface signed pallet's interface.
-		type Signed: crate::signed::Config;
+		type Signed: SignedInterface;
 
 		/// The origin that can perform administration operations on this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -652,11 +669,11 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
-			// we need current phase to be read in any case -- we can live wiht it.
+			// we need current phase to be read in any case -- we can live with it.
 			let current_phase = Self::current_phase();
 			let next_phase = current_phase.next();
 
-			let (meta_weight, meta_exec) = Self::per_block_exec(current_phase.clone());
+			let (self_weight, self_exec) = Self::per_block_exec(current_phase.clone());
 			let (verifier_weight, verifier_exc) = T::Verifier::per_block_exec();
 
 			// The following will combine `Self::per_block_exec` and `T::Verifier::per_block_exec`
@@ -664,19 +681,19 @@ pub mod pallet {
 			// function if we have this pattern in more places.
 			let (combined_weight, combined_exec) = (
 				// pre-exec weight is simply addition.
-				meta_weight.saturating_add(verifier_weight),
+				self_weight.saturating_add(verifier_weight),
 				// our new exec is..
 				Box::new(move || {
 					// execute both this..
-					let corrected_meta_weight = meta_exec();
+					let corrected_self_weight = self_exec();
 					// .. and that.
 					let corrected_verifier_weight = verifier_exc();
 					// for each, if they have returned an updated weight, use that, else the
 					// pre-exec weight, and re-sum them up.
-					let final_weight = corrected_meta_weight
-						.unwrap_or(meta_weight)
+					let final_weight = corrected_self_weight
+						.unwrap_or(self_weight)
 						.saturating_add(corrected_verifier_weight.unwrap_or(verifier_weight));
-					if final_weight != meta_weight.saturating_add(verifier_weight) {
+					if final_weight != self_weight.saturating_add(verifier_weight) {
 						Some(final_weight)
 					} else {
 						None
@@ -695,6 +712,8 @@ pub mod pallet {
 			);
 			if weight_meter.can_consume(combined_weight) {
 				let final_combined_weight = combined_exec();
+				// Note: we _always_ transition into the next phase, but note that `.next` in
+				// `Export` is a noop, so we don't transition.
 				Self::phase_transition(next_phase);
 				weight_meter.consume(final_combined_weight.unwrap_or(combined_weight))
 			} else {
@@ -1088,9 +1107,8 @@ pub mod pallet {
 				Phase::Off => Self::ensure_snapshot(false, T::Pages::get()),
 
 				// we will star the snapshot in the next phase.
-				// TODO:
-				// Phase::Snapshot(p) if p == T::Pages::get() =>
-				// 	Self::ensure_snapshot(false, T::Pages::get()),
+				Phase::Snapshot(p) if p == T::Pages::get() =>
+					Self::ensure_snapshot(false, T::Pages::get()),
 				// we are mid voter snapshot.
 				Phase::Snapshot(p) if p < T::Pages::get() && p > 0 =>
 					Self::ensure_snapshot(true, T::Pages::get() - p - 1),
@@ -1271,9 +1289,7 @@ impl<T: Config> Pallet<T> {
 			Phase::Signed(x) => {
 				// Signed pallet should prep the best winner, and send the start signal, if some
 				// exists.
-				if x.is_zero() &&
-					crate::signed::Submissions::<T::Signed>::leader(Self::round()).is_some()
-				{
+				if x.is_zero() && T::Signed::has_leader(Self::round()) {
 					let exec: ExecuteFn = Box::new(|| {
 						// defensive: signed phase has just began, verifier should be in a
 						// clear state and ready to accept a solution. Moreover, if we have

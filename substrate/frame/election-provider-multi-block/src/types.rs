@@ -271,8 +271,8 @@ pub enum Phase<T: crate::Config> {
 	/// The inner value should be read as "`remaining` number of pages are left to be fetched".
 	/// Thus, if inner value is `0` if the snapshot is complete and we are ready to move on.
 	///
-	/// This value should be interpreted after `on_initialize` of this pallet has already been
-	/// called.
+	/// This value should be interpreted after `on_initialize`/`on_poll` of this pallet has already
+	/// been called.
 	Snapshot(PageIndex),
 	/// Snapshot is done, and we are waiting for `Export` to kick in.
 	Done,
@@ -418,6 +418,12 @@ impl<T: crate::Config> Phase<T> {
 	}
 }
 
+/// Slim interface for the parent pallet to be able to inspect the state of the signed pallet.
+pub trait SignedInterface {
+	/// Returns `true` if there is a candidate solution to be verified.
+	fn has_leader(round: u32) -> bool;
+}
+
 #[cfg(test)]
 mod pagify {
 	use super::{PadSolutionPages, Pagify};
@@ -446,3 +452,4 @@ mod pagify {
 		assert_eq!(solution.pad_solution_pages(3), vec![0, 2, 3]);
 	}
 }
+

@@ -281,7 +281,7 @@ impl multi_block::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type Verifier = MultiBlockVerifier;
-	type Signed = Self;
+	type Signed = MultiBlockSigned;
 	type AreWeDone = multi_block::ProceedRegardlessOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = ();
