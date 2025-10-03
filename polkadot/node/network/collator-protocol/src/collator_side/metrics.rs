@@ -412,6 +412,10 @@ pub(crate) struct CollationStats {
 	/// The collation backing latency (seconds). Duration since collation fetched
 	/// until the import of a relay chain block where collation is backed.
 	backed_latency_metric: Option<HistogramTimer>,
+	/// The Collation candidate hash
+	candidate_hash: Hash,
+	/// The Collation PoV hash
+	pov_hash: Hash,
 }
 
 impl CollationStats {
@@ -421,6 +425,8 @@ impl CollationStats {
 		relay_parent_number: BlockNumber,
 		relay_parent: Hash,
 		metrics: &Metrics,
+		candidate_hash: Hash,
+		pov_hash: Hash,
 	) -> Self {
 		Self {
 			pre_backing_status: CollationStatus::Created,
@@ -434,6 +440,8 @@ impl CollationStats {
 			included_at: None,
 			fetch_latency_metric: metrics.time_collation_fetch_latency(),
 			backed_latency_metric: None,
+			candidate_hash,
+			pov_hash,
 		}
 	}
 
@@ -470,6 +478,16 @@ impl CollationStats {
 	/// Get parachain block header hash.
 	pub fn head(&self) -> H256 {
 		self.head
+	}
+
+	/// Get candidate hash.
+	pub fn candidate_hash(&self) -> H256 {
+		self.candidate_hash
+	}
+
+	/// Get candidate PoV hash.
+	pub fn pov_hash(&self) -> H256 {
+		self.pov_hash
 	}
 
 	/// Set the timestamp at which collation is fetched.
