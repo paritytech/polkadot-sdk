@@ -20,10 +20,8 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
-	vm::evm::U256Converter,
 	Code, Config, Pallet,
 };
-
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, TransactionInfo};
@@ -48,7 +46,7 @@ fn gasprice_works(fixture_type: FixtureType) {
 			)
 			.build_and_unwrap_result();
 		let decoded = TransactionInfo::gaspriceCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(<Pallet<Test>>::evm_gas_price().into_revm_u256(), decoded);
+		assert_eq!(<Pallet<Test>>::evm_gas_price().as_u64(), decoded);
 	});
 }
 
