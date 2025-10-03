@@ -23,7 +23,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::{convert::Infallible, ops::ControlFlow};
-use revm::{bytecode::Bytecode, interpreter::interpreter_types::Jumps, primitives::Bytes};
+use revm::{bytecode::Bytecode, primitives::Bytes};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod instructions;

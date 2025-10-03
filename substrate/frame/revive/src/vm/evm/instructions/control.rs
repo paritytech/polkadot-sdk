@@ -28,10 +28,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
-use revm::interpreter::{
-	gas::{BASE, HIGH, JUMPDEST, MID},
-	interpreter_types::Jumps,
-};
+use revm::interpreter::gas::{BASE, HIGH, JUMPDEST, MID};
 
 /// Implements the JUMP instruction.
 ///

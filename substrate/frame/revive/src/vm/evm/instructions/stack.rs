@@ -23,10 +23,7 @@ use crate::{
 	U256,
 };
 use core::ops::ControlFlow;
-use revm::interpreter::{
-	gas::{BASE, VERYLOW},
-	interpreter_types::{Immediates, Jumps},
-};
+use revm::interpreter::gas::{BASE, VERYLOW};
 
 /// Implements the POP instruction.
 ///

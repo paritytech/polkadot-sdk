@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use core::ops::Deref;
-use revm::{
-	bytecode::{utils::read_u16, Bytecode},
-	interpreter::interpreter_types::{Immediates, Jumps},
-};
+use revm::bytecode::Bytecode;
 
 /// Extended bytecode structure that wraps base bytecode with additional execution metadata.
 #[derive(Debug)]
@@ -53,54 +50,45 @@ impl ExtBytecode {
 	pub fn bytecode_slice(&self) -> &[u8] {
 		self.base.original_byte_slice()
 	}
-}
 
-impl Jumps for ExtBytecode {
-	fn relative_jump(&mut self, offset: isize) {
+	/// Relative jumps does not require checking for overflow.
+	pub fn relative_jump(&mut self, offset: isize) {
+		// SAFETY: The offset is validated by the caller to ensure it points within the bytecode
 		self.instruction_pointer = unsafe { self.instruction_pointer.offset(offset) };
 	}
 
-	fn absolute_jump(&mut self, offset: usize) {
+	/// Absolute jumps require checking for overflow and if target is a jump destination
+	/// from jump table.
+	pub fn absolute_jump(&mut self, offset: usize) {
+		// SAFETY: The offset is validated by the caller to ensure it points within the bytecode
 		self.instruction_pointer = unsafe { self.base.bytes_ref().as_ptr().add(offset) };
 	}
 
-	fn is_valid_legacy_jump(&mut self, offset: usize) -> bool {
+	/// Check legacy jump destination from jump table.
+	pub fn is_valid_legacy_jump(&mut self, offset: usize) -> bool {
 		self.base.legacy_jump_table().expect("Panic if not legacy").is_valid(offset)
 	}
 
-	fn opcode(&self) -> u8 {
+	/// Returns current program counter.
+	pub fn pc(&self) -> usize {
+		// SAFETY: `instruction_pointer` should be at an offset from the start of the bytes.
+		// In practice this is always true unless a caller modifies the `instruction_pointer` field
+		// manually.
+		unsafe { self.instruction_pointer.offset_from_unsigned(self.base.bytes_ref().as_ptr()) }
+	}
+
+	/// Returns instruction opcode.
+	pub fn opcode(&self) -> u8 {
 		// SAFETY: `instruction_pointer` always point to bytecode.
 		unsafe { *self.instruction_pointer }
 	}
 
-	fn pc(&self) -> usize {
-		// SAFETY: `instruction_pointer` should be at an offset from the start of the bytes.
-		// In practice this is always true unless a caller modifies the `instruction_pointer` field
-		// manually.
-		unsafe { self.instruction_pointer.offset_from(self.base.bytes_ref().as_ptr()) as usize }
-	}
-}
-
-impl Immediates for ExtBytecode {
-	fn read_u16(&self) -> u16 {
-		unsafe { read_u16(self.instruction_pointer) }
-	}
-
-	fn read_u8(&self) -> u8 {
-		unsafe { *self.instruction_pointer }
-	}
-
-	fn read_slice(&self, len: usize) -> &[u8] {
+	/// Reads next `len` bytes from the bytecode.
+	///
+	/// Used by PUSH opcode.
+	pub fn read_slice(&self, len: usize) -> &[u8] {
+		// SAFETY: The caller ensures that `len` bytes are available from the current instruction
+		// pointer position.
 		unsafe { core::slice::from_raw_parts(self.instruction_pointer, len) }
-	}
-
-	fn read_offset_u16(&self, offset: isize) -> u16 {
-		unsafe {
-			read_u16(
-				self.instruction_pointer
-					// Offset for max_index that is one byte
-					.offset(offset),
-			)
-		}
 	}
 }
