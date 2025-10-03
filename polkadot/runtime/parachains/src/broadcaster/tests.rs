@@ -16,7 +16,7 @@
 
 use super::*;
 use crate::mock::{new_test_ext, Broadcaster, Test};
-use frame_support::{assert_ok, assert_err};
+use frame_support::{assert_err, assert_ok};
 use polkadot_primitives::Id as ParaId;
 
 #[test]
@@ -29,10 +29,8 @@ fn publish_store_retrieve_and_update_data() {
 		assert!(Broadcaster::get_publisher_child_root(para_id).is_none());
 
 		// Publish initial data
-		let initial_data = vec![
-			(b"key1".to_vec(), b"value1".to_vec()),
-			(b"key2".to_vec(), b"value2".to_vec()),
-		];
+		let initial_data =
+			vec![(b"key1".to_vec(), b"value1".to_vec()), (b"key2".to_vec(), b"value2".to_vec())];
 		Broadcaster::handle_publish(para_id, initial_data.clone()).unwrap();
 
 		// Verify publisher exists and has a child root
@@ -42,14 +40,8 @@ fn publish_store_retrieve_and_update_data() {
 		assert!(!root_after_initial.as_ref().unwrap().is_empty());
 
 		// Verify the actual stored data matches what was published
-		assert_eq!(
-			Broadcaster::get_published_value(para_id, b"key1"),
-			Some(b"value1".to_vec())
-		);
-		assert_eq!(
-			Broadcaster::get_published_value(para_id, b"key2"),
-			Some(b"value2".to_vec())
-		);
+		assert_eq!(Broadcaster::get_published_value(para_id, b"key1"), Some(b"value1".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para_id, b"key2"), Some(b"value2".to_vec()));
 
 		// Non-existent key should return None
 		assert_eq!(Broadcaster::get_published_value(para_id, b"key3"), None);
@@ -73,12 +65,9 @@ fn publish_store_retrieve_and_update_data() {
 		);
 		assert_eq!(
 			Broadcaster::get_published_value(para_id, b"key2"),
-			Some(b"value2".to_vec())  // Should remain unchanged
+			Some(b"value2".to_vec()) // Should remain unchanged
 		);
-		assert_eq!(
-			Broadcaster::get_published_value(para_id, b"key3"),
-			Some(b"value3".to_vec())
-		);
+		assert_eq!(Broadcaster::get_published_value(para_id, b"key3"), Some(b"value3".to_vec()));
 	});
 }
 
@@ -86,9 +75,9 @@ fn publish_store_retrieve_and_update_data() {
 fn empty_publish_still_creates_publisher() {
 	new_test_ext(Default::default()).execute_with(|| {
 		let para_id = ParaId::from(1000);
-		
+
 		let _ = Broadcaster::handle_publish(para_id, vec![]);
-		
+
 		assert!(PublisherExists::<Test>::get(para_id));
 	});
 }
@@ -134,21 +123,6 @@ fn handle_publish_respects_value_length_limit() {
 		let result = Broadcaster::handle_publish(para_id, data);
 		assert!(result.is_err());
 		assert!(!PublisherExists::<Test>::get(para_id));
-	});
-}
-
-#[test]
-fn get_storage_key() {
-	new_test_ext(Default::default()).execute_with(|| {
-		let key = PublishedDataRoots::<Test>::hashed_key();
-		println!("PublishedDataRoots storage key (bytes): {:?}", key);
-
-		// Print as hex manually
-		print!("PublishedDataRoots storage key (hex): ");
-		for byte in &key {
-			print!("{:02x}", byte);
-		}
-		println!();
 	});
 }
 
@@ -250,15 +224,13 @@ fn max_stored_keys_limit_enforced() {
 		let published_keys = PublishedKeys::<Test>::get(para_id);
 		assert_eq!(published_keys.len(), 100);
 
-		let result = Broadcaster::handle_publish(
-			para_id,
-			vec![(b"new_key".to_vec(), b"value".to_vec())]
-		);
+		let result =
+			Broadcaster::handle_publish(para_id, vec![(b"new_key".to_vec(), b"value".to_vec())]);
 		assert_err!(result, Error::<Test>::TooManyStoredKeys);
 
 		let result = Broadcaster::handle_publish(
 			para_id,
-			vec![(b"key0".to_vec(), b"updated_value".to_vec())]
+			vec![(b"key0".to_vec(), b"updated_value".to_vec())],
 		);
 		assert_ok!(result);
 
