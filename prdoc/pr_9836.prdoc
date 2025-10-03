@@ -1,0 +1,16 @@
+title: Add `remove_by` method to statement store runtime interface
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The runtime interface for the statement store and the extensions have a new method `remove_by` that allows removing all statements made by one account. This is useful for cleaning up statements after the allowance given to an account has been revoked.
+
+      The actual rust semver is major but we consider the rust semantic experimental until we use it in production.
+
+crates:
+- name: sp-statement-store
+  bump: minor
+  validate: false
+- name: sc-statement-store
+  bump: minor
+  validate: false
