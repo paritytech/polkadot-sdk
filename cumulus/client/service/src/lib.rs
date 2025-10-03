@@ -514,7 +514,7 @@ pub async fn collator_protocol_helper<Block: BlockT, Client, P>(
 				overseer_handle
 					.send_msg(
 						CollatorProtocolMessage::ConnectToBackingGroups,
-						"SlotBasedBlockImport",
+						"CollatorProtocolHelper",
 					)
 					.await;
 			}
