@@ -160,7 +160,10 @@ pub trait InfoT<T: Config>: seal::Sealed {
 
 impl<const P: u128, const Q: u128, T: Config> BlockRatioWeightToFee for BlockRatioFee<P, Q, T> {
 	type T = T;
-	const REF_TIME_TO_FEE: FixedU128 = FixedU128::from_rational(P, Q);
+	const REF_TIME_TO_FEE: FixedU128 = {
+		assert!(P > 0 && Q > 0);
+		FixedU128::from_rational(P, Q)
+	};
 }
 
 impl<const P: u128, const Q: u128, T: Config> WeightToFee for BlockRatioFee<P, Q, T> {
