@@ -452,7 +452,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 
 	/// Register the caller of the current contract for destruction.
-	//. Destruction happens at the end of the call stack.
+	/// Destruction happens at the end of the call stack.
 	/// This is supposed to be used by the selfdestruct precompile.
 	///
 	/// Transfer all funds to `beneficiary`.
@@ -1671,10 +1671,10 @@ where
 			let mut info = Some(contract_info.clone());
 			self.storage_meter
 				.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
-			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered for destruction.");
+			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered for storage deletion.");
 			Ok(CodeRemoved::Yes)
 		} else {
-			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} NOT registered for destruction.");
+			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} NOT registered for storage deletion.");
 			Ok(CodeRemoved::No)
 		}
 	}
