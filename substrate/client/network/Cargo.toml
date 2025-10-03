@@ -80,12 +80,12 @@ zeroize = { workspace = true, default-features = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 multistream-select = { workspace = true }
-sc-block-builder = { default-features = true, path = "../block-builder" }
-sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
-sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-substrate-test-runtime = { path = "../../test-utils/runtime" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sc-block-builder = { default-features = true, workspace = true }
+sp-consensus = { default-features = true, workspace = true }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-runtime = { workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }

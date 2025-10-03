@@ -52,13 +52,13 @@ rstest = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # Substrate
-sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
-sp-keystore = { default-features = true, path = "../../../substrate/primitives/keystore" }
+sp-keyring = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }
 
 # Polkadot
-polkadot-test-client = { path = "../../../polkadot/node/test/client" }
+polkadot-test-client = { workspace = true }
 
 # Cumulus
-cumulus-primitives-core = { default-features = true, path = "../../primitives/core" }
-cumulus-relay-chain-inprocess-interface = { default-features = true, path = "../relay-chain-inprocess-interface" }
-cumulus-test-service = { path = "../../test/service" }
+cumulus-primitives-core = { default-features = true, workspace = true }
+cumulus-relay-chain-inprocess-interface = { default-features = true, workspace = true }
+cumulus-test-service = { workspace = true }

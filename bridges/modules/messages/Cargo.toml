@@ -25,12 +25,12 @@ sp-std.workspace = true
 sp-trie = { optional = true, workspace = true }
 
 [dev-dependencies]
-bp-runtime = { features = ["test-helpers"], path = "../../primitives/runtime", default-features = false }
-bp-test-utils = { path = "../../primitives/test-utils", default-features = false }
-pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
-pallet-bridge-grandpa = { path = "../grandpa", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+bp-runtime = { features = ["test-helpers"], workspace = true, default-features = false }
+bp-test-utils = { workspace = true, default-features = false }
+pallet-balances = { workspace = true, default-features = false }
+pallet-bridge-grandpa = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]

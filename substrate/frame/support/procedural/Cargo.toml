@@ -38,15 +38,15 @@ syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true, default-features = true }
-frame-benchmarking = { default-features = true, path = "../../benchmarking" }
-frame-support = { default-features = true, path = ".." }
-frame-system = { default-features = true, path = "../../system" }
+frame-benchmarking = { default-features = true, workspace = true }
+frame-support = { default-features = true, workspace = true }
+frame-system = { default-features = true, workspace = true }
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
-sp-io = { default-features = true, path = "../../../primitives/io" }
-sp-metadata-ir = { default-features = true, path = "../../../primitives/metadata-ir" }
-sp-runtime = { features = ["serde"], default-features = true, path = "../../../primitives/runtime" }
+sp-io = { default-features = true, workspace = true }
+sp-metadata-ir = { default-features = true, workspace = true }
+sp-runtime = { features = ["serde"], default-features = true, workspace = true }
 
 [features]
 default = ["std"]

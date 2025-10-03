@@ -38,7 +38,7 @@ tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-fe
 tokio-retry = { workspace = true }
 
 [dev-dependencies]
-sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 remote-test = []

@@ -111,8 +111,8 @@ tracing = { workspace = true, default-features = true }
 tracing-futures = { workspace = true }
 
 [dev-dependencies]
-substrate-test-runtime = { path = "../../test-utils/runtime" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+substrate-test-runtime = { workspace = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 default = ["rocksdb"]

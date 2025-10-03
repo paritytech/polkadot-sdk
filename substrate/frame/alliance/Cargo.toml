@@ -33,9 +33,9 @@ pallet-identity.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-collective = { default-features = true, path = "../collective" }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
+pallet-balances = { default-features = true, workspace = true }
+pallet-collective = { default-features = true, workspace = true }
+sp-crypto-hashing = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]

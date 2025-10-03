@@ -26,10 +26,10 @@ sp-keystore.default-features = true
 
 [dev-dependencies]
 futures-timer = { workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
-sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
-sp-runtime = { default-features = true, path = "../../../../substrate/primitives/runtime" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sc-keystore = { default-features = true, workspace = true }
+sp-application-crypto = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }

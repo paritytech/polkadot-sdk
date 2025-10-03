@@ -53,7 +53,7 @@ rustix = { features = ["fs", "mm", "param", "std", "use-libc"], workspace = true
 cargo_metadata = { workspace = true }
 codec = { workspace = true, default-features = true }
 paste = { workspace = true, default-features = true }
-sc-runtime-test = { path = "../runtime-test" }
-sp-io = { default-features = true, path = "../../../primitives/io" }
+sc-runtime-test = { workspace = true }
+sp-io = { default-features = true, workspace = true }
 tempfile = { workspace = true }
 wat = { workspace = true }

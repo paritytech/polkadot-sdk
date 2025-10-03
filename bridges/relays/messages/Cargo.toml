@@ -26,4 +26,4 @@ sp-arithmetic.workspace = true
 sp-arithmetic.default-features = true
 
 [dev-dependencies]
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
+sp-core = { workspace = true, default-features = false }

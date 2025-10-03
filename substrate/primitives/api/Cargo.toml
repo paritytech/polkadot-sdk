@@ -33,7 +33,7 @@ sp-version.workspace = true
 thiserror = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-test-primitives = { path = "../test-primitives" }
+sp-test-primitives = { workspace = true }
 
 [features]
 default = ["std"]

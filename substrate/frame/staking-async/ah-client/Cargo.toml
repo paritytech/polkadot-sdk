@@ -58,4 +58,4 @@ try-runtime = [
 ]
 
 [dev-dependencies]
-sp-io = { path = "../../../primitives/io", default-features = false }
+sp-io = { workspace = true, default-features = false }

@@ -40,5 +40,5 @@ tracing = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 quickcheck = { workspace = true }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }

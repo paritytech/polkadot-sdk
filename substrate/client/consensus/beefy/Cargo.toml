@@ -58,12 +58,12 @@ tokio = { workspace = true, default-features = true }
 wasm-timer = { workspace = true }
 
 [dev-dependencies]
-sc-block-builder = { default-features = true, path = "../../block-builder" }
-sc-network-test = { path = "../../network/test" }
+sc-block-builder = { default-features = true, workspace = true }
+sc-network-test = { workspace = true }
 serde = { workspace = true, default-features = true }
-sp-mmr-primitives = { default-features = true, path = "../../../primitives/merkle-mountain-range" }
-sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+sp-mmr-primitives = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 # This feature adds BLS crypto primitives. It should not be used in production since

@@ -82,8 +82,8 @@ thiserror = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 finality-grandpa = { features = ["derive-codec", "test-helpers"], workspace = true, default-features = true }
-sc-network-test = { path = "../../network/test" }
-sp-keyring = { default-features = true, path = "../../../primitives/keyring" }
-sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+sc-network-test = { workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }

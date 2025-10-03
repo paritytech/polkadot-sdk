@@ -26,7 +26,7 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-core = { path = "../../../primitives/core", default-features = false }
+sp-core = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]

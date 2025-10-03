@@ -65,7 +65,7 @@ sp-timestamp.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
-sc-basic-authorship = { default-features = true, path = "../../basic-authorship" }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
-substrate-test-runtime-transaction-pool = { path = "../../../test-utils/runtime/transaction-pool" }
+sc-basic-authorship = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
+substrate-test-runtime-transaction-pool = { workspace = true }
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }

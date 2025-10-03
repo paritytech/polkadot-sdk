@@ -36,4 +36,4 @@ sp-io.workspace = true
 sp-io.default-features = true
 
 [dev-dependencies]
-sp-runtime = { default-features = true, path = "../../primitives/runtime" }
+sp-runtime = { default-features = true, workspace = true }

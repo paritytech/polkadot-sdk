@@ -134,7 +134,7 @@ pallet-timestamp.workspace = true
 pallet-timestamp.default-features = true
 
 [dev-dependencies]
-cumulus-test-client = { path = "../client" }
+cumulus-test-client = { workspace = true }
 futures = { workspace = true }
 
 [features]
