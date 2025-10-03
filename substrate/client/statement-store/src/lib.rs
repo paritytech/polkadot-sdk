@@ -774,9 +774,9 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for hash in index.entries.keys() {
+		for hash in index.entries.keys().cloned() {
 			let encoded =
-				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?;
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?;
 			if let Some(encoded) = encoded {
 				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
 					result.push((hash, statement));
