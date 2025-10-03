@@ -164,7 +164,7 @@ where
 
 		let authorities =
 			fetch_authorities_from_runtime(&*self.client, hash, number, &CompatibilityMode::None)
-				.map_err(|e| format!("Could not fetch authorities "))?;
+				.map_err(|e| format!("Could not fetch authorities: {e:?}"))?;
 
 		self.authorities
 			.write()
