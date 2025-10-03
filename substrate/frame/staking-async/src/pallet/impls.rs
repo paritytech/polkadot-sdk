@@ -1343,12 +1343,20 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 	fn score(who: &T::AccountId) -> Option<Self::Score> {
 		Self::ledger(Stash(who.clone()))
-			.map(|l| l.active)
+			.ok()
+			.and_then(|l| {
+				if Nominators::<T>::contains_key(&l.stash) ||
+					Validators::<T>::contains_key(&l.stash)
+				{
+					Some(l.active)
+				} else {
+					None
+				}
+			})
 			.map(|a| {
 				let issuance = asset::total_issuance::<T>();
 				T::CurrencyToVote::to_vote(a, issuance)
 			})
-			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
