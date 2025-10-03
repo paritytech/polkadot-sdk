@@ -1325,6 +1325,30 @@ fn deposits_relay_parent_storage_root() {
 }
 
 #[test]
+fn stores_published_data_roots_from_relay_chain() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, _, sproof| {
+			let roots = vec![
+				(ParaId::from(1000), vec![1u8; 32]),
+				(ParaId::from(2000), vec![2u8; 32]),
+			];
+			sproof.published_data_roots = Some(roots);
+		})
+		.add_with_post_test(
+			123,
+			|| {},
+			|| {
+				let stored = PublishedDataRoots::<Test>::get();
+				assert_eq!(stored.len(), 2);
+				assert_eq!(stored[0].0, ParaId::from(1000));
+				assert_eq!(stored[0].1, vec![1u8; 32]);
+				assert_eq!(stored[1].0, ParaId::from(2000));
+				assert_eq!(stored[1].1, vec![2u8; 32]);
+			},
+		);
+}
+
+#[test]
 fn ump_fee_factor_increases_and_decreases() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, _, sproof| {
