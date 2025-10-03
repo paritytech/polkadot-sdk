@@ -127,7 +127,8 @@ fn build_client(
 
 		let receipt_extractor = ReceiptExtractor::new(
 			api.clone(),
-			earliest_receipt_block).await?;
+			earliest_receipt_block,
+		).await?;
 
 		let receipt_provider = ReceiptProvider::new(
 				pool,

@@ -33,7 +33,7 @@ jobs:
       WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         run: forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
 
@@ -50,7 +50,7 @@ jobs:
       SKIP_WASM_BUILD: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         id: test
         run: |
@@ -74,6 +74,6 @@ jobs:
       SKIP_WASM_BUILD: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: script
         run: forklift cargo check --all --benches --quiet

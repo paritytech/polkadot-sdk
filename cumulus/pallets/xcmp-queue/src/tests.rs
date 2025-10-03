@@ -81,6 +81,44 @@ fn generate_mock_xcm_page(
 }
 
 #[test]
+fn handling_signals_works() {
+	new_test_ext().execute_with(|| {
+		fn get_channel(recipient: ParaId) -> Option<OutboundChannelDetails> {
+			<OutboundXcmpStatus<Test>>::get()
+				.into_iter()
+				.find(|item| item.recipient == recipient)
+		}
+
+		// Suspend works;
+		let page = (XcmpMessageFormat::Signals, ChannelSignal::Suspend).encode();
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		let channel = get_channel(1000.into()).unwrap();
+		assert_eq!(channel.state, OutboundState::Suspended);
+
+		// Resume works
+		let page = (XcmpMessageFormat::Signals, ChannelSignal::Resume).encode();
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		let channel = get_channel(1000.into());
+		assert_eq!(channel, None);
+
+		// Only the first 3 signals are processed
+		let page = (
+			XcmpMessageFormat::Signals,
+			ChannelSignal::Suspend,
+			ChannelSignal::Resume,
+			ChannelSignal::Suspend,
+			ChannelSignal::Resume,
+			ChannelSignal::Resume,
+			ChannelSignal::Resume,
+		)
+			.encode();
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		let channel = get_channel(1000.into()).unwrap();
+		assert_eq!(channel.state, OutboundState::Suspended);
+	})
+}
+
+#[test]
 fn empty_concatenated_works() {
 	new_test_ext().execute_with(|| {
 		let page = generate_mock_xcm_page(0, 0, XcmEncoding::Simple);
