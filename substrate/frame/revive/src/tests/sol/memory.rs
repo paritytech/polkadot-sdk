@@ -21,15 +21,12 @@ use crate::{
 	tests::{builder, ExtBuilder, Test},
 	Code, Config, Error, ExecReturnValue, LOG_TARGET,
 };
-
-use alloy_core::{
-	primitives::U256,
-	sol_types::{SolCall, SolInterface},
-};
+use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Memory};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
+use test_case::test_case;
 
 #[test]
 fn memory_limit_works() {
@@ -42,113 +39,98 @@ fn memory_limit_works() {
 
 		let test_cases = [
 			(
-				// Writing 1 byte from 0 to the limit - 1 should work.
+				"Writing 1 byte from 0 to the limit - 1 should work.",
 				Memory::expandMemoryCall {
-					memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT - 1),
+					memorySize: (crate::limits::code::BASELINE_MEMORY_LIMIT - 1) as u64,
 				},
 				Ok(ExecReturnValue { data: vec![0u8; 32], flags: ReturnFlags::empty() }),
 			),
 			(
-				// Writing 1 byte from the limit should revert.
+				"Writing 1 byte from the limit should revert.",
 				Memory::expandMemoryCall {
-					memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
+					memorySize: crate::limits::code::BASELINE_MEMORY_LIMIT as u64,
 				},
-				Err(<Error<Test>>::OutOfGas.into()),
+				Err(Error::<Test>::OutOfGas.into()),
 			),
 		];
 
-		for (data, expected_result) in test_cases {
+		for (reason, data, expected_result) in test_cases {
 			let result = builder::bare_call(addr).data(data.abi_encode()).build().result;
-			assert_eq!(result, expected_result);
+			assert_eq!(result, expected_result, "{reason}");
 		}
 	});
 }
 
-#[test]
-fn memory_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn memory_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
-		ExtBuilder::default().build().execute_with(|| {
-			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(Memory::MemoryCalls::testMemory(Memory::testMemoryCall {}).abi_encode())
-				.build_and_unwrap_result();
-			if result.flags == ReturnFlags::REVERT {
-				if let Some(revert_msg) = decode_revert_reason(&result.data) {
-					log::error!(target: LOG_TARGET, "Revert message: {}", revert_msg);
-				} else {
-					log::error!(target: LOG_TARGET, "Revert without message, raw data: {:?}", result.data);
-				}
+		let result = builder::bare_call(addr)
+			.data(Memory::MemoryCalls::testMemory(Memory::testMemoryCall {}).abi_encode())
+			.build_and_unwrap_result();
+		if result.flags == ReturnFlags::REVERT {
+			if let Some(revert_msg) = decode_revert_reason(&result.data) {
+				log::error!(target: LOG_TARGET, "Revert message: {}", revert_msg);
+			} else {
+				log::error!(target: LOG_TARGET, "Revert without message, raw data: {:?}", result.data);
 			}
-			assert!(!result.did_revert(), "test reverted");
-		});
-	}
+		}
+		assert!(!result.did_revert(), "test reverted");
+	});
 }
 
-#[test]
-fn msize_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn msize_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
-		let offset = 512u64;
+	let offset = 512u64;
 
-		ExtBuilder::default().build().execute_with(|| {
-			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(
-					Memory::MemoryCalls::testMsize(Memory::testMsizeCall {
-						offset: U256::from(512),
-					})
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert!(!result.did_revert(), "test reverted");
-			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				U256::from(offset + 32),
-				"memory test should return {}",
-				offset + 32
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(Memory::MemoryCalls::testMsize(Memory::testMsizeCall { offset }).abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "test reverted");
+		let decoded = Memory::testMsizeCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(offset + 32, decoded, "memory test should return {}", offset + 32);
+	});
 }
 
-#[test]
-fn mcopy_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn mcopy_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
-		let expected_value = U256::from(0xBE);
+	let expected_value = 0xBE;
 
-		ExtBuilder::default().build().execute_with(|| {
-			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(
-					Memory::MemoryCalls::testMcopy(Memory::testMcopyCall {
-						dstOffset: U256::from(512),
-						offset: U256::from(0),
-						size: U256::from(32),
-						value: expected_value,
-					})
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert!(!result.did_revert(), "test reverted");
-			assert_eq!(
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				expected_value,
-				"memory test should return {expected_value}"
-			);
-		});
-	}
+		let result = builder::bare_call(addr)
+			.data(
+				Memory::MemoryCalls::testMcopy(Memory::testMcopyCall {
+					dstOffset: 512,
+					offset: 0,
+					size: 32,
+					value: expected_value,
+				})
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "test reverted");
+		let decoded = Memory::testMcopyCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(expected_value, decoded, "memory test should return {expected_value}");
+	});
 }
