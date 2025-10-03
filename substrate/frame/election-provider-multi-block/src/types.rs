@@ -452,4 +452,3 @@ mod pagify {
 		assert_eq!(solution.pad_solution_pages(3), vec![0, 2, 3]);
 	}
 }
-

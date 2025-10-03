@@ -860,8 +860,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
 	}
 
-	pub(crate) fn maybe_fetch_election_results(
-	) -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
+	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
 		let Ok((Some(required_weight))) = T::ElectionProvider::status() else {
 			// no election ongoing
 			return (Default::default(), Box::new(|| None))

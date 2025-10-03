@@ -54,7 +54,8 @@ pub fn roll_next() {
 	let next = now + 1;
 
 	System::set_block_number(next);
-	// Re-init frame-system, as execute would do. This resets the block weight usage counter, as we are using a realistic weight meter here.
+	// Re-init frame-system, as execute would do. This resets the block weight usage counter, as we
+	// are using a realistic weight meter here.
 	frame_system::BlockWeight::<T>::kill();
 
 	Staking::on_initialize(next);
