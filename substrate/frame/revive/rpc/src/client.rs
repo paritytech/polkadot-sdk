@@ -125,6 +125,9 @@ pub enum ClientError {
 	/// The transaction receipt was not found.
 	#[error("Transaction receipt not found")]
 	TransactReceiptNotFound,
+	/// Failed to check instant seal status.
+	#[error("Failed to check instant seal status")]
+	GetAutomineFailed,
 }
 
 const REVERT_CODE: i32 = 3;
@@ -748,9 +751,7 @@ impl Client {
 			},
 			Err(err) => {
 				log::error!(target: LOG_TARGET, "Get automine failed: {err:?}");
-				Err(ClientError::TransactError(EthTransactError::Message(
-					"Get automine failed".to_string(),
-				)))
+				Err(ClientError::GetAutomineFailed)
 			},
 		}
 	}
