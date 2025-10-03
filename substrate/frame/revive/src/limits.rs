@@ -59,7 +59,9 @@ pub const NUM_EMITTED_EVENTS: u32 = 512;
 pub const PAYLOAD_BYTES: u32 = 416;
 
 /// Maximum size of of the transaction payload
-pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = 1024 * 1024;
+///
+/// Maximum code size during instantiation taken into account plus some overhead.
+pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + 128 * 1024;
 
 /// The maximum size for calldata and return data.
 ///
