@@ -33,14 +33,14 @@ interface IXcm {
     /// @param message A SCALE-encoded Versioned XCM message.
     function execute(bytes calldata message) external;
 
-    /// @notice Executes an XCM message locally on the current chain with origin being the account that originated the transaction.
+    /// @notice Executes an XCM message locally on the current chain with the caller's origin, be it an externally-owned account or another smart contract.
     /// @dev Internally calls `pallet_xcm::execute`.
     /// @param message A SCALE-encoded Versioned XCM message.
     /// @param weight The maximum allowed `Weight` for execution.
     /// @dev Call @custom:function weighMessage(message) to ensure sufficient weight allocation.
     function executeAsAccount(bytes calldata message, Weight calldata weight) external;
 
-    /// @notice Executes an XCM message locally on the current chain with origin being the account that originated the transaction.
+    /// @notice Executes an XCM message locally on the current chain with the caller's origin, be it an externally-owned account or another smart contract.
     /// @dev Internally calls `pallet_xcm::execute`.
     /// @param message A SCALE-encoded Versioned XCM message.
     function executeAsAccount(bytes calldata message) external;
