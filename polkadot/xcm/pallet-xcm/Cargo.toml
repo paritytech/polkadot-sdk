@@ -1,6 +1,6 @@
 [package]
 name = "pallet-xcm"
-version = "7.0.0"
+version = "23.0.0"
 description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
@@ -14,34 +14,30 @@ workspace = true
 [dependencies]
 bounded-collections = { workspace = true }
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-tracing = { workspace = true }
-
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-revive = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-runtime-apis = { workspace = true }
-
-# marked optional, used in benchmarking
 frame-benchmarking = { optional = true, workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 hex-literal = { workspace = true, default-features = false }
 pallet-balances = { optional = true, workspace = true }
+pallet-revive.workspace = true
+scale-info = { features = ["derive"], workspace = true }
+serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+tracing = { workspace = true }
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-pallet-assets = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
-polkadot-runtime-parachains = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-xcm-simulator = { workspace = true, default-features = true }
+pallet-assets = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+polkadot-parachain-primitives = { default-features = true, workspace = true }
+polkadot-runtime-parachains = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+xcm-simulator = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
@@ -53,7 +49,6 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-revive/std",
-	"pallet-timestamp/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",
