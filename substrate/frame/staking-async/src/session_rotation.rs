@@ -861,7 +861,7 @@ impl<T: Config> EraElectionPlanner<T> {
 	}
 
 	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn() -> Option<Weight>>) {
-		let Ok((Some(required_weight))) = T::ElectionProvider::status() else {
+		let Ok(Some(required_weight)) = T::ElectionProvider::status() else {
 			// no election ongoing
 			return (Default::default(), Box::new(|| None))
 		};
