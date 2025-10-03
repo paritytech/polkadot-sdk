@@ -116,7 +116,7 @@ where
 			let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
 
 			runtime_api
-				.execute_block(parent_hash, block.clone())
+				.execute_block(parent_hash, block.clone().into())
 				.map_err(|e| Box::new(e) as Box<_>)?;
 
 			let storage_proof =

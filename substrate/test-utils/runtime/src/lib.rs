@@ -514,7 +514,7 @@ impl_runtime_apis! {
 			version()
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			log::trace!(target: LOG_TARGET, "execute_block: {block:#?}");
 			Executive::execute_block(block);
 		}
@@ -564,7 +564,7 @@ impl_runtime_apis! {
 			vec![]
 		}
 
-		fn check_inherents(_block: Block, _data: InherentData) -> CheckInherentsResult {
+		fn check_inherents(_block: <Block as BlockT>::LazyBlock, _data: InherentData) -> CheckInherentsResult {
 			CheckInherentsResult::new()
 		}
 	}
