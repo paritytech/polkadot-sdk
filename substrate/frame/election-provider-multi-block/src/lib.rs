@@ -531,8 +531,7 @@ pub mod pallet {
 		/// Duration of the singed validation phase.
 		///
 		/// The duration of this should not be less than `T::Pages`, and there is no point in it
-		/// being more than `SignedPhase::MaxSubmission::get() * T::Pages`. TODO: integrity test for
-		/// it.
+		/// being more than `SignedPhase::MaxSubmission::get() * T::Pages`.
 		#[pallet::constant]
 		type SignedValidationPhase: Get<BlockNumberFor<Self>>;
 
@@ -701,8 +700,6 @@ pub mod pallet {
 				}),
 			);
 
-			// TODO: we are not registering export weight anywhere.
-			// TODO: basic tests for all weight registeration.
 			log!(
 				trace,
 				"required weight for transition from {:?} to {:?} is {:?}",
@@ -1291,11 +1288,8 @@ impl<T: Config> Pallet<T> {
 				// exists.
 				if x.is_zero() && T::Signed::has_leader(Self::round()) {
 					let exec: ExecuteFn = Box::new(|| {
-						// defensive: signed phase has just began, verifier should be in a
-						// clear state and ready to accept a solution. Moreover, if we have
-						// a leader, their score should be present, and pass the
-						// `ensure_score_quality` (TODO: we actually don't check the minimum
-						// score in signed.).
+						// defensive: signed phase has just began, verifier should be in a clear
+						// state and ready to accept a solution.
 						let _ = T::Verifier::start().defensive();
 						None
 					});
@@ -1723,7 +1717,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			// we're not doing anything.
 			Phase::Off => Err(()),
 
-			// we're doing sth but not read.
+			// we're doing sth but not ready.
 			Phase::Signed(_) |
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |
