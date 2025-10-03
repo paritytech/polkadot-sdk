@@ -547,8 +547,8 @@ fn terminate<T: Config>(
 		AccountInfoOf::<T>::remove(contract_address);
 		ImmutableDataOf::<T>::remove(contract_address);
 		let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+		System::<T>::dec_consumers(&contract);
 	}
-	System::<T>::dec_consumers(&contract);
 	// Whatever is left in the contract is sent to the termination beneficiary.
 	T::Currency::transfer(
 		&contract,
