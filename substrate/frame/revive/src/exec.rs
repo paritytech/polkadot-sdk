@@ -1664,13 +1664,16 @@ where
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
 		// Only allow storage to be removed if the contract was created in the current tx.
-		if self.contracts_created.contains(&contract_account) {
-			// Create a nested storage meter and terminate the contract's storage.
-			let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
-			nested.terminate(contract_info, beneficiary_account.clone());
-			let mut info = Some(contract_info.clone());
-			self.storage_meter
-				.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
+		let delete_code = self.contracts_created.contains(&contract_account);
+
+		// Create a nested storage meter and terminate the contract's storage.
+		let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
+		nested.terminate(contract_info, beneficiary_account.clone(), delete_code);
+		let mut info = Some(contract_info.clone());
+		self.storage_meter
+			.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
+
+		if delete_code {
 			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered for storage deletion.");
 			Ok(CodeRemoved::Yes)
 		} else {

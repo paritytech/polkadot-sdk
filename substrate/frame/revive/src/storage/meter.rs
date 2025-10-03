@@ -205,7 +205,7 @@ impl Diff {
 #[derive(RuntimeDebugNoBound, Clone, PartialEq, Eq)]
 pub enum ContractState<T: Config> {
 	Alive,
-	Terminated { beneficiary: AccountIdOf<T> },
+	Terminated { beneficiary: AccountIdOf<T>, delete_code: bool },
 }
 
 /// Records information to charge or refund a plain account.
@@ -235,7 +235,7 @@ enum Contribution<T: Config> {
 	/// The contract was terminated. In this process the [`Diff`] was converted into a [`Deposit`]
 	/// in order to calculate the refund. Upon termination the `reducible_balance` in the
 	/// contract's account is transferred to the [`beneficiary`].
-	Terminated { deposit: DepositOf<T>, beneficiary: AccountIdOf<T> },
+	Terminated { deposit: DepositOf<T>, beneficiary: AccountIdOf<T>, delete_code: bool },
 }
 
 impl<T: Config> Contribution<T> {
@@ -243,8 +243,8 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) =>
-				deposit.clone(),
+			Self::Terminated { deposit, beneficiary: _, delete_code: _ } |
+			Self::Checked(deposit) => deposit.clone(),
 		}
 	}
 }
@@ -335,8 +335,11 @@ where
 	/// Returns the state of the currently executed contract.
 	fn contract_state(&self) -> ContractState<T> {
 		match &self.own_contribution {
-			Contribution::Terminated { deposit: _, beneficiary } =>
-				ContractState::Terminated { beneficiary: beneficiary.clone() },
+			Contribution::Terminated { deposit: _, beneficiary, delete_code } =>
+				ContractState::Terminated {
+					beneficiary: beneficiary.clone(),
+					delete_code: *delete_code,
+				},
 			_ => ContractState::Alive,
 		}
 	}
@@ -442,11 +445,17 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// This will manipulate the meter so that all storage deposit accumulated in
 	/// `contract_info` will be refunded to the `origin` of the meter. And the free
 	/// (`reducible_balance`) will be sent to the `beneficiary`.
-	pub fn terminate(&mut self, info: &ContractInfo<T>, beneficiary: T::AccountId) {
+	pub fn terminate(
+		&mut self,
+		info: &ContractInfo<T>,
+		beneficiary: T::AccountId,
+		delete_code: bool,
+	) {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
 		self.own_contribution = Contribution::Terminated {
 			deposit: Deposit::Refund(info.total_deposit()),
 			beneficiary,
+			delete_code,
 		};
 	}
 
@@ -517,8 +526,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				}
 			},
 		}
-		if let ContractState::<T>::Terminated { beneficiary } = state {
-			terminate::<T>(contract, &beneficiary)?;
+		if let ContractState::<T>::Terminated { beneficiary, delete_code } = state {
+			terminate::<T>(contract, &beneficiary, delete_code)?;
 		}
 		Ok(())
 	}
@@ -527,16 +536,18 @@ impl<T: Config> Ext<T> for ReservingExt {
 fn terminate<T: Config>(
 	contract: &T::AccountId,
 	beneficiary: &T::AccountId,
+	delete_code: &bool,
 ) -> Result<(), DispatchError> {
-	// Clean up on-chain storage
-	let contract_address = T::AddressMapper::to_address(contract);
-	let contract_info =
-		AccountInfo::<T>::load_contract(&contract_address).ok_or(Error::<T>::ContractNotFound)?;
-	contract_info.queue_trie_for_deletion();
-	AccountInfoOf::<T>::remove(contract_address);
-	ImmutableDataOf::<T>::remove(contract_address);
-	let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-
+	if *delete_code {
+		// Clean up on-chain storage
+		let contract_address = T::AddressMapper::to_address(contract);
+		let contract_info = AccountInfo::<T>::load_contract(&contract_address)
+			.ok_or(Error::<T>::ContractNotFound)?;
+		contract_info.queue_trie_for_deletion();
+		AccountInfoOf::<T>::remove(contract_address);
+		ImmutableDataOf::<T>::remove(contract_address);
+		let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+	}
 	System::<T>::dec_consumers(&contract);
 	// Whatever is left in the contract is sent to the termination beneficiary.
 	T::Currency::transfer(
@@ -814,7 +825,10 @@ mod tests {
 							origin: ALICE,
 							contract: CHARLIE,
 							amount: Deposit::Refund(120),
-							state: ContractState::Terminated { beneficiary: CHARLIE },
+							state: ContractState::Terminated {
+								beneficiary: CHARLIE,
+								delete_code: true,
+							},
 						},
 						Charge {
 							origin: ALICE,
@@ -857,7 +871,7 @@ mod tests {
 			let mut nested1 = nested0.nested(BalanceOf::<Test>::max_value());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
-			nested1.terminate(&nested1_info, CHARLIE);
+			nested1.terminate(&nested1_info, CHARLIE, true);
 			nested0.enforce_limit(Some(&mut nested1_info)).unwrap();
 			nested0.absorb(nested1, &CHARLIE, None);
 
