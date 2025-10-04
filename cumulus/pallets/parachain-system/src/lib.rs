@@ -1392,7 +1392,8 @@ impl<T: Config> Pallet<T> {
 				}
 
 				// Clear existing data for this publisher
-				let _ = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
+				let result = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
+				debug_assert!(result.maybe_cursor.is_none());
 
 				// Store new data for this publisher
 				for (key, value) in data_entries {
