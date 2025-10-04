@@ -39,6 +39,7 @@ use cumulus_client_consensus_aura::collators::slot_based::{
 	self as slot_based, Params as SlotBasedParams,
 };
 use cumulus_client_consensus_aura::{
+	collator::collator_protocol_helper,
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
 		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
@@ -48,7 +49,7 @@ use cumulus_client_consensus_aura::{
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
-use cumulus_client_service::{collator_protocol_helper, CollatorSybilResistance};
+use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::prelude::*;

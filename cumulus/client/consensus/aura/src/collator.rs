@@ -433,3 +433,95 @@ where
 
 	Ok(block_import_params)
 }
+
+/// Task for triggering backing group connections early.
+///
+/// This helper monitors block imports and proactively connects to backing groups
+/// when the collator's slot is approaching, improving network connectivity for
+/// slot-based collation.
+pub async fn collator_protocol_helper<Block, Client, P>(
+	client: std::sync::Arc<Client>,
+	keystore: sp_keystore::KeystorePtr,
+	mut overseer_handle: cumulus_relay_chain_interface::OverseerHandle,
+) where
+	Block: sp_runtime::traits::Block,
+	Client: sc_client_api::HeaderBackend<Block>
+		+ Send
+		+ Sync
+		+ sc_client_api::BlockBackend<Block>
+		+ sc_client_api::BlockchainEvents<Block>
+		+ ProvideRuntimeApi<Block>
+		+ 'static,
+	Client::Api: AuraApi<Block, P::Public>,
+	P: sp_core::Pair + Send + Sync,
+	P::Public: Codec,
+{
+	use polkadot_node_subsystem::messages::CollatorProtocolMessage;
+	use sc_consensus_aura::CompatibleDigestItem;
+	use sp_runtime::DigestItem;
+
+	let mut import_notifications = client.import_notification_stream().fuse();
+
+	tracing::debug!(target: crate::LOG_TARGET, "Started collator protocol helper");
+
+	// Our own slot number, known in advance.
+	let mut our_slot = None;
+
+	while let Some(notification) = import_notifications.next().await {
+		// Determine if this node is the next author
+		let digest = notification.header.digest();
+		let slot = digest
+			.logs()
+			.iter()
+			.find_map(|log| <DigestItem as CompatibleDigestItem<Slot>>::as_aura_pre_digest(log));
+
+		tracing::debug!(target: crate::LOG_TARGET, "Imported block with slot: {:?}", slot);
+
+		let Some(slot) = slot else {
+			continue;
+		};
+
+		let authorities =
+			client.runtime_api().authorities(notification.header.hash()).unwrap_or_default();
+
+		// Check if our slot has passed and we are not expected to author again in next slot.
+		match (
+			our_slot,
+			aura_internal::claim_slot::<P>(slot + 1, &authorities, &keystore)
+				.await
+				.is_none(),
+		) {
+			(Some(last_slot), true) if slot > last_slot => {
+				tracing::debug!(target: crate::LOG_TARGET, "Our slot {} has passed, current slot is {}, sending disconnect message", last_slot, slot);
+
+				// Send a message to the collator protocol to stop pre-connecting to backing
+				// groups
+				overseer_handle
+					.send_msg(
+						CollatorProtocolMessage::DisconnectFromBackingGroups,
+						"CollatorProtocolHelper",
+					)
+					.await;
+
+				our_slot = None;
+			},
+			_ => {},
+		}
+
+		// Check if our slot is coming up next. This means that there is still another slot
+		// before our turn.
+		let target_slot = slot + 2;
+		if aura_internal::claim_slot::<P>(target_slot, &authorities, &keystore)
+			.await
+			.is_some()
+		{
+			tracing::debug!(target: crate::LOG_TARGET, "Our slot {} comes next, sending preconnect message ", target_slot );
+			// Send a message to the collator protocol to pre-connect to backing groups
+			overseer_handle
+				.send_msg(CollatorProtocolMessage::ConnectToBackingGroups, "CollatorProtocolHelper")
+				.await;
+
+			our_slot = Some(target_slot);
+		}
+	}
+}
