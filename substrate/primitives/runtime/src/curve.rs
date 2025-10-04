@@ -169,8 +169,7 @@ impl SteppedCurve {
 		let num_periods = (effective_point - self.start)
 			.checked_div(&self.period)
 			.unwrap_or(FixedU128::max_value());
-		let num_periods_u32 =
-			(num_periods.into_inner() / FixedU128::DIV).saturated_into::<u32>();
+		let num_periods_u32 = (num_periods.into_inner() / FixedU128::DIV).saturated_into::<u32>();
 		let num_periods_floor = FixedU128::saturating_from_integer(num_periods_u32);
 
 		// No periods have passed.
