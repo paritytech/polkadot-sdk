@@ -567,6 +567,7 @@ fn v1_protocol_rejected() {
 		ReputationAggregator::new(|_| true),
 		|mut test_harness| async move {
 			let virtual_overseer = &mut test_harness.virtual_overseer;
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
 
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
@@ -622,6 +623,9 @@ fn advertise_and_send_collation() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v2_cfg = test_harness.req_v2_cfg;
+
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
 
 			overseer_send(
 				&mut virtual_overseer,
@@ -823,6 +827,9 @@ fn delay_reputation_change() {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v2_cfg = test_harness.req_v2_cfg;
 
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
+
 			overseer_send(
 				&mut virtual_overseer,
 				CollatorProtocolMessage::CollateOn(test_state.para_id),
@@ -978,6 +985,12 @@ fn collators_declare_to_connected_peers() {
 
 			overseer_send(
 				&mut test_harness.virtual_overseer,
+				CollatorProtocolMessage::ConnectToBackingGroups,
+			)
+			.await;
+
+			overseer_send(
+				&mut test_harness.virtual_overseer,
 				CollatorProtocolMessage::CollateOn(test_state.para_id),
 			)
 			.await;
@@ -1023,6 +1036,8 @@ fn collations_are_only_advertised_to_validators_with_correct_view() {
 
 			let peer2 = test_state.current_group_validator_peer_ids()[1];
 			let validator_id2 = test_state.current_group_validator_authority_ids()[1].clone();
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
 
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
@@ -1098,6 +1113,8 @@ fn collate_on_two_different_relay_chain_blocks() {
 
 			let peer2 = test_state.current_group_validator_peer_ids()[1];
 			let validator_id2 = test_state.current_group_validator_authority_ids()[1].clone();
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
 
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
@@ -1189,6 +1206,8 @@ fn validator_reconnect_does_not_advertise_a_second_time() {
 			let peer = test_state.current_group_validator_peer_ids()[0];
 			let validator_id = test_state.current_group_validator_authority_ids()[0].clone();
 
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
+
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
 
@@ -1252,6 +1271,8 @@ fn collators_reject_declare_messages() {
 
 			let peer = test_state.current_group_validator_peer_ids()[0];
 			let validator_id = test_state.current_group_validator_authority_ids()[0].clone();
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
 
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
@@ -1319,6 +1340,8 @@ where
 		|mut test_harness| async move {
 			let virtual_overseer = &mut test_harness.virtual_overseer;
 			let req_cfg = &mut test_harness.req_v2_cfg;
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
 
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
@@ -1471,6 +1494,9 @@ fn connect_to_group_in_view() {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_cfg = test_harness.req_v2_cfg;
 
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
+
 			overseer_send(
 				&mut virtual_overseer,
 				CollatorProtocolMessage::CollateOn(test_state.para_id),
@@ -1601,6 +1627,9 @@ fn connect_with_no_cores_assigned() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let req_cfg = test_harness.req_v2_cfg;
+
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
 
 			overseer_send(
 				&mut virtual_overseer,
