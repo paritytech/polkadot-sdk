@@ -1,0 +1,19 @@
+title: '[WIP] Cumulus: pre-connect to backers before own slot'
+doc:
+- audience: Todo
+  description: |-
+    On top of https://github.com/paritytech/polkadot-sdk/pull/9178. Implements a mechanism to pre-connect to backers, see https://github.com/paritytech/polkadot-sdk/issues/9767#issuecomment-3306292493
+
+    TODO:
+    - [ ] improve logic to handle 24s slots, we'd want to start connecting later than the begging of the prev author slot.
+crates:
+- name: cumulus-client-service
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-collator-protocol
+  bump: major
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: major
