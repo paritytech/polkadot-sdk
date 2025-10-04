@@ -1352,6 +1352,11 @@ impl<T: Config> Pallet<T> {
 		published_data: &BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
 		current_roots: &Vec<(ParaId, Vec<u8>)>,
 	) {
+		
+		if current_roots.is_empty() && published_data.is_empty() {
+			return;
+		}
+
 		let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
 		// Create maps for easier lookup
