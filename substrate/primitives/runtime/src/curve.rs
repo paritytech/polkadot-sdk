@@ -493,7 +493,7 @@ fn stepped_curve_works() {
 		Step::RemainingPct { target: uf(1000), pct: Perbill::from_percent(10) },
 		uf(2),
 	);
-	let final_value = asymptotic_increasing.evaluate(uf(u32::MAX));
+	let final_value = asymptote_converges.evaluate(uf(u32::MAX));
 	assert!(final_value == uf(1000));
 
 	// Cumulative step sizes sum correctly.
