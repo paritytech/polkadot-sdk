@@ -13,4 +13,3 @@ chain = "local"
   [[relaychain.nodes]]
   name = "bob"
   validator = true
-  args = ["--make-it-fail"]

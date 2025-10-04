@@ -19,32 +19,15 @@ JQ_QUERY_PARA_NODES_SDK='.parachains[$pid][] .collators[].name'
 # current time in milliseconds + 60 secs to allow loki to ingest logs
 TO=$(($(date +%s%3N) + 60000))
 
-# Process all zombie-* directories (supports rstest with multiple tests per job)
-BASE_DIRS=$(ls -dt /tmp/zombie-* 2>/dev/null || true)
-
-if [[ -z "$BASE_DIRS" ]]; then
-  echo "No zombie directories found in /tmp/zombie-*"
-  exit 0
-fi
-
-for BASE_DIR in $BASE_DIRS; do
-  echo "Processing directory: $BASE_DIR"
-  
-  # Make sure target directory exists
-  TARGET_DIR="$BASE_DIR/logs"
-  mkdir -p "$TARGET_DIR"
-  ZOMBIE_JSON="$BASE_DIR/zombie.json"
-
-  if [[ ! -f "$ZOMBIE_JSON" ]]; then
-    echo "Zombie file $ZOMBIE_JSON not present, calling fallback"
-    process_logs_from_fallback "$BASE_DIR" "$TARGET_DIR"
-  else
-    # we have a zombie.json file, let process it
-    echo "Processing logs from zombie.json"
-    process_logs_from_zombie_file "$BASE_DIR" "$TARGET_DIR" "$ZOMBIE_JSON"
-  fi
-  echo ""
-done
+make_url() {
+  local name="$1"
+  local to="$2"
+  local url="${LOKI_URL_FOR_NODE//\{\{namespace\}\}/$NS}"
+  url="${url//\{\{podName\}\}/$name}"
+  url="${url//\{\{from\}\}/$FROM}"
+  url="${url//\{\{to\}\}/$to}"
+  echo "$url"
+}
 
 # Since we don't have the zombie.json file, we will make the best-effort to send the logs
 process_logs_from_fallback() {
@@ -199,15 +182,32 @@ process_logs_from_zombie_file() {
   done
 }
 
-make_url() {
-  local name="$1"
-  local to="$2"
-  local url="${LOKI_URL_FOR_NODE//\{\{namespace\}\}/$NS}"
-  url="${url//\{\{podName\}\}/$name}"
-  url="${url//\{\{from\}\}/$FROM}"
-  url="${url//\{\{to\}\}/$to}"
-  echo "$url"
-}
+# Main execution - Process all zombie-* directories (supports rstest with multiple tests per job)
+BASE_DIRS=$(ls -dt /tmp/zombie-* 2>/dev/null || true)
+
+if [[ -z "$BASE_DIRS" ]]; then
+  echo "No zombie directories found in /tmp/zombie-*"
+  exit 0
+fi
+
+for BASE_DIR in $BASE_DIRS; do
+  echo "Processing directory: $BASE_DIR"
+  
+  # Make sure target directory exists
+  TARGET_DIR="$BASE_DIR/logs"
+  mkdir -p "$TARGET_DIR"
+  ZOMBIE_JSON="$BASE_DIR/zombie.json"
+
+  if [[ ! -f "$ZOMBIE_JSON" ]]; then
+    echo "Zombie file $ZOMBIE_JSON not present, calling fallback"
+    process_logs_from_fallback "$BASE_DIR" "$TARGET_DIR"
+  else
+    # we have a zombie.json file, let process it
+    echo "Processing logs from zombie.json"
+    process_logs_from_zombie_file "$BASE_DIR" "$TARGET_DIR" "$ZOMBIE_JSON"
+  fi
+  echo ""
+done
 
 # sleep for a minute to give alloy time to forward logs
 sleep 60
