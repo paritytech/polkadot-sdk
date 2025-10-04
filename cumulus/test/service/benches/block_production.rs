@@ -95,27 +95,27 @@ fn benchmark_block_production(c: &mut Criterion) {
 		},
 	);
 
-	group.bench_function(
-		format!("(proof = false, transfers = {}) block production", max_transfer_count),
-		|b| {
-			b.iter_batched(
-				|| extrinsics.clone(),
-				|extrinsics| {
-					let mut block_builder = BlockBuilderBuilder::new(&*client)
-						.on_parent_block(chain.best_hash)
-						.with_parent_block_number(chain.best_number)
-						.build()
-						.unwrap();
-
-					for extrinsic in extrinsics {
-						block_builder.push(extrinsic).unwrap();
-					}
-					block_builder.build().unwrap()
-				},
-				BatchSize::SmallInput,
-			)
-		},
-	);
+	// group.bench_function(
+	// 	format!("(proof = false, transfers = {}) block production", max_transfer_count),
+	// 	|b| {
+	// 		b.iter_batched(
+	// 			|| extrinsics.clone(),
+	// 			|extrinsics| {
+	// 				let mut block_builder = BlockBuilderBuilder::new(&*client)
+	// 					.on_parent_block(chain.best_hash)
+	// 					.with_parent_block_number(chain.best_number)
+	// 					.build()
+	// 					.unwrap();
+	//
+	// 				for extrinsic in extrinsics {
+	// 					block_builder.push(extrinsic).unwrap();
+	// 				}
+	// 				block_builder.build().unwrap()
+	// 			},
+	// 			BatchSize::SmallInput,
+	// 		)
+	// 	},
+	// );
 }
 
 criterion_group!(benches, benchmark_block_production);

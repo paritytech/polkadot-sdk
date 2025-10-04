@@ -25,7 +25,7 @@ use codec::{Compact, CompactLen};
 #[cfg(feature = "std")]
 use std::collections::HashSet as Set;
 
-use crate::{ext::StorageAppend, warn};
+use crate::{ext::StorageAppend, overlayed_changes::xxx, warn};
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	vec::Vec,
@@ -134,6 +134,14 @@ impl StorageEntry {
 		}
 	}
 
+	/// todo.... -> think abou this?
+	fn as_option_xxx(&self) -> Option<&StorageValue> {
+		match self {
+			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
+			StorageEntry::Remove => None,
+		}
+	}
+
 	/// Return as an [`Option<StorageValue>`].
 	fn as_option(&mut self) -> Option<&StorageValue> {
 		self.materialize_in_place();
@@ -197,6 +205,10 @@ pub struct OverlayedMap<K, V> {
 	num_client_transactions: usize,
 	/// Determines whether the node is using the overlay from the client or the runtime.
 	execution_mode: ExecutionMode,
+
+	/// Stores which keys are dirty since recent storage_root snapshot. Needed in order to
+	/// determine which values shall be used for merkelization when new storage_root is called.
+	storage_root_dirty_keys: xxx::Changeset<K>,
 }
 
 impl<K, V> Default for OverlayedMap<K, V> {
@@ -206,6 +218,7 @@ impl<K, V> Default for OverlayedMap<K, V> {
 			dirty_keys: SmallVec::new(),
 			num_client_transactions: Default::default(),
 			execution_mode: Default::default(),
+			storage_root_dirty_keys: Default::default(),
 		}
 	}
 }
@@ -231,6 +244,7 @@ impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntr
 			dirty_keys: Default::default(),
 			num_client_transactions: 0,
 			execution_mode: ExecutionMode::Client,
+			storage_root_dirty_keys: Default::default(),
 		}
 	}
 }
@@ -513,15 +527,19 @@ impl OverlayedEntry<StorageEntry> {
 	}
 }
 
-/// Inserts a key into the dirty set.
-///
-/// Returns true iff we are currently have at least one open transaction and if this
-/// is the first write to the given key that transaction.
-fn insert_dirty<K: Ord + Hash>(set: &mut DirtyKeysSets<K>, key: K) -> bool {
-	set.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
+impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
+	/// Inserts a key into the dirty set.
+	///
+	/// Returns true if we are currently have at least one open transaction and if this
+	/// is the first write to the given key that transaction.
+	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
+		self.storage_root_dirty_keys
+			.add_key(key.clone(), if deleted { xxx::KeyOp::Deleted } else { xxx::KeyOp::Updated });
+		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
+	}
 }
 
-impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
+impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// Create a new changeset at the same transaction state but without any contents.
 	///
 	/// This changeset might be created when there are already open transactions.
@@ -533,6 +551,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 			dirty_keys: repeat(Set::new()).take(self.transaction_depth()).collect(),
 			num_client_transactions: self.num_client_transactions,
 			execution_mode: self.execution_mode,
+			storage_root_dirty_keys: Default::default(),
 		}
 	}
 
@@ -554,8 +573,9 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	///
 	/// Can be rolled back or committed when called inside a transaction.
 	pub fn set_offchain(&mut self, key: K, value: V, at_extrinsic: Option<u32>) {
-		let overlayed = self.changes.entry(key.clone()).or_default();
-		overlayed.set_offchain(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
+		let first_write_in_tx = self.insert_dirty(key.clone(), false);
+		let overlayed = self.changes.entry(key).or_default();
+		overlayed.set_offchain(value, first_write_in_tx, at_extrinsic);
 	}
 
 	/// Get a list of all changes as seen by current transaction.
@@ -634,6 +654,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	/// Changes made without any open transaction are committed immediately.
 	pub fn start_transaction(&mut self) {
 		self.dirty_keys.push(Default::default());
+		self.storage_root_dirty_keys.start_transaction();
 	}
 
 	/// Rollback the last transaction started by `start_transaction`.
@@ -704,9 +725,33 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	fn has_open_runtime_transactions(&self) -> bool {
 		self.transaction_depth() > self.num_client_transactions
 	}
+
+	pub fn storage_root_snaphost_delta_keys2(&mut self) -> xxx::DeltaKeys<K> {
+		self.storage_root_dirty_keys.create_snapshot_and_get_delta2()
+	}
 }
 
 impl OverlayedChangeSet {
+	pub fn changes_mut2(
+		&mut self,
+		keys: &xxx::DeltaKeys<StorageKey>,
+	) -> Vec<(&StorageKey, Option<&StorageValue>)> {
+		for key in keys {
+			if let Some(entry) = self.changes.get_mut(key.1) {
+				// materialize...
+				let _trigger = entry.value();
+			}
+		}
+
+		keys.iter()
+			.filter_map(|key| {
+				self.changes
+					.get_key_value(key.1)
+					.and_then(|(map_key, entry)| Some((map_key, entry.value_ref().as_option_xxx())))
+			})
+			.collect()
+	}
+
 	/// Rollback the last transaction started by `start_transaction`.
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if
@@ -741,6 +786,7 @@ impl OverlayedChangeSet {
 			);
 
 			if rollback {
+				self.storage_root_dirty_keys.rollback_transaction();
 				match overlayed.pop_transaction().value {
 					StorageEntry::Append {
 						data,
@@ -765,6 +811,7 @@ impl OverlayedChangeSet {
 					self.changes.remove(&key);
 				}
 			} else {
+				self.storage_root_dirty_keys.commit_transaction();
 				let has_predecessor = if let Some(dirty_keys) = self.dirty_keys.last_mut() {
 					// Not the last tx: Did the previous tx write to this key?
 					!dirty_keys.insert(key)
@@ -862,8 +909,9 @@ impl OverlayedChangeSet {
 	///
 	/// Can be rolled back or committed when called inside a transaction.
 	pub fn set(&mut self, key: StorageKey, value: Option<StorageValue>, at_extrinsic: Option<u32>) {
-		let overlayed = self.changes.entry(key.clone()).or_default();
-		overlayed.set(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
+		let first_write_in_tx = self.insert_dirty(key.clone(), value.is_none());
+		let overlayed = self.changes.entry(key).or_default();
+		overlayed.set(value, first_write_in_tx, at_extrinsic);
 	}
 
 	/// Append bytes to an existing content.
@@ -874,8 +922,8 @@ impl OverlayedChangeSet {
 		init: impl Fn() -> StorageValue,
 		at_extrinsic: Option<u32>,
 	) {
-		let overlayed = self.changes.entry(key.clone()).or_default();
-		let first_write_in_tx = insert_dirty(&mut self.dirty_keys, key);
+		let first_write_in_tx = self.insert_dirty(key.clone(), false);
+		let overlayed = self.changes.entry(key).or_default();
 		overlayed.append(value, first_write_in_tx, init, at_extrinsic);
 	}
 
@@ -888,11 +936,19 @@ impl OverlayedChangeSet {
 		at_extrinsic: Option<u32>,
 	) -> u32 {
 		let mut count = 0;
-		for (key, val) in self.changes.iter_mut().filter(|(k, v)| predicate(k, v)) {
-			if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
-				count += 1;
-			}
-			val.set(None, insert_dirty(&mut self.dirty_keys, key.clone()), at_extrinsic);
+		let keys = self
+			.changes
+			.iter()
+			.filter_map(|(k, v)| predicate(k, v).then(|| k.clone()))
+			.collect::<Vec<_>>();
+		for key in keys {
+			let first_write_in_tx = { self.insert_dirty(key.clone(), true) };
+			self.changes.get_mut(&key).map(|val| {
+				if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
+					count += 1;
+				}
+				val.set(None, first_write_in_tx, at_extrinsic);
+			});
 		}
 		count
 	}

@@ -12,15 +12,15 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+sp-core = { workspace = true, default-features = false }
 sp-externalities = { workspace = true }
 sp-runtime-interface = { workspace = true }
 sp-trie = { workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = ["sp-externalities/std", "sp-runtime-interface/std", "sp-trie/std"]
+std = ["sp-core/std", "sp-externalities/std", "sp-runtime-interface/std", "sp-trie/std"]

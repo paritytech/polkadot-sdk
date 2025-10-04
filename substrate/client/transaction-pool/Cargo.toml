@@ -24,7 +24,7 @@ async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-indexmap = { workspace = true }
+indexmap = { workspace = true, default-features = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 parking_lot = { workspace = true, default-features = true }

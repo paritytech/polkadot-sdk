@@ -1,3 +1,8 @@
+log--*
+old-logs/**
+perf.*
+*.svg
+*.rs--
 !polkadot.service
 .cargo-remote.toml
 .direnv/

@@ -837,10 +837,19 @@ pub fn node_config(
 	let root = base_path.path().join(format!("cumulus_test_service_{}", key));
 	let role = if is_collator { Role::Authority } else { Role::Full };
 	let key_seed = key.to_seed();
+
+	let wasm_content = if let Ok(wasm_path) = std::env::var("WASM_PATH") {
+		std::fs::read(wasm_path).expect("Failed to read the file specified by WASM_PATH")
+	} else {
+		cumulus_test_runtime::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the benchmark!")
+			.to_vec()
+	};
+
 	let mut spec = Box::new(chain_spec::get_chain_spec_with_extra_endowed(
 		Some(para_id),
 		endowed_accounts,
-		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		&wasm_content,
 		None,
 	));
 
