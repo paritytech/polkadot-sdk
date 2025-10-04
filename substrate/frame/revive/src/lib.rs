@@ -1645,8 +1645,12 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		let account_id = T::AddressMapper::to_account_id(&address);
 		T::Currency::set_balance(&account_id, balance);
-		AccountInfoOf::<T>::mutate(address, |account| {
-			account.as_mut().map(|a| a.dust = dust);
+		AccountInfoOf::<T>::mutate(&address, |account| {
+			if let Some(account) = account {
+				account.dust = dust;
+			} else {
+				*account = Some(AccountInfo { dust, ..Default::default() });
+			}
 		});
 
 		Ok(())
