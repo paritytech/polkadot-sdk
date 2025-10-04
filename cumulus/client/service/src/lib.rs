@@ -60,16 +60,6 @@ use std::{
 };
 
 use polkadot_overseer::Handle as OverseerHandle;
-use sc_consensus_aura::AuraApi;
-use sp_consensus_aura::Slot;
-
-use sp_core::Pair;
-use sp_keystore::KeystorePtr;
-use sp_runtime::DigestItem;
-
-use codec::Codec;
-use polkadot_node_subsystem::messages::CollatorProtocolMessage;
-use sc_consensus_aura::{standalone::claim_slot, CompatibleDigestItem};
 
 /// Host functions that should be used in parachain nodes.
 ///
@@ -85,7 +75,6 @@ pub type ParachainHostFunctions = (
 // In practice here we expect no more than one queued messages.
 const RECOVERY_CHAN_SIZE: usize = 8;
 const LOG_TARGET_SYNC: &str = "sync::cumulus";
-const LOG_TARGET_COLLATOR_HELPER: &str = "aura::collator-helper";
 
 /// A hint about how long the node should wait before attempting to recover missing block data
 /// from the data availability layer.
@@ -469,81 +458,6 @@ where
 	}
 
 	Err("Stopping following imported blocks. Could not determine parachain target block".into())
-}
-
-/// Task for triggering backing group connections early.
-pub async fn collator_protocol_helper<Block: BlockT, Client, P>(
-	client: Arc<Client>,
-	keystore: KeystorePtr,
-	mut overseer_handle: OverseerHandle,
-) where
-	Client: HeaderBackend<Block>
-		+ Send
-		+ Sync
-		+ BlockBackend<Block>
-		+ BlockchainEvents<Block>
-		+ ProvideRuntimeApi<Block>
-		+ 'static,
-	Client::Api: AuraApi<Block, P::Public>,
-	P: Pair + Send + Sync,
-	P::Public: Codec,
-{
-	let mut import_notifications = client.import_notification_stream().fuse();
-
-	log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Started collator protocol helper");
-
-	// Our own slot number, known in advance.
-	let mut our_slot = None;
-
-	while let Some(notification) = import_notifications.next().await {
-		// Determine if this node is the next author
-		let digest = notification.header.digest();
-		let slot = digest
-			.logs()
-			.iter()
-			.find_map(|log| <DigestItem as CompatibleDigestItem<Slot>>::as_aura_pre_digest(log));
-
-		log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Imported block with slot: {:?}", slot);
-
-		let Some(slot) = slot else {
-			continue;
-		};
-
-		let authorities =
-			client.runtime_api().authorities(notification.header.hash()).unwrap_or_default();
-
-		// Check if our slot has passed and we are not expected to author again in next slot.
-		match (our_slot, claim_slot::<P>(slot + 1, &authorities, &keystore).await.is_none()) {
-			(Some(last_slot), true) if slot > last_slot => {
-				log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Our slot {} has passed, current slot is {}, sending disconnect message", last_slot, slot);
-
-				// Send a message to the collator protocol to stop pre-connecting to backing
-				// groups
-				overseer_handle
-					.send_msg(
-						CollatorProtocolMessage::DisconnectFromBackingGroups,
-						"CollatorProtocolHelper",
-					)
-					.await;
-
-				our_slot = None;
-			},
-			_ => {},
-		}
-
-		// Check if our slot is coming up next. This means that there is still another slot
-		// before our turn.
-		let target_slot = slot + 2;
-		if claim_slot::<P>(target_slot, &authorities, &keystore).await.is_some() {
-			log::debug!(target: LOG_TARGET_COLLATOR_HELPER, "Our slot {} comes next, sending preconnect message ", target_slot );
-			// Send a message to the collator protocol to pre-connect to backing groups
-			overseer_handle
-				.send_msg(CollatorProtocolMessage::ConnectToBackingGroups, "CollatorProtocolHelper")
-				.await;
-
-			our_slot = Some(target_slot);
-		}
-	}
 }
 
 /// Task for logging candidate events and some related metrics.
