@@ -437,8 +437,7 @@ where
 /// Task for triggering backing group connections early.
 ///
 /// This helper monitors block imports and proactively connects to backing groups
-/// when the collator's slot is approaching, improving network connectivity for
-/// slot-based collation.
+/// when the collator's slot is approaching, improving network connectivity.
 pub async fn collator_protocol_helper<Block, Client, P>(
 	client: std::sync::Arc<Client>,
 	keystore: sp_keystore::KeystorePtr,
