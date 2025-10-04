@@ -59,8 +59,6 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use polkadot_overseer::Handle as OverseerHandle;
-
 /// Host functions that should be used in parachain nodes.
 ///
 /// Contains the standard substrate host functions, as well as a
