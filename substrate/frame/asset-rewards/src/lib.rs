@@ -85,12 +85,12 @@ pub use pallet::*;
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	rewards::RewardsPool,
 	traits::{
 		fungibles::{Inspect, Mutate},
 		schedule::DispatchTime,
 		tokens::Balance,
 		Consideration,
+		RewardsPool,
 	},
 	PalletId,
 };
@@ -182,11 +182,10 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		rewards::RewardsPool,
 		traits::{
 			fungibles::MutateFreeze,
 			tokens::{AssetId, Fortitude, Preservation},
-			Consideration, Footprint,
+			Consideration, Footprint, RewardsPool
 		},
 	};
 	use frame_system::pallet_prelude::{

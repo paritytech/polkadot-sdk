@@ -89,7 +89,6 @@ pub mod inherent;
 pub mod instances;
 mod macros;
 pub mod migrations;
-pub mod rewards;
 pub mod storage;
 #[cfg(test)]
 mod tests;
