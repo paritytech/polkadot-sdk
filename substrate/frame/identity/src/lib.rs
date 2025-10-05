@@ -176,11 +176,8 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The overarching type of hold reasons
-		type RuntimeHoldReason: From<HoldReason>;
-
 		/// A trait to handle balances. Specifically, to handle holds.
-		type Balances: InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+		type Balances: InspectHold<Self::AccountId, Reason: From<HoldReason>>
 			+ MutateHold<Self::AccountId>
 			+ BalancedHold<Self::AccountId>;
 

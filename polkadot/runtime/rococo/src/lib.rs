@@ -763,7 +763,6 @@ parameter_types! {
 impl pallet_identity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balances = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type BasicDeposit = BasicDeposit;
 	type ByteDeposit = ByteDeposit;
 	type UsernameDeposit = UsernameDeposit;

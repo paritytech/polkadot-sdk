@@ -74,7 +74,6 @@ parameter_types! {
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balances = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Slashed = ();
 	type BasicDeposit = ConstU64<100>;
 	type ByteDeposit = ConstU64<10>;

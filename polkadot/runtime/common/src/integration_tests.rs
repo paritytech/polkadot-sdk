@@ -288,7 +288,6 @@ impl crowdloan::Config for Test {
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balances = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Slashed = ();
 	type BasicDeposit = ConstU32<100>;
 	type ByteDeposit = ConstU32<10>;

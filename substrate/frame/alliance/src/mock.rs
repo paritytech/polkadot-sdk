@@ -116,7 +116,6 @@ impl pallet_identity::BenchmarkHelper<AccountU64, AccountU64> for BenchmarkHelpe
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balances = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type BasicDeposit = BasicDeposit;
 	type ByteDeposit = ByteDeposit;
 	type UsernameDeposit = UsernameDeposit;
