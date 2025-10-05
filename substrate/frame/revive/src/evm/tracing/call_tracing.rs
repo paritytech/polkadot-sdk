@@ -72,10 +72,10 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		gas_left: Weight,
 	) {
 		// Increment parent's child call count.
-		if let Some(&index) = self.current_stack.last() {
-			if let Some(trace) = self.traces.get_mut(index) {
-				trace.child_call_count += 1;
-			}
+		if let Some(&index) = self.current_stack.last()
+			&& let Some(trace) = self.traces.get_mut(index)
+		{
+			trace.child_call_count += 1;
 		}
 
 		if self.traces.is_empty() || !self.config.only_top_call {
