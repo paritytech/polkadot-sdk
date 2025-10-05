@@ -27,23 +27,23 @@ impl TransactionUnsigned {
 		use TransactionUnsigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
-			Transaction7702Unsigned(ref tx) => {
+			Transaction7702Unsigned(tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
-			Transaction2930Unsigned(ref tx) => {
+			Transaction2930Unsigned(tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
-			Transaction1559Unsigned(ref tx) => {
+			Transaction1559Unsigned(tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
-			Transaction4844Unsigned(ref tx) => {
+			Transaction4844Unsigned(tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
-			TransactionLegacyUnsigned(ref tx) => {
+			TransactionLegacyUnsigned(tx) => {
 				s.append(tx);
 			},
 		}
@@ -72,23 +72,23 @@ impl TransactionSigned {
 		use TransactionSigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
-			Transaction7702Signed(ref tx) => {
+			Transaction7702Signed(tx) => {
 				s.append(&tx.transaction_7702_unsigned.r#type.value());
 				s.append(tx);
 			},
-			Transaction2930Signed(ref tx) => {
+			Transaction2930Signed(tx) => {
 				s.append(&tx.transaction_2930_unsigned.r#type.value());
 				s.append(tx);
 			},
-			Transaction1559Signed(ref tx) => {
+			Transaction1559Signed(tx) => {
 				s.append(&tx.transaction_1559_unsigned.r#type.value());
 				s.append(tx);
 			},
-			Transaction4844Signed(ref tx) => {
+			Transaction4844Signed(tx) => {
 				s.append(&tx.transaction_4844_unsigned.r#type.value());
 				s.append(tx);
 			},
-			TransactionLegacySigned(ref tx) => {
+			TransactionLegacySigned(tx) => {
 				s.append(tx);
 			},
 		}
