@@ -23,14 +23,14 @@
 #[cfg(test)]
 use super::*;
 use crate::{
+	AddressMapper, Error, Pallet,
 	exec::ExportedFunction::*,
 	gas::GasMeter,
 	test_utils::*,
 	tests::{
-		test_utils::{get_balance, place_contract, set_balance},
 		ExtBuilder, RuntimeEvent as MetaEvent, Test,
+		test_utils::{get_balance, place_contract, set_balance},
 	},
-	AddressMapper, Error, Pallet,
 };
 use assert_matches::assert_matches;
 use frame_support::{assert_err, assert_ok, parameter_types};
@@ -1385,10 +1385,11 @@ fn in_memory_changes_not_discarded() {
 		exec_success()
 	});
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
-		assert!(ctx
-			.ext
-			.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
-			.is_ok());
+		assert!(
+			ctx.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+				.is_ok()
+		);
 		exec_trapped()
 	});
 
@@ -2225,10 +2226,11 @@ fn get_transient_storage_works() {
 		exec_success()
 	});
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
-		assert!(ctx
-			.ext
-			.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
-			.is_ok());
+		assert!(
+			ctx.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+				.is_ok()
+		);
 		// CHARLIE can not read BOB`s storage.
 		assert_eq!(ctx.ext.get_transient_storage(storage_key_1), None);
 		exec_success()
@@ -2327,10 +2329,11 @@ fn rollback_transient_storage_works() {
 		exec_success()
 	});
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
-		assert!(ctx
-			.ext
-			.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
-			.is_ok());
+		assert!(
+			ctx.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+				.is_ok()
+		);
 		exec_trapped()
 	});
 
@@ -2520,10 +2523,11 @@ fn last_frame_output_works_on_nested_call() {
 			&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
 		);
 
-		assert!(ctx
-			.ext
-			.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
-			.is_ok());
+		assert!(
+			ctx.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+				.is_ok()
+		);
 		assert_eq!(
 			ctx.ext.last_frame_output(),
 			&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }

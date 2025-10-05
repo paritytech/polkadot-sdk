@@ -16,18 +16,16 @@
 // limitations under the License.
 
 use crate::{
-	assert_refcount,
-	test_utils::{builder::Contract, ALICE},
+	Code, Config, PristineCode, assert_refcount,
+	test_utils::{ALICE, builder::Contract},
 	tests::{
-		builder,
+		ExtBuilder, Test, builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		ExtBuilder, Test,
 	},
-	Code, Config, PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
+use pallet_revive_fixtures::{Fibonacci, FixtureType, compile_module_with_type};
 use pretty_assertions::assert_eq;
 
 use revm::bytecode::opcode::*;

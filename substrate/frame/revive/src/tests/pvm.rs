@@ -22,26 +22,26 @@ use super::{
 	precompiles::{INoInfo, NoInfo},
 };
 use crate::{
-	address::{create1, create2, AddressMapper},
+	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueueCounter,
+	Error, ExecConfig, H160, HoldReason, Origin, Pallet, PristineCode, StorageDeposit,
+	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
-	evm::{fees::InfoT, CallTrace, CallTracer, CallType},
+	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
 	exec::Key,
 	limits,
 	precompiles::alloy::sol_types::{
-		sol_data::{Bool, FixedBytes},
 		SolType,
+		sol_data::{Bool, FixedBytes},
 	},
 	storage::{DeletionQueueManager, WriteOutcome},
 	test_utils::builder::Contract,
 	tests::{
-		builder, initialize_block, test_utils::*, Balances, CodeHashLockupDepositPercent,
-		Contracts, DepositPerByte, DepositPerItem, ExtBuilder, InstantiateAccount, RuntimeCall,
-		RuntimeEvent, RuntimeOrigin, System, Test, UploadAccount, DEPOSIT_PER_BYTE, *,
+		Balances, CodeHashLockupDepositPercent, Contracts, DEPOSIT_PER_BYTE, DepositPerByte,
+		DepositPerItem, ExtBuilder, InstantiateAccount, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+		System, Test, UploadAccount, builder, initialize_block, test_utils::*, *,
 	},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueueCounter,
-	Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode, StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -49,9 +49,9 @@ use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok,
 	storage::child,
 	traits::{
+		OnIdle, OnInitialize,
 		fungible::{Balanced, BalancedHold, Inspect, Mutate},
 		tokens::Preservation,
-		OnIdle, OnInitialize,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -61,7 +61,7 @@ use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::{Get, U256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, TokenError};
+use sp_runtime::{AccountId32, BoundedVec, DispatchError, TokenError, testing::H256, traits::Zero};
 
 #[test]
 fn transfer_with_dust_works() {
@@ -192,10 +192,12 @@ fn eth_call_transfer_with_dust_works() {
 
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
-		assert_ok!(builder::eth_call(addr)
-			.origin(Origin::EthTransaction(ALICE).into())
-			.value(balance)
-			.build());
+		assert_ok!(
+			builder::eth_call(addr)
+				.origin(Origin::EthTransaction(ALICE).into())
+				.value(balance)
+				.build()
+		);
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr), balance);
 	});
@@ -433,10 +435,12 @@ fn deposit_event_max_value_limit() {
 			.build_and_unwrap_contract();
 
 		// Call contract with allowed storage value.
-		assert_ok!(builder::call(addr)
-			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
-			.data(limits::PAYLOAD_BYTES.encode())
-			.build());
+		assert_ok!(
+			builder::call(addr)
+				.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
+				.data(limits::PAYLOAD_BYTES.encode())
+				.build()
+		);
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
@@ -581,10 +585,12 @@ fn storage_max_value_limit() {
 		get_contract(&addr);
 
 		// Call contract with allowed storage value.
-		assert_ok!(builder::call(addr)
-			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
-			.data(limits::PAYLOAD_BYTES.encode())
-			.build());
+		assert_ok!(
+			builder::call(addr)
+				.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
+				.data(limits::PAYLOAD_BYTES.encode())
+				.build()
+		);
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
@@ -640,9 +646,9 @@ fn transient_storage_limit_in_call() {
 
 		// Call contracts with storage values within the limit.
 		// Caller and Callee contracts each set a transient storage value of size 100.
-		assert_ok!(builder::call(addr_caller)
-			.data((100u32, 100u32, &addr_callee).encode())
-			.build(),);
+		assert_ok!(
+			builder::call(addr_caller).data((100u32, 100u32, &addr_callee).encode()).build(),
+		);
 
 		// Call a contract with a storage value that is too large.
 		// Limit exceeded in the caller contract.
@@ -700,12 +706,14 @@ fn deploy_and_call_other_contract() {
 
 		// Call BOB contract, which attempts to instantiate and call the callee contract and
 		// makes various assertions on the results from those calls.
-		assert_ok!(builder::call(caller_addr)
-			.data(
-				(callee_code_hash, code_load_weight.ref_time(), code_load_weight.proof_size())
-					.encode()
-			)
-			.build());
+		assert_ok!(
+			builder::call(caller_addr)
+				.data(
+					(callee_code_hash, code_load_weight.ref_time(), code_load_weight.proof_size())
+						.encode()
+				)
+				.build()
+		);
 
 		assert_eq!(
 			System::events(),
@@ -789,10 +797,12 @@ fn delegate_call() {
 				.native_value(100_000)
 				.build_and_unwrap_contract();
 
-		assert_ok!(builder::call(caller_addr)
-			.value(1337)
-			.data((callee_addr, u64::MAX, u64::MAX).encode())
-			.build());
+		assert_ok!(
+			builder::call(caller_addr)
+				.value(1337)
+				.data((callee_addr, u64::MAX, u64::MAX).encode())
+				.build()
+		);
 	});
 }
 
@@ -809,10 +819,12 @@ fn delegate_call_non_existant_is_noop() {
 				.native_value(300_000)
 				.build_and_unwrap_contract();
 
-		assert_ok!(builder::call(caller_addr)
-			.value(1337)
-			.data((BOB_ADDR, u64::MAX, u64::MAX).encode())
-			.build());
+		assert_ok!(
+			builder::call(caller_addr)
+				.value(1337)
+				.data((BOB_ADDR, u64::MAX, u64::MAX).encode())
+				.build()
+		);
 
 		assert_eq!(get_balance(&BOB_FALLBACK), 0);
 	});
@@ -848,10 +860,12 @@ fn delegate_call_with_weight_limit() {
 			Error::<Test>::ContractTrapped,
 		);
 
-		assert_ok!(builder::call(caller_addr)
-			.value(1337)
-			.data((callee_addr, 500_000_000u64, 100_000u64).encode())
-			.build());
+		assert_ok!(
+			builder::call(caller_addr)
+				.value(1337)
+				.data((callee_addr, 500_000_000u64, 100_000u64).encode())
+				.build()
+		);
 	});
 }
 
@@ -884,10 +898,12 @@ fn delegate_call_with_deposit_limit() {
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
-		assert_ok!(builder::call(caller_addr)
-			.value(1337)
-			.data((callee_addr, 82u64).encode())
-			.build());
+		assert_ok!(
+			builder::call(caller_addr)
+				.value(1337)
+				.data((callee_addr, 82u64).encode())
+				.build()
+		);
 	});
 }
 
@@ -2595,10 +2611,12 @@ fn storage_deposit_limit_is_enforced() {
 		);
 
 		// now with enough limit
-		assert_ok!(builder::call(addr)
-			.storage_deposit_limit(51)
-			.data(1u32.to_le_bytes().to_vec())
-			.build());
+		assert_ok!(
+			builder::call(addr)
+				.storage_deposit_limit(51)
+				.data(1u32.to_le_bytes().to_vec())
+				.build()
+		);
 
 		// Use 4 more bytes of the storage for the same item, which requires 4 Balance.
 		// Should fail as DefaultDepositLimit is 3 and hence isn't enough.
@@ -2628,10 +2646,12 @@ fn deposit_limit_in_nested_calls() {
 		// Create 100 bytes of storage with a price of per byte
 		// This is 100 Balance + 2 Balance for the item
 		// 48 for the key
-		assert_ok!(builder::call(addr_callee)
-			.storage_deposit_limit(102 + 48)
-			.data(100u32.to_le_bytes().to_vec())
-			.build());
+		assert_ok!(
+			builder::call(addr_callee)
+				.storage_deposit_limit(102 + 48)
+				.data(100u32.to_le_bytes().to_vec())
+				.build()
+		);
 
 		// We do not remove any storage but add a storage item of 12 bytes in the caller
 		// contract. This would cost 12 + 2 + 72 = 86 Balance.
@@ -2693,10 +2713,12 @@ fn deposit_limit_in_nested_calls() {
 		// Free up enough storage in the callee so that the caller can create a new item
 		// We set the special deposit limit of 1 Balance for the nested call, which isn't
 		// enforced as callee frees up storage. This should pass.
-		assert_ok!(builder::call(addr_caller)
-			.storage_deposit_limit(1)
-			.data((0u32, &addr_callee, U256::from(1u64)).encode())
-			.build());
+		assert_ok!(
+			builder::call(addr_caller)
+				.storage_deposit_limit(1)
+				.data((0u32, &addr_callee, U256::from(1u64)).encode())
+				.build()
+		);
 	});
 }
 
@@ -2963,9 +2985,11 @@ fn block_hash_works() {
 			&crate::BlockNumberFor::<Test>::from(0u32),
 			<Test as frame_system::Config>::Hash::from(&block_hash),
 		);
-		assert_ok!(builder::call(addr)
-			.data((U256::zero(), H256::from(block_hash)).encode())
-			.build());
+		assert_ok!(
+			builder::call(addr)
+				.data((U256::zero(), H256::from(block_hash)).encode())
+				.build()
+		);
 
 		// A block number out of range returns the zero value
 		assert_ok!(builder::call(addr).data((U256::from(1), H256::zero()).encode()).build());
@@ -3632,10 +3656,12 @@ fn return_data_api_works() {
 			.build_and_unwrap_contract();
 
 		// Call the contract: It will issue calls and deploys, asserting on
-		assert_ok!(builder::call(addr)
-			.value(10 * 1024)
-			.data(hash_return_with_data.encode())
-			.build());
+		assert_ok!(
+			builder::call(addr)
+				.value(10 * 1024)
+				.data(hash_return_with_data.encode())
+				.build()
+		);
 	});
 }
 
@@ -3738,7 +3764,7 @@ fn origin_api_works() {
 
 #[test]
 fn code_hash_works() {
-	use crate::precompiles::{Precompile, EVM_REVERT};
+	use crate::precompiles::{EVM_REVERT, Precompile};
 	use precompiles::NoInfo;
 
 	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
@@ -3760,13 +3786,17 @@ fn code_hash_works() {
 		// code hash of itself
 		assert_ok!(builder::call(addr).data((addr, self_code_hash).encode()).build());
 		// code hash of primitive pre-compile (exist but have no bytecode)
-		assert_ok!(builder::call(addr)
-			.data((primitive_precompile, crate::exec::EMPTY_CODE_HASH).encode())
-			.build());
+		assert_ok!(
+			builder::call(addr)
+				.data((primitive_precompile, crate::exec::EMPTY_CODE_HASH).encode())
+				.build()
+		);
 		// code hash of normal pre-compile (do have a bytecode)
-		assert_ok!(builder::call(addr)
-			.data((builtin_precompile, sp_io::hashing::keccak_256(&EVM_REVERT)).encode())
-			.build());
+		assert_ok!(
+			builder::call(addr)
+				.data((builtin_precompile, sp_io::hashing::keccak_256(&EVM_REVERT)).encode())
+				.build()
+		);
 
 		// EOA doesn't exists
 		assert_err!(
@@ -3786,9 +3816,11 @@ fn code_hash_works() {
 		);
 
 		// EOA returns empty code hash
-		assert_ok!(builder::call(addr)
-			.data((BOB_ADDR, crate::exec::EMPTY_CODE_HASH).encode())
-			.build());
+		assert_ok!(
+			builder::call(addr)
+				.data((BOB_ADDR, crate::exec::EMPTY_CODE_HASH).encode())
+				.build()
+		);
 	});
 }
 
@@ -3812,9 +3844,9 @@ fn code_size_works() {
 		assert_ok!(builder::call(tester_addr).data((dummy_addr, dummy_code_len).encode()).build());
 
 		// code size of own contract address
-		assert_ok!(builder::call(tester_addr)
-			.data((tester_addr, tester_code_len).encode())
-			.build());
+		assert_ok!(
+			builder::call(tester_addr).data((tester_addr, tester_code_len).encode()).build()
+		);
 
 		// code size of non contract accounts
 		assert_ok!(builder::call(tester_addr).data(([8u8; 20], 0u64).encode()).build());

@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
+	Code, DispatchError, Weight,
+	evm::{CallLog, CallTrace, CallTracerConfig, CallType, decode_revert_reason},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError, Weight,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};

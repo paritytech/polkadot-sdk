@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
 };
 use alloc::{collections::BTreeMap, vec::Vec};
 use sp_core::{H160, U256};

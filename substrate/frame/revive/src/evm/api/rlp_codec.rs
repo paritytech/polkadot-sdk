@@ -158,11 +158,7 @@ impl Decodable for TransactionLegacyUnsigned {
 			gas: rlp.val_at(2)?,
 			to: {
 				let to = rlp.at(3)?;
-				if to.is_empty() {
-					None
-				} else {
-					Some(to.as_val()?)
-				}
+				if to.is_empty() { None } else { Some(to.as_val()?) }
 			},
 			value: rlp.val_at(4)?,
 			input: Bytes(rlp.val_at(5)?),
@@ -287,11 +283,7 @@ impl Decodable for Transaction1559Signed {
 					gas: rlp.val_at(4)?,
 					to: {
 						let to = rlp.at(5)?;
-						if to.is_empty() {
-							None
-						} else {
-							Some(to.as_val()?)
-						}
+						if to.is_empty() { None } else { Some(to.as_val()?) }
 					},
 					value: rlp.val_at(6)?,
 					input: Bytes(rlp.val_at(7)?),
@@ -358,11 +350,7 @@ impl Decodable for Transaction2930Signed {
 					gas: rlp.val_at(3)?,
 					to: {
 						let to = rlp.at(4)?;
-						if to.is_empty() {
-							None
-						} else {
-							Some(to.as_val()?)
-						}
+						if to.is_empty() { None } else { Some(to.as_val()?) }
 					},
 					value: rlp.val_at(5)?,
 					input: Bytes(rlp.val_at(6)?),
@@ -487,11 +475,7 @@ impl Decodable for TransactionLegacySigned {
 		let v: U256 = rlp.val_at(6)?;
 
 		let extract_chain_id = |v: U256| {
-			if v.ge(&35u32.into()) {
-				Some((v - 35) / 2)
-			} else {
-				None
-			}
+			if v.ge(&35u32.into()) { Some((v - 35) / 2) } else { None }
 		};
 
 		Ok(TransactionLegacySigned {
@@ -502,11 +486,7 @@ impl Decodable for TransactionLegacySigned {
 					gas: rlp.val_at(2)?,
 					to: {
 						let to = rlp.at(3)?;
-						if to.is_empty() {
-							None
-						} else {
-							Some(to.as_val()?)
-						}
+						if to.is_empty() { None } else { Some(to.as_val()?) }
 					},
 					value: rlp.val_at(4)?,
 					input: Bytes(rlp.val_at(5)?),
@@ -545,7 +525,7 @@ mod test {
 					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 					"v": "0x25"
 				}
-				"#
+				"#,
 			),
 			// type 1: EIP2930
 			(
@@ -570,7 +550,7 @@ mod test {
 					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 					"yParity": "0x0"
 				}
-				"#
+				"#,
 			),
 			// type 2: EIP1559
 			(
@@ -598,11 +578,10 @@ mod test {
 					"yParity": "0x0"
 
 				}
-				"#
+				"#,
 			),
 			// type 3: EIP4844
 			(
-
 				"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 				r#"
 				{
@@ -627,8 +606,8 @@ mod test {
 					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 					"yParity": "0x0"
 				}
-				"#
-			)
+				"#,
+			),
 		];
 
 		for (tx, json) in txs {

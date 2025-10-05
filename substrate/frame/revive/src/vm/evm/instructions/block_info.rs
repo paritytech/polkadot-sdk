@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	vm::{
-		evm::{interpreter::Halt, EVMGas, Interpreter, BASE_FEE, DIFFICULTY},
-		Ext,
-	},
 	Error, RuntimeCosts,
+	vm::{
+		Ext,
+		evm::{BASE_FEE, DIFFICULTY, EVMGas, Interpreter, interpreter::Halt},
+	},
 };
 use core::ops::ControlFlow;
 use revm::interpreter::gas::BASE;

@@ -17,16 +17,16 @@
 
 //! The pallet-revive shared VM integration test suite.
 use crate::{
+	Code, Config, Error, H256, Key, System, U256,
 	address::AddressMapper,
-	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, test_utils, ExtBuilder, RuntimeEvent, Test},
-	Code, Config, Error, Key, System, H256, U256,
+	test_utils::{ALICE, BOB, BOB_ADDR, builder::Contract},
+	tests::{ExtBuilder, RuntimeEvent, Test, builder, test_utils},
 };
 use frame_support::assert_err_ignore_postinfo;
 
 use alloy_core::sol_types::{SolCall, SolInterface};
-use frame_support::traits::{fungible::Mutate, Get};
-use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Host};
+use frame_support::traits::{Get, fungible::Mutate};
+use pallet_revive_fixtures::{FixtureType, Host, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
 

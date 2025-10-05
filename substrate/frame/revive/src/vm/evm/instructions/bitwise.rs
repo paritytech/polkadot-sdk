@@ -19,11 +19,11 @@ mod bits;
 
 use super::{arithmetic::i256::i256_cmp, utility::as_usize_saturated};
 use crate::{
-	vm::{
-		evm::{interpreter::Halt, EVMGas, Interpreter},
-		Ext,
-	},
 	U256,
+	vm::{
+		Ext,
+		evm::{EVMGas, Interpreter, interpreter::Halt},
+	},
 };
 use bits::Bits;
 use core::{cmp::Ordering, ops::ControlFlow};
@@ -320,15 +320,17 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases {
-			assert!((|| {
-				interpreter.stack.push(test.value)?;
-				interpreter.stack.push(test.shift)?;
-				shl(&mut interpreter)?;
-				let [res] = interpreter.stack.popn::<1>()?;
-				assert_eq!(res, test.expected);
-				ControlFlow::Continue(())
-			})()
-			.is_continue());
+			assert!(
+				(|| {
+					interpreter.stack.push(test.value)?;
+					interpreter.stack.push(test.shift)?;
+					shl(&mut interpreter)?;
+					let [res] = interpreter.stack.popn::<1>()?;
+					assert_eq!(res, test.expected);
+					ControlFlow::Continue(())
+				})()
+				.is_continue()
+			);
 		}
 	}
 
@@ -444,15 +446,17 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases {
-			assert!((|| {
-				interpreter.stack.push(test.value)?;
-				interpreter.stack.push(test.shift)?;
-				shr(&mut interpreter)?;
-				let [res] = interpreter.stack.popn::<1>()?;
-				assert_eq!(res, test.expected);
-				ControlFlow::Continue(())
-			})()
-			.is_continue());
+			assert!(
+				(|| {
+					interpreter.stack.push(test.value)?;
+					interpreter.stack.push(test.shift)?;
+					shr(&mut interpreter)?;
+					let [res] = interpreter.stack.popn::<1>()?;
+					assert_eq!(res, test.expected);
+					ControlFlow::Continue(())
+				})()
+				.is_continue()
+			);
 		}
 	}
 
@@ -613,15 +617,17 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases {
-			assert!((|| {
-				interpreter.stack.push(test.value)?;
-				interpreter.stack.push(test.shift)?;
-				sar(&mut interpreter)?;
-				let [res] = interpreter.stack.popn::<1>()?;
-				assert_eq!(res, test.expected);
-				ControlFlow::Continue(())
-			})()
-			.is_continue());
+			assert!(
+				(|| {
+					interpreter.stack.push(test.value)?;
+					interpreter.stack.push(test.shift)?;
+					sar(&mut interpreter)?;
+					let [res] = interpreter.stack.popn::<1>()?;
+					assert_eq!(res, test.expected);
+					ControlFlow::Continue(())
+				})()
+				.is_continue()
+			);
 		}
 	}
 
@@ -645,15 +651,17 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases.iter() {
-			assert!((|| {
-				interpreter.stack.push(test.input)?;
-				interpreter.stack.push(U256::from(test.index))?;
-				byte(&mut interpreter)?;
-				let [res] = interpreter.stack.popn::<1>()?;
-				assert_eq!(res, test.expected, "Failed at index: {}", test.index);
-				ControlFlow::Continue(())
-			})()
-			.is_continue());
+			assert!(
+				(|| {
+					interpreter.stack.push(test.input)?;
+					interpreter.stack.push(U256::from(test.index))?;
+					byte(&mut interpreter)?;
+					let [res] = interpreter.stack.popn::<1>()?;
+					assert_eq!(res, test.expected, "Failed at index: {}", test.index);
+					ControlFlow::Continue(())
+				})()
+				.is_continue()
+			);
 		}
 	}
 
@@ -703,18 +711,20 @@ mod tests {
 
 		test_interpreter!(interpreter);
 		for test in test_cases.iter() {
-			assert!((|| {
-				interpreter.stack.push(test.value)?;
-				clz(&mut interpreter)?;
-				let [res] = interpreter.stack.popn::<1>()?;
-				assert_eq!(
-					res, test.expected,
-					"CLZ for value {:#x} failed. Expected: {}, Got: {}",
-					test.value, test.expected, res
-				);
-				ControlFlow::Continue(())
-			})()
-			.is_continue());
+			assert!(
+				(|| {
+					interpreter.stack.push(test.value)?;
+					clz(&mut interpreter)?;
+					let [res] = interpreter.stack.popn::<1>()?;
+					assert_eq!(
+						res, test.expected,
+						"CLZ for value {:#x} failed. Expected: {}, Got: {}",
+						test.value, test.expected, res
+					);
+					ControlFlow::Continue(())
+				})()
+				.is_continue()
+			);
 		}
 	}
 }

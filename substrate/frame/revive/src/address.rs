@@ -17,7 +17,7 @@
 
 //! Functions that deal contract addresses.
 
-use crate::{ensure, Config, Error, HoldReason, OriginalAccount};
+use crate::{Config, Error, HoldReason, OriginalAccount, ensure};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::{fungible::MutateHold, tokens::Precision};
@@ -269,16 +269,16 @@ pub fn create2(deployer: &H160, code: &[u8], input_data: &[u8], salt: &[u8; 32])
 mod test {
 	use super::*;
 	use crate::{
+		AddressMapper, Error,
 		test_utils::*,
 		tests::{ExtBuilder, Test},
-		AddressMapper, Error,
 	};
 	use frame_support::{
 		assert_err,
 		traits::fungible::{InspectHold, Mutate},
 	};
 	use pretty_assertions::assert_eq;
-	use sp_core::{hex2array, H160};
+	use sp_core::{H160, hex2array};
 
 	#[test]
 	fn create1_works() {

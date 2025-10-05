@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	Config, Weight,
 	evm::{CallTrace, Trace},
 	tracing::Tracing,
-	Config, Weight,
 };
 use sp_core::U256;
 

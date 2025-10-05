@@ -20,14 +20,13 @@
 use crate::{CallOf, Config, Origin, OriginFor};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
-	pallet_prelude::{InvalidTransaction, TransactionSource},
 	DebugNoBound, DefaultNoBound,
+	pallet_prelude::{InvalidTransaction, TransactionSource},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
+	Weight, impl_tx_ext_default,
 	traits::{DispatchInfoOf, TransactionExtension, ValidateResult},
-	Weight,
 };
 
 /// An extension that sets the origin to [`Origin::EthTransaction`] in case it originated from an

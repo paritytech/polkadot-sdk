@@ -18,9 +18,9 @@
 //! This module contains routines for accessing and altering a contract transient storage.
 
 use crate::{
+	Config, Error,
 	exec::{AccountIdOf, Key},
 	storage::WriteOutcome,
-	Config, Error,
 };
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Encode;
@@ -340,7 +340,7 @@ impl<T: Config> TransientStorage<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{test_utils::*, tests::Test, Error};
+	use crate::{Error, test_utils::*, tests::Test};
 	use core::u32::MAX;
 
 	// Calculate the allocation size for the given entry.

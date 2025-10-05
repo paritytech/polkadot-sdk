@@ -30,19 +30,19 @@ use alloy_core::{
 	sol_types::*,
 };
 use frame_support::{
-	traits::{
-		tokens::{
-			fungible, fungibles, DepositConsequence, Fortitude, Precision, Preservation,
-			Provenance, WithdrawConsequence,
-		},
-		OriginTrait,
-	},
 	PalletId,
+	traits::{
+		OriginTrait,
+		tokens::{
+			DepositConsequence, Fortitude, Precision, Preservation, Provenance,
+			WithdrawConsequence, fungible, fungibles,
+		},
+	},
 };
 use sp_core::{H160, U256};
-use sp_runtime::{traits::AccountIdConversion, DispatchError};
+use sp_runtime::{DispatchError, traits::AccountIdConversion};
 
-use super::{address::AddressMapper, pallet, Config, ContractResult, ExecConfig, Pallet, Weight};
+use super::{Config, ContractResult, ExecConfig, Pallet, Weight, address::AddressMapper, pallet};
 use ethereum_standards::IERC20;
 
 const GAS_LIMIT: Weight = Weight::from_parts(1_000_000_000, 100_000);
@@ -276,9 +276,9 @@ impl<T: Config> fungibles::Unbalanced<<T as frame_system::Config>::AccountId> fo
 mod tests {
 	use super::*;
 	use crate::{
-		test_utils::{builder::*, ALICE},
-		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
 		AccountInfoOf, Code,
+		test_utils::{ALICE, builder::*},
+		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
 	};
 	use frame_support::assert_ok;
 	const ERC20_PVM_CODE: &[u8] = include_bytes!("../fixtures/erc20/erc20.polkavm");

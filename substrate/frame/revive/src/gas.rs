@@ -14,14 +14,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{exec::ExecError, vm::evm::Halt, weights::WeightInfo, Config, Error};
+use crate::{Config, Error, exec::ExecError, vm::evm::Halt, weights::WeightInfo};
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
+	DefaultNoBound,
 	dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
 	weights::Weight,
-	DefaultNoBound,
 };
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::{DispatchError, traits::Zero};
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};

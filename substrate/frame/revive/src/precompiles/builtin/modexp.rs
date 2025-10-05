@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use crate::{
+	Config,
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	vm::RuntimeCosts,
-	Config,
 };
 use alloc::{vec, vec::Vec};
 use core::{cmp::max, marker::PhantomData, num::NonZero};

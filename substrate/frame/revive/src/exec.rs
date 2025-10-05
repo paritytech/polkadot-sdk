@@ -16,46 +16,46 @@
 // limitations under the License.
 
 use crate::{
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
+	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
+	Pallet as Contracts, RuntimeCosts,
 	address::{self, AddressMapper},
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
-	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
+	storage::{self, AccountIdOrAddress, WriteOutcome, meter::Diff},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
+	Blake2_128Concat, BoundedVec, StorageHasher,
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
-	storage::{with_transaction, TransactionOutcome},
+	storage::{TransactionOutcome, with_transaction},
 	traits::{
+		Time,
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Precision, Preservation},
-		Time,
 	},
 	weights::Weight,
-	Blake2_128Concat, BoundedVec, StorageHasher,
 };
 use frame_system::{
-	pallet_prelude::{BlockNumberFor, OriginFor},
 	Pallet as System, RawOrigin,
+	pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use sp_core::{
+	ConstU32, Get, H160, H256, U256,
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, Get, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput, Zero},
 	DispatchError, SaturatedConversion,
+	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput, Zero},
 };
 
 #[cfg(test)]
@@ -596,11 +596,7 @@ enum ExecutableOrPrecompile<T: Config, E: Executable<T>, Env> {
 
 impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 	fn as_executable(&self) -> Option<&E> {
-		if let Self::Executable(executable) = self {
-			Some(executable)
-		} else {
-			None
-		}
+		if let Self::Executable(executable) = self { Some(executable) } else { None }
 	}
 
 	fn is_pvm(&self) -> bool {
@@ -611,20 +607,12 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 	}
 
 	fn as_precompile(&self) -> Option<&PrecompileInstance<Env>> {
-		if let Self::Precompile { instance, .. } = self {
-			Some(instance)
-		} else {
-			None
-		}
+		if let Self::Precompile { instance, .. } = self { Some(instance) } else { None }
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn into_executable(self) -> Option<E> {
-		if let Self::Executable(executable) = self {
-			Some(executable)
-		} else {
-			None
-		}
+		if let Self::Executable(executable) = self { Some(executable) } else { None }
 	}
 }
 
@@ -730,20 +718,12 @@ macro_rules! top_frame_mut {
 impl<T: Config> CachedContract<T> {
 	/// Return `Some(ContractInfo)` if the contract is in cached state. `None` otherwise.
 	fn into_contract(self) -> Option<ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
+		if let CachedContract::Cached(contract) = self { Some(contract) } else { None }
 	}
 
 	/// Return `Some(&mut ContractInfo)` if the contract is in cached state. `None` otherwise.
 	fn as_contract(&mut self) -> Option<&mut ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
+		if let CachedContract::Cached(contract) = self { Some(contract) } else { None }
 	}
 
 	/// Load the `contract_info` from storage if necessary.

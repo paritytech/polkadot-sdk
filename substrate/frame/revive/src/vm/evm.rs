@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, H256, LOG_TARGET, U256,
+	Weight,
 	precompiles::Token,
-	vm::{evm::instructions::exec_instruction, BytecodeType, ExecResult, Ext},
+	vm::{BytecodeType, ExecResult, Ext, evm::instructions::exec_instruction},
 	weights::WeightInfo,
-	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, Weight, H256, LOG_TARGET,
-	U256,
 };
 use alloc::vec::Vec;
 use core::{convert::Infallible, ops::ControlFlow};

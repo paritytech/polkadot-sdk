@@ -21,8 +21,8 @@ use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
-	ser::{SerializeMap, Serializer},
 	Deserialize, Serialize,
+	ser::{SerializeMap, Serializer},
 };
 use sp_core::{H160, H256, U256};
 

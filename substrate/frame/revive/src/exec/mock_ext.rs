@@ -18,12 +18,12 @@
 #![cfg(test)]
 
 use crate::{
+	Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
 	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
 	gas::GasMeter,
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
