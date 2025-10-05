@@ -1100,8 +1100,7 @@ pub mod pallet {
 						break
 					},
 				};
-				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())
-					.ok_or(Error::<T>::PoolNotFound)?;
+				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 				balance_path.push((asset2, amount_in));
 				amount_in = Self::get_amount_in(&amount_in, &reserve_in, &reserve_out)?;
 			}
@@ -1127,8 +1126,7 @@ pub mod pallet {
 						break
 					},
 				};
-				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())
-					.ok_or(Error::<T>::PoolNotFound)?;
+				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 				balance_path.push((asset1, amount_out));
 				amount_out = Self::get_amount_out(&amount_out, &reserve_in, &reserve_out)?;
 			}
@@ -1286,21 +1284,22 @@ pub mod pallet {
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
 		/// Returns the balance of each asset in the pool.
-		///
 		/// The tuple result is in the order requested (not necessarily the same as pool order).
 		pub fn get_reserves(
 			asset1: T::AssetKind,
 			asset2: T::AssetKind,
-		) -> Option<(T::Balance, T::Balance)> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
+		) -> Result<(T::Balance, T::Balance), Error<T>> {
+			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+
 			let balance1 = Self::get_balance(&pool_account, asset1);
 			let balance2 = Self::get_balance(&pool_account, asset2);
 
 			if balance1.is_zero() || balance2.is_zero() {
-				None
-			} else {
-				Some((balance1, balance2))
+				Err(Error::<T>::PoolNotFound)?;
 			}
+
+			Ok((balance1, balance2))
 		}
 
 		/// Gets a quote for swapping an exact amount of `asset1` for `asset2`.

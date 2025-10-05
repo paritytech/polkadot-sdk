@@ -1463,7 +1463,7 @@ impl_runtime_apis! {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 		fn get_reserves(asset1: xcm::v5::Location, asset2: xcm::v5::Location) -> Option<(Balance, Balance)> {
-			AssetConversion::get_reserves(asset1, asset2)
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 

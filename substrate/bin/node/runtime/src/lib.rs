@@ -3470,7 +3470,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn get_reserves(asset1: NativeOrWithId<u32>, asset2: NativeOrWithId<u32>) -> Option<(Balance, Balance)> {
-			AssetConversion::get_reserves(asset1, asset2)
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 

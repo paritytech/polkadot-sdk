@@ -1894,7 +1894,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn get_reserves(asset1: xcm::v5::Location, asset2: xcm::v5::Location) -> Option<(Balance, Balance)> {
-			AssetConversion::get_reserves(asset1, asset2)
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 
