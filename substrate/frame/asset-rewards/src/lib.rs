@@ -89,8 +89,7 @@ use frame_support::{
 		fungibles::{Inspect, Mutate},
 		schedule::DispatchTime,
 		tokens::Balance,
-		Consideration,
-		RewardsPool,
+		Consideration, RewardsPool,
 	},
 	PalletId,
 };
@@ -185,7 +184,7 @@ pub mod pallet {
 		traits::{
 			fungibles::MutateFreeze,
 			tokens::{AssetId, Fortitude, Preservation},
-			Consideration, Footprint, RewardsPool
+			Consideration, Footprint, RewardsPool,
 		},
 	};
 	use frame_system::pallet_prelude::{

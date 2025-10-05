@@ -61,7 +61,11 @@ pub trait RewardsPool<AccountId> {
 	/// Modify a pool admin.
 	///
 	/// Only the pool admin may perform this operation.
-	fn set_pool_admin(admin: &AccountId, pool_id: Self::PoolId, new_admin: AccountId) -> DispatchResult;
+	fn set_pool_admin(
+		admin: &AccountId,
+		pool_id: Self::PoolId,
+		new_admin: AccountId,
+	) -> DispatchResult;
 
 	/// Set when the pool should expire.
 	///
