@@ -346,6 +346,16 @@ impl MockRuntimeApi {
 						message => {
 							unimplemented!("Unexpected runtime-api message: {:?}", message)
 						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::UnappliedSlashesV2(tx),
+						) => {
+							tx.send(Ok(vec![])).unwrap();
+						},
+						// Long term TODO: implement more as needed.
+						message => {
+							unimplemented!("Unexpected runtime-api message: {:?}", message)
+						},
 					}
 				},
 			}
