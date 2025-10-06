@@ -148,7 +148,7 @@ fn base_fee_works(fixture_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {}).abi_encode())
 			.build_and_unwrap_result();
-		let decoded = BlockInfo::difficultyCall::abi_decode_returns(&result.data).unwrap();
+		let decoded = BlockInfo::basefeeCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(<crate::Pallet<Test>>::evm_gas_price().as_u64(), decoded);
 	});
 }
