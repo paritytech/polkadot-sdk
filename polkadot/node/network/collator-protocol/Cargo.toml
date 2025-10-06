@@ -49,6 +49,8 @@ sp-keyring = { workspace = true, default-features = true }
 
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
+itertools = { workspace = true }
+
 
 [features]
 default = []

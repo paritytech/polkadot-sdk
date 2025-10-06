@@ -719,6 +719,10 @@ async fn update_validator_connections<Context>(
 		// Get all connected peer_ids on the Collation peer set.
 		let connected_validator_peer_ids: Vec<_> = peer_ids.keys().cloned().collect();
 
+		if connected_validator_peer_ids.is_empty() {
+			return
+		}
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?cores_assigned,

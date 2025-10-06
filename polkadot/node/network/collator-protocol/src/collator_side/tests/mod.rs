@@ -32,13 +32,14 @@ use sp_core::crypto::Pair;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::AppVerify;
 
+use itertools::Itertools;
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{
 		v2::{CollationFetchingRequest, CollationFetchingResponse},
 		IncomingRequest, ReqProtocolNames,
 	},
-	view,
+	view, ObservedRole,
 };
 use polkadot_node_primitives::BlockData;
 use polkadot_node_subsystem::{
@@ -1693,6 +1694,263 @@ fn connect_with_no_cores_assigned() {
 					NetworkBridgeTxMessage::ConnectToValidators { validator_ids, .. }
 				) => {
 					assert_eq!(Vec::<AuthorityDiscoveryId>::new(), validator_ids);
+				}
+			);
+
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+		},
+	);
+}
+
+#[test]
+fn no_connection_without_preconnect_message() {
+	let test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|test_harness| async move {
+			let mut virtual_overseer = test_harness.virtual_overseer;
+			let req_cfg = test_harness.req_v2_cfg;
+
+			// NOTE: We intentionally DO NOT send ConnectToBackingGroups here
+			// to verify that connections are not made without the pre-connect message.
+
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::CollateOn(test_state.para_id),
+			)
+			.await;
+
+			// Update view without expecting any connections (None parameter)
+			update_view(
+				None, // No connections should be made
+				&test_state,
+				&mut virtual_overseer,
+				vec![(test_state.relay_parent, 10)],
+				1,
+			)
+			.await;
+
+			// Verify that no ConnectToValidators message was sent
+			// by attempting to receive a message with a short timeout.
+			// We should either timeout or receive messages that are NOT ConnectToValidators.
+			let timeout = Duration::from_millis(250);
+			match overseer_recv_with_timeout(&mut virtual_overseer, timeout).await {
+				None => {
+					// Timeout is fine - no messages were sent
+				},
+				Some(msg) => {
+					// If we received a message, it should NOT be ConnectToValidators
+					panic!("Unexpected message was sent by subsystem: {:?}", msg);
+				},
+			}
+
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+		},
+	);
+}
+
+#[test]
+fn distribute_collation_forces_connect() {
+	let test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|test_harness| async move {
+			let mut virtual_overseer = test_harness.virtual_overseer;
+			let req_cfg = test_harness.req_v2_cfg;
+
+			// NOTE: We intentionally DO NOT send ConnectToBackingGroups here
+			// to verify that connections are not made without the pre-connect message.
+
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::CollateOn(test_state.para_id),
+			)
+			.await;
+
+			// Update view without expecting any connections (None parameter)
+			update_view(
+				None, // No connections should be made
+				&test_state,
+				&mut virtual_overseer,
+				vec![(test_state.relay_parent, 10)],
+				1,
+			)
+			.await;
+
+			// Verify that no ConnectToValidators message was sent
+			// by attempting to receive a message with a short timeout.
+			// We should either timeout or receive messages that are NOT ConnectToValidators.
+			let timeout = Duration::from_millis(250);
+			match overseer_recv_with_timeout(&mut virtual_overseer, timeout).await {
+				None => {
+					// Timeout is fine - no messages were sent
+				},
+				Some(msg) => {
+					// If we received a message, it should NOT be ConnectToValidators
+					panic!("Unexpected message was sent by subsystem: {:?}", msg);
+				},
+			}
+
+			// Distribute a collation
+			let _ = distribute_collation(
+				&mut virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+				&test_state,
+				test_state.relay_parent,
+			)
+			.await;
+
+			for (val, peer) in test_state
+				.current_group_validator_authority_ids()
+				.into_iter()
+				.zip(test_state.current_group_validator_peer_ids())
+			{
+				connect_peer(&mut virtual_overseer, peer, CollationVersion::V2, Some(val.clone()))
+					.await;
+			}
+
+			// Expect advertisement for the candidate
+			expect_declare_msg(
+				&mut virtual_overseer,
+				&test_state,
+				&test_state.current_group_validator_peer_ids()[0],
+			)
+			.await;
+
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+		},
+	);
+}
+
+#[test]
+fn connect_advertise_disconnect_three_backing_groups() {
+	// Create a test state with 3 non-empty backing groups
+	let mut test_state = TestState::default();
+	let para_id = test_state.para_id;
+
+	// We have 5 validators total (indices 0-4)
+	// Group 0: validators [0, 1]
+	// Group 1: validators [2, 3]
+	// Group 2: validators [4]
+	test_state.session_info.validator_groups = vec![
+		vec![ValidatorIndex(0), ValidatorIndex(1)],
+		vec![ValidatorIndex(2), ValidatorIndex(3)],
+		vec![ValidatorIndex(4)],
+		vec![],
+	]
+	.into_iter()
+	.collect();
+
+	// Assign our para_id to 3 cores (0, 1, 2) which will map to 3 groups
+	test_state.claim_queue.clear();
+	test_state.claim_queue.insert(CoreIndex(0), [para_id].into_iter().collect());
+	test_state.claim_queue.insert(CoreIndex(1), [para_id].into_iter().collect());
+	test_state.claim_queue.insert(CoreIndex(2), [para_id].into_iter().collect());
+	test_state.claim_queue.insert(CoreIndex(3), VecDeque::new());
+
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|test_harness| async move {
+			let mut virtual_overseer = test_harness.virtual_overseer;
+			let req_cfg = test_harness.req_v2_cfg;
+
+			// Send the pre-connect message
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
+
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::CollateOn(test_state.para_id),
+			)
+			.await;
+
+			// Get validators from all 3 backing groups
+			let mut expected_validators = Vec::new();
+			for core_idx in [0, 1, 2] {
+				let validators = test_state.validator_authority_ids_for_core(CoreIndex(core_idx));
+				expected_validators.extend(validators);
+			}
+
+			// Remove duplicates while preserving order
+			let mut seen = std::collections::HashSet::new();
+			expected_validators.retain(|v| seen.insert(v.clone()));
+
+			// Verify we're connecting to all 5 validators (from 3 groups)
+			// Group 0 (Core 0): 2 validators
+			// Group 1 (Core 1): 2 validators
+			// Group 2 (Core 2): 1 validator
+			assert_eq!(
+				expected_validators.len(),
+				5,
+				"Expected 5 unique validators from 3 backing groups"
+			);
+
+			// Update view and expect connections to all validators from all 3 backing groups
+			update_view(
+				Some(expected_validators.clone()),
+				&test_state,
+				&mut virtual_overseer,
+				vec![(test_state.relay_parent, 10)],
+				1,
+			)
+			.await;
+
+			// Generate NetworkBridgeEvent::PeerConnected messages for each expected validator peer
+			// Use some random peer ids
+			let validator_peer_ids: Vec<_> =
+				(0..expected_validators.len()).map(|_| PeerId::random()).sorted().collect();
+
+			for (auth_id, peer_id) in expected_validators.iter().zip(validator_peer_ids.iter()) {
+				overseer_send(
+					&mut virtual_overseer,
+					CollatorProtocolMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerConnected(
+							*peer_id,
+							ObservedRole::Authority,
+							CollationVersion::V2.into(),
+							Some(HashSet::from([auth_id.clone()])),
+						),
+					),
+				)
+				.await;
+			}
+
+			// Expect collation advertisement for each validator
+			for peer_id in validator_peer_ids.iter() {
+				expect_declare_msg(&mut virtual_overseer, &test_state, peer_id).await;
+			}
+
+			// Send the disconnect message
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::DisconnectFromBackingGroups,
+			)
+			.await;
+
+			// Expect a DisconnectPeers for all connected peers
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(
+					peer_ids,
+					PeerSet::Collation,
+				)) => {
+					// We should disconnect from all peers we were connected to
+					assert_eq!(peer_ids.into_iter().sorted().collect::<Vec<_>>(), validator_peer_ids, "Expected to disconnect from all validators");
 				}
 			);
 
