@@ -353,12 +353,6 @@ jobs:
     env:
       SKIP_WASM_BUILD: 1
     steps:
-      - name: Reinstall compatible bash and readline
-        run: |
-          brew uninstall --ignore-dependencies bash readline
-          brew install bash@5.2 readline@8.1
-          brew link --overwrite bash@5.2
-          brew link --overwrite readline@8.1
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set rust version from env file
         run: |
