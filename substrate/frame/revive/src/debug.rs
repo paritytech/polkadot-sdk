@@ -37,7 +37,7 @@ use sp_runtime::RuntimeDebug;
 )]
 pub struct DebugSettings {
 	/// Whether to allow unlimited contract size.
-	pub allow_unlimited_contract_size: bool,
+	allow_unlimited_contract_size: bool,
 }
 
 impl DebugSettings {
