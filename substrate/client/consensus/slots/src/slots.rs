@@ -63,7 +63,7 @@ pub struct SlotInfo<B: BlockT> {
 	///
 	/// For more information see [`Proposer::propose`](sp_consensus::Proposer::propose).
 	pub block_size_limit: Option<usize>,
-	/// Optional [`StorageProofRecorder`] to use when build the block.
+	/// Optional [`Recorder`] to use when build the block.
 	pub storage_proof_recorder: Option<Recorder<HashingFor<B>>>,
 }
 

@@ -62,8 +62,9 @@ pub type StorageChanges<Block> = sp_state_machine::StorageChanges<HashingFor<Blo
 pub trait SlotWorker<B: BlockT> {
 	/// Called when a new slot is triggered.
 	///
-	/// Returns a future that resolves to a [`SlotResult`] iff a block was successfully built in
-	/// the slot. Otherwise `None` is returned.
+	/// Returns a future that resolves to a block.
+	///
+	/// If block production failed, `None` is returned.
 	async fn on_slot(&mut self, slot_info: SlotInfo<B>) -> Option<B>;
 }
 
