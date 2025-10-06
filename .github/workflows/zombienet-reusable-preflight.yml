@@ -357,8 +357,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          
           gh --version
 
           export SHA=${{ github.event.pull_request.head.sha }}
@@ -458,11 +456,6 @@ jobs:
           
           if [[ "$CONCLUSION" == "success" ]]; then
             echo "CI workflow succeeded. (build run_id: ${BUILD_RUN_ID})"
-            echo "BUILD_RUN_ID=${BUILD_RUN_ID}" >> $GITHUB_OUTPUT
-          elif [[ "$CONCLUSION" == "cancelled" ]]; then
-            echo "::warning::CI workflow ('Build and push images') was cancelled. This may indicate the images are already available or the workflow was manually cancelled."
-            echo "::notice::Proceeding with zombienet tests. If images are missing, tests will fail."
-            # Still output the run ID for reference
             echo "BUILD_RUN_ID=${BUILD_RUN_ID}" >> $GITHUB_OUTPUT
           else
             echo "::error::CI workflow ('Build and push images') failed with conclusion: $CONCLUSION"
