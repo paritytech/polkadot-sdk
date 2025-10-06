@@ -1207,10 +1207,10 @@ fn self_destruct2_works() {
 		));
 
 		// Deploy factory
-		let factory =
-			builder::bare_instantiate_with_signer(Code::Existing(factory_code_hash), &BOB)
-				.native_value(initial_contract_balance)
-				.build_and_unwrap_contract();
+		let factory = builder::bare_instantiate(Code::Existing(factory_code_hash))
+			.origin(RuntimeOrigin::signed(BOB))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
 
 		let mut input_data = Vec::new();
 		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());

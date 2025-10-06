@@ -216,16 +216,6 @@ pub(crate) mod builder {
 	};
 	use sp_core::{H160, H256};
 
-	pub fn bare_instantiate_with_signer(
-		code: Code,
-		signer: &sp_runtime::AccountId32,
-	) -> BareInstantiateBuilder<Test> {
-		BareInstantiateBuilder::<Test>::bare_instantiate(
-			RuntimeOrigin::signed(signer.clone()),
-			code,
-		)
-	}
-
 	pub fn bare_instantiate(code: Code) -> BareInstantiateBuilder<Test> {
 		BareInstantiateBuilder::<Test>::bare_instantiate(RuntimeOrigin::signed(ALICE), code)
 	}
