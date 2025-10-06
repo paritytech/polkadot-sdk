@@ -19,8 +19,8 @@
 
 use crate::{
 	address::AddressMapper, storage::ContractInfo, AccountIdOf, AccountInfo, AccountInfoOf,
-	BalanceOf, CodeInfo, Config, Error, HoldReason, ImmutableDataOf, Inspect,
-	StorageDeposit as Deposit, System, LOG_TARGET, Pallet, ExecConfig, ExecOrigin as Origin,
+	BalanceOf, CodeInfo, Config, Error, ExecConfig, ExecOrigin as Origin, HoldReason,
+	ImmutableDataOf, Inspect, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
@@ -402,12 +402,10 @@ where
 			coalesced
 		};
 		let try_charge = || {
-			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
-			{
+			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
 				E::charge(origin, &charge.contract, &charge.amount, &charge.state, exec_config)?;
 			}
-			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
-			{
+			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
 				E::charge(origin, &charge.contract, &charge.amount, &charge.state, exec_config)?;
 			}
 			Ok(())

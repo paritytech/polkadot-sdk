@@ -2261,7 +2261,7 @@ where
 			Ok(CodeRemoved::No)
 		}
 	}
-	
+
 	fn effective_gas_price(&self) -> U256 {
 		self.exec_config
 			.effective_gas_price
