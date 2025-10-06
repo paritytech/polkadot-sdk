@@ -36,7 +36,6 @@ use sp_trie::{empty_child_trie_root, LayoutV1};
 
 #[cfg(not(feature = "std"))]
 use alloc::collections::btree_map::BTreeMap as Map;
-use core::ops::DerefMut;
 #[cfg(feature = "std")]
 use std::collections::{hash_map::Entry as MapEntry, HashMap as Map};
 
