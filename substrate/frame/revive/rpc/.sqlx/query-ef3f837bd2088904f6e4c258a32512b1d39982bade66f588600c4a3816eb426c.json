@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n\t\t\tSELECT log_index, address, transaction_hash, topic_0, topic_1, topic_2, topic_3, data\n\t\t\tFROM logs\n\t\t\tWHERE block_hash = $1 AND transaction_index = $2\n\t\t\tORDER BY log_index ASC\n\t\t\t",
+  "query": "\n\t\t\t\tSELECT log_index, address, transaction_hash, topic_0, topic_1, topic_2, topic_3, data\n\t\t\t\tFROM logs\n\t\t\t\tWHERE block_hash = $1 AND transaction_index = $2\n\t\t\t\tORDER BY log_index ASC\n\t\t\t\t",
   "describe": {
     "columns": [
       {
@@ -58,5 +58,5 @@
       true
     ]
   },
-  "hash": "30ae7176a84f6402b1a43037d3c9fb00315b5d17dfe1e8d261df08f71e54e70a"
+  "hash": "ef3f837bd2088904f6e4c258a32512b1d39982bade66f588600c4a3816eb426c"
 }
