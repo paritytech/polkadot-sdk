@@ -20,7 +20,7 @@ use crate::{
 	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
-use sp_core::{H160, H256, U256};
+use sp_core::{H256, U256};
 use sqlx::{query, QueryBuilder, Row, Sqlite, SqlitePool};
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -107,63 +107,25 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		ethereum_block_hash: &H256,
 		substrate_block_hash: &H256,
 		block_number: u64,
-		gas_limit: &U256,
-		block_author: &H160,
 	) -> Result<(), ClientError> {
 		let ethereum_hash = ethereum_block_hash.as_ref();
 		let substrate_hash = substrate_block_hash.as_ref();
 		let block_number = block_number as i64;
 
-		let gas_limit = gas_limit.to_big_endian();
-		let gas_limit_bytes = gas_limit.as_ref();
-		let block_author_bytes = block_author.as_bytes();
-
 		query!(
 			r#"
-			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash, block_number, gas_limit, block_author)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash, block_number)
+			VALUES ($1, $2, $3)
 			"#,
 			ethereum_hash,
 			substrate_hash,
-			block_number,
-			gas_limit_bytes,
-			block_author_bytes
+			block_number
 		)
 		.execute(&self.pool)
 		.await?;
 
 		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {ethereum_block_hash:?} -> substrate block: {substrate_block_hash:?}");
 		Ok(())
-	}
-
-	/// Get block metadata (ethereum hash, gas limit, block author) for the given Substrate block
-	/// hash. Returns a tuple of (ethereum_block_hash, gas_limit, block_author).
-	pub async fn get_block_mapping(
-		&self,
-		substrate_block_hash: &H256,
-	) -> Option<(H256, U256, sp_core::H160)> {
-		let substrate_hash = substrate_block_hash.as_ref();
-		let result = query!(
-			r#"
-			SELECT ethereum_block_hash, gas_limit, block_author
-			FROM eth_to_substrate_blocks
-			WHERE substrate_block_hash = $1
-			"#,
-			substrate_hash
-		)
-		.fetch_optional(&self.pool)
-		.await
-		.ok()??;
-
-		let ethereum_block_hash = H256::from_slice(&result.ethereum_block_hash[..]);
-
-		// Deserialize gas_limit from big-endian bytes
-		let gas_limit = U256::from_big_endian(&result.gas_limit[..]);
-
-		// Deserialize block_author from bytes
-		let block_author = sp_core::H160::from_slice(&result.block_author[..]);
-
-		Some((ethereum_block_hash, gas_limit, block_author))
 	}
 
 	/// Get the Substrate block hash for the given Ethereum block hash.
@@ -195,21 +157,29 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Get the Ethereum block hash for the given Substrate block hash.
 	pub async fn get_ethereum_hash(&self, substrate_block_hash: &H256) -> Option<H256> {
-		let (ethereum_hash, _, _) = self.get_block_mapping(substrate_block_hash).await?;
-		log::trace!(target: LOG_TARGET, "Get block mapping substrate block: {substrate_block_hash:?} -> ethereum block: {ethereum_hash:?}");
-		Some(ethereum_hash)
-	}
+		let substrate_hash = substrate_block_hash.as_ref();
+		let result = query!(
+			r#"
+			SELECT ethereum_block_hash
+			FROM eth_to_substrate_blocks
+			WHERE substrate_block_hash = $1
+			"#,
+			substrate_hash
+		)
+		.fetch_optional(&self.pool)
+		.await
+		.inspect_err(|e| {
+			log::error!(target: LOG_TARGET, "failed to get block mapping for substrate block {substrate_block_hash:?}, err: {e:?}");
+		})
+		.ok()?
+		.or_else(||{
+			log::trace!(target: LOG_TARGET, "No block mapping found for substrate block: {substrate_block_hash:?}");
+			None
+		})?;
 
-	/// Get the block gas limit for the given Substrate block hash.
-	pub async fn get_block_gas_limit(&self, substrate_block_hash: &H256) -> Option<U256> {
-		let (_, gas_limit, _) = self.get_block_mapping(substrate_block_hash).await?;
-		Some(gas_limit)
-	}
+		log::trace!(target: LOG_TARGET, "Get block mapping substrate block: {substrate_block_hash:?} -> ethereum block: {:?}", H256::from_slice(&result.ethereum_block_hash[..]));
 
-	/// Get the block author for the given Substrate block hash.
-	pub async fn get_block_author(&self, substrate_block_hash: &H256) -> Option<sp_core::H160> {
-		let (_, _, block_author) = self.get_block_mapping(substrate_block_hash).await?;
-		Some(block_author)
+		Some(H256::from_slice(&result.ethereum_block_hash[..]))
 	}
 
 	/// Remove block mappings for the given Ethereum block hashes.
@@ -413,20 +383,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.get_ethereum_block_hash(&block_hash, block_number as u64)
 			.await
 		{
-			// Fetch gas_limit and block_author for this block
-			let gas_limit =
-				self.receipt_extractor.block_gas_limit(block_hash).await.unwrap_or_default(); // Default gas limit
-			let block_author =
-				self.receipt_extractor.block_author(block_hash).await.unwrap_or_default(); // Default author
-
-			self.insert_block_mapping(
-				&ethereum_hash,
-				&block_hash,
-				block_number as u64,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
+			self.insert_block_mapping(&ethereum_hash, &block_hash, block_number as u64)
+				.await?;
 		}
 
 		Ok(())
@@ -968,18 +926,10 @@ mod tests {
 		let ethereum_hash = H256::from([1u8; 32]);
 		let substrate_hash = H256::from([2u8; 32]);
 		let block_number = 42u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
 
 		// Insert mapping
 		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
 			.await?;
 
 		// Test forward lookup
@@ -1000,30 +950,16 @@ mod tests {
 		let substrate_hash1 = H256::from([2u8; 32]);
 		let substrate_hash2 = H256::from([3u8; 32]);
 		let block_number = 42u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
 
 		// Insert first mapping
 		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash1,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
+			.insert_block_mapping(&ethereum_hash, &substrate_hash1, block_number)
 			.await?;
 		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash1));
 
 		// Insert second mapping (should overwrite)
 		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash2,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
+			.insert_block_mapping(&ethereum_hash, &substrate_hash2, block_number)
 			.await?;
 		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash2));
 
@@ -1041,27 +977,13 @@ mod tests {
 		let substrate_hash1 = H256::from([3u8; 32]);
 		let substrate_hash2 = H256::from([4u8; 32]);
 		let block_number = 42u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
 
 		// Insert mappings
 		provider
-			.insert_block_mapping(
-				&ethereum_hash1,
-				&substrate_hash1,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
+			.insert_block_mapping(&ethereum_hash1, &substrate_hash1, block_number)
 			.await?;
 		provider
-			.insert_block_mapping(
-				&ethereum_hash2,
-				&substrate_hash2,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
+			.insert_block_mapping(&ethereum_hash2, &substrate_hash2, block_number)
 			.await?;
 
 		// Verify they exist
@@ -1084,18 +1006,10 @@ mod tests {
 		let ethereum_hash = H256::from([1u8; 32]);
 		let substrate_hash = H256::from([2u8; 32]);
 		let block_number = 42u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
 
 		// Insert mapping
 		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
 			.await?;
 		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash));
 
@@ -1114,8 +1028,6 @@ mod tests {
 		let ethereum_hash = H256::from([1u8; 32]);
 		let substrate_hash = H256::from([2u8; 32]);
 		let block_number = 1u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
 
 		// Create a log with substrate hash
 		let log = Log {
@@ -1145,13 +1057,7 @@ mod tests {
 
 		// Insert block mapping
 		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
 			.await?;
 
 		// Query logs using Ethereum block hash (should resolve to substrate hash)
@@ -1172,22 +1078,10 @@ mod tests {
 
 		// Insert some mappings
 		provider
-			.insert_block_mapping(
-				&H256::from([1u8; 32]),
-				&H256::from([2u8; 32]),
-				1,
-				&U256::from(30_000_000),
-				&H160::zero(),
-			)
+			.insert_block_mapping(&H256::from([1u8; 32]), &H256::from([2u8; 32]), 1)
 			.await?;
 		provider
-			.insert_block_mapping(
-				&H256::from([3u8; 32]),
-				&H256::from([4u8; 32]),
-				2,
-				&U256::from(30_000_000),
-				&H160::zero(),
-			)
+			.insert_block_mapping(&H256::from([3u8; 32]), &H256::from([4u8; 32]), 2)
 			.await?;
 
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
