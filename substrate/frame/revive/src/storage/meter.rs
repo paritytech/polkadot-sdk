@@ -563,7 +563,7 @@ pub fn terminate_logic_for_benchmark<T: Config>(
 	contract: &T::AccountId,
 	beneficiary: &T::AccountId,
 ) -> Result<(), DispatchError> {
-	terminate::<T>(contract, beneficiary, true)
+	terminate::<T>(contract, beneficiary, &true)
 }
 
 mod private {
