@@ -1019,13 +1019,10 @@ async fn fetch_block_header_with_cache<Context>(
 	let (tx, rx) = oneshot::channel();
 
 	ctx.send_message(ChainApiMessage::BlockHeader(relay_hash, tx)).await;
-
 	let header = rx.map_err(JfyiError::ChainApiRequestCanceled).await??;
-
 	if let Some(ref h) = header {
 		cache.insert(relay_hash, h.clone());
 	}
-
 	Ok(header)
 }
 
