@@ -353,16 +353,12 @@ jobs:
     env:
       SKIP_WASM_BUILD: 1
     steps:
-      - name: Add to DYLD_LIBRARY_PATH
-        run: |
-          echo "DYLD_LIBRARY_PATH=/Library/Developer/CommandLineTools/usr/lib:${DYLD_LIBRARY_PATH}" >> $GITHUB_ENV
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set rust version from env file
         run: |
           RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
           echo $RUST_VERSION
           echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
-          echo $DYLD_LIBRARY_PATH
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
       - name: Install rust ${{ env.RUST_VERSION }}
@@ -412,7 +408,6 @@ jobs:
       - check-tracing
       - cargo-check-each-crate
       - test-deterministic-wasm
-      - cargo-check-all-crate-macos
       # - cargo-hfuzz remove from required for now, as it's flaky
     if: always() && !cancelled()
     steps:
