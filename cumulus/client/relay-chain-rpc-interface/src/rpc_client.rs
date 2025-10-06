@@ -424,7 +424,8 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_unapplied_slashes(
 		&self,
 		at: RelayHash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, RelayChainError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, RelayChainError>
+	{
 		self.call_remote_runtime_function("ParachainHost_unapplied_slashes", at, None::<()>)
 			.await
 	}

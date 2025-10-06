@@ -232,7 +232,7 @@ sp_api::decl_runtime_apis! {
 		fn session_executor_params(session_index: SessionIndex) -> Option<ExecutorParams>;
 
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
-		/// 
+		///
 		/// Deprecated. Use `unapplied_slashes_v2` instead.
 		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>;
 
