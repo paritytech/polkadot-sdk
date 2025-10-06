@@ -14,27 +14,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use crate::{vm::evm::interpreter::Halt, Config, Error, U256};
+use core::ops::ControlFlow;
 
-use sp_core::{H160, U256};
-
-/// Converts a `U256` value to a `usize`, saturating to `MAX` if the value is too large.
-pub fn as_usize_saturated(v: U256) -> usize {
-	let x = &v.0;
-	if (x[1] == 0) & (x[2] == 0) & (x[3] == 0) {
-		usize::try_from(x[0]).unwrap_or(usize::MAX)
+/// Helper function to convert U256 to usize, checking for overflow
+pub fn as_usize_or_halt_with(value: U256, halt: impl Fn() -> Halt) -> ControlFlow<Halt, usize> {
+	let limbs = value.0;
+	if (limbs[0] > usize::MAX as u64) | (limbs[1] != 0) | (limbs[2] != 0) | (limbs[3] != 0) {
+		ControlFlow::Break(halt())
 	} else {
-		usize::MAX
+		ControlFlow::Continue(limbs[0] as usize)
 	}
 }
 
-/// Trait for converting types into Address values.
-pub trait IntoAddress {
-	/// Converts the implementing type into an Address value.
-	fn into_address(self) -> H160;
-}
-
-impl IntoAddress for U256 {
-	fn into_address(self) -> H160 {
-		H160::from_slice(&self.to_big_endian()[12..])
-	}
+/// Helper function to convert U256 to usize, checking for overflow, with default OutOfGas
+/// error
+pub fn as_usize_or_halt<T: Config>(value: U256) -> ControlFlow<Halt, usize> {
+	as_usize_or_halt_with(value, || Error::<T>::OutOfGas.into())
 }

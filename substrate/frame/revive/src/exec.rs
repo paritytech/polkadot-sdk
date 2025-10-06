@@ -30,7 +30,7 @@ use crate::{
 	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
-use core::{fmt::Debug, marker::PhantomData, mem};
+use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
@@ -288,6 +288,14 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn adjust_gas(&mut self, charged: crate::gas::ChargedAmount, actual_weight: Weight) {
 		self.gas_meter_mut()
 			.adjust_gas(charged, RuntimeCosts::Precompile(actual_weight));
+	}
+
+	/// Charges the gas meter with the given token or halts execution if not enough gas is left.
+	fn charge_or_halt<Tok: crate::gas::Token<Self::T>>(
+		&mut self,
+		token: Tok,
+	) -> ControlFlow<crate::vm::evm::Halt, crate::gas::ChargedAmount> {
+		self.gas_meter_mut().charge_or_halt(token)
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
