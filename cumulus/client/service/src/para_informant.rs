@@ -39,6 +39,13 @@ use sp_runtime::{
 
 const LOG_TARGET: &str = "parachain_informant";
 
+/// The maximum number of entries to keep in the LRU caches.
+const LRU_LENGTH: u32 = 64;
+
+/// Type alias for the transaction monitor event stream.
+type TransactionMonitorEventStream<Hash> =
+	Pin<Box<dyn futures::Stream<Item = TransactionMonitorEvent<Hash>> + Unpin + Send>>;
+
 /// The parachain informant service.
 pub struct ParachainInformant<Block: BlockT> {
 	/// Relay chain interface to interact with the relay chain.
@@ -63,8 +70,7 @@ pub struct ParachainInformant<Block: BlockT> {
 	unresolved_tx: LruMap<sp_core::H256, Vec<Instant>>,
 
 	/// Stream of transaction events from RPC transaction v2 handles.
-	transaction_v2_handle:
-		Pin<Box<dyn futures::Stream<Item = TransactionMonitorEvent<Block::Hash>> + Unpin + Send>>,
+	transaction_v2_handle: TransactionMonitorEventStream<Block::Hash>,
 }
 
 impl<Block: BlockT> ParachainInformant<Block> {
@@ -91,8 +97,8 @@ impl<Block: BlockT> ParachainInformant<Block> {
 			metrics,
 			para_id,
 			last_backed_block_time: None,
-			backed_blocks: LruMap::new(ByLength::new(64)),
-			unresolved_tx: LruMap::new(ByLength::new(64)),
+			backed_blocks: LruMap::new(ByLength::new(LRU_LENGTH)),
+			unresolved_tx: LruMap::new(ByLength::new(LRU_LENGTH)),
 			transaction_v2_handle,
 		})
 	}
