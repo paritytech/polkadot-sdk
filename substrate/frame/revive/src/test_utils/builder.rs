@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::u32;
-
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
 	address::AddressMapper, evm::TransactionSigned, AccountIdOf, BalanceOf, Code, Config,

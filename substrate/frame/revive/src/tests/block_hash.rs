@@ -18,14 +18,17 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::{block_hash::EthereumBlockBuilder, Block, TransactionSigned},
+	evm::{block_hash::EthereumBlockBuilder, fees::InfoT, Block, TransactionSigned},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
 	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
 };
 
-use frame_support::traits::{fungible::Mutate, Hooks};
+use frame_support::traits::{
+	fungible::{Balanced, Mutate},
+	Hooks,
+};
 use pallet_revive_fixtures::compile_module;
 
 use alloy_consensus::RlpEncodableReceipt;
@@ -63,6 +66,8 @@ fn transactions_are_captured() {
 			builder::bare_instantiate(Code::Upload(binary.clone())).build_and_unwrap_contract();
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
 
 		assert_ok!(builder::eth_call(addr).value(balance).build());
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
@@ -118,9 +123,11 @@ fn events_are_captured() {
 
 		// Bare call must not be captured.
 		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_contract();
-
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
+
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 
 		// The contract address is not exposed by the `eth_instantiate_with_code` call.
