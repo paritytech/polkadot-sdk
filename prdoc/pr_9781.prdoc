@@ -1,0 +1,10 @@
+title: Limit the number of signals per XCMP page
+doc:
+- audience: Runtime Dev
+  description: |-
+    Right now we have only 2 XCMP signals: `SuspendChannel` and `ResumeChannel` and we can write at most 1 per page.
+
+    Let's also add a limit when reading the signals in a page. Even if now 1 is enough, since in the future we might add more signals, let's have a limit of 3 per page.
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: minor

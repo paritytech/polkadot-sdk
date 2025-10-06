@@ -61,14 +61,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	for (name, timeout_secs) in [
-		("bob", 600u64),
-		("alice", 600u64),
-		("charlie", 600u64),
-		("one", 800u64),
-		("two", 800u64),
-		("eve", 800u64),
-	] {
+	for (name, timeout_secs) in [("bob", 600u64)] {
 		log::info!("Checking block production for {name} within {timeout_secs}s");
 		assert!(network
 			.get_node(name)?
@@ -77,14 +70,16 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 			.is_ok());
 	}
 
-	// Wait (up to 10 seconds) until pattern occurs at least 20 times
-	let options = LogLineCountOptions {
-		predicate: Arc::new(|n| n >= 20),
-		timeout: Duration::from_secs(10),
-		wait_until_timeout_elapses: false,
-	};
+	for (name, timeout_secs) in
+		[("alice", 600u64), ("charlie", 600u64), ("one", 800u64), ("two", 800u64), ("eve", 800u64)]
+	{
+		// Wait (up to timeout_secs) until pattern occurs at least 20 times
+		let options = LogLineCountOptions {
+			predicate: Arc::new(|n| n >= 20),
+			timeout: Duration::from_secs(timeout_secs),
+			wait_until_timeout_elapses: false,
+		};
 
-	for name in ["one", "two", "eve", "charlie", "alice"] {
 		log::info!("Ensuring blocks are imported using PoV recovery by {name}");
 		let result = network
 			.get_node(name)?
@@ -129,20 +124,22 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	// 	   - synchronize only with validator-0
 	// - parachain nodes
 	//   - bob
-	//     - collator which is the only one producing blocks
+	//     - collator which produces blocks, but doesn't announce them
 	//   - alice
-	//     - collator which doesn't produce blocks
+	//     - collator which produces blocks, but doesn't announce them
 	//     - will need to recover the pov blocks through availability recovery
 	//   - charlie
 	//     - full node
 	//     - will need to recover the pov blocks through availability recovery
 	//   - eve
-	//     - collator which doesn't produce blocks
+	//     - collator which produces blocks, but doesn't announce them
 	//     - it fails recovery from time to time to test retries
 	//   - one
-	//     - RPC collator which does not produce blocks
+	//     - RPC collator which produces blocks, but doesn't announce them
+	//     - Uses an external relay chain node
 	//   - two
 	//     - RPC full node
+	//     - Uses an external relay chain node
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r
@@ -191,20 +188,18 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|c| {
 					c.with_name("alice")
 						.validator(true)
-						.with_args(build_collator_args(vec!["--use-null-consensus".into()]))
+						.with_args(build_collator_args(vec![]))
 				})
 				.with_collator(|c| {
 					c.with_name("charlie").validator(false).with_args(build_collator_args(vec![]))
 				})
 				.with_collator(|c| {
 					c.with_name("eve").validator(true).with_args(build_collator_args(vec![
-						"--fail-pov-recovery".into(),
-						"--use-null-consensus".into(),
+						"--fail-pov-recovery".into()
 					]))
 				})
 				.with_collator(|c| {
 					c.with_name("one").validator(true).with_args(build_collator_args(vec![
-						"--use-null-consensus".into(),
 						("--relay-chain-rpc-url", rpc_urls.clone()).into()
 					]))
 				})

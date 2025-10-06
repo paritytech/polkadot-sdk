@@ -20,18 +20,15 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_minimal_node::{
-	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
-};
+use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
 use futures::{channel::mpsc, StreamExt};
-use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
+use polkadot_primitives::{CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
@@ -51,7 +48,7 @@ use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_core::{traits::SpawnNamed, Decode};
+use sp_core::Decode;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockIdTo, Header},
 	SaturatedConversion, Saturating,
@@ -88,23 +85,6 @@ pub enum DARecoveryProfile {
 	Other(RecoveryDelayRange),
 }
 
-pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawner> {
-	pub block_status: Arc<BS>,
-	pub client: Arc<Client>,
-	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	pub spawner: Spawner,
-	pub para_id: ParaId,
-	pub relay_chain_interface: RCInterface,
-	pub task_manager: &'a mut TaskManager,
-	pub parachain_consensus: Box<dyn ParachainConsensus<Block>>,
-	pub import_queue: Box<dyn ImportQueueService<Block>>,
-	pub collator_key: CollatorPair,
-	pub relay_chain_slot_duration: Duration,
-	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
-	pub prometheus_registry: Option<&'a Registry>,
-}
-
 /// Parameters given to [`start_relay_chain_tasks`].
 pub struct StartRelayChainTasksParams<'a, Block: BlockT, Client, RCInterface> {
 	pub client: Arc<Client>,
@@ -118,96 +98,6 @@ pub struct StartRelayChainTasksParams<'a, Block: BlockT, Client, RCInterface> {
 	pub recovery_handle: Box<dyn RecoveryHandle>,
 	pub sync_service: Arc<SyncingService<Block>>,
 	pub prometheus_registry: Option<&'a Registry>,
-}
-
-/// Parameters given to [`start_full_node`].
-pub struct StartFullNodeParams<'a, Block: BlockT, Client, RCInterface> {
-	pub para_id: ParaId,
-	pub client: Arc<Client>,
-	pub relay_chain_interface: RCInterface,
-	pub task_manager: &'a mut TaskManager,
-	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	pub relay_chain_slot_duration: Duration,
-	pub import_queue: Box<dyn ImportQueueService<Block>>,
-	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
-	pub prometheus_registry: Option<&'a Registry>,
-}
-
-/// Start a collator node for a parachain.
-///
-/// A collator is similar to a validator in a normal blockchain.
-/// It is responsible for producing blocks and sending the blocks to a
-/// parachain validator for validation and inclusion into the relay chain.
-#[deprecated = "use start_relay_chain_tasks instead"]
-pub async fn start_collator<'a, Block, BS, Client, Backend, RCInterface, Spawner>(
-	StartCollatorParams {
-		block_status,
-		client,
-		announce_block,
-		spawner,
-		para_id,
-		task_manager,
-		relay_chain_interface,
-		parachain_consensus,
-		import_queue,
-		collator_key,
-		relay_chain_slot_duration,
-		recovery_handle,
-		sync_service,
-		prometheus_registry,
-	}: StartCollatorParams<'a, Block, BS, Client, RCInterface, Spawner>,
-) -> sc_service::error::Result<()>
-where
-	Block: BlockT,
-	BS: BlockBackend<Block> + Send + Sync + 'static,
-	Client: Finalizer<Block, Backend>
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>
-		+ Send
-		+ Sync
-		+ BlockBackend<Block>
-		+ BlockchainEvents<Block>
-		+ ProvideRuntimeApi<Block>
-		+ 'static,
-	Client::Api: CollectCollationInfo<Block>,
-	for<'b> &'b Client: BlockImport<Block>,
-	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	RCInterface: RelayChainInterface + Clone + 'static,
-	Backend: BackendT<Block> + 'static,
-{
-	let overseer_handle = relay_chain_interface
-		.overseer_handle()
-		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
-
-	start_relay_chain_tasks(StartRelayChainTasksParams {
-		client: client.clone(),
-		announce_block: announce_block.clone(),
-		para_id,
-		task_manager,
-		da_recovery_profile: DARecoveryProfile::Collator,
-		relay_chain_interface,
-		import_queue,
-		relay_chain_slot_duration,
-		recovery_handle,
-		sync_service,
-		prometheus_registry,
-	})?;
-
-	#[allow(deprecated)]
-	cumulus_client_collator::start_collator(cumulus_client_collator::StartCollatorParams {
-		runtime_api: client,
-		block_status,
-		announce_block,
-		overseer_handle,
-		spawner,
-		para_id,
-		key: collator_key,
-		parachain_consensus,
-	})
-	.await;
-
-	Ok(())
 }
 
 /// Start necessary consensus tasks related to the relay chain.
@@ -302,6 +192,7 @@ where
 		.spawn("cumulus-pov-recovery", None, pov_recovery.run());
 
 	let parachain_informant = parachain_informant::<Block, _>(
+		para_id,
 		relay_chain_interface.clone(),
 		client.clone(),
 		prometheus_registry.map(ParachainInformantMetrics::new).transpose()?,
@@ -311,62 +202,6 @@ where
 		.spawn("parachain-informant", None, parachain_informant);
 
 	Ok(())
-}
-
-/// Start a full node for a parachain.
-///
-/// A full node will only sync the given parachain and will follow the
-/// tip of the chain.
-#[deprecated = "use start_relay_chain_tasks instead"]
-pub fn start_full_node<Block, Client, Backend, RCInterface>(
-	StartFullNodeParams {
-		client,
-		announce_block,
-		task_manager,
-		relay_chain_interface,
-		para_id,
-		relay_chain_slot_duration,
-		import_queue,
-		recovery_handle,
-		sync_service,
-		prometheus_registry,
-	}: StartFullNodeParams<Block, Client, RCInterface>,
-) -> sc_service::error::Result<()>
-where
-	Block: BlockT,
-	Client: Finalizer<Block, Backend>
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>
-		+ Send
-		+ Sync
-		+ BlockBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
-	for<'a> &'a Client: BlockImport<Block>,
-	Backend: BackendT<Block> + 'static,
-	RCInterface: RelayChainInterface + Clone + 'static,
-{
-	start_relay_chain_tasks(StartRelayChainTasksParams {
-		client,
-		announce_block,
-		task_manager,
-		relay_chain_interface,
-		para_id,
-		relay_chain_slot_duration,
-		import_queue,
-		recovery_handle,
-		sync_service,
-		da_recovery_profile: DARecoveryProfile::FullNode,
-		prometheus_registry,
-	})
-}
-
-/// Re-exports of old parachain consensus loop start logic.
-#[deprecated = "This is old consensus architecture only for backwards compatibility \
-	and will be removed in the future"]
-pub mod old_consensus {
-	#[allow(deprecated)]
-	pub use cumulus_client_collator::{start_collator, start_collator_sync, StartCollatorParams};
 }
 
 /// Prepare the parachain's node configuration
@@ -416,8 +251,6 @@ pub async fn build_relay_chain_interface(
 				rpc_target_urls,
 			)
 			.await,
-		cumulus_client_cli::RelayChainMode::LightClient =>
-			build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager).await,
 	}
 }
 
@@ -609,6 +442,7 @@ where
 
 /// Task for logging candidate events and some related metrics.
 async fn parachain_informant<Block: BlockT, Client>(
+	para_id: ParaId,
 	relay_chain_interface: impl RelayChainInterface + Clone,
 	client: Arc<Client>,
 	metrics: Option<ParachainInformantMetrics>,
@@ -636,7 +470,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 		let mut timed_out_candidates = Vec::new();
 		for event in candidate_events {
 			match event {
-				CandidateEvent::CandidateBacked(_, head, _, _) => {
+				CandidateEvent::CandidateBacked(receipt, head, _, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let backed_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -656,7 +493,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 					last_backed_block_time = Some(backed_block_time);
 					backed_candidates.push(backed_block);
 				},
-				CandidateEvent::CandidateIncluded(_, head, _, _) => {
+				CandidateEvent::CandidateIncluded(receipt, head, _, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let included_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -674,7 +514,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 					}
 					included_candidates.push(included_block);
 				},
-				CandidateEvent::CandidateTimedOut(_, head, _) => {
+				CandidateEvent::CandidateTimedOut(receipt, head, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let timed_out_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {

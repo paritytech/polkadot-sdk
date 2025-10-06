@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use crate::{
-	chain_spec::DeprecatedExtensions,
+	chain_spec::Extensions,
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
@@ -51,7 +51,7 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
@@ -157,19 +157,27 @@ pub(crate) trait BaseNodeSpec {
 		parachain_config: &Configuration,
 	) -> Option<ParaId> {
 		let best_hash = client.chain_info().best_hash;
-		let para_id = if let Ok(para_id) = client.runtime_api().parachain_id(best_hash) {
-			para_id
+		let para_id = if client
+			.runtime_api()
+			.has_api::<dyn GetParachainInfo<Self::Block>>(best_hash)
+			.ok()
+			.filter(|has_api| *has_api)
+			.is_some()
+		{
+			client
+				.runtime_api()
+				.parachain_id(best_hash)
+				.inspect_err(|err| {
+					log::error!(
+								"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
+								err
+							);
+				})
+				.ok()?
 		} else {
-			// TODO: remove this once `para_id` extension is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
-			#[allow(deprecated)]
-			let id = ParaId::from(
-				DeprecatedExtensions::try_get(&*parachain_config.chain_spec)
-					.and_then(|ext| ext.para_id)?,
-			);
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
-			log::info!("Deprecation notice: the parachain id was provided via the chain spec. This way of providing the parachain id to the node is not recommended. The alternative is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API in the runtime, and upgrade it on-chain. Starting with `stable2512` providing the parachain id via the chain spec will not be supported anymore.");
-			id
+			ParaId::from(
+				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id())?,
+			)
 		};
 
 		let parachain_account =
@@ -290,6 +298,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	>;
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
+
+	fn start_manual_seal_node(
+		_config: Configuration,
+		_block_time: u64,
+	) -> sc_service::error::Result<TaskManager> {
+		Err(sc_service::Error::Other("Manual seal not supported for this node type".into()))
+	}
 
 	/// Start a node with the given parachain spec.
 	///
@@ -538,6 +553,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
+	/// Start node with manual-seal consensus.
+	fn start_manual_seal_node(
+		self: Box<Self>,
+		config: Configuration,
+		block_time: u64,
+	) -> sc_service::error::Result<TaskManager>;
+
+	/// Start the node.
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,
@@ -552,6 +575,14 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
+	fn start_manual_seal_node(
+		self: Box<Self>,
+		config: Configuration,
+		block_time: u64,
+	) -> sc_service::error::Result<TaskManager> {
+		<Self as NodeSpec>::start_manual_seal_node(config, block_time)
+	}
+
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,

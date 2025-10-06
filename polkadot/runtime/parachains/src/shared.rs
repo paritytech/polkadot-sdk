@@ -26,7 +26,7 @@ use alloc::{
 use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
-	vstaging::transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
+	transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use sp_runtime::traits::AtLeast32BitUnsigned;
 

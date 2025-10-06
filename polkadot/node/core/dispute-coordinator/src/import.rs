@@ -34,9 +34,9 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, DisputeStatement,
-	ExecutorParams, Hash, IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeStatement, ExecutorParams, Hash,
+	IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 
 use crate::LOG_TARGET;
