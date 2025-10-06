@@ -2135,11 +2135,11 @@ macro_rules! impl_opaque_keys_inner {
 						<
 							<$type as $crate::BoundToRuntimeAppPublic>::Public
 								as $crate::RuntimeAppPublic
-						>::Signature
+						>::ProofOfPossession
 					),*
 				)
 			> {
-				let keys = Self {
+				let mut keys = Self {
 					$(
 						$field: <
 							<
@@ -2202,7 +2202,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// An error is returned if the signing of `user` failed, e.g. a private key isn't present in the keystore.
 			#[allow(dead_code)]
 			pub fn create_ownership_proof(
-				&self,
+				&mut self,
 				owner: &[u8],
 			) -> $crate::sp_std::result::Result<
 				(
@@ -2210,13 +2210,13 @@ macro_rules! impl_opaque_keys_inner {
 						<
 							<$type as $crate::BoundToRuntimeAppPublic>::Public
 								as $crate::RuntimeAppPublic
-						>::Signature
+						>::ProofOfPossession
 					),*
 				),
 				()
 			> {
 				let res = ($(
-					$crate::RuntimeAppPublic::sign(&self.$field, &owner).ok_or(())?
+					$crate::RuntimeAppPublic::generate_proof_of_possession(&mut self.$field, &owner).ok_or(())?
 				),*);
 
 				Ok(res)
@@ -2259,7 +2259,7 @@ macro_rules! impl_opaque_keys_inner {
 							<
 								$type as $crate::BoundToRuntimeAppPublic
 							>::Public as $crate::RuntimeAppPublic
-						>::Signature
+						>::ProofOfPossession
 				),*) as $crate::codec::DecodeAll>::decode_all(&mut &proof[..]) else {
 					return false
 				};
@@ -2269,7 +2269,7 @@ macro_rules! impl_opaque_keys_inner {
 
 				// Verify that all the signatures signed `owner`.
 				$(
-					let valid = $crate::RuntimeAppPublic::verify(&self.$field, &owner, &$field);
+					let valid = $crate::RuntimeAppPublic::verify_proof_of_possession(&self.$field, &owner, &$field);
 
 					if !valid {
 						// We found an invalid signature.
@@ -2540,7 +2540,9 @@ mod tests {
 	use crate::codec::{Decode, Encode, Input};
 	use sp_core::{
 		crypto::{Pair, UncheckedFrom},
-		ecdsa, ed25519, sr25519,
+		ecdsa, ed25519,
+		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+		sr25519,
 	};
 	use std::sync::Arc;
 
@@ -2718,9 +2720,9 @@ mod tests {
 
 	#[test]
 	fn opaque_keys_ownership_proof_works() {
-		let sr25519 = sp_core::sr25519::Pair::generate().0;
-		let ed25519 = sp_core::ed25519::Pair::generate().0;
-		let ecdsa = sp_core::ecdsa::Pair::generate().0;
+		let mut sr25519 = sp_core::sr25519::Pair::generate().0;
+		let mut ed25519 = sp_core::ed25519::Pair::generate().0;
+		let mut ecdsa = sp_core::ecdsa::Pair::generate().0;
 
 		let session_keys = SessionKeys {
 			sr25519: sr25519.public().into(),
@@ -2730,16 +2732,31 @@ mod tests {
 
 		let owner = &b"owner"[..];
 
-		let sr25519_sig = sr25519.sign(&owner);
-		let ed25519_sig = ed25519.sign(&owner);
-		let ecdsa_sig = ecdsa.sign(&owner);
+		let sr25519_sig = sr25519.generate_proof_of_possession(&owner);
+		let ed25519_sig = ed25519.generate_proof_of_possession(&owner);
+		let ecdsa_sig = ecdsa.generate_proof_of_possession(&owner);
 
 		for invalidate in [None, Some(0), Some(1), Some(2)] {
 			let proof = if let Some(invalidate) = invalidate {
 				match invalidate {
-					0 => (sr25519.sign(&b"invalid"[..]), &ed25519_sig, &ecdsa_sig).encode(),
-					1 => (&sr25519_sig, ed25519.sign(&b"invalid"[..]), &ecdsa_sig).encode(),
-					2 => (&sr25519_sig, &ed25519_sig, ecdsa.sign(&b"invalid"[..])).encode(),
+					0 => (
+						sr25519.generate_proof_of_possession(&b"invalid"[..]),
+						&ed25519_sig,
+						&ecdsa_sig,
+					)
+						.encode(),
+					1 => (
+						&sr25519_sig,
+						ed25519.generate_proof_of_possession(&b"invalid"[..]),
+						&ecdsa_sig,
+					)
+						.encode(),
+					2 => (
+						&sr25519_sig,
+						&ed25519_sig,
+						ecdsa.generate_proof_of_possession(&b"invalid"[..]),
+					)
+						.encode(),
 					_ => unreachable!(),
 				}
 			} else {
