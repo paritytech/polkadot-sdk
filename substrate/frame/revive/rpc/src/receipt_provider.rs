@@ -101,29 +101,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some((block_hash, transaction_index))
 	}
 
-	/// Fetch receipt metadata from the database for a specific transaction.
-	/// Returns (status, gas_used, gas_price)
-	async fn fetch_receipt_metadata(&self, transaction_hash: &H256) -> Option<(bool, U256, U256)> {
-		let transaction_hash = transaction_hash.as_ref();
-		let result = query!(
-			r#"
-			SELECT status, gas_used, gas_price
-			FROM transaction_hashes
-			WHERE transaction_hash = $1
-			"#,
-			transaction_hash
-		)
-		.fetch_optional(&self.pool)
-		.await
-		.ok()??;
-
-		let status = result.status != 0;
-		let gas_used = U256::from_big_endian(&result.gas_used);
-		let gas_price = U256::from_big_endian(&result.gas_price);
-
-		Some((status, gas_used, gas_price))
-	}
-
 	/// Insert a block mapping from Ethereum block hash to Substrate block hash.
 	pub async fn insert_block_mapping(
 		&self,
@@ -301,123 +278,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 	}
 
-	/// Reconstruct receipts from the database when on-chain state has been pruned.
-	/// This method can work even when events and storage are unavailable.
-	pub async fn receipts_from_db(
-		&self,
-		block: &SubstrateBlock,
-	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		use crate::receipt_extractor::{build_receipt_from_tx, decode_and_recover_tx};
-
-		let substrate_block_hash = block.hash();
-		let substrate_block_number = block.number() as u64;
-		let block_number: U256 = substrate_block_number.into();
-
-		// Get Ethereum block hash from DB mapping
-		let eth_block_hash = self
-			.get_ethereum_hash(&substrate_block_hash)
-			.await
-			.unwrap_or(substrate_block_hash);
-
-		// Get extrinsics from block (this works even when state is pruned)
-		let ext_iter = self.receipt_extractor.get_block_extrinsics(block).await?;
-
-		let mut receipts = Vec::new();
-
-		for (transaction_index, (_, call, _)) in ext_iter.enumerate() {
-			// Decode transaction and recover sender
-			let (signed_tx, transaction_hash, from) = decode_and_recover_tx(&call)?;
-
-			// Query receipt metadata from DB
-			let (status, gas_used, gas_price) =
-				self.fetch_receipt_metadata(&transaction_hash).await.ok_or_else(|| {
-					log::warn!(
-						target: LOG_TARGET,
-						"Receipt metadata not found in DB for tx {transaction_hash:?}"
-					);
-					ClientError::TxFeeNotFound
-				})?;
-
-			// Query logs from DB
-			let block_hash_ref = substrate_block_hash.as_ref();
-			let transaction_index_i32 = transaction_index as i32;
-			let logs_rows = query!(
-				r#"
-				SELECT log_index, address, transaction_hash, topic_0, topic_1, topic_2, topic_3, data
-				FROM logs
-				WHERE block_hash = $1 AND transaction_index = $2
-				ORDER BY log_index ASC
-				"#,
-				block_hash_ref,
-				transaction_index_i32
-			)
-			.fetch_all(&self.pool)
-			.await?;
-
-			let logs: Vec<Log> = logs_rows
-				.into_iter()
-				.map(|row| {
-					let topics = [row.topic_0, row.topic_1, row.topic_2, row.topic_3]
-						.iter()
-						.filter_map(|t| t.as_ref().map(|bytes| H256::from_slice(bytes)))
-						.collect();
-
-					Log {
-						address: H160::from_slice(&row.address),
-						block_hash: eth_block_hash,
-						block_number,
-						data: row.data.map(Bytes::from),
-						log_index: U256::from(row.log_index as u64),
-						topics,
-						transaction_hash,
-						transaction_index: transaction_index.into(),
-						removed: false,
-					}
-				})
-				.collect();
-
-			// Build the receipt using the common helper
-			let receipt = build_receipt_from_tx(
-				&signed_tx,
-				transaction_hash,
-				from,
-				gas_price,
-				gas_used,
-				status,
-				logs,
-				eth_block_hash,
-				block_number,
-				transaction_index,
-			)?;
-
-			receipts.push((signed_tx, receipt));
-		}
-
-		Ok(receipts)
-	}
-
 	/// Fetch receipts from the given block.
-	/// This method first attempts to extract receipts from on-chain data (events/storage).
-	/// If that fails (e.g., due to pruned state), it falls back to reconstructing receipts from the
-	/// database.
 	pub async fn receipts_from_block(
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		// Try on-chain extraction first
-		match self.receipt_extractor.extract_from_block(block).await {
-			Ok(receipts) => Ok(receipts),
-			Err(err) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"On-chain receipt extraction failed for block #{} ({:?}), falling back to DB: {err:?}",
-					block.number(),
-					block.hash()
-				);
-				// Fall back to DB reconstruction when state is pruned
-				self.receipts_from_db(block).await
-			},
-		}
+		self.receipt_extractor.extract_from_block(block).await
 	}
 
 	/// Extract and insert receipts from the given block.
@@ -487,26 +353,15 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			for (_, receipt) in receipts {
 				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
 				let transaction_index = receipt.transaction_index.as_u32() as i32;
-				let status = receipt.status.unwrap_or_default().as_u32() as i32;
-
-				// Serialize gas_used and gas_price as big-endian bytes
-				let gas_used = receipt.gas_used.to_big_endian();
-				let gas_used_bytes = gas_used.as_ref();
-
-				let gas_price = receipt.effective_gas_price.to_big_endian();
-				let gas_price_bytes = gas_price.as_ref();
 
 				query!(
 					r#"
-					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index, status, gas_used, gas_price)
-					VALUES ($1, $2, $3, $4, $5, $6)
+					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+					VALUES ($1, $2, $3)
 					"#,
 					transaction_hash,
 					block_hash_ref,
-					transaction_index,
-					status,
-					gas_used_bytes,
-					gas_price_bytes
+					transaction_index
 				)
 				.execute(&self.pool)
 				.await?;
