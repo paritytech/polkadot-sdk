@@ -68,6 +68,7 @@ impl EstimateCallFee<signed_pallet::Call<Runtime>, Balance> for FixedCallFee {
 parameter_types! {
 	pub static SignedDepositBase: Balance = 5;
 	pub static SignedDepositPerPage: Balance = 1;
+	pub static InvulnerableDeposit: Balance = 7;
 	pub static SignedMaxSubmissions: u32 = 3;
 	pub static SignedRewardBase: Balance = 3;
 	pub static SignedPhaseSwitch: SignedSwitch = SignedSwitch::Real;
@@ -76,10 +77,10 @@ parameter_types! {
 }
 
 impl crate::signed::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type DepositBase = SignedDepositBase;
 	type DepositPerPage = SignedDepositPerPage;
+	type InvulnerableDeposit = InvulnerableDeposit;
 	type EstimateCallFee = FixedCallFee;
 	type MaxSubmissions = SignedMaxSubmissions;
 	type RewardBase = SignedRewardBase;

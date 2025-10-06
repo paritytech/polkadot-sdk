@@ -140,11 +140,11 @@ pub type BlockNumberFor<T> =
 )]
 pub struct RetryConfig<Period> {
 	/// Initial amount of retries allowed.
-	total_retries: u8,
+	pub total_retries: u8,
 	/// Amount of retries left.
-	remaining: u8,
+	pub remaining: u8,
 	/// Period of time between retry attempts.
-	period: Period,
+	pub period: Period,
 }
 
 #[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
@@ -157,7 +157,17 @@ struct ScheduledV1<Call, BlockNumber> {
 }
 
 /// Information regarding an item to be executed in the future.
-#[derive(Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	DecodeWithMemTracking,
+)]
 pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// The unique identity for this task, if there is one.
 	pub maybe_id: Option<Name>,
@@ -422,7 +432,8 @@ pub mod pallet {
 		/// Execute the scheduled calls
 		fn on_initialize(_now: SystemBlockNumberFor<T>) -> Weight {
 			let now = T::BlockNumberProvider::current_block_number();
-			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
+			let mut weight_counter = frame_system::Pallet::<T>::remaining_block_weight()
+				.limit_to(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::MAX);
 			weight_counter.consumed()
 		}
@@ -1224,15 +1235,16 @@ impl<T: Config> Pallet<T> {
 
 		let mut incomplete_since = now + One::one();
 		let mut when = IncompleteSince::<T>::take().unwrap_or(now);
-		let mut executed = 0;
+		let mut is_first = true; // first task from the first agenda.
 
 		let max_items = T::MaxScheduledPerBlock::get();
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
 		while count_down > 0 && when <= now && weight.can_consume(service_agenda_base_weight) {
-			if !Self::service_agenda(weight, &mut executed, now, when, u32::MAX) {
+			if !Self::service_agenda(weight, is_first, now, when, u32::MAX) {
 				incomplete_since = incomplete_since.min(when);
 			}
+			is_first = false;
 			when.saturating_inc();
 			count_down.saturating_dec();
 		}
@@ -1240,6 +1252,12 @@ impl<T: Config> Pallet<T> {
 		if incomplete_since <= now {
 			Self::deposit_event(Event::AgendaIncomplete { when: incomplete_since });
 			IncompleteSince::<T>::put(incomplete_since);
+		} else {
+			// The next scheduler iteration should typically start from `now + 1` (`next_iter_now`).
+			// However, if the [`Config::BlockNumberProvider`] is not a local block number provider,
+			// then `next_iter_now` could be `now + n` where `n > 1`. In this case, we want to start
+			// from `now + 1` to ensure we don't miss any agendas.
+			IncompleteSince::<T>::put(now + One::one());
 		}
 	}
 
@@ -1247,7 +1265,7 @@ impl<T: Config> Pallet<T> {
 	/// later block.
 	fn service_agenda(
 		weight: &mut WeightMeter,
-		executed: &mut u32,
+		mut is_first: bool,
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		max: u32,
@@ -1283,7 +1301,7 @@ impl<T: Config> Pallet<T> {
 				agenda[agenda_index as usize] = Some(task);
 				break
 			}
-			let result = Self::service_task(weight, now, when, agenda_index, *executed == 0, task);
+			let result = Self::service_task(weight, now, when, agenda_index, is_first, task);
 			agenda[agenda_index as usize] = match result {
 				Err((Unavailable, slot)) => {
 					dropped += 1;
@@ -1294,7 +1312,7 @@ impl<T: Config> Pallet<T> {
 					slot
 				},
 				Ok(()) => {
-					*executed += 1;
+					is_first = false;
 					None
 				},
 			};

@@ -48,10 +48,14 @@ jobs:
               name: "polkadot-statement-distribution",
               bench: "statement-distribution-regression-bench",
             },
+            {
+              name: "polkadot-node-core-dispute-coordinator",
+              bench: "dispute-coordinator-regression-bench",
+            },
           ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Check Rust
         run: |
@@ -61,11 +65,11 @@ jobs:
       - name: Run Benchmarks
         id: run-benchmarks
         run: |
-          forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
+          forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks
           ls -lsa ./charts
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4.3.6
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{matrix.features.bench}}
           path: ./charts
@@ -78,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: gh-pages
           fetch-depth: 0
@@ -86,7 +90,7 @@ jobs:
       - run: git checkout master --
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: ./charts
 
@@ -96,7 +100,7 @@ jobs:
           git config --global --add safe.directory '*'
           ls -lsR ./charts
 
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         id: app-token
         with:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
@@ -105,7 +109,7 @@ jobs:
       - name: Generate ${{ env.BENCH }}
         env:
           BENCH: availability-recovery-regression-bench
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH }}
@@ -113,11 +117,12 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
           BENCH: availability-distribution-regression-bench
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH }}
@@ -125,11 +130,12 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
           BENCH: approval-voting-regression-bench
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH }}
@@ -137,11 +143,12 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
           BENCH: statement-distribution-regression-bench
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
         with:
           tool: "customSmallerIsBetter"
           name: ${{ env.BENCH }}
@@ -149,3 +156,17 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: dispute-coordinator-regression-bench
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+          max-items-in-chart: 500

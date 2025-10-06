@@ -39,8 +39,11 @@ use nix::{
 	unistd::{ForkResult, Pid},
 };
 use polkadot_node_core_pvf_common::{
+	compute_checksum,
 	error::InternalValidationError,
-	execute::{Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},
+	execute::{
+		ExecuteRequest, Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse,
+	},
 	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
@@ -49,7 +52,7 @@ use polkadot_node_core_pvf_common::{
 		thread::{self, WaitOutcome},
 		PipeFd, WorkerInfo, WorkerKind,
 	},
-	worker_dir,
+	worker_dir, ArtifactChecksum,
 };
 use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT};
 use polkadot_parachain_primitives::primitives::ValidationResult;
@@ -87,31 +90,18 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-fn recv_request(stream: &mut UnixStream) -> io::Result<(PersistedValidationData, PoV, Duration)> {
-	let pvd = framed_recv_blocking(stream)?;
-	let pvd = PersistedValidationData::decode(&mut &pvd[..]).map_err(|_| {
+fn recv_request(
+	stream: &mut UnixStream,
+) -> io::Result<(PersistedValidationData, PoV, Duration, ArtifactChecksum)> {
+	let request_bytes = framed_recv_blocking(stream)?;
+	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode persisted validation data".to_string(),
+			"execute pvf recv_request: failed to decode ExecuteRequest".to_string(),
 		)
 	})?;
 
-	let pov = framed_recv_blocking(stream)?;
-	let pov = PoV::decode(&mut &pov[..]).map_err(|_| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode PoV".to_string(),
-		)
-	})?;
-
-	let execution_timeout = framed_recv_blocking(stream)?;
-	let execution_timeout = Duration::decode(&mut &execution_timeout[..]).map_err(|_| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode duration".to_string(),
-		)
-	})?;
-	Ok((pvd, pov, execution_timeout))
+	Ok((request.pvd, request.pov, request.execution_timeout, request.artifact_checksum))
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
@@ -166,14 +156,15 @@ pub fn worker_entrypoint(
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (pvd, pov, execution_timeout) = recv_request(&mut stream).map_err(|e| {
-					map_and_send_err!(
-						e,
-						InternalValidationError::HostCommunication,
-						&mut stream,
-						worker_info
-					)
-				})?;
+				let (pvd, pov, execution_timeout, artifact_checksum) = recv_request(&mut stream)
+					.map_err(|e| {
+						map_and_send_err!(
+							e,
+							InternalValidationError::HostCommunication,
+							&mut stream,
+							worker_info
+						)
+					})?;
 				gum::debug!(
 					target: LOG_TARGET,
 					?worker_info,
@@ -191,6 +182,19 @@ pub fn worker_entrypoint(
 						worker_info
 					)
 				})?;
+
+				if artifact_checksum != compute_checksum(&compiled_artifact_blob) {
+					send_result::<WorkerResponse, WorkerError>(
+						&mut stream,
+						Ok(WorkerResponse {
+							job_response: JobResponse::CorruptedArtifact,
+							duration: Duration::ZERO,
+							pov_size: 0,
+						}),
+						worker_info,
+					)?;
+					continue;
+				}
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
 					map_and_send_err!(

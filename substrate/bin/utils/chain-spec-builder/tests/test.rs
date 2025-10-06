@@ -164,8 +164,6 @@ fn test_create_parachain() {
 			"100",
 			"-t",
 			"live",
-			"--para-id",
-			"10101",
 			"--relay-chain",
 			"rococo-local",
 			"default",
@@ -333,7 +331,7 @@ fn list_presets() {
 #[docify::export_content]
 fn cmd_create_with_named_preset(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
+		chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" -r $runtime_path named-preset "staging"
 	)
 }
 

@@ -16,7 +16,10 @@ workspace = true
 [dependencies]
 # Needed for all FRAME-based code
 codec = { workspace = true }
-frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
+frame = { features = [
+	"experimental",
+	"runtime",
+], workspace = true, default-features = true }
 pallet-contracts = { workspace = true }
 pallet-default-config-example = { workspace = true, default-features = true }
 pallet-example-offchain-worker = { workspace = true, default-features = true }
@@ -40,7 +43,9 @@ log = { workspace = true, default-features = true }
 node-cli = { workspace = true }
 pallet-example-authorization-tx-extension = { workspace = true, default-features = true }
 pallet-example-single-block-migrations = { workspace = true, default-features = true }
-polkadot-sdk = { features = ["runtime-full"], workspace = true, default-features = true }
+polkadot-sdk = { features = [
+	"runtime-full",
+], workspace = true, default-features = true }
 subkey = { workspace = true, default-features = true }
 
 # Substrate Client
@@ -128,3 +133,4 @@ first-runtime = { workspace = true, default-features = true }
 assert_cmd = { workspace = true }
 cmd_lib = { workspace = true }
 rand = { workspace = true, default-features = true }
+tokio = { workspace = true }

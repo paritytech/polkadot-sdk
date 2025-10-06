@@ -42,7 +42,7 @@
 //! cargo build --release -p path-to-runtime
 //! ```
 //! Equivalent code in tests:
-#![doc = docify::embed!("./src/guides/your_first_node.rs", build_runtime)]
+#![doc = docify::embed!("./src/guides/your_first_runtime.rs", build_runtime)]
 //!
 //! This creates the wasm file under `./target/{release}/wbuild/release` directory.
 //!
@@ -59,7 +59,6 @@
 //! chain-spec-builder \
 //! 	-c <path-to-output> \
 //! 	create \
-//! 	--para-id 42 \
 //! 	--relay-chain dontcare \
 //! 	--runtime polkadot_sdk_docs_first_runtime.wasm \
 //! 	named-preset development
@@ -102,17 +101,19 @@
 
 #[cfg(test)]
 mod tests {
-	use assert_cmd::Command;
+	use assert_cmd::assert::OutputAssertExt;
 	use cmd_lib::*;
 	use rand::Rng;
 	use sc_chain_spec::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 	use sp_genesis_builder::PresetId;
-	use std::path::PathBuf;
+	use std::{
+		io::{BufRead, BufReader},
+		path::PathBuf,
+		process::{ChildStderr, Command, Stdio},
+		time::Duration,
+	};
 
 	const PARA_RUNTIME: &'static str = "parachain-template-runtime";
-	const FIRST_RUNTIME: &'static str = "polkadot-sdk-docs-first-runtime";
-	const MINIMAL_RUNTIME: &'static str = "minimal-template-runtime";
-
 	const CHAIN_SPEC_BUILDER: &'static str = "chain-spec-builder";
 	const OMNI_NODE: &'static str = "polkadot-omni-node";
 
@@ -170,20 +171,8 @@ mod tests {
 				.assert()
 				.success();
 		}
-		if find_wasm(&FIRST_RUNTIME).is_none() {
-			println!("Building polkadot-sdk-docs-first-runtime...");
-			#[docify::export_content]
-			fn build_runtime() {
-				run_cmd!(
-					cargo build --release -p $FIRST_RUNTIME
-				)
-				.expect("Failed to run command");
-			}
-			build_runtime()
-		}
 
 		assert!(find_wasm(PARA_RUNTIME).is_some());
-		assert!(find_wasm(FIRST_RUNTIME).is_some());
 	}
 
 	fn maybe_build_chain_spec_builder() {
@@ -213,7 +202,28 @@ mod tests {
 		}
 	}
 
-	fn test_runtime_preset(runtime: &'static str, block_time: u64, maybe_preset: Option<PresetId>) {
+	async fn imported_block_found(stderr: ChildStderr, block: u64, timeout: u64) -> bool {
+		tokio::time::timeout(Duration::from_secs(timeout), async {
+			let want = format!("Imported #{}", block);
+			let reader = BufReader::new(stderr);
+			let mut found_block = false;
+			for line in reader.lines() {
+				if line.unwrap().contains(&want) {
+					found_block = true;
+					break;
+				}
+			}
+			found_block
+		})
+		.await
+		.unwrap()
+	}
+
+	async fn test_runtime_preset(
+		runtime: &'static str,
+		block_time: u64,
+		maybe_preset: Option<PresetId>,
+	) {
 		sp_tracing::try_init_simple();
 		maybe_build_runtimes();
 		maybe_build_chain_spec_builder();
@@ -232,7 +242,7 @@ mod tests {
 		Command::new(chain_spec_builder)
 			.args(["-c", chain_spec_file.to_str().unwrap()])
 			.arg("create")
-			.args(["--para-id", "1000", "--relay-chain", "dontcare"])
+			.args(["--relay-chain", "dontcare"])
 			.args(["-r", runtime_path.to_str().unwrap()])
 			.args(match maybe_preset {
 				Some(preset) => vec!["named-preset".to_string(), preset.to_string()],
@@ -241,80 +251,71 @@ mod tests {
 			.assert()
 			.success();
 
-		let output = Command::new(omni_node)
+		let mut child = Command::new(omni_node)
 			.arg("--tmp")
 			.args(["--chain", chain_spec_file.to_str().unwrap()])
 			.args(["--dev-block-time", block_time.to_string().as_str()])
-			.timeout(std::time::Duration::from_secs(10))
-			.output()
+			.stderr(Stdio::piped())
+			.spawn()
 			.unwrap();
 
-		std::fs::remove_file(chain_spec_file).unwrap();
-
-		// uncomment for debugging.
-		// println!("output: {:?}", output);
-
+		// Take stderr and parse it with timeout.
+		let stderr = child.stderr.take().unwrap();
 		let expected_blocks = (10_000 / block_time).saturating_div(2);
 		assert!(expected_blocks > 0, "test configuration is bad, should give it more time");
-		let output = String::from_utf8(output.stderr).unwrap();
-		let want = format!("Imported #{}", expected_blocks);
-		if !output.contains(&want) {
-			panic!(
-				"Output did not contain the pattern:\n\npattern: {}\n\noutput: {}\n",
-				want, output
-			);
-		}
+		assert_eq!(imported_block_found(stderr, expected_blocks, 100).await, true);
+		std::fs::remove_file(chain_spec_file).unwrap();
+		child.kill().unwrap();
 	}
 
-	#[test]
-	#[ignore = "is flaky"]
-	fn works_with_different_block_times() {
-		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into()));
-		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into()));
+	// Sets up omni-node to run a text exercise based on a chain spec.
+	async fn omni_node_test_setup(chain_spec_path: PathBuf) {
+		maybe_build_omni_node();
+		let omni_node = find_release_binary(OMNI_NODE).unwrap();
+
+		let mut child = Command::new(omni_node)
+			.arg("--dev")
+			.args(["--chain", chain_spec_path.to_str().unwrap()])
+			.stderr(Stdio::piped())
+			.spawn()
+			.unwrap();
+
+		let stderr = child.stderr.take().unwrap();
+		assert_eq!(imported_block_found(stderr, 7, 100).await, true);
+		child.kill().unwrap();
+	}
+
+	#[tokio::test]
+	async fn works_with_different_block_times() {
+		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into())).await;
+		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into())).await;
 
 		// we need this snippet just for docs
 		#[docify::export_content(csb)]
-		fn build_para_chain_spec_works() {
+		fn build_parachain_spec_works() {
 			let chain_spec_builder = find_release_binary(&CHAIN_SPEC_BUILDER).unwrap();
 			let runtime_path = find_wasm(PARA_RUNTIME).unwrap();
 			let output = "/tmp/demo-chain-spec.json";
 			let runtime_str = runtime_path.to_str().unwrap();
 			run_cmd!(
-				$chain_spec_builder -c $output create --para-id 1000 --relay-chain dontcare -r $runtime_str named-preset development
+				$chain_spec_builder -c $output create --relay-chain dontcare -r $runtime_str named-preset development
 			).expect("Failed to run command");
 			std::fs::remove_file(output).unwrap();
 		}
-		build_para_chain_spec_works();
+		build_parachain_spec_works();
 	}
 
-	#[test]
-	#[ignore]
-	fn parachain_runtime_works() {
+	#[tokio::test]
+	async fn parachain_runtime_works() {
 		// TODO: None doesn't work. But maybe it should? it would be misleading as many users might
 		// use it.
-		[Some(DEV_RUNTIME_PRESET.into()), Some(LOCAL_TESTNET_RUNTIME_PRESET.into())]
-			.into_iter()
-			.for_each(|preset| {
-				test_runtime_preset(PARA_RUNTIME, 1000, preset);
-			});
+		for preset in [Some(DEV_RUNTIME_PRESET.into()), Some(LOCAL_TESTNET_RUNTIME_PRESET.into())] {
+			test_runtime_preset(PARA_RUNTIME, 1000, preset).await;
+		}
 	}
 
-	#[test]
-	fn minimal_runtime_works() {
-		[None, Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
-			test_runtime_preset(MINIMAL_RUNTIME, 1000, preset);
-		});
-	}
-
-	#[test]
-	fn guide_first_runtime_works() {
-		[Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
-			test_runtime_preset(FIRST_RUNTIME, 1000, preset);
-		});
-	}
-
-	#[test]
-	fn omni_node_dev_mode_works() {
+	#[tokio::test]
+	async fn omni_node_dev_mode_works() {
 		//Omni Node in dev mode works with parachain's template `dev_chain_spec`
 		let dev_chain_spec = std::env::current_dir()
 			.unwrap()
@@ -325,20 +326,17 @@ mod tests {
 			.join("templates")
 			.join("parachain")
 			.join("dev_chain_spec.json");
+		omni_node_test_setup(dev_chain_spec).await;
+	}
 
-		maybe_build_omni_node();
-		let omni_node = find_release_binary(OMNI_NODE).unwrap();
-
-		let output = Command::new(omni_node)
-			.arg("--dev")
-			.args(["--chain", dev_chain_spec.to_str().unwrap()])
-			.timeout(std::time::Duration::from_secs(70))
-			.output()
-			.unwrap();
-
-		// at least  blocks should be imported
-		assert!(String::from_utf8(output.stderr)
+	#[tokio::test]
+	// This is a regresion test so that we still remain compatible with runtimes that use
+	// `para-id` in chain specs, instead of implementing the
+	// `cumulus_primitives_core::GetParachainInfo`.
+	async fn omni_node_dev_mode_works_without_getparachaininfo() {
+		let dev_chain_spec = std::env::current_dir()
 			.unwrap()
-			.contains(format!("Imported #{}", 7).to_string().as_str()));
+			.join("src/guides/parachain_without_getparachaininfo.json");
+		omni_node_test_setup(dev_chain_spec).await;
 	}
 }

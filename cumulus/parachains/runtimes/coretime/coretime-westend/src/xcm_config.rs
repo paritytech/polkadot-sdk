@@ -40,7 +40,8 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::AccountIdConversion;
-use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID};
+use testnet_parachains_constants::westend::locations::AssetHubLocation;
+use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
@@ -48,18 +49,20 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
-	HashedDescription, IsConcrete, NonFungibleAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
+	HashedDescription, IsConcrete, LocationAsSuperuser, NonFungibleAdapter, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
+
+// Re-export
+pub use testnet_parachains_constants::westend::locations::GovernanceLocation;
 
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const TokenRelayLocation: Location = Location::parent();
-	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -69,7 +72,6 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub FellowshipLocation: Location = Location::new(1, Parachain(COLLECTIVES_ID));
-	pub const GovernanceLocation: Location = Location::parent();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -122,6 +124,8 @@ pub type AssetTransactors = (FungibleTransactor, RegionTransactor);
 /// ready for dispatching a transaction with XCM's `Transact`. There is an `OriginKind` that can
 /// bias the kind of local `Origin` it will become.
 pub type XcmOriginToTransactDispatchOrigin = (
+	// Governance location can gain root.
+	LocationAsSuperuser<Equals<GovernanceLocation>, RuntimeOrigin>,
 	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
 	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
 	// foreign chains who want to have a local sovereign account on this chain that they control.
@@ -174,7 +178,11 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent, its pluralities (i.e. governance bodies), and the Fellows plurality
 					// get free execution.
-					AllowExplicitUnpaidExecutionFrom<(ParentOrParentsPlurality, FellowsPlurality)>,
+					AllowExplicitUnpaidExecutionFrom<(
+						ParentOrParentsPlurality,
+						FellowsPlurality,
+						Equals<GovernanceLocation>,
+					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 					// HRMP notifications from the relay chain are OK.

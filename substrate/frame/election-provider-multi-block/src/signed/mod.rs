@@ -44,16 +44,11 @@
 //!
 //! ## Future Plans:
 //!
-//! **Lazy deletion**:
-//! Overall, this pallet can avoid the need to delete any storage item, by:
-//! 1. outsource the storage of solution data to some other pallet.
-//! 2. keep it here, but make everything be also a map of the round number, so that we can keep old
-//!    storage, and it is ONLY EVER removed, when after that round number is over. This can happen
-//!    for more or less free by the submitter itself, and by anyone else as well, in which case they
-//!    get a share of the the sum deposit. The share increases as times goes on.
+//! **Lazy Deletion In Eject**: While most deletion ops of the signed phase are now lazy, if someone
+//! is ejected from the list, we still remove their data in sync.
+//!
 //! **Metadata update**: imagine you mis-computed your score.
-//! **whitelisted accounts**: who will not pay deposits are needed. They can still be ejected, but
-//! for free.
+//!
 //! **Permissionless `clear_old_round_data`**: Anyone can clean anyone else's data, and get a part
 //! of their deposit.
 
@@ -129,7 +124,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			.defensive()
 			.and_then(|(who, _score)| {
 				sublog!(
-					info,
+					debug,
 					"signed",
 					"returning page {} of {:?}'s submission as leader.",
 					page,
@@ -236,13 +231,16 @@ pub mod pallet {
 		/// Handler to the currency.
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
-			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
 
 		/// Base deposit amount for a submission.
 		type DepositBase: CalculateBaseDeposit<BalanceOf<Self>>;
 
 		/// Extra deposit per-page.
 		type DepositPerPage: CalculatePageDeposit<BalanceOf<Self>>;
+
+		/// The fixed deposit charged upon [`Pallet::register`] from [`Invulnerables`].
+		type InvulnerableDeposit: Get<BalanceOf<Self>>;
 
 		/// Base reward that is given to the winner.
 		type RewardBase: Get<BalanceOf<Self>>;
@@ -268,9 +266,6 @@ pub mod pallet {
 		/// submitter for the winner.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
 
-		/// Overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
-
 		/// Provided weights of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -282,6 +277,19 @@ pub mod pallet {
 		#[codec(index = 0)]
 		SignedSubmission,
 	}
+
+	/// Accounts whitelisted by governance to always submit their solutions.
+	///
+	/// They are different in that:
+	///
+	/// * They always pay a fixed deposit for submission, specified by
+	///   [`Config::InvulnerableDeposit`]. They pay no page deposit.
+	/// * If _ejected_ by better solution from [`SortedScores`], they will get their full deposit
+	///   back.
+	/// * They always get their tx-fee back even if they are _discarded_.
+	#[pallet::storage]
+	pub type Invulnerables<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, ConstU32<16>>, ValueQuery>;
 
 	/// Wrapper type for signed submissions.
 	///
@@ -444,13 +452,13 @@ pub mod pallet {
 		) -> Result<bool, DispatchError> {
 			let mut sorted_scores = SortedScores::<T>::get(round);
 
-			let discarded = if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
+			let did_eject = if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
 				return Err(Error::<T>::Duplicate.into());
 			} else {
 				// must be new.
 				debug_assert!(!SubmissionMetadataStorage::<T>::contains_key(round, who));
 
-				let pos = match sorted_scores
+				let insert_idx = match sorted_scores
 					.binary_search_by_key(&metadata.claimed_score, |(_, y)| *y)
 				{
 					// an equal score exists, unlikely, but could very well happen. We just put them
@@ -460,10 +468,23 @@ pub mod pallet {
 					Err(pos) => pos,
 				};
 
-				let record = (who.clone(), metadata.claimed_score);
-				match sorted_scores.force_insert_keep_right(pos, record) {
-					Ok(None) => false,
-					Ok(Some((discarded, _score))) => {
+				let mut record = (who.clone(), metadata.claimed_score);
+				if sorted_scores.is_full() {
+					let remove_idx = sorted_scores
+						.iter()
+						.position(|(x, _)| !Pallet::<T>::is_invulnerable(x))
+						.ok_or(Error::<T>::QueueFull)?;
+					if insert_idx > remove_idx {
+						// we have a better solution
+						sp_std::mem::swap(&mut sorted_scores[remove_idx], &mut record);
+						// slicing safety note:
+						// - `insert_idx` is at most `sorted_scores.len()`, obtained from
+						//   `binary_search_by_key`, valid for the upper bound of slicing.
+						// - `remove_idx` is a valid index, less then `insert_idx`, obtained from
+						//   `.iter().position()`
+						sorted_scores[remove_idx..insert_idx].rotate_left(1);
+
+						let discarded = record.0;
 						let maybe_metadata =
 							SubmissionMetadataStorage::<T>::take(round, &discarded).defensive();
 						// Note: safe to remove unbounded, as at most `Pages` pages are stored.
@@ -484,14 +505,21 @@ pub mod pallet {
 
 						Pallet::<T>::deposit_event(Event::<T>::Ejected(round, discarded));
 						true
-					},
-					Err(_) => return Err(Error::<T>::QueueFull.into()),
+					} else {
+						// we don't have a better solution
+						return Err(Error::<T>::QueueFull.into())
+					}
+				} else {
+					sorted_scores
+						.try_insert(insert_idx, record)
+						.expect("length checked above; qed");
+					false
 				}
 			};
 
 			SortedScores::<T>::insert(round, sorted_scores);
 			SubmissionMetadataStorage::<T>::insert(round, who, metadata);
-			Ok(discarded)
+			Ok(did_eject)
 		}
 
 		/// Submit a page of `solution` to the `page` index of `who`'s submission.
@@ -513,12 +541,16 @@ pub mod pallet {
 		}
 
 		/// Get the deposit of a registration with the given number of pages.
-		fn deposit_for(pages: usize) -> BalanceOf<T> {
-			let round = Pallet::<T>::current_round();
-			let queue_size = Self::submitters_count(round);
-			let base = T::DepositBase::calculate_base_deposit(queue_size);
-			let pages = T::DepositPerPage::calculate_page_deposit(queue_size, pages);
-			base.saturating_add(pages)
+		fn deposit_for(who: &T::AccountId, pages: usize) -> BalanceOf<T> {
+			if Pallet::<T>::is_invulnerable(who) {
+				T::InvulnerableDeposit::get()
+			} else {
+				let round = Pallet::<T>::current_round();
+				let queue_size = Self::submitters_count(round);
+				let base = T::DepositBase::calculate_base_deposit(queue_size);
+				let pages = T::DepositPerPage::calculate_page_deposit(queue_size, pages);
+				base.saturating_add(pages)
+			}
 		}
 
 		fn try_mutate_page_inner(
@@ -539,7 +571,7 @@ pub mod pallet {
 
 			// update deposit.
 			let new_pages = metadata.pages.iter().filter(|x| **x).count();
-			let new_deposit = Self::deposit_for(new_pages);
+			let new_deposit = Self::deposit_for(&who, new_pages);
 			let old_deposit = metadata.deposit;
 			if new_deposit > old_deposit {
 				let to_reserve = new_deposit - old_deposit;
@@ -748,6 +780,8 @@ pub mod pallet {
 		RoundNotOver,
 		/// Bad witness data provided.
 		BadWitnessData,
+		/// Too many invulnerable accounts are provided,
+		TooManyInvulnerables,
 	}
 
 	#[pallet::call]
@@ -765,7 +799,7 @@ pub mod pallet {
 			// note: we could already check if this is a duplicate here, but prefer keeping the code
 			// simple for now.
 
-			let deposit = Submissions::<T>::deposit_for(0);
+			let deposit = Submissions::<T>::deposit_for(&who, 0);
 			let reward = T::RewardBase::get();
 			let fee = T::EstimateCallFee::estimate_call_fee(
 				&Call::register { claimed_score },
@@ -822,7 +856,7 @@ pub mod pallet {
 
 		/// Retract a submission.
 		///
-		/// A portion of the deposit may be returned, based on the [`Config::BailoutGraceRatio`].
+		/// A portion of the deposit may be returned, based on the [`Config::EjectGraceRatio`].
 		///
 		/// This will fully remove the solution from storage.
 		#[pallet::weight(SignedWeightsOf::<T>::bail())]
@@ -875,10 +909,30 @@ pub mod pallet {
 				Precision::BestEffort,
 			);
 			debug_assert_eq!(_res, Ok(metadata.deposit));
-			Self::deposit_event(Event::<T>::Discarded(current_round, discarded));
+
+			// maybe give back their fees
+			if Self::is_invulnerable(&discarded) {
+				let _r = T::Currency::mint_into(&discarded, metadata.fee);
+				debug_assert!(_r.is_ok());
+			}
+
+			Self::deposit_event(Event::<T>::Discarded(round, discarded));
 
 			// IFF all good, this is free of charge.
 			Ok(None.into())
+		}
+
+		/// Set the invulnerable list.
+		///
+		/// Dispatch origin must the the same as [`crate::Config::AdminOrigin`].
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_invulnerables(origin: OriginFor<T>, inv: Vec<T::AccountId>) -> DispatchResult {
+			<T as crate::Config>::AdminOrigin::ensure_origin(origin)?;
+			let bounded: BoundedVec<_, ConstU32<16>> =
+				inv.try_into().map_err(|_| Error::<T>::TooManyInvulnerables)?;
+			Invulnerables::<T>::set(bounded);
+			Ok(())
 		}
 	}
 
@@ -887,9 +941,10 @@ pub mod pallet {
 		/// Get the deposit amount that will be held for a solution of `pages`.
 		///
 		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
-		/// [`Config::DepositBase`] are doing under the hood.
-		pub fn deposit_for(pages: u32) -> BalanceOf<T> {
-			Submissions::<T>::deposit_for(pages as usize)
+		/// [`Config::DepositBase`] are doing under the hood. It also takes into account if `who` is
+		/// [`Invulnerables`] or not.
+		pub fn deposit_for(who: T::AccountId, pages: u32) -> BalanceOf<T> {
+			Submissions::<T>::deposit_for(&who, pages as usize)
 		}
 	}
 
@@ -937,6 +992,10 @@ impl<T: Config> Pallet<T> {
 		crate::Pallet::<T>::round()
 	}
 
+	fn is_invulnerable(who: &T::AccountId) -> bool {
+		Invulnerables::<T>::get().contains(who)
+	}
+
 	fn settle_deposit(who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
 		let to_refund = grace * deposit;
 		let to_slash = deposit.defensive_saturating_sub(to_refund);
@@ -977,6 +1036,7 @@ impl<T: Config> Pallet<T> {
 			);
 			debug_assert_eq!(_res, Ok(slash));
 			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+			Invulnerables::<T>::mutate(|x| x.retain(|y| y != &loser));
 
 			// Try to start verification again if we still have submissions
 			if let crate::types::Phase::SignedValidation(remaining_blocks) =

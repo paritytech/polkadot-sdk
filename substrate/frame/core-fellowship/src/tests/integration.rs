@@ -25,7 +25,7 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, NoOpPoll, TryMapSuccess},
 };
-use frame_system::EnsureSignedBy;
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureSignedBy};
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
 use sp_core::Get;
 use sp_runtime::{
@@ -117,7 +117,7 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = NoOpPoll;
+	type Polls = NoOpPoll<BlockNumberFor<Test>>;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = CoreFellowship;
 	type VoteWeight = Geometric;

@@ -107,3 +107,7 @@ experimental-ump-signals = [
 ]
 # A runtime with 12s slot duration which only authors one block per slot.
 sync-backing = []
+# A runtime with 6s slot duration which only authors one block per slot.
+async-backing = []
+# An elastic scaling runtime with 12s slots.
+elastic-scaling-12s-slot = []

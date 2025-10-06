@@ -24,10 +24,12 @@ pub mod command;
 pub mod rpc;
 pub mod runtime;
 pub mod spec;
+pub(crate) mod statement_store;
 pub mod types;
 
 use crate::cli::AuthoringPolicy;
-use cumulus_primitives_core::{CollectCollationInfo, GetCoreSelectorApi, RelayParentOffsetApi};
+
+use cumulus_primitives_core::{CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi};
 use sc_client_db::DbHash;
 use sc_offchain::OffchainWorkerApi;
 use serde::de::DeserializeOwned;
@@ -38,6 +40,7 @@ use sp_runtime::{
 	OpaqueExtrinsic,
 };
 use sp_session::SessionKeys;
+use sp_statement_store::runtime_api::ValidateStatement;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
@@ -69,7 +72,8 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ TaggedTransactionQueue<Block>
 	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
-	+ GetCoreSelectorApi<Block>
+	+ ValidateStatement<Block>
+	+ GetParachainInfo<Block>
 	+ RelayParentOffsetApi<Block>
 	+ Sized
 {
@@ -82,9 +86,10 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ BlockBuilder<Block>
 		+ TaggedTransactionQueue<Block>
 		+ OffchainWorkerApi<Block>
-		+ GetCoreSelectorApi<Block>
 		+ RelayParentOffsetApi<Block>
 		+ CollectCollationInfo<Block>
+		+ ValidateStatement<Block>
+		+ GetParachainInfo<Block>
 {
 }
 
@@ -118,4 +123,7 @@ pub struct NodeExtraArgs {
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
+
+	/// If true then the statement store will be enabled.
+	pub enable_statement_store: bool,
 }

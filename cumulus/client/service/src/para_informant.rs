@@ -25,7 +25,7 @@ use std::{pin::Pin, sync::Arc, time::Instant};
 use cumulus_primitives_core::{relay_chain::Header as RelayHeader, ParaId};
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, StreamExt};
-use polkadot_primitives::vstaging::CandidateEvent;
+use polkadot_primitives::CandidateEvent;
 use prometheus::{linear_buckets, Histogram, HistogramOpts, Registry};
 use sc_service::TransactionMonitorEvent;
 use sc_telemetry::log;
@@ -203,7 +203,11 @@ impl<Block: BlockT> ParachainInformant<Block> {
 
 		for event in candidate_events {
 			match event {
-				CandidateEvent::CandidateBacked(_, head, _, _) => {
+				CandidateEvent::CandidateBacked(receipt, head, _, _) => {
+					if receipt.descriptor.para_id() != self.para_id {
+						continue;
+					}
+
 					let backed_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -224,7 +228,11 @@ impl<Block: BlockT> ParachainInformant<Block> {
 					self.last_backed_block_time = Some(backed_block_time);
 					backed_candidates.push(backed_block);
 				},
-				CandidateEvent::CandidateIncluded(_, head, _, _) => {
+				CandidateEvent::CandidateIncluded(receipt, head, _, _) => {
+					if receipt.descriptor.para_id() != self.para_id {
+						continue;
+					}
+
 					let included_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -243,7 +251,11 @@ impl<Block: BlockT> ParachainInformant<Block> {
 					}
 					included_candidates.push(included_block);
 				},
-				CandidateEvent::CandidateTimedOut(_, head, _) => {
+				CandidateEvent::CandidateTimedOut(receipt, head, _) => {
+					if receipt.descriptor.para_id() != self.para_id {
+						continue;
+					}
+
 					let timed_out_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
