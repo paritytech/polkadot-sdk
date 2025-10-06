@@ -352,8 +352,10 @@ jobs:
     if: ${{ needs.preflight.outputs.changes_rust }}
     env:
       SKIP_WASM_BUILD: 1
-      DYLD_LIBRARY_PATH: "/Library/Developer/CommandLineTools/usr/lib:${DYLD_LIBRARY_PATH}"
     steps:
+      - name: Add to DYLD_LIBRARY_PATH
+        run: |
+          echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:/path/to/your/library" >> $GITHUB_ENV
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set rust version from env file
         run: |
