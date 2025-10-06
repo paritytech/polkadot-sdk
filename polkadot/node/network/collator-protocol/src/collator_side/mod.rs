@@ -406,7 +406,15 @@ async fn distribute_collation<Context>(
 
 	// We should already be connected to the validators, but if we aren't, we will try to connect to
 	// them now.
-	connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, id).await;
+	update_validator_connections(
+		ctx,
+		&state.peer_ids,
+		&state.implicit_view,
+		&state.per_relay_parent,
+		id,
+		true,
+	)
+	.await;
 
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
 		Some(per_relay_parent) => per_relay_parent,
@@ -671,14 +679,15 @@ fn list_of_backing_validators_in_view(
 	backing_validators.into_iter().collect()
 }
 
-/// Updates a set of connected validators based on their advertisement-bits
-/// in a validators buffer.
+/// Connect or disconnect to/from all backers at all viable relay parents.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn connect_to_validators<Context>(
+async fn update_validator_connections<Context>(
 	ctx: &mut Context,
+	peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 	para_id: ParaId,
+	connect: bool,
 ) {
 	let cores_assigned = has_assigned_cores(implicit_view, per_relay_parent);
 	// If no cores are assigned to the para, we still need to send a ConnectToValidators request to
@@ -690,22 +699,36 @@ async fn connect_to_validators<Context>(
 		Vec::new()
 	};
 
-	gum::trace!(
-		target: LOG_TARGET,
-		?cores_assigned,
-		"Sending connection request to validators: {:?}",
-		validator_ids,
-	);
-
 	// ignore address resolution failure
 	// will reissue a new request on new collation
 	let (failed, _) = oneshot::channel();
-	ctx.send_message(NetworkBridgeTxMessage::ConnectToValidators {
-		validator_ids,
-		peer_set: PeerSet::Collation,
-		failed,
-	})
-	.await;
+
+	let msg = if connect {
+		gum::trace!(
+			target: LOG_TARGET,
+			?cores_assigned,
+			"Sending connection request to validators: {:?}",
+			validator_ids,
+		);
+		NetworkBridgeTxMessage::ConnectToValidators {
+			validator_ids,
+			peer_set: PeerSet::Collation,
+			failed,
+		}
+	} else {
+		// Get all connected peer_ids on the Collation peer set.
+		let connected_validator_peer_ids: Vec<_> = peer_ids.keys().cloned().collect();
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?cores_assigned,
+			"Disconnecting from validators: {:?}",
+			connected_validator_peer_ids,
+		);
+		NetworkBridgeTxMessage::DisconnectPeers(connected_validator_peer_ids, PeerSet::Collation)
+	};
+
+	ctx.send_message(msg).await;
 }
 
 /// Advertise collation to the given `peer`.
@@ -810,8 +833,15 @@ async fn process_msg<Context>(
 			state.connect_to_backers = true;
 
 			if let Some(para_id) = state.collating_on {
-				connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, para_id)
-					.await;
+				update_validator_connections(
+					ctx,
+					&state.peer_ids,
+					&state.implicit_view,
+					&state.per_relay_parent,
+					para_id,
+					state.connect_to_backers,
+				)
+				.await;
 			}
 		},
 		DisconnectFromBackingGroups => {
@@ -822,6 +852,18 @@ async fn process_msg<Context>(
 				"Received DisconnectFromBackingGroups message."
 			);
 			state.connect_to_backers = false;
+
+			if let Some(para_id) = state.collating_on {
+				update_validator_connections(
+					ctx,
+					&state.peer_ids,
+					&state.implicit_view,
+					&state.per_relay_parent,
+					para_id,
+					state.connect_to_backers,
+				)
+				.await;
+			}
 		},
 		CollateOn(id) => {
 			state.collating_on = Some(id);
@@ -1297,15 +1339,15 @@ async fn handle_network_msg<Context>(
 			handle_our_view_change(ctx, runtime, state, view).await?;
 			// Connect only if we are collating on a para.
 			if let Some(para_id) = state.collating_on {
-				if state.connect_to_backers {
-					connect_to_validators(
-						ctx,
-						&state.implicit_view,
-						&state.per_relay_parent,
-						para_id,
-					)
-					.await;
-				}
+				update_validator_connections(
+					ctx,
+					&state.peer_ids,
+					&state.implicit_view,
+					&state.per_relay_parent,
+					para_id,
+					state.connect_to_backers,
+				)
+				.await;
 			}
 		},
 		PeerMessage(remote, msg) => {
@@ -1794,12 +1836,17 @@ async fn run_inner<Context>(
 				);
 			}
 			_ = reconnect_timeout => {
-
 				// Connect only if we are collating on a para.
 				if let Some(para_id) = state.collating_on {
-					if state.connect_to_backers {
-						connect_to_validators(&mut ctx, &state.implicit_view, &state.per_relay_parent, para_id).await;
-					}
+					update_validator_connections(
+						&mut ctx,
+						&state.peer_ids,
+						&state.implicit_view,
+						&state.per_relay_parent,
+						para_id,
+						state.connect_to_backers,
+					)
+					.await;
 				}
 
 				gum::trace!(
