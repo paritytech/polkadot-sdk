@@ -42,12 +42,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_consensus_grandpa::AuthorityList;
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::traits::NumberFor;
-use std::{
-	collections::HashSet,
-	pin::Pin,
-	sync::Arc,
-	task::{Context, Poll},
-};
+use std::{collections::HashSet, pin::Pin, sync::Arc, task::Poll};
 
 #[derive(Debug)]
 pub(crate) enum Event {
@@ -333,17 +328,6 @@ pub(crate) fn make_test_network() -> (impl Future<Output = Tester>, TestNetwork)
 	let notification_service = TestNotificationService { rx: notification_rx, sender: tx.clone() };
 	let net = TestNetwork { sender: tx };
 	let sync = TestSync {};
-
-	#[derive(Clone)]
-	struct Exit;
-
-	impl futures::Future for Exit {
-		type Output = ();
-
-		fn poll(self: Pin<&mut Self>, _: &mut Context) -> Poll<()> {
-			Poll::Pending
-		}
-	}
 
 	let bridge = super::NetworkBridge::new(
 		net.clone(),
