@@ -29,7 +29,7 @@
 
 extern crate alloc;
 
-use alloc::{collections::{btree_map::BTreeMap, btree_set::BTreeSet}, vec, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
 use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
@@ -736,13 +736,12 @@ pub mod pallet {
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
-			// Extract and store published data roots from relay chain state
-			let current_roots = if let Ok(Some(published_roots)) = relay_state_proof.read_published_data_roots() {
-				<PublishedDataRoots<T>>::put(&published_roots);
-				published_roots
-			} else {
-				Vec::new()
-			};
+			// Extract published data roots from relay chain state
+			let current_roots = relay_state_proof
+				.read_published_data_roots()
+				.ok()
+				.flatten()
+				.unwrap_or_default();
 
 			// Process published data from the broadcaster pallet
 			Self::process_published_data(&published_data, &current_roots);
@@ -998,21 +997,13 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Data roots of published data from broadcaster pallet on relay chain.
-	/// Contains (ParaId, root_hash) pairs for all publishers, mirroring the relay chain storage.
-	#[pallet::storage]
-	pub type PublishedDataRoots<T: Config> = StorageValue<
-		_,
-		Vec<(ParaId, Vec<u8>)>,  // Vector of (Publisher, Root hash)
-		ValueQuery,
-	>;
-
 	/// Previous data roots of published data, used to detect changes.
 	/// Contains (ParaId, root_hash) pairs from the previous block for comparison.
+	/// Stored as BTreeMap for efficient lookups without conversion overhead.
 	#[pallet::storage]
 	pub type PreviousPublishedDataRoots<T: Config> = StorageValue<
 		_,
-		Vec<(ParaId, Vec<u8>)>,  // Vector of (Publisher, Root hash)
+		BTreeMap<ParaId, Vec<u8>>,
 		ValueQuery,
 	>;
 
@@ -1347,68 +1338,53 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Process published data from the broadcaster pallet and store it in parachain storage.
-	/// Only processes data for publishers whose trie roots have changed.
+	///
+	/// Uses child trie roots to detect changes between blocks, only updating storage for
+	/// publishers whose data has changed. Clears data for publishers that have been removed.
 	fn process_published_data(
 		published_data: &BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
 		current_roots: &Vec<(ParaId, Vec<u8>)>,
 	) {
-		
-		if current_roots.is_empty() && published_data.is_empty() {
+		let previous_roots = <PreviousPublishedDataRoots<T>>::get();
+
+		if current_roots.is_empty() && published_data.is_empty() && previous_roots.is_empty() {
 			return;
 		}
 
-		let previous_roots = <PreviousPublishedDataRoots<T>>::get();
-
-		// Create maps for easier lookup
-		let current_roots_map: BTreeMap<ParaId, &Vec<u8>> = current_roots.iter()
-			.map(|(para_id, root)| (*para_id, root))
-			.collect();
-		let previous_roots_map: BTreeMap<ParaId, &Vec<u8>> = previous_roots.iter()
-			.map(|(para_id, root)| (*para_id, root))
+		// Convert current roots to map for efficient lookups.
+		let current_roots_map: BTreeMap<ParaId, Vec<u8>> = current_roots.iter()
+			.map(|(para_id, root)| (*para_id, root.clone()))
 			.collect();
 
-		// Determine which publishers have changed roots
-		let mut changed_publishers = BTreeSet::new();
+		// Update storage for publishers with changed roots.
+		for (publisher, data_entries) in published_data {
+			let should_update = match previous_roots.get(publisher) {
+				Some(prev_root) => match current_roots_map.get(publisher) {
+					Some(curr_root) if prev_root == curr_root => false,
+					_ => true,
+				},
+				None => true,
+			};
 
-		// Check for new or changed publishers
-		for (para_id, current_root) in &current_roots_map {
-			if let Some(previous_root) = previous_roots_map.get(para_id) {
-				if current_root != previous_root {
-					changed_publishers.insert(*para_id);
-				}
-			} else {
-				// New publisher
-				changed_publishers.insert(*para_id);
-			}
-		}
-
-		// Check for removed publishers
-		for (para_id, _) in &previous_roots_map {
-			if !current_roots_map.contains_key(para_id) {
-				changed_publishers.insert(*para_id);
-			}
-		}
-
-		// Only process data for publishers with changed roots
-		if !changed_publishers.is_empty() {
-			for (publisher, data_entries) in published_data {
-				if !changed_publishers.contains(publisher) {
-					continue;
-				}
-
-				// Clear existing data for this publisher
+			if should_update {
 				let result = PublishedData::<T>::clear_prefix(publisher, u32::MAX, None);
 				debug_assert!(result.maybe_cursor.is_none());
 
-				// Store new data for this publisher
 				for (key, value) in data_entries {
 					PublishedData::<T>::insert(publisher, key, value);
 				}
 			}
 		}
 
-		// Update previous roots storage for next comparison
-		<PreviousPublishedDataRoots<T>>::put(current_roots);
+		// Clear storage for removed publishers.
+		for (para_id, _) in previous_roots.iter() {
+			if !current_roots_map.contains_key(para_id) {
+				let result = PublishedData::<T>::clear_prefix(para_id, u32::MAX, None);
+				debug_assert!(result.maybe_cursor.is_none());
+			}
+		}
+
+		<PreviousPublishedDataRoots<T>>::put(current_roots_map);
 	}
 
 
