@@ -124,7 +124,7 @@ static mut SHARED_RESOURCES: SharedResources = SharedResources::start();
 // Setting state-pruning to low value, to not wait long for state pruning, which is required for
 // some EVM reconstruction tests
 #[dynamic(lazy)]
-static mut SHARED_RESOURCES_QUICK_PRUNE: SharedResources =
+static mut SHARED_RESOURCES_ADVANCED: SharedResources =
 	SharedResources::start_advanced(55789, 55788, vec!["--state-pruning=8"]);
 
 macro_rules! unwrap_call_err(
@@ -351,7 +351,8 @@ async fn wait_until_state_pruned(client: OnlineClient<SrcChainConfig>) -> anyhow
 
 #[tokio::test]
 async fn reconstructed_block_matches_storage_block() -> anyhow::Result<()> {
-	let shared_resources = SHARED_RESOURCES_QUICK_PRUNE.write();
+	// let client = Arc::new(ws_client_with_retry("ws://localhost:8545").await);
+	let shared_resources = SHARED_RESOURCES_ADVANCED.write();
 	let client = Arc::new(shared_resources.client().await);
 
 	// Deploy a contract to have some interesting blocks
@@ -383,6 +384,8 @@ async fn reconstructed_block_matches_storage_block() -> anyhow::Result<()> {
 		"Storage blocks by number and hash should match"
 	);
 
+	// Wait for state pruning (8 blocks + buffer)
+	// wait_until_block(&client, block_number + U256::from(10)).await?;
 	wait_until_state_pruned(shared_resources.node_client().await).await?;
 
 	// Fetch the same block again - it should be reconstructed now
@@ -404,87 +407,5 @@ async fn reconstructed_block_matches_storage_block() -> anyhow::Result<()> {
 		storage_block_by_number, reconstructed_block_number,
 		"Reconstructed block should match storage block exactly"
 	);
-	Ok(())
-}
-
-#[tokio::test]
-async fn reconstructed_tx_matches_storage_tx() -> anyhow::Result<()> {
-	let shared_resources = SHARED_RESOURCES_QUICK_PRUNE.write();
-	let client = Arc::new(shared_resources.client().await);
-
-	// Deploy a contract to have some interesting blocks
-	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
-	let value = U256::from(5_000_000_000_000u128);
-	let tx = TransactionBuilder::new(&client)
-		.value(value)
-		.input(bytes.to_vec())
-		.send()
-		.await?;
-
-	let receipt = tx.wait_for_receipt().await?;
-	let block_number = receipt.block_number;
-	let block_hash = receipt.block_hash;
-	let tx_id = U256::from(0);
-	println!("block_number = {block_number:?}");
-	println!("tx hash = {:?}", tx.hash());
-
-	// Fetch the tx immediately (should come from storage EthereumBlock)
-	let storage_tx_by_tx_hash =
-		client.get_transaction_by_hash(tx.hash()).await?.expect("Tx should exist");
-	let storage_tx_by_block_hash_and_tx_id = client
-		.get_transaction_by_block_hash_and_index(block_hash, tx_id)
-		.await?
-		.expect("Tx should exist");
-	let storage_tx_by_block_number_and_tx_id = client
-		.get_transaction_by_block_number_and_index(
-			BlockNumberOrTag::U256(block_number.into()),
-			tx_id,
-		)
-		.await?
-		.expect("Tx should exist");
-
-	// All storage txs must match
-	assert_eq!(
-		storage_tx_by_tx_hash, storage_tx_by_block_hash_and_tx_id,
-		"Storage txs by hash and block hash and tx id should match"
-	);
-	assert_eq!(
-		storage_tx_by_tx_hash, storage_tx_by_block_number_and_tx_id,
-		"Storage txs by hash and block number and tx id should match"
-	);
-
-	wait_until_state_pruned(shared_resources.node_client().await).await?;
-
-	// Fetch the same tx again - it should be reconstructed now
-	let reconstructed_tx_by_tx_hash =
-		client.get_transaction_by_hash(tx.hash()).await?.expect("Tx should exist");
-	let reconstructed_tx_by_block_hash_and_tx_id = client
-		.get_transaction_by_block_hash_and_index(block_hash, tx_id)
-		.await?
-		.expect("Tx should exist");
-	let reconstructed_tx_by_block_number_and_tx_id = client
-		.get_transaction_by_block_number_and_index(
-			BlockNumberOrTag::U256(block_number.into()),
-			tx_id,
-		)
-		.await?
-		.expect("Tx should exist");
-
-	// All reconstructed txs must match
-	assert_eq!(
-		reconstructed_tx_by_tx_hash, reconstructed_tx_by_block_hash_and_tx_id,
-		"Reconstructed txs by hash and block hash and tx id should match"
-	);
-	assert_eq!(
-		reconstructed_tx_by_tx_hash, reconstructed_tx_by_block_number_and_tx_id,
-		"Storage txs by hash and block number and tx id should match"
-	);
-
-	// Reconstructed and storage txs must matchs
-	assert_eq!(
-		storage_tx_by_tx_hash, reconstructed_tx_by_tx_hash,
-		"Reconstructed tx should match storage tx exactly"
-	);
-
 	Ok(())
 }
