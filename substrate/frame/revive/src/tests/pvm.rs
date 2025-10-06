@@ -202,6 +202,17 @@ fn eth_call_transfer_with_dust_works() {
 }
 
 #[test]
+fn set_evm_balance_for_eoa_works() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let native_with_dust = BalanceWithDust::new_unchecked::<Test>(100, 10);
+		let evm_balance = Pallet::<Test>::convert_native_to_evm(native_with_dust);
+		let _ = Pallet::<Test>::set_evm_balance(&ALICE_ADDR, evm_balance);
+
+		assert_eq!(Pallet::<Test>::evm_balance(&ALICE_ADDR), evm_balance);
+	});
+}
+
+#[test]
 fn set_evm_balance_works() {
 	let (binary, _) = compile_module("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {

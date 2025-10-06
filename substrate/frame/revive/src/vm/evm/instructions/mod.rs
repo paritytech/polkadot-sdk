@@ -15,19 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! EVM opcode implementations.
+/// EVM opcode implementations.
+use super::interpreter::Interpreter;
+use crate::vm::{evm::Halt, Ext};
+use revm::bytecode::opcode::*;
 
-use crate::vm::{
-	evm::{DummyHost, EVMInterpreter},
-	Ext,
-};
-use revm::interpreter::{Instruction, InstructionContext};
-
-type Context<'ctx, 'ext, E> =
-	InstructionContext<'ctx, crate::vm::evm::DummyHost, crate::vm::evm::EVMInterpreter<'ext, E>>;
-
-#[macro_use]
-mod macros;
 /// Arithmetic operations (ADD, SUB, MUL, DIV, etc.).
 mod arithmetic;
 /// Bitwise operations (AND, OR, XOR, NOT, etc.).
@@ -39,9 +31,10 @@ mod contract;
 /// Control flow instructions (JUMP, JUMPI, REVERT, etc.).
 mod control;
 /// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
+#[cfg(feature = "runtime-benchmarks")]
+pub mod host;
+#[cfg(not(feature = "runtime-benchmarks"))]
 mod host;
-/// Signed 256-bit integer operations.
-mod i256;
 /// Memory operations (MLOAD, MSTORE, MSIZE, etc.).
 mod memory;
 /// Stack operations (PUSH, POP, DUP, SWAP, etc.).
@@ -53,195 +46,172 @@ mod tx_info;
 /// Utility functions and helpers for instruction implementation.
 mod utility;
 
-/// Returns the instruction table for the given spec.
-pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, E>, DummyHost>; 256]
-{
-	use revm::bytecode::opcode::*;
-	let mut table = [control::unknown as Instruction<EVMInterpreter<'a, E>, DummyHost>; 256];
+pub fn exec_instruction<E: Ext>(
+	interpreter: &mut Interpreter<E>,
+	opcode: u8,
+) -> core::ops::ControlFlow<Halt> {
+	match opcode {
+		STOP => control::stop(interpreter),
+		ADD => arithmetic::add(interpreter),
+		MUL => arithmetic::mul(interpreter),
+		SUB => arithmetic::sub(interpreter),
+		DIV => arithmetic::div(interpreter),
+		SDIV => arithmetic::sdiv(interpreter),
+		MOD => arithmetic::rem(interpreter),
+		SMOD => arithmetic::smod(interpreter),
+		ADDMOD => arithmetic::addmod(interpreter),
+		MULMOD => arithmetic::mulmod(interpreter),
+		EXP => arithmetic::exp(interpreter),
+		SIGNEXTEND => arithmetic::signextend(interpreter),
 
-	table[STOP as usize] = control::stop;
-	table[ADD as usize] = arithmetic::add;
-	table[MUL as usize] = arithmetic::mul;
-	table[SUB as usize] = arithmetic::sub;
-	table[DIV as usize] = arithmetic::div;
-	table[SDIV as usize] = arithmetic::sdiv;
-	table[MOD as usize] = arithmetic::rem;
-	table[SMOD as usize] = arithmetic::smod;
-	table[ADDMOD as usize] = arithmetic::addmod;
-	table[MULMOD as usize] = arithmetic::mulmod;
-	table[EXP as usize] = arithmetic::exp;
-	table[SIGNEXTEND as usize] = arithmetic::signextend;
+		LT => bitwise::lt(interpreter),
+		GT => bitwise::gt(interpreter),
+		SLT => bitwise::slt(interpreter),
+		SGT => bitwise::sgt(interpreter),
+		EQ => bitwise::eq(interpreter),
+		ISZERO => bitwise::iszero(interpreter),
+		AND => bitwise::bitand(interpreter),
+		OR => bitwise::bitor(interpreter),
+		XOR => bitwise::bitxor(interpreter),
+		NOT => bitwise::not(interpreter),
+		BYTE => bitwise::byte(interpreter),
+		SHL => bitwise::shl(interpreter),
+		SHR => bitwise::shr(interpreter),
+		SAR => bitwise::sar(interpreter),
+		CLZ => bitwise::clz(interpreter),
 
-	table[LT as usize] = bitwise::lt;
-	table[GT as usize] = bitwise::gt;
-	table[SLT as usize] = bitwise::slt;
-	table[SGT as usize] = bitwise::sgt;
-	table[EQ as usize] = bitwise::eq;
-	table[ISZERO as usize] = bitwise::iszero;
-	table[AND as usize] = bitwise::bitand;
-	table[OR as usize] = bitwise::bitor;
-	table[XOR as usize] = bitwise::bitxor;
-	table[NOT as usize] = bitwise::not;
-	table[BYTE as usize] = bitwise::byte;
-	table[SHL as usize] = bitwise::shl;
-	table[SHR as usize] = bitwise::shr;
-	table[SAR as usize] = bitwise::sar;
-	table[CLZ as usize] = bitwise::clz;
+		KECCAK256 => system::keccak256(interpreter),
 
-	table[KECCAK256 as usize] = system::keccak256;
+		ADDRESS => system::address(interpreter),
+		BALANCE => host::balance(interpreter),
+		ORIGIN => tx_info::origin(interpreter),
+		CALLER => system::caller(interpreter),
+		CALLVALUE => system::callvalue(interpreter),
+		CALLDATALOAD => system::calldataload(interpreter),
+		CALLDATASIZE => system::calldatasize(interpreter),
+		CALLDATACOPY => system::calldatacopy(interpreter),
+		CODESIZE => system::codesize(interpreter),
+		CODECOPY => system::codecopy(interpreter),
 
-	table[ADDRESS as usize] = system::address;
-	table[BALANCE as usize] = host::balance;
-	table[ORIGIN as usize] = tx_info::origin;
-	table[CALLER as usize] = system::caller;
-	table[CALLVALUE as usize] = system::callvalue;
-	table[CALLDATALOAD as usize] = system::calldataload;
-	table[CALLDATASIZE as usize] = system::calldatasize;
-	table[CALLDATACOPY as usize] = system::calldatacopy;
-	table[CODESIZE as usize] = system::codesize;
-	table[CODECOPY as usize] = system::codecopy;
+		GASPRICE => tx_info::gasprice(interpreter),
+		EXTCODESIZE => host::extcodesize(interpreter),
+		EXTCODECOPY => host::extcodecopy(interpreter),
+		RETURNDATASIZE => system::returndatasize(interpreter),
+		RETURNDATACOPY => system::returndatacopy(interpreter),
+		EXTCODEHASH => host::extcodehash(interpreter),
+		BLOCKHASH => host::blockhash(interpreter),
+		COINBASE => block_info::coinbase(interpreter),
+		TIMESTAMP => block_info::timestamp(interpreter),
+		NUMBER => block_info::block_number(interpreter),
+		DIFFICULTY => block_info::difficulty(interpreter),
+		GASLIMIT => block_info::gaslimit(interpreter),
+		CHAINID => block_info::chainid(interpreter),
+		SELFBALANCE => host::selfbalance(interpreter),
+		BASEFEE => block_info::basefee(interpreter),
+		BLOBHASH => tx_info::blob_hash(interpreter),
+		BLOBBASEFEE => block_info::blob_basefee(interpreter),
 
-	table[GASPRICE as usize] = tx_info::gasprice;
-	table[EXTCODESIZE as usize] = host::extcodesize;
-	table[EXTCODECOPY as usize] = host::extcodecopy;
-	table[RETURNDATASIZE as usize] = system::returndatasize;
-	table[RETURNDATACOPY as usize] = system::returndatacopy;
-	table[EXTCODEHASH as usize] = host::extcodehash;
-	table[BLOCKHASH as usize] = host::blockhash;
-	table[COINBASE as usize] = block_info::coinbase;
-	table[TIMESTAMP as usize] = block_info::timestamp;
-	table[NUMBER as usize] = block_info::block_number;
-	table[DIFFICULTY as usize] = block_info::difficulty;
-	table[GASLIMIT as usize] = block_info::gaslimit;
-	table[CHAINID as usize] = block_info::chainid;
-	table[SELFBALANCE as usize] = host::selfbalance;
-	table[BASEFEE as usize] = block_info::basefee;
-	table[BLOBHASH as usize] = tx_info::blob_hash;
-	table[BLOBBASEFEE as usize] = block_info::blob_basefee;
+		POP => stack::pop(interpreter),
+		MLOAD => memory::mload(interpreter),
+		MSTORE => memory::mstore(interpreter),
+		MSTORE8 => memory::mstore8(interpreter),
+		SLOAD => host::sload(interpreter),
+		SSTORE => host::sstore(interpreter),
+		JUMP => control::jump(interpreter),
+		JUMPI => control::jumpi(interpreter),
+		PC => control::pc(interpreter),
+		MSIZE => memory::msize(interpreter),
+		GAS => system::gas(interpreter),
+		JUMPDEST => control::jumpdest(interpreter),
+		TLOAD => host::tload(interpreter),
+		TSTORE => host::tstore(interpreter),
+		MCOPY => memory::mcopy(interpreter),
 
-	table[POP as usize] = stack::pop;
-	table[MLOAD as usize] = memory::mload;
-	table[MSTORE as usize] = memory::mstore;
-	table[MSTORE8 as usize] = memory::mstore8;
-	table[SLOAD as usize] = host::sload;
-	table[SSTORE as usize] = host::sstore;
-	table[JUMP as usize] = control::jump;
-	table[JUMPI as usize] = control::jumpi;
-	table[PC as usize] = control::pc;
-	table[MSIZE as usize] = memory::msize;
-	table[GAS as usize] = system::gas;
-	table[JUMPDEST as usize] = control::jumpdest;
-	table[TLOAD as usize] = host::tload;
-	table[TSTORE as usize] = host::tstore;
-	table[MCOPY as usize] = memory::mcopy;
+		PUSH0 => stack::push0(interpreter),
+		PUSH1 => stack::push::<1, _>(interpreter),
+		PUSH2 => stack::push::<2, _>(interpreter),
+		PUSH3 => stack::push::<3, _>(interpreter),
+		PUSH4 => stack::push::<4, _>(interpreter),
+		PUSH5 => stack::push::<5, _>(interpreter),
+		PUSH6 => stack::push::<6, _>(interpreter),
+		PUSH7 => stack::push::<7, _>(interpreter),
+		PUSH8 => stack::push::<8, _>(interpreter),
+		PUSH9 => stack::push::<9, _>(interpreter),
+		PUSH10 => stack::push::<10, _>(interpreter),
+		PUSH11 => stack::push::<11, _>(interpreter),
+		PUSH12 => stack::push::<12, _>(interpreter),
+		PUSH13 => stack::push::<13, _>(interpreter),
+		PUSH14 => stack::push::<14, _>(interpreter),
+		PUSH15 => stack::push::<15, _>(interpreter),
+		PUSH16 => stack::push::<16, _>(interpreter),
+		PUSH17 => stack::push::<17, _>(interpreter),
+		PUSH18 => stack::push::<18, _>(interpreter),
+		PUSH19 => stack::push::<19, _>(interpreter),
+		PUSH20 => stack::push::<20, _>(interpreter),
+		PUSH21 => stack::push::<21, _>(interpreter),
+		PUSH22 => stack::push::<22, _>(interpreter),
+		PUSH23 => stack::push::<23, _>(interpreter),
+		PUSH24 => stack::push::<24, _>(interpreter),
+		PUSH25 => stack::push::<25, _>(interpreter),
+		PUSH26 => stack::push::<26, _>(interpreter),
+		PUSH27 => stack::push::<27, _>(interpreter),
+		PUSH28 => stack::push::<28, _>(interpreter),
+		PUSH29 => stack::push::<29, _>(interpreter),
+		PUSH30 => stack::push::<30, _>(interpreter),
+		PUSH31 => stack::push::<31, _>(interpreter),
+		PUSH32 => stack::push::<32, _>(interpreter),
 
-	table[PUSH0 as usize] = stack::push0;
-	table[PUSH1 as usize] = stack::push::<1, _>;
-	table[PUSH2 as usize] = stack::push::<2, _>;
-	table[PUSH3 as usize] = stack::push::<3, _>;
-	table[PUSH4 as usize] = stack::push::<4, _>;
-	table[PUSH5 as usize] = stack::push::<5, _>;
-	table[PUSH6 as usize] = stack::push::<6, _>;
-	table[PUSH7 as usize] = stack::push::<7, _>;
-	table[PUSH8 as usize] = stack::push::<8, _>;
-	table[PUSH9 as usize] = stack::push::<9, _>;
-	table[PUSH10 as usize] = stack::push::<10, _>;
-	table[PUSH11 as usize] = stack::push::<11, _>;
-	table[PUSH12 as usize] = stack::push::<12, _>;
-	table[PUSH13 as usize] = stack::push::<13, _>;
-	table[PUSH14 as usize] = stack::push::<14, _>;
-	table[PUSH15 as usize] = stack::push::<15, _>;
-	table[PUSH16 as usize] = stack::push::<16, _>;
-	table[PUSH17 as usize] = stack::push::<17, _>;
-	table[PUSH18 as usize] = stack::push::<18, _>;
-	table[PUSH19 as usize] = stack::push::<19, _>;
-	table[PUSH20 as usize] = stack::push::<20, _>;
-	table[PUSH21 as usize] = stack::push::<21, _>;
-	table[PUSH22 as usize] = stack::push::<22, _>;
-	table[PUSH23 as usize] = stack::push::<23, _>;
-	table[PUSH24 as usize] = stack::push::<24, _>;
-	table[PUSH25 as usize] = stack::push::<25, _>;
-	table[PUSH26 as usize] = stack::push::<26, _>;
-	table[PUSH27 as usize] = stack::push::<27, _>;
-	table[PUSH28 as usize] = stack::push::<28, _>;
-	table[PUSH29 as usize] = stack::push::<29, _>;
-	table[PUSH30 as usize] = stack::push::<30, _>;
-	table[PUSH31 as usize] = stack::push::<31, _>;
-	table[PUSH32 as usize] = stack::push::<32, _>;
+		DUP1 => stack::dup::<1, _>(interpreter),
+		DUP2 => stack::dup::<2, _>(interpreter),
+		DUP3 => stack::dup::<3, _>(interpreter),
+		DUP4 => stack::dup::<4, _>(interpreter),
+		DUP5 => stack::dup::<5, _>(interpreter),
+		DUP6 => stack::dup::<6, _>(interpreter),
+		DUP7 => stack::dup::<7, _>(interpreter),
+		DUP8 => stack::dup::<8, _>(interpreter),
+		DUP9 => stack::dup::<9, _>(interpreter),
+		DUP10 => stack::dup::<10, _>(interpreter),
+		DUP11 => stack::dup::<11, _>(interpreter),
+		DUP12 => stack::dup::<12, _>(interpreter),
+		DUP13 => stack::dup::<13, _>(interpreter),
+		DUP14 => stack::dup::<14, _>(interpreter),
+		DUP15 => stack::dup::<15, _>(interpreter),
+		DUP16 => stack::dup::<16, _>(interpreter),
 
-	table[DUP1 as usize] = stack::dup::<1, _>;
-	table[DUP2 as usize] = stack::dup::<2, _>;
-	table[DUP3 as usize] = stack::dup::<3, _>;
-	table[DUP4 as usize] = stack::dup::<4, _>;
-	table[DUP5 as usize] = stack::dup::<5, _>;
-	table[DUP6 as usize] = stack::dup::<6, _>;
-	table[DUP7 as usize] = stack::dup::<7, _>;
-	table[DUP8 as usize] = stack::dup::<8, _>;
-	table[DUP9 as usize] = stack::dup::<9, _>;
-	table[DUP10 as usize] = stack::dup::<10, _>;
-	table[DUP11 as usize] = stack::dup::<11, _>;
-	table[DUP12 as usize] = stack::dup::<12, _>;
-	table[DUP13 as usize] = stack::dup::<13, _>;
-	table[DUP14 as usize] = stack::dup::<14, _>;
-	table[DUP15 as usize] = stack::dup::<15, _>;
-	table[DUP16 as usize] = stack::dup::<16, _>;
+		SWAP1 => stack::swap::<1, _>(interpreter),
+		SWAP2 => stack::swap::<2, _>(interpreter),
+		SWAP3 => stack::swap::<3, _>(interpreter),
+		SWAP4 => stack::swap::<4, _>(interpreter),
+		SWAP5 => stack::swap::<5, _>(interpreter),
+		SWAP6 => stack::swap::<6, _>(interpreter),
+		SWAP7 => stack::swap::<7, _>(interpreter),
+		SWAP8 => stack::swap::<8, _>(interpreter),
+		SWAP9 => stack::swap::<9, _>(interpreter),
+		SWAP10 => stack::swap::<10, _>(interpreter),
+		SWAP11 => stack::swap::<11, _>(interpreter),
+		SWAP12 => stack::swap::<12, _>(interpreter),
+		SWAP13 => stack::swap::<13, _>(interpreter),
+		SWAP14 => stack::swap::<14, _>(interpreter),
+		SWAP15 => stack::swap::<15, _>(interpreter),
+		SWAP16 => stack::swap::<16, _>(interpreter),
 
-	table[SWAP1 as usize] = stack::swap::<1, _>;
-	table[SWAP2 as usize] = stack::swap::<2, _>;
-	table[SWAP3 as usize] = stack::swap::<3, _>;
-	table[SWAP4 as usize] = stack::swap::<4, _>;
-	table[SWAP5 as usize] = stack::swap::<5, _>;
-	table[SWAP6 as usize] = stack::swap::<6, _>;
-	table[SWAP7 as usize] = stack::swap::<7, _>;
-	table[SWAP8 as usize] = stack::swap::<8, _>;
-	table[SWAP9 as usize] = stack::swap::<9, _>;
-	table[SWAP10 as usize] = stack::swap::<10, _>;
-	table[SWAP11 as usize] = stack::swap::<11, _>;
-	table[SWAP12 as usize] = stack::swap::<12, _>;
-	table[SWAP13 as usize] = stack::swap::<13, _>;
-	table[SWAP14 as usize] = stack::swap::<14, _>;
-	table[SWAP15 as usize] = stack::swap::<15, _>;
-	table[SWAP16 as usize] = stack::swap::<16, _>;
+		LOG0 => host::log::<0, _>(interpreter),
+		LOG1 => host::log::<1, _>(interpreter),
+		LOG2 => host::log::<2, _>(interpreter),
+		LOG3 => host::log::<3, _>(interpreter),
+		LOG4 => host::log::<4, _>(interpreter),
 
-	table[LOG0 as usize] = host::log::<0, _>;
-	table[LOG1 as usize] = host::log::<1, _>;
-	table[LOG2 as usize] = host::log::<2, _>;
-	table[LOG3 as usize] = host::log::<3, _>;
-	table[LOG4 as usize] = host::log::<4, _>;
+		CREATE => contract::create::<false, _>(interpreter),
+		CREATE2 => contract::create::<true, _>(interpreter),
+		CALL => contract::call(interpreter),
+		STATICCALL => contract::static_call(interpreter),
+		DELEGATECALL => contract::delegate_call(interpreter),
+		CALLCODE => contract::call_code(interpreter),
 
-	table[CREATE as usize] = contract::create::<false, _>;
-	table[CALL as usize] = contract::call;
-	table[CALLCODE as usize] = contract::call_code;
-	table[RETURN as usize] = control::ret;
-	table[DELEGATECALL as usize] = contract::delegate_call;
-	table[CREATE2 as usize] = contract::create::<true, _>;
+		RETURN => control::ret(interpreter),
+		REVERT => control::revert(interpreter),
+		SELFDESTRUCT => host::selfdestruct(interpreter),
 
-	table[STATICCALL as usize] = contract::static_call;
-	table[REVERT as usize] = control::revert;
-	table[INVALID as usize] = control::invalid;
-	table[SELFDESTRUCT as usize] = host::selfdestruct;
-	table
-}
-
-#[cfg(test)]
-mod tests {
-	use super::instruction_table;
-	use revm::bytecode::opcode::*;
-
-	#[test]
-	fn all_instructions_and_opcodes_used() {
-		// known unknown instruction we compare it with other instructions from table.
-		let unknown_instruction = 0x0C_usize;
-
-		use crate::{exec::Stack, tests::Test, ContractBlob};
-		let instr_table = instruction_table::<'static, Stack<'static, Test, ContractBlob<Test>>>();
-
-		let unknown_istr = instr_table[unknown_instruction];
-		for (i, instr) in instr_table.iter().enumerate() {
-			let is_opcode_unknown = OpCode::new(i as u8).is_none();
-			//
-			let is_instr_unknown = std::ptr::fn_addr_eq(*instr, unknown_istr);
-			assert_eq!(is_instr_unknown, is_opcode_unknown, "Opcode 0x{i:X?} is not handled",);
-		}
+		_ => control::invalid(interpreter),
 	}
 }

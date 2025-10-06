@@ -1181,6 +1181,7 @@ procfs = { version = "0.16.0" }
 prometheus = { version = "0.13.0", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
 prometheus-parse = { version = "0.2.2" }
+proptest = { version = "1" }
 prost = { version = "0.12.4" }
 prost-build = { version = "0.13.2" }
 pyroscope = { version = "0.5.8" }
