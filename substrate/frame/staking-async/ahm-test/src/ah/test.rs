@@ -17,8 +17,12 @@
 
 use crate::ah::mock::*;
 use frame::prelude::Perbill;
+use frame_election_provider_support::Weight;
 use frame_support::assert_ok;
-use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
+use pallet_election_provider_multi_block::{
+	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
+	ElectionScore, Event as ElectionEvent, Phase,
+};
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
 	Event as StakingEvent,
@@ -1022,4 +1026,256 @@ fn on_offence_previous_era_instant_apply() {
 			roll_next();
 			assert_eq!(staking_events_since_last_call(), vec![]);
 		});
+}
+
+mod poll_operations {
+	use super::*;
+
+	#[test]
+	fn full_election_cycle_with_occasional_out_of_weight_completes() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// given initial state of AH
+			assert_eq!(System::block_number(), 1);
+			assert_eq!(CurrentEra::<T>::get(), Some(0));
+			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
+			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+			assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_none());
+
+			// receive first 3 session reports that don't trigger election
+			for i in 0..3 {
+				assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+					RuntimeOrigin::root(),
+					rc_client::SessionReport {
+						end_index: i,
+						validator_points: vec![(1, 10)],
+						activation_timestamp: None,
+						leftover: false,
+					}
+				));
+
+				assert_eq!(
+					staking_events_since_last_call(),
+					vec![StakingEvent::SessionRotated {
+						starting_session: i + 1,
+						active_era: 0,
+						planned_era: 0
+					}]
+				);
+			}
+
+			// receive session 4 which causes election to start
+			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index: 3,
+					validator_points: vec![(1, 10)],
+					activation_timestamp: None,
+					leftover: false,
+				}
+			));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::SessionRotated {
+					starting_session: 4,
+					active_era: 0,
+					// planned era 1 indicates election start signal is sent.
+					planned_era: 1
+				}]
+			);
+
+			assert_eq!(
+				election_events_since_last_call(),
+				// Snapshot phase has started which will run for 3 blocks
+				vec![ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) }]
+			);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(3));
+
+			// create 1 snapshot page normally
+			roll_next();
+			assert_eq!(election_events_since_last_call(), vec![]);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(2));
+
+			// next block won't have enough weight
+			NextPollWeight::set(Some(crate::ah::weights::SMALL));
+			roll_next();
+			assert_eq!(
+				election_events_since_last_call(),
+				vec![ElectionEvent::UnexpectedPhaseTransitionOutOfWeight {
+					from: Phase::Snapshot(2),
+					to: Phase::Snapshot(1),
+					required: Weight::from_parts(100, 0),
+					had: Weight::from_parts(10, 0)
+				}]
+			);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(2));
+
+			// next 2 blocks happen fine
+			roll_next();
+			assert_eq!(election_events_since_last_call(), vec![]);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(1));
+
+			roll_next();
+			assert_eq!(election_events_since_last_call(), vec![]);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(0));
+
+			// transition to signed
+			roll_next();
+			assert_eq!(
+				election_events_since_last_call(),
+				vec![ElectionEvent::PhaseTransitioned {
+					from: Phase::Snapshot(0),
+					to: Phase::Signed(3)
+				}]
+			);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Signed(3));
+
+			// roll 1
+			roll_next();
+			assert_eq!(election_events_since_last_call(), vec![]);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Signed(2));
+
+			// unlikely: we have zero weight, we won't progress
+			NextPollWeight::set(Some(Weight::default()));
+			roll_next();
+			assert_eq!(
+				election_events_since_last_call(),
+				vec![ElectionEvent::UnexpectedPhaseTransitionOutOfWeight {
+					from: Phase::Signed(2),
+					to: Phase::Signed(1),
+					required: Weight::from_parts(10, 0),
+					had: Weight::from_parts(0, 0)
+				}]
+			);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Signed(2));
+
+			// submit a signed solution
+			let solution = OffchainWorkerMiner::<T>::mine_solution(3, true).unwrap();
+			assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), solution.score));
+			for (index, page) in solution.solution_pages.into_iter().enumerate() {
+				assert_ok!(MultiBlockSigned::submit_page(
+					RuntimeOrigin::signed(1),
+					index as u32,
+					Some(Box::new(page))
+				));
+			}
+
+			// go to signed validation
+			roll_until_matches(|| CurrentPhase::<T>::get() == Phase::SignedValidation(6), false);
+			assert_eq!(
+				election_events_since_last_call(),
+				vec![ElectionEvent::PhaseTransitioned {
+					from: Phase::Signed(0),
+					to: Phase::SignedValidation(6)
+				}]
+			);
+
+			// first block rolls okay
+			roll_next();
+			assert_eq!(verifier_events_since_last_call(), vec![VerifierEvent::Verified(2, 4)]);
+			assert_eq!(election_events_since_last_call(), vec![]);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::SignedValidation(5));
+
+			// next block has not enough weight left for verification (verification of non-terminal
+			// pages requires MEDIUM)
+			NextPollWeight::set(Some(crate::ah::weights::SMALL));
+			roll_next();
+			assert_eq!(verifier_events_since_last_call(), vec![]);
+			assert_eq!(
+				election_events_since_last_call(),
+				vec![ElectionEvent::UnexpectedPhaseTransitionOutOfWeight {
+					from: Phase::SignedValidation(5),
+					to: Phase::SignedValidation(4),
+					required: Weight::from_parts(1010, 0),
+					had: Weight::from_parts(10, 0)
+				}]
+			);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::SignedValidation(5));
+
+			// rest go by fine, roll until done
+			roll_until_matches(|| CurrentPhase::<T>::get() == Phase::Done, false);
+			assert_eq!(
+				verifier_events_since_last_call(),
+				vec![
+					VerifierEvent::Verified(1, 0),
+					VerifierEvent::Verified(0, 3),
+					VerifierEvent::Queued(
+						ElectionScore {
+							minimal_stake: 100,
+							sum_stake: 800,
+							sum_stake_squared: 180000
+						},
+						None
+					)
+				]
+			);
+			assert_eq!(
+				election_events_since_last_call(),
+				vec![
+					ElectionEvent::PhaseTransitioned {
+						from: Phase::SignedValidation(0),
+						to: Phase::Unsigned(3)
+					},
+					ElectionEvent::PhaseTransitioned { from: Phase::Unsigned(0), to: Phase::Done },
+				]
+			);
+
+			// first export page goes by fine
+			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), None);
+			roll_next();
+			assert_eq!(
+				election_events_since_last_call(),
+				vec![ElectionEvent::PhaseTransitioned { from: Phase::Done, to: Phase::Export(1) }]
+			);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Export(1));
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) }]
+			);
+			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), Some(1));
+
+			// second page goes by fine
+			roll_next();
+			assert_eq!(election_events_since_last_call(), vec![]);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Export(0));
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) }]
+			);
+			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), Some(0));
+
+			// last (LARGE page) runs out of weight
+			NextPollWeight::set(Some(crate::ah::weights::MEDIUM));
+			roll_next();
+			assert_eq!(election_events_since_last_call(), vec![]);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Export(0));
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::Unexpected(
+					pallet_staking_async::UnexpectedKind::PagedElectionOutOfWeight {
+						page: 0,
+						required: Weight::from_parts(1000, 0),
+						had: Weight::from_parts(100, 0)
+					}
+				)]
+			);
+			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), Some(0));
+
+			// next time it goes by fine
+			roll_next();
+			assert_eq!(
+				election_events_since_last_call(),
+				vec![ElectionEvent::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }]
+			);
+			assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) }]
+			);
+			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), None);
+
+			// outgoing message is queued
+			assert!(pallet_staking_async_rc_client::OutgoingValidatorSet::<T>::get().is_some());
+		})
+	}
 }

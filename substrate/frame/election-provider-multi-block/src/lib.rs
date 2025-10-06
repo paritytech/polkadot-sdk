@@ -672,7 +672,7 @@ pub mod pallet {
 			let current_phase = Self::current_phase();
 			let next_phase = current_phase.next();
 
-			let (self_weight, self_exec) = Self::per_block_exec(current_phase.clone());
+			let (self_weight, self_exec) = Self::per_block_exec(current_phase);
 			let (verifier_weight, verifier_exc) = T::Verifier::per_block_exec();
 
 			// The following will combine `Self::per_block_exec` and `T::Verifier::per_block_exec`
@@ -702,10 +702,11 @@ pub mod pallet {
 
 			log!(
 				trace,
-				"required weight for transition from {:?} to {:?} is {:?}",
+				"required weight for transition from {:?} to {:?} is {:?}, has {:?}",
 				current_phase,
 				next_phase,
-				combined_weight
+				combined_weight,
+				weight_meter.remaining()
 			);
 			if weight_meter.can_consume(combined_weight) {
 				let final_combined_weight = combined_exec();
