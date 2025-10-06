@@ -15,12 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{weights::WeightInfo, Call, Config, PhantomData, TransferFlags};
+// Ensure we're `no_std` when compiling for Wasm.
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 use ethereum_standards::{
 	IERC20,
 	IERC20::{IERC20Calls, IERC20Events},
 };
+use pallet_assets::{weights::WeightInfo, Call, Config, TransferFlags};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -29,6 +35,11 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
+
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
@@ -174,7 +185,7 @@ where
 		);
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-		crate::Pallet::<Runtime, Instance>::do_transfer(
+		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
 			&dest,
@@ -203,7 +214,8 @@ where
 		use frame_support::traits::fungibles::Inspect;
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::total_issuance())?;
 
-		let value = Self::to_u256(crate::Pallet::<Runtime, Instance>::total_issuance(asset_id))?;
+		let value =
+			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::total_issuance(asset_id))?;
 		return Ok(IERC20::totalSupplyCall::abi_encode_returns(&value));
 	}
 
@@ -216,7 +228,8 @@ where
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::balance())?;
 		let account = call.account.into_array().into();
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
-		let value = Self::to_u256(crate::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
+		let value =
+			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
 		return Ok(IERC20::balanceOfCall::abi_encode_returns(&value));
 	}
 
@@ -233,7 +246,7 @@ where
 
 		let spender = call.spender.into_array().into();
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
-		let value = Self::to_u256(crate::Pallet::<Runtime, Instance>::allowance(
+		let value = Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::allowance(
 			asset_id, &owner, &spender,
 		))?;
 
@@ -251,7 +264,7 @@ where
 		let spender = call.spender.into_array().into();
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
-		crate::Pallet::<Runtime, Instance>::do_approve_transfer(
+		pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner),
 			&spender,
@@ -286,7 +299,7 @@ where
 		let to = call.to.into_array().into();
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
-		crate::Pallet::<Runtime, Instance>::do_transfer_approved(
+		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
 			&from,
 			&spender,

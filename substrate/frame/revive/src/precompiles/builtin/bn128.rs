@@ -94,7 +94,7 @@ impl<T: Config> PrimitivePrecompile for Bn128Pairing<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		if input.len() % 192 != 0 {
+		if !input.len().is_multiple_of(192) {
 			Err(DispatchError::from("invalid input length"))?;
 		}
 
