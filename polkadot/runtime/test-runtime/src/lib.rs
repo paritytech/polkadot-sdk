@@ -1072,6 +1072,11 @@ sp_api::impl_runtime_apis! {
 			runtime_impl::unapplied_slashes::<Runtime>()
 		}
 
+		fn unapplied_slashes_v2(
+		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+			runtime_impl::unapplied_slashes_v2::<Runtime>()
+		}
+
 		fn key_ownership_proof(
 			validator_id: ValidatorId,
 		) -> Option<slashing::OpaqueKeyOwnershipProof> {
