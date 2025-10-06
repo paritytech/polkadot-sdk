@@ -68,7 +68,7 @@ use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
-use sp_consensus::{Environment, Proposer};
+use sp_consensus::Environment;
 use sp_core::traits::SpawnNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -301,7 +301,8 @@ where
 
 		// The aura digest provider will provide digests that match the provided timestamp data.
 		// Without this, the AURA parachain runtimes complain about slot mismatches.
-		let aura_digest_provider = AuraConsensusDataProvider::new_with_slot_duration(slot_duration);
+		let aura_digest_provider =
+			AuraConsensusDataProvider::<Block, AuraId>::new_with_slot_duration(slot_duration);
 
 		let para_id =
 			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;

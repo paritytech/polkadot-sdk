@@ -19,7 +19,7 @@ use codec::{Codec, Encode};
 
 use super::CollatorMessage;
 use crate::{
-	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
+	collator::{self as collator_util, BuildBlockAndImportParams},
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
@@ -45,22 +45,16 @@ use polkadot_primitives::{
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
-use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
-use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member, Zero};
-use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
-use std::{
-	collections::VecDeque,
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<

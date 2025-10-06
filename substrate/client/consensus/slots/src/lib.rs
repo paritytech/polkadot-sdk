@@ -42,9 +42,7 @@ use sp_consensus::{Proposal, ProposeArgs, Proposer, SelectChain, SyncOracle};
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
-use sp_state_machine::StorageProof;
 use std::{
-	fmt::Debug,
 	ops::Deref,
 	time::{Duration, Instant},
 };

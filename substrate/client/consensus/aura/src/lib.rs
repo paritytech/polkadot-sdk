@@ -556,13 +556,9 @@ mod tests {
 	use sp_application_crypto::{key_types::AURA, AppCrypto};
 	use sp_consensus::{NoNetwork as DummyOracle, Proposal, ProposeArgs};
 	use sp_consensus_aura::sr25519::AuthorityPair;
-	use sp_inherents::InherentData;
 	use sp_keyring::sr25519::Keyring;
 	use sp_keystore::Keystore;
-	use sp_runtime::{
-		traits::{Block as BlockT, Header as _},
-		Digest,
-	};
+	use sp_runtime::traits::{Block as BlockT, Header as _};
 	use sp_timestamp::Timestamp;
 	use std::{
 		task::Poll,
