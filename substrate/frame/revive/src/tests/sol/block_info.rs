@@ -137,7 +137,6 @@ fn gaslimit_works(fixture_type: FixtureType) {
 /// Tests that the basefee opcode works as expected.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-#[test_case(FixtureType::Solc)]
 fn base_fee_works(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
