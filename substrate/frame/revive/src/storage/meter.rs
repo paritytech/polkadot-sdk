@@ -244,8 +244,8 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _, .. } |
-			Self::Checked(deposit) => deposit.clone(),
+			Self::Terminated { deposit, beneficiary: _, .. } | Self::Checked(deposit) =>
+				deposit.clone(),
 		}
 	}
 }
@@ -302,7 +302,7 @@ where
 			.saturating_add(&own_deposit);
 		self.charges.extend_from_slice(&absorbed.charges);
 
-		// Record zero deposit charge oly if the contract was terminated.
+		// Allow recording zero deposit charge only if the contract was terminated.
 		if !own_deposit.is_zero() ||
 			matches!(absorbed.contract_state(), ContractState::Terminated { .. })
 		{
