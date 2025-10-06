@@ -1,0 +1,7 @@
+title: Rve/9565 pallet revive evm backend ensure memory dos safety2
+doc:
+- audience: Runtime Dev
+  description: fixes https://github.com/paritytech/polkadot-sdk/issues/9565
+crates:
+- name: pallet-revive
+  bump: patch
