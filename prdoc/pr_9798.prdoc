@@ -26,6 +26,6 @@ crates:
 - name: polkadot-node-core-dispute-coordinator
   bump: patch
 - name: cumulus-relay-chain-minimal-node
-  bump: patch
+  bump: minor
 - name: cumulus-relay-chain-rpc-interface
-  bump: patch
+  bump: minor
