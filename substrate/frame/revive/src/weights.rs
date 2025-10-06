@@ -729,13 +729,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 277_000 picoseconds.
 		Weight::from_parts(315_000, 0)
 	}
-	fn seal_weight_to_fee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_612_000 picoseconds.
-		Weight::from_parts(1_773_000, 0)
-	}
 	/// The range of component `n` is `[0, 262140]`.
 	fn seal_copy_to_contract(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -1977,13 +1970,6 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 277_000 picoseconds.
 		Weight::from_parts(315_000, 0)
-	}
-	fn seal_weight_to_fee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_612_000 picoseconds.
-		Weight::from_parts(1_773_000, 0)
 	}
 	/// The range of component `n` is `[0, 262140]`.
 	fn seal_copy_to_contract(n: u32, ) -> Weight {

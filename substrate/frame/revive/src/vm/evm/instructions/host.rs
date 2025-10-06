@@ -242,7 +242,9 @@ pub fn log<'ext, const N: usize, E: Ext>(
 	let topics = interpreter.stack.popn::<N>()?;
 	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
 
-	interpreter.ext.deposit_event(topics, data.to_vec())?;
+	if let Err(_) = interpreter.ext.deposit_event(topics, data.to_vec()) {
+		return ControlFlow::Break(Error::<E::T>::TooManyEmittedEvents.into());
+	}
 	ControlFlow::Continue(())
 }
 

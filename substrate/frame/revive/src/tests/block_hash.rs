@@ -58,7 +58,7 @@ fn transactions_are_captured() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		Contracts::on_initialize(0);
 
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary.clone())).build_and_unwrap_contract();
 		let balance =
@@ -106,7 +106,7 @@ fn events_are_captured() {
 	let (binary, code_hash) = compile_module("event_and_return_on_deploy").unwrap();
 
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
@@ -121,8 +121,6 @@ fn events_are_captured() {
 
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
-
-		// Capture the EthInstantiate.
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 
 		// The contract address is not exposed by the `eth_instantiate_with_code` call.

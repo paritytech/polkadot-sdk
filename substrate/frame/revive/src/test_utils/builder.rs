@@ -15,11 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::u32;
+
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
 	address::AddressMapper, evm::TransactionSigned, AccountIdOf, BalanceOf, Code, Config,
-	ContractResult, ExecConfig, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet,
-	Weight, U256,
+	ContractResult, ExecConfig, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
+	U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;

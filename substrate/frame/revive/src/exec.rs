@@ -1669,7 +1669,11 @@ where
 		// our benchmarks are passing.
 		match crate::Pallet::<T>::eth_block_hash_from_number(block_number.into()) {
 			Some(hash) => Some(hash),
-			None => Some(System::<T>::block_hash(&block_number).into()),
+			None => {
+				use codec::Decode;
+				let block_hash = System::<T>::block_hash(&block_number);
+				Decode::decode(&mut TrailingZeroInput::new(block_hash.as_ref())).ok()
+			},
 		}
 	}
 }

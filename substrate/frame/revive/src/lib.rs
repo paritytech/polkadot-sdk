@@ -47,10 +47,10 @@ pub mod weights_utils;
 use crate::{
 	evm::{
 		block_hash::{EthereumBlockBuilderIR, ReceiptGasInfo},
-		block_storage,
-		create_call, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
-		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
-		TYPE_EIP1559,
+		block_storage, create_call,
+		fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit,
+		CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -1610,7 +1610,7 @@ impl<T: Config> Pallet<T> {
 
 		// we need to parse the weight from the transaction so that it is run
 		// using the exact weight limit passed by the eth wallet
-		let mut call_info = create_call::<T>(tx, None)
+		let mut call_info = create_call::<T>(tx, None, encoded_dummy_payload.clone())
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		// emulate transaction behavior
@@ -1657,7 +1657,10 @@ impl<T: Config> Pallet<T> {
 						)));
 					};
 
-					Default::default()
+					EthTransactInfo {
+						gas_required: T::FeeInfo::dispatch_info(&dispatch_call).total_weight(),
+						..Default::default()
+					}
 				} else {
 					// Dry run the call.
 					let result = crate::Pallet::<T>::bare_call(
@@ -1688,25 +1691,6 @@ impl<T: Config> Pallet<T> {
 						storage_deposit: result.storage_deposit.charge_or_zero(),
 						data,
 						eth_gas: Default::default(),
-					};
-
-					let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
-						result.gas_required,
-						result.storage_deposit,
-					);
-
-					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_call {
-						dest,
-						value,
-						gas_limit,
-						storage_deposit_limit,
-						data: input.clone(),
-						// Since this is a dry run, we don't need to pass the signed transaction
-						// payload. Instead, use a dummy value. The signed transaction
-						// will be provided by the user when the tx is submitted.
-						transaction_encoded: encoded_dummy_payload.clone(),
-						effective_gas_price: call_info.effective_gas_price,
-						encoded_len: encoded_dummy_payload.len() as u32,
 					}
 				}
 			},
@@ -1749,35 +1733,9 @@ impl<T: Config> Pallet<T> {
 					storage_deposit: result.storage_deposit.charge_or_zero(),
 					data: returned_data,
 					eth_gas: Default::default(),
-				};
-
-				// Get the dispatch info of the call.
-				let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
-					result.gas_required,
-					result.storage_deposit,
-				);
-
-				let dispatch_call: <T as Config>::RuntimeCall =
-					crate::Call::<T>::eth_instantiate_with_code {
-						value,
-						gas_limit,
-						storage_deposit_limit,
-						code,
-						data,
-						transaction_encoded: encoded_dummy_payload.clone(),
-						effective_gas_price: call_info.effective_gas_price,
-						encoded_len: encoded_dummy_payload.len() as u32,
-					}
-					.into();
-				(result, dispatch_call)
+				}
 			},
 		};
-
-		let eth_transact_call = crate::Call::<T>::eth_transact { payload: encoded_dummy_payload };
-		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
-		let raw_gas = Self::evm_fee_to_gas(fee);
-		let eth_gas =
-			T::EthGasEncoder::encode(raw_gas, result.gas_required, result.storage_deposit);
 
 		// replace the weight passed in the transaction with the dry_run result
 		call_info.call.set_weight_limit(dry_run.gas_required);
@@ -2148,29 +2106,6 @@ impl<T: Config> Pallet<T> {
 		PalletId(*b"py/reviv").into_account_truncating()
 	}
 
-	/// Returns true if the evm value carries dust.
-	fn has_dust(value: U256) -> bool {
-		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
-	}
-
-	/// Returns true if the evm value carries balance.
-	fn has_balance(value: U256) -> bool {
-		value >= U256::from(<T>::NativeToEthRatio::get())
-	}
-
-	/// Return the existential deposit of [`Config::Currency`].
-	fn min_balance() -> BalanceOf<T> {
-		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
-	}
-
-	/// Deposit a pallet revive event.
-	///
-	/// This method will be called by the EVM to deposit events emitted by the contract.
-	/// Therefore all events must be contract emitted events.
-	fn deposit_event(event: Event<T>) {
-		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
-	}
-
 	/// The address of the validator that produced the current block.
 	pub fn block_author() -> H160 {
 		use frame_support::traits::FindAuthor;
@@ -2308,7 +2243,10 @@ impl<T: Config> Pallet<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
 	}
 
-	/// Deposit a pallet contracts event.
+	/// Deposit a pallet revive event.
+	///
+	/// This method will be called by the EVM to deposit events emitted by the contract.
+	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}

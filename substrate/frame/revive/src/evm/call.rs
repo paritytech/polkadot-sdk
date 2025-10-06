@@ -22,6 +22,7 @@ use crate::{
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
+use alloc::vec::Vec;
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use num_traits::Bounded;
@@ -50,6 +51,7 @@ pub struct CallInfo<T: Config> {
 pub fn create_call<T>(
 	tx: GenericTransaction,
 	encoded_len: Option<u32>,
+	transaction_encoded: Vec<u8>,
 ) -> Result<CallInfo<T>, InvalidTransaction>
 where
 	T: Config,
@@ -119,6 +121,7 @@ where
 				gas_limit: Zero::zero(),
 				storage_deposit_limit: BalanceOf::<T>::max_value(),
 				data,
+				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
 			}
@@ -142,6 +145,7 @@ where
 			storage_deposit_limit: BalanceOf::<T>::max_value(),
 			code,
 			data,
+			transaction_encoded,
 			effective_gas_price,
 			encoded_len,
 		}

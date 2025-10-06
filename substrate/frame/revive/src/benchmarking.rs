@@ -24,7 +24,7 @@ use crate::{
 		block_hash::EthereumBlockBuilder, block_storage, runtime::GAS_PRICE,
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 	},
-	exec::{Key, PrecompileExt}
+	exec::{Key, PrecompileExt},
 	limits,
 	precompiles::{
 		self,
