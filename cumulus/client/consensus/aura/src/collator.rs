@@ -38,12 +38,13 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{Header as PHeader, Id as ParaId};
 
 use crate::collators::RelayParentData;
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
-use sc_consensus_aura::standalone as aura_internal;
+use sc_consensus_aura::{standalone as aura_internal, CompatibleDigestItem};
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
@@ -455,19 +456,14 @@ pub async fn collator_protocol_helper<Block, Client, P, Spawner>(
 	Client: sc_client_api::HeaderBackend<Block>
 		+ Send
 		+ Sync
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::BlockchainEvents<Block>
 		+ ProvideRuntimeApi<Block>
+		+ sc_client_api::BlockchainEvents<Block>
 		+ 'static,
 	Client::Api: AuraApi<Block, P::Public>,
 	P: sp_core::Pair + Send + Sync,
 	P::Public: Codec,
 	Spawner: sp_core::traits::SpawnNamed,
 {
-	use polkadot_node_subsystem::messages::CollatorProtocolMessage;
-	use sc_consensus_aura::CompatibleDigestItem;
-	use sp_runtime::DigestItem;
-
 	let mut import_notifications = client.import_notification_stream().fuse();
 
 	tracing::debug!(target: crate::LOG_TARGET, "Started collator protocol helper");
