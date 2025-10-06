@@ -352,7 +352,6 @@ impl MockRuntimeApi {
 						message => {
 							unimplemented!("Unexpected runtime-api message: {:?}", message)
 						},
-
 					}
 				},
 			}
