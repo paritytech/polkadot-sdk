@@ -84,7 +84,7 @@ where
 {
 	let charged_amount = env.charge(weight_to_charge)?;
 
-	let result = crate::Pallet::<Runtime>::execute(frame_origin, Box::new(message), max_weight);
+	let result = crate::Pallet::<Runtime>::execute(frame_origin, message.into(), max_weight);
 
 	let pre = DispatchInfo {
 		call_weight: weight_to_charge,
@@ -131,12 +131,7 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let origin = env.caller();
-		let frame_origin = match origin {
-			Origin::Root => frame_system::RawOrigin::Root.into(),
-			Origin::Signed(account_id) =>
-				frame_system::RawOrigin::Signed(account_id.clone()).into(),
-		};
+		let frame_origin = get_frame_origin(&env.caller());
 
 		match input {
 			IXcmCalls::send(IXcm::sendCall { destination, message }) => {
