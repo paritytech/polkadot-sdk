@@ -325,7 +325,9 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 		&self.voting_oracle
 	}
 
-	pub(crate) fn gossip_filter_config(&self) -> Result<GossipFilterCfg<B, AuthorityId>, Error> {
+	pub(crate) fn gossip_filter_config(
+		&self,
+	) -> Result<GossipFilterCfg<'_, B, AuthorityId>, Error> {
 		let (start, end) = self.voting_oracle.accepted_interval()?;
 		let validator_set = self.voting_oracle.current_validator_set()?;
 		Ok(GossipFilterCfg { start, end, validator_set })
