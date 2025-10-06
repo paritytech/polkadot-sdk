@@ -137,6 +137,10 @@ pub fn genesis() -> Storage {
 					ETHER_MIN_BALANCE,
 				),
 			],
+			reserves: vec![
+				(PenpalATeleportableAssetLocation::get(), vec![xcm::v5::Location::here()]),
+				(PenpalBTeleportableAssetLocation::get(), vec![xcm::v5::Location::here()]),
+			],
 			..Default::default()
 		},
 		..Default::default()

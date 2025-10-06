@@ -215,6 +215,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 			(999, 1, 100),
 		],
 		next_asset_id: None,
+		reserves: vec![],
 	};
 
 	config.assimilate_storage(&mut storage).unwrap();

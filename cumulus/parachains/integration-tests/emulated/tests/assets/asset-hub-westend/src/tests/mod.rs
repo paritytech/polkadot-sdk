@@ -17,6 +17,7 @@ mod aliases;
 mod claim_assets;
 mod exchange_asset;
 mod fellowship_treasury;
+mod foreign_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
 mod reward_pool;

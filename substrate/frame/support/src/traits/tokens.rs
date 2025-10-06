@@ -32,7 +32,7 @@ pub mod pay;
 pub use misc::{
 	AssetId, Balance, BalanceStatus, ConversionFromAssetBalance, ConversionToAssetBalance,
 	ConvertRank, DepositConsequence, ExistenceRequirement, Fortitude, GetSalary, IdAmount, Locker,
-	Precision, Preservation, Provenance, Restriction, UnityAssetBalanceConversion,
-	UnityOrOuterConversion, WithdrawConsequence, WithdrawReasons,
+	Precision, Preservation, Provenance, ProvideAssetReserves, Restriction,
+	UnityAssetBalanceConversion, UnityOrOuterConversion, WithdrawConsequence, WithdrawReasons,
 };
 pub use pay::{Pay, PayFromAccount, PaymentStatus};

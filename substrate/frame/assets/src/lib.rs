@@ -251,12 +251,15 @@ pub mod pallet {
 	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{AccountTouch, ContainsPair},
+		traits::{tokens::ProvideAssetReserves, AccountTouch, ContainsPair},
 	};
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
+	/// The maximum number of configurable reserve locations for one asset class.
+	const MAX_RESERVES: u32 = 5;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -290,6 +293,7 @@ pub mod pallet {
 			type RemoveItemsLimit = ConstU32<5>;
 			type AssetId = u32;
 			type AssetIdParameter = u32;
+			type ReserveId = ();
 			type AssetDeposit = ConstUint<1>;
 			type AssetAccountDeposit = ConstUint<10>;
 			type MetadataDepositBase = ConstUint<1>;
@@ -343,6 +347,9 @@ pub mod pallet {
 		/// want to convert an `AssetId` into a parameter for calling dispatchable functions
 		/// directly.
 		type AssetIdParameter: Parameter + From<Self::AssetId> + Into<Self::AssetId> + MaxEncodedLen;
+
+		/// Identifier for a reserve location for a class of asset.
+		type ReserveId: Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
 
 		/// The currency mechanism.
 		#[pallet::no_default]
@@ -464,6 +471,16 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Maps an asset to a list of its configured reserve locations.
+	#[pallet::storage]
+	pub type ReserveLocations<T: Config<I>, I: 'static = ()> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AssetId,
+		BoundedVec<T::ReserveId, ConstU32<MAX_RESERVES>>,
+		ValueQuery,
+	>;
+
 	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
 	/// item has no effect.
 	///
@@ -492,6 +509,8 @@ pub mod pallet {
 		/// This does not enforce the asset ID for the [assets](`GenesisConfig::assets`) within the
 		/// genesis config. It sets the [`NextAssetId`] after they have been created.
 		pub next_asset_id: Option<T::AssetId>,
+		/// Genesis assets and their reserves
+		pub reserves: Vec<(T::AssetId, Vec<T::ReserveId>)>,
 	}
 
 	#[pallet::genesis_build]
@@ -556,6 +575,14 @@ pub mod pallet {
 
 			if let Some(next_asset_id) = &self.next_asset_id {
 				NextAssetId::<T, I>::put(next_asset_id);
+			}
+
+			for (id, reserves) in &self.reserves {
+				assert!(!ReserveLocations::<T, I>::contains_key(id), "Asset id already in use");
+				let reserves =
+					BoundedVec::<T::ReserveId, ConstU32<MAX_RESERVES>>::try_from(reserves.clone())
+						.expect("too many reserves");
+				ReserveLocations::<T, I>::insert(id, reserves);
 			}
 		}
 	}
@@ -647,6 +674,10 @@ pub mod pallet {
 		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
 		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		/// Reserve locations were set or updated for `asset_id`.
+		ReservesUpdated { asset_id: T::AssetId, reserves: Vec<T::ReserveId> },
+		/// Reserve locations were removed for `asset_id`.
+		ReservesRemoved { asset_id: T::AssetId },
 	}
 
 	#[pallet::error]
@@ -700,6 +731,8 @@ pub mod pallet {
 		ContainsFreezes,
 		/// The asset cannot be destroyed because some accounts for this asset contain holds.
 		ContainsHolds,
+		/// Tried setting too many reserves.
+		TooManyReserves,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1819,6 +1852,42 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
+
+		/// Sets the trusted reserve locations of an asset.
+		///
+		/// Origin must be the Owner of the asset `id`. The origin must conform to the configured
+		/// `CreateOrigin` or be the signed `owner` configured during asset creation.
+		///
+		/// - `id`: The identifier of the asset.
+		/// - `reserves`: The full list of trusted reserves.
+		///
+		/// Emits `AssetMinBalanceChanged` event when successful.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::WeightInfo::set_reserves())]
+		pub fn set_reserves(
+			origin: OriginFor<T>,
+			id: T::AssetIdParameter,
+			reserves: Vec<T::ReserveId>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			// FIXME:
+			// T::ManagerOrigin::ensure_origin(origin, &id)?;
+
+			let id: T::AssetId = id.into();
+			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+			ensure!(origin == details.owner, Error::<T, I>::NoPermission);
+
+			if reserves.is_empty() {
+				ReserveLocations::<T, I>::remove(&id);
+				Self::deposit_event(Event::ReservesRemoved { asset_id: id });
+			} else {
+				let bounded_reserves =
+					reserves.clone().try_into().map_err(|_| Error::<T, I>::TooManyReserves)?;
+				ReserveLocations::<T, I>::set(&id, bounded_reserves);
+				Self::deposit_event(Event::ReservesUpdated { asset_id: id, reserves });
+			}
+			Ok(())
+		}
 	}
 
 	/// Implements [`AccountTouch`] trait.
@@ -1855,6 +1924,15 @@ pub mod pallet {
 		/// Check if an account with the given asset ID and account address exists.
 		fn contains(asset: &T::AssetId, who: &T::AccountId) -> bool {
 			Account::<T, I>::contains_key(asset, who)
+		}
+	}
+
+	/// Implements [`ProvideAssetReserves`] trait for getting the list of trusted reserves for a
+	/// given asset.
+	impl<T: Config<I>, I: 'static> ProvideAssetReserves<T::AssetId, T::ReserveId> for Pallet<T, I> {
+		/// Provide the configured reserves for asset `id`.
+		fn reserves(id: &T::AssetId) -> Vec<T::ReserveId> {
+			ReserveLocations::<T, I>::get(id).into_inner()
 		}
 	}
 }
