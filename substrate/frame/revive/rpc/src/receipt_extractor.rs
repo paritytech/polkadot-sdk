@@ -34,75 +34,9 @@ use pallet_revive::{
 		U256,
 	},
 };
-use sp_core::{keccak_256, H160};
+use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
 use subxt::{blocks::ExtrinsicDetails, OnlineClient};
-
-/// Helper function to decode a transaction and recover the sender address.
-/// Returns (signed_tx, transaction_hash, from_address)
-pub fn decode_and_recover_tx(
-	call: &EthTransact,
-) -> Result<(TransactionSigned, H256, H160), ClientError> {
-	let transaction_hash = H256(keccak_256(&call.payload));
-	let signed_tx =
-		TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
-	let from = signed_tx.recover_eth_address().map_err(|_| {
-		log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
-		ClientError::RecoverEthAddressFailed
-	})?;
-	Ok((signed_tx, transaction_hash, from))
-}
-
-/// Helper function to calculate contract address for CREATE transactions.
-pub fn calculate_contract_address(
-	from: &H160,
-	to: Option<H160>,
-	nonce: Option<U256>,
-) -> Result<Option<H160>, ClientError> {
-	if to.is_none() {
-		let nonce_u64 = nonce
-			.unwrap_or_default()
-			.try_into()
-			.map_err(|_| ClientError::ConversionFailed)?;
-		Ok(Some(create1(from, nonce_u64)))
-	} else {
-		Ok(None)
-	}
-}
-
-/// Helper to build a receipt from decoded transaction and collected data.
-/// This encapsulates the common logic of creating GenericTransaction, calculating
-/// contract address, and assembling the final ReceiptInfo.
-pub fn build_receipt_from_tx(
-	signed_tx: &TransactionSigned,
-	transaction_hash: H256,
-	from: H160,
-	gas_price: U256,
-	gas_used: U256,
-	status: bool,
-	logs: Vec<Log>,
-	eth_block_hash: H256,
-	block_number: U256,
-	transaction_index: usize,
-) -> Result<ReceiptInfo, ClientError> {
-	let tx_info = GenericTransaction::from_signed(signed_tx.clone(), gas_price, Some(from));
-	let contract_address = calculate_contract_address(&from, tx_info.to, tx_info.nonce)?;
-
-	Ok(ReceiptInfo::new(
-		eth_block_hash,
-		block_number,
-		contract_address,
-		from,
-		logs,
-		tx_info.to,
-		gas_price,
-		gas_used,
-		status,
-		transaction_hash,
-		transaction_index.into(),
-		tx_info.r#type.unwrap_or_default(),
-	))
-}
 
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
@@ -115,14 +49,6 @@ type FetchReceiptDataFn = Arc<
 type FetchEthBlockHashFn =
 	Arc<dyn Fn(H256, u64) -> Pin<Box<dyn Future<Output = Option<H256>> + Send>> + Send + Sync>;
 
-type FetchBlockGasLimitFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
->;
-
-type FetchBlockAuthorFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<H160, ClientError>> + Send>> + Send + Sync,
->;
-
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
@@ -134,12 +60,6 @@ pub struct ReceiptExtractor {
 
 	/// Fetch the gas price from the chain.
 	fetch_gas_price: FetchGasPriceFn,
-
-	/// Fetch the block gas limit from the chain.
-	fetch_block_gas_limit: FetchBlockGasLimitFn,
-
-	/// Fetch the block author from the chain.
-	fetch_block_author: FetchBlockAuthorFn,
 
 	/// The native to eth decimal ratio, used to calculated gas from native fees.
 	native_to_eth_ratio: u32,
@@ -205,40 +125,10 @@ impl ReceiptExtractor {
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		let api_inner = api.clone();
-		let fetch_block_gas_limit = Arc::new(move |block_hash| {
-			let api_inner = api_inner.clone();
-
-			let fut = async move {
-				let runtime_api = api_inner.runtime_api().at(block_hash);
-				let payload = subxt_client::apis().revive_api().block_gas_limit();
-				let gas_limit = runtime_api.call(payload).await?;
-				Ok(*gas_limit)
-			};
-
-			Box::pin(fut) as Pin<Box<_>>
-		});
-
-		let api_inner = api.clone();
-		let fetch_block_author = Arc::new(move |block_hash| {
-			let api_inner = api_inner.clone();
-
-			let fut = async move {
-				let runtime_api = api_inner.runtime_api().at(block_hash);
-				let payload = subxt_client::apis().revive_api().block_author();
-				let author = runtime_api.call(payload).await?;
-				Ok(author)
-			};
-
-			Box::pin(fut) as Pin<Box<_>>
-		});
-
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
 			fetch_gas_price,
-			fetch_block_gas_limit,
-			fetch_block_author,
 			native_to_eth_ratio,
 			earliest_receipt_block,
 		})
@@ -247,26 +137,15 @@ impl ReceiptExtractor {
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
 		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
-		// This method is useful when testing eth - substrate mapping.
-		let fetch_eth_block_hash = Arc::new(|block_hash: H256, block_number: u64| {
-			// Generate hash from substrate block hash and number
-			let bytes: Vec<u8> = [block_hash.as_bytes(), &block_number.to_be_bytes()].concat();
-			let eth_block_hash = H256::from(keccak_256(&bytes));
-			Box::pin(std::future::ready(Some(eth_block_hash))) as Pin<Box<_>>
-		});
+		let fetch_eth_block_hash =
+			Arc::new(|_, _| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
-		let fetch_block_gas_limit =
-			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(30_000_000)))) as Pin<Box<_>>);
-		let fetch_block_author =
-			Arc::new(|_| Box::pin(std::future::ready(Ok(H160::zero()))) as Pin<Box<_>>);
 
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
 			fetch_gas_price,
-			fetch_block_gas_limit,
-			fetch_block_author,
 			native_to_eth_ratio: 1_000_000,
 			earliest_receipt_block: None,
 		}
@@ -275,15 +154,14 @@ impl ReceiptExtractor {
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
-		substrate_block: &SubstrateBlock,
-		eth_block_hash: H256,
+		block_number: U256,
+		block_hash: H256,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
 		maybe_receipt: Option<ReceiptGasInfo>,
-		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
+		let transaction_index = ext.index();
 		let events = ext.events().await?;
-		let block_number: U256 = substrate_block.number().into();
 
 		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
 			log::debug!(
@@ -298,10 +176,16 @@ impl ReceiptExtractor {
 		.inspect_err(
 			|err| log::debug!(target: LOG_TARGET, "TransactionFeePaid not found in events for block {block_number}\n{err:?}")
 		)?;
+		let transaction_hash = H256(keccak_256(&call.payload));
 
-		let (signed_tx, transaction_hash, from) = decode_and_recover_tx(&call)?;
+		let signed_tx =
+			TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
+		let from = signed_tx.recover_eth_address().map_err(|_| {
+			log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
+			ClientError::RecoverEthAddressFailed
+		})?;
 
-		let base_gas_price = (self.fetch_gas_price)(substrate_block.hash()).await?;
+		let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
 		let tx_info =
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
 
@@ -331,26 +215,40 @@ impl ReceiptExtractor {
 					block_number,
 					transaction_hash,
 					transaction_index: transaction_index.into(),
-					block_hash: eth_block_hash,
+					block_hash,
 					log_index: event_details.index().into(),
 					..Default::default()
 				})
 			})
 			.collect();
 
-		let receipt = build_receipt_from_tx(
-			&signed_tx,
-			transaction_hash,
+		let contract_address = if tx_info.to.is_none() {
+			Some(create1(
+				&from,
+				tx_info
+					.nonce
+					.unwrap_or_default()
+					.try_into()
+					.map_err(|_| ClientError::ConversionFailed)?,
+			))
+		} else {
+			None
+		};
+
+		let receipt = ReceiptInfo::new(
+			block_hash,
+			block_number,
+			contract_address,
 			from,
+			logs,
+			tx_info.to,
 			gas_price,
 			gas_used,
 			success,
-			logs,
-			eth_block_hash,
-			block_number,
-			transaction_index,
-		)?;
-
+			transaction_hash,
+			transaction_index.into(),
+			tx_info.r#type.unwrap_or_default(),
+		);
 		Ok((signed_tx, receipt))
 	}
 
@@ -372,17 +270,23 @@ impl ReceiptExtractor {
 				.await
 				.unwrap_or(substrate_block_hash);
 
-		// Process extrinsics in order while maintaining parallelism within buffer window
+		// TODO: Order of receipt and transaction info is important while building
+		// the state tries. Are we sorting them afterwards?
 		stream::iter(ext_iter)
-			.enumerate()
-			.map(|(idx, (ext, call, receipt))| async move {
-				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt, idx)
-					.await
-					.inspect_err(|err| {
-						log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
-					})
+			.map(|(ext, call, receipt)| async move {
+				self.extract_from_extrinsic(
+					substrate_block_number.into(),
+					eth_block_hash,
+					ext,
+					call,
+					receipt,
+				)
+				.await
+				.inspect_err(|err| {
+					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
+				})
 			})
-			.buffered(10)
+			.buffer_unordered(10)
 			.collect::<Vec<Result<_, _>>>()
 			.await
 			.into_iter()
@@ -390,7 +294,7 @@ impl ReceiptExtractor {
 	}
 
 	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info.
-	pub async fn get_block_extrinsics(
+	async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<
@@ -452,7 +356,7 @@ impl ReceiptExtractor {
 
 		let (ext, eth_call, maybe_receipt) = ext_iter
 			.into_iter()
-			.nth(transaction_index)
+			.find(|(e, _, _)| e.index() as usize == transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
 		let substrate_block_number = block.number() as u64;
@@ -463,32 +367,12 @@ impl ReceiptExtractor {
 				.unwrap_or(substrate_block_hash);
 
 		self.extract_from_extrinsic(
-			block,
+			substrate_block_number.into(),
 			eth_block_hash,
 			ext,
 			eth_call,
 			maybe_receipt,
-			transaction_index,
 		)
 		.await
-	}
-
-	/// Get the Ethereum block hash for the given Substrate block.
-	pub async fn get_ethereum_block_hash(
-		&self,
-		block_hash: &H256,
-		block_number: u64,
-	) -> Option<H256> {
-		(self.fetch_eth_block_hash)(*block_hash, block_number).await
-	}
-
-	/// Get the block gas limit for the given block hash.
-	pub async fn block_gas_limit(&self, block_hash: H256) -> Result<U256, ClientError> {
-		(self.fetch_block_gas_limit)(block_hash).await
-	}
-
-	/// Get the block author for the given block hash.
-	pub async fn block_author(&self, block_hash: H256) -> Result<H160, ClientError> {
-		(self.fetch_block_author)(block_hash).await
 	}
 }

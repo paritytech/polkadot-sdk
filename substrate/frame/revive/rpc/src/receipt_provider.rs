@@ -16,20 +16,17 @@
 // limitations under the License.
 use crate::{
 	client::{SubstrateBlock, SubstrateBlockNumber},
-	receipt_extractor::{build_receipt_from_tx, decode_and_recover_tx},
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
-	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
+	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, LOG_TARGET,
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
-use sp_core::{H160, H256, U256};
+use sp_core::{H256, U256};
 use sqlx::{query, QueryBuilder, Row, Sqlite, SqlitePool};
 use std::{
 	collections::{BTreeMap, HashMap},
 	sync::Arc,
 };
 use tokio::sync::Mutex;
-
-const LOG_TARGET: &str = "eth-rpc::receipt_provider";
 
 /// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
@@ -102,165 +99,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some((block_hash, transaction_index))
 	}
 
-	/// Fetch receipt metadata from the database for a specific transaction.
-	/// Returns (status, gas_used, gas_price)
-	async fn fetch_receipt_metadata(&self, transaction_hash: &H256) -> Option<(bool, U256, U256)> {
-		let transaction_hash = transaction_hash.as_ref();
-		let result = query!(
-			r#"
-			SELECT status, gas_used, gas_price
-			FROM transaction_hashes
-			WHERE transaction_hash = $1
-			"#,
-			transaction_hash
-		)
-		.fetch_optional(&self.pool)
-		.await
-		.ok()??;
-
-		let status = result.status != 0;
-		let gas_used = U256::from_big_endian(&result.gas_used);
-		let gas_price = U256::from_big_endian(&result.gas_price);
-
-		Some((status, gas_used, gas_price))
-	}
-
-	/// Insert a block mapping from Ethereum block hash to Substrate block hash.
-	pub async fn insert_block_mapping(
-		&self,
-		ethereum_block_hash: &H256,
-		substrate_block_hash: &H256,
-		block_number: u64,
-		gas_limit: &U256,
-		block_author: &H160,
-	) -> Result<(), ClientError> {
-		let ethereum_hash = ethereum_block_hash.as_ref();
-		let substrate_hash = substrate_block_hash.as_ref();
-		let block_number = block_number as i64;
-
-		let gas_limit = gas_limit.to_big_endian();
-		let gas_limit_bytes = gas_limit.as_ref();
-		let block_author_bytes = block_author.as_bytes();
-
-		query!(
-			r#"
-			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash, block_number, gas_limit, block_author)
-			VALUES ($1, $2, $3, $4, $5)
-			"#,
-			ethereum_hash,
-			substrate_hash,
-			block_number,
-			gas_limit_bytes,
-			block_author_bytes
-		)
-		.execute(&self.pool)
-		.await?;
-
-		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {ethereum_block_hash:?} -> substrate block: {substrate_block_hash:?}");
-		Ok(())
-	}
-
-	/// Get block metadata (ethereum hash, gas limit, block author) for the given Substrate block
-	/// hash. Returns a tuple of (ethereum_block_hash, gas_limit, block_author).
-	pub async fn get_block_mapping(
-		&self,
-		substrate_block_hash: &H256,
-	) -> Option<(H256, U256, sp_core::H160)> {
-		let substrate_hash = substrate_block_hash.as_ref();
-		let result = query!(
-			r#"
-			SELECT ethereum_block_hash, gas_limit, block_author
-			FROM eth_to_substrate_blocks
-			WHERE substrate_block_hash = $1
-			"#,
-			substrate_hash
-		)
-		.fetch_optional(&self.pool)
-		.await
-		.ok()??;
-
-		let ethereum_block_hash = H256::from_slice(&result.ethereum_block_hash[..]);
-
-		// Deserialize gas_limit from big-endian bytes
-		let gas_limit = U256::from_big_endian(&result.gas_limit[..]);
-
-		// Deserialize block_author from bytes
-		let block_author = sp_core::H160::from_slice(&result.block_author[..]);
-
-		Some((ethereum_block_hash, gas_limit, block_author))
-	}
-
-	/// Get the Substrate block hash for the given Ethereum block hash.
-	pub async fn get_substrate_hash(&self, ethereum_block_hash: &H256) -> Option<H256> {
-		let ethereum_hash = ethereum_block_hash.as_ref();
-		let result = query!(
-			r#"
-			SELECT substrate_block_hash
-			FROM eth_to_substrate_blocks
-			WHERE ethereum_block_hash = $1
-			"#,
-			ethereum_hash
-		)
-		.fetch_optional(&self.pool)
-		.await
-		.inspect_err(|e| {
-			log::error!(target: LOG_TARGET, "failed to get block mapping for ethereum block {ethereum_block_hash:?}, err: {e:?}");
-		})
-		.ok()?
-		.or_else(||{
-			log::trace!(target: LOG_TARGET, "No block mapping found for ethereum block: {ethereum_block_hash:?}");
-			None
-		})?;
-
-		log::trace!(target: LOG_TARGET, "Get block mapping ethereum block: {:?} -> substrate block: {ethereum_block_hash:?}", H256::from_slice(&result.substrate_block_hash[..]));
-
-		Some(H256::from_slice(&result.substrate_block_hash[..]))
-	}
-
-	/// Get the Ethereum block hash for the given Substrate block hash.
-	pub async fn get_ethereum_hash(&self, substrate_block_hash: &H256) -> Option<H256> {
-		let (ethereum_hash, _, _) = self.get_block_mapping(substrate_block_hash).await?;
-		log::trace!(target: LOG_TARGET, "Get block mapping substrate block: {substrate_block_hash:?} -> ethereum block: {ethereum_hash:?}");
-		Some(ethereum_hash)
-	}
-
-	/// Get the block gas limit for the given Substrate block hash.
-	pub async fn get_block_gas_limit(&self, substrate_block_hash: &H256) -> Option<U256> {
-		let (_, gas_limit, _) = self.get_block_mapping(substrate_block_hash).await?;
-		Some(gas_limit)
-	}
-
-	/// Get the block author for the given Substrate block hash.
-	pub async fn get_block_author(&self, substrate_block_hash: &H256) -> Option<sp_core::H160> {
-		let (_, _, block_author) = self.get_block_mapping(substrate_block_hash).await?;
-		Some(block_author)
-	}
-
-	/// Remove block mappings for the given Ethereum block hashes.
-	pub async fn remove_block_mappings(
-		&self,
-		ethereum_block_hashes: &[H256],
-	) -> Result<(), ClientError> {
-		if ethereum_block_hashes.is_empty() {
-			return Ok(());
-		}
-
-		log::trace!(target: LOG_TARGET, "Removing block mappings: {ethereum_block_hashes:?}");
-
-		let placeholders = vec!["?"; ethereum_block_hashes.len()].join(", ");
-		let sql = format!(
-			"DELETE FROM eth_to_substrate_blocks WHERE ethereum_block_hash in ({placeholders})"
-		);
-		let mut query = sqlx::query(&sql);
-
-		for ethereum_hash in ethereum_block_hashes {
-			query = query.bind(ethereum_hash.as_ref());
-		}
-
-		query.execute(&self.pool).await?;
-		Ok(())
-	}
-
 	/// Deletes older records from the database.
 	pub async fn remove(&self, block_hashes: &[H256]) -> Result<(), ClientError> {
 		if block_hashes.is_empty() {
@@ -275,21 +113,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let sql = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
 		let mut delete_logs_query = sqlx::query(&sql);
 
-		let sql = format!(
-			"DELETE FROM eth_to_substrate_blocks WHERE substrate_block_hash in ({placeholders})"
-		);
-		let mut delete_mappings_query = sqlx::query(&sql);
-
 		for block_hash in block_hashes {
 			delete_tx_query = delete_tx_query.bind(block_hash.as_ref());
 			delete_logs_query = delete_logs_query.bind(block_hash.as_ref());
-			delete_mappings_query = delete_mappings_query.bind(block_hash.as_ref());
 		}
 
 		let delete_transaction_hashes = delete_tx_query.execute(&self.pool);
 		let delete_logs = delete_logs_query.execute(&self.pool);
-		let delete_mappings = delete_mappings_query.execute(&self.pool);
-		tokio::try_join!(delete_transaction_hashes, delete_logs, delete_mappings)?;
+		tokio::try_join!(delete_transaction_hashes, delete_logs)?;
 		Ok(())
 	}
 
@@ -302,133 +133,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 	}
 
-	/// Reconstruct a single receipt from the database by transaction index.
-	/// This method can work even when events and storage are unavailable.
-	async fn receipt_from_db_by_index(
-		&self,
-		block: &SubstrateBlock,
-		transaction_index: usize,
-		call: &crate::subxt_client::revive::calls::types::EthTransact,
-	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let substrate_block_hash = block.hash();
-		let substrate_block_number = block.number() as u64;
-		let block_number: U256 = substrate_block_number.into();
-
-		// Get Ethereum block hash from DB mapping
-		let eth_block_hash = self
-			.get_ethereum_hash(&substrate_block_hash)
-			.await
-			.unwrap_or(substrate_block_hash);
-
-		// Decode transaction and recover sender
-		let (signed_tx, transaction_hash, from) = decode_and_recover_tx(call)?;
-
-		// Query receipt metadata from DB
-		let (status, gas_used, gas_price) =
-			self.fetch_receipt_metadata(&transaction_hash).await.ok_or_else(|| {
-				log::warn!(
-					target: LOG_TARGET,
-					"Receipt metadata not found in DB for tx {transaction_hash:?}"
-				);
-				ClientError::TxFeeNotFound
-			})?;
-
-		// Query logs from DB
-		let block_hash_ref = substrate_block_hash.as_ref();
-		let transaction_index_i32 = transaction_index as i32;
-		let logs_rows = query!(
-			r#"
-			SELECT log_index, address, transaction_hash, topic_0, topic_1, topic_2, topic_3, data
-			FROM logs
-			WHERE block_hash = $1 AND transaction_index = $2
-			ORDER BY log_index ASC
-			"#,
-			block_hash_ref,
-			transaction_index_i32
-		)
-		.fetch_all(&self.pool)
-		.await?;
-
-		let logs: Vec<Log> = logs_rows
-			.into_iter()
-			.map(|row| {
-				let topics = [row.topic_0, row.topic_1, row.topic_2, row.topic_3]
-					.iter()
-					.filter_map(|t| t.as_ref().map(|bytes| H256::from_slice(bytes)))
-					.collect();
-
-				Log {
-					address: H160::from_slice(&row.address),
-					block_hash: eth_block_hash,
-					block_number,
-					data: row.data.map(Bytes::from),
-					log_index: U256::from(row.log_index as u64),
-					topics,
-					transaction_hash,
-					transaction_index: transaction_index.into(),
-					removed: false,
-				}
-			})
-			.collect();
-
-		// Build the receipt using the common helper
-		let receipt = build_receipt_from_tx(
-			&signed_tx,
-			transaction_hash,
-			from,
-			gas_price,
-			gas_used,
-			status,
-			logs,
-			eth_block_hash,
-			block_number,
-			transaction_index,
-		)?;
-
-		Ok((signed_tx, receipt))
-	}
-
-	/// Reconstruct receipts from the database when on-chain state has been pruned.
-	/// This method can work even when events and storage are unavailable.
-	pub async fn receipts_from_db(
-		&self,
-		block: &SubstrateBlock,
-	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		// Get extrinsics from block (this works even when state is pruned)
-		let ext_iter = self.receipt_extractor.get_block_extrinsics(block).await?;
-
-		let mut receipts = Vec::new();
-
-		for (transaction_index, (_, call, _)) in ext_iter.enumerate() {
-			let receipt = self.receipt_from_db_by_index(block, transaction_index, &call).await?;
-			receipts.push(receipt);
-		}
-
-		Ok(receipts)
-	}
-
 	/// Fetch receipts from the given block.
-	/// This method first attempts to extract receipts from on-chain data (events/storage).
-	/// If that fails (e.g., due to pruned state), it falls back to reconstructing receipts from the
-	/// database.
 	pub async fn receipts_from_block(
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		// Try on-chain extraction first
-		match self.receipt_extractor.extract_from_block(block).await {
-			Ok(receipts) => Ok(receipts),
-			Err(err) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"On-chain receipt extraction failed for block #{} ({:?}), falling back to DB: {err:?}",
-					block.number(),
-					block.hash()
-				);
-				// Fall back to DB reconstruction when state is pruned
-				self.receipts_from_db(block).await
-			},
-		}
+		self.receipt_extractor.extract_from_block(block).await
 	}
 
 	/// Extract and insert receipts from the given block.
@@ -441,12 +151,37 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(receipts)
 	}
 
-	/// Prune blocks older blocks.
-	async fn prune_blocks(&self, block: &impl BlockInfo) -> Result<(), ClientError> {
+	/// Insert receipts into the provider.
+	///
+	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
+	/// us create Mock `SubstrateBlock`
+	async fn insert(
+		&self,
+		block: &impl BlockInfo,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+	) -> Result<(), ClientError> {
+		if receipts.is_empty() {
+			return Ok(());
+		}
+
+		let block_hash = block.hash();
+		let block_hash_ref = block_hash.as_ref();
+		let block_number = block.number() as i64;
+
+		let result = sqlx::query!(
+			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,
+			block_hash_ref
+		)
+		.fetch_one(&self.pool)
+		.await?;
+
+		if result.exists {
+			return Ok(());
+		}
+
 		// Keep track of the latest block hashes, so we can prune older blocks.
 		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
 			let latest = block.number();
-			let block_hash = block.hash();
 			let mut block_number_to_hash = self.block_number_to_hash.lock().await;
 
 			let oldest_block = latest.saturating_sub(keep_latest_n_blocks as _);
@@ -467,124 +202,62 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			log::trace!(target: LOG_TARGET, "Pruning old blocks: {to_remove:?}");
 			self.remove(&to_remove).await?;
 		}
-		Ok(())
-	}
 
-	/// Insert receipts into the provider.
-	///
-	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
-	/// us create Mock `SubstrateBlock`
-	async fn insert(
-		&self,
-		block: &impl BlockInfo,
-		receipts: &[(TransactionSigned, ReceiptInfo)],
-	) -> Result<(), ClientError> {
-		let block_hash = block.hash();
-		let block_hash_ref = block_hash.as_ref();
-		let block_number = block.number() as i64;
+		for (_, receipt) in receipts {
+			let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
+			let transaction_index = receipt.transaction_index.as_u32() as i32;
 
-		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", block_hash);
+			query!(
+				r#"
+				INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+				VALUES ($1, $2, $3)
+				"#,
+				transaction_hash,
+				block_hash_ref,
+				transaction_index
+			)
+			.execute(&self.pool)
+			.await?;
 
-		let result = sqlx::query!(
-			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,
-			block_hash_ref
-		)
-		.fetch_one(&self.pool)
-		.await?;
+			for log in &receipt.logs {
+				let log_index = log.log_index.as_u32() as i32;
+				let address: &[u8] = log.address.as_ref();
 
-		self.prune_blocks(block).await?;
-
-		if !result.exists {
-			for (_, receipt) in receipts {
-				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
-				let transaction_index = receipt.transaction_index.as_u32() as i32;
-				let status = receipt.status.unwrap_or_default().as_u32() as i32;
-
-				// Serialize gas_used and gas_price as big-endian bytes
-				let gas_used = receipt.gas_used.to_big_endian();
-				let gas_used_bytes = gas_used.as_ref();
-
-				let gas_price = receipt.effective_gas_price.to_big_endian();
-				let gas_price_bytes = gas_price.as_ref();
+				let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
+				let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
+				let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
+				let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
+				let data = log.data.as_ref().map(|v| &v.0[..]);
 
 				query!(
 					r#"
-					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index, status, gas_used, gas_price)
-					VALUES ($1, $2, $3, $4, $5, $6)
-					"#,
-					transaction_hash,
-					block_hash_ref,
-					transaction_index,
-					status,
-					gas_used_bytes,
-					gas_price_bytes
-				)
-				.execute(&self.pool)
-				.await?;
-
-				for log in &receipt.logs {
-					let log_index = log.log_index.as_u32() as i32;
-					let address: &[u8] = log.address.as_ref();
-
-					let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
-					let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
-					let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
-					let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
-					let data = log.data.as_ref().map(|v| &v.0[..]);
-
-					query!(
-						r#"
-						INSERT OR REPLACE INTO logs(
-							block_hash,
-							transaction_index,
-							log_index,
-							address,
-							block_number,
-							transaction_hash,
-							topic_0, topic_1, topic_2, topic_3,
-							data)
-						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-						"#,
-						block_hash_ref,
+					INSERT OR REPLACE INTO logs(
+						block_hash,
 						transaction_index,
 						log_index,
 						address,
 						block_number,
 						transaction_hash,
-						topic_0,
-						topic_1,
-						topic_2,
-						topic_3,
-						data
-					)
-					.execute(&self.pool)
-					.await?;
-				}
+						topic_0, topic_1, topic_2, topic_3,
+						data)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+					"#,
+					block_hash_ref,
+					transaction_index,
+					log_index,
+					address,
+					block_number,
+					transaction_hash,
+					topic_0,
+					topic_1,
+					topic_2,
+					topic_3,
+					data
+				)
+				.execute(&self.pool)
+				.await?;
 			}
 		}
-
-		// Insert block mapping from Ethereum to Substrate hash
-		if let Some(ethereum_hash) = self
-			.receipt_extractor
-			.get_ethereum_block_hash(&block_hash, block_number as u64)
-			.await
-		{
-			// Fetch gas_limit and block_author for this block
-			let gas_limit =
-				self.receipt_extractor.block_gas_limit(block_hash).await.unwrap_or_default(); // Default gas limit
-			let block_author =
-				self.receipt_extractor.block_author(block_hash).await.unwrap_or_default(); // Default author
-
-			self.insert_block_mapping(
-				&ethereum_hash,
-				&block_hash,
-				block_number as u64,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
-		}
-
 		Ok(())
 	}
 
@@ -632,14 +305,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
 			},
 			(None, None, Some(hash)) => {
-				// Try to resolve Ethereum hash to Substrate hash first
-				let substrate_hash = if let Some(resolved) = self.get_substrate_hash(&hash).await {
-					resolved
-				} else {
-					// Fallback: treat as Substrate hash for backward compatibility
-					hash
-				};
-				qb.push(" AND block_hash = ").push_bind(substrate_hash.0.to_vec());
+				qb.push(" AND block_hash = ").push_bind(hash.0.to_vec());
 			},
 			(None, None, None) => {
 				qb.push(" AND block_number = ").push_bind(latest_block.as_u64() as i64);
@@ -769,58 +435,58 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(rows.into_iter().collect())
 	}
 
-	/// Get the signed transaction and receipt for the given block hash and transaction index.
-	/// This method first attempts to extract the receipt from on-chain data (events/storage).
-	/// If that fails (e.g., due to pruned state), it falls back to reconstructing from the
-	/// database.
-	async fn signed_tx_and_receipt_by_block_hash_and_index(
-		&self,
-		block_hash: &H256,
-		transaction_index: usize,
-	) -> Option<(TransactionSigned, ReceiptInfo)> {
-		let block = self.block_provider.block_by_hash(block_hash).await.ok()??;
-
-		// Try on-chain extraction first
-		match self.receipt_extractor.extract_from_transaction(&block, transaction_index).await {
-			Ok((tx, receipt)) => Some((tx, receipt)),
-			Err(err) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"On-chain receipt extraction failed for block {block_hash:?} tx index {transaction_index}, falling back to DB: {err:?}"
-				);
-
-				// Fall back to DB reconstruction
-				let ext_iter = self.receipt_extractor.get_block_extrinsics(&block).await.ok()?;
-				let (_, call, _) = ext_iter.into_iter().nth(transaction_index)?;
-				self.receipt_from_db_by_index(&block, transaction_index, &call).await.ok()
-			},
-		}
-	}
-
 	/// Get the receipt for the given block hash and transaction index.
 	pub async fn receipt_by_block_hash_and_index(
 		&self,
 		block_hash: &H256,
 		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
+		let block = self.block_provider.block_by_hash(block_hash).await.ok()??;
 		let (_, receipt) = self
-			.signed_tx_and_receipt_by_block_hash_and_index(block_hash, transaction_index)
-			.await?;
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
 		Some(receipt)
 	}
 
 	/// Get the receipt for the given transaction hash.
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
 		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
-		self.receipt_by_block_hash_and_index(&block_hash, transaction_index).await
+
+		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+		let (_, receipt) = self
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
+		Some(receipt)
 	}
 
 	/// Get the signed transaction for the given transaction hash.
 	pub async fn signed_tx_by_hash(&self, transaction_hash: &H256) -> Option<TransactionSigned> {
-		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
+		let transaction_hash = transaction_hash.as_ref();
+		let result = query!(
+			r#"
+			SELECT block_hash, transaction_index
+			FROM transaction_hashes
+			WHERE transaction_hash = $1
+			"#,
+			transaction_hash
+		)
+		.fetch_optional(&self.pool)
+		.await
+		.ok()??;
+
+		let block_hash = H256::from_slice(&result.block_hash[..]);
+		let transaction_index = result.transaction_index.try_into().ok()?;
+
+		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
 		let (signed_tx, _) = self
-			.signed_tx_and_receipt_by_block_hash_and_index(&block_hash, transaction_index)
-			.await?;
+			.receipt_extractor
+			.extract_from_transaction(&block, transaction_index)
+			.await
+			.ok()?;
 		Some(signed_tx)
 	}
 }
@@ -907,7 +573,6 @@ mod tests {
 		}
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, n);
 		assert_eq!(count(&provider.pool, "logs", None).await, n);
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
 		assert_eq!(provider.block_number_to_hash.lock().await.len(), n);
 
 		return Ok(());
@@ -936,7 +601,6 @@ mod tests {
 		}
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 1);
 		assert_eq!(count(&provider.pool, "logs", None).await, 1);
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
 		assert_eq!(
 			provider.block_number_to_hash.lock().await.clone(),
 			[(1, H256::from([2u8; 32]))].into(),
@@ -1115,243 +779,6 @@ mod tests {
 			}))
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn test_block_mapping_insert_get(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-		let ethereum_hash = H256::from([1u8; 32]);
-		let substrate_hash = H256::from([2u8; 32]);
-		let block_number = 42u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
-
-		// Insert mapping
-		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
-
-		// Test forward lookup
-		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
-		assert_eq!(resolved, Some(substrate_hash));
-
-		// Test reverse lookup
-		let resolved = provider.get_ethereum_hash(&substrate_hash).await;
-		assert_eq!(resolved, Some(ethereum_hash));
-
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn test_block_mapping_overwrite(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-		let ethereum_hash = H256::from([1u8; 32]);
-		let substrate_hash1 = H256::from([2u8; 32]);
-		let substrate_hash2 = H256::from([3u8; 32]);
-		let block_number = 42u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
-
-		// Insert first mapping
-		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash1,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash1));
-
-		// Insert second mapping (should overwrite)
-		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash2,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash2));
-
-		// Old mapping should be gone
-		assert_eq!(provider.get_ethereum_hash(&substrate_hash1).await, None);
-
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn test_block_mapping_remove(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-		let ethereum_hash1 = H256::from([1u8; 32]);
-		let ethereum_hash2 = H256::from([2u8; 32]);
-		let substrate_hash1 = H256::from([3u8; 32]);
-		let substrate_hash2 = H256::from([4u8; 32]);
-		let block_number = 42u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
-
-		// Insert mappings
-		provider
-			.insert_block_mapping(
-				&ethereum_hash1,
-				&substrate_hash1,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
-		provider
-			.insert_block_mapping(
-				&ethereum_hash2,
-				&substrate_hash2,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
-
-		// Verify they exist
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, Some(substrate_hash1));
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
-
-		// Remove one mapping
-		provider.remove_block_mappings(&[ethereum_hash1]).await?;
-
-		// Verify removal
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, None);
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
-
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn test_block_mapping_pruning_integration(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-		let ethereum_hash = H256::from([1u8; 32]);
-		let substrate_hash = H256::from([2u8; 32]);
-		let block_number = 42u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
-
-		// Insert mapping
-		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash));
-
-		// Remove substrate block (this should also remove the mapping)
-		provider.remove(&[substrate_hash]).await?;
-
-		// Mapping should be gone
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, None);
-
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn test_logs_with_ethereum_block_hash_mapping(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-		let ethereum_hash = H256::from([1u8; 32]);
-		let substrate_hash = H256::from([2u8; 32]);
-		let block_number = 1u64;
-		let gas_limit = U256::from(30_000_000);
-		let block_author = H160::zero();
-
-		// Create a log with substrate hash
-		let log = Log {
-			block_hash: substrate_hash,
-			block_number: block_number.into(),
-			address: H160::from([1u8; 20]),
-			topics: vec![H256::from([1u8; 32])],
-			transaction_hash: H256::from([3u8; 32]),
-			transaction_index: U256::from(0),
-			log_index: U256::from(0),
-			data: Some(vec![0u8; 32].into()),
-			..Default::default()
-		};
-
-		// Insert the log
-		let block = MockBlockInfo { hash: substrate_hash, number: block_number as u32 };
-		let receipts = vec![(
-			TransactionSigned::default(),
-			ReceiptInfo {
-				logs: vec![log.clone()],
-				transaction_hash: log.transaction_hash,
-				transaction_index: log.transaction_index,
-				..Default::default()
-			},
-		)];
-		provider.insert(&block, &receipts).await?;
-
-		// Insert block mapping
-		provider
-			.insert_block_mapping(
-				&ethereum_hash,
-				&substrate_hash,
-				block_number,
-				&gas_limit,
-				&block_author,
-			)
-			.await?;
-
-		// Query logs using Ethereum block hash (should resolve to substrate hash)
-		let logs = provider
-			.logs(Some(Filter { block_hash: Some(ethereum_hash), ..Default::default() }))
-			.await?;
-		assert_eq!(logs, vec![log]);
-
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn test_mapping_count(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-
-		// Initially no mappings
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 0);
-
-		// Insert some mappings
-		provider
-			.insert_block_mapping(
-				&H256::from([1u8; 32]),
-				&H256::from([2u8; 32]),
-				1,
-				&U256::from(30_000_000),
-				&H160::zero(),
-			)
-			.await?;
-		provider
-			.insert_block_mapping(
-				&H256::from([3u8; 32]),
-				&H256::from([4u8; 32]),
-				2,
-				&U256::from(30_000_000),
-				&H160::zero(),
-			)
-			.await?;
-
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
-
-		// Remove one
-		provider.remove_block_mappings(&[H256::from([1u8; 32])]).await?;
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
-
 		Ok(())
 	}
 }

@@ -21,9 +21,7 @@
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::{
-		block_hash::{EthereumBlockBuilder, PalletStorage},
-		block_storage,
-		runtime::GAS_PRICE,
+		block_hash::EthereumBlockBuilder, block_storage, runtime::GAS_PRICE,
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 	},
 	exec::{Key, MomentOf, PrecompileExt},
@@ -2723,10 +2721,7 @@ mod benchmarks {
 						block_storage::get_receipt_details().unwrap_or_default();
 
 					let block_builder_ir = EthBlockBuilderIR::<T>::get();
-					let mut block_builder = EthereumBlockBuilder::from_ir_with_storage(
-						block_builder_ir,
-						PalletStorage::<T>::new(),
-					);
+					let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
 
 					block_builder.process_transaction(
 						signed_transaction,
@@ -2799,10 +2794,7 @@ mod benchmarks {
 					block_storage::get_receipt_details().unwrap_or_default();
 
 				let block_builder_ir = EthBlockBuilderIR::<T>::get();
-				let mut block_builder = EthereumBlockBuilder::from_ir_with_storage(
-					block_builder_ir,
-					PalletStorage::<T>::new(),
-				);
+				let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
 
 				block_builder.process_transaction(
 					signed_transaction,
@@ -2866,10 +2858,7 @@ mod benchmarks {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			let mut block_builder = EthereumBlockBuilder::from_ir_with_storage(
-				block_builder_ir,
-				PalletStorage::<T>::new(),
-			);
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
 
 			block_builder.process_transaction(
 				signed_transaction,
@@ -2931,10 +2920,7 @@ mod benchmarks {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			let mut block_builder = EthereumBlockBuilder::from_ir_with_storage(
-				block_builder_ir,
-				PalletStorage::<T>::new(),
-			);
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
 
 			block_builder.process_transaction(
 				signed_transaction,

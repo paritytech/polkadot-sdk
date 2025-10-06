@@ -18,10 +18,7 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::{
-		block_hash::{EthereumBlockBuilder, PalletStorage},
-		Block, TransactionSigned,
-	},
+	evm::{block_hash::EthereumBlockBuilder, Block, TransactionSigned},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
@@ -88,8 +85,7 @@ fn transactions_are_captured() {
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
 
 		// Double check the trie root hash.
-		let mut builder =
-			EthereumBlockBuilder::from_ir_with_storage(block_builder, PalletStorage::<Test>::new());
+		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
 
 		let first_values = EthBlockBuilderFirstValues::<Test>::get().unwrap();
 		builder.transaction_root_builder.set_first_value(first_values.0);
@@ -174,8 +170,7 @@ fn events_are_captured() {
 		// 1 transaction captured.
 		assert_eq!(block_builder.gas_info.len(), 1);
 
-		let mut builder =
-			EthereumBlockBuilder::from_ir_with_storage(block_builder, PalletStorage::<Test>::new());
+		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
 		builder.transaction_root_builder.set_first_value(expected_payloads[0].clone());
 		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());

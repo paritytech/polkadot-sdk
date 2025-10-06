@@ -26,14 +26,14 @@ use storage_api::StorageApi;
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	TracerType, TransactionInfo,
+	TracerType, TransactionInfo, LOG_TARGET,
 };
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
 		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256, U256,
 	},
 	EthTransactError,
 };
@@ -128,7 +128,6 @@ pub enum ClientError {
 	#[error("Ethereum block not found")]
 	EthereumBlockNotFound,
 }
-const LOG_TARGET: &str = "eth-rpc::client";
 
 const REVERT_CODE: i32 = 3;
 impl From<ClientError> for ErrorObjectOwned {
@@ -190,7 +189,7 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 		.find_first::<crate::subxt_client::timestamp::calls::types::Set>()
 		.ok()??;
 
-	Some(ext.value.now)
+	Some(ext.value.now / 1000)
 }
 
 /// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
@@ -224,7 +223,7 @@ impl Client {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
 
-		let client = Self {
+		Ok(Self {
 			api,
 			rpc_client,
 			rpc,
@@ -233,69 +232,7 @@ impl Client {
 			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
-		};
-
-		// Initialize genesis block (block 0) if not already present
-		client.ensure_genesis_block().await?;
-
-		Ok(client)
-	}
-
-	/// Ensure the genesis block (block 0) is reconstructed and stored.
-	///
-	/// This method checks if block 0 exists in storage. If not, it reconstructs
-	/// an empty EVM genesis block and stores the mapping between its EVM hash
-	/// and the Substrate hash.
-	async fn ensure_genesis_block(&self) -> Result<(), ClientError> {
-		use pallet_revive::evm::block_hash::{EthereumBlockBuilder, InMemoryStorage};
-
-		// Try to get genesis block
-		let genesis_block = match self.block_by_number(0).await? {
-			Some(block) => block,
-			None => {
-				log::warn!(target: LOG_TARGET, "Genesis block (0) not found, skipping initialization");
-				return Ok(());
-			},
-		};
-
-		let substrate_hash = genesis_block.hash();
-
-		// Check if genesis block mapping already exists
-		if self.receipt_provider.get_ethereum_hash(&substrate_hash).await.is_some() {
-			log::debug!(target: LOG_TARGET, "Genesis block mapping already exists");
-			return Ok(());
-		}
-
-		log::info!(target: LOG_TARGET, "🏗️ Reconstructing genesis block (block 0)");
-
-		let runtime_api = self.runtime_api(substrate_hash);
-		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
-		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
-		let timestamp = extract_block_timestamp(&genesis_block).await.unwrap_or_default();
-
-		// Build genesis block with no transactions
-		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
-		let (genesis_evm_block, _gas_info) = builder.build(
-			0u64.into(),      // block number 0
-			H256::zero(),     // parent hash is zero for genesis
-			timestamp.into(), // timestamp from substrate block
-			block_author,     // block author
-			gas_limit,        // gas limit
-		);
-
-		let ethereum_hash = genesis_evm_block.hash;
-
-		// Store the mapping with metadata
-		self.receipt_provider
-			.insert_block_mapping(&ethereum_hash, &substrate_hash, 0, &gas_limit, &block_author)
-			.await?;
-
-		log::info!(
-			target: LOG_TARGET,
-			"✅ Genesis block reconstructed: EVM hash {ethereum_hash:?} -> Substrate hash {substrate_hash:?}"
-		);
-
-		Ok(())
+		})
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -535,28 +472,6 @@ impl Client {
 		self.receipt_provider.receipts_count_per_block(block_hash).await
 	}
 
-	/// Get an EVM transaction receipt by Ethereum hash with automatic resolution.
-	pub async fn receipt_by_ethereum_hash_and_index(
-		&self,
-		ethereum_hash: &H256,
-		transaction_index: usize,
-	) -> Option<ReceiptInfo> {
-		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
-			return self.receipt_by_hash_and_index(&substrate_hash, transaction_index).await;
-		}
-		// Fallback: treat as Substrate hash
-		self.receipt_by_hash_and_index(ethereum_hash, transaction_index).await
-	}
-
-	/// Get receipts count per block using Ethereum block hash with automatic resolution.
-	pub async fn receipts_count_per_ethereum_block(&self, ethereum_hash: &H256) -> Option<usize> {
-		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
-			return self.receipts_count_per_block(&substrate_hash).await;
-		}
-		// Fallback: treat as Substrate hash
-		self.receipts_count_per_block(ethereum_hash).await
-	}
-
 	/// Get the system health.
 	pub async fn system_health(&self) -> Result<SystemHealth, ClientError> {
 		let health = self.rpc.system_health().await?;
@@ -605,33 +520,6 @@ impl Client {
 		hash: &SubstrateBlockHash,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		self.block_provider.block_by_hash(hash).await
-	}
-
-	/// Resolve Ethereum block hash to Substrate block hash, then get the block.
-	/// This method provides the abstraction layer needed by the RPC APIs.
-	pub async fn resolve_substrate_hash(&self, ethereum_hash: &H256) -> Option<H256> {
-		self.receipt_provider.get_substrate_hash(ethereum_hash).await
-	}
-
-	/// Resolve Substrate block hash to Ethereum block hash, then get the block.
-	/// This method provides the abstraction layer needed by the RPC APIs.
-	pub async fn resolve_ethereum_hash(&self, substrate_hash: &H256) -> Option<H256> {
-		self.receipt_provider.get_ethereum_hash(substrate_hash).await
-	}
-
-	/// Get a block by Ethereum hash with automatic resolution to Substrate hash.
-	/// Falls back to treating the hash as a Substrate hash if no mapping exists.
-	pub async fn block_by_ethereum_hash(
-		&self,
-		ethereum_hash: &H256,
-	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		// First try to resolve the Ethereum hash to a Substrate hash
-		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
-			return self.block_by_hash(&substrate_hash).await;
-		}
-
-		// Fallback: treat the provided hash as a Substrate hash (backward compatibility)
-		self.block_by_hash(ethereum_hash).await
 	}
 
 	/// Get a block by number
@@ -732,12 +620,9 @@ impl Client {
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
 	) -> Block {
-		log::trace!(target: LOG_TARGET, "Get EVM block for hash {:?}", block.hash());
-
 		let storage_api = self.storage_api(block.hash());
 		let ethereum_block = storage_api.get_ethereum_block().await.inspect_err(|err| {
-			log::warn!(target: LOG_TARGET, "Failed to get EVM block from storage for hash {:?}: {err:?}", block.hash());
-			log::warn!(target: LOG_TARGET, "Will try to reconstruct the block from db");
+			log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
 		});
 
 		// This could potentially fail under two circumstances:
@@ -745,8 +630,6 @@ impl Client {
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
 		if let Ok(mut eth_block) = ethereum_block {
-			log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.hash);
-
 			// This means we can live with the hashes returned by the Revive pallet.
 			if !hydrated_transactions {
 				return eth_block;
@@ -780,9 +663,6 @@ impl Client {
 	}
 
 	/// Get the EVM block for the given block and receipts.
-	///
-	/// This method properly reconstructs an Ethereum block using the same logic as on-chain
-	/// block building, ensuring correct parent_hash linkage in the EVM block chain.
 	pub async fn evm_block_from_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -790,83 +670,49 @@ impl Client {
 		signed_txs: Vec<TransactionSigned>,
 		hydrated_transactions: bool,
 	) -> Block {
-		use pallet_revive::evm::block_hash::{
-			AccumulateReceipt, EthereumBlockBuilder, InMemoryStorage,
-		};
+		let runtime_api = self.runtime_api(block.hash());
+		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 
-		log::trace!(target: LOG_TARGET, "Reconstructing EVM block for substrate block {:?}", block.hash());
-
+		let header = block.header();
 		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
 
-		let (expected_evm_block_hash, gas_limit, block_author) =
-			self.receipt_provider.get_block_mapping(&block.hash()).await
-				.unwrap_or_else(|| {
-					log::warn!(target: LOG_TARGET, "No mapping found for substrate block {:?}, restoring defaults", block.hash());
-					Default::default()
-				});
+		// TODO: remove once subxt is updated
+		let parent_hash = header.parent_hash.0.into();
+		let state_root = header.state_root.0.into();
+		let extrinsics_root = header.extrinsics_root.0.into();
 
-		// Build block using the proper EthereumBlockBuilder
-		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
-
-		// Process each transaction with its receipt
-		for (signed_tx, receipt) in signed_txs.iter().zip(receipts.iter()) {
-			let tx_encoded = signed_tx.signed_payload();
-
-			// Reconstruct logs from receipt
-			let mut accumulate_receipt = AccumulateReceipt::new();
-			for log in &receipt.logs {
-				let data = log.data.as_ref().map(|d| d.0.as_slice()).unwrap_or(&[]);
-				accumulate_receipt.add_log(&log.address, data, &log.topics);
-			}
-
-			// Process the transaction
-			builder.process_transaction(
-				tx_encoded,
-				receipt.status.unwrap_or_default() == 1.into(),
-				receipt.gas_used.as_u64().into(),
-				accumulate_receipt.encoding,
-				accumulate_receipt.bloom,
-			);
-		}
-
-		// Get parent EVM block hash (not Substrate hash!)
-		// This is crucial for maintaining the EVM block chain integrity
-		let parent_evm_hash = if block.number() > 1 {
-			let parent_substrate_hash = block.header().parent_hash;
-			// Try to resolve to EVM hash, fallback to substrate hash for backwards compatibility
-			self.resolve_ethereum_hash(&parent_substrate_hash)
-				.await
-				.unwrap_or(parent_substrate_hash)
-		} else {
-			H256::zero() // Genesis block
-		};
-
-		// Build the Ethereum block with correct parent hash
-		let (mut evm_block, _gas_info) = builder.build(
-			block.header().number.into(),
-			parent_evm_hash,
-			timestamp.into(),
-			block_author,
-			gas_limit,
-		);
-
-		// Sanity check
-		let evm_block_hash = evm_block.header_hash();
-		if expected_evm_block_hash != evm_block_hash {
-			log::warn!(target: LOG_TARGET, "Reconstructed EVM block hash mismatch hash: {evm_block_hash:} != {expected_evm_block_hash:?}");
-		}
-
-		// Optionally hydrate with full transaction info
-		if hydrated_transactions {
-			evm_block.transactions = signed_txs
+		let gas_used = receipts.iter().fold(U256::zero(), |acc, receipt| acc + receipt.gas_used);
+		let transactions = if hydrated_transactions {
+			signed_txs
 				.into_iter()
 				.zip(receipts.iter())
-				.map(|(tx, receipt)| TransactionInfo::new(receipt, tx))
+				.map(|(signed_tx, receipt)| TransactionInfo::new(receipt, signed_tx))
+				.collect::<Vec<TransactionInfo>>()
+				.into()
+		} else {
+			receipts
+				.iter()
+				.map(|receipt| receipt.transaction_hash)
 				.collect::<Vec<_>>()
-				.into();
-		}
+				.into()
+		};
 
-		evm_block
+		Block {
+			hash: block.hash(),
+			parent_hash,
+			state_root,
+			miner: block_author,
+			transactions_root: extrinsics_root,
+			number: header.number.into(),
+			timestamp: timestamp.into(),
+			base_fee_per_gas: runtime_api.gas_price().await.ok().unwrap_or_default(),
+			gas_limit,
+			gas_used,
+			receipts_root: extrinsics_root,
+			transactions,
+			..Default::default()
+		}
 	}
 
 	/// Get the chain ID.
