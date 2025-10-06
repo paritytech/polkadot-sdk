@@ -157,7 +157,7 @@ where
 		Ok(())
 	}
 
-	/// If there is an authorities change digest in the header, import it into the tracker.
+	/// Import the authorities change for the given header from the runtime.
 	pub fn import_from_runtime(&self, post_header: &B::Header) -> Result<(), String> {
 		let hash = post_header.hash();
 		let number = *post_header.number();
