@@ -3317,17 +3317,6 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		None => return Ok(Vec::new()),
 	};
 
-	let ExtendedSessionInfo { ref executor_params, .. } = match get_extended_session_info(
-		session_info_provider,
-		sender,
-		candidate_entry.candidate_receipt().descriptor().relay_parent(),
-	)
-	.await
-	{
-		Some(i) => i,
-		None => return Ok(Vec::new()),
-	};
-
 	let block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
 	let no_show_duration =
 		slot_number_to_tick(state.slot_duration_millis, Slot::from(u64::from(no_show_slots)));
@@ -3388,6 +3377,16 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	};
 
 	if let Some((cert, val_index, tranche)) = maybe_cert {
+		let ExtendedSessionInfo { ref executor_params, .. } = match get_extended_session_info(
+			session_info_provider,
+			sender,
+			candidate_entry.candidate_receipt().descriptor().relay_parent(),
+		)
+		.await
+		{
+			Some(i) => i,
+			None => return Ok(actions),
+		};
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 
