@@ -41,15 +41,13 @@ fn memory_limit_works() {
 			(
 				"Writing 1 byte from 0 to the limit - 1 should work.",
 				Memory::expandMemoryCall {
-					memorySize: (crate::limits::code::BASELINE_MEMORY_LIMIT - 1) as u64,
+					memorySize: (crate::limits::EVM_MEMORY_BYTES - 1) as u64,
 				},
 				Ok(ExecReturnValue { data: vec![0u8; 32], flags: ReturnFlags::empty() }),
 			),
 			(
 				"Writing 1 byte from the limit should revert.",
-				Memory::expandMemoryCall {
-					memorySize: crate::limits::code::BASELINE_MEMORY_LIMIT as u64,
-				},
+				Memory::expandMemoryCall { memorySize: crate::limits::EVM_MEMORY_BYTES as u64 },
 				Err(Error::<Test>::OutOfGas.into()),
 			),
 		];
