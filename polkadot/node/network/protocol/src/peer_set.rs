@@ -39,6 +39,9 @@ const LEGACY_COLLATION_PROTOCOL_VERSION_V1: u32 = 1;
 /// Max notification size is currently constant.
 pub const MAX_NOTIFICATION_SIZE: u64 = 100 * 1024;
 
+/// Maximum allowed incoming connection streams for validator nodes on the collation protocol.
+pub const MAX_AUTHORITY_INCOMING_STREAMS: u32 = 100;
+
 /// The peer-sets and thus the protocols which are used for the network.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum PeerSet {
@@ -114,7 +117,11 @@ impl PeerSet {
 					SetConfig {
 						// Non-authority nodes don't need to accept incoming connections on this
 						// peer set:
-						in_peers: if is_authority == IsAuthority::Yes { 100 } else { 0 },
+						in_peers: if is_authority == IsAuthority::Yes {
+							MAX_AUTHORITY_INCOMING_STREAMS
+						} else {
+							0
+						},
 						out_peers: 0,
 						reserved_nodes: Vec::new(),
 						non_reserved_mode: if is_authority == IsAuthority::Yes {

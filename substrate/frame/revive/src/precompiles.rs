@@ -602,9 +602,6 @@ pub mod run {
 	where
 		P: Precompile<T = E::T>,
 		E: ExtWithInfo,
-		BalanceOf<E::T>: Into<U256> + TryFrom<U256>,
-		MomentOf<E::T>: Into<U256>,
-		<<E as Ext>::T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
 		assert!(P::MATCHER.into_builtin().matches(address));
 		if P::HAS_CONTRACT_INFO {
@@ -619,9 +616,6 @@ pub mod run {
 	pub(crate) fn builtin<E>(ext: &mut E, address: &[u8; 20], input: Vec<u8>) -> ExecResult
 	where
 		E: ExtWithInfo,
-		BalanceOf<E::T>: Into<U256> + TryFrom<U256>,
-		MomentOf<E::T>: Into<U256>,
-		<<E as Ext>::T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
 		let precompile = <Builtin<E::T>>::get(address)
 			.ok_or(DispatchError::from("No pre-compile at address"))?;

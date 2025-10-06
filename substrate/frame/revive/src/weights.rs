@@ -114,7 +114,6 @@ pub trait WeightInfo {
 	fn seal_block_author() -> Weight;
 	fn seal_block_hash() -> Weight;
 	fn seal_now() -> Weight;
-	fn seal_weight_to_fee() -> Weight;
 	fn seal_copy_to_contract(n: u32, ) -> Weight;
 	fn seal_call_data_load() -> Weight;
 	fn seal_call_data_copy(n: u32, ) -> Weight;
@@ -722,14 +721,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 239_000 picoseconds.
 		Weight::from_parts(276_000, 0)
 	}
-	fn seal_weight_to_fee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_595_000 picoseconds.
-		Weight::from_parts(1_665_000, 0)
-	}
-	/// The range of component `n` is `[0, 1048572]`.
+	/// The range of component `n` is `[0, 262140]`.
 	fn seal_copy_to_contract(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1875,14 +1867,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 239_000 picoseconds.
 		Weight::from_parts(276_000, 0)
 	}
-	fn seal_weight_to_fee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_595_000 picoseconds.
-		Weight::from_parts(1_665_000, 0)
-	}
-	/// The range of component `n` is `[0, 1048572]`.
+	/// The range of component `n` is `[0, 262140]`.
 	fn seal_copy_to_contract(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

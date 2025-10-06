@@ -13,16 +13,16 @@ contract Bitwise {
         require(10 == 10, "EQ basic");
         require(type(uint256).max == type(uint256).max, "EQ max");
 
-        require(int(-5) < int(10), "SLT basic");
+        require(int256(-5) < int256(10), "SLT basic");
         require(type(int256).min < 0, "SLT min");
 
-        require(int(5) > int(-10), "SGT basic");
+        require(int256(5) > int256(-10), "SGT basic");
         require(0 > type(int256).min, "SGT min");
 
         require((5 & 3) == 1, "AND basic");
         require((5 | 3) == 7, "OR basic");
         require((5 ^ 3) == 6, "XOR basic");
-        require(~uint(0) == type(uint256).max, "NOT basic");
+        require(~uint256(0) == type(uint256).max, "NOT basic");
 
         require((1 << 3) == 8, "SHL basic");
         require((8 >> 3) == 1, "SHR basic");
