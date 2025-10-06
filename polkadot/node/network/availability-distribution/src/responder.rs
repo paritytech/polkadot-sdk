@@ -76,7 +76,8 @@ pub async fn run_chunk_receivers<Sender, AD>(
 	mut receiver_v2: IncomingRequestReceiver<v2::ChunkFetchingRequest>,
 	metrics: Metrics,
 ) where
-	Sender: SubsystemSender<AvailabilityStoreMessage>,
+	Sender: SubsystemSender<AvailabilityStoreMessage>
+		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
 	AD: AuthorityDiscovery + Clone + Sync
 {
 	let make_resp_v1 = |chunk: Option<ErasureChunk>| match chunk {
@@ -169,13 +170,13 @@ pub async fn answer_chunk_request_log<Sender, AD, Req, MakeResp>(
 	make_response: MakeResp,
 	metrics: &Metrics,
 ) where
-	AD: AuthorityDiscovery,
+	AD: AuthorityDiscovery ,
 	Req: IsRequest + Decode + Encode + Into<v1::ChunkFetchingRequest>,
 	Req::Response: Encode,
-	Sender: SubsystemSender<AvailabilityStoreMessage>,
+	Sender: SubsystemSender<AvailabilityStoreMessage>
+		+ SubsystemSender<ConsensusStatisticsCollectorMessage>,
 	MakeResp: Fn(Option<ErasureChunk>) -> Req::Response,
 {
-	let incoming_peer_id = req.peer;
 	let res = answer_chunk_request(sender, authority_discovery, req, make_response).await;
 	match res {
 		Ok(result) => {
@@ -244,8 +245,11 @@ where
 	let result = chunk.is_some();
 
 	if result {
-		let authority_ids = authority_discovery.get_authority_ids_by_peer_id(req.peer);
-
+		let authority_ids = authority_discovery.get_authority_ids_by_peer_id(req.peer).await;
+		if let Some(authority_ids) = authority_ids {
+			_ = sender.try_send_message(
+				ConsensusStatisticsCollectorMessage::ChunkUploaded(payload.candidate_hash, authority_ids));
+		}
 	}
 
 	gum::trace!(

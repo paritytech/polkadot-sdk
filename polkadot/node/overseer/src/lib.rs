@@ -519,6 +519,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(AvailabilityDistributionMessage, sends: [
 		AvailabilityStoreMessage,
 		ChainApiMessage,
+		ConsensusStatisticsCollectorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 	])]
@@ -663,7 +664,10 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	prospective_parachains: ProspectiveParachains,
 
-	#[subsystem(ConsensusStatisticsCollectorMessage, sends: [])]
+	#[subsystem(ConsensusStatisticsCollectorMessage, sends: [
+		RuntimeApiMessage,
+		ChainApiMessage,
+	])]
 	consensus_statistics_collector: ConsensusStatisticsCollector,
 
 	/// External listeners waiting for a hash to be in the active-leave set.

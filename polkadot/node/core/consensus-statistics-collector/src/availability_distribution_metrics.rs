@@ -5,14 +5,14 @@ use gum::CandidateHash;
 use polkadot_primitives::{SessionIndex, ValidatorIndex};
 use crate::View;
 
-pub struct AvailabilityDownloads {
-    pub chunks_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
+pub struct AvailabilityChunks {
+    pub downloads_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
 }
 
-impl AvailabilityDownloads {
+impl AvailabilityChunks {
     pub fn new() -> Self {
         Self {
-            chunks_per_candidate: Default::default(),
+            downloads_per_candidate: Default::default(),
         }
     }
 
@@ -22,7 +22,7 @@ impl AvailabilityDownloads {
         validator_index: ValidatorIndex,
         count: u64,
     ) {
-        let _ = self.chunks_per_candidate
+        let _ = self.downloads_per_candidate
             .entry(candidate_hash)
             .or_default()
             .entry(validator_index)
@@ -46,7 +46,13 @@ pub fn handle_chunks_downloaded(
         .insert(candidate_hash);
 
     for (validator_index, download_count) in downloads {
-        view.chunks_downloaded
+        view.availability_chunks
             .note_candidate_chunk_downloaded(candidate_hash, validator_index, download_count)
     }
+}
+
+pub fn handle_chunk_uploaded(
+
+) {
+
 }

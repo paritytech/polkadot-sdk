@@ -193,7 +193,9 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		PvfCheckerSubsystem,
 		CandidateBackingSubsystem,
 		StatementDistributionSubsystem,
-		AvailabilityDistributionSubsystem,
+		AvailabilityDistributionSubsystem<
+			AuthorityDiscoveryService
+		>,
 		AvailabilityRecoverySubsystem,
 		BitfieldSigningSubsystem,
 		BitfieldDistributionSubsystem,
@@ -263,6 +265,7 @@ where
 				chunk_req_v2_receiver,
 			},
 			req_protocol_names.clone(),
+			authority_discovery_service.clone(),
 			Metrics::register(registry)?,
 		))
 		.availability_recovery(AvailabilityRecoverySubsystem::for_validator(
@@ -352,7 +355,7 @@ where
 		))
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
-		.statistics_collector(ConsensusStatisticsCollector::new(Metrics::register(registry)?))
+		.consensus_statistics_collector(ConsensusStatisticsCollector::new(Metrics::register(registry)?))
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
@@ -499,7 +502,7 @@ where
 		.dispute_distribution(DummySubsystem)
 		.chain_selection(DummySubsystem)
 		.prospective_parachains(DummySubsystem)
-		.statistics_collector(DummySubsystem)
+		.consensus_statistics_collector(DummySubsystem)
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)

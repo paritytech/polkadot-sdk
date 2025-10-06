@@ -18,9 +18,7 @@
 
 use futures::channel::oneshot;
 
-use polkadot_node_subsystem::{
-	SubsystemError,
-};
+use polkadot_node_subsystem::{RuntimeApiError, SubsystemError};
 use polkadot_node_subsystem_util::runtime;
 
 use crate::LOG_TARGET;
@@ -32,6 +30,12 @@ pub enum Error {
 	#[fatal]
 	#[error("Receiving message from overseer failed: {0}")]
 	SubsystemReceive(#[source] SubsystemError),
+
+	#[error("Sending message to overseer failed: {0}")]
+	OverseerCommunication(#[source] oneshot::Canceled),
+
+	#[error("Failed to request runtime data: {0}")]
+	RuntimeApiCallError(#[source] RuntimeApiError),
 }
 
 /// General `Result` type.

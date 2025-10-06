@@ -15106,6 +15106,7 @@ name = "polkadot-availability-distribution"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
+ "async-trait",
  "fatality",
  "futures",
  "futures-timer",
@@ -15122,6 +15123,7 @@ dependencies = [
  "rand 0.8.5",
  "rstest",
  "sc-network",
+ "sc-network-types",
  "schnellru",
  "sp-core 28.0.0",
  "sp-keyring",

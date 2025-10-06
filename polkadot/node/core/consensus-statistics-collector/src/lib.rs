@@ -30,7 +30,7 @@ use polkadot_node_subsystem::{
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
-use polkadot_primitives::{Hash, SessionIndex, ValidatorIndex};
+use polkadot_primitives::{AuthorityDiscoveryId, Hash, SessionIndex, ValidatorIndex};
 use polkadot_node_primitives::approval::time::Tick;
 use polkadot_node_primitives::approval::v1::DelayTranche;
 use polkadot_primitives::well_known_keys::relay_dispatch_queue_remaining_capacity;
@@ -46,8 +46,9 @@ mod approval_voting_metrics;
 mod availability_distribution_metrics;
 
 use approval_voting_metrics::ApprovalsStats;
+use polkadot_node_subsystem_util::{request_session_index_for_child, request_session_info};
 use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows};
-use crate::availability_distribution_metrics::{handle_chunks_downloaded, AvailabilityDownloads};
+use crate::availability_distribution_metrics::{handle_chunks_downloaded, AvailabilityChunks};
 use self::metrics::Metrics;
 
 const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
@@ -66,18 +67,31 @@ impl PerRelayView {
     }
 }
 
+pub struct PerSessionView {
+    authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>,
+}
+
+impl PerSessionView {
+    fn new(authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>) -> Self {
+        Self { authorities_lookup }
+    }
+}
+
 struct View {
     per_relay: HashMap<Hash, PerRelayView>,
+    per_session: HashMap<SessionIndex, PerSessionView>,
+    // TODO: this information should not be needed
     candidates_per_session: HashMap<SessionIndex, HashSet<CandidateHash>>,
-    chunks_downloaded: AvailabilityDownloads,
+    availability_chunks: AvailabilityChunks,
 }
 
 impl View {
     fn new() -> Self {
         return View{
             per_relay: HashMap::new(),
+            per_session: HashMap::new(),
             candidates_per_session: HashMap::new(),
-            chunks_downloaded: AvailabilityDownloads::new(),
+            availability_chunks: AvailabilityChunks::new(),
         };
     }
 }
@@ -127,12 +141,36 @@ pub(crate) async fn run_iteration<Context>(
     view: &mut View,
     metrics: &Metrics,
 ) -> Result<()> {
+    let mut sender = ctx.sender().clone();
     loop {
         match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
             FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
             FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
                 if let Some(activated) = update.activated {
                     view.per_relay.insert(activated.hash, PerRelayView::new(vec![]));
+
+                    let session_idx = request_session_index_for_child(activated.hash, ctx.sender())
+                            .await
+                            .await
+                            .map_err(JfyiError::OverseerCommunication)?
+                            .map_err(JfyiError::RuntimeApiCallError)?;
+
+                    if !view.per_session.contains_key(&session_idx) {
+                        let session_info = request_session_info(activated.hash, session_idx, ctx.sender())
+                            .await
+                            .await
+                            .map_err(JfyiError::OverseerCommunication)?
+                            .map_err(JfyiError::RuntimeApiCallError)?;
+
+                        if let Some(session_info) = session_info {
+                            let mut authority_lookup = HashMap::new();
+                            for (i, ad) in session_info.discovery_keys.iter().cloned().enumerate() {
+                                authority_lookup.insert(ad, ValidatorIndex(i as _));
+                            }
+
+                            view.per_session.insert(session_idx, PerSessionView::new(authority_lookup));
+                        }
+                    }
                 }
             },
             FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
@@ -145,6 +183,13 @@ pub(crate) async fn run_iteration<Context>(
                             session_index,
                             candidate_hash,
                             downloads,
+                        )
+                    },
+                    ConsensusStatisticsCollectorMessage::ChunkUploaded(candidate_hash, authority_ids) => {
+                        handle_chunk_uploaded(
+                            view,
+                            candidate_hash,
+                            authority_ids,
                         )
                     },
                     ConsensusStatisticsCollectorMessage::CandidateApproved(candidate_hash, block_hash, approvals) => {
