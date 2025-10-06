@@ -295,19 +295,27 @@ impl CollationTracker {
 		receipt: CandidateReceipt,
 	) {
 		let head = receipt.descriptor.para_head();
+		let para_id = receipt.descriptor.para_id();
 		let Some(entry) = self.entries.get_mut(&head) else {
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
+				?para_id,
 				?head,
 				"Included collation not found in tracker",
 			);
 			return;
 		};
 
+		let pov_hash = entry.pov_hash();
+		let candidate_hash = entry.candidate_hash();
+
 		if entry.included().is_some() {
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
+				?para_id,
 				?head,
+				?candidate_hash,
+				?pov_hash,
 				"Collation already included in a fork, skipping",
 			);
 			return
@@ -320,8 +328,10 @@ impl CollationTracker {
 				?latency,
 				relay_block = ?leaf,
 				relay_parent = ?entry.relay_parent,
-				para_id = ?receipt.descriptor.para_id(),
-				head = ?receipt.descriptor.para_head(),
+				?para_id,
+				?head,
+				?candidate_hash,
+				?pov_hash,
 				"Collation included on relay chain",
 			);
 		}
