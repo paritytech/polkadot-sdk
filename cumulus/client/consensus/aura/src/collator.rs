@@ -555,7 +555,8 @@ pub async fn collator_protocol_helper<Block, Client, P, Spawner>(
 				tracing::debug!(target: crate::LOG_TARGET, "Sending pre-connect message");
 
 				if pre_connect_delay > 0 {
-					futures_timer::Delay::new(std::time::Duration::from_millis(pre_connect_delay)).await;
+					futures_timer::Delay::new(std::time::Duration::from_millis(pre_connect_delay))
+						.await;
 				}
 				// Send a message to the collator protocol to pre-connect to backing groups
 				overseer_handle_clone
