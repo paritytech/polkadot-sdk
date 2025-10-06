@@ -244,7 +244,7 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _, delete_code: _ } |
+			Self::Terminated { deposit, beneficiary: _, .. } |
 			Self::Checked(deposit) => deposit.clone(),
 		}
 	}
