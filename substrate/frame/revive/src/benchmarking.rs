@@ -21,8 +21,8 @@
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::{
-		block_hash::EthereumBlockBuilder, block_storage, runtime::GAS_PRICE,
-		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
+		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
+		TransactionSigned, TransactionUnsigned,
 	},
 	exec::{Key, PrecompileExt},
 	limits,
@@ -60,13 +60,7 @@ use pallet_revive_uapi::{
 	pack_hi_lo, precompiles::system::ISystem, CallFlags, ReturnErrorCode, StorageFlags,
 };
 pub use pallet_transaction_payment;
-use revm::{
-	bytecode::{opcode::EXTCODECOPY, Bytecode},
-	interpreter::{
-		host::DummyHost, interpreter_types::MemoryTr, InstructionContext, Interpreter, SharedMemory,
-	},
-	primitives,
-};
+use revm::bytecode::Bytecode;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	digests::{PreDigest, PrimaryPreDigest},
@@ -122,7 +116,7 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	    <T as frame_system::Config>::RuntimeCall:
 		    Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 		T: pallet_transaction_payment::Config,
-	    OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
+	    // OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
@@ -2620,10 +2614,8 @@ mod benchmarks {
 	}
 
 	/// Helper function to generate common finalize_block benchmark setup
-	fn setup_finalize_block_benchmark<T>() -> Result<
-		(Contract<T>, T::RuntimeOrigin, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>),
-		BenchmarkError,
-	>
+	fn setup_finalize_block_benchmark<T>(
+	) -> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config,
@@ -2637,7 +2629,6 @@ mod benchmarks {
 		// Setup contract instance
 		let instance =
 			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
-		let origin = RawOrigin::Signed(signer_caller.clone()).into();
 		let storage_deposit = default_deposit_limit::<T>();
 		let value = Pallet::<T>::min_balance();
 		let evm_value =
@@ -2647,7 +2638,7 @@ mod benchmarks {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
-		Ok((instance, origin, storage_deposit, evm_value, signer_key, current_block))
+		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
 
 	/// Benchmark the `on_finalize` hook scaling with number of transactions.
@@ -2668,7 +2659,7 @@ mod benchmarks {
 	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
 	#[benchmark(pov_mode = Measured)]
 	fn on_finalize_per_transaction(n: Linear<0, 200>) -> Result<(), BenchmarkError> {
-		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
 		// Fixed payload size to isolate transaction count effects
@@ -2743,7 +2734,7 @@ mod benchmarks {
 	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
 	#[benchmark(pov_mode = Measured)]
 	fn on_finalize_per_transaction_data(d: Linear<0, 1000>) -> Result<(), BenchmarkError> {
-		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
 		// Fixed transaction count to isolate payload size effects
@@ -2816,7 +2807,7 @@ mod benchmarks {
 	/// - Per event: `on_finalize_per_event(e)` - linear scaling with event count
 	#[benchmark(pov_mode = Measured)]
 	fn on_finalize_per_event(e: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
 		// Create a single transaction with e events, each with minimal data
@@ -2878,7 +2869,7 @@ mod benchmarks {
 	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
 	#[benchmark(pov_mode = Measured)]
 	fn on_finalize_per_event_data(d: Linear<0, 16384>) -> Result<(), BenchmarkError> {
-		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
 		// Create a single transaction with one event containing d bytes of data
