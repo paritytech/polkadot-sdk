@@ -23,10 +23,12 @@ use crate::{
 	},
 	ClientError, H160,
 };
-use sp_core::H256;
+use sp_core::{H256, U256};
 use subxt::{storage::Storage, OnlineClient};
 
 use pallet_revive::evm::{block_hash::ReceiptGasInfo, Block};
+
+const LOG_TARGET: &str = "eth-rpc::storage_api";
 
 /// A wrapper around the Substrate Storage API.
 #[derive(Clone)]
@@ -66,34 +68,41 @@ impl StorageApi {
 
 	/// Get the receipt data from storage.
 	pub async fn get_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
-		let query = subxt::dynamic::storage("Revive", "ReceiptInfoData", ());
+		let query = subxt_client::storage().revive().receipt_info_data();
 
-		let Some(info) = self.0.fetch(&query).await? else {
+		let Some(receipt_info_data) = self.0.fetch(&query).await? else {
+			log::warn!(target: LOG_TARGET, "Receipt data not found");
 			return Err(ClientError::ReceiptDataNotFound);
 		};
-		let bytes = info.into_encoded();
-		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+		log::trace!(target: LOG_TARGET, "Receipt data found");
+		let receipt_info_data = receipt_info_data.into_iter().map(|entry| entry.0).collect();
+		Ok(receipt_info_data)
 	}
 
 	/// Get the Ethereum block from storage.
 	pub async fn get_ethereum_block(&self) -> Result<Block, ClientError> {
-		let query = subxt::dynamic::storage("Revive", "EthereumBlock", ());
-
-		let Some(info) = self.0.fetch(&query).await? else {
+		let query = subxt_client::storage().revive().ethereum_block();
+		let Some(block) = self.0.fetch(&query).await? else {
+			log::warn!(target: LOG_TARGET, "Ethereum block not found");
 			return Err(ClientError::EthereumBlockNotFound);
 		};
-		let bytes = info.into_encoded();
-		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+		log::trace!(target: LOG_TARGET, "Ethereum block found hash: {:?}", block.hash);
+		Ok(block.0)
 	}
 
 	pub async fn get_ethereum_block_hash(&self, number: u64) -> Result<H256, ClientError> {
-		let key: subxt::dynamic::Value = number.into();
-		let query = subxt::dynamic::storage("Revive", "BlockHash", vec![key]);
+		// Convert u64 to the wrapped U256 type that subxt expects
+		let number_u256 = subxt::utils::Static(U256::from(number));
 
-		let Some(info) = self.0.fetch(&query).await? else {
+		let query = subxt_client::storage().revive().block_hash(number_u256);
+
+		let Some(hash) = self.0.fetch(&query).await? else {
+			log::warn!(target: LOG_TARGET, "Ethereum block #{number} hash not found");
 			return Err(ClientError::EthereumBlockNotFound);
 		};
-		let bytes = info.into_encoded();
-		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+
+		log::trace!(target: LOG_TARGET, "Ethereum block #{number} hash: {hash:?}");
+
+		Ok(hash)
 	}
 }

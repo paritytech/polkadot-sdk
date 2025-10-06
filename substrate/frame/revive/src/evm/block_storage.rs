@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
+	evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom, PalletStorage},
 	sp_runtime::traits::One,
 	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, ReceiptInfoData, UniqueSaturatedInto,
 	H160, H256,
@@ -88,13 +88,9 @@ pub fn on_finalize_build_eth_block<T: Config>(
 	EthBlockBuilderIR::<T>::kill();
 
 	// Load the first values if not already loaded.
-	let (block, receipt_data) = EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build(
-		eth_block_num,
-		parent_hash,
-		timestamp,
-		block_author,
-		gas_limit,
-	);
+	let (block, receipt_data) =
+		EthereumBlockBuilder::from_ir_with_storage(block_builder_ir, PalletStorage::<T>::new())
+			.build(eth_block_num, parent_hash, timestamp, block_author, gas_limit);
 
 	// Put the block hash into storage.
 	BlockHash::<T>::insert(eth_block_num, block.hash);
@@ -129,7 +125,8 @@ pub fn process_transaction<T: Config>(
 	let (encoded_logs, bloom) = get_receipt_details().unwrap_or_default();
 
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
-	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+	let mut block_builder =
+		EthereumBlockBuilder::from_ir_with_storage(block_builder_ir, PalletStorage::<T>::new());
 
 	block_builder.process_transaction(transaction_encoded, success, gas_used, encoded_logs, bloom);
 

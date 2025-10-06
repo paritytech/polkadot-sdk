@@ -21,15 +21,16 @@
 use crate::{
 	cli::{self, CliCommand},
 	example::TransactionBuilder,
-	subxt_client,
-	subxt_client::{src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig},
+	subxt_client::{
+		self, src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig,
+	},
 	EthRpcClient,
 };
 use clap::Parser;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
-	evm::{Account, BlockTag, U256},
+	evm::{Account, BlockNumberOrTag, BlockTag, U256},
 };
 use static_init::dynamic;
 use std::{sync::Arc, thread};
@@ -53,30 +54,40 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 }
 
 struct SharedResources {
+	eth_rpc_port: u32,
+	node_rpc_port: u32,
 	_node_handle: std::thread::JoinHandle<()>,
 	_rpc_handle: std::thread::JoinHandle<()>,
 }
 
 impl SharedResources {
-	fn start() -> Self {
-		// Start the node.
+	fn start_advanced(
+		node_rpc_port: u32,
+		eth_rpc_port: u32,
+		node_extra_args: Vec<&'static str>,
+	) -> Self {
+		let node_rpc_port_arg = format!("--rpc-port={node_rpc_port}");
 		let _node_handle = thread::spawn(move || {
-			if let Err(e) = start_node_inline(vec![
+			let args = vec![
 				"--dev",
-				"--rpc-port=45789",
+				&node_rpc_port_arg,
 				"--no-telemetry",
 				"--no-prometheus",
 				"-lerror,evm=debug,sc_rpc_server=info,runtime::revive=trace",
-			]) {
+			];
+			let combined_args = [args, node_extra_args].concat();
+			if let Err(e) = start_node_inline(combined_args) {
 				panic!("Node exited with error: {e:?}");
 			}
 		});
 
+		let eth_rpc_port_arg = format!("--rpc-port={eth_rpc_port}");
+		let node_rpc_url = format!("--node-rpc-url=ws://localhost:{node_rpc_port}");
 		// Start the rpc server.
 		let args = CliCommand::parse_from([
 			"--dev",
-			"--rpc-port=45788",
-			"--node-rpc-url=ws://localhost:45789",
+			&eth_rpc_port_arg,
+			&node_rpc_url,
 			"--no-prometheus",
 			"-linfo,eth-rpc=debug",
 		]);
@@ -86,17 +97,35 @@ impl SharedResources {
 				panic!("eth-rpc exited with error: {e:?}");
 			}
 		});
-
-		Self { _node_handle, _rpc_handle }
+		Self { eth_rpc_port, node_rpc_port, _node_handle, _rpc_handle }
 	}
 
-	async fn client() -> WsClient {
-		ws_client_with_retry("ws://localhost:45788").await
+	fn start() -> Self {
+		Self::start_advanced(45789, 45788, vec![])
+	}
+
+	async fn client(&self) -> WsClient {
+		let url = format!("ws://localhost:{}", self.eth_rpc_port);
+		ws_client_with_retry(&url).await
+	}
+
+	async fn node_client(&self) -> OnlineClient<SrcChainConfig> {
+		let url = format!("ws://localhost:{}", self.node_rpc_port);
+		OnlineClient::<SrcChainConfig>::from_url(url)
+			.await
+			.expect("Failed to get online client")
 	}
 }
 
 #[dynamic(lazy)]
 static mut SHARED_RESOURCES: SharedResources = SharedResources::start();
+
+// TODO maybe it is ok to run single shared resource for all tests?
+// Setting state-pruning to low value, to not wait long for state pruning, which is required for
+// some EVM reconstruction tests
+#[dynamic(lazy)]
+static mut SHARED_RESOURCES_QUICK_PRUNE: SharedResources =
+	SharedResources::start_advanced(55789, 55788, vec!["--state-pruning=8"]);
 
 macro_rules! unwrap_call_err(
 	($err:expr) => {
@@ -109,8 +138,8 @@ macro_rules! unwrap_call_err(
 
 #[tokio::test]
 async fn transfer() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = Arc::new(SharedResources::client().await);
+	let shared_resources = SHARED_RESOURCES.write();
+	let client = Arc::new(shared_resources.client().await);
 
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
@@ -137,8 +166,8 @@ async fn transfer() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn deploy_and_call() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = std::sync::Arc::new(SharedResources::client().await);
+	let shared_resources = SHARED_RESOURCES.write();
+	let client = Arc::new(shared_resources.client().await);
 	let account = Account::default();
 
 	// Balance transfer
@@ -203,7 +232,12 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	);
 
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(Some(value), balance.checked_sub(initial_balance), "Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}.");
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Contract {contract_address:?}
+Balance {balance} should have increased from {initial_balance} by {value}."
+	);
 
 	// Balance transfer to contract
 	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
@@ -227,8 +261,8 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = std::sync::Arc::new(SharedResources::client().await);
+	let shared_resources = SHARED_RESOURCES.write();
+	let client = Arc::new(shared_resources.client().await);
 
 	let account = Account::default();
 	let origin: [u8; 32] = account.substrate_account().into();
@@ -258,8 +292,8 @@ async fn runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn invalid_transaction() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = Arc::new(SharedResources::client().await);
+	let shared_resources = SHARED_RESOURCES.write();
+	let client = Arc::new(shared_resources.client().await);
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 
 	let err = TransactionBuilder::new(&client)
@@ -272,6 +306,185 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
 	assert_eq!(call_err.message(), "Invalid Transaction");
+
+	Ok(())
+}
+
+// Wait until state is pruned, it is assumed that initially a state is available
+// at latest best block.
+async fn wait_until_state_pruned(client: OnlineClient<SrcChainConfig>) -> anyhow::Result<()> {
+	let query = subxt_client::storage().revive().ethereum_block();
+	let mut blocks = client.blocks().subscribe_best().await?;
+
+	// Get current best block
+	let block_hash = if let Some(Ok(block)) = blocks.next().await {
+		block.hash()
+	} else {
+		return Err(anyhow::anyhow!("Failed to fetch next block"));
+	};
+	let storage = client.storage().at(block_hash);
+
+	// Inspect storage at best block we got until state is pruned
+	loop {
+		match blocks.next().await {
+			Some(Ok(block)) => {
+				println!("block current = {:?} {:?} ", block.number(), block.hash());
+				// Break only on when state discarded error message appears
+				match storage.fetch(&query).await {
+					Ok(_) => {
+						// State still available, continue waiting
+					},
+					Err(err) if format!("{:?}", err).contains("State already discarded") => {
+						println!("storage pruned: {:?}", err);
+						return Ok(());
+					},
+					Err(err) => {
+						return Err(anyhow::anyhow!("Error fetching storage: {:?}", err));
+					},
+				}
+			},
+			Some(Err(e)) => return Err(anyhow::anyhow!("Error subscribing to blocks: {:?}", e)),
+			None => return Err(anyhow::anyhow!("Block subscription ended unexpectedly")),
+		}
+	}
+}
+
+#[tokio::test]
+async fn reconstructed_block_matches_storage_block() -> anyhow::Result<()> {
+	let shared_resources = SHARED_RESOURCES_QUICK_PRUNE.write();
+	let client = Arc::new(shared_resources.client().await);
+
+	// Deploy a contract to have some interesting blocks
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let value = U256::from(5_000_000_000_000u128);
+	let tx = TransactionBuilder::new(&client)
+		.value(value)
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+
+	let receipt = tx.wait_for_receipt().await?;
+	let block_number = receipt.block_number;
+	let block_hash = receipt.block_hash;
+	println!("block_number = {block_number:?}");
+	println!("tx hash = {:?}", tx.hash());
+
+	// Fetch the block immediately (should come from storage EthereumBlock)
+	let storage_block_by_number = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number.into()), true)
+		.await?
+		.expect("Block should exist");
+	let storage_block_by_hash =
+		client.get_block_by_hash(block_hash, true).await?.expect("Block should exist");
+
+	// All storage blocks must match
+	assert_eq!(
+		storage_block_by_number, storage_block_by_hash,
+		"Storage blocks by number and hash should match"
+	);
+
+	wait_until_state_pruned(shared_resources.node_client().await).await?;
+
+	// Fetch the same block again - it should be reconstructed now
+	let reconstructed_block_number = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number.into()), true)
+		.await?
+		.expect("Block should still exist");
+	let reconstructed_block_by_hash =
+		client.get_block_by_hash(block_hash, true).await?.expect("Block should exist");
+
+	// All reconstructed blocks must match
+	assert_eq!(
+		reconstructed_block_number, reconstructed_block_by_hash,
+		"Reconstructed blocks by number and hash should match"
+	);
+
+	// Reconstructed and storage blocks must matchs
+	assert_eq!(
+		storage_block_by_number, reconstructed_block_number,
+		"Reconstructed block should match storage block exactly"
+	);
+	Ok(())
+}
+
+#[tokio::test]
+async fn reconstructed_tx_matches_storage_tx() -> anyhow::Result<()> {
+	let shared_resources = SHARED_RESOURCES_QUICK_PRUNE.write();
+	let client = Arc::new(shared_resources.client().await);
+
+	// Deploy a contract to have some interesting blocks
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let value = U256::from(5_000_000_000_000u128);
+	let tx = TransactionBuilder::new(&client)
+		.value(value)
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+
+	let receipt = tx.wait_for_receipt().await?;
+	let block_number = receipt.block_number;
+	let block_hash = receipt.block_hash;
+	let tx_id = U256::from(0);
+	println!("block_number = {block_number:?}");
+	println!("tx hash = {:?}", tx.hash());
+
+	// Fetch the tx immediately (should come from storage EthereumBlock)
+	let storage_tx_by_tx_hash =
+		client.get_transaction_by_hash(tx.hash()).await?.expect("Tx should exist");
+	let storage_tx_by_block_hash_and_tx_id = client
+		.get_transaction_by_block_hash_and_index(block_hash, tx_id)
+		.await?
+		.expect("Tx should exist");
+	let storage_tx_by_block_number_and_tx_id = client
+		.get_transaction_by_block_number_and_index(
+			BlockNumberOrTag::U256(block_number.into()),
+			tx_id,
+		)
+		.await?
+		.expect("Tx should exist");
+
+	// All storage txs must match
+	assert_eq!(
+		storage_tx_by_tx_hash, storage_tx_by_block_hash_and_tx_id,
+		"Storage txs by hash and block hash and tx id should match"
+	);
+	assert_eq!(
+		storage_tx_by_tx_hash, storage_tx_by_block_number_and_tx_id,
+		"Storage txs by hash and block number and tx id should match"
+	);
+
+	wait_until_state_pruned(shared_resources.node_client().await).await?;
+
+	// Fetch the same tx again - it should be reconstructed now
+	let reconstructed_tx_by_tx_hash =
+		client.get_transaction_by_hash(tx.hash()).await?.expect("Tx should exist");
+	let reconstructed_tx_by_block_hash_and_tx_id = client
+		.get_transaction_by_block_hash_and_index(block_hash, tx_id)
+		.await?
+		.expect("Tx should exist");
+	let reconstructed_tx_by_block_number_and_tx_id = client
+		.get_transaction_by_block_number_and_index(
+			BlockNumberOrTag::U256(block_number.into()),
+			tx_id,
+		)
+		.await?
+		.expect("Tx should exist");
+
+	// All reconstructed txs must match
+	assert_eq!(
+		reconstructed_tx_by_tx_hash, reconstructed_tx_by_block_hash_and_tx_id,
+		"Reconstructed txs by hash and block hash and tx id should match"
+	);
+	assert_eq!(
+		reconstructed_tx_by_tx_hash, reconstructed_tx_by_block_number_and_tx_id,
+		"Storage txs by hash and block number and tx id should match"
+	);
+
+	// Reconstructed and storage txs must matchs
+	assert_eq!(
+		storage_tx_by_tx_hash, reconstructed_tx_by_tx_hash,
+		"Reconstructed tx should match storage tx exactly"
+	);
 
 	Ok(())
 }

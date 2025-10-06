@@ -214,7 +214,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		block_hash: H256,
 		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
-		let Some(block) = self.client.block_by_hash(&block_hash).await? else {
+		let Some(block) = self.client.block_by_ethereum_hash(&block_hash).await? else {
 			return Ok(None);
 		};
 		let block = self.client.evm_block(block, hydrated_transactions).await;
@@ -275,7 +275,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		} else {
 			self.client.latest_block().await.hash()
 		};
-		Ok(self.client.receipts_count_per_block(&block_hash).await.map(U256::from))
+		Ok(self.client.receipts_count_per_ethereum_block(&block_hash).await.map(U256::from))
 	}
 
 	async fn get_block_transaction_count_by_number(
@@ -314,22 +314,15 @@ impl EthRpcServer for EthRpcServerImpl {
 		block_hash: H256,
 		transaction_index: U256,
 	) -> RpcResult<Option<TransactionInfo>> {
-		let Some(receipt) = self
-			.client
-			.receipt_by_hash_and_index(
-				&block_hash,
-				transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?,
-			)
-			.await
+		let Some(substrate_block_hash) = self.client.resolve_substrate_hash(&block_hash).await
 		else {
 			return Ok(None);
 		};
-
-		let Some(signed_tx) = self.client.signed_tx_by_hash(&receipt.transaction_hash).await else {
-			return Ok(None);
-		};
-
-		Ok(Some(TransactionInfo::new(&receipt, signed_tx)))
+		self.get_transaction_by_substrate_block_hash_and_index(
+			substrate_block_hash,
+			transaction_index,
+		)
+		.await
 	}
 
 	async fn get_transaction_by_block_number_and_index(
@@ -340,7 +333,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
 			return Ok(None);
 		};
-		self.get_transaction_by_block_hash_and_index(block.hash(), transaction_index)
+		self.get_transaction_by_substrate_block_hash_and_index(block.hash(), transaction_index)
 			.await
 	}
 
@@ -384,5 +377,29 @@ impl EthRpcServer for EthRpcServerImpl {
 		let block_count: u32 = block_count.try_into().map_err(|_| EthRpcError::ConversionError)?;
 		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
 		Ok(result)
+	}
+}
+
+impl EthRpcServerImpl {
+	async fn get_transaction_by_substrate_block_hash_and_index(
+		&self,
+		substrate_block_hash: H256,
+		transaction_index: U256,
+	) -> RpcResult<Option<TransactionInfo>> {
+		let Some(receipt) = self
+			.client
+			.receipt_by_hash_and_index(
+				&substrate_block_hash,
+				transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?,
+			)
+			.await
+		else {
+			return Ok(None)
+		};
+		let Some(signed_tx) = self.client.signed_tx_by_hash(&receipt.transaction_hash).await else {
+			return Ok(None);
+		};
+
+		Ok(Some(TransactionInfo::new(&receipt, signed_tx)))
 	}
 }

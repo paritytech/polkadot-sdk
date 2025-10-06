@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT ethereum_block_hash, gas_limit, block_author\n\t\t\tFROM eth_to_substrate_blocks\n\t\t\tWHERE substrate_block_hash = $1\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "ethereum_block_hash",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "gas_limit",
+        "ordinal": 1,
+        "type_info": "Blob"
+      },
+      {
+        "name": "block_author",
+        "ordinal": 2,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "668e8f9a808d1dc82c138f75d60a16aaed5151b5a22ae4ea57c12371ddc56190"
+}
