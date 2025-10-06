@@ -251,8 +251,9 @@ pub fn log<'ext, const N: usize, E: Ext>(
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	let ([], beneficiary) = interpreter.stack.popn_top()?;
-	let dispatch_result =
-		interpreter.ext.terminate(&beneficiary.into_address(), /* allow_from_outside_tx */ false);
+	let dispatch_result = interpreter
+		.ext
+		.terminate(&beneficiary.into_address(), /* allow_from_outside_tx */ false);
 
 	match dispatch_result {
 		Ok(_) => {
