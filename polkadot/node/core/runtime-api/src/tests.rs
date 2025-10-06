@@ -229,6 +229,13 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
+	async fn unapplied_slashes_v2(
+		&self,
+		_: Hash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
+		todo!("Not required for tests")
+	}
+
 	async fn key_ownership_proof(
 		&self,
 		_: Hash,
