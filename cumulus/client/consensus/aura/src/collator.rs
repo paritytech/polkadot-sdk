@@ -59,6 +59,13 @@ use sp_state_machine::StorageChanges;
 use sp_timestamp::Timestamp;
 use std::{error::Error, time::Duration};
 
+/// The slot offset to start pre-connecting to backing groups. Represented as number
+/// of seconds before own slot starts.
+const PRE_CONNECT_SLOT_OFFSET: Duration = Duration::from_secs(6);
+
+/// Task name for the collator protocol helper.
+pub const COLLATOR_PROTOCOL_HELPER_TASK_GROUP: &str = "collator-protocol-helper";
+
 /// Parameters for instantiating a [`Collator`].
 pub struct Params<BI, CIDP, RClient, Proposer, CS> {
 	/// A builder for inherent data builders.
@@ -438,10 +445,11 @@ where
 ///
 /// This helper monitors block imports and proactively connects to backing groups
 /// when the collator's slot is approaching, improving network connectivity.
-pub async fn collator_protocol_helper<Block, Client, P>(
+pub async fn collator_protocol_helper<Block, Client, P, Spawner>(
 	client: std::sync::Arc<Client>,
 	keystore: sp_keystore::KeystorePtr,
 	mut overseer_handle: cumulus_relay_chain_interface::OverseerHandle,
+	spawn_handle: Spawner,
 ) where
 	Block: sp_runtime::traits::Block,
 	Client: sc_client_api::HeaderBackend<Block>
@@ -454,6 +462,7 @@ pub async fn collator_protocol_helper<Block, Client, P>(
 	Client::Api: AuraApi<Block, P::Public>,
 	P: sp_core::Pair + Send + Sync,
 	P::Public: Codec,
+	Spawner: sp_core::traits::SpawnNamed,
 {
 	use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 	use sc_consensus_aura::CompatibleDigestItem;
@@ -477,6 +486,12 @@ pub async fn collator_protocol_helper<Block, Client, P>(
 		tracing::debug!(target: crate::LOG_TARGET, "Imported block with slot: {:?}", slot);
 
 		let Some(slot) = slot else {
+			continue;
+		};
+
+		// Determine current slot duration.
+		let Ok(slot_duration) = client.runtime_api().slot_duration(notification.header.hash())
+		else {
 			continue;
 		};
 
@@ -512,15 +527,46 @@ pub async fn collator_protocol_helper<Block, Client, P>(
 		let target_slot = slot + 2;
 		if aura_internal::claim_slot::<P>(target_slot, &authorities, &keystore)
 			.await
-			.is_some()
+			.is_none()
 		{
-			tracing::debug!(target: crate::LOG_TARGET, "Our slot {} comes next, sending preconnect message ", target_slot );
-			// Send a message to the collator protocol to pre-connect to backing groups
-			overseer_handle
-				.send_msg(CollatorProtocolMessage::ConnectToBackingGroups, "CollatorProtocolHelper")
-				.await;
-
-			our_slot = Some(target_slot);
+			continue;
 		}
+
+		tracing::debug!(target: crate::LOG_TARGET, "Our slot {} is due soon", target_slot );
+
+		// Determine our own slot timestamp.
+		let Some(own_slot_ts) = target_slot.timestamp(slot_duration) else {
+			tracing::warn!(target: crate::LOG_TARGET, "Failed to get own slot duration");
+
+			continue;
+		};
+
+		let pre_connect_delay = own_slot_ts
+			.saturating_sub(*Timestamp::current())
+			.saturating_sub(PRE_CONNECT_SLOT_OFFSET.as_millis() as u64);
+
+		tracing::debug!(target: crate::LOG_TARGET, "Pre-connecting to backing groups in {}ms", pre_connect_delay);
+
+		let mut overseer_handle_clone = overseer_handle.clone();
+		spawn_handle.spawn(
+			"send-pre-connect-message",
+			Some(COLLATOR_PROTOCOL_HELPER_TASK_GROUP),
+			async move {
+				tracing::debug!(target: crate::LOG_TARGET, "Sending pre-connect message");
+
+				if pre_connect_delay > 0 {
+					futures_timer::Delay::new(std::time::Duration::from_millis(pre_connect_delay)).await;
+				}
+				// Send a message to the collator protocol to pre-connect to backing groups
+				overseer_handle_clone
+					.send_msg(
+						CollatorProtocolMessage::ConnectToBackingGroups,
+						"CollatorProtocolHelper",
+					)
+					.await;
+			}
+			.boxed(),
+		);
+		our_slot = Some(target_slot);
 	}
 }

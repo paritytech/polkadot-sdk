@@ -39,7 +39,7 @@ use cumulus_client_consensus_aura::collators::slot_based::{
 	self as slot_based, Params as SlotBasedParams,
 };
 use cumulus_client_consensus_aura::{
-	collator::collator_protocol_helper,
+	collator::{collator_protocol_helper, COLLATOR_PROTOCOL_HELPER_TASK_GROUP},
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
 		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
@@ -346,12 +346,13 @@ where
 
 		// Spawn the collator protocol helper task
 		task_manager.spawn_essential_handle().spawn(
-			"collator-protocol-helper",
-			None,
-			collator_protocol_helper::<_, _, <AuraId as AppCrypto>::Pair>(
+			COLLATOR_PROTOCOL_HELPER_TASK_GROUP,
+			Some(COLLATOR_PROTOCOL_HELPER_TASK_GROUP),
+			collator_protocol_helper::<_, _, <AuraId as AppCrypto>::Pair, _>(
 				client.clone(),
 				keystore.clone(),
 				overseer_handle,
+				task_manager.spawn_handle(),
 			),
 		);
 
@@ -482,12 +483,13 @@ where
 
 		// Spawn the collator protocol helper task
 		task_manager.spawn_essential_handle().spawn(
-			"collator-protocol-helper",
-			None,
-			collator_protocol_helper::<_, _, <AuraId as AppCrypto>::Pair>(
+			COLLATOR_PROTOCOL_HELPER_TASK_GROUP,
+			Some(COLLATOR_PROTOCOL_HELPER_TASK_GROUP),
+			collator_protocol_helper::<_, _, <AuraId as AppCrypto>::Pair, _>(
 				client.clone(),
 				keystore.clone(),
 				overseer_handle.clone(),
+				task_manager.spawn_handle(),
 			),
 		);
 
