@@ -545,7 +545,7 @@ where
 
 					// Size exceeded - split the chunk
 					let split_factor =
-						(encoded.len() / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
+						(encode_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
 					let new_chunk_size = (current_end - offset) / split_factor;
 
 					// Single statement is too large
@@ -553,7 +553,7 @@ where
 						log::warn!(
 							target: LOG_TARGET,
 							"Statement too large ({} KB), skipping",
-							encoded.len() / 1024
+							encoded_size / 1024
 						);
 						if let Some(ref metrics) = self.metrics {
 							metrics.skipped_oversized_statements.inc();
