@@ -732,12 +732,11 @@ impl Client {
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
 	) -> Block {
-		log::trace!(target: LOG_TARGET, "Get EVM block for hash {:?}", block.hash());
+		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
 
 		let storage_api = self.storage_api(block.hash());
 		let ethereum_block = storage_api.get_ethereum_block().await.inspect_err(|err| {
-			log::warn!(target: LOG_TARGET, "Failed to get EVM block from storage for hash {:?}: {err:?}", block.hash());
-			log::warn!(target: LOG_TARGET, "Will try to reconstruct the block from db");
+			log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
 		});
 
 		// This could potentially fail under two circumstances:
@@ -794,11 +793,11 @@ impl Client {
 			AccumulateReceipt, EthereumBlockBuilder, InMemoryStorage,
 		};
 
-		log::trace!(target: LOG_TARGET, "Reconstructing EVM block for substrate block {:?}", block.hash());
+		log::trace!(target: LOG_TARGET, "Reconstructing Ethereum block for substrate block {:?}", block.hash());
 
 		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
 
-		let (expected_evm_block_hash, gas_limit, block_author) =
+		let (_, gas_limit, block_author) =
 			self.receipt_provider.get_block_mapping(&block.hash()).await
 				.unwrap_or_else(|| {
 					log::warn!(target: LOG_TARGET, "No mapping found for substrate block {:?}, restoring defaults", block.hash());
@@ -849,12 +848,6 @@ impl Client {
 			block_author,
 			gas_limit,
 		);
-
-		// Sanity check
-		let evm_block_hash = evm_block.header_hash();
-		if expected_evm_block_hash != evm_block_hash {
-			log::warn!(target: LOG_TARGET, "Reconstructed EVM block hash mismatch hash: {evm_block_hash:} != {expected_evm_block_hash:?}");
-		}
 
 		// Optionally hydrate with full transaction info
 		if hydrated_transactions {
