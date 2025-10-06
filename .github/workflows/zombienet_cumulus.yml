@@ -65,9 +65,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         if: ${{ matrix.test.needs-wasm-binary }}
         with:
           name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
@@ -80,6 +80,8 @@ jobs:
           tar -xvf artifacts.tar
           ls -ltr artifacts/*
           cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
+          cp ./artifacts/zombienet/wasm_binary_elastic_scaling.rs.compact.compressed.wasm /tmp/
+          cp ./artifacts/zombienet/wasm_binary_elastic_scaling_12s_slot.rs.compact.compressed.wasm /tmp/
           ls -ltr /tmp
           rm -rf artifacts
 

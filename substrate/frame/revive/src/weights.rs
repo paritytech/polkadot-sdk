@@ -92,19 +92,19 @@ pub trait WeightInfo {
 	fn seal_origin() -> Weight;
 	fn to_account_id() -> Weight;
 	fn seal_code_hash() -> Weight;
-	fn seal_own_code_hash() -> Weight;
+	fn own_code_hash() -> Weight;
 	fn seal_code_size() -> Weight;
-	fn seal_caller_is_origin() -> Weight;
-	fn seal_caller_is_root() -> Weight;
+	fn caller_is_origin() -> Weight;
+	fn caller_is_root() -> Weight;
 	fn seal_address() -> Weight;
-	fn seal_weight_left() -> Weight;
+	fn weight_left() -> Weight;
 	fn seal_ref_time_left() -> Weight;
 	fn seal_balance() -> Weight;
 	fn seal_balance_of() -> Weight;
 	fn seal_get_immutable_data(n: u32, ) -> Weight;
 	fn seal_set_immutable_data(n: u32, ) -> Weight;
 	fn seal_value_transferred() -> Weight;
-	fn seal_minimum_balance() -> Weight;
+	fn minimum_balance() -> Weight;
 	fn seal_return_data_size() -> Weight;
 	fn seal_call_data_size() -> Weight;
 	fn seal_gas_limit() -> Weight;
@@ -114,7 +114,6 @@ pub trait WeightInfo {
 	fn seal_block_author() -> Weight;
 	fn seal_block_hash() -> Weight;
 	fn seal_now() -> Weight;
-	fn seal_weight_to_fee() -> Weight;
 	fn seal_copy_to_contract(n: u32, ) -> Weight;
 	fn seal_call_data_load() -> Weight;
 	fn seal_call_data_copy(n: u32, ) -> Weight;
@@ -537,7 +536,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(9_975_000, 3868)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
-	fn seal_own_code_hash() -> Weight {
+	fn own_code_hash() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -556,14 +555,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(13_527_000, 3940)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
-	fn seal_caller_is_origin() -> Weight {
+	fn caller_is_origin() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 337_000 picoseconds.
 		Weight::from_parts(375_000, 0)
 	}
-	fn seal_caller_is_root() -> Weight {
+	fn caller_is_root() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -577,7 +576,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 308_000 picoseconds.
 		Weight::from_parts(352_000, 0)
 	}
-	fn seal_weight_left() -> Weight {
+	fn weight_left() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -646,7 +645,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 260_000 picoseconds.
 		Weight::from_parts(293_000, 0)
 	}
-	fn seal_minimum_balance() -> Weight {
+	fn minimum_balance() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -722,14 +721,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 239_000 picoseconds.
 		Weight::from_parts(276_000, 0)
 	}
-	fn seal_weight_to_fee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_595_000 picoseconds.
-		Weight::from_parts(1_665_000, 0)
-	}
-	/// The range of component `n` is `[0, 1048572]`.
+	/// The range of component `n` is `[0, 262140]`.
 	fn seal_copy_to_contract(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1690,7 +1682,7 @@ impl WeightInfo for () {
 		Weight::from_parts(9_975_000, 3868)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
-	fn seal_own_code_hash() -> Weight {
+	fn own_code_hash() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1709,14 +1701,14 @@ impl WeightInfo for () {
 		Weight::from_parts(13_527_000, 3940)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
-	fn seal_caller_is_origin() -> Weight {
+	fn caller_is_origin() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 337_000 picoseconds.
 		Weight::from_parts(375_000, 0)
 	}
-	fn seal_caller_is_root() -> Weight {
+	fn caller_is_root() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1730,7 +1722,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 308_000 picoseconds.
 		Weight::from_parts(352_000, 0)
 	}
-	fn seal_weight_left() -> Weight {
+	fn weight_left() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1799,7 +1791,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 260_000 picoseconds.
 		Weight::from_parts(293_000, 0)
 	}
-	fn seal_minimum_balance() -> Weight {
+	fn minimum_balance() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1875,14 +1867,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 239_000 picoseconds.
 		Weight::from_parts(276_000, 0)
 	}
-	fn seal_weight_to_fee() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_595_000 picoseconds.
-		Weight::from_parts(1_665_000, 0)
-	}
-	/// The range of component `n` is `[0, 1048572]`.
+	/// The range of component `n` is `[0, 262140]`.
 	fn seal_copy_to_contract(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

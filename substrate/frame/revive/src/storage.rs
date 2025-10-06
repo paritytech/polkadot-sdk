@@ -152,7 +152,7 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 
 impl<T: Config> AccountInfo<T> {
 	/// Returns true if the account is a contract.
-	fn is_contract(address: &H160) -> bool {
+	pub fn is_contract(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
 		matches!(info.account_type, AccountType::Contract(_))
 	}
@@ -454,7 +454,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
