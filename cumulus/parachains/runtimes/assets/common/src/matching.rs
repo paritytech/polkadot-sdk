@@ -27,6 +27,7 @@ frame_support::parameter_types! {
 	pub LocalLocationPattern: Location = Location::new(0, Here);
 	pub ParentLocation: Location = Location::parent();
 }
+use pallet_assets_reserves::ProvideAssetReserves;
 
 /// Accepts an asset if it is from the origin.
 pub struct IsForeignConcreteAsset<IsForeign>(core::marker::PhantomData<IsForeign>);
@@ -62,6 +63,83 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone +
 				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))),
 			_ => false,
 		}
+	}
+}
+
+/// Checks if asset `a` is coming from a trusted Reserve location `b`, then checks whether the local
+/// chain is also a reserve of `a`. Assets can be teleported between their reserve locations.
+/// Only supports assets from sibling parachains.
+pub struct TeleportableForeignAsset<SelfParaId, ReserveProvider, L = Location>(
+	core::marker::PhantomData<(SelfParaId, ReserveProvider, L)>,
+);
+impl<
+		SelfParaId: Get<ParaId>,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
+		ReserveProvider: ProvideAssetReserves<Location, Location>,
+	> ContainsPair<L, L> for TeleportableForeignAsset<SelfParaId, ReserveProvider, L>
+{
+	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm:contains", ?a, ?b, "TeleportableForeignAsset");
+		// We convert locations to latest
+		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) => (a, b),
+			_ => return false,
+		};
+
+		// here we verify asset belongs to sibling parachain
+		if !matches!(
+			a.unpack(),
+			(1, interior) if matches!(
+				interior.first(),
+				Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))
+			)
+		) {
+			return false
+		}
+
+		// check if both `b` and `Here` are trusted reserves for `a`
+		// (`b` is always considered a reserve for `a` if `a` comes from `b`)
+		let reserves = ReserveProvider::reserves(&a);
+		reserves.contains(&Location::here()) && (a.starts_with(&b) || reserves.contains(&b))
+	}
+}
+
+/// Checks if asset `a` is coming from a trusted Reserve location `b`, then checks that the local
+/// chain is NOT itself also reserve of `a`. Assets should be teleported between their reserve
+/// locations, but if `b` is reserve and `Here` is not, then `a` can be reserve transferred using
+/// `b` as reserve. Only supports assets from sibling parachains.
+pub struct ForeignAssetFromTrustedReserve<SelfParaId, ReserveProvider, L = Location>(
+	core::marker::PhantomData<(SelfParaId, ReserveProvider, L)>,
+);
+impl<
+		SelfParaId: Get<ParaId>,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
+		ReserveProvider: ProvideAssetReserves<Location, Location>,
+	> ContainsPair<L, L> for ForeignAssetFromTrustedReserve<SelfParaId, ReserveProvider, L>
+{
+	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm:contains", ?a, ?b, "ForeignAssetFromTrustedReserve");
+		// We convert locations to latest
+		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) => (a, b),
+			_ => return false,
+		};
+
+		// here we verify asset belongs to sibling parachain
+		if !matches!(
+			a.unpack(),
+			(1, interior) if matches!(
+				interior.first(),
+				Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))
+			)
+		) {
+			return false
+		}
+
+		// check if `b` is trusted reserves for `a`, but `Here` is NOT
+		// (`b` is always considered a reserve for `a` if `a` comes from `b`)
+		let reserves = ReserveProvider::reserves(&a);
+		!reserves.contains(&Location::here()) && (a.starts_with(&b) || reserves.contains(&b))
 	}
 }
 

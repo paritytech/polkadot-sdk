@@ -50,6 +50,7 @@ decl_test_parachains! {
 			Balances: asset_hub_westend_runtime::Balances,
 			Assets: asset_hub_westend_runtime::Assets,
 			ForeignAssets: asset_hub_westend_runtime::ForeignAssets,
+			AssetsReserves: asset_hub_westend_runtime::AssetsReserves,
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
 			SnowbridgeSystemFrontend: asset_hub_westend_runtime::SnowbridgeSystemFrontend,

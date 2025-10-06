@@ -137,6 +137,12 @@ pub fn genesis() -> Storage {
 			],
 			..Default::default()
 		},
+		assets_reserves: asset_hub_rococo_runtime::AssetsReservesConfig {
+			reserves: vec![
+				(PenpalATeleportableAssetLocation::get(), vec![xcm::v5::Location::here()]),
+				(PenpalBTeleportableAssetLocation::get(), vec![xcm::v5::Location::here()]),
+			],
+		},
 		..Default::default()
 	};
 

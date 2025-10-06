@@ -1450,6 +1450,14 @@ fn transfer_penpal_native_asset() {
 	);
 	AssetHubWestend::fund_accounts(vec![(penpal_sovereign.clone(), INITIAL_FUND)]);
 
+	// Set "pal" as teleportable between Penpal and AH, using the asset owner account
+	AssetHubWestend::execute_with(|| {
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetsReserves::update(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+			Box::new(pal_at_asset_hub.clone()),
+			vec![Location::here()],
+		));
+	});
 	// Register token
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
@@ -1630,7 +1638,8 @@ fn transfer_penpal_teleport_enabled_asset() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHub::get();
+	let asset_location_on_penpal =
+		PenpalB::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
 
 	let pal_at_asset_hub = Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 		.appended_with(asset_location_on_penpal.clone())

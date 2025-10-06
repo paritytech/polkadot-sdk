@@ -102,7 +102,7 @@ use xcm_config::{
 pub use sp_runtime::BuildStorage;
 
 use assets_common::{
-	foreign_creators::ForeignCreators,
+	foreign_creators::{AssetOwnerOrAdmin, ForeignCreators},
 	matching::{FromNetwork, FromSiblingParachain},
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
@@ -606,6 +606,22 @@ pub type ForeignAssetsFreezerInstance = pallet_assets_freezer::Instance2;
 impl pallet_assets_freezer::Config<ForeignAssetsFreezerInstance> for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
+}
+
+// Mapping Reserve locations for `ForeignAssets`
+pub type ForeignAssetsReservesInstance = pallet_assets_reserves::Instance2;
+impl pallet_assets_reserves::Config<ForeignAssetsReservesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = xcm::v5::Location;
+	type Reserve = xcm::v5::Location;
+	type ManagerOrigin = AssetOwnerOrAdmin<
+		pallet_assets::Pallet<Runtime, ForeignAssetsInstance>,
+		LocationToAccountId,
+		AccountId,
+		xcm::v5::Location,
+	>;
+	type AssetInspect = pallet_assets::Pallet<Runtime, ForeignAssetsInstance>;
+	type WeightInfo = weights::pallet_assets_reserves::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1362,6 +1378,7 @@ construct_runtime!(
 		Revive: pallet_revive = 60,
 
 		AssetRewards: pallet_asset_rewards = 61,
+		AssetsReserves: pallet_assets_reserves::<Instance2> = 62,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 

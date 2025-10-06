@@ -1252,6 +1252,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-reserves",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -1392,6 +1393,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-freezer",
  "pallet-assets-precompiles",
+ "pallet-assets-reserves",
  "pallet-aura",
  "pallet-authorship",
  "pallet-bags-list",
@@ -1515,6 +1517,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "pallet-asset-conversion",
  "pallet-assets",
+ "pallet-assets-reserves",
  "pallet-revive",
  "pallet-revive-uapi",
  "pallet-xcm",
@@ -11571,6 +11574,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-assets-reserves"
+version = "21.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-atomic-swap"
 version = "28.0.0"
 dependencies = [
@@ -16432,6 +16451,7 @@ dependencies = [
  "pallet-assets-freezer",
  "pallet-assets-holder",
  "pallet-assets-precompiles",
+ "pallet-assets-reserves",
  "pallet-atomic-swap",
  "pallet-aura",
  "pallet-authority-discovery",

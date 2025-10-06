@@ -49,6 +49,7 @@ decl_test_parachains! {
 			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
 			Assets: asset_hub_rococo_runtime::Assets,
 			ForeignAssets: asset_hub_rococo_runtime::ForeignAssets,
+			AssetsReserves: asset_hub_rococo_runtime::AssetsReserves,
 			PoolAssets: asset_hub_rococo_runtime::PoolAssets,
 			AssetConversion: asset_hub_rococo_runtime::AssetConversion,
 			Balances: asset_hub_rococo_runtime::Balances,

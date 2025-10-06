@@ -54,6 +54,7 @@ use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use assets_common::foreign_creators::AssetOwnerOrAdmin;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -514,6 +515,22 @@ pub type ForeignAssetsFreezerInstance = pallet_assets_freezer::Instance2;
 impl pallet_assets_freezer::Config<ForeignAssetsFreezerInstance> for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
+}
+
+// Mapping Reserve locations for `ForeignAssets`
+pub type ForeignAssetsReservesInstance = pallet_assets_reserves::Instance2;
+impl pallet_assets_reserves::Config<ForeignAssetsReservesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = xcm::v5::Location;
+	type Reserve = xcm::v5::Location;
+	type ManagerOrigin = AssetOwnerOrAdmin<
+		pallet_assets::Pallet<Runtime, ForeignAssetsInstance>,
+		LocationToAccountId,
+		AccountId,
+		xcm::v5::Location,
+	>;
+	type AssetInspect = pallet_assets::Pallet<Runtime, ForeignAssetsInstance>;
+	type WeightInfo = weights::pallet_assets_reserves::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1118,6 +1135,7 @@ construct_runtime!(
 		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
 
 		AssetRewards: pallet_asset_rewards = 60,
+		AssetsReserves: pallet_assets_reserves::<Instance2> = 62,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
