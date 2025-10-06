@@ -1127,15 +1127,12 @@ fn self_destruct2_does_not_delete_code() {
 
 		let initial_contract_balance = 100_000;
 
-		let alice_balance_before_instantiation = <Test as Config>::Currency::total_balance(&ALICE);
-
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(binary))
 			.native_value(initial_contract_balance)
 			.build_and_unwrap_contract();
 
 		let hold_balance = contract_base_deposit(&contract.addr);
-		let upload_deposit = get_code_deposit(&code_hash);
 
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&contract.addr);
