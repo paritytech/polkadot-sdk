@@ -26,6 +26,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{BuildStorage, Perbill};
+use sp_weights::constants::WEIGHT_REF_TIME_PER_SECOND;
 
 // Logger module to track execution.
 #[frame_support::pallet]
@@ -134,7 +135,7 @@ impl Contains<RuntimeCall> for BaseFilter {
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
-			Weight::from_parts(2_000_000_000_000, u64::MAX),
+			Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND * 2, u64::MAX),
 		);
 }
 
@@ -142,6 +143,7 @@ parameter_types! {
 impl system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
+	type BlockWeights = BlockWeights;
 }
 impl logger::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
