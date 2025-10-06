@@ -173,3 +173,20 @@ fn difficulty_works(fixture_type: FixtureType) {
 		);
 	});
 }
+
+/// Tests that the difficulty opcode works as expected.
+#[test_case(FixtureType::Solc)]
+fn base_fee_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {}).abi_encode())
+			.build_and_unwrap_result();
+		let decoded = BlockInfo::difficultyCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(<crate::Pallet<Test>>::evm_gas_price().as_u64(), decoded);
+	});
+}
