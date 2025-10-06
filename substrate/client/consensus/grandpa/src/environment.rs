@@ -342,7 +342,7 @@ impl<Block: BlockT> SharedVoterSetState<Block> {
 	}
 
 	/// Read the inner voter set state.
-	pub(crate) fn read(&self) -> parking_lot::RwLockReadGuard<VoterSetState<Block>> {
+	pub(crate) fn read(&self) -> parking_lot::RwLockReadGuard<'_, VoterSetState<Block>> {
 		self.inner.read()
 	}
 
