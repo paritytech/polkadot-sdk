@@ -213,6 +213,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn effective_gas_price(&self) -> U256 {
 		panic!("MockExt::effective_gas_price")
 	}
+
+	fn gas_left(&self) -> u64 {
+		panic!("MockExt::gas_left")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {

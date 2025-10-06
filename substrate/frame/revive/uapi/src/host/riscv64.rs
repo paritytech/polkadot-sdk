@@ -424,7 +424,7 @@ impl HostFn for HostFnImpl {
 		extract_from_slice(output, output_len as usize);
 	}
 
-	fn ref_time_left() -> u64 {
+	fn gas_left() -> u64 {
 		unsafe { sys::ref_time_left() }
 	}
 

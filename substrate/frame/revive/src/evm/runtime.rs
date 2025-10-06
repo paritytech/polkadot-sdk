@@ -46,7 +46,9 @@ use sp_runtime::{
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
 pub trait SetWeightLimit {
 	/// Set the weight limit of this call.
-	fn set_weight_limit(&mut self, weight_limit: Weight);
+	///
+	/// Returns the replaced weight.
+	fn set_weight_limit(&mut self, weight_limit: Weight) -> Weight;
 }
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
@@ -510,13 +512,11 @@ mod test {
 				value,
 				data,
 				gas_limit,
-				storage_deposit_limit,
 				effective_gas_price,
 				encoded_len,
 			}) if dest == tx.to.unwrap() &&
 				value == tx.value.unwrap_or_default().as_u64().into() &&
 				data == tx.input.to_vec() &&
-				storage_deposit_limit == <BalanceOf<Test>>::max_value() &&
 				effective_gas_price == expected_effective_gas_price.into() =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
@@ -547,13 +547,11 @@ mod test {
 				code,
 				data,
 				gas_limit,
-				storage_deposit_limit,
 				effective_gas_price,
 				encoded_len,
 			}) if value == expected_value &&
 				code == expected_code &&
 				data == expected_data &&
-				storage_deposit_limit == <BalanceOf<Test>>::max_value() &&
 				effective_gas_price == expected_effective_gas_price.into() =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
