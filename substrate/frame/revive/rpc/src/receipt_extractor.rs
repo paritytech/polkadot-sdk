@@ -49,14 +49,6 @@ type FetchReceiptDataFn = Arc<
 type FetchEthBlockHashFn =
 	Arc<dyn Fn(H256, u64) -> Pin<Box<dyn Future<Output = Option<H256>> + Send>> + Send + Sync>;
 
-type FetchBlockGasLimitFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
->;
-
-type FetchBlockAuthorFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<H160, ClientError>> + Send>> + Send + Sync,
->;
-
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
@@ -68,12 +60,6 @@ pub struct ReceiptExtractor {
 
 	/// Fetch the gas price from the chain.
 	fetch_gas_price: FetchGasPriceFn,
-
-	/// Fetch the block gas limit from the chain.
-	fetch_block_gas_limit: FetchBlockGasLimitFn,
-
-	/// Fetch the block author from the chain.
-	fetch_block_author: FetchBlockAuthorFn,
 
 	/// The native to eth decimal ratio, used to calculated gas from native fees.
 	native_to_eth_ratio: u32,
@@ -139,40 +125,10 @@ impl ReceiptExtractor {
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		let api_inner = api.clone();
-		let fetch_block_gas_limit = Arc::new(move |block_hash| {
-			let api_inner = api_inner.clone();
-
-			let fut = async move {
-				let runtime_api = api_inner.runtime_api().at(block_hash);
-				let payload = subxt_client::apis().revive_api().block_gas_limit();
-				let gas_limit = runtime_api.call(payload).await?;
-				Ok(*gas_limit)
-			};
-
-			Box::pin(fut) as Pin<Box<_>>
-		});
-
-		let api_inner = api.clone();
-		let fetch_block_author = Arc::new(move |block_hash| {
-			let api_inner = api_inner.clone();
-
-			let fut = async move {
-				let runtime_api = api_inner.runtime_api().at(block_hash);
-				let payload = subxt_client::apis().revive_api().block_author();
-				let author = runtime_api.call(payload).await?;
-				Ok(author)
-			};
-
-			Box::pin(fut) as Pin<Box<_>>
-		});
-
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
 			fetch_gas_price,
-			fetch_block_gas_limit,
-			fetch_block_author,
 			native_to_eth_ratio,
 			earliest_receipt_block,
 		})
@@ -190,17 +146,11 @@ impl ReceiptExtractor {
 		});
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
-		let fetch_block_gas_limit =
-			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(30_000_000)))) as Pin<Box<_>>);
-		let fetch_block_author =
-			Arc::new(|_| Box::pin(std::future::ready(Ok(H160::zero()))) as Pin<Box<_>>);
 
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
 			fetch_gas_price,
-			fetch_block_gas_limit,
-			fetch_block_author,
 			native_to_eth_ratio: 1_000_000,
 			earliest_receipt_block: None,
 		}
@@ -434,15 +384,5 @@ impl ReceiptExtractor {
 		block_number: u64,
 	) -> Option<H256> {
 		(self.fetch_eth_block_hash)(*block_hash, block_number).await
-	}
-
-	/// Get the block gas limit for the given block hash.
-	pub async fn block_gas_limit(&self, block_hash: H256) -> Result<U256, ClientError> {
-		(self.fetch_block_gas_limit)(block_hash).await
-	}
-
-	/// Get the block author for the given block hash.
-	pub async fn block_author(&self, block_hash: H256) -> Result<H160, ClientError> {
-		(self.fetch_block_author)(block_hash).await
 	}
 }
