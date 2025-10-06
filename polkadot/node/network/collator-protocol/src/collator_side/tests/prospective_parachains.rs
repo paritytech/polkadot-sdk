@@ -648,7 +648,8 @@ fn send_parent_head_data_for_elastic_scaling() {
 			let head_b = Hash::from_low_u64_be(129);
 			let head_b_num: u32 = 63;
 
-			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
 
 			// Set collating para id.
 			overseer_send(
@@ -779,7 +780,8 @@ fn advertise_and_send_collation_by_hash() {
 			let head_b = Hash::from_low_u64_be(129);
 			let head_b_num: u32 = 63;
 
-			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
 
 			// Set collating para id.
 			overseer_send(
