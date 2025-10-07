@@ -125,9 +125,6 @@ pub enum ClientError {
 	/// The transaction receipt was not found.
 	#[error("Transaction receipt not found")]
 	TransactReceiptNotFound,
-	/// Failed to check instant seal status.
-	#[error("Failed to check instant seal status")]
-	GetAutomineFailed,
 }
 
 const REVERT_CODE: i32 = 3;
@@ -236,7 +233,18 @@ impl Client {
 			max_block_weight,
 			automine: false,
 		};
-		client.update_automine().await;
+
+		// Update the automine status by querying the node.
+		// If the query fails, automine is set to false.
+		let update_automine = async {
+			if let Ok(automine) = client.get_automine().await {
+				client.automine = automine;
+			} else {
+				client.automine = false;
+			}
+		};
+		update_automine.await;
+
 		Ok(client)
 	}
 
@@ -751,18 +759,9 @@ impl Client {
 			},
 			Err(err) => {
 				log::error!(target: LOG_TARGET, "Get automine failed: {err:?}");
-				Err(ClientError::GetAutomineFailed)
+				// Return false if the query fails, since only revive-dev-node implements automine.
+				return Ok(false)
 			},
-		}
-	}
-
-	/// Update the automine status by querying the node.
-	/// If the query fails, automine is set to false.
-	async fn update_automine(&mut self) {
-		if let Ok(automine) = self.get_automine().await {
-			self.automine = automine;
-		} else {
-			self.automine = false;
 		}
 	}
 }

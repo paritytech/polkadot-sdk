@@ -39,11 +39,12 @@ pub struct FullDeps<C, P> {
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
 	/// The consensus type of the node.
-	/// TODO: Should be Arc<Consensus>?
 	pub consensus: Consensus,
 }
 
 /// AutoMine JSON-RPC api.
+/// Automine is a feature of the Hardhat Network where a new block is automatically mined after each
+/// transaction.
 #[rpc(server, client)]
 pub trait AutoMineRpc {
 	/// API to get the automine status.
