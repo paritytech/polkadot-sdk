@@ -61,7 +61,7 @@ where
 	H::Out: Ord + 'static + codec::Codec,
 {
 	/// Get externalities implementation.
-	pub fn ext(&mut self) -> Ext<H, InMemoryBackend<H>> {
+	pub fn ext(&mut self) -> Ext<'_, H, InMemoryBackend<H>> {
 		Ext::new(&mut self.overlay, &self.backend, Some(&mut self.extensions))
 	}
 

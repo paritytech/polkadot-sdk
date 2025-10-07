@@ -261,7 +261,7 @@ impl Subscription {
 	}
 
 	/// Get the subscription id.
-	pub fn subscription_id(&self) -> SubscriptionId {
+	pub fn subscription_id(&self) -> SubscriptionId<'_> {
 		self.0.subscription_id()
 	}
 
