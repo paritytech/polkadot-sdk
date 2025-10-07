@@ -162,8 +162,8 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 	}
 
 	/// Set the extra extensions to be registered with the runtime API during block building.
-	pub fn with_extra_extensions(mut self, extra_extensions: Extensions) -> Self {
-		self.extra_extensions = extra_extensions;
+	pub fn with_extra_extensions(mut self, extra_extensions: impl Into<Extensions>) -> Self {
+		self.extra_extensions = extra_extensions.into();
 		self
 	}
 

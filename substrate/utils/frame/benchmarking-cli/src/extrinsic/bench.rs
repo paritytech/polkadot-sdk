@@ -140,12 +140,19 @@ where
 
 		let storage_proof_recorder = self.record_proof.then(|| ProofRecorder::<Block>::default());
 
-		let mut builder = BlockBuilderBuilder::new(&*self.client)
+		let builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(chain.best_hash)
 			.with_parent_block_number(chain.best_number)
 			.with_inherent_digests(Digest { logs: self.digest_items.clone() })
-			.with_proof_recorder(storage_proof_recorder.clone())
-			.build()?;
+			.with_proof_recorder(storage_proof_recorder.clone());
+
+		let builder = if let Some(proof_recorder) = &storage_proof_recorder {
+			builder.with_extra_extensions(ProofSizeExt::new(proof_recorder.clone()))
+		} else {
+			builder
+		};
+
+		let mut builder = builder.build()?;
 
 		// Create and insert the inherents.
 		let inherents = builder.create_inherents(self.inherent_data.clone())?;
