@@ -31,6 +31,7 @@ use crate::{
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
+		block_hash::{EthereumBlockBuilder, InMemoryStorage},
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
 		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
 		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256,
@@ -247,8 +248,6 @@ impl Client {
 	/// an empty EVM genesis block and stores the mapping between its EVM hash
 	/// and the Substrate hash.
 	async fn ensure_genesis_block(&self) -> Result<(), ClientError> {
-		use pallet_revive::evm::block_hash::{EthereumBlockBuilder, InMemoryStorage};
-
 		// Try to get genesis block
 		let genesis_block = match self.block_by_number(0).await? {
 			Some(block) => block,
@@ -268,20 +267,11 @@ impl Client {
 
 		log::info!(target: LOG_TARGET, "🏗️ Reconstructing genesis block (block 0)");
 
-		let runtime_api = self.runtime_api(substrate_hash);
-		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
-		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
-		let timestamp = extract_block_timestamp(&genesis_block).await.unwrap_or_default();
-
-		// Build genesis block with no transactions
-		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
-		let (genesis_evm_block, _gas_info) = builder.build(
-			0u64.into(),      // block number 0
-			H256::zero(),     // parent hash is zero for genesis
-			timestamp.into(), // timestamp from substrate block
-			block_author,     // block author
-			gas_limit,        // gas limit
-		);
+		// Build the genesis EVM block
+		let genesis_evm_block = self
+			.build_genesis_block(&genesis_block)
+			.await
+			.ok_or(ClientError::EthereumBlockNotFound)?;
 
 		let ethereum_hash = genesis_evm_block.hash;
 
@@ -296,6 +286,38 @@ impl Client {
 		);
 
 		Ok(())
+	}
+
+	/// Build the genesis block (block 0) on-demand for RPC queries.
+	///
+	/// This method reconstructs the EVM genesis block using the same logic as
+	/// `ensure_genesis_block()`, but returns it for use in RPC responses.
+	async fn build_genesis_block(&self, genesis_block: &SubstrateBlock) -> Option<Block> {
+		let substrate_hash = genesis_block.hash();
+		let runtime_api = self.runtime_api(substrate_hash);
+
+		let gas_limit = runtime_api.block_gas_limit().await.ok()?;
+		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
+		let timestamp = extract_block_timestamp(genesis_block).await.unwrap_or_default();
+
+		// Build genesis block with no transactions
+		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
+		let (genesis_evm_block, _gas_info) = builder.build(
+			0u64.into(),      // block number 0
+			H256::zero(),     // parent hash is zero for genesis
+			timestamp.into(), // timestamp from substrate block
+			block_author,     // block author
+			gas_limit,        // gas limit
+		);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Built genesis block: EVM hash {:?} for Substrate hash {:?}",
+			genesis_evm_block.hash,
+			substrate_hash
+		);
+
+		Some(genesis_evm_block)
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -727,6 +749,15 @@ impl Client {
 		hydrated_transactions: bool,
 	) -> Option<Block> {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
+
+		// Special handling for genesis block (block 0)
+		// Genesis block is never stored on-chain, so we need to build it manually
+		if block.number() == 0 {
+			log::trace!(target: LOG_TARGET, "Building genesis block (block 0) for RPC query");
+			let genesis_block = self.build_genesis_block(&block).await?;
+
+			return Some(genesis_block);
+		}
 
 		let storage_api = self.storage_api(block.hash());
 
