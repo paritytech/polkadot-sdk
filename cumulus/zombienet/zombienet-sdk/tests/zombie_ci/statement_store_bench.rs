@@ -8,7 +8,11 @@ use codec::{Decode, Encode};
 use log::{debug, info, trace};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Statement, Topic};
-use std::{collections::HashMap, time::Duration};
+use std::{
+	collections::HashMap,
+	sync::atomic::{AtomicBool, AtomicU64, Ordering},
+	time::Duration,
+};
 use tokio::time::timeout;
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
@@ -105,6 +109,168 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 
 	let aggregated_stats = ParticipantStats::aggregate(all_stats);
 	aggregated_stats.log_summary();
+
+	Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network().await?;
+
+	let target_node = "alice";
+	let node = network.get_node(target_node)?;
+	let rpc_client = node.rpc().await?;
+	info!("Created single RPC client for target node: {}", target_node);
+
+	const TOTAL_TASKS: u64 = 100_000;
+	const PAYLOAD_SIZE: usize = 512;
+	const SEND_INTERVAL_SECS: u64 = 1;
+
+	let total_sent = std::sync::Arc::new(AtomicU64::new(0));
+	let total_ignored = std::sync::Arc::new(AtomicU64::new(0));
+	let store_full = std::sync::Arc::new(AtomicBool::new(false));
+	let start_time = std::time::Instant::now();
+
+	info!("Starting memory stress benchmark: spawning {} tasks immediately", TOTAL_TASKS);
+	info!("Each task sends {}B statement every {} second", PAYLOAD_SIZE, SEND_INTERVAL_SECS);
+	info!("Expected load: ~{}K statements/sec", TOTAL_TASKS / 1000);
+
+	for task_idx in 0..TOTAL_TASKS {
+		let rpc_client = rpc_client.clone();
+		let total_sent = total_sent.clone();
+		let total_ignored = total_ignored.clone();
+		let store_full = store_full.clone();
+
+		tokio::spawn(async move {
+			let (keyring, _) = sr25519::Pair::generate();
+			let public = keyring.public().0;
+			let mut statement_count = 0u64;
+
+			loop {
+				if store_full.load(Ordering::Relaxed) {
+					break;
+				}
+
+				let mut statement = Statement::new();
+				let topic = |idx: usize| {
+					blake2_256(format!("{}{}{:?}", idx, statement_count, public).as_bytes())
+				};
+				statement.set_topic(0, topic(0));
+				statement.set_topic(1, topic(1));
+				statement.set_topic(2, topic(2));
+				statement.set_topic(3, topic(3));
+				statement.set_plain_data(vec![0u8; PAYLOAD_SIZE]);
+				statement.sign_sr25519_private(&keyring);
+
+				let statement_bytes: Bytes = statement.encode().into();
+				match rpc_client
+					.request::<()>("statement_submit", rpc_params![statement_bytes])
+					.await
+				{
+					Ok(_) => {
+						total_sent.fetch_add(1, Ordering::Relaxed);
+						statement_count += 1;
+					},
+					Err(e) => {
+						total_ignored.fetch_add(1, Ordering::Relaxed);
+						let error_msg = e.to_string();
+
+						if error_msg.to_lowercase().contains("full") {
+							if !store_full.swap(true, Ordering::Relaxed) {
+								info!("Statement store FULL detected at task {}: {}", task_idx, e);
+							}
+							break;
+						}
+
+						if total_ignored.load(Ordering::Relaxed) == 1 {
+							info!("First statement rejection at task {}: {}", task_idx, e);
+						}
+					},
+				}
+
+				tokio::time::sleep(Duration::from_secs(SEND_INTERVAL_SECS)).await;
+			}
+		});
+
+		if (task_idx + 1) % 10_000 == 0 {
+			info!("Spawned {} tasks", task_idx + 1);
+		}
+	}
+
+	info!("All {} tasks spawned in {:.2}s", TOTAL_TASKS, start_time.elapsed().as_secs_f64());
+
+	loop {
+		tokio::time::sleep(Duration::from_secs(10)).await;
+		let sent = total_sent.load(Ordering::Relaxed);
+		let ignored = total_ignored.load(Ordering::Relaxed);
+		let elapsed = start_time.elapsed().as_secs();
+
+		info!(
+			"[{}s] Sent: {} | Ignored: {} | Rate: {:.0} stmt/s",
+			elapsed,
+			sent,
+			ignored,
+			sent as f64 / elapsed as f64
+		);
+
+		if store_full.load(Ordering::Relaxed) {
+			let final_sent = total_sent.load(Ordering::Relaxed);
+			let final_ignored = total_ignored.load(Ordering::Relaxed);
+			let final_elapsed = start_time.elapsed().as_secs_f64();
+			let final_success_rate = if final_sent + final_ignored > 0 {
+				(final_sent as f64 / (final_sent + final_ignored) as f64) * 100.0
+			} else {
+				0.0
+			};
+
+			info!("========================================");
+			info!("STATEMENT STORE IS FULL");
+			info!("Time: {:.2}s", final_elapsed);
+			info!("Sent: {}", final_sent);
+			info!("Ignored: {}", final_ignored);
+			info!("Average rate: {:.0} stmt/s", final_sent as f64 / final_elapsed);
+			info!(
+				"Estimated store size: {:.2} MB",
+				(final_sent as f64 * PAYLOAD_SIZE as f64) / (1024.0 * 1024.0)
+			);
+
+			break;
+		}
+	}
+
+
+	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+	info!("Statements submitted:");
+	for &name in &collator_names {
+		let node = network.get_node(name)?;
+		node.wait_metric_with_timeout(
+			"substrate_sub_statement_store_submitted_statements",
+			|count| {
+				info!("\t{}: {}", name, count);
+				true
+			},
+			30u64,
+		)
+		.await?;
+	}
+
+	info!("Statements propagated:");
+	for &name in &collator_names {
+		let node = network.get_node(name)?;
+		node.wait_metric_with_timeout(
+			"substrate_sync_propagated_statements",
+			|count| {
+				info!("	{}: {}", name, count);
+				true
+			},
+			30u64,
+		)
+		.await?;
+	}
 
 	Ok(())
 }
