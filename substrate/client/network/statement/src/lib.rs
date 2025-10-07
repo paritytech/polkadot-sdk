@@ -425,14 +425,21 @@ where
 				let hash = s.hash();
 				peer.known_statements.insert(hash);
 
-				self.network.report_peer(who, rep::ANY_STATEMENT);
-
 				if self.statement_store.has_statement(&hash) {
 					if let Some(ref metrics) = self.metrics {
 						metrics.known_statements_received.inc();
 					}
+
+					if let Some(peers) = self.pending_statements_peers.get(&hash) {
+						if peers.contains(&who) {
+							// Already received this from the same peer.
+							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+						}
+					}
 					continue;
 				}
+
+				self.network.report_peer(who, rep::ANY_STATEMENT);
 
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
@@ -589,11 +596,27 @@ where
 #[cfg(test)]
 mod tests {
 
-	use std::sync::atomic::{AtomicUsize, Ordering};
+	use std::sync::{
+		atomic::{AtomicUsize, Ordering},
+		Mutex,
+	};
 
 	use super::*;
 
-	struct TestNetwork {}
+	#[derive(Clone)]
+	struct TestNetwork {
+		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
+	}
+
+	impl TestNetwork {
+		fn new() -> Self {
+			Self { reported_peers: Arc::new(Mutex::new(Vec::new())) }
+		}
+
+		fn get_reports(&self) -> Vec<(PeerId, sc_network::ReputationChange)> {
+			self.reported_peers.lock().unwrap().clone()
+		}
+	}
 
 	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {
@@ -609,8 +632,8 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn report_peer(&self, _peer_id: PeerId, _cost_benefit: sc_network::ReputationChange) {
-			// No-op for tests
+		fn report_peer(&self, peer_id: PeerId, cost_benefit: sc_network::ReputationChange) {
+			self.reported_peers.lock().unwrap().push((peer_id, cost_benefit));
 		}
 
 		fn peer_reputation(&self, _: &PeerId) -> i32 {
@@ -763,14 +786,18 @@ mod tests {
 	struct TestStatementStore {
 		statements_calls: AtomicUsize,
 		take_recent_statements_calls: AtomicUsize,
-		statements: HashMap<sp_statement_store::Hash, sp_statement_store::Statement>,
+		statements: Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>,
 	}
 
 	impl TestStatementStore {
 		fn new(
 			statements: HashMap<sp_statement_store::Hash, sp_statement_store::Statement>,
 		) -> Self {
-			Self { statements_calls: 0.into(), take_recent_statements_calls: 0.into(), statements }
+			Self {
+				statements_calls: 0.into(),
+				take_recent_statements_calls: 0.into(),
+				statements: Mutex::new(statements),
+			}
 		}
 	}
 
@@ -781,7 +808,7 @@ mod tests {
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 		> {
 			self.statements_calls.fetch_add(1, Ordering::Relaxed);
-			Ok(self.statements.iter().map(|(h, s)| (*h, s.clone())).collect())
+			Ok(self.statements.lock().unwrap().iter().map(|(h, s)| (*h, s.clone())).collect())
 		}
 
 		fn take_recent_statements(
@@ -801,7 +828,7 @@ mod tests {
 		}
 
 		fn has_statement(&self, hash: &sp_statement_store::Hash) -> bool {
-			self.statements.contains_key(hash)
+			self.statements.lock().unwrap().contains_key(hash)
 		}
 
 		fn broadcasts(
@@ -870,8 +897,9 @@ mod tests {
 	fn build_handler(
 		statement_store: Arc<TestStatementStore>,
 		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
-	) -> StatementHandler<TestNetwork, TestSync> {
-		StatementHandler {
+	) -> (StatementHandler<TestNetwork, TestSync>, TestNetwork) {
+		let network = TestNetwork::new();
+		let handler = StatementHandler {
 			protocol_name: "/statement/1".into(),
 			notification_service: Box::new(TestNotificationService {}),
 			propagate_timeout: (Box::pin(futures::stream::pending())
@@ -879,7 +907,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
-			network: TestNetwork {},
+			network: network.clone(),
 			sync: TestSync {},
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
@@ -888,14 +916,15 @@ mod tests {
 			statement_store,
 			queue_sender,
 			metrics: None,
-		}
+		};
+		(handler, network)
 	}
 
 	#[test]
 	fn test_propogates_only_recent_statements() {
 		let statement_store = Arc::new(TestStatementStore::new(Default::default()));
 		let (submit_queue_sender, _submit_queue_receiver) = async_channel::bounded(2);
-		let mut handler = build_handler(statement_store.clone(), submit_queue_sender);
+		let (mut handler, _network) = build_handler(statement_store.clone(), submit_queue_sender);
 
 		handler.propagate_statements();
 
@@ -903,8 +932,8 @@ mod tests {
 		assert_eq!(statement_store.take_recent_statements_calls.load(Ordering::Relaxed), 1);
 	}
 
-	#[tokio::test]
-	async fn test_skips_processing_statements_that_already_in_store() {
+	#[test]
+	fn test_skips_processing_statements_that_already_in_store() {
 		let mut statement1 = Statement::new();
 		statement1.set_plain_data(b"statement1".to_vec());
 		let hash1 = statement1.hash();
@@ -918,7 +947,7 @@ mod tests {
 
 		let statement_store = Arc::new(TestStatementStore::new(statements));
 		let (submit_queue_sender, submit_queue_receiver) = async_channel::bounded(2);
-		let mut handler = build_handler(statement_store.clone(), submit_queue_sender);
+		let (mut handler, _network) = build_handler(statement_store.clone(), submit_queue_sender);
 
 		let peer_id = PeerId::random();
 		handler.peers.insert(
@@ -936,5 +965,43 @@ mod tests {
 
 		let no_more = submit_queue_receiver.try_recv();
 		assert!(no_more.is_err(), "Expected only one statement to be queued");
+	}
+
+	#[test]
+	fn test_reports_for_duplicate_statements() {
+		let mut statement1 = Statement::new();
+		statement1.set_plain_data(b"statement1".to_vec());
+
+		let statements = HashMap::new();
+
+		let statement_store = Arc::new(TestStatementStore::new(statements));
+		let (submit_queue_sender, submit_queue_receiver) = async_channel::bounded(2);
+		let (mut handler, network) = build_handler(statement_store.clone(), submit_queue_sender);
+
+		let peer_id = PeerId::random();
+		handler.peers.insert(
+			peer_id,
+			Peer {
+				known_statements: LruHashSet::new(NonZeroUsize::new(2).unwrap()),
+				role: ObservedRole::Full,
+			},
+		);
+
+		handler.on_statements(peer_id, vec![statement1.clone()]);
+		let (s, _) = submit_queue_receiver.try_recv().unwrap();
+		let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
+
+		handler.on_statements(peer_id, vec![statement1]);
+
+		let reports = network.get_reports();
+		assert_eq!(
+			reports,
+			vec![
+				(peer_id, rep::ANY_STATEMENT),       // Report for first statement
+				(peer_id, rep::DUPLICATE_STATEMENT)  // Report for duplicate statement
+			],
+			"Expected ANY_STATEMENT and DUPLICATE_STATEMENT reputation change, but got: {:?}",
+			reports
+		);
 	}
 }
