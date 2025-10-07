@@ -8,6 +8,7 @@ use snowbridge_beacon_primitives::{
 	merkle_proof::{generalized_index_length, subtree_index},
 	receipt::verify_receipt_proof,
 };
+use snowbridge_ethereum::Log as AlloyLog;
 use snowbridge_verification_primitives::{
 	VerificationError::{self, *},
 	Verifier, *,
@@ -42,11 +43,7 @@ impl<T: Config> Pallet<T> {
 		log: &Log,
 	) -> Result<(), VerificationError> {
 		let receipt = verify_receipt_proof(receipts_root, receipt_proof).ok_or(InvalidProof)?;
-		if !receipt.logs().iter().any(|l| {
-			l.data.data.0 == log.data &&
-				l.address.0 == log.address.0 &&
-				l.topics().len() == log.topics.len()
-		}) {
+		if !receipt.logs().iter().any(|l| Self::check_log_match(log, l)) {
 			log::error!(
 				target: "ethereum-client",
 				"💫 Event log not found in receipt for transaction",
@@ -54,6 +51,22 @@ impl<T: Config> Pallet<T> {
 			return Err(LogNotFound)
 		}
 		Ok(())
+	}
+
+	fn check_log_match(log: &Log, receipt_log: &AlloyLog) -> bool {
+		let equal = receipt_log.data.data.0 == log.data &&
+			receipt_log.address.0 == log.address.0 &&
+			receipt_log.topics().len() == log.topics.len();
+		if !equal {
+			return false
+		}
+		for (_, (topic1, topic2)) in receipt_log.topics().iter().zip(log.topics.iter()).enumerate()
+		{
+			if topic1.0 != topic2.0 {
+				return false
+			}
+		}
+		true
 	}
 
 	/// Validates an execution header with ancestry_proof against a finalized checkpoint on
