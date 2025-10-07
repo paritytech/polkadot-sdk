@@ -1484,6 +1484,173 @@ pub type Migrations = (
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 );
 
+/// `pallet-assets` has been enhanced with asset reserves information so that AH foreign assets
+/// can be registered as either teleportable or reserve-based.
+/// Originally, all foreign assets were exclusively teleportable, whereas now, on creation they
+/// are reserve-based by default and can be made teleportable by the asset `Owner`.
+///
+/// This migration adds `Here` (the local chain) as a trusted reserve for the existing foreign
+/// assets so as to preserve their existing teleportable status. For new assets, that status
+/// needs to be explicitly opted-in to by the asset's `Owner`.
+///
+/// See <https://github.com/paritytech/polkadot-sdk/pull/9948> for more info.
+pub mod foreign_assets_v2 {
+	use super::*;
+	use core::marker::PhantomData;
+	use frame_support::{
+		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+		traits::{GetStorageVersion, StorageVersion},
+		weights::WeightMeter,
+	};
+
+	const PALLET_MIGRATIONS_ID: &[u8; 21] = b"pallet-foreign-assets";
+
+	/// Progressive states of a migration. The migration starts with the first variant and ends with
+	/// the last.
+	#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
+	pub enum MigrationState<A> {
+		Asset(A),
+		Finished,
+	}
+
+	/// The resulting state of the step and the actual weight consumed.
+	type StepResultOf<T, I> = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
+
+	pub struct ForeignAssetsLazyMigrationV1ToV2<T: pallet_assets::Config<I>, I: 'static>(
+		PhantomData<(T, I)>,
+	);
+	impl<T: pallet_assets::Config<I, ReserveId = xcm::v5::Location>, I: 'static> SteppedMigration
+		for ForeignAssetsLazyMigrationV1ToV2<T, I>
+	{
+		type Cursor = StepResultOf<T, I>;
+		type Identifier = MigrationId<21>;
+
+		fn id() -> Self::Identifier {
+			MigrationId { pallet_id: *PALLET_MIGRATIONS_ID, version_from: 1, version_to: 2 }
+		}
+
+		fn step(
+			mut cursor: Option<Self::Cursor>,
+			meter: &mut WeightMeter,
+		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			if pallet_assets::Pallet::<T, I>::on_chain_storage_version() !=
+				Self::id().version_from as u16
+			{
+				return Ok(None);
+			}
+
+			// Check that we have enough weight for at least the next step. If we don't, then the
+			// migration cannot be complete.
+			let required = Self::required_weight_per_asset();
+			if meter.remaining().any_lt(required) {
+				return Err(SteppedMigrationError::InsufficientWeight { required });
+			}
+
+			loop {
+				if !meter.can_consume(required) {
+					break;
+				}
+
+				let next = match &cursor {
+					// At first, start migrating assets.
+					None => Self::asset_step(None),
+					// Migrate any remaining assets.
+					Some(MigrationState::Asset(maybe_last_asset)) =>
+						Self::asset_step(Some(maybe_last_asset)),
+					// After the last asset, migration is finished.
+					Some(MigrationState::Finished) => {
+						StorageVersion::new(Self::id().version_to as u16)
+							.put::<pallet_assets::Pallet<T, I>>();
+						return Ok(None)
+					},
+				};
+
+				cursor = Some(next);
+				meter.consume(required);
+			}
+
+			Ok(cursor)
+		}
+
+		// #[cfg(feature = "try-runtime")]
+		// fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		// 	let authorities: BTreeMap<Suffix<T>, (T::AccountId, u32)> =
+		// 		types_v1::UsernameAuthorities::<T>::iter()
+		// 			.map(|(account, authority_properties)| {
+		// 				(
+		// 					authority_properties.account_id,
+		// 					(account, authority_properties.allocation),
+		// 				)
+		// 			})
+		// 			.collect();
+		// 	let state: TryRuntimeState<T> = TryRuntimeState {
+		// 		authorities,
+		// 		identities,
+		// 		primary_usernames,
+		// 		usernames,
+		// 		pending_usernames,
+		// 	};
+		//
+		// 	Ok(state.encode())
+		// }
+		//
+		// #[cfg(feature = "try-runtime")]
+		// fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		// 	let mut prev_state: TryRuntimeState<T> = TryRuntimeState::<T>::decode(&mut &state[..])
+		// 		.expect("Failed to decode the previous storage state");
+		//
+		// 	for (suffix, authority_properties) in AuthorityOf::<T>::iter() {
+		// 		let (prev_account, prev_allocation) = prev_state
+		// 			.authorities
+		// 			.remove(&suffix)
+		// 			.expect("should have authority in previous state");
+		// 		assert_eq!(prev_account, authority_properties.account_id);
+		// 		assert_eq!(prev_allocation, authority_properties.allocation);
+		// 	}
+		// 	assert!(prev_state.authorities.is_empty());
+		//
+		// 	Ok(())
+		// }
+	}
+
+	impl<T: pallet_assets::Config<I, ReserveId = xcm::v5::Location>, I: 'static>
+		ForeignAssetsLazyMigrationV1ToV2<T, I>
+	{
+		pub(crate) fn required_weight_per_asset() -> Weight {
+			todo!()
+		}
+
+		// Make `Here` a reserve location for one entry of `Asset`.
+		pub(crate) fn asset_step(maybe_last_key: Option<&T::AssetId>) -> StepResultOf<T, I> {
+			let mut iter = if let Some(last_key) = maybe_last_key {
+				pallet_assets::Asset::<T, I>::iter_keys_from(
+					pallet_assets::Asset::<T, I>::hashed_key_for(last_key),
+				)
+			} else {
+				pallet_assets::Asset::<T, I>::iter_keys()
+			};
+			if let Some(asset_id) = iter.next() {
+				let reserves = BoundedVec::<T::ReserveId, ConstU32<{pallet_assets::MAX_RESERVES}>>::truncate_from(vec![xcm::v5::Location::here()]);
+				pallet_assets::ReserveLocations::<T, I>::insert(asset_id.clone(), reserves);
+				MigrationState::Asset(asset_id)
+			} else {
+				MigrationState::Finished
+			}
+		}
+	}
+
+	// pub struct MarkExistingForeignAssetsAsTeleportable;
+	// impl frame_support::traits::OnRuntimeUpgrade for MarkExistingForeignAssetsAsTeleportable {
+	// 	fn on_runtime_upgrade() -> Weight {
+	// 		let mut writes = 0;
+	//
+	// 		let _assets = ForeignAssets::Asset::iter_keys();
+	//
+	// 		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
+	// 	}
+	// }
+}
+
 /// Asset Hub Westend has some undecodable storage, delete it.
 /// See <https://github.com/paritytech/polkadot-sdk/issues/2241> for more info.
 ///
