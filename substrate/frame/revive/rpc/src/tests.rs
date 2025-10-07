@@ -21,8 +21,9 @@
 use crate::{
 	cli::{self, CliCommand},
 	example::TransactionBuilder,
-	subxt_client,
-	subxt_client::{src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig},
+	subxt_client::{
+		self, src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig,
+	},
 	EthRpcClient,
 };
 use anyhow::anyhow;
@@ -30,7 +31,9 @@ use clap::Parser;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
-	evm::{Account, Block, BlockNumberOrTag, BlockTag, U256},
+	evm::{
+		Account, Block, BlockNumberOrTag, BlockTag, HashesOrTransactionInfos, TransactionInfo, U256,
+	},
 };
 use static_init::dynamic;
 use std::{sync::Arc, thread};
@@ -307,10 +310,10 @@ async fn get_evm_block_from_storage(
 #[tokio::test]
 async fn evm_blocks_should_match() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
-	let client = std::sync::Arc::new(SharedResources::client().await);
-	let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
-	// let client = std::sync::Arc::new(ws_client_with_retry("ws://localhost:8545").await);
-	// let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:9944").await?;
+	// let client = std::sync::Arc::new(SharedResources::client().await);
+	// let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
+	let client = std::sync::Arc::new(ws_client_with_retry("ws://localhost:8545").await);
+	let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:9944").await?;
 
 	// Deploy a contract to have some interesting blocks
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
@@ -337,9 +340,75 @@ async fn evm_blocks_should_match() -> anyhow::Result<()> {
 	let evm_block_from_rpc_by_hash =
 		client.get_block_by_hash(block_hash, false).await?.expect("Block should exist");
 
+	assert!(
+		matches!(
+			evm_block_from_rpc_by_number.transactions,
+			pallet_revive::evm::HashesOrTransactionInfos::Hashes(_)
+		),
+		"Block should not have hydrated transactions"
+	);
+
 	// All EVM blocks must match
 	assert_eq!(evm_block_from_storage, evm_block_from_rpc_by_number, "EVM blocks should match");
 	assert_eq!(evm_block_from_storage, evm_block_from_rpc_by_hash, "EVM blocks should match");
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
+	// let _lock = SHARED_RESOURCES.write();
+	// let client = std::sync::Arc::new(SharedResources::client().await);
+	let client = std::sync::Arc::new(ws_client_with_retry("ws://localhost:8545").await);
+
+	// Deploy a contract to have some transactions in the block
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let value = U256::from(5_000_000_000_000u128);
+	let signer = Account::default();
+	let signer_copy = Account::default();
+	let tx = TransactionBuilder::new(&client)
+		.value(value)
+		.signer(signer)
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+
+	let receipt = tx.wait_for_receipt().await?;
+	let block_number = receipt.block_number;
+	let block_hash = receipt.block_hash;
+	println!("block_number = {block_number:?}");
+	println!("tx hash = {:?}", tx.hash());
+
+	// Fetch the block with hydrated transactions via RPC (by number and by hash)
+	let evm_block_from_rpc_by_number = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number.into()), true)
+		.await?
+		.expect("Block should exist");
+	let evm_block_from_rpc_by_hash =
+		client.get_block_by_hash(block_hash, true).await?.expect("Block should exist");
+
+	// Both blocks should be identical
+	assert_eq!(
+		evm_block_from_rpc_by_number, evm_block_from_rpc_by_hash,
+		"Hydrated EVM blocks should match"
+	);
+
+	// Verify transaction info
+	let unsigned_tx = tx
+		.generic_transaction()
+		.try_into_unsigned()
+		.expect("Transaction shall be converted");
+	let signed_tx = signer_copy.sign_transaction(unsigned_tx);
+	let expected_tx_info = TransactionInfo::new(&receipt, signed_tx);
+
+	let tx_info = if let HashesOrTransactionInfos::TransactionInfos(tx_infos) =
+		evm_block_from_rpc_by_number.transactions
+	{
+		tx_infos[0].clone()
+	} else {
+		panic!("Expected hydrated transactions");
+	};
+	assert_eq!(expected_tx_info, tx_info, "TransationInfos should match");
 
 	Ok(())
 }

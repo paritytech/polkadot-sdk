@@ -48,6 +48,10 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 		self.tx.gas.unwrap()
 	}
 
+	pub fn generic_transaction(&self) -> GenericTransaction {
+		self.tx.clone()
+	}
+
 	/// Wait for the receipt of the transaction.
 	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
 		let hash = self.hash();
