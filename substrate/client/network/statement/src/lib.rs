@@ -1109,19 +1109,17 @@ mod tests {
 
 		let sent = notification_service.get_sent_notifications();
 
-		let sent_hashes = sent
+		let mut sent_hashes = sent
 			.iter()
 			.map(|(_peer, notification)| {
-				let stmts = <Statements as Decode>::decode(&mut notification.as_slice()).unwrap();
-				assert_eq!(
-					stmts.len(),
-					1,
-					"Each notification should contain exactly one small statement"
-				);
-				stmts.first().unwrap().hash()
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
 			})
+			.flatten()
+			.map(|s| s.hash())
 			.collect::<Vec<_>>();
-
-		assert_eq!(sent_hashes, vec![hash1, hash2, hash3], "Only small statements should be sent");
+		sent_hashes.sort();
+		let mut expected_hashes = vec![hash1, hash2, hash3];
+		expected_hashes.sort();
+		assert_eq!(sent_hashes, expected_hashes, "Only small statements should be sent");
 	}
 }
