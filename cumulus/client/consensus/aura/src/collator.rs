@@ -474,10 +474,9 @@ pub async fn collator_protocol_helper<Block, Client, P, Spawner>(
 	while let Some(notification) = import_notifications.next().await {
 		// Determine if this node is the next author
 		let digest = notification.header.digest();
-		let slot = digest
-			.logs()
-			.iter()
-			.find_map(|log| <DigestItem as CompatibleDigestItem<Slot>>::as_aura_pre_digest(log));
+
+		let slot =
+			digest.convert_first(<DigestItem as CompatibleDigestItem<Slot>>::as_aura_pre_digest);
 
 		tracing::debug!(target: crate::LOG_TARGET, "Imported block with slot: {:?}", slot);
 
@@ -514,6 +513,11 @@ pub async fn collator_protocol_helper<Block, Client, P, Spawner>(
 					.await;
 
 				our_slot = None;
+			},
+			(Some(_), false) => {
+				// `last_slot` is `Some` means we alredy sent pre-connect message, no need to
+				// proceed further.
+				continue
 			},
 			_ => {},
 		}
