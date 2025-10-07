@@ -1466,8 +1466,8 @@ impl<T: Config> Pallet<T> {
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
 		if let Some(from) = &from {
 			let fees = if gas.is_some() { fees } else { Zero::zero() };
-			let balance = Self::evm_balance(from).saturating_sub(value);
-			if balance < Pallet::<T>::convert_native_to_evm(fees) {
+			let balance = Self::evm_balance(from);
+			if balance < Pallet::<T>::convert_native_to_evm(fees).saturating_add(value) {
 				return Err(EthTransactError::Message(format!(
 					"insufficient funds for gas * price + value ({fees:?}): address {from:?} have {balance:?} (supplied gas {gas:?})",
 				)));
