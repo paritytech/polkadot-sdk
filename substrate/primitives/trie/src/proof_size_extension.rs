@@ -448,7 +448,7 @@ mod tests {
 		let recorder = RecordingProofSizeProvider::new(mock.clone());
 
 		// Record some estimations
-		// recorder.estimate_encoded_size();
+		recorder.estimate_encoded_size();
 		mock.set_size(200);
 		recorder.estimate_encoded_size();
 		mock.set_size(300);
