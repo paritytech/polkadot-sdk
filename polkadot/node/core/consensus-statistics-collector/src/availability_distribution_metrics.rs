@@ -2,17 +2,19 @@ use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::ops::Add;
 use gum::CandidateHash;
-use polkadot_primitives::{SessionIndex, ValidatorIndex};
+use polkadot_primitives::{AuthorityDiscoveryId, SessionIndex, ValidatorIndex};
 use crate::View;
 
 pub struct AvailabilityChunks {
     pub downloads_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
+    pub uploads_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
 }
 
 impl AvailabilityChunks {
     pub fn new() -> Self {
         Self {
             downloads_per_candidate: Default::default(),
+            uploads_per_candidate: Default::default(),
         }
     }
 
@@ -23,6 +25,20 @@ impl AvailabilityChunks {
         count: u64,
     ) {
         let _ = self.downloads_per_candidate
+            .entry(candidate_hash)
+            .or_default()
+            .entry(validator_index)
+            .and_modify(|v| *v += count)
+            .or_insert(count);
+    }
+
+    pub fn note_candidate_chunk_uploaded(
+        &mut self,
+        candidate_hash: CandidateHash,
+        validator_index: ValidatorIndex,
+        count: u64,
+    ) {
+        let _ = self.uploads_per_candidate
             .entry(candidate_hash)
             .or_default()
             .entry(validator_index)
@@ -47,12 +63,47 @@ pub fn handle_chunks_downloaded(
 
     for (validator_index, download_count) in downloads {
         view.availability_chunks
-            .note_candidate_chunk_downloaded(candidate_hash, validator_index, download_count)
+            .entry(session_index)
+            .and_modify(|av_chunks_stats| av_chunks_stats.note_candidate_chunk_downloaded(candidate_hash, validator_index, download_count))
+            .or_insert(AvailabilityChunks::new());
     }
 }
 
 pub fn handle_chunk_uploaded(
-
+    view: &mut View,
+    candidate_hash: CandidateHash,
+    authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
+    // check if candidate is present
+    let sessions = view.candidates_per_session
+        .iter()
+        .filter_map(|(session_index, candidates)| {
+            if candidates.contains(&candidate_hash) {
+                return Some(session_index);
+            }
 
+            None
+        });
+
+    for session_index in sessions {
+        let validator_index = view.per_session.get(session_index).and_then(|session_view| {
+            for authority_id in authority_ids.iter() {
+                match session_view.authorities_lookup.get(authority_id) {
+                    Some(validator_idx) => return Some(validator_idx),
+                    None => continue,
+                }
+            }
+            None
+        });
+
+        if validator_index.is_none() {
+            continue;
+        }
+
+        view.availability_chunks
+            .entry(session_index.clone())
+            .and_modify(|av_chunks_stats| av_chunks_stats
+                .note_candidate_chunk_uploaded(candidate_hash, validator_index.unwrap().clone(), 1))
+            .or_insert(AvailabilityChunks::new());
+    }
 }

@@ -46,9 +46,9 @@ mod approval_voting_metrics;
 mod availability_distribution_metrics;
 
 use approval_voting_metrics::ApprovalsStats;
-use polkadot_node_subsystem_util::{request_session_index_for_child, request_session_info};
+use polkadot_node_subsystem_util::{request_candidate_events, request_session_index_for_child, request_session_info};
 use crate::approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows};
-use crate::availability_distribution_metrics::{handle_chunks_downloaded, AvailabilityChunks};
+use crate::availability_distribution_metrics::{handle_chunk_uploaded, handle_chunks_downloaded, AvailabilityChunks};
 use self::metrics::Metrics;
 
 const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
@@ -82,7 +82,7 @@ struct View {
     per_session: HashMap<SessionIndex, PerSessionView>,
     // TODO: this information should not be needed
     candidates_per_session: HashMap<SessionIndex, HashSet<CandidateHash>>,
-    availability_chunks: AvailabilityChunks,
+    availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
 }
 
 impl View {
@@ -91,7 +91,7 @@ impl View {
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
             candidates_per_session: HashMap::new(),
-            availability_chunks: AvailabilityChunks::new(),
+            availability_chunks: HashMap::new(),
         };
     }
 }

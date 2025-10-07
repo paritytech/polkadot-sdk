@@ -188,7 +188,6 @@ members = [
 	"polkadot/node/core/pvf/execute-worker",
 	"polkadot/node/core/pvf/prepare-worker",
 	"polkadot/node/core/runtime-api",
-	"polkadot/node/core/consensus-statistics-collector",
 	"polkadot/node/gum",
 	"polkadot/node/gum/proc-macro",
 	"polkadot/node/malus",
@@ -1139,7 +1138,7 @@ polkadot-node-core-parachains-inherent = { path = "polkadot/node/core/parachains
 polkadot-node-core-prospective-parachains = { path = "polkadot/node/core/prospective-parachains", default-features = false }
 polkadot-node-core-consensus-statistics-collector = { path = "polkadot/node/core/consensus-statistics-collector", default-features = false }
 polkadot-node-core-provisioner = { path = "polkadot/node/core/provisioner", default-features = false }
-polkadot-node-core-pvf = { path = "polkadot/node/core/pvf", default-features = false }
+polkadot-node-core-pvf = { path = "polkadot/node/core/pvf",	 default-features = false }
 polkadot-node-core-pvf-checker = { path = "polkadot/node/core/pvf-checker", default-features = false }
 polkadot-node-core-pvf-common = { path = "polkadot/node/core/pvf/common", default-features = false }
 polkadot-node-core-pvf-execute-worker = { path = "polkadot/node/core/pvf/execute-worker", default-features = false }
