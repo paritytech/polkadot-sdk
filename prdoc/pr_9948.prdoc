@@ -23,25 +23,31 @@ crates:
   bump: patch
 - name: pallet-asset-conversion-tx-payment
   bump: patch
+- name: pallet-assets-holder
+  bump: patch
+- name: pallet-assets-precompiles
+  bump: patch
 - name: pallet-asset-rewards
   bump: patch
 - name: pallet-assets-freezer
   bump: patch
 - name: pallet-contracts-mock-network
-  bump: patch
+  bump: minor
 - name: pallet-nft-fractionalization
   bump: patch
 - name: staging-xcm-builder
   bump: patch
+- name: xcm-runtime-apis
+  bump: patch
 - name: asset-test-utils
-  bump: minor
+  bump: major
 - name: assets-common
   bump: minor
 - name: penpal-runtime
   bump: minor
 - name: rococo-parachain-runtime
-  bump: none
+  bump: minor
 - name: asset-hub-westend-runtime
-  bump: none
+  bump: major
 - name: asset-hub-rococo-runtime
-  bump: none
+  bump: major
