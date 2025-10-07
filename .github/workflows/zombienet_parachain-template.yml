@@ -1,6 +1,17 @@
 name: Zombienet Parachain Templates
 
 on:
+  workflow_call:
+    inputs:
+      build_run_id:
+        type: string
+        description: "Build run ID from the build workflow."
+        required: true
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
   workflow_dispatch:
     inputs:
       test_pattern:
@@ -36,6 +47,7 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_parachain-template_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+      build_run_id: ${{ inputs.build_run_id }}
 
 
   zombienet-parachain-template-tests:
