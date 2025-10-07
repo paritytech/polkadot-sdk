@@ -238,14 +238,22 @@ pub trait Mutate<AccountId>:
 		// We want to make sure we can deposit the amount in advance. If we can't then something is
 		// very wrong.
 		ensure!(Self::can_deposit(who, amount, Extant) == Success, TokenError::CannotCreate);
+		// Increase the main balance by what we are going to release in the first place to avoid
+		// going below ED if we would decrease first
+		let increased = Self::increase_balance(who, amount, Exact)?;
 		// Get the amount we can actually take from the hold. This might be less than what we want
 		// if we're only doing a best-effort.
-		let amount = Self::decrease_balance_on_hold(reason, who, amount, precision)?;
-		// Increase the main balance by what we took. We always do a best-effort here because we
-		// already checked that we can deposit before.
-		let actual = Self::increase_balance(who, amount, BestEffort)?;
-		Self::done_release(reason, who, actual);
-		Ok(actual)
+		let decreased = Self::decrease_balance_on_hold(reason, who, amount, precision)?;
+
+		// In case precision == BestEffor its possible that we first increased too much than was
+		// later decreased
+		let diff = increased - decreased;
+		if !diff.is_zero() {
+			Self::decrease_balance(who, increased - decreased, Exact, Protect, Force)?;
+		}
+
+		Self::done_release(reason, who, amount);
+		Ok(decreased)
 	}
 
 	/// Hold or release funds in the account of `who` to bring the balance on hold for `reason` to
