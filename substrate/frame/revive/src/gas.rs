@@ -14,9 +14,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-use crate::{exec::ExecError, weights::WeightInfo, Config, Error};
-use core::marker::PhantomData;
+use crate::{exec::ExecError, vm::evm::Halt, weights::WeightInfo, Config, Error};
+use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
 	weights::Weight,
@@ -219,16 +218,13 @@ impl<T: Config> GasMeter<T> {
 		Ok(ChargedAmount(amount))
 	}
 
-	/// Charge the specified amount of EVM gas.
-	/// This is used for basic opcodes (e.g arithmetic, bitwise, ...) that don't have a dedicated
-	/// benchmark
-	pub fn charge_evm_gas(&mut self, gas: u64) -> Result<(), DispatchError> {
-		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
-		self.gas_left = self
-			.gas_left
-			.checked_sub(&base_cost.saturating_mul(gas))
-			.ok_or_else(|| Error::<T>::OutOfGas)?;
-		Ok(())
+	/// Charge the specified token amount of gas or halt if not enough gas is left.
+	pub fn charge_or_halt<Tok: Token<T>>(
+		&mut self,
+		token: Tok,
+	) -> ControlFlow<Halt, ChargedAmount> {
+		self.charge(token)
+			.map_or_else(|_| ControlFlow::Break(Error::<T>::OutOfGas.into()), ControlFlow::Continue)
 	}
 
 	/// Adjust a previously charged amount down to its actual amount.

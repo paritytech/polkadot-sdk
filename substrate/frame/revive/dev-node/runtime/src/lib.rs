@@ -30,7 +30,13 @@ use frame_support::weights::{
 	Weight,
 };
 use frame_system::limits::BlockWeights;
-use pallet_revive::{evm::runtime::EthExtra, AccountId32Mapper};
+use pallet_revive::{
+	evm::{
+		fees::{BlockRatioFee, Info as FeeInfo},
+		runtime::EthExtra,
+	},
+	AccountId32Mapper,
+};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
@@ -39,7 +45,7 @@ use polkadot_sdk::{
 	},
 	*,
 };
-use sp_weights::{ConstantMultiplier, IdentityFee};
+use sp_weights::ConstantMultiplier;
 
 pub use polkadot_sdk::{
 	parachains_common::{AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature},
@@ -48,9 +54,9 @@ pub use polkadot_sdk::{
 
 pub mod currency {
 	use super::Balance;
-	pub const MILLICENTS: Balance = 1_000_000_000;
-	pub const CENTS: Balance = 1_000 * MILLICENTS;
-	pub const DOLLARS: Balance = 100 * CENTS;
+	pub const DOLLARS: Balance = 1_000_000_000_000;
+	pub const CENTS: Balance = DOLLARS / 100;
+	pub const MILLICENTS: Balance = CENTS / 1_000;
 }
 
 /// Provides getters for genesis configuration presets.
@@ -156,6 +162,8 @@ type TxExtension = (
 	// Ensures that the sender has enough funds to pay for the transaction
 	// and deducts the fee from the sender's account.
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	// Needs to be done after all extensions that rely on a signed origin.
+	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	// Reclaim the unused weight from the block using post dispatch information.
 	// It must be last in the pipeline in order to catch the refund in previous transaction
 	// extensions
@@ -180,6 +188,7 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 	}
@@ -284,7 +293,7 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: Balance = DOLLARS;
+	pub const ExistentialDeposit: Balance = CENTS;
 }
 
 // Implements the types required for the balances pallet.
@@ -311,8 +320,9 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = BlockRatioFee<1, 1, Self>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type FeeMultiplierUpdate = polkadot_sdk::polkadot_runtime_common::SlowAdjustingFeeUpdate<Self>;
 }
 
 parameter_types! {
@@ -324,15 +334,18 @@ impl pallet_revive::Config for Runtime {
 	type AddressMapper = AccountId32Mapper<Self>;
 	type ChainId = ConstU64<420_420_420>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+	type Balance = Balance;
 	type Currency = Balances;
 	type NativeToEthRatio = ConstU32<1_000_000>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
+	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 }
 
-pallet_revive::impl_runtime_apis_plus_revive!(
+pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	Runtime,
+	Revive,
 	Executive,
 	EthExtraImpl,
 
