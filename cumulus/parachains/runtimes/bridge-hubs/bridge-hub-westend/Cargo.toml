@@ -110,11 +110,11 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-bridge-hub-test-utils = { default-features = true, path = "../test-utils" }
-bridge-runtime-common = { features = ["integrity-test"], default-features = true, path = "../../../../../bridges/bin/runtime-common" }
-pallet-bridge-relayers = { features = ["integrity-test"], default-features = false, path = "../../../../../bridges/modules/relayers" }
-parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
-snowbridge-runtime-test-common = { default-features = true, path = "../../../../../bridges/snowbridge/runtime/test-common" }
+bridge-hub-test-utils = { default-features = true, workspace = true }
+bridge-runtime-common = { features = ["integrity-test"], default-features = true, workspace = true }
+pallet-bridge-relayers = { features = ["integrity-test"], default-features = false, workspace = true }
+parachains-runtimes-test-utils = { default-features = true, workspace = true }
+snowbridge-runtime-test-common = { default-features = true, workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
