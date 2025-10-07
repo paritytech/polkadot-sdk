@@ -545,7 +545,7 @@ where
 
 					// Size exceeded - split the chunk
 					let split_factor =
-						(encode_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
+						(encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
 					let new_chunk_size = (current_end - offset) / split_factor;
 
 					// Single statement is too large
