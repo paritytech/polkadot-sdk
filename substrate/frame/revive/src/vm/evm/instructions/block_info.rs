@@ -85,7 +85,7 @@ pub fn gaslimit<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// EIP-3198: BASEFEE opcode
 pub fn basefee<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(RuntimeCosts::BaseFee)?;
-	interpreter.stack.push(crate::Pallet::<E::T>::evm_gas_price())?;
+	interpreter.stack.push(crate::Pallet::<E::T>::evm_base_fee())?;
 	ControlFlow::Continue(())
 }
 

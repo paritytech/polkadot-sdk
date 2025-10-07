@@ -3375,7 +3375,7 @@ fn gas_price_api_works() {
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(
 			u64::from_le_bytes(received.data[..].try_into().unwrap()),
-			u64::try_from(<Pallet<Test>>::evm_gas_price()).unwrap(),
+			u64::try_from(<Pallet<Test>>::evm_base_fee()).unwrap(),
 		);
 	});
 }
