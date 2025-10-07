@@ -401,6 +401,8 @@ pub fn teleports_for_foreign_assets_works<
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
 		From<xcm::v5::Location> + Into<xcm::v5::Location>,
+	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::ReserveId:
+		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128>,
 	<Runtime as frame_system::Config>::AccountId:
@@ -493,7 +495,7 @@ pub fn teleports_for_foreign_assets_works<
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime>::root_origin(),
 					foreign_asset_id_location.clone().into(),
-					asset_owner.into(),
+					asset_owner.clone().into(),
 					false,
 					asset_minimum_asset_balance.into()
 				)
@@ -503,6 +505,14 @@ pub fn teleports_for_foreign_assets_works<
 				AccountIdOf<Runtime>,
 			>(foreign_asset_id_location.clone(), 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
+			// mark the foreign asset as teleportable
+			assert_ok!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::set_reserves(
+					RuntimeHelper::<Runtime>::origin_of(asset_owner.into()),
+					foreign_asset_id_location.clone().into(),
+					vec![Location::here().into()],
+				)
+			);
 
 			// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			let xcm = Xcm(vec![
