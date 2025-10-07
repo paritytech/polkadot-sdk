@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{deposit_limit, GAS_LIMIT};
+use super::{GAS_LIMIT, deposit_limit};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, Code, Config, ContractResult, ExecConfig,
-	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
+	AccountIdOf, BalanceOf, Code, Config, ContractResult, ExecConfig, ExecReturnValue,
+	InstantiateReturnValue, OriginFor, Pallet, U256, Weight, address::AddressMapper,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;

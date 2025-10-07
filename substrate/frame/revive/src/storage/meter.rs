@@ -18,22 +18,22 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, ExecConfig, ExecOrigin as Origin,
-	HoldReason, Inspect, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	AccountIdOf, BalanceOf, Config, Error, ExecConfig, ExecOrigin as Origin, HoldReason, Inspect,
+	LOG_TARGET, Pallet, StorageDeposit as Deposit, System, storage::ContractInfo,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
+	DefaultNoBound, RuntimeDebugNoBound,
 	traits::{
+		Get,
 		fungible::Mutate,
 		tokens::{Fortitude::Polite, Preservation},
-		Get,
 	},
-	DefaultNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
-	traits::{Saturating, Zero},
 	DispatchError, DispatchResult, FixedPointNumber, FixedU128,
+	traits::{Saturating, Zero},
 };
 
 /// Deposit that uses the native fungible's balance type.

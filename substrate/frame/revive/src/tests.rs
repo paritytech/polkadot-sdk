@@ -21,31 +21,30 @@ mod pvm;
 mod sol;
 
 use crate::{
-	self as pallet_revive,
+	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
+	CodeInfoOf, Config, ExecOrigin as Origin, GenesisConfig, OriginFor, Pallet, PristineCode,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::{EthExtra, SetWeightLimit},
 	},
 	genesis::{Account, ContractData},
 	test_utils::*,
-	AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call, CodeInfoOf, Config,
-	ExecOrigin as Origin, GenesisConfig, OriginFor, Pallet, PristineCode,
 };
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	traits::{ConstU32, ConstU64, FindAuthor, StorageVersion},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, Weight},
+	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
 use sp_core::U256;
-use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
+use sp_keystore::{KeystoreExt, testing::MemoryKeystore};
 use sp_runtime::{
+	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill,
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
-	AccountId32, BuildStorage, MultiAddress, MultiSignature, Perbill,
 };
 
 pub type Address = MultiAddress<AccountId32, u32>;
@@ -110,8 +109,8 @@ pub mod test_utils {
 		Test,
 	};
 	use crate::{
-		address::AddressMapper, exec::AccountIdOf, AccountInfo, AccountInfoOf, BalanceOf, CodeInfo,
-		CodeInfoOf, Config, ContractInfo, PristineCode,
+		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo,
+		PristineCode, address::AddressMapper, exec::AccountIdOf,
 	};
 	use codec::{Encode, MaxEncodedLen};
 	use frame_support::traits::fungible::{InspectHold, Mutate};
@@ -210,9 +209,9 @@ pub mod test_utils {
 pub(crate) mod builder {
 	use super::Test;
 	use crate::{
-		test_utils::{builder::*, ALICE},
-		tests::RuntimeOrigin,
 		Code,
+		test_utils::{ALICE, builder::*},
+		tests::RuntimeOrigin,
 	};
 	use sp_core::{H160, H256};
 

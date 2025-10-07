@@ -30,8 +30,8 @@ mod benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{
-	precompiles::{ExtWithInfo, Instance, Precompiles},
 	Config,
+	precompiles::{ExtWithInfo, Instance, Precompiles},
 };
 
 #[cfg(feature = "runtime-benchmarks")]

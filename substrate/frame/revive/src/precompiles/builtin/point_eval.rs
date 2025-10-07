@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	Config, Error as CrateError,
+	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, num::NonZero};

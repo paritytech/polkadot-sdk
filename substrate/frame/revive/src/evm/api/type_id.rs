@@ -49,11 +49,7 @@ macro_rules! transaction_type {
 
 			/// Try to convert from Byte
 			pub fn try_from_byte(byte: Byte) -> Result<Self, Byte> {
-				if byte.0 == $value {
-					Ok(Self {})
-				} else {
-					Err(byte)
-				}
+				if byte.0 == $value { Ok(Self {}) } else { Err(byte) }
 			}
 		}
 

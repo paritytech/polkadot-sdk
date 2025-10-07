@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use crate::{
+	Config,
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	vm::RuntimeCosts,
-	Config,
 };
 use alloc::vec::Vec;
-use bn::{pairing_batch, AffineG1, AffineG2, Fq, Fq2, Group, Gt, G1, G2};
+use bn::{AffineG1, AffineG2, Fq, Fq2, G1, G2, Group, Gt, pairing_batch};
 use core::{marker::PhantomData, num::NonZero};
 use sp_core::U256;
 use sp_runtime::DispatchError;
@@ -154,11 +154,7 @@ impl<T: Config> PrimitivePrecompile for Bn128Pairing<T> {
 
 			let mul = pairing_batch(&vals);
 
-			if mul == Gt::one() {
-				U256::one()
-			} else {
-				U256::zero()
-			}
+			if mul == Gt::one() { U256::one() } else { U256::zero() }
 		};
 
 		let buf = ret_val.to_big_endian();

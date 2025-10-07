@@ -18,16 +18,16 @@
 //! Contains the fee types that need to be configured for `pallet-transaction-payment`.
 
 use crate::{
-	evm::{runtime::EthExtra, OnChargeTransactionBalanceOf},
 	BalanceOf, CallOf, Config, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, Error,
-	PostDispatchInfo, LOG_TARGET,
+	LOG_TARGET, PostDispatchInfo,
+	evm::{OnChargeTransactionBalanceOf, runtime::EthExtra},
 };
 use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	pallet_prelude::Weight,
-	traits::{fungible::Credit, Get, SuppressedDrop},
+	traits::{Get, SuppressedDrop, fungible::Credit},
 	weights::WeightToFee,
 };
 use frame_system::Config as SysConfig;
@@ -36,9 +36,9 @@ use pallet_transaction_payment::{
 	Config as TxConfig, MultiplierUpdate, NextFeeMultiplier, Pallet as TxPallet, TxCreditHold,
 };
 use sp_runtime::{
+	FixedPointNumber, FixedU128, SaturatedConversion, Saturating,
 	generic::UncheckedExtrinsic,
 	traits::{Block as BlockT, Dispatchable, TransactionExtension},
-	FixedPointNumber, FixedU128, SaturatedConversion, Saturating,
 };
 
 type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;

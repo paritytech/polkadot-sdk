@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use crate::{
+	Config, Error,
 	address::AddressMapper,
 	vm::{
-		evm::{interpreter::Halt, Interpreter},
 		Ext, RuntimeCosts,
+		evm::{Interpreter, interpreter::Halt},
 	},
-	Config, Error,
 };
 use core::ops::ControlFlow;
 

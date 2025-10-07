@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	vm::{
-		evm::{interpreter::Halt, EVMGas, Interpreter},
-		Ext,
-	},
 	U256,
+	vm::{
+		Ext,
+		evm::{EVMGas, Interpreter, interpreter::Halt},
+	},
 };
 use core::ops::ControlFlow;
 use revm::interpreter::gas::{BASE, VERYLOW};

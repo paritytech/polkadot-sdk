@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::{
+	Config, H160,
 	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
-	Config, H160,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -97,12 +97,12 @@ mod tests {
 	use super::*;
 	use crate::{
 		address::AddressMapper,
-		call_builder::{caller_funding, CallSetup},
+		call_builder::{CallSetup, caller_funding},
 		pallet,
 		precompiles::{
-			alloy::sol_types::{sol_data::Bytes, SolType},
-			tests::run_test_vectors,
 			BuiltinPrecompile,
+			alloy::sol_types::{SolType, sol_data::Bytes},
+			tests::run_test_vectors,
 		},
 		tests::{ExtBuilder, Test},
 	};

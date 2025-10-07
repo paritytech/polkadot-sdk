@@ -17,7 +17,7 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{storage::WriteOutcome, BalanceOf, Config, H160, U256};
+use crate::{BalanceOf, Config, H160, U256, storage::WriteOutcome};
 use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
@@ -25,8 +25,8 @@ use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{One, Saturating, Zero},
 	DispatchError, RuntimeDebug,
+	traits::{One, Saturating, Zero},
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -147,11 +147,7 @@ impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
 
 	/// Returns the Balance rounded to the nearest whole unit if the dust is non-zero.
 	pub fn into_rounded_balance(self) -> Balance {
-		if self.dust == 0 {
-			self.value
-		} else {
-			self.value.saturating_add(Balance::one())
-		}
+		if self.dust == 0 { self.value } else { self.value.saturating_add(Balance::one()) }
 	}
 }
 

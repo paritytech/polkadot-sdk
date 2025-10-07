@@ -18,17 +18,17 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	evm::decode_revert_reason,
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
-	tests::{builder, ExtBuilder, Test},
 	Code, Config, Error,
+	evm::decode_revert_reason,
+	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
+	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
 	sol_types::{Revert, SolCall, SolError, SolInterface},
 };
 use frame_support::{assert_err, traits::fungible::Mutate};
-use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
+use pallet_revive_fixtures::{Callee, Caller, FixtureType, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use sp_core::H160;
 use test_case::test_case;
@@ -385,7 +385,7 @@ fn create_works() {
 		let magic_number = 42u64;
 
 		// Check if the created contract is working
-		let echo_result = builder::bare_call(callee_addr.0 .0.into())
+		let echo_result = builder::bare_call(callee_addr.0.0.into())
 			.data(Callee::echoCall { _data: magic_number }.abi_encode())
 			.build_and_unwrap_result();
 
@@ -423,7 +423,7 @@ fn create2_works() {
 		// Compute expected CREATE2 address
 		let expected_addr = crate::address::create2(&caller_addr, &initcode, &[], &salt);
 
-		let callee_addr: H160 = callee_addr.0 .0.into();
+		let callee_addr: H160 = callee_addr.0.0.into();
 		assert_eq!(callee_addr, expected_addr, "CREATE2 address should be deterministic");
 		let magic_number = 42u64;
 

@@ -18,12 +18,12 @@
 use super::*;
 
 use crate::{
+	AccountIdOf, CodeInfo, Config, ContractBlob, Error, SENTINEL, Weight,
 	address::AddressMapper,
 	exec::Ext,
 	limits,
 	primitives::ExecReturnValue,
-	vm::{calculate_code_deposit, BytecodeType, ExportedFunction, RuntimeCosts},
-	AccountIdOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
+	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
 };
 use alloc::vec::Vec;
 use core::mem;

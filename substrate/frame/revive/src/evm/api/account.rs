@@ -16,8 +16,8 @@
 // limitations under the License.
 //! Utilities for working with Ethereum accounts.
 use crate::{
-	evm::{TransactionSigned, TransactionUnsigned},
 	H160,
+	evm::{TransactionSigned, TransactionUnsigned},
 };
 use sp_runtime::AccountId32;
 
