@@ -744,7 +744,7 @@ pub mod pallet {
 				.unwrap_or_default();
 
 			// Process published data from the broadcaster pallet
-			Self::process_published_data(&published_data, &current_roots);
+			total_weight.saturating_accrue(Self::process_published_data(&published_data, &current_roots));
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
@@ -1344,12 +1344,24 @@ impl<T: Config> Pallet<T> {
 	fn process_published_data(
 		published_data: &BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
 		current_roots: &Vec<(ParaId, Vec<u8>)>,
-	) {
+	) -> Weight {
 		let previous_roots = <PreviousPublishedDataRoots<T>>::get();
 
 		if current_roots.is_empty() && published_data.is_empty() && previous_roots.is_empty() {
-			return;
+			return T::DbWeight::get().reads(1);
 		}
+
+		// Calculate weight parameters for benchmarking
+		let p = published_data.len() as u32;
+		let k = published_data.values()
+			.map(|entries| entries.len() as u32)
+			.max()
+			.unwrap_or(0);
+		let v = published_data.values()
+			.flat_map(|entries| entries.iter())
+			.map(|(_, value)| value.len() as u32)
+			.max()
+			.unwrap_or(0);
 
 		// Convert current roots to map for efficient lookups.
 		let current_roots_map: BTreeMap<ParaId, Vec<u8>> = current_roots.iter()
@@ -1385,6 +1397,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		<PreviousPublishedDataRoots<T>>::put(current_roots_map);
+
+		T::WeightInfo::process_published_data(p, k, v)
 	}
 
 

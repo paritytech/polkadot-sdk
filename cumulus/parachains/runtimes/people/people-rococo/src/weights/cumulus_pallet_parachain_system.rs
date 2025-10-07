@@ -74,4 +74,23 @@ impl<T: frame_system::Config> cumulus_pallet_parachain_system::WeightInfo for We
 			.saturating_add(T::DbWeight::get().writes(4))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 	}
+
+	/// Storage: ParachainSystem PreviousPublishedDataRoots (r:1 w:1)
+	/// Proof Skipped: ParachainSystem PreviousPublishedDataRoots (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: ParachainSystem PublishedData (r:0 w:1600)
+	/// Proof Skipped: ParachainSystem PublishedData (max_values: None, max_size: None, mode: Measured)
+	/// The range of component `p` is `[1, 100]`.
+	/// The range of component `k` is `[1, 16]`.
+	/// The range of component `v` is `[1, 1024]`.
+	// TODO: Placeholder weight. Needs to be benchmarked for this specific runtime.
+	fn process_published_data(p: u32, k: u32, v: u32, ) -> Weight {
+		Weight::from_parts(5_000_000, 0)
+			.saturating_add(Weight::from_parts(50_000_000, 0).saturating_mul(p.into()))
+			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(k.into()))
+			.saturating_add(Weight::from_parts(5_000, 0).saturating_mul(v.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(p.into())))
+			.saturating_add(T::DbWeight::get().writes((k as u64).saturating_mul(p.into())))
+	}
 }
