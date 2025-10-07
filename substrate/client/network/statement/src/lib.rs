@@ -94,6 +94,7 @@ struct Metrics {
 	skipped_oversized_statements: Counter<U64>,
 	propagated_statements_chunks: Histogram,
 	pending_statements: Gauge<U64>,
+	ignored_statements: Counter<U64>,
 }
 
 impl Metrics {
@@ -133,6 +134,13 @@ impl Metrics {
 				Gauge::new(
 					"substrate_sync_pending_statement_validations",
 					"Number of pending statement validations",
+				)?,
+				r,
+			)?,
+			ignored_statements: register(
+				Counter::new(
+					"substrate_sync_ignored_statements",
+					"Number of statements ignored due to exceeding MAX_PENDING_STATEMENTS limit",
 				)?,
 				r,
 			)?,
@@ -412,13 +420,18 @@ where
 	fn on_statements(&mut self, who: PeerId, statements: Statements) {
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
+			let mut statements_left = statements.len() as u64;
 			for s in statements {
 				if self.pending_statements.len() > MAX_PENDING_STATEMENTS {
 					log::debug!(
 						target: LOG_TARGET,
-						"Ignoring any further statements that exceed `MAX_PENDING_STATEMENTS`({}) limit",
+						"Ignoring {} statements that exceed `MAX_PENDING_STATEMENTS`({}) limit",
+						statements_left,
 						MAX_PENDING_STATEMENTS,
 					);
+					if let Some(ref metrics) = self.metrics {
+						metrics.ignored_statements.inc_by(statements_left);
+					}
 					break
 				}
 
@@ -476,6 +489,8 @@ where
 						}
 					},
 				}
+
+				statements_left -= 1;
 			}
 		}
 	}
