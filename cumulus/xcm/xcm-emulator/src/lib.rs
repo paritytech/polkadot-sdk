@@ -76,9 +76,7 @@ pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
-pub use polkadot_runtime_parachains::inclusion::{
-	AggregateMessageOrigin, Config as InclusionConfig, UmpQueueId,
-};
+pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
@@ -1479,18 +1477,15 @@ where
 	}
 }
 
-type AggregateMessageOriginOf<T> =
-	<<T as Chain>::Runtime as InclusionConfig>::AggregateMessageOrigin;
-
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
 // Process UMP messages on the relay
 impl<T> ProcessMessage for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
-	T::Runtime: MessageQueueConfig + InclusionConfig,
+	T::Runtime: MessageQueueConfig,
 	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOriginOf<T>>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOriginOf<T>> + ServiceQueues,
+		PartialEq<AggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
 {
 	type Origin = ParaId;
 
@@ -1502,7 +1497,7 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		MessageQueuePallet::<T::Runtime>::enqueue_message(
 			msg.try_into().expect("Message too long"),
-			AggregateMessageOriginOf::<T>::from(para),
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
 		);
 		MessageQueuePallet::<T::Runtime>::service_queues(Weight::MAX);
 
@@ -1513,10 +1508,10 @@ where
 impl<T> ServiceQueues for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
-	T::Runtime: MessageQueueConfig + InclusionConfig,
+	T::Runtime: MessageQueueConfig,
 	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOriginOf<T>>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOriginOf<T>> + ServiceQueues,
+		PartialEq<AggregateMessageOrigin>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
 {
 	type OverweightMessageAddress = ();
 

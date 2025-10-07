@@ -1415,7 +1415,6 @@ impl parachains_inclusion::Config for Runtime {
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators =
 		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
-	type AggregateMessageOrigin = AggregateMessageOrigin;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }

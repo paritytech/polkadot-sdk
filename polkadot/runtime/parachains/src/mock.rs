@@ -476,7 +476,6 @@ impl crate::inclusion::Config for Test {
 	type DisputesHandler = Disputes;
 	type RewardValidators = TestRewardValidators;
 	type MessageQueue = MessageQueue;
-	type AggregateMessageOrigin = AggregateMessageOrigin;
 }
 
 impl crate::paras_inherent::Config for Test {
@@ -652,7 +651,7 @@ impl ProcessMessage for TestProcessMessage {
 			Err(_) => return Err(ProcessMessageError::Corrupt), // same as the real `ProcessMessage`
 		};
 		if meter.try_consume(required).is_err() {
-			return Err(ProcessMessageError::Overweight(required));
+			return Err(ProcessMessageError::Overweight(required))
 		}
 
 		let mut processed = Processed::get();

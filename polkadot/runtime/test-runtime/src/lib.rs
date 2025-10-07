@@ -36,7 +36,6 @@ use polkadot_runtime_parachains::{
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
-	inclusion::AggregateMessageOrigin,
 	initializer as parachains_initializer, on_demand as parachains_on_demand,
 	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
@@ -555,7 +554,6 @@ impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = RewardValidatorsWithEraPoints<Runtime, Staking>;
-	type AggregateMessageOrigin = AggregateMessageOrigin;
 	type MessageQueue = ();
 	type WeightInfo = ();
 }
