@@ -8,7 +8,7 @@ crates:
 - name: snowbridge-pallet-inbound-queue
   bump: patch
 - name: snowbridge-beacon-primitives
-  bump: major
+  bump: patch
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: bridge-hub-rococo-runtime
