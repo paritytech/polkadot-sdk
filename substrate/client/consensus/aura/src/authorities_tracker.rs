@@ -125,7 +125,7 @@ where
 				format!("Could not find authorities for block {hash:?} at number {number}: {e}")
 			})?
 			.ok_or_else(|| {
-				format!("Authorities for block {hash:?} at number {number} not found in",)
+				format!("Authorities for block {hash:?} at number {number} not found in tracker")
 			})?;
 		Ok(node.data.clone())
 	}
@@ -168,9 +168,7 @@ where
 
 		self.authorities
 			.write()
-			.import(hash, number, authorities, &|_, _| {
-				Ok::<_, fork_tree::Error<sp_blockchain::Error>>(true)
-			})
+			.import(hash, number, authorities, &|_, _| Ok::<_, sp_blockchain::Error>(true))
 			.map_err(|e| {
 				format!("Could not import authorities for block {hash:?} at number {number}: {e}")
 			})?;
@@ -184,7 +182,7 @@ where
 		let mut authorities_cache = self.authorities.write();
 		let _pruned = authorities_cache
 			.prune(&info.finalized_hash, &info.finalized_number, &is_descendent_of, &|_| true)
-			.map_err(|e| e.to_string())?;
+			.map_err(|e| format!("Failed to prune finalized in authorities tracker: {e:?}"))?;
 		Ok(())
 	}
 }

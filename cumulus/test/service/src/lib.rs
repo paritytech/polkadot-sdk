@@ -36,6 +36,7 @@ use cumulus_client_consensus_aura::{
 };
 use prometheus::Registry;
 use runtime::AccountId;
+use sc_consensus_aura::SlotDurationTracker;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_consensus_aura::sr25519::AuthorityPair;
 use std::{
@@ -200,6 +201,7 @@ pub fn new_partial(
 
 	let (block_import, slot_based_handle) =
 		SlotBasedBlockImport::new(client.clone(), client.clone());
+	let slot_duration_tracker = Arc::new(SlotDurationTracker::new(client.clone())?);
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
 	let transaction_pool = Arc::from(
@@ -213,21 +215,23 @@ pub fn new_partial(
 		.build(),
 	);
 
-	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+	let cidp_client = client.clone();
 	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
 		ImportQueueParams {
 			block_import: block_import.clone(),
 			client: client.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
+			slot_duration_tracker: slot_duration_tracker.clone(),
+			create_inherent_data_providers: move |_, header| {
+				let slot_duration_tracker = slot_duration_tracker.clone();
+				let slot_duration = slot_duration_tracker.fetch(&header)?;
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				let slot =
-					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 						*timestamp,
 						slot_duration,
 					);
 
-				Ok((slot, timestamp))
+				async move { Ok((slot, timestamp)) }
 			},
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: None,

@@ -54,6 +54,7 @@ use sp_runtime::traits::{Block as BlockT, Header, Member, NumberFor};
 
 mod authorities_tracker;
 mod import_queue;
+mod slot_duration_tracker;
 pub mod standalone;
 
 pub use crate::standalone::{find_pre_digest, slot_duration};
@@ -63,6 +64,7 @@ pub use import_queue::{
 	ImportQueueParams,
 };
 pub use sc_consensus_slots::SlotProportion;
+pub use slot_duration_tracker::SlotDurationTracker;
 pub use sp_consensus::SyncOracle;
 pub use sp_consensus_aura::{
 	digests::CompatibleDigestItem,
