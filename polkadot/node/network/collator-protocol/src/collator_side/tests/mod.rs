@@ -1744,7 +1744,7 @@ fn no_connection_without_preconnect_message() {
 					// Timeout is fine - no messages were sent
 				},
 				Some(msg) => {
-					// If we received a message, it should NOT be ConnectToValidators
+					// No message expected here
 					panic!("Unexpected message was sent by subsystem: {:?}", msg);
 				},
 			}
@@ -1789,14 +1789,14 @@ fn distribute_collation_forces_connect() {
 
 			// Verify that no ConnectToValidators message was sent
 			// by attempting to receive a message with a short timeout.
-			// We should either timeout or receive messages that are NOT ConnectToValidators.
+			// We expect timeout here.
 			let timeout = Duration::from_millis(250);
 			match overseer_recv_with_timeout(&mut virtual_overseer, timeout).await {
 				None => {
 					// Timeout is fine - no messages were sent
 				},
 				Some(msg) => {
-					// If we received a message, it should NOT be ConnectToValidators
+					// No message expected here
 					panic!("Unexpected message was sent by subsystem: {:?}", msg);
 				},
 			}
