@@ -519,7 +519,6 @@ where
 			let mut offset = 0;
 			while offset < to_send.len() {
 				// Try to send as many statements as possible in one notification
-				let chunk_size = to_send.len() - offset;
 				let mut current_end = to_send.len();
 
 				loop {
