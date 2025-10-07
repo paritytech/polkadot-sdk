@@ -515,7 +515,7 @@ pub async fn collator_protocol_helper<Block, Client, P, Spawner>(
 				our_slot = None;
 			},
 			(Some(_), false) => {
-				// `last_slot` is `Some` means we alredy sent pre-connect message, no need to
+				// `our_slot` is `Some` means we alredy sent pre-connect message, no need to
 				// proceed further.
 				continue
 			},
