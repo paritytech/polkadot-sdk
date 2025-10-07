@@ -117,7 +117,7 @@ dependencies = [
  "secp256k1 0.30.0",
  "serde",
  "serde_with",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -203,6 +203,7 @@ dependencies = [
  "derive_more 2.0.1",
  "either",
  "serde",
+ "serde_with",
  "sha2 0.10.9",
  "thiserror 2.0.16",
 ]
@@ -373,9 +374,9 @@ checksum = "afd621a9ddef2fdc06d17089f45e47cf84d0b46ca5a1bc6c83807c9119636f52"
 dependencies = [
  "alloy-primitives",
  "darling",
- "proc-macro2 1.0.95",
+ "proc-macro2 1.0.101",
  "quote 1.0.40",
- "syn 2.0.98",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -17462,8 +17463,8 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90751404f08622c8a671695605cfc1bd83ec091339bd3258a37acc7a931c8741"
 dependencies = [
- "proc-macro2 1.0.101",
  "polkavm-common 0.29.0",
+ "proc-macro2 1.0.101",
  "quote 1.0.40",
  "syn 2.0.106",
 ]
@@ -17494,8 +17495,8 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10e463de593b485c8685d42737aae81c24005dba967deaaaccbb6f3e936d8596"
 dependencies = [
- "syn 2.0.106",
  "polkavm-derive-impl 0.29.0",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -25737,9 +25738,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adcb7fd841cd518e279be3d5a3eb0636409487998a4aff22f3de87b81e88384f"
 dependencies = [
  "cfg-if",
- "proc-macro2 1.0.95",
+ "proc-macro2 1.0.101",
  "quote 1.0.40",
- "syn 2.0.98",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -25748,9 +25749,9 @@ version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c89e72a01ed4c579669add59014b9a524d609c0c88c6a585ce37485879f6ffb"
 dependencies = [
- "proc-macro2 1.0.95",
+ "proc-macro2 1.0.101",
  "quote 1.0.40",
- "syn 2.0.98",
+ "syn 2.0.106",
  "test-case-core",
 ]
 
@@ -27394,10 +27395,10 @@ dependencies = [
  "bumpalo",
  "cc",
  "cfg-if",
+ "fxprof-processed-profile",
  "gimli",
  "hashbrown 0.15.5",
  "indexmap 2.11.1",
- "fxprof-processed-profile",
  "ittapi",
  "libc",
  "log",
@@ -27534,8 +27535,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61d8693995ab3df48e88777b6ee3b2f441f2c4f895ab938996cdac3db26f256c"
 dependencies = [
  "cc",
- "object 0.36.7",
- "rustix 1.0.8",
+ "object",
+ "rustix 1.1.2",
  "wasmtime-internal-versioned-export-macros",
 ]
 

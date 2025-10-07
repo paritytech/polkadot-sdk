@@ -176,7 +176,6 @@ pub mod genesis_config_presets {
 					.filter(|x| !is_eth_derived(x))
 					.cloned()
 					.collect(),
-					gas_price: 1_000u64,
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
 		})

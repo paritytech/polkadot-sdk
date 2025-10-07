@@ -529,7 +529,7 @@ pub mod pallet {
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
 		/// Cannot set a nonce lower than current
-		NonceTooLow = 0x36
+		NonceTooLow = 0x36,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -592,7 +592,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// The modifiable EVM gas price, used by the EVM RPC.
-	pub(crate) type GasPrice<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub(crate) type GasPrice<T: Config> = StorageValue<_, Option<u64>, ValueQuery>;
 
 	#[pallet::storage]
 	/// The modifiable EVM gas limit, used by the EVM RPC.
@@ -664,7 +664,6 @@ pub mod pallet {
 		/// Account entries (both EOAs and contracts)
 		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub accounts: Vec<genesis::Account<T>>,
-		pub gas_price: u64,
 	}
 
 	#[pallet::genesis_build]
@@ -685,7 +684,6 @@ pub mod pallet {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
-			GasPrice::<T>::put(self.gas_price);
 
 			let owner = Pallet::<T>::account_id();
 
@@ -754,7 +752,7 @@ pub mod pallet {
 		fn on_initialize(_block: BlockNumberFor<T>) -> Weight {
 			// Warm up the pallet account.
 			System::<T>::account_exists(&Pallet::<T>::account_id());
-			return T::DbWeight::get().reads(1)
+			return T::DbWeight::get().reads(1);
 		}
 
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
@@ -1336,7 +1334,7 @@ pub mod pallet {
 		#[pallet::weight(10_000)]
 		pub fn set_gas_price(origin: OriginFor<T>, new_price: u64) -> DispatchResult {
 			ensure_root(origin)?;
-			GasPrice::<T>::put(new_price);
+			GasPrice::<T>::put(Some(new_price));
 			Ok(())
 		}
 
@@ -1528,16 +1526,18 @@ impl<T: Config> Pallet<T> {
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
-				Code::Upload(code) =>
+				Code::Upload(code) => {
 					if T::AllowEVMBytecode::get() {
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
-						return Err(<Error<T>>::CodeRejected.into())
-					},
-				Code::Existing(code_hash) =>
-					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
+						return Err(<Error<T>>::CodeRejected.into());
+					}
+				},
+				Code::Existing(code_hash) => {
+					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default())
+				},
 			};
 			let instantiate_origin = ExecOrigin::from_account_id(instantiate_account.clone());
 			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
@@ -1863,7 +1863,7 @@ impl<T: Config> Pallet<T> {
 		let evm_nonce_u32 = nonce;
 
 		if evm_nonce_u32 < substrate_nonce {
-			return Err(<Error<T>>::NonceTooLow.into())
+			return Err(<Error<T>>::NonceTooLow.into());
 		}
 
 		// Use mutate_exists because the key might not exist yet
@@ -1890,16 +1890,20 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
-		let max_block_weight = T::BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.max_total
-			.unwrap_or_else(|| T::BlockWeights::get().max_block);
+		if let Some(gas_limit) = GasLimit::<T>::get() {
+			return U256::from(gas_limit);
+		} else {
+			let max_block_weight = T::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		let length_fee = T::FeeInfo::next_fee_multiplier_reciprocal().saturating_mul_int(
-			T::FeeInfo::length_to_fee(*T::BlockLength::get().max.get(DispatchClass::Normal)),
-		);
+			let length_fee = T::FeeInfo::next_fee_multiplier_reciprocal().saturating_mul_int(
+				T::FeeInfo::length_to_fee(*T::BlockLength::get().max.get(DispatchClass::Normal)),
+			);
 
-		Self::evm_gas_from_weight(max_block_weight).saturating_add(length_fee.into())
+			Self::evm_gas_from_weight(max_block_weight).saturating_add(length_fee.into())
+		}
 	}
 
 	/// The maximum weight an `eth_transact` is allowed to consume.
@@ -1917,8 +1921,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the base gas price.
 	pub fn evm_gas_price() -> U256 {
-		let multiplier = T::FeeInfo::next_fee_multiplier();
-		multiplier.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into()).into()
+		if let Some(gas_price) = GasPrice::<T>::get() {
+			return U256::from(gas_price);
+		} else {
+			let multiplier = T::FeeInfo::next_fee_multiplier();
+			multiplier.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into()).into()
+		}
 	}
 
 	/// Build an EVM tracer from the given tracer type.
