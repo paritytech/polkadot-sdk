@@ -38,11 +38,20 @@ mod vm;
 
 pub mod evm;
 pub mod migrations;
+pub mod mock;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
 pub mod weights;
 
+pub use crate::{
+	address::{
+		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
+	},
+	exec::{DelegateInfo, Key, MomentOf, Origin as ExecOrigin},
+	pallet::{genesis, *},
+	storage::{AccountInfo, ContractInfo},
+};
 use crate::{
 	evm::{
 		create_call, fees::InfoT as FeeInfo, runtime::SetWeightLimit, CallTracer,
@@ -54,9 +63,12 @@ use crate::{
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 };
+pub use alloc::collections::{BTreeMap, VecDeque};
 use alloc::{boxed::Box, format, vec};
+pub use codec;
 use codec::{Codec, Decode, Encode};
 use environmental::*;
+pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
 use frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
@@ -72,31 +84,20 @@ use frame_support::{
 	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
 };
+pub use frame_system::{self, limits::BlockWeights};
 use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	Pallet as System,
 };
+pub use primitives::*;
 use scale_info::TypeInfo;
+pub use sp_core::{H160, H256, U256};
+pub use sp_runtime;
 use sp_runtime::{
 	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedInto, Zero},
 	AccountId32, DispatchError, FixedPointNumber, FixedU128,
 };
-
-pub use crate::{
-	address::{
-		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
-	},
-	exec::{Key, MomentOf, Origin as ExecOrigin},
-	pallet::{genesis, *},
-	storage::{AccountInfo, ContractInfo},
-};
-pub use codec;
-pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
-pub use frame_system::{self, limits::BlockWeights};
-pub use primitives::*;
-pub use sp_core::{H160, H256, U256};
-pub use sp_runtime;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
@@ -1275,7 +1276,7 @@ impl<T: Config> Pallet<T> {
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
 			return contract_result;
@@ -1334,12 +1335,13 @@ impl<T: Config> Pallet<T> {
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		exec_config: ExecConfig,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		// Enforce EIP-3607 for top-level signed origins: deny signed contract addresses.
 		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
 			return contract_result;
 		}
+
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let try_instantiate = || {
@@ -1853,7 +1855,7 @@ impl<T: Config> Pallet<T> {
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = ContractBlob::from_pvm_code(code, origin)?;
 		let deposit = module.store_code(exec_config, None)?;
@@ -1881,7 +1883,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Convert a weight to a gas value.
-	fn evm_gas_from_weight(weight: Weight) -> U256 {
+	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
 		T::FeeInfo::weight_to_fee(weight).into()
 	}
 
@@ -1967,7 +1969,7 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
 		use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
 		match (exec_config.collect_deposit_from_hold, hold_reason) {
@@ -2012,7 +2014,7 @@ impl<T: Config> Pallet<T> {
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		use frame_support::traits::{
 			tokens::{Fortitude, Precision, Preservation, Restriction},
