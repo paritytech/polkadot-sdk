@@ -1440,6 +1440,12 @@ impl_runtime_apis! {
 			ParachainInfo::parachain_id()
 		}
 	}
+
+	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
+		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
+			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

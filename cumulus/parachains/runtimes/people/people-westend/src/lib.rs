@@ -1138,6 +1138,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
+		fn next_slot_schedule(_num_cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
+			cumulus_primitives_core::NextSlotSchedule::one_block_using_one_core()
+		}
+	}
+
 	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
 		fn validate_statement(
 			_source: StatementSource,
