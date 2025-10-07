@@ -48,6 +48,7 @@ sp-timestamp = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+assert_matches = { workspace = true }
 sc-basic-authorship = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
