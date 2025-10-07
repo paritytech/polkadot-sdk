@@ -596,12 +596,8 @@ where
 #[cfg(test)]
 mod tests {
 
-	use std::sync::{
-		atomic::{AtomicUsize, Ordering},
-		Mutex,
-	};
-
 	use super::*;
+	use std::sync::Mutex;
 
 	#[derive(Clone)]
 	struct TestNetwork {
@@ -730,8 +726,20 @@ mod tests {
 		}
 	}
 
-	#[derive(Debug)]
-	struct TestNotificationService {}
+	#[derive(Debug, Clone)]
+	struct TestNotificationService {
+		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
+	}
+
+	impl TestNotificationService {
+		fn new() -> Self {
+			Self { sent_notifications: Arc::new(Mutex::new(Vec::new())) }
+		}
+
+		fn get_sent_notifications(&self) -> Vec<(PeerId, Vec<u8>)> {
+			self.sent_notifications.lock().unwrap().clone()
+		}
+	}
 
 	#[async_trait::async_trait]
 	impl NotificationService for TestNotificationService {
@@ -743,8 +751,8 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn send_sync_notification(&mut self, _peer: &PeerId, _notification: Vec<u8>) {
-			unimplemented!()
+		fn send_sync_notification(&mut self, peer: &PeerId, notification: Vec<u8>) {
+			self.sent_notifications.lock().unwrap().push((*peer, notification));
 		}
 
 		async fn send_async_notification(
@@ -783,21 +791,16 @@ mod tests {
 		}
 	}
 
+	#[derive(Clone)]
 	struct TestStatementStore {
-		statements_calls: AtomicUsize,
-		take_recent_statements_calls: AtomicUsize,
-		statements: Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>,
+		statements: Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
+		recent_statements:
+			Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
 	}
 
 	impl TestStatementStore {
-		fn new(
-			statements: HashMap<sp_statement_store::Hash, sp_statement_store::Statement>,
-		) -> Self {
-			Self {
-				statements_calls: 0.into(),
-				take_recent_statements_calls: 0.into(),
-				statements: Mutex::new(statements),
-			}
+		fn new() -> Self {
+			Self { statements: Default::default(), recent_statements: Default::default() }
 		}
 	}
 
@@ -807,7 +810,6 @@ mod tests {
 		) -> sp_statement_store::Result<
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 		> {
-			self.statements_calls.fetch_add(1, Ordering::Relaxed);
 			Ok(self.statements.lock().unwrap().iter().map(|(h, s)| (*h, s.clone())).collect())
 		}
 
@@ -816,8 +818,7 @@ mod tests {
 		) -> sp_statement_store::Result<
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 		> {
-			self.take_recent_statements_calls.fetch_add(1, Ordering::Relaxed);
-			Ok(vec![])
+			Ok(self.recent_statements.lock().unwrap().drain().collect())
 		}
 
 		fn statement(
@@ -894,14 +895,30 @@ mod tests {
 		}
 	}
 
-	fn build_handler(
-		statement_store: Arc<TestStatementStore>,
-		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
-	) -> (StatementHandler<TestNetwork, TestSync>, TestNetwork) {
+	fn build_handler() -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		TestNotificationService,
+		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+	) {
+		let statement_store = TestStatementStore::new();
+		let (queue_sender, queue_receiver) = async_channel::bounded(2);
 		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+		let peer_id = PeerId::random();
+		let mut peers = HashMap::new();
+		peers.insert(
+			peer_id,
+			Peer {
+				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
+				role: ObservedRole::Full,
+			},
+		);
+
 		let handler = StatementHandler {
 			protocol_name: "/statement/1".into(),
-			notification_service: Box::new(TestNotificationService {}),
+			notification_service: Box::new(notification_service.clone()),
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
@@ -912,84 +929,57 @@ mod tests {
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
-			peers: HashMap::new(),
-			statement_store,
+			peers,
+			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
 			metrics: None,
 		};
-		(handler, network)
-	}
-
-	#[test]
-	fn test_propogates_only_recent_statements() {
-		let statement_store = Arc::new(TestStatementStore::new(Default::default()));
-		let (submit_queue_sender, _submit_queue_receiver) = async_channel::bounded(2);
-		let (mut handler, _network) = build_handler(statement_store.clone(), submit_queue_sender);
-
-		handler.propagate_statements();
-
-		assert_eq!(statement_store.statements_calls.load(Ordering::Relaxed), 0);
-		assert_eq!(statement_store.take_recent_statements_calls.load(Ordering::Relaxed), 1);
+		(handler, statement_store, network, notification_service, queue_receiver)
 	}
 
 	#[test]
 	fn test_skips_processing_statements_that_already_in_store() {
+		let (mut handler, statement_store, _network, _notification_service, queue_receiver) =
+			build_handler();
+
 		let mut statement1 = Statement::new();
 		statement1.set_plain_data(b"statement1".to_vec());
 		let hash1 = statement1.hash();
+
+		statement_store.statements.lock().unwrap().insert(hash1, statement1.clone());
 
 		let mut statement2 = Statement::new();
 		statement2.set_plain_data(b"statement2".to_vec());
 		let hash2 = statement2.hash();
 
-		let mut statements = HashMap::new();
-		statements.insert(hash1, statement1.clone());
-
-		let statement_store = Arc::new(TestStatementStore::new(statements));
-		let (submit_queue_sender, submit_queue_receiver) = async_channel::bounded(2);
-		let (mut handler, _network) = build_handler(statement_store.clone(), submit_queue_sender);
-
-		let peer_id = PeerId::random();
-		handler.peers.insert(
-			peer_id,
-			Peer {
-				known_statements: LruHashSet::new(NonZeroUsize::new(2).unwrap()),
-				role: ObservedRole::Full,
-			},
-		);
+		let peer_id = *handler.peers.keys().next().unwrap();
 
 		handler.on_statements(peer_id, vec![statement1, statement2]);
 
-		let to_submit = submit_queue_receiver.try_recv();
+		let to_submit = queue_receiver.try_recv();
 		assert_eq!(to_submit.unwrap().0.hash(), hash2, "Expected only statement2 to be queued");
 
-		let no_more = submit_queue_receiver.try_recv();
+		let no_more = queue_receiver.try_recv();
 		assert!(no_more.is_err(), "Expected only one statement to be queued");
 	}
 
 	#[test]
 	fn test_reports_for_duplicate_statements() {
+		let (mut handler, statement_store, network, _notification_service, queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+
 		let mut statement1 = Statement::new();
 		statement1.set_plain_data(b"statement1".to_vec());
 
-		let statements = HashMap::new();
-
-		let statement_store = Arc::new(TestStatementStore::new(statements));
-		let (submit_queue_sender, submit_queue_receiver) = async_channel::bounded(2);
-		let (mut handler, network) = build_handler(statement_store.clone(), submit_queue_sender);
-
-		let peer_id = PeerId::random();
-		handler.peers.insert(
-			peer_id,
-			Peer {
-				known_statements: LruHashSet::new(NonZeroUsize::new(2).unwrap()),
-				role: ObservedRole::Full,
-			},
-		);
-
 		handler.on_statements(peer_id, vec![statement1.clone()]);
-		let (s, _) = submit_queue_receiver.try_recv().unwrap();
-		let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
+		{
+			// Manually process statements submission
+			let (s, _) = queue_receiver.try_recv().unwrap();
+			let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
+			handler.network.report_peer(peer_id, rep::ANY_STATEMENT_REFUND);
+		}
 
 		handler.on_statements(peer_id, vec![statement1]);
 
@@ -997,11 +987,126 @@ mod tests {
 		assert_eq!(
 			reports,
 			vec![
-				(peer_id, rep::ANY_STATEMENT),       // Report for first statement
-				(peer_id, rep::DUPLICATE_STATEMENT)  // Report for duplicate statement
+				(peer_id, rep::ANY_STATEMENT),        // Report for first statement
+				(peer_id, rep::ANY_STATEMENT_REFUND), // Refund for first statement
+				(peer_id, rep::DUPLICATE_STATEMENT)   // Report for duplicate statement
 			],
-			"Expected ANY_STATEMENT and DUPLICATE_STATEMENT reputation change, but got: {:?}",
+			"Expected ANY_STATEMENT, ANY_STATEMENT_REFUND, DUPLICATE_STATEMENT reputation change, but got: {:?}",
 			reports
 		);
+	}
+
+	#[test]
+	fn test_splits_large_batches_into_smaller_chunks() {
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
+			build_handler();
+
+		let num_statements = 30;
+		let statement_size = 10 * 1024; // 10KB per statement
+		for i in 0..num_statements {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; statement_size];
+			data[0] = i as u8;
+			statement.set_plain_data(data);
+			let hash = statement.hash();
+			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		}
+
+		handler.propagate_statements();
+
+		let sent = notification_service.get_sent_notifications();
+		let mut total_statements_sent = 0;
+		assert!(
+			sent.len() == 2,
+			"Expected batch to be split into 2 chunks, but got {} chunks",
+			sent.len()
+		);
+		for (_peer, notification) in sent.iter() {
+			assert!(
+				notification.len() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize,
+				"Notification size {} exceeds limit {}",
+				notification.len(),
+				MAX_STATEMENT_NOTIFICATION_SIZE
+			);
+			if let Ok(stmts) = <Statements as Decode>::decode(&mut notification.as_slice()) {
+				total_statements_sent += stmts.len();
+			}
+		}
+
+		assert_eq!(
+			total_statements_sent, num_statements,
+			"Expected all {} statements to be sent, but only {} were sent",
+			num_statements, total_statements_sent
+		);
+	}
+
+	#[test]
+	fn test_skips_only_oversized_statements() {
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
+			build_handler();
+
+		let mut statement1 = Statement::new();
+		statement1.set_plain_data(vec![1u8; 100]);
+		let hash1 = statement1.hash();
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash1, statement1.clone());
+
+		let mut oversized1 = Statement::new();
+		oversized1.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
+		let hash_oversized1 = oversized1.hash();
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash_oversized1, oversized1);
+
+		let mut statement2 = Statement::new();
+		statement2.set_plain_data(vec![3u8; 100]);
+		let hash2 = statement2.hash();
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash2, statement2.clone());
+
+		let mut oversized2 = Statement::new();
+		oversized2.set_plain_data(vec![4u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
+		let hash_oversized2 = oversized2.hash();
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash_oversized2, oversized2);
+
+		let mut statement3 = Statement::new();
+		statement3.set_plain_data(vec![5u8; 100]);
+		let hash3 = statement3.hash();
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash3, statement3.clone());
+
+		handler.propagate_statements();
+
+		let sent = notification_service.get_sent_notifications();
+
+		let sent_hashes = sent
+			.iter()
+			.map(|(_peer, notification)| {
+				let stmts = <Statements as Decode>::decode(&mut notification.as_slice()).unwrap();
+				assert_eq!(
+					stmts.len(),
+					1,
+					"Each notification should contain exactly one small statement"
+				);
+				stmts.first().unwrap().hash()
+			})
+			.collect::<Vec<_>>();
+
+		assert_eq!(sent_hashes, vec![hash1, hash2, hash3], "Only small statements should be sent");
 	}
 }
