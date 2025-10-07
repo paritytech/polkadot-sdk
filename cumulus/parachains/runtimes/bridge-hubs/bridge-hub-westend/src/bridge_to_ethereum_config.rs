@@ -198,6 +198,43 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type Helper = Runtime;
 }
 
+<<<<<<< HEAD
+=======
+#[cfg(not(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test)))]
+parameter_types! {
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
+		genesis: Fork {
+			version: hex!("90000069"),
+			epoch: 0,
+		},
+		altair: Fork {
+			version: hex!("90000070"),
+			epoch: 50,
+		},
+		bellatrix: Fork {
+			version: hex!("90000071"),
+			epoch: 100,
+		},
+		capella: Fork {
+			version: hex!("90000072"),
+			epoch: 56832,
+		},
+		deneb: Fork {
+			version: hex!("90000073"),
+			epoch: 132608,
+		},
+		electra: Fork {
+			version: hex!("90000074"),
+			epoch: 222464,
+		},
+		fulu: Fork {
+			version: hex!("90000075"),
+			epoch: 272640, // https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
+		},
+	};
+}
+
+>>>>>>> c223162 (Snowbridge - Adds Fulu hardfork (#9938))
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
@@ -225,6 +262,10 @@ parameter_types! {
 			version: hex!("05000000"),
 			epoch: 0,
 		},
+		fulu: Fork {
+			version: hex!("06000000"),
+			epoch: 5000000,
+		}
 	};
 }
 
