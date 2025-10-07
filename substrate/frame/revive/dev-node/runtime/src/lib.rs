@@ -171,10 +171,6 @@ pub mod genesis_config_presets {
 			},
 			revive: ReviveConfig {
 				mapped_accounts: well_known_accounts()
-					.iter()
-					.filter(|x| !is_eth_derived(x))
-					.cloned()
-					.collect(),
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
 		})
