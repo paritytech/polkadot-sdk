@@ -259,20 +259,24 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	/// The maximum number of configurable reserve locations for one asset class.
-	const MAX_RESERVES: u32 = 5;
+	pub const MAX_RESERVES: u32 = 5;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<AssetIdParameter> {
+	pub trait BenchmarkHelper<AssetIdParameter, ReserveIdParameter> {
 		fn create_asset_id_parameter(id: u32) -> AssetIdParameter;
+		fn create_reserve_id_parameter(id: u32) -> ReserveIdParameter;
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	impl<AssetIdParameter: From<u32>> BenchmarkHelper<AssetIdParameter> for () {
+	impl<AssetIdParameter: From<u32>> BenchmarkHelper<AssetIdParameter, ()> for () {
 		fn create_asset_id_parameter(id: u32) -> AssetIdParameter {
 			id.into()
+		}
+		fn create_reserve_id_parameter(_: u32) -> () {
+			()
 		}
 	}
 
@@ -424,7 +428,7 @@ pub mod pallet {
 
 		/// Helper trait for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelper<Self::AssetIdParameter>;
+		type BenchmarkHelper: BenchmarkHelper<Self::AssetIdParameter, Self::ReserveId>;
 	}
 
 	#[pallet::storage]

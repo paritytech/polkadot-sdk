@@ -55,6 +55,18 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 	(asset_id, caller, caller_lookup)
 }
 
+fn create_default_reserves<T: Config<I>, I: 'static>(
+) -> (T::AssetIdParameter, T::AccountId, Vec<T::ReserveId>) {
+	// create asset
+	let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+	// build max number of reserves
+	let mut reserves = Vec::<T::ReserveId>::new();
+	for i in 0..MAX_RESERVES {
+		reserves.push(T::BenchmarkHelper::create_reserve_id_parameter(i));
+	}
+	(asset_id, caller, reserves)
+}
+
 pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
 	is_sufficient: bool,
 	amount: T::Balance,
@@ -332,6 +344,14 @@ benchmarks_instance_pallet! {
 			admin: account("target", 1, SEED),
 			freezer: account("target", 2, SEED),
 		}.into());
+	}
+
+	set_reserves {
+		let (asset_id, caller, reserves) = create_default_reserves::<T, I>();
+		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+	}: _(SystemOrigin::Signed(caller), asset_id.clone(), reserves.clone())
+	verify {
+		assert_last_event::<T, I>(Event::ReservesUpdated { asset_id: asset_id.into(), reserves: reserves }.into());
 	}
 
 	set_metadata {

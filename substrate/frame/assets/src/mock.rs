@@ -105,6 +105,23 @@ impl Config for Test {
 	type Freezer = TestFreezer;
 	type Holder = TestHolder;
 	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
+	type ReserveId = u128;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetsBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetsBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl<AssetIdParameter: From<u32>, ReserveIdParameter: From<u32>>
+	BenchmarkHelper<AssetIdParameter, ReserveIdParameter> for AssetsBenchmarkHelper
+{
+	fn create_asset_id_parameter(id: u32) -> AssetIdParameter {
+		id.into()
+	}
+	fn create_reserve_id_parameter(id: u32) -> ReserveIdParameter {
+		id.into()
+	}
 }
 
 use std::collections::HashMap;
