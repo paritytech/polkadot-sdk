@@ -248,12 +248,12 @@ runtime-benchmarks = [
 	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
+	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"snowbridge-runtime-test-common/runtime-benchmarks"
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
