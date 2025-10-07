@@ -588,6 +588,9 @@ where
 
 #[cfg(test)]
 mod tests {
+
+	use std::sync::atomic::{AtomicUsize, Ordering};
+
 	use super::*;
 
 	struct TestNetwork {}
@@ -677,14 +680,17 @@ mod tests {
 	struct TestSync {}
 
 	impl SyncEventStream for TestSync {
-		fn event_stream(&self, _name: &'static str) -> Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>> {
+		fn event_stream(
+			&self,
+			_name: &'static str,
+		) -> Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>> {
 			unimplemented!()
 		}
 	}
 
 	impl sp_consensus::SyncOracle for TestSync {
 		fn is_major_syncing(&self) -> bool {
-			unimplemented!()
+			false
 		}
 
 		fn is_offline(&self) -> bool {
@@ -692,16 +698,17 @@ mod tests {
 		}
 	}
 
-
 	impl NetworkEventStream for TestNetwork {
-		fn event_stream(&self, _name: &'static str) -> Pin<Box<dyn Stream<Item = sc_network::Event> + Send>> {
+		fn event_stream(
+			&self,
+			_name: &'static str,
+		) -> Pin<Box<dyn Stream<Item = sc_network::Event> + Send>> {
 			unimplemented!()
 		}
 	}
 
 	#[derive(Debug)]
-	struct TestNotificationService {
-	}
+	struct TestNotificationService {}
 
 	#[async_trait::async_trait]
 	impl NotificationService for TestNotificationService {
@@ -745,23 +752,48 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn message_sink(&self, _peer: &PeerId) -> Option<Box<dyn sc_network::service::traits::MessageSink>> {
+		fn message_sink(
+			&self,
+			_peer: &PeerId,
+		) -> Option<Box<dyn sc_network::service::traits::MessageSink>> {
 			unimplemented!()
 		}
 	}
 
-	struct TestStatementStore {}
+	struct TestStatementStore {
+		statements_calls: AtomicUsize,
+		take_recent_statements_calls: AtomicUsize,
+	}
+
+	impl TestStatementStore {
+		fn new() -> Self {
+			Self { statements_calls: 0.into(), take_recent_statements_calls: 0.into() }
+		}
+	}
 
 	impl StatementStore for TestStatementStore {
-		fn statements(&self) -> sp_statement_store::Result<Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>> {
-			unimplemented!()
+		fn statements(
+			&self,
+		) -> sp_statement_store::Result<
+			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
+		> {
+			self.statements_calls.fetch_add(1, Ordering::Relaxed);
+			Ok(vec![])
 		}
 
-		fn take_recent_statements(&self) -> sp_statement_store::Result<Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>> {
-			unimplemented!()
+		fn take_recent_statements(
+			&self,
+		) -> sp_statement_store::Result<
+			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
+		> {
+			self.take_recent_statements_calls.fetch_add(1, Ordering::Relaxed);
+			Ok(vec![])
 		}
 
-		fn statement(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<Option<sp_statement_store::Statement>> {
+		fn statement(
+			&self,
+			_hash: &sp_statement_store::Hash,
+		) -> sp_statement_store::Result<Option<sp_statement_store::Statement>> {
 			unimplemented!()
 		}
 
@@ -769,31 +801,57 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn broadcasts(&self, _match_all_topics: &[sp_statement_store::Topic]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		fn broadcasts(
+			&self,
+			_match_all_topics: &[sp_statement_store::Topic],
+		) -> sp_statement_store::Result<Vec<Vec<u8>>> {
 			unimplemented!()
 		}
 
-		fn posted(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		fn posted(
+			&self,
+			_match_all_topics: &[sp_statement_store::Topic],
+			_dest: [u8; 32],
+		) -> sp_statement_store::Result<Vec<Vec<u8>>> {
 			unimplemented!()
 		}
 
-		fn posted_clear(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		fn posted_clear(
+			&self,
+			_match_all_topics: &[sp_statement_store::Topic],
+			_dest: [u8; 32],
+		) -> sp_statement_store::Result<Vec<Vec<u8>>> {
 			unimplemented!()
 		}
 
-		fn broadcasts_stmt(&self, _match_all_topics: &[sp_statement_store::Topic]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		fn broadcasts_stmt(
+			&self,
+			_match_all_topics: &[sp_statement_store::Topic],
+		) -> sp_statement_store::Result<Vec<Vec<u8>>> {
 			unimplemented!()
 		}
 
-		fn posted_stmt(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		fn posted_stmt(
+			&self,
+			_match_all_topics: &[sp_statement_store::Topic],
+			_dest: [u8; 32],
+		) -> sp_statement_store::Result<Vec<Vec<u8>>> {
 			unimplemented!()
 		}
 
-		fn posted_clear_stmt(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+		fn posted_clear_stmt(
+			&self,
+			_match_all_topics: &[sp_statement_store::Topic],
+			_dest: [u8; 32],
+		) -> sp_statement_store::Result<Vec<Vec<u8>>> {
 			unimplemented!()
 		}
 
-		fn submit(&self, _statement: sp_statement_store::Statement, _source: sp_statement_store::StatementSource) -> sp_statement_store::SubmitResult {
+		fn submit(
+			&self,
+			_statement: sp_statement_store::Statement,
+			_source: sp_statement_store::StatementSource,
+		) -> sp_statement_store::SubmitResult {
 			unimplemented!()
 		}
 
@@ -806,25 +864,47 @@ mod tests {
 		}
 	}
 
-	#[test]
-	fn test() {
+	fn build_handler(
+		statement_store: Arc<TestStatementStore>,
+		propagate_receiver: futures::channel::mpsc::UnboundedReceiver<()>,
+	) -> StatementHandler<TestNetwork, TestSync> {
 		let (queue_sender, _queue_receiver) = async_channel::bounded(100);
 
-		let _handler = StatementHandler {
+		let handler = StatementHandler {
 			protocol_name: "/statement/1".into(),
 			notification_service: Box::new(TestNotificationService {}),
-			propagate_timeout: (Box::pin(interval(PROPAGATE_TIMEOUT))
+			propagate_timeout: (Box::pin(propagate_receiver)
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			network: TestNetwork {},
 			sync: TestSync {},
-			sync_event_stream: (Box::pin(futures::stream::pending()) as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>).fuse(),
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
 			peers: HashMap::new(),
-			statement_store: Arc::new(TestStatementStore {}),
+			statement_store,
 			queue_sender,
 			metrics: None,
 		};
+
+		handler
+	}
+
+	#[tokio::test]
+	async fn test_propogates_only_recent_statements() {
+		let statement_store = Arc::new(TestStatementStore::new());
+		let (mut propagate_sender, propagate_receiver) = futures::channel::mpsc::unbounded();
+		let handler = build_handler(statement_store.clone(), propagate_receiver);
+
+		tokio::spawn(handler.run());
+
+		// Fire the propagate timer
+		let x = propagate_sender.send(()).await;
+		assert!(x.is_ok());
+
+		assert_eq!(statement_store.statements_calls.load(Ordering::Relaxed), 0);
+		assert_eq!(statement_store.take_recent_statements_calls.load(Ordering::Relaxed), 1);
 	}
 }
