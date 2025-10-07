@@ -585,3 +585,246 @@ where
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	struct TestNetwork {}
+
+	#[async_trait::async_trait]
+	impl NetworkPeers for TestNetwork {
+		fn set_authorized_peers(&self, _: std::collections::HashSet<PeerId>) {
+			unimplemented!()
+		}
+
+		fn set_authorized_only(&self, _: bool) {
+			unimplemented!()
+		}
+
+		fn add_known_address(&self, _: PeerId, _: sc_network::Multiaddr) {
+			unimplemented!()
+		}
+
+		fn report_peer(&self, _peer_id: PeerId, _cost_benefit: sc_network::ReputationChange) {
+			unimplemented!()
+		}
+
+		fn peer_reputation(&self, _: &PeerId) -> i32 {
+			unimplemented!()
+		}
+
+		fn disconnect_peer(&self, _: PeerId, _: sc_network::ProtocolName) {
+			unimplemented!()
+		}
+
+		fn accept_unreserved_peers(&self) {
+			unimplemented!()
+		}
+
+		fn deny_unreserved_peers(&self) {
+			unimplemented!()
+		}
+
+		fn add_reserved_peer(
+			&self,
+			_: sc_network::config::MultiaddrWithPeerId,
+		) -> Result<(), String> {
+			unimplemented!()
+		}
+
+		fn remove_reserved_peer(&self, _: PeerId) {
+			unimplemented!()
+		}
+
+		fn set_reserved_peers(
+			&self,
+			_: sc_network::ProtocolName,
+			_: std::collections::HashSet<sc_network::Multiaddr>,
+		) -> Result<(), String> {
+			unimplemented!()
+		}
+
+		fn add_peers_to_reserved_set(
+			&self,
+			_: sc_network::ProtocolName,
+			_: std::collections::HashSet<sc_network::Multiaddr>,
+		) -> Result<(), String> {
+			unimplemented!()
+		}
+
+		fn remove_peers_from_reserved_set(
+			&self,
+			_: sc_network::ProtocolName,
+			_: Vec<PeerId>,
+		) -> Result<(), String> {
+			unimplemented!()
+		}
+
+		fn sync_num_connected(&self) -> usize {
+			unimplemented!()
+		}
+
+		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
+			unimplemented!()
+		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+			unimplemented!();
+		}
+	}
+
+	struct TestSync {}
+
+	impl SyncEventStream for TestSync {
+		fn event_stream(&self, _name: &'static str) -> Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>> {
+			unimplemented!()
+		}
+	}
+
+	impl sp_consensus::SyncOracle for TestSync {
+		fn is_major_syncing(&self) -> bool {
+			unimplemented!()
+		}
+
+		fn is_offline(&self) -> bool {
+			unimplemented!()
+		}
+	}
+
+
+	impl NetworkEventStream for TestNetwork {
+		fn event_stream(&self, _name: &'static str) -> Pin<Box<dyn Stream<Item = sc_network::Event> + Send>> {
+			unimplemented!()
+		}
+	}
+
+	#[derive(Debug)]
+	struct TestNotificationService {
+	}
+
+	#[async_trait::async_trait]
+	impl NotificationService for TestNotificationService {
+		async fn open_substream(&mut self, _peer: PeerId) -> Result<(), ()> {
+			unimplemented!()
+		}
+
+		async fn close_substream(&mut self, _peer: PeerId) -> Result<(), ()> {
+			unimplemented!()
+		}
+
+		fn send_sync_notification(&mut self, _peer: &PeerId, _notification: Vec<u8>) {
+			unimplemented!()
+		}
+
+		async fn send_async_notification(
+			&mut self,
+			_peer: &PeerId,
+			_notification: Vec<u8>,
+		) -> Result<(), sc_network::error::Error> {
+			unimplemented!()
+		}
+
+		async fn set_handshake(&mut self, _handshake: Vec<u8>) -> Result<(), ()> {
+			unimplemented!()
+		}
+
+		fn try_set_handshake(&mut self, _handshake: Vec<u8>) -> Result<(), ()> {
+			unimplemented!()
+		}
+
+		async fn next_event(&mut self) -> Option<sc_network::service::traits::NotificationEvent> {
+			unimplemented!()
+		}
+
+		fn clone(&mut self) -> Result<Box<dyn NotificationService>, ()> {
+			unimplemented!()
+		}
+
+		fn protocol(&self) -> &sc_network::types::ProtocolName {
+			unimplemented!()
+		}
+
+		fn message_sink(&self, _peer: &PeerId) -> Option<Box<dyn sc_network::service::traits::MessageSink>> {
+			unimplemented!()
+		}
+	}
+
+	struct TestStatementStore {}
+
+	impl StatementStore for TestStatementStore {
+		fn statements(&self) -> sp_statement_store::Result<Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>> {
+			unimplemented!()
+		}
+
+		fn take_recent_statements(&self) -> sp_statement_store::Result<Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>> {
+			unimplemented!()
+		}
+
+		fn statement(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<Option<sp_statement_store::Statement>> {
+			unimplemented!()
+		}
+
+		fn has_statement(&self, _hash: &sp_statement_store::Hash) -> bool {
+			unimplemented!()
+		}
+
+		fn broadcasts(&self, _match_all_topics: &[sp_statement_store::Topic]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+			unimplemented!()
+		}
+
+		fn posted(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+			unimplemented!()
+		}
+
+		fn posted_clear(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+			unimplemented!()
+		}
+
+		fn broadcasts_stmt(&self, _match_all_topics: &[sp_statement_store::Topic]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+			unimplemented!()
+		}
+
+		fn posted_stmt(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+			unimplemented!()
+		}
+
+		fn posted_clear_stmt(&self, _match_all_topics: &[sp_statement_store::Topic], _dest: [u8; 32]) -> sp_statement_store::Result<Vec<Vec<u8>>> {
+			unimplemented!()
+		}
+
+		fn submit(&self, _statement: sp_statement_store::Statement, _source: sp_statement_store::StatementSource) -> sp_statement_store::SubmitResult {
+			unimplemented!()
+		}
+
+		fn remove(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<()> {
+			unimplemented!()
+		}
+
+		fn remove_by(&self, _who: [u8; 32]) -> sp_statement_store::Result<()> {
+			unimplemented!()
+		}
+	}
+
+	#[test]
+	fn test() {
+		let (queue_sender, _queue_receiver) = async_channel::bounded(100);
+
+		let _handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(TestNotificationService {}),
+			propagate_timeout: (Box::pin(interval(PROPAGATE_TIMEOUT))
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: TestNetwork {},
+			sync: TestSync {},
+			sync_event_stream: (Box::pin(futures::stream::pending()) as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>).fuse(),
+			peers: HashMap::new(),
+			statement_store: Arc::new(TestStatementStore {}),
+			queue_sender,
+			metrics: None,
+		};
+	}
+}
