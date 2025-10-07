@@ -2,23 +2,8 @@ title: '[Fungibles] Avoid dusting below-ED amounts when creating/releasing holds
 doc:
 - audience: Runtime Dev
   description: |-
-    During Paseo migration there was one account that fallen into edge case scenario that caused incorrect migration of said account. Due to the order of operation on balances when processing holds it is possible to erase/dust amounts below ED.
+    Fixes possible dust of free balance amount below ED in the edge case of managing holds
 
-    As far as I have checked: there were no accounts falling into this edge case for Kusama migration and there are about 50 accounts on Polkadot that will fall into this issue
-
-    Consider scenario:
-    - Assume `existential deposit == 10`
-    - Account has `free balance == 15` (amount above ED)
-    - Account now creates hold with amount of 10 (amount enough to cover ED) so the `reserve balance == 10`
-    - What should be the free balance of the account?
-
-    Without this change the end result is:
-    - `Free balance == 0`
-    - `Reserved balance == 10`
-
-    This fix results in:
-    - `Free balance == 5`
-    - `Reserved balance == 10`
 crates:
 - name: frame-support
   bump: patch
