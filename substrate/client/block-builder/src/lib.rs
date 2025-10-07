@@ -365,14 +365,10 @@ where
 	///
 	/// If `include_proof` is `true`, the estimated size of the storage proof will be added
 	/// to the estimation.
-	pub fn estimate_block_size(&self, include_proof: bool) -> usize {
+	pub fn estimate_block_size(&self) -> usize {
 		let size = self.estimated_header_size + self.extrinsics.encoded_size();
 
-		if include_proof {
-			size + self.api.proof_recorder().map(|pr| pr.estimate_encoded_size()).unwrap_or(0)
-		} else {
-			size
-		}
+		size + self.api.proof_recorder().map_or(0, |pr| pr.estimate_encoded_size())
 	}
 
 	/// Returns the [`ProofRecorder`] set for the block building.
