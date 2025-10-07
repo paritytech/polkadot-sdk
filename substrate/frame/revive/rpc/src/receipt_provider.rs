@@ -270,23 +270,25 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	async fn prune_blocks(&self, block: &impl BlockInfo) -> Result<(), ClientError> {
 		// Keep track of the latest block hashes, so we can prune older blocks.
 		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
-			let latest = block.number();
 			let block_hash = block.hash();
 			let mut block_number_to_hash = self.block_number_to_hash.lock().await;
 
-			let oldest_block = latest.saturating_sub(keep_latest_n_blocks as _);
-			let mut to_remove = block_number_to_hash
-				.iter()
-				.take_while(|(n, _)| **n <= oldest_block)
-				.map(|(_, hash)| *hash)
-				.collect::<Vec<_>>();
-
-			block_number_to_hash.retain(|&n, _| n > oldest_block);
+			// Fork? - If inserting the same block number with a different hash, remove the old one
+			let mut to_remove = Vec::new();
 			match block_number_to_hash.insert(block.number(), block_hash) {
 				Some(old_hash) if old_hash != block_hash => {
 					to_remove.push(old_hash);
 				},
 				_ => {},
+			}
+
+			// If we have more blocks than we should keep, remove the oldest ones by count
+			// (not by block number range, to handle gaps correctly)
+			while block_number_to_hash.len() > keep_latest_n_blocks {
+				// Remove the block with the smallest number (first in BTreeMap)
+				if let Some((_, hash)) = block_number_to_hash.pop_first() {
+					to_remove.push(hash);
+				}
 			}
 
 			log::trace!(target: LOG_TARGET, "Pruning old blocks: {to_remove:?}");
