@@ -1,0 +1,47 @@
+title: 'pallet-assets: add reserves info to support non-teleportable Foreign Assets on Asset Hub'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds a new storage item and new call to pallet-assets that can be used to
+    configure the trusted reserves (as seen by the local chain) on a per-asset basis.
+
+    By default, on asset creation, no explicit reserve chain is configured, this results in
+    foreign assets to be reserve-based assets by default and not teleportable. To make them
+    teleportable with their origin chain, Here needs to be added as a reserve (local chain
+    to also be a reserve).
+
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-asset-conversion
+  bump: patch
+- name: pallet-assets
+  bump: major
+- name: pallet-xcm
+  bump: patch
+- name: pallet-asset-tx-payment
+  bump: patch
+- name: pallet-asset-conversion-tx-payment
+  bump: patch
+- name: pallet-asset-rewards
+  bump: patch
+- name: pallet-assets-freezer
+  bump: patch
+- name: pallet-contracts-mock-network
+  bump: patch
+- name: pallet-nft-fractionalization
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: asset-test-utils
+  bump: minor
+- name: assets-common
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: rococo-parachain-runtime
+  bump: none
+- name: asset-hub-westend-runtime
+  bump: none
+- name: asset-hub-rococo-runtime
+  bump: none
