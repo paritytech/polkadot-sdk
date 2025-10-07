@@ -42,8 +42,8 @@ use frame_system::ensure_signed;
 use snowbridge_beacon_primitives::{
 	fast_aggregate_verify,
 	merkle_proof::{generalized_index_length, subtree_index},
-	verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError, CompactBeaconState,
-	ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
+	verify_merkle_branch, BeaconHeader, BlsError, CompactBeaconState, ForkData, ForkVersion,
+	ForkVersions, PublicKeyPrepared, SigningData,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
@@ -627,6 +627,9 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.fulu.epoch {
+				return fork_versions.fulu.version
+			}
 			if epoch >= fork_versions.electra.epoch {
 				return fork_versions.electra.version
 			}

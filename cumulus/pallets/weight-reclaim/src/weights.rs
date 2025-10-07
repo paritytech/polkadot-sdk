@@ -51,6 +51,7 @@ pub trait WeightInfo {
 }
 
 /// Weights for `cumulus_pallet_weight_reclaim` using the Substrate node and recommended hardware.
+#[allow(dead_code)]
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn storage_weight_reclaim() -> Weight {
