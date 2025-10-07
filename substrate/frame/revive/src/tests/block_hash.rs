@@ -20,6 +20,7 @@
 use crate::{
 	evm::{
 		block_hash::{EthereumBlockBuilder, PalletStorage},
+		fees::InfoT,
 		Block, TransactionSigned,
 	},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
@@ -28,7 +29,10 @@ use crate::{
 	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
 };
 
-use frame_support::traits::{fungible::Mutate, Hooks};
+use frame_support::traits::{
+	fungible::{Balanced, Mutate},
+	Hooks,
+};
 use pallet_revive_fixtures::compile_module;
 
 use alloy_consensus::RlpEncodableReceipt;
@@ -61,11 +65,13 @@ fn transactions_are_captured() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		Contracts::on_initialize(0);
 
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary.clone())).build_and_unwrap_contract();
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
 
 		assert_ok!(builder::eth_call(addr).value(balance).build());
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
@@ -110,7 +116,7 @@ fn events_are_captured() {
 	let (binary, code_hash) = compile_module("event_and_return_on_deploy").unwrap();
 
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
@@ -122,11 +128,11 @@ fn events_are_captured() {
 
 		// Bare call must not be captured.
 		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_contract();
-
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
-		// Capture the EthInstantiate.
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
+
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 
 		// The contract address is not exposed by the `eth_instantiate_with_code` call.

@@ -39,7 +39,9 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
-	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
+	messages::{
+		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
+	},
 	overseer, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
@@ -102,6 +104,9 @@ const MAX_UNSHARED_UPLOAD_TIME: Duration = Duration::from_millis(150);
 ///
 /// Validators are obtained from [`ValidatorGroupsBuffer::validators_to_connect`].
 const RECONNECT_AFTER_LEAF_TIMEOUT: Duration = Duration::from_secs(4);
+
+/// Maximum number of parallel requests to send to the Chain API.
+const MAX_PARALLEL_CHAIN_API_REQUESTS: usize = 10;
 
 /// Future that when resolved indicates that we should update reserved peer-set
 /// of validators we want to be connected to.
@@ -524,7 +529,7 @@ async fn distribute_collation<Context>(
 			session_index,
 			stats: per_relay_parent
 				.block_number
-				.map(|n| CollationStats::new(para_head, n, &state.metrics)),
+				.map(|n| CollationStats::new(para_head, n, candidate_relay_parent, &state.metrics)),
 		},
 	);
 
@@ -1277,7 +1282,6 @@ async fn process_block_events<Context>(
 	leaf: Hash,
 	maybe_block_number: Option<BlockNumber>,
 	para_id: ParaId,
-	metrics: &Metrics,
 ) {
 	if let Ok(events) = get_candidate_events(ctx.sender(), leaf).await {
 		let Some(block_number) = maybe_block_number else {
@@ -1298,7 +1302,7 @@ async fn process_block_events<Context>(
 					if receipt.descriptor.para_id() != para_id {
 						continue
 					}
-					collation_tracker.collation_included(block_number, leaf, receipt, metrics);
+					collation_tracker.collation_included(block_number, leaf, receipt);
 				},
 				CandidateEvent::CandidateBacked(receipt, _, _, _) => {
 					if receipt.descriptor.para_id() != para_id {
@@ -1306,14 +1310,7 @@ async fn process_block_events<Context>(
 					}
 
 					let Some(block_number) = maybe_block_number else { continue };
-					let Some(stats) =
-						collation_tracker.collation_backed(block_number, leaf, receipt, metrics)
-					else {
-						continue
-					};
-
-					// Continue measuring inclusion latency.
-					collation_tracker.track(stats);
+					collation_tracker.collation_backed(block_number, leaf, receipt);
 				},
 				_ => {
 					// do not care about other events
@@ -1352,15 +1349,7 @@ async fn handle_our_view_change<Context>(
 			.per_relay_parent
 			.insert(*leaf, PerRelayParent::new(para_id, claim_queue, block_number, session_index));
 
-		process_block_events(
-			ctx,
-			&mut state.collation_tracker,
-			*leaf,
-			block_number,
-			para_id,
-			&state.metrics,
-		)
-		.await;
+		process_block_events(ctx, &mut state.collation_tracker, *leaf, block_number, para_id).await;
 		let allowed_ancestry = implicit_view
 			.known_allowed_relay_parents_under(leaf, state.collating_on)
 			.unwrap_or_default();
@@ -1532,6 +1521,9 @@ fn process_out_of_view_collation(
 	collation_tracker.track(stats);
 }
 
+/// Process collations that were expired
+///
+/// Collations no more tracked after this call.
 fn process_expired_collations(
 	expired_collations: Vec<CollationStats>,
 	removed: Hash,
@@ -1539,18 +1531,7 @@ fn process_expired_collations(
 	metrics: &Metrics,
 ) {
 	for expired_collation in expired_collations {
-		let collation_state = if expired_collation.fetch_latency().is_none() {
-			// If collation was not fetched, we rely on the status provided
-			// by the collator protocol.
-			expired_collation.pre_backing_status().label()
-		} else if expired_collation.backed().is_none() {
-			"fetched"
-		} else if expired_collation.included().is_none() {
-			"backed"
-		} else {
-			"none"
-		};
-
+		let collation_state = expired_collation.expiry_state();
 		let age = expired_collation.expired().unwrap_or_default();
 		gum::debug!(
 			target: crate::LOG_TARGET_STATS,
@@ -1562,7 +1543,90 @@ fn process_expired_collations(
 			"Collation expired",
 		);
 
+		// Report metrics for collations that were expired after being backed.
+		// The only way this can happen is if they time out availability.
+		if let Some(latency) = expired_collation.backed() {
+			metrics.on_collation_backed(latency as f64);
+		}
 		metrics.on_collation_expired(age as f64, collation_state);
+	}
+}
+
+/// Process collations that may have been finalized on the relay chain.
+///
+/// Collations are no longer tracked after this call.
+///
+/// ## Limitations
+///
+/// We only track the inclusion block number, not the inclusion block hash.
+/// This means a collation included in a fork that was later dropped could still be counted as
+/// finalized. This is acceptable for metrics because such cases are rare.
+async fn process_possibly_finalized_collations(
+	collations: Vec<CollationStats>,
+	last_finalized: (Hash, BlockNumber),
+	sender: &mut impl overseer::SubsystemSender<ChainApiMessage>,
+	metrics: &Metrics,
+) {
+	if collations.is_empty() {
+		return
+	}
+
+	let (last_hash, last_number) = last_finalized;
+	let mut blocks_to_request = collations
+		.iter()
+		.map(|stats| stats.relay_parent().1)
+		.filter(|n| *n != last_number) // No need to request `last_hash` for `last_number`
+		.collect::<Vec<_>>();
+	blocks_to_request.sort_unstable();
+	blocks_to_request.dedup();
+
+	gum::debug!(target: LOG_TARGET_STATS, ?blocks_to_request, "Collations possibly finalized on blocks");
+
+	let mut finalized = vec![(last_hash, last_number)];
+
+	for chunk in blocks_to_request.as_slice().chunks(MAX_PARALLEL_CHAIN_API_REQUESTS) {
+		let futures = chunk.iter().map(|&bn| {
+				let mut sender = sender.clone();
+				async move {
+					let (tx, rx) = oneshot::channel();
+					sender.send_message(ChainApiMessage::FinalizedBlockHash(bn, tx)).await;
+					match rx.await {
+						Ok(Ok(Some(bh))) => Some((bh, bn)),
+						_ => {
+							gum::warn!(target: LOG_TARGET_STATS, block_number = ?bn, "Can't request hash for the finalized block from ChainApi");
+							None
+						},
+					}
+				}
+			});
+		finalized.extend(futures::future::join_all(futures).await.into_iter().flatten());
+	}
+
+	for collation in collations {
+		if !finalized.contains(&collation.relay_parent()) {
+			// Omit collations built on forks: they're dropped but it's expected
+			gum::debug!(
+				target: crate::LOG_TARGET_STATS,
+				relay_parent = ?collation.relay_parent(),
+				head = ?collation.head(),
+				"Collation is built on a fork, skipping",
+			);
+			continue;
+		}
+
+		// Report metrics for finalized collations
+		if let Some(latency) = collation.backed() {
+			metrics.on_collation_backed(latency as f64);
+		}
+		if let Some(latency) = collation.included() {
+			metrics.on_collation_included(latency as f64);
+		}
+		gum::debug!(
+			target: crate::LOG_TARGET_STATS,
+			relay_parent = ?collation.relay_parent(),
+			head = ?collation.head(),
+			"Collation finalized, stop tracking",
+		);
 	}
 }
 
@@ -1628,7 +1692,10 @@ async fn run_inner<Context>(
 						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
 					}
 				}
-				FromOrchestra::Signal(BlockFinalized(..)) => {}
+				FromOrchestra::Signal(BlockFinalized(hash, number)) => {
+					let possibly_finalized = state.collation_tracker.drain_finalized(number);
+					process_possibly_finalized_collations(possibly_finalized, (hash, number), ctx.sender(), &metrics).await;
+				}
 				FromOrchestra::Signal(Conclude) => return Ok(()),
 			},
 			CollationSendResult { relay_parent, candidate_hash, peer_id, timed_out } =
