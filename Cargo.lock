@@ -2559,7 +2559,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2761,7 +2761,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -15000,7 +15000,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-cli"
-version = "28.0.0"
+version = "28.0.1"
 dependencies = [
  "clap",
  "frame-benchmarking-cli",
@@ -21949,7 +21949,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -22117,7 +22117,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -22154,7 +22154,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
