@@ -40,7 +40,6 @@ anyhow = { workspace = true }
 env_logger = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
-log = { workspace = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }

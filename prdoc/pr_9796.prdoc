@@ -1,0 +1,13 @@
+title: "pallet-assets: extract precompiles to its own pallet"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        Assets pallet includes pallet-revive precompiles and subsequently pull a lot of EVM related dependencies by default. This change
+        extracts the precompiles into a new pallet `pallet-assets-precompiles`.
+
+crates:
+  - name: pallet-assets
+    bump: minor
+  - name: pallet-assets-precompiles
+    bump: minor

@@ -23,6 +23,7 @@ cumulus-zombienet-sdk-helpers = { workspace = true }
 sp-statement-store = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+rstest = { workspace = true }
 
 [features]
 zombie-ci = []

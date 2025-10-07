@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract Fibonacci {
-    function fib(uint n) public pure returns (uint) {
+    function fib(uint64 n) public pure returns (uint64) {
         if (n <= 1) {
             return n;
         }

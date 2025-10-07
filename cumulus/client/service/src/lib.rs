@@ -20,7 +20,6 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
@@ -84,23 +83,6 @@ pub enum DARecoveryProfile {
 	FullNode,
 	/// Provide an explicit recovery profile.
 	Other(RecoveryDelayRange),
-}
-
-pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawner> {
-	pub block_status: Arc<BS>,
-	pub client: Arc<Client>,
-	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	pub spawner: Spawner,
-	pub para_id: ParaId,
-	pub relay_chain_interface: RCInterface,
-	pub task_manager: &'a mut TaskManager,
-	pub parachain_consensus: Box<dyn ParachainConsensus<Block>>,
-	pub import_queue: Box<dyn ImportQueueService<Block>>,
-	pub collator_key: CollatorPair,
-	pub relay_chain_slot_duration: Duration,
-	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
-	pub prometheus_registry: Option<&'a Registry>,
 }
 
 /// Parameters given to [`start_relay_chain_tasks`].

@@ -17,9 +17,9 @@
 use crate::{
 	evm::{CallTrace, Trace},
 	tracing::Tracing,
-	BalanceOf, Bounded, Config, MomentOf, Weight,
+	Config, Weight,
 };
-use sp_core::{H256, U256};
+use sp_core::U256;
 
 mod call_tracing;
 pub use call_tracing::*;
@@ -38,9 +38,6 @@ pub enum Tracer<T> {
 
 impl<T: Config> Tracer<T>
 where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 	T::Nonce: Into<u32>,
 {
 	/// Returns an empty trace.

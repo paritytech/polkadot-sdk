@@ -20,7 +20,7 @@
 pub use subxt::config::PolkadotConfig as SrcChainConfig;
 
 #[subxt::subxt(
-	runtime_metadata_path = "revive_chain.metadata",
+	runtime_metadata_path = "revive_chain.scale",
 	// TODO remove once subxt use the same U256 type
 	substitute_type(
 		path = "primitive_types::U256",

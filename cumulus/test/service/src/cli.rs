@@ -318,6 +318,12 @@ impl SubstrateCli for TestCollatorCli {
 					2500,
 				)))) as Box<_>
 			},
+			"async-backing" => {
+				tracing::info!("Using async backing chain spec.");
+				Box::new(cumulus_test_service::get_async_backing_chain_spec(Some(ParaId::from(
+					2500,
+				)))) as Box<_>
+			},
 			"relay-parent-offset" => Box::new(
 				cumulus_test_service::get_relay_parent_offset_chain_spec(Some(ParaId::from(2600))),
 			) as Box<_>,

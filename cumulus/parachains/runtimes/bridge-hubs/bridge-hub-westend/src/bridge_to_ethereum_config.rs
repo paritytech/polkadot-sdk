@@ -30,6 +30,7 @@ use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
+use snowbridge_inbound_queue_primitives::v2::CreateAssetCallInfo;
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
@@ -76,7 +77,7 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const CreateAssetCall: [u8;2] = [53, 0];
+	pub const CreateAssetCallIndex: [u8;2] = [53, 0];
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -88,6 +89,7 @@ parameter_types! {
 	pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(ASSET_HUB_ID)].into();
 	pub InboundQueueV2Location: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
 	pub const SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
+	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateForeignAssetDeposit::get(),min_balance:1};
 	pub SnowbridgeFrontendLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(FRONTEND_PALLET_INDEX)]);
 }
 
@@ -104,7 +106,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v1::MessageToXcm<
-		CreateAssetCall,
+		CreateAssetCallIndex,
 		CreateForeignAssetDeposit,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V1>,
 		AccountId,
@@ -136,14 +138,12 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		CreateAssetCall,
-		CreateForeignAssetDeposit,
 		EthereumNetwork,
-		InboundQueueV2Location,
-		EthereumSystem,
+		RelayNetwork,
 		EthereumGatewayAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueV2Location,
+		AssetHubParaId,
+		EthereumSystem,
 		AccountId,
 	>;
 	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<

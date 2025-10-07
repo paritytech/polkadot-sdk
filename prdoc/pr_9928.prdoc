@@ -1,0 +1,12 @@
+title: 'pallet-revive: Bump PolkaVM'
+doc:
+- audience: Runtime Dev
+  description: Bumped `polkavm` to the latest version. No semantic changes in that
+    update.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch

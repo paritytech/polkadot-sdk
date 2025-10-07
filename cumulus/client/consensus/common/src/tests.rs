@@ -22,7 +22,7 @@ use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
 use cumulus_primitives_core::{
 	relay_chain::{BlockId, BlockNumber, CoreState},
-	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage,
+	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
 	CommittedCandidateReceipt, CoreIndex, OccupiedCoreAssumption, OverseerHandle, PHeader, ParaId,

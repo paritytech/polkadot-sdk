@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Introduce `pallet-oracle`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR is part of #9765 - Polkadot Stablecoin on AssetHub. It introduces `pallet-oracle`, a new FRAME pallet that provides a decentralized and trustworthy way to bring external, off-chain data onto the blockchain. The pallet allows a configurable set of oracle operators to feed data, such as prices, into the system, which can then be consumed by other pallets.
+
+crates:
+  - name: kitchensink-runtime
+    bump: none
+  - name: pallet-oracle
+    bump: major
+  - name: pallet-oracle-runtime-api
+    bump: major
+  - name: polkadot-sdk
+    bump: minor

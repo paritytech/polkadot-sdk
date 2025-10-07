@@ -43,14 +43,18 @@ pub mod basic;
 pub mod lookahead;
 pub mod slot_based;
 
-// This is an arbitrary value which is likely guaranteed to exceed any reasonable
-// limit, as it would correspond to 30 non-included blocks.
+// This is an arbitrary value which is guaranteed to exceed the required depth for 500ms blocks
+// built with a relay parent offset of 1. It must be larger than the unincluded segment capacity.
+//
+// The formula we use to compute the capacity of the unincluded segment in the parachain runtime
+// is:
+// UNINCLUDED_SEGMENT_CAPACITY = (2 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY + 1.
 //
 // Since we only search for parent blocks which have already been imported,
 // we can guarantee that all imported blocks respect the unincluded segment
 // rules specified by the parachain's runtime and thus will never be too deep. This is just an extra
 // sanity check.
-const PARENT_SEARCH_DEPTH: usize = 30;
+const PARENT_SEARCH_DEPTH: usize = 40;
 
 /// Check the `local_validation_code_hash` against the validation code hash in the relay chain
 /// state.

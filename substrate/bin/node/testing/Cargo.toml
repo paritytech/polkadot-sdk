@@ -27,6 +27,7 @@ node-cli = { workspace = true }
 node-primitives = { workspace = true, default-features = true }
 pallet-asset-conversion = { workspace = true, default-features = true }
 pallet-asset-conversion-tx-payment = { workspace = true, default-features = true }
+pallet-revive = { workspace = true, default-features = true }
 pallet-skip-feeless-payment = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }

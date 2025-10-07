@@ -25,7 +25,7 @@ use crate::{
 	},
 	Code, Config, PristineCode,
 };
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
@@ -87,15 +87,10 @@ fn basic_evm_flow_works() {
 			assert_refcount!(contract.code_hash, i as u64);
 
 			let result = builder::bare_call(addr)
-				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
-						.abi_encode(),
-				)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(55u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
+			let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+			assert_eq!(55u64, decoded);
 		}
 
 		// init code is not stored
@@ -139,17 +134,12 @@ fn basic_evm_flow_tracing_works() {
 		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
-				.data(
-					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
-						.abi_encode(),
-				)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
 				.build_and_unwrap_result()
 		});
 
-		assert_eq!(
-			U256::from(55u32),
-			U256::from_be_bytes::<32>(result.data.clone().try_into().unwrap())
-		);
+		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(55u64, decoded);
 
 		assert_eq!(
 			call_tracer.collect_trace().unwrap(),
@@ -157,7 +147,7 @@ fn basic_evm_flow_tracing_works() {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
 				to: addr,
-				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 })
 					.abi_encode()
 					.into(),
 				output: result.data.into(),

@@ -79,3 +79,10 @@
   runner-type: "large"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
+
+- job-name: "zombienet-cumulus-0014-elastic_scaling_upgrade_to_3_cores"
+  test-filter: "zombie_ci::elastic_scaling::upgrade_to_3_cores::elastic_scaling_upgrade_to_3_cores"
+  runner-type: "large"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+  needs-wasm-binary: true

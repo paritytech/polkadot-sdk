@@ -42,8 +42,8 @@ use frame_system::ensure_signed;
 use snowbridge_beacon_primitives::{
 	fast_aggregate_verify,
 	merkle_proof::{generalized_index_length, subtree_index},
-	verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError, CompactBeaconState,
-	ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
+	verify_merkle_branch, BeaconHeader, BlsError, CompactBeaconState, ForkData, ForkVersion,
+	ForkVersions, PublicKeyPrepared, SigningData,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;

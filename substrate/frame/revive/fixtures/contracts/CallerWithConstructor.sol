@@ -5,17 +5,16 @@ contract CallerWithConstructor {
     CallerWithConstructorCallee callee;
 
     constructor() {
-      callee = new CallerWithConstructorCallee();
+        callee = new CallerWithConstructorCallee();
     }
 
-    function callBar() public view returns (uint) {
-      return callee.bar();
+    function callBar() public view returns (uint64) {
+        return callee.bar();
     }
 }
 
 contract CallerWithConstructorCallee {
-    function bar() public pure returns (uint) {
-      return 42;
+    function bar() public pure returns (uint64) {
+        return 42;
     }
 }
-

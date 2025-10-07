@@ -23,17 +23,16 @@ use crate::{
 	limits,
 	primitives::ExecReturnValue,
 	vm::{calculate_code_deposit, BytecodeType, ExportedFunction, RuntimeCosts},
-	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
+	AccountIdOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
 };
 use alloc::vec::Vec;
-use codec::Encode;
 use core::mem;
 use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
 use sp_core::{H160, H256, U256};
 use sp_io::hashing::keccak_256;
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, SaturatedConversion};
 
 impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
@@ -99,10 +98,7 @@ impl<T: Config> ContractBlob<T> {
 	}
 }
 
-impl<T: Config> ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> ContractBlob<T> {
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do validation only when new code is deployed. This allows us to increase
@@ -548,27 +544,6 @@ pub mod env {
 		)?)
 	}
 
-	/// Stores the price for the specified amount of weight into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::weight_to_fee`].
-	#[stable]
-	fn weight_to_fee(
-		&mut self,
-		memory: &mut M,
-		ref_time_limit: u64,
-		proof_size_limit: u64,
-		out_ptr: u32,
-	) -> Result<(), TrapReason> {
-		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
-		self.charge_gas(RuntimeCosts::WeightToFee)?;
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&self.ext.get_weight_price(weight).encode(),
-			false,
-			already_charged,
-		)?)
-	}
-
 	/// Stores the immutable data into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::get_immutable_data`].
 	#[stable]
@@ -674,7 +649,7 @@ pub mod env {
 	#[stable]
 	fn gas_price(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasPrice)?;
-		Ok(GAS_PRICE.into())
+		Ok(self.ext.effective_gas_price().saturated_into())
 	}
 
 	/// Returns the simulated ethereum `BASEFEE` value.

@@ -26,7 +26,7 @@ anyhow = { workspace = true, default-features = true }
 cargo_metadata = { workspace = true }
 hex = { workspace = true, features = ["alloc"] }
 pallet-revive-uapi = { workspace = true }
-polkavm-linker = { version = "0.27.0" }
+polkavm-linker = { version = "0.29.0" }
 serde_json = { workspace = true }
 toml = { workspace = true }
 

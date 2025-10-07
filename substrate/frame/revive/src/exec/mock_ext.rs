@@ -156,10 +156,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::max_value_size")
 	}
 
-	fn get_weight_price(&self, _weight: Weight) -> U256 {
-		panic!("MockExt::get_weight_price")
-	}
-
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
 		&self.gas_meter
 	}
@@ -212,6 +208,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
 		panic!("MockExt::to_account_id")
+	}
+
+	fn effective_gas_price(&self) -> U256 {
+		panic!("MockExt::effective_gas_price")
 	}
 }
 

@@ -192,24 +192,6 @@ where
 	type Proof = AncestryProof<MerkleRootOf<T>>;
 	type ValidationContext = MerkleRootOf<T>;
 
-	fn generate_proof(
-		prev_block_number: BlockNumberFor<T>,
-		best_known_block_number: Option<BlockNumberFor<T>>,
-	) -> Option<Self::Proof> {
-		pallet_mmr::Pallet::<T>::generate_ancestry_proof(prev_block_number, best_known_block_number)
-			.map_err(|e| {
-				log::error!(
-					target: "runtime::beefy",
-					"Failed to generate ancestry proof for block {:?} at {:?}: {:?}",
-					prev_block_number,
-					best_known_block_number,
-					e
-				);
-				e
-			})
-			.ok()
-	}
-
 	fn is_proof_optimal(proof: &Self::Proof) -> bool {
 		let is_proof_optimal = pallet_mmr::Pallet::<T>::is_ancestry_proof_optimal(proof);
 

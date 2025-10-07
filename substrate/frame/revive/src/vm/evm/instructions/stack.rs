@@ -15,66 +15,66 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{utility::cast_slice_to_u256, Context};
-use crate::vm::Ext;
-use revm::{
-	interpreter::{
-		gas as revm_gas,
-		interpreter_types::{Immediates, Jumps, StackTr},
-		InstructionResult,
+use crate::{
+	vm::{
+		evm::{interpreter::Halt, EVMGas, Interpreter},
+		Ext,
 	},
-	primitives::U256,
+	U256,
 };
+use core::ops::ControlFlow;
+use revm::interpreter::gas::{BASE, VERYLOW};
 
 /// Implements the POP instruction.
 ///
 /// Removes the top item from the stack.
-pub fn pop<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	// Can ignore return. as relative N jump is safe operation.
-	popn!([_i], context.interpreter);
+pub fn pop<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	let [_] = interpreter.stack.popn()?;
+	ControlFlow::Continue(())
 }
 
 /// EIP-3855: PUSH0 instruction
 ///
 /// Introduce a new instruction which pushes the constant value 0 onto the stack.
-pub fn push0<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, U256::ZERO);
+pub fn push0<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.stack.push(U256::zero())
 }
 
 /// Implements the PUSH1-PUSH32 instructions.
 ///
 /// Pushes N bytes from bytecode onto the stack as a 32-byte value.
-pub fn push<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
-	push!(context.interpreter, U256::ZERO);
-	popn_top!([], top, context.interpreter);
+pub fn push<'ext, const N: usize, E: Ext>(
+	interpreter: &mut Interpreter<'ext, E>,
+) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 
-	let imm = context.interpreter.bytecode.read_slice(N);
-	cast_slice_to_u256(imm, top);
+	let slice = interpreter.bytecode.read_slice(N);
+	interpreter.stack.push_slice(slice)?;
 
 	// Can ignore return. as relative N jump is safe operation
-	context.interpreter.bytecode.relative_jump(N as isize);
+	interpreter.bytecode.relative_jump(N as isize);
+	ControlFlow::Continue(())
 }
 
 /// Implements the DUP1-DUP16 instructions.
 ///
 /// Duplicates the Nth stack item to the top of the stack.
-pub fn dup<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
-	if !context.interpreter.stack.dup(N) {
-		context.interpreter.halt(InstructionResult::StackOverflow);
-	}
+pub fn dup<'ext, const N: usize, E: Ext>(
+	interpreter: &mut Interpreter<'ext, E>,
+) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.stack.dup(N)
 }
 
 /// Implements the SWAP1-SWAP16 instructions.
 ///
 /// Swaps the top stack item with the Nth stack item.
-pub fn swap<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
+pub fn swap<'ext, const N: usize, E: Ext>(
+	interpreter: &mut Interpreter<'ext, E>,
+) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
 	assert!(N != 0);
-	if !context.interpreter.stack.exchange(0, N) {
-		context.interpreter.halt(InstructionResult::StackOverflow);
-	}
+	interpreter.stack.exchange(0, N)
 }

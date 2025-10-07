@@ -397,15 +397,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the transferred value.
 	fn value_transferred(output: &mut [u8; 32]);
 
-	/// Stores the price for the specified amount of gas into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `ref_time_limit`: The *ref_time* Weight limit to query the price for.
-	/// - `proof_size_limit`: The *proof_size* Weight limit to query the price for.
-	/// - `output`: A reference to the output data buffer to write the price.
-	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]);
-
 	/// Returns the size of the returned data of the last contract call or instantiation.
 	fn return_data_size() -> u64;
 

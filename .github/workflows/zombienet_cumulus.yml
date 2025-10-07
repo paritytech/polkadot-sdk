@@ -80,6 +80,8 @@ jobs:
           tar -xvf artifacts.tar
           ls -ltr artifacts/*
           cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
+          cp ./artifacts/zombienet/wasm_binary_elastic_scaling.rs.compact.compressed.wasm /tmp/
+          cp ./artifacts/zombienet/wasm_binary_elastic_scaling_12s_slot.rs.compact.compressed.wasm /tmp/
           ls -ltr /tmp
           rm -rf artifacts
 

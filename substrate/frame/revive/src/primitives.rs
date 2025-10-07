@@ -23,45 +23,11 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
-
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum DepositLimit<Balance> {
-	/// Allows bypassing all balance transfer checks.
-	UnsafeOnlyForDryRun,
-
-	/// Specifies a maximum allowable balance for a deposit.
-	Balance(Balance),
-}
-
-impl<T> DepositLimit<T> {
-	pub fn is_unchecked(&self) -> bool {
-		match self {
-			Self::UnsafeOnlyForDryRun => true,
-			_ => false,
-		}
-	}
-}
-
-impl<T> From<T> for DepositLimit<T> {
-	fn from(value: T) -> Self {
-		Self::Balance(value)
-	}
-}
-
-impl<T: Bounded + Copy> DepositLimit<T> {
-	pub fn limit(&self) -> T {
-		match self {
-			Self::UnsafeOnlyForDryRun => T::max_value(),
-			Self::Balance(limit) => *limit,
-		}
-	}
-}
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.
@@ -160,10 +126,7 @@ impl<Balance> BalanceWithDust<Balance> {
 	/// Creates a new `BalanceWithDust` from the given EVM value.
 	pub fn from_value<T: Config>(
 		value: U256,
-	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError>
-	where
-		BalanceOf<T>: TryFrom<U256>,
-	{
+	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError> {
 		if value.is_zero() {
 			return Ok(Default::default())
 		}
@@ -356,22 +319,49 @@ where
 	}
 }
 
-/// Indicates whether the account nonce should be incremented after instantiating a new contract.
-///
-/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
-/// each instantiation, ensuring that each instantiation uses a unique nonce.
-///
-/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
-/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
-///
-/// Note:
-/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
-/// extension.
-pub enum BumpNonce {
-	/// Do not increment the nonce after contract instantiation
-	No,
-	/// Increment the nonce after contract instantiation
-	Yes,
+/// `Stack` wide configuration options.
+#[derive(Debug, Clone)]
+pub struct ExecConfig {
+	/// Indicates whether the account nonce should be incremented after instantiating a new
+	/// contract.
+	///
+	/// In Substrate, where transactions can be batched, the account's nonce should be incremented
+	/// after each instantiation, ensuring that each instantiation uses a unique nonce.
+	///
+	/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only
+	/// be incremented once. In these cases, set this to `false` to suppress an extra nonce
+	/// increment.
+	///
+	/// Note:
+	/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+	/// extension.
+	///
+	/// This does not apply to contract initiated instantatiations. Those will always bump the
+	/// instantiating contract's nonce.
+	pub bump_nonce: bool,
+	/// Whether deposits will be withdrawn from the pallet_transaction_payment credit (true) or
+	/// free balance (false).
+	pub collect_deposit_from_hold: bool,
+	/// The gas price that was chosen for this transaction.
+	///
+	/// It is determined when transforming `eth_transact` into a proper extrinsic.
+	pub effective_gas_price: Option<U256>,
+}
+
+impl ExecConfig {
+	/// Create a default config appropriate when the call originated from a subtrate tx.
+	pub fn new_substrate_tx() -> Self {
+		Self { bump_nonce: true, collect_deposit_from_hold: false, effective_gas_price: None }
+	}
+
+	/// Create a default config appropriate when the call originated from a ethereum tx.
+	pub fn new_eth_tx(effective_gas_price: U256) -> Self {
+		Self {
+			bump_nonce: false,
+			collect_deposit_from_hold: true,
+			effective_gas_price: Some(effective_gas_price),
+		}
+	}
 }
 
 /// Indicates whether the code was removed after the last refcount was decremented.

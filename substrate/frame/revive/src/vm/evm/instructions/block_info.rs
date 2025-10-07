@@ -15,78 +15,81 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::Context;
 use crate::{
 	vm::{
-		evm::{U256Converter, BASE_FEE, DIFFICULTY},
+		evm::{interpreter::Halt, EVMGas, Interpreter, BASE_FEE, DIFFICULTY},
 		Ext,
 	},
-	RuntimeCosts,
+	Error, RuntimeCosts,
 };
-use revm::{
-	interpreter::gas as revm_gas,
-	primitives::{Address, U256},
-};
-use sp_core::H160;
+use core::ops::ControlFlow;
+use revm::interpreter::gas::BASE;
+use sp_core::{H160, U256};
 
 /// EIP-1344: ChainID opcode
-pub fn chainid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, U256::from(context.interpreter.extend.chain_id()));
+pub fn chainid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.stack.push(interpreter.ext.chain_id())?;
+	ControlFlow::Continue(())
 }
 
 /// Implements the COINBASE instruction.
 ///
 /// Pushes the current block's beneficiary address onto the stack.
-pub fn coinbase<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::BlockAuthor);
-	let coinbase: Address =
-		context.interpreter.extend.block_author().unwrap_or(H160::zero()).0.into();
-	push!(context.interpreter, coinbase.into_word().into());
+pub fn coinbase<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(RuntimeCosts::BlockAuthor)?;
+	let coinbase = interpreter.ext.block_author().unwrap_or(H160::zero());
+	interpreter.stack.push(coinbase)?;
+	ControlFlow::Continue(())
 }
 
 /// Implements the TIMESTAMP instruction.
 ///
 /// Pushes the current block's timestamp onto the stack.
-pub fn timestamp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::Now);
-	let timestamp = context.interpreter.extend.now();
-	push!(context.interpreter, timestamp.into_revm_u256());
+pub fn timestamp<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(RuntimeCosts::Now)?;
+	let timestamp = interpreter.ext.now();
+	interpreter.stack.push(timestamp)?;
+	ControlFlow::Continue(())
 }
 
 /// Implements the NUMBER instruction.
 ///
 /// Pushes the current block number onto the stack.
-pub fn block_number<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::BlockNumber);
-	let block_number = context.interpreter.extend.block_number();
-	push!(context.interpreter, block_number.into_revm_u256());
+pub fn block_number<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(RuntimeCosts::BlockNumber)?;
+	let block_number = interpreter.ext.block_number();
+	interpreter.stack.push(block_number)?;
+	ControlFlow::Continue(())
 }
 
 /// Implements the DIFFICULTY/PREVRANDAO instruction.
 ///
 /// Pushes the block difficulty (pre-merge) or prevrandao (post-merge) onto the stack.
-pub fn difficulty<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, U256::from(DIFFICULTY));
+pub fn difficulty<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.stack.push(U256::from(DIFFICULTY))?;
+	ControlFlow::Continue(())
 }
 
 /// Implements the GASLIMIT instruction.
 ///
 /// Pushes the current block's gas limit onto the stack.
-pub fn gaslimit<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::GasLimit);
-	let gas_limit = context.interpreter.extend.gas_limit();
-	push!(context.interpreter, U256::from(gas_limit));
+pub fn gaslimit<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(RuntimeCosts::GasLimit)?;
+	let gas_limit = interpreter.ext.gas_limit();
+	interpreter.stack.push(U256::from(gas_limit))?;
+	ControlFlow::Continue(())
 }
 
 /// EIP-3198: BASEFEE opcode
-pub fn basefee<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::BaseFee);
-	push!(context.interpreter, BASE_FEE.into_revm_u256());
+pub fn basefee<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(RuntimeCosts::BaseFee)?;
+	interpreter.stack.push(BASE_FEE)?;
+	ControlFlow::Continue(())
 }
 
 /// EIP-7516: BLOBBASEFEE opcode is not supported
-pub fn blob_basefee<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	context.interpreter.halt(revm::interpreter::InstructionResult::NotActivated);
+pub fn blob_basefee<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }

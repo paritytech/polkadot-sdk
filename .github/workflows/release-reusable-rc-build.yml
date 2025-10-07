@@ -29,14 +29,12 @@ on:
         required: false
         type: string
 
-
 permissions:
   id-token: write
   contents: read
   attestations: write
 
 jobs:
-
   set-image:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
@@ -163,7 +161,7 @@ jobs:
         run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
 
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@2fcdc490d667999e01ddbbf0f2823181beef6b39 # v1.15.0
+        uses: actions-rust-lang/setup-rust-toolchain@02be93da58aa71fb456aa9c43b301149248829d8 # v1.15.1
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
@@ -273,51 +271,51 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      with:
-        ref: ${{ inputs.release_tag }}
-        fetch-depth: 0
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
 
-    - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-      with:
-        name: polkadot_x86_64-unknown-linux-gnu
-        path: target/production
-        merge-multiple: true
+      - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: polkadot_x86_64-unknown-linux-gnu
+          path: target/production
+          merge-multiple: true
 
-    - name: Download polkadot-execute-worker_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-      with:
-        name: polkadot-execute-worker_x86_64-unknown-linux-gnu
-        path: target/production
-        merge-multiple: true
+      - name: Download polkadot-execute-worker_x86_64-unknown-linux-gnu artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: polkadot-execute-worker_x86_64-unknown-linux-gnu
+          path: target/production
+          merge-multiple: true
 
-    - name: Download polkadot-prepare-worker_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-      with:
-        name: polkadot-prepare-worker_x86_64-unknown-linux-gnu
-        path: target/production
-        merge-multiple: true
+      - name: Download polkadot-prepare-worker_x86_64-unknown-linux-gnu artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: polkadot-prepare-worker_x86_64-unknown-linux-gnu
+          path: target/production
+          merge-multiple: true
 
-    - name: Build polkadot deb package
-      shell: bash
-      run: |
-        . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
-        VERSION=$(get_polkadot_node_version_from_code)
-        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
+      - name: Build polkadot deb package
+        shell: bash
+        run: |
+          . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+          VERSION=$(get_polkadot_node_version_from_code)
+          . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
 
-    - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
-      with:
-        subject-path: target/production/*.deb
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        with:
+          subject-path: target/production/*.deb
 
-    - name: Upload ${{inputs.package }} artifacts
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-      with:
-        name: ${{ inputs.package }}_${{ inputs.target }}
-        path: target/production
-        overwrite: true
+      - name: Upload ${{inputs.package }} artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ inputs.package }}_${{ inputs.target }}
+          path: target/production
+          overwrite: true
 
   upload-polkadot-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot' && inputs.target == 'x86_64-unknown-linux-gnu' }}
@@ -429,7 +427,8 @@ jobs:
       package: polkadot-execute-worker
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets: inherit
+    secrets:
+      inherit
       # AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       # AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       # AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
@@ -462,7 +461,8 @@ jobs:
       package: ${{ inputs.package }}
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets: inherit
+    secrets:
+      inherit
       # AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       # AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       # AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
@@ -485,7 +485,8 @@ jobs:
       package: substrate-node
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets: inherit
+    secrets:
+      inherit
       # AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       # AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       # AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}

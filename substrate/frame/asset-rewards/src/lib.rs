@@ -91,11 +91,10 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{MaybeDisplay, Zero},
+	traits::{BlockNumberProvider, MaybeDisplay, Zero},
 	DispatchError,
 };
 use sp_std::boxed::Box;
@@ -123,6 +122,13 @@ pub type PoolInfoFor<T> = PoolInfo<
 	<T as Config>::Balance,
 	BlockNumberFor<T>,
 >;
+
+/// The block number type for the pallet.
+///
+/// This type is derived from the `BlockNumberProvider` associated type in the `Config` trait.
+/// It represents the block number type that the pallet uses for scheduling and expiration.
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The state of a staker in a pool.
 #[derive(Debug, Default, Clone, Decode, Encode, MaxEncodedLen, TypeInfo)]
@@ -179,7 +185,9 @@ pub mod pallet {
 			Consideration, Footprint,
 		},
 	};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{
+		ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+	};
 	use sp_runtime::{
 		traits::{
 			AccountIdConversion, BadOrigin, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureMul,
@@ -255,6 +263,19 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Provider for the current block number.
+		///
+		/// This provider is used to determine the current block number for the pallet.
+		/// It must return monotonically increasing values when called from consecutive blocks.
+		///
+		/// It can be configured to use the local block number (via `frame_system::Pallet`) or a
+		/// remote block number (e.g., from a relay chain). However, note that using a remote
+		/// block number might have implications for the behavior of the pallet, especially if the
+		/// remote block number advances faster than the local block number.
+		///
+		/// It is recommended to use the local block number for solo chains and relay chains.
+		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Helper for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -394,7 +415,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			// The AccountId is at least 16 bytes to contain the unique PalletId.
 			let pool_id: PoolId = 1;
@@ -445,9 +466,9 @@ pub mod pallet {
 			);
 
 			// Check the expiry block.
-			let expiry_block = expiry.evaluate(frame_system::Pallet::<T>::block_number());
+			let expiry_block = expiry.evaluate(T::BlockNumberProvider::current_block_number());
 			ensure!(
-				expiry_block > frame_system::Pallet::<T>::block_number(),
+				expiry_block > T::BlockNumberProvider::current_block_number(),
 				Error::<T>::ExpiryBlockMustBeInTheFuture
 			);
 
@@ -547,7 +568,7 @@ pub mod pallet {
 
 			// Always start by updating the pool rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now > pool_info.expiry_block || caller == staker, BadOrigin);
 
 			let staker_info = PoolStakers::<T>::get(pool_id, &staker).unwrap_or_default();
@@ -601,7 +622,7 @@ pub mod pallet {
 
 			// Always start by updating the pool and staker rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now > pool_info.expiry_block || caller == staker, BadOrigin);
 
 			let staker_info =
@@ -712,9 +733,9 @@ pub mod pallet {
 			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
-			let new_expiry = new_expiry.evaluate(frame_system::Pallet::<T>::block_number());
+			let new_expiry = new_expiry.evaluate(T::BlockNumberProvider::current_block_number());
 			ensure!(
-				new_expiry > frame_system::Pallet::<T>::block_number(),
+				new_expiry > T::BlockNumberProvider::current_block_number(),
 				Error::<T>::ExpiryBlockMustBeInTheFuture
 			);
 
@@ -850,7 +871,7 @@ pub mod pallet {
 			reward_per_token: T::Balance,
 		) -> Result<PoolInfoFor<T>, DispatchError> {
 			let mut new_pool_info = pool_info.clone();
-			new_pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
+			new_pool_info.last_update_block = T::BlockNumberProvider::current_block_number();
 			new_pool_info.reward_per_token_stored = reward_per_token;
 
 			Ok(new_pool_info)
@@ -895,7 +916,7 @@ pub mod pallet {
 		}
 
 		fn last_block_reward_applicable(pool_expiry_block: BlockNumberFor<T>) -> BlockNumberFor<T> {
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			if now < pool_expiry_block {
 				now
 			} else {

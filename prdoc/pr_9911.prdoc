@@ -1,0 +1,9 @@
+title: '[pallet-revive] Allows setting evm balance for non-existing account'
+doc:
+- audience: Runtime User
+  description: |-
+    Allows calling set_evm_balance for a non-existing account on pallet-revive.
+
+crates:
+- name: pallet-revive
+  bump: minor

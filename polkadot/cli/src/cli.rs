@@ -159,6 +159,13 @@ pub struct RunCmd {
 	/// networks.
 	#[arg(long)]
 	pub keep_finalized_for: Option<u32>,
+
+	/// Overrides `HOLD_OFF_DURATION` in collator_protocol/validator_side. The value is in
+	/// milliseconds.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long, hide = true)]
+	pub collator_protocol_hold_off: Option<u64>,
 }
 
 #[allow(missing_docs)]

@@ -17,11 +17,10 @@
 use crate::{
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	AccountInfo, BalanceOf, Bounded, Code, Config, ExecReturnValue, Key, MomentOf, Pallet,
-	PristineCode, Weight,
+	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
 };
 use alloc::{collections::BTreeMap, vec::Vec};
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, U256};
 
 /// A tracer that traces the prestate.
 #[derive(frame_support::DefaultNoBound, Debug, Clone, PartialEq)]
@@ -43,9 +42,6 @@ pub struct PrestateTracer<T> {
 
 impl<T: Config> PrestateTracer<T>
 where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 	T::Nonce: Into<u32>,
 {
 	/// Create a new [`PrestateTracer`] instance.
@@ -132,9 +128,6 @@ where
 
 impl<T: Config> PrestateTracer<T>
 where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 	T::Nonce: Into<u32>,
 {
 	/// Get the code of the contract.
@@ -165,9 +158,6 @@ where
 
 impl<T: Config> Tracing for PrestateTracer<T>
 where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 	T::Nonce: Into<u32>,
 {
 	fn watch_address(&mut self, addr: &H160) {

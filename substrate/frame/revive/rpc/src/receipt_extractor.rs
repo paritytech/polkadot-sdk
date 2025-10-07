@@ -23,7 +23,7 @@ use crate::{
 		transaction_payment::events::TransactionFeePaid,
 		SrcChainConfig,
 	},
-	ClientError, LOG_TARGET,
+	ClientError, H160, LOG_TARGET,
 };
 use futures::{stream, StreamExt};
 use pallet_revive::{
@@ -37,6 +37,9 @@ use subxt::OnlineClient;
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
 >;
+
+type RecoverEthAddressFn = Arc<dyn Fn(&TransactionSigned) -> Result<H160, ()> + Send + Sync>;
+
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
@@ -48,6 +51,9 @@ pub struct ReceiptExtractor {
 
 	/// Earliest block number to consider when searching for transaction receipts.
 	earliest_receipt_block: Option<SubstrateBlockNumber>,
+
+	/// Recover the ethereum address from a transaction signature.
+	recover_eth_address: RecoverEthAddressFn,
 }
 
 /// Fetch the native_to_eth_ratio
@@ -67,6 +73,24 @@ impl ReceiptExtractor {
 		api: OnlineClient<SrcChainConfig>,
 		earliest_receipt_block: Option<SubstrateBlockNumber>,
 	) -> Result<Self, ClientError> {
+		Self::new_with_custom_address_recovery(
+			api,
+			earliest_receipt_block,
+			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
+		)
+		.await
+	}
+
+	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
+	///
+	/// Specify also a custom Ethereum address recovery logic.
+	/// Use `ReceiptExtractor::new` if the default Ethereum address recovery
+	/// logic ([`TransactionSigned::recover_eth_address`] based) is enough.
+	pub async fn new_with_custom_address_recovery(
+		api: OnlineClient<SrcChainConfig>,
+		earliest_receipt_block: Option<SubstrateBlockNumber>,
+		recover_eth_address_fn: RecoverEthAddressFn,
+	) -> Result<Self, ClientError> {
 		let native_to_eth_ratio = native_to_eth_ratio(&api).await?;
 
 		let fetch_gas_price = Arc::new(move |block_hash| {
@@ -80,7 +104,12 @@ impl ReceiptExtractor {
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		Ok(Self { native_to_eth_ratio, fetch_gas_price, earliest_receipt_block })
+		Ok(Self {
+			native_to_eth_ratio,
+			fetch_gas_price,
+			earliest_receipt_block,
+			recover_eth_address: recover_eth_address_fn,
+		})
 	}
 
 	#[cfg(test)]
@@ -88,7 +117,14 @@ impl ReceiptExtractor {
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
-		Self { native_to_eth_ratio: 1_000_000, fetch_gas_price, earliest_receipt_block: None }
+		Self {
+			native_to_eth_ratio: 1_000_000,
+			fetch_gas_price,
+			earliest_receipt_block: None,
+			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
+				signed_tx.recover_eth_address()
+			}),
+		}
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
@@ -116,7 +152,7 @@ impl ReceiptExtractor {
 
 		let signed_tx =
 			TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
-		let from = signed_tx.recover_eth_address().map_err(|_| {
+		let from = (self.recover_eth_address)(&signed_tx).map_err(|_| {
 			log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
 			ClientError::RecoverEthAddressFailed
 		})?;

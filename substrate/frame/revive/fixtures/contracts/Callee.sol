@@ -2,9 +2,9 @@
 pragma solidity >=0.8.0;
 
 contract Callee {
-    uint public stored;
+    uint64 public stored;
 
-    function echo(uint _data) external pure returns (uint data) {
+    function echo(uint64 _data) external pure returns (uint64 data) {
         data = _data;
     }
 
@@ -12,22 +12,22 @@ contract Callee {
         return msg.sender;
     }
 
-    function store(uint _data) external {
+    function store(uint64 _data) external {
         stored = _data;
     }
 
-    function revert() public pure returns (uint256) {
+    function revert() public pure returns (uint64) {
         require(false, "This is a revert");
         return 42; // never reached
     }
 
-    function invalid() public pure returns (uint256 result) {
+    function invalid() public pure {
         assembly {
-            invalid() // 0xFE opcode
+            invalid()
         }
     }
 
-    function stop() public pure returns (uint256 result) {
+    function stop() public pure {
         assembly {
             stop()
         }

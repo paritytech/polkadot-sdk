@@ -1,0 +1,9 @@
+title: Fix the deadlock during statements gossiping
+doc:
+- audience: Node Dev
+  description: |-
+    During high load the statement store experiences deadlock-like behavior: every second statements were gossiping, locking the index which possibly caused the deadlock. After the fix, the observed behavior no longer occurs.
+
+crates:
+- name: sc-statement-store
+  bump: patch

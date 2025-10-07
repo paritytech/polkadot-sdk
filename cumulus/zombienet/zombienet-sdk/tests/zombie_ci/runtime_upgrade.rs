@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, wait_for_upgrade};
 use polkadot_primitives::Id as ParaId;
 use zombienet_configuration::types::AssetLocation;
 use zombienet_sdk::{
@@ -19,22 +19,6 @@ const PARA_ID: u32 = 2000;
 const WASM_WITH_SPEC_VERSION_INCREMENTED: &str =
 	"/tmp/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm";
 
-async fn wait_for_upgrade(
-	client: OnlineClient<PolkadotConfig>,
-	expected_version: u32,
-) -> Result<(), anyhow::Error> {
-	let updater = client.updater();
-	let mut update_stream = updater.runtime_updates().await?;
-
-	while let Some(Ok(update)) = update_stream.next().await {
-		let version = update.runtime_version().spec_version;
-		log::info!("Update runtime spec version {version}");
-		if version == expected_version {
-			break;
-		}
-	}
-	Ok(())
-}
 // This tests makes sure that it is possible to upgrade parachain's runtime
 // and parachain produces blocks after such upgrade.
 #[tokio::test(flavor = "multi_thread")]

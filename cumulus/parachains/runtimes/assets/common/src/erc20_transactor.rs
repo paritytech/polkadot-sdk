@@ -19,12 +19,13 @@
 use core::marker::PhantomData;
 use ethereum_standards::IERC20;
 use frame_support::traits::{fungible::Inspect, OriginTrait};
+use frame_system::pallet_prelude::OriginFor;
 use pallet_revive::{
 	precompiles::alloy::{
 		primitives::{Address, U256 as EU256},
 		sol_types::SolCall,
 	},
-	AddressMapper, ContractResult, DepositLimit, MomentOf,
+	AddressMapper, ContractResult, ExecConfig, MomentOf,
 };
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
@@ -122,12 +123,13 @@ where
 			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, gas_consumed, storage_deposit, .. } =
 			pallet_revive::Pallet::<T>::bare_call(
-				T::RuntimeOrigin::signed(who.clone()),
+				OriginFor::<T>::signed(who.clone()),
 				asset_id,
 				U256::zero(),
 				gas_limit,
-				DepositLimit::Balance(StorageDepositLimit::get()),
+				StorageDepositLimit::get(),
 				data,
+				ExecConfig::new_substrate_tx(),
 			);
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = gas_limit.saturating_sub(gas_consumed);
@@ -180,12 +182,13 @@ where
 		let gas_limit = GasLimit::get();
 		let ContractResult { result, gas_consumed, storage_deposit, .. } =
 			pallet_revive::Pallet::<T>::bare_call(
-				T::RuntimeOrigin::signed(TransfersCheckingAccount::get()),
+				OriginFor::<T>::signed(TransfersCheckingAccount::get()),
 				asset_id,
 				U256::zero(),
 				gas_limit,
-				DepositLimit::Balance(StorageDepositLimit::get()),
+				StorageDepositLimit::get(),
 				data,
+				ExecConfig::new_substrate_tx(),
 			);
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = gas_limit.saturating_sub(gas_consumed);

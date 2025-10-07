@@ -622,7 +622,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// Will fail if the amount transferred is so small that it cannot create the destination due
 	/// to minimum balance requirements.
-	pub(super) fn do_transfer(
+	pub fn do_transfer(
 		id: T::AssetId,
 		source: &T::AccountId,
 		dest: &T::AccountId,
@@ -921,7 +921,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// while reserving `T::ApprovalDeposit` from owner
 	///
 	/// If an approval already exists, the new amount is added to such existing approval
-	pub(super) fn do_approve_transfer(
+	pub fn do_approve_transfer(
 		id: T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
@@ -969,7 +969,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Will fail if `amount` is greater than the approval from `owner` to 'delegate'
 	/// Will unreserve the deposit from `owner` if the entire approved `amount` is spent by
 	/// 'delegate'
-	pub(super) fn do_transfer_approved(
+	pub fn do_transfer_approved(
 		id: T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,

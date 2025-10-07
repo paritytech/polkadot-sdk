@@ -1,0 +1,10 @@
+title: 'Collation metrics: exclude drops of fork-based collations to improve metrics
+  accuracy'
+doc:
+- audience: Node Dev
+  description: |-
+    Improves the accuracy of the collation metrics excluding drops of fork-based collations expected by design for lookahead collators.
+    Metrics are now only sent for collations that were either finalized or dropped.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
