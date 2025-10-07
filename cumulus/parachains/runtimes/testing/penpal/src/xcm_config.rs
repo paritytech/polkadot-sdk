@@ -517,8 +517,11 @@ impl cumulus_pallet_xcm::Config for Runtime {
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<ForeignAssetsAssetId> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> ForeignAssetsAssetId {
+impl pallet_assets::BenchmarkHelper<Location, Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> Location {
+		Location::new(1, [Parachain(id)])
+	}
+	fn create_reserve_id_parameter(id: u32) -> Location {
 		Location::new(1, [Parachain(id)])
 	}
 }
