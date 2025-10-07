@@ -495,8 +495,8 @@ sp_api::mock_impl_runtime_apis! {
 			}
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, _asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
-			XcmPallet::query_delivery_fees(destination, message)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			XcmPallet::query_delivery_fees::<<XcmConfig as xcm_executor::Config>::AssetExchanger>(destination, message, asset_id)
 		}
 	}
 
