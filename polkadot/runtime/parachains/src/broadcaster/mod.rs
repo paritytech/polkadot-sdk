@@ -99,7 +99,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PublisherExists<T: Config> = StorageMap<
 		_,
-		Blake2_128Concat,
+		Twox64Concat,
 		ParaId,
 		bool,
 		ValueQuery,
@@ -109,7 +109,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PublishedKeys<T: Config> = StorageMap<
 		_,
-		Blake2_128Concat,
+		Twox64Concat,
 		ParaId,
 		BoundedBTreeSet<BoundedVec<u8, T::MaxKeyLength>, T::MaxStoredKeys>,
 		ValueQuery,
@@ -122,7 +122,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Subscriptions<T: Config> = StorageMap<
 		_,
-		Blake2_128Concat,
+		Twox64Concat,
 		ParaId,  // Subscriber
 		BoundedVec<ParaId, T::MaxSubscriptions>,  // List of publishers
 		ValueQuery,
