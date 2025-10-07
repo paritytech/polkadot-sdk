@@ -9,8 +9,6 @@ crates:
   bump: patch
 - name: snowbridge-beacon-primitives
   bump: major
-- name: snowbridge-beacon-primitives
-  bump: patch
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: bridge-hub-rococo-runtime
