@@ -25,11 +25,12 @@ use crate::{
 	subxt_client::{src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig},
 	EthRpcClient,
 };
+use anyhow::anyhow;
 use clap::Parser;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
-	evm::{Account, BlockTag, U256},
+	evm::{Account, Block, BlockNumberOrTag, BlockTag, U256},
 };
 use static_init::dynamic;
 use std::{sync::Arc, thread};
@@ -272,6 +273,73 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
 	assert_eq!(call_err.message(), "Invalid Transaction");
+
+	Ok(())
+}
+
+async fn get_evm_block_from_storage(
+	node_client: &OnlineClient<SrcChainConfig>,
+	block_number: U256,
+) -> anyhow::Result<Block> {
+	let mut blocks = node_client.blocks().subscribe_best().await?;
+
+	// Get current best block
+	let block_hash = if let Some(Ok(block)) = blocks.next().await {
+		if block_number == block.number().into() {
+			block.hash()
+		} else {
+			return Err(anyhow::anyhow!(
+				"Block number mismatch found: {:?} required: {block_number:?}",
+				block.hash()
+			));
+		}
+	} else {
+		return Err(anyhow::anyhow!("Failed to fetch next block"));
+	};
+
+	let query = subxt_client::storage().revive().ethereum_block();
+	let Some(block) = node_client.storage().at(block_hash.clone()).fetch(&query).await? else {
+		return Err(anyhow!("EVM block {block_hash:?} not found"));
+	};
+	Ok(block.0)
+}
+
+#[tokio::test]
+async fn evm_blocks_should_match() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = std::sync::Arc::new(SharedResources::client().await);
+	let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
+	// let client = std::sync::Arc::new(ws_client_with_retry("ws://localhost:8545").await);
+	// let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:9944").await?;
+
+	// Deploy a contract to have some interesting blocks
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let value = U256::from(5_000_000_000_000u128);
+	let tx = TransactionBuilder::new(&client)
+		.value(value)
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+
+	let receipt = tx.wait_for_receipt().await?;
+	let block_number = receipt.block_number;
+	let block_hash = receipt.block_hash;
+	println!("block_number = {block_number:?}");
+	println!("tx hash = {:?}", tx.hash());
+
+	let evm_block_from_storage = get_evm_block_from_storage(&node_client, block_number).await?;
+
+	// Fetch the block immediately (should come from storage EthereumBlock)
+	let evm_block_from_rpc_by_number = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number.into()), false)
+		.await?
+		.expect("Block should exist");
+	let evm_block_from_rpc_by_hash =
+		client.get_block_by_hash(block_hash, false).await?.expect("Block should exist");
+
+	// All EVM blocks must match
+	assert_eq!(evm_block_from_storage, evm_block_from_rpc_by_number, "EVM blocks should match");
+	assert_eq!(evm_block_from_storage, evm_block_from_rpc_by_hash, "EVM blocks should match");
 
 	Ok(())
 }
