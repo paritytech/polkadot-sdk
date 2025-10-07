@@ -603,7 +603,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	fn set_reserves() -> Weight {
-		// TODO
 		Weight::from_parts(31_972_000, 3675)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
@@ -1102,7 +1101,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	fn set_reserves() -> Weight {
-		// TODO
 		Weight::from_parts(31_972_000, 3675)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
