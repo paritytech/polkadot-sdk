@@ -689,6 +689,36 @@ mod tests {
 	}
 
 	#[test]
+	fn ensure_epmb_weights_sane_polkadot() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_kusama() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
+	}
+
+	#[test]
 	fn signed_weight_ratios() {
 		sp_tracing::try_init_simple();
 		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
