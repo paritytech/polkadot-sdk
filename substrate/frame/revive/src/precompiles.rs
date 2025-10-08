@@ -110,7 +110,7 @@ pub(crate) enum BuiltinAddressMatcher {
 }
 
 /// A pre-compile can error in the same way that a real contract can.
-#[derive(derive_more::From, Debug)]
+#[derive(derive_more::From, Debug, Eq, PartialEq)]
 pub enum Error {
 	/// This is the same as a contract writing `revert("I reverted")`.
 	///

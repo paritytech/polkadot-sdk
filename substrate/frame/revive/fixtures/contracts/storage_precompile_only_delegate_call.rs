@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This contract calls the Storage pre-compile _without a delegeate call_.
+//! This contract calls the Storage pre-compile _without a delegate call_.
 //! This must result in a trap, it must not be possible to call this contract
 //! succesfully!
 
@@ -25,7 +25,7 @@
 include!("../panic_handler.rs");
 include!("../sol_utils.rs");
 
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{ReturnErrorCode, HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -50,7 +50,7 @@ pub extern "C" fn call() {
 	let n = encode_bytes(&KEY, &mut buffer[68..]);
 
 	let mut output = [0u8; 64]; /* function returns (bool, uint) */
-	let _ = api::call(
+	match api::call(
 		CallFlags::empty(),
 		&STORAGE_PRECOMPILE_ADDR,
 		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
@@ -59,5 +59,9 @@ pub extern "C" fn call() {
 		&[0u8; 32],     // Value transferred to the contract.
 		&buffer[..36 /* selector + `uint32` */ + 32 /* `bool` */ + n /* `bytes` */],
 		Some(&mut &mut output[..]),
-	);
+	) {
+		Ok(_) => api::return_value(uapi::ReturnFlags::empty(), &output[..]),
+		Err(ReturnErrorCode::CalleeReverted) => api::return_value(ReturnFlags::REVERT, &output[..]),
+		Err(_) => panic!(),
+	}
 }

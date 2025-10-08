@@ -570,7 +570,6 @@ fn storage_work() {
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
-#[should_panic(expected = "Storage precompile can only be called via delegate call")]
 fn storage_precompile_only_delegate_call() {
 	let (code, _code_hash) = compile_module("storage_precompile_only_delegate_call").unwrap();
 
@@ -581,7 +580,8 @@ fn storage_precompile_only_delegate_call() {
 			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
-		let _ = builder::bare_call(addr).build();
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		assert!(ret.did_revert());
 	});
 }
 
