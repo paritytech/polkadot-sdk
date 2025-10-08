@@ -30,7 +30,7 @@ pub use alloy_core::sol_types::decode_revert_reason;
 
 /// Ethereum block hash builder related types.
 pub(crate) mod block_hash;
-pub use block_hash::{EthereumBlockBuilderIR, IncrementalHashBuilderIR, ReceiptGasInfo};
+pub use block_hash::ReceiptGasInfo;
 
 /// Ethereum block storage module.
 pub(crate) mod block_storage;
