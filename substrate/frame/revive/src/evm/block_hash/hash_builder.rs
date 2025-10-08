@@ -101,6 +101,20 @@ pub struct IncrementalHashBuilder {
 	stats: Option<HashBuilderStats>,
 }
 
+impl Default for IncrementalHashBuilder {
+	fn default() -> Self {
+		Self {
+			// First deserialization time from the pallet storage, is expected
+			// to contain index 1.
+			index: 1,
+			hash_builder: HashBuilder::default(),
+			first_value: None,
+			#[cfg(test)]
+			stats: None,
+		}
+	}
+}
+
 /// Accounting data for the hash builder, used for testing and analysis.
 #[cfg(test)]
 #[derive(Debug, Clone)]
@@ -147,17 +161,6 @@ impl core::fmt::Display for HashBuilderStats {
 }
 
 impl IncrementalHashBuilder {
-	/// Construct the hash builder from the first value.
-	pub fn new() -> Self {
-		Self {
-			hash_builder: HashBuilder::default(),
-			index: 1,
-			first_value: None,
-			#[cfg(test)]
-			stats: None,
-		}
-	}
-
 	/// Converts the intermediate representation back into a builder.
 	pub fn from_ir(serialized: IncrementalHashBuilderIR) -> Self {
 		let value = match serialized.value_type {
@@ -448,7 +451,7 @@ mod tests {
 
 	#[test]
 	fn test_hash_builder_stats() {
-		let mut builder = IncrementalHashBuilder::new();
+		let mut builder = IncrementalHashBuilder::default();
 		builder.enable_stats();
 
 		let stats = builder.get_stats().expect("Stats should be enabled");
@@ -477,7 +480,7 @@ mod tests {
 
 	#[test]
 	fn test_hash_builder_without_stats() {
-		let mut builder = IncrementalHashBuilder::new();
+		let mut builder = IncrementalHashBuilder::default();
 
 		// Without enabling stats
 		assert!(builder.get_stats().is_none());
@@ -501,7 +504,7 @@ mod tests {
 		] {
 			println!("\n=== Testing Hash Builder with {item_count} items ===");
 
-			let mut builder = IncrementalHashBuilder::new();
+			let mut builder = IncrementalHashBuilder::default();
 			builder.enable_stats();
 
 			let initial_stats = builder.get_stats().unwrap();
@@ -544,7 +547,7 @@ mod tests {
 	fn test_ir_size_calculation() {
 		println!("\n=== Testing IncrementalHashBuilderIR Size Calculation ===");
 
-		let mut builder = IncrementalHashBuilder::new();
+		let mut builder = IncrementalHashBuilder::default();
 		builder.enable_stats();
 
 		// Calculate initial IR size (we need to restore the builder after to_ir())
