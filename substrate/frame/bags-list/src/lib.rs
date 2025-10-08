@@ -126,7 +126,10 @@ pub mod example {}
 use alloc::{boxed::Box, vec::Vec};
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
-use frame_support::weights::{Weight, WeightMeter};
+use frame_support::{
+	traits::Get,
+	weights::{Weight, WeightMeter},
+};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
 
@@ -722,7 +725,10 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
 		Pallet::<T, I>::ensure_unlocked().map_err(|_| {
 			// Pallet is locked - store in PendingRebag for later processing
-			PendingRebag::<T, I>::insert(&id, score);
+			// Only queue if auto-rebagging is enabled
+			if T::MaxAutoRebagPerBlock::get() > 0u32 {
+				PendingRebag::<T, I>::insert(&id, score);
+			}
 			ListError::Locked
 		})?;
 		List::<T, I>::insert(id, score)

@@ -990,6 +990,32 @@ mod on_idle {
 		});
 	}
 
+	#[test]
+	fn pending_rebag_not_used_when_auto_rebag_disabled() {
+		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(0);
+
+			assert_ok!(List::<Runtime>::insert(1, 10));
+			assert_eq!(PendingRebag::<Runtime>::count(), 0);
+
+			BagsList::lock();
+
+			// Try to insert while locked with auto-rebag disabled
+			assert_eq!(BagsList::on_insert(5, 15), Err(ListError::Locked));
+
+			// Should NOT be added to PendingRebag since auto-rebag is disabled
+			assert_eq!(PendingRebag::<Runtime>::count(), 0);
+			assert_eq!(PendingRebag::<Runtime>::get(5), None);
+
+			BagsList::unlock();
+
+			// The account can still be inserted manually via rebag extrinsic
+			StakingMock::set_score_of(&5, 15);
+			assert_ok!(List::<Runtime>::insert(5, 15));
+			assert!(List::<Runtime>::contains(&5));
+		});
+	}
+
 	/// Tests the PendingRebag feature that handles accounts that fail to be inserted due to
 	/// locking.
 	#[test]
