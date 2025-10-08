@@ -373,7 +373,8 @@ impl ReceiptExtractor {
 			.map(|((extr, call), rec)| (extr, call, rec)))
 	}
 
-	/// Extract receipt from transaction
+	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] for a specific transaction in a
+	/// [`SubstrateBlock`]
 	pub async fn extract_from_transaction(
 		&self,
 		block: &SubstrateBlock,
@@ -404,7 +405,7 @@ impl ReceiptExtractor {
 		.await
 	}
 
-	/// Get the Ethereum block hash for the given Substrate block.
+	/// Get the Ethereum block hash for the Substrate block with specific hash.
 	pub async fn get_ethereum_block_hash(
 		&self,
 		block_hash: &H256,
