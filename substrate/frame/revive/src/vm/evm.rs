@@ -20,7 +20,6 @@ use crate::{
 	vm::{evm::instructions::exec_instruction, BytecodeType, ExecResult, Ext},
 	weights::WeightInfo,
 	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, Weight, H256, LOG_TARGET,
-	U256,
 };
 use alloc::vec::Vec;
 use core::{convert::Infallible, ops::ControlFlow};
@@ -48,11 +47,6 @@ mod util;
 /// a fixed constant is returned instead for compatibility with contracts that still read this
 /// opcode. The value is aligned with the difficulty hardcoded for PVM contracts.
 pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
-
-/// The base fee per gas used in the network as defined by EIP-1559.
-///
-/// For `pallet-revive`, this is hardcoded to 0
-pub(crate) const BASE_FEE: U256 = U256::zero();
 
 /// Cost  for a single unit of EVM gas.
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]

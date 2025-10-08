@@ -17,7 +17,7 @@
 
 use crate::{
 	vm::{
-		evm::{interpreter::Halt, EVMGas, Interpreter, BASE_FEE, DIFFICULTY},
+		evm::{interpreter::Halt, EVMGas, Interpreter, DIFFICULTY},
 		Ext,
 	},
 	Error, RuntimeCosts,
@@ -85,7 +85,7 @@ pub fn gaslimit<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// EIP-3198: BASEFEE opcode
 pub fn basefee<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(RuntimeCosts::BaseFee)?;
-	interpreter.stack.push(BASE_FEE)?;
+	interpreter.stack.push(crate::Pallet::<E::T>::evm_base_fee())?;
 	ControlFlow::Continue(())
 }
 
