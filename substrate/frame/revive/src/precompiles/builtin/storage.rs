@@ -185,7 +185,7 @@ mod tests {
 				key: [0u8; 32].into(),
 				isFixedKey: true,
 			});
-			let raw_data = <Storage<Test>>::call_with_info(
+			let raw_data = <Storage<Test>>::call(
 				&<Storage<Test>>::MATCHER.base_address(),
 				&input,
 				&mut ext,
