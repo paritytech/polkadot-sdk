@@ -403,4 +403,3 @@ jobs:
       #     if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
       #     POLKADOT_PR_ARTIFACTS_URL=$(curl "https://api.github.com/repos/paritytech/polkadot-sdk/actions/runs/${{steps.wait_build.outputs.BUILD_RUN_ID}}/artifacts?name=build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" | jq -r ".artifacts[0].archive_download_url")
       #     echo "POLKADOT_PR_ARTIFACTS_URL=${POLKADOT_PR_ARTIFACTS_URL}" >> $GITHUB_OUTPUT
-
