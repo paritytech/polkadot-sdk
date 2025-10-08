@@ -45,9 +45,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 		// call overhead. The `delegate_call` overhead is benchmarked individually.
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		if !env.is_delegate_call() {
-			return Err(
-				Error::Revert("Storage precompile can only be called via delegate call".into())
-			);
+			return Err(Error::Revert(
+				"Storage precompile can only be called via delegate call".into(),
+			));
 		}
 
 		use IStorage::IStorageCalls;
