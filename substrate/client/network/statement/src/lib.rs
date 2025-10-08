@@ -567,20 +567,24 @@ where
 					// Size exceeded - split the chunk
 					let split_factor =
 						(encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
-					let new_chunk_size = (current_end - offset) / split_factor;
+					let mut new_chunk_size = (current_end - offset) / split_factor;
 
 					// Single statement is too large
 					if new_chunk_size == 0 {
-						log::warn!(
-							target: LOG_TARGET,
-							"Statement too large ({} KB), skipping",
-							encoded_size / 1024
-						);
-						if let Some(ref metrics) = self.metrics {
-							metrics.skipped_oversized_statements.inc();
+						if chunk.len() == 1 {
+							log::warn!(
+								target: LOG_TARGET,
+								"Statement too large ({} KB), skipping",
+								encoded_size / 1024
+							);
+							if let Some(ref metrics) = self.metrics {
+								metrics.skipped_oversized_statements.inc();
+							}
+							offset = current_end;
+							break;
 						}
-						offset = current_end;
-						break;
+						// Don't skip more than one statement at once
+						new_chunk_size = 1;
 					}
 
 					// Reduce chunk size and try again
@@ -1070,7 +1074,7 @@ mod tests {
 			.insert(hash1, statement1.clone());
 
 		let mut oversized1 = Statement::new();
-		oversized1.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
+		oversized1.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize * 100]);
 		let hash_oversized1 = oversized1.hash();
 		statement_store
 			.recent_statements
@@ -1111,10 +1115,9 @@ mod tests {
 
 		let mut sent_hashes = sent
 			.iter()
-			.map(|(_peer, notification)| {
+			.flat_map(|(_peer, notification)| {
 				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
 			})
-			.flatten()
 			.map(|s| s.hash())
 			.collect::<Vec<_>>();
 		sent_hashes.sort();
