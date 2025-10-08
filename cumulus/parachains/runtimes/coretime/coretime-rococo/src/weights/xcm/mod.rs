@@ -270,4 +270,8 @@ impl<Call> XcmWeightInfo<Call> for CoretimeRococoXcmWeight<Call> {
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
+	fn publish(_: &PublishData) -> Weight {
+		// TODO: Benchmark
+		Weight::from_parts(10_000_000, 0)
+	}
 }

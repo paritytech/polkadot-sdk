@@ -21,7 +21,7 @@ use crate::Runtime;
 use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use xcm::{
-	latest::{prelude::*, QueryResponseInfo},
+	latest::{prelude::*, QueryResponseInfo, PublishData},
 	DoubleEncoded,
 };
 
@@ -306,6 +306,11 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	}
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<RuntimeCall>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
+	}
+
+	fn publish(_: &PublishData) -> Weight {
+		// TODO: Benchmark
+		Weight::from_parts(10_000_000, 0)
 	}
 }
 
