@@ -66,7 +66,7 @@ sol! {
 		/// If no entry exists for this key `containedKey` is `false` and
 		/// `valueLen` is `0`.
 		function containsStorage(uint32 flags, bool isFixedKey, bytes memory key)
-			external returns (bool containedKey, uint valueLen);
+			external view returns (bool containedKey, uint valueLen);
 
 		/// Retrieve and remove the value under the given key from storage.
 		///
