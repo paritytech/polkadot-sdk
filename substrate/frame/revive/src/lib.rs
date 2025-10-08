@@ -1245,6 +1245,8 @@ pub mod pallet {
 					}
 				}
 
+				let encoded_length = transaction_encoded.len() as u32;
+
 				block_storage::process_transaction::<T>(
 					transaction_encoded,
 					output.result.is_ok(),
@@ -1254,7 +1256,8 @@ pub mod pallet {
 				let result = dispatch_result(
 					output.result,
 					output.gas_consumed,
-					<T as Config>::WeightInfo::eth_call(Pallet::<T>::has_dust(value).into()),
+					<T as Config>::WeightInfo::eth_call(Pallet::<T>::has_dust(value).into())
+						.saturating_add(T::WeightInfo::on_finalize_block_per_tx(encoded_length)),
 				);
 				T::FeeInfo::ensure_not_overdrawn(encoded_len, &info, result)
 			})
