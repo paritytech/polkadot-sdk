@@ -729,7 +729,7 @@ mod tests {
 			})
 			.await
 			.is_ok());
-		assert_matches::assert_matches!(rx1.await.expect("should be no error receiving"), Ok(_));
+		assert_matches!(rx1.await.expect("should be no error receiving"), Ok(_));
 
 		assert!(pool.submit_one(created_block.hash, SOURCE, uxt(Bob, 0)).await.is_ok());
 		let (tx2, rx2) = futures::channel::oneshot::channel();

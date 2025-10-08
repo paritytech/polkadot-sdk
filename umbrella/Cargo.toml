@@ -2206,7 +2206,6 @@ default-features = false
 optional = true
 path = "../cumulus/client/consensus/common"
 
-
 [dependencies.cumulus-client-consensus-relay-chain]
 default-features = false
 optional = true
