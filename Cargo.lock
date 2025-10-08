@@ -16050,6 +16050,7 @@ dependencies = [
  "sc-client-api",
  "sc-client-db",
  "sc-consensus",
+ "sc-consensus-aura",
  "sc-consensus-manual-seal",
  "sc-executor",
  "sc-keystore",

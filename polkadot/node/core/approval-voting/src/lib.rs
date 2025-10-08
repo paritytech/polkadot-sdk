@@ -853,6 +853,27 @@ async fn get_extended_session_info<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
 	relay_parent: Hash,
+) -> Option<&'a ExtendedSessionInfo>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match runtime_info.get_session_info(sender, relay_parent).await {
+		Ok(extended_info) => Some(&extended_info),
+		Err(_) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"Can't obtain SessionInfo or ExecutorParams"
+			);
+			None
+		},
+	}
+}
+
+async fn get_extended_session_info_by_index<'a, Sender>(
+	runtime_info: &'a mut RuntimeInfo,
+	sender: &mut Sender,
+	relay_parent: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a ExtendedSessionInfo>
 where
@@ -875,7 +896,7 @@ where
 	}
 }
 
-async fn get_session_info<'a, Sender>(
+async fn get_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
 	relay_parent: Hash,
@@ -884,7 +905,7 @@ async fn get_session_info<'a, Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	get_extended_session_info(runtime_info, sender, relay_parent, session_index)
+	get_extended_session_info_by_index(runtime_info, sender, relay_parent, session_index)
 		.await
 		.map(|extended_info| &extended_info.session_info)
 }
@@ -978,7 +999,7 @@ impl State {
 	where
 		Sender: SubsystemSender<RuntimeApiMessage>,
 	{
-		let session_info = match get_session_info(
+		let session_info = match get_session_info_by_index(
 			session_info_provider,
 			sender,
 			block_entry.parent_hash(),
@@ -1906,8 +1927,10 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 											match get_extended_session_info(
 												session_info_provider,
 												sender,
-												block_entry.block_hash(),
-												block_entry.session(),
+												candidate_entry
+													.candidate_receipt()
+													.descriptor()
+													.relay_parent(),
 											)
 											.await
 											{
@@ -2692,7 +2715,7 @@ where
 			)),
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),
@@ -3313,24 +3336,21 @@ where
 		_ => return Ok(Vec::new()),
 	};
 
-	let ExtendedSessionInfo { ref session_info, ref executor_params, .. } =
-		match get_extended_session_info(
-			session_info_provider,
-			sender,
-			block_entry.block_hash(),
-			block_entry.session(),
-		)
-		.await
-		{
-			Some(i) => i,
-			None => return Ok(Vec::new()),
-		};
+	let (no_show_slots, needed_approvals) = match get_session_info_by_index(
+		session_info_provider,
+		sender,
+		block_entry.block_hash(),
+		block_entry.session(),
+	)
+	.await
+	{
+		Some(i) => (i.no_show_slots, i.needed_approvals),
+		None => return Ok(Vec::new()),
+	};
 
 	let block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
-	let no_show_duration = slot_number_to_tick(
-		state.slot_duration_millis,
-		Slot::from(u64::from(session_info.no_show_slots)),
-	);
+	let no_show_duration =
+		slot_number_to_tick(state.slot_duration_millis, Slot::from(u64::from(no_show_slots)));
 	let tranche_now = state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
 
 	gum::trace!(
@@ -3353,7 +3373,7 @@ where
 			tranche_now,
 			block_tick,
 			no_show_duration,
-			session_info.needed_approvals as _,
+			needed_approvals as _,
 		);
 
 		let should_trigger = should_trigger_assignment(
@@ -3388,6 +3408,16 @@ where
 	};
 
 	if let Some((cert, val_index, tranche)) = maybe_cert {
+		let ExtendedSessionInfo { ref executor_params, .. } = match get_extended_session_info(
+			session_info_provider,
+			sender,
+			candidate_entry.candidate_receipt().descriptor().relay_parent(),
+		)
+		.await
+		{
+			Some(i) => i,
+			None => return Ok(actions),
+		};
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 
@@ -3774,7 +3804,7 @@ async fn issue_approval<
 		},
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),
@@ -3900,7 +3930,7 @@ async fn maybe_create_signature<
 		None => return Ok(sign_no_later_then),
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),
