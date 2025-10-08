@@ -773,16 +773,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
-	where
-		// We need this to place the substrate block
-		// hash into the logs of the receipts.
-		T::Hash: frame_support::traits::IsType<H256>,
-		<T as frame_system::Config>::RuntimeCall:
-			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
-		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-		MomentOf<T>: Into<U256>,
-	{
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
