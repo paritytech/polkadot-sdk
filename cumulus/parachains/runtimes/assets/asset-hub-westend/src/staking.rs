@@ -134,7 +134,7 @@ impl multi_block::Config for Runtime {
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type Signed = MultiBlockElectionSigned;
-	type WeightInfo = multi_block::weights::westend::MultiBlockWeightInfo<Self>;
+	type WeightInfo = weights::pallet_election_provider_multi_block::WeightInfo<Runtime>;
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -143,7 +143,7 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockElectionSigned;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type WeightInfo = multi_block::weights::westend::MultiBlockVerifierWeightInfo<Self>;
+	type WeightInfo = weights::pallet_election_provider_multi_block_verifier::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -165,7 +165,7 @@ impl multi_block::signed::Config for Runtime {
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
-	type WeightInfo = multi_block::weights::westend::MultiBlockSignedWeightInfo<Self>;
+	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -182,7 +182,7 @@ impl multi_block::unsigned::Config for Runtime {
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
-	type WeightInfo = multi_block::weights::westend::MultiBlockUnsignedWeightInfo<Self>;
+	type WeightInfo = weights::pallet_election_provider_multi_block_unsigned::WeightInfo<Runtime>;
 }
 
 parameter_types! {

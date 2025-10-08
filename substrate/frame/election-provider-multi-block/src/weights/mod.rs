@@ -173,6 +173,3 @@ pub mod polkadot {
 		pallet_election_provider_multi_block_verifier_dot_size::WeightInfo as MultiBlockVerifierWeightInfo,
 	};
 }
-pub mod westend {
-	pub use super::polkadot::*;
-}
