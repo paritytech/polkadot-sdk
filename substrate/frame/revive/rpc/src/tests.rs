@@ -20,6 +20,7 @@
 
 use crate::{
 	cli::{self, CliCommand},
+	client,
 	example::TransactionBuilder,
 	subxt_client::{
 		self, src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig,
@@ -32,13 +33,14 @@ use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockNumberOrTag, BlockTag, HashesOrTransactionInfos, TransactionInfo, U256,
+		Account, Block, BlockNumberOrTag, BlockTag, HashesOrTransactionInfos, TransactionInfo,
+		H256, U256,
 	},
 };
 use static_init::dynamic;
 use std::{sync::Arc, thread};
 use substrate_cli_test_utils::*;
-use subxt::OnlineClient;
+use subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, OnlineClient};
 
 /// Create a websocket client with a 120s timeout.
 async fn ws_client_with_retry(url: &str) -> WsClient {
@@ -282,26 +284,16 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 
 async fn get_evm_block_from_storage(
 	node_client: &OnlineClient<SrcChainConfig>,
+	node_rpc_client: &RpcClient,
 	block_number: U256,
 ) -> anyhow::Result<Block> {
-	let mut blocks = node_client.blocks().subscribe_best().await?;
-
-	// Get current best block
-	let block_hash = if let Some(Ok(block)) = blocks.next().await {
-		if block_number == block.number().into() {
-			block.hash()
-		} else {
-			return Err(anyhow::anyhow!(
-				"Block number mismatch found: {:?} required: {block_number:?}",
-				block.hash()
-			));
-		}
-	} else {
-		return Err(anyhow::anyhow!("Failed to fetch next block"));
-	};
+	let block_hash: H256 = node_rpc_client
+		.request("chain_getBlockHash", rpc_params![block_number])
+		.await
+		.unwrap();
 
 	let query = subxt_client::storage().revive().ethereum_block();
-	let Some(block) = node_client.storage().at(block_hash).fetch(&query).await? else {
+	let Some(block) = node_client.storage().at(block_hash).fetch(&query).await.unwrap() else {
 		return Err(anyhow!("EVM block {block_hash:?} not found"));
 	};
 	Ok(block.0)
@@ -311,7 +303,8 @@ async fn get_evm_block_from_storage(
 async fn evm_blocks_should_match() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = std::sync::Arc::new(SharedResources::client().await);
-	let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
+
+	let (node_client, node_rpc_client, _) = client::connect("ws://localhost:45789").await.unwrap();
 
 	// Deploy a contract to have some interesting blocks
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
@@ -328,7 +321,8 @@ async fn evm_blocks_should_match() -> anyhow::Result<()> {
 	println!("block_number = {block_number:?}");
 	println!("tx hash = {:?}", tx.hash());
 
-	let evm_block_from_storage = get_evm_block_from_storage(&node_client, block_number).await?;
+	let evm_block_from_storage =
+		get_evm_block_from_storage(&node_client, &node_rpc_client, block_number).await?;
 
 	// Fetch the block immediately (should come from storage EthereumBlock)
 	let evm_block_from_rpc_by_number = client
