@@ -301,7 +301,7 @@ async fn get_evm_block_from_storage(
 	};
 
 	let query = subxt_client::storage().revive().ethereum_block();
-	let Some(block) = node_client.storage().at(block_hash.clone()).fetch(&query).await? else {
+	let Some(block) = node_client.storage().at(block_hash).fetch(&query).await? else {
 		return Err(anyhow!("EVM block {block_hash:?} not found"));
 	};
 	Ok(block.0)
@@ -310,10 +310,8 @@ async fn get_evm_block_from_storage(
 #[tokio::test]
 async fn evm_blocks_should_match() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
-	// let client = std::sync::Arc::new(SharedResources::client().await);
-	// let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
-	let client = std::sync::Arc::new(ws_client_with_retry("ws://localhost:8545").await);
-	let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:9944").await?;
+	let client = std::sync::Arc::new(SharedResources::client().await);
+	let node_client = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
 
 	// Deploy a contract to have some interesting blocks
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
@@ -357,9 +355,8 @@ async fn evm_blocks_should_match() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
-	// let _lock = SHARED_RESOURCES.write();
-	// let client = std::sync::Arc::new(SharedResources::client().await);
-	let client = std::sync::Arc::new(ws_client_with_retry("ws://localhost:8545").await);
+	let _lock = SHARED_RESOURCES.write();
+	let client = std::sync::Arc::new(SharedResources::client().await);
 
 	// Deploy a contract to have some transactions in the block
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
