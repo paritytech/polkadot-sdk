@@ -1,0 +1,7 @@
+title: Finally remove the `experimental-ump-signals` feature
+doc:
+- audience: Todo
+  description: closes https://github.com/paritytech/polkadot-sdk/issues/5051
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major
