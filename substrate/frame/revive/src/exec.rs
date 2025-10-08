@@ -2115,7 +2115,6 @@ where
 		block_storage::capture_ethereum_log(&contract, &data, &topics);
 
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
-		Ok(())
 	}
 
 	fn block_number(&self) -> U256 {
