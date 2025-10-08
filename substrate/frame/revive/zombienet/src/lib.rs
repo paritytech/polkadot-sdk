@@ -26,10 +26,9 @@ pub mod utils;
 
 const PARA_ID: u32 = 1000;
 pub const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
-pub const ALICE_DB: &str = "db/alice-westend-validator_db.tgz";
-pub const BOB_DB: &str = "db/bob-westend-validator_db.tgz";
-pub const COLLATOR1_DB: &str = "db/asset-hub-westend-collator1_db.tgz";
-pub const COLLATOR2_DB: &str = "db/asset-hub-westend-collator2_db.tgz";
+
+// TODO
+// Switch to db snapshots to reduce test duration if this is critical
 
 pub struct ZombienetNetwork {
 	pub network: Network<LocalFileSystem>,
@@ -54,7 +53,7 @@ impl ZombienetNetwork {
 					.with_node(|node| {
 						let node = node.with_name("alice-westend-validator");
 						if use_db {
-							node.with_db_snapshot(AssetLocation::from(ALICE_DB))
+							todo!("Specify DB snapshot for the node");
 						} else {
 							node.with_initial_balance(2000000000000)
 						}
@@ -62,7 +61,7 @@ impl ZombienetNetwork {
 					.with_node(|node| {
 						let node = node.with_name("bob-westend-validator");
 						if use_db {
-							node.with_db_snapshot(AssetLocation::from(BOB_DB))
+							todo!("Specify DB snapshot for the node");
 						} else {
 							node.with_initial_balance(2000000000000)
 						}
@@ -89,7 +88,7 @@ impl ZombienetNetwork {
 							// eth-rpc will connect to this port
 							.with_rpc_port(collator_rpc_port);
 						if use_db {
-							node.with_db_snapshot(AssetLocation::from(COLLATOR1_DB))
+							todo!("Specify DB snapshot for the node");
 						} else {
 							node
 						}
@@ -97,7 +96,7 @@ impl ZombienetNetwork {
 					.with_collator(|n| {
 						let node = n.with_name("asset-hub-westend-collator2");
 						if use_db {
-							node.with_db_snapshot(AssetLocation::from(COLLATOR2_DB))
+							todo!("Specify DB snapshot for the node");
 						} else {
 							node
 						}
@@ -115,8 +114,8 @@ impl ZombienetNetwork {
 	}
 
 	/// Launch zombienet network and ensure it is running as expected.
-	pub async fn launch(collator_rpc_port: u16) -> Result<ZombienetNetwork, anyhow::Error> {
-		let config = Self::build_config(collator_rpc_port, true)?;
+	pub async fn launch(collator_rpc_port: u16, use_db: bool) -> Result<Self, anyhow::Error> {
+		let config = Self::build_config(collator_rpc_port, use_db)?;
 
 		log::info!("Launching network");
 		let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
@@ -239,7 +238,7 @@ impl TestEnvironment {
 		collator_rpc_port: u16,
 		eth_rpc_url: &str,
 	) -> Result<Self, anyhow::Error> {
-		let zn = ZombienetNetwork::launch(collator_rpc_port)
+		let zn = ZombienetNetwork::launch(collator_rpc_port, false)
 			.await
 			.map_err(|err| anyhow!("Failed to spawn zombienet: {err:?}"))?;
 		let base_dir = zn.network.base_dir().unwrap();
@@ -254,12 +253,12 @@ impl TestEnvironment {
 			.map_err(|err| anyhow!("Failed to spawn ETH-RPC server: {err:?}"))?;
 
 		// TODO: use below approach once subxt versions used here and in zombienet-sdk match
-		// let collator_rpc_client = collator.rpc().await.unwrap_or_else(|err| {
-		//     panic!("Failed to get the RPC client for the collator {collator_name}: {err:?}")
-		// });
-		let collator_rpc_client = RpcClient::from_insecure_url(collator.ws_uri())
-			.await
-			.map_err(|err| anyhow!("Failed to create RPC client: {err:?}"))?;
+		let collator_rpc_client = collator.rpc().await.unwrap_or_else(|err| {
+			panic!("Failed to get the RPC client for the collator {collator_name}: {err:?}")
+		});
+		// let collator_rpc_client = RpcClient::from_insecure_url(collator.ws_uri())
+		// 	.await
+		// 	.map_err(|err| anyhow!("Failed to create RPC client: {err:?}"))?;
 
 		let collator_client = OnlineClient::from_rpc_client(collator_rpc_client.clone())
 			.await

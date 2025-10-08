@@ -3,7 +3,7 @@
 
 use pallet_revive::evm::{Account, BlockNumberOrTag, BlockTag};
 use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
-use pallet_revive_zombienet::{utils::*, TestEnvironment, BEST_BLOCK_METRIC};
+use pallet_revive_zombienet::{utils::*, TestEnvironment};
 use sp_core::U256;
 use subxt::{self, dynamic::Value};
 use subxt_signer::sr25519::dev;
@@ -11,7 +11,8 @@ use subxt_signer::sr25519::dev;
 const COLLATOR_RPC_PORT: u16 = 9944;
 const ETH_RPC_URL: &str = "http://localhost:8545";
 
-// This tests makes sure that RPC collator is able to build blocks
+// This test is useful when developing, one can spawn substrate-node and eth-rpc separately
+// and does not need to wait until zombienet's parachain nodes are ready to interact with.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_dont_spawn_zombienet() {
 	let _ = env_logger::try_init_from_env(
@@ -23,7 +24,6 @@ async fn test_dont_spawn_zombienet() {
 		.unwrap_or_else(|err| panic!("Failed to create test environment: {err:?}"));
 
 	// TODO: block zero is reconstructed from substrate
-	// sanity_block_check(&test_env, BlockNumberOrTag::U256(0.into()), true).await;
 	assert_block(&test_env, BlockNumberOrTag::U256(1.into()), true).await;
 	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
 	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
@@ -34,7 +34,6 @@ async fn test_dont_spawn_zombienet() {
 	test_mixed_evm_substrate_transactions(&test_env, 3, 2).await;
 }
 
-// This tests makes sure that RPC collator is able to build blocks
 #[tokio::test(flavor = "multi_thread")]
 async fn test_with_zombienet_spawning() {
 	let _ = env_logger::try_init_from_env(
@@ -44,25 +43,17 @@ async fn test_with_zombienet_spawning() {
 	let test_env = TestEnvironment::with_zombienet(COLLATOR_RPC_PORT, ETH_RPC_URL)
 		.await
 		.unwrap_or_else(|err| panic!("Failed to create test environment: {err:?}"));
-	let zombienet = test_env.zombienet.as_ref().unwrap();
+	let _zombienet = test_env.zombienet.as_ref().unwrap();
 
 	// TODO: block zero is reconstructed from substrate
-	// sanity_block_check(&test_env, BlockNumberOrTag::U256(0.into()), true).await;
-	// assert_block(&test_env, BlockNumberOrTag::U256(1.into()), true).await;
-	// assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
-	// assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
+	assert_block(&test_env, BlockNumberOrTag::U256(1.into()), true).await;
+	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
+	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
 
-	// test_transfer(&test_env).await;
-
-	// TODO remove after tests are implemented
-	let alice = zombienet
-		.network
-		.get_node("alice-westend-validator")
-		.unwrap_or_else(|err| panic!("Failed to get node: {err:?}"));
-	assert!(alice
-		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 600.0, 3600u64)
-		.await
-		.is_ok());
+	test_single_transfer(&test_env).await;
+	test_deployment(&test_env).await;
+	test_parallel_transfers(&test_env, 5).await;
+	test_mixed_evm_substrate_transactions(&test_env, 3, 2).await;
 }
 
 async fn test_single_transfer(test_env: &TestEnvironment) {
