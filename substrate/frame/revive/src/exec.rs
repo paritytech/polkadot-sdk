@@ -1889,8 +1889,6 @@ where
 		allows_reentry: bool,
 		read_only: bool,
 	) -> Result<(), ExecError> {
-		log::debug!(target: crate::LOG_TARGET, "attempting to call pre-compile at {dest_addr:?}");
-
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
@@ -1963,7 +1961,6 @@ where
 						self.exec_config,
 					)
 				};
-				log::debug!(target: crate::LOG_TARGET, "result of calling {dest_addr:?} pre-compile: {:?}", result);
 
 				if_tracing(|t| match result {
 					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
