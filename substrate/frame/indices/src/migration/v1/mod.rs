@@ -74,19 +74,24 @@
 //! 4. Zero deposit serves as a permanent marker for failed migration
 //! 5. No additional storage needed - uses existing deposit field
 
+use super::*;
 extern crate alloc;
 use super::PALLET_MIGRATIONS_ID;
 use crate::{
 	pallet::{Accounts, Config, HoldReason},
 	BalanceOf,
 };
+use alloc::collections::BTreeMap;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	pallet_prelude::PhantomData,
-	traits::{fungible::MutateHold, Currency, Get, ReservableCurrency},
+	pallet_prelude::{PhantomData, *},
+	traits::{
+		fungible::{InspectHold, MutateHold},
+		Currency, Get, ReservableCurrency,
+	},
 	weights::WeightMeter,
 };
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::Zero, TryRuntimeError};
 
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
