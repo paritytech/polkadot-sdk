@@ -27,39 +27,34 @@ command = "polkadot"
 id = 1000
 chain = "asset-hub-westend-local"
 cumulus_based = true
-default_args = [ "-lparachain=debug" ]
+default_args = [ "-lparachain=debug", "--authoring slot-based" ]
 
 	[[parachains.collators]]
-	name = "alice"
+	name = "collator-alice"
 	validator = true
 	command = "polkadot-parachain"
 
 	# run bob as parachain collator
 	[[parachains.collators]]
-	name = "bob"
-	validator = true
+	name = "collator-0"
 	command = "polkadot-parachain"
 
 	# run charlie as parachain collator
 	[[parachains.collators]]
-	name = "charlie"
-	validator = true
+	name = "collator-1"
 	command = "polkadot-parachain"
 
 	# run dave as parachain collator
 	[[parachains.collators]]
-	name = "dave"
-	validator = true
+	name = "collator-2"
 	command = "polkadot-parachain"
 
 	# run eve as parachain collator
 	[[parachains.collators]]
-	name = "eve"
-	validator = true
+	name = "collator-3"
 	command = "polkadot-parachain"
 
 	# run ferdie as parachain collator
 	[[parachains.collators]]
-	name = "ferdie"
-	validator = true
+	name = "collator-4"
 	command = "polkadot-parachain"
