@@ -361,9 +361,7 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				// Send the core selector UMP signal. This is experimental until relay chain
-				// validators are upgraded to handle ump signals.
-				#[cfg(feature = "experimental-ump-signals")]
+				// Send the core selector UMP signal.
 				Self::send_ump_signal();
 
 				// If the total size of the pending messages is less than the threshold,
@@ -1510,7 +1508,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send the ump signals
-	#[cfg(feature = "experimental-ump-signals")]
 	fn send_ump_signal() {
 		use cumulus_primitives_core::relay_chain::{UMPSignal, UMP_SEPARATOR};
 

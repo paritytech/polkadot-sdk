@@ -1472,6 +1472,7 @@ impl pallet_revive::Config for Runtime {
 	type AllowEVMBytecode = ConstBool<true>;
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
+	type DebugEnabled = ConstBool<false>;
 }
 
 impl pallet_sudo::Config for Runtime {

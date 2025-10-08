@@ -25,7 +25,7 @@ use crate::{aux_schema, MmrClient, LOG_TARGET};
 use log::{debug, error, info, warn};
 use sc_client_api::{Backend, FinalityNotification};
 use sc_offchain::OffchainDb;
-use sp_blockchain::{CachedHeaderMetadata, ForkBackend};
+use sp_blockchain::CachedHeaderMetadata;
 use sp_consensus_beefy::MmrRootHash;
 use sp_core::offchain::{DbExternalities, StorageKind};
 use sp_mmr_primitives::{utils, utils::NodesUtils, MmrApi, NodeIndex};
@@ -33,7 +33,7 @@ use sp_runtime::{
 	traits::{Block, Header, NumberFor, One},
 	Saturating,
 };
-use std::{collections::VecDeque, default::Default, sync::Arc};
+use std::{collections::VecDeque, sync::Arc};
 
 /// `OffchainMMR` exposes MMR offchain canonicalization and pruning logic.
 pub struct OffchainMmr<B: Block, BE: Backend<B>, C> {
@@ -273,14 +273,7 @@ where
 		self.write_gadget_state_or_log();
 
 		// Remove offchain MMR nodes for stale forks.
-		let stale_forks = self.client.expand_forks(&notification.stale_heads).unwrap_or_else(|e| {
-			warn!(target: LOG_TARGET, "{:?}", e);
-
-			Default::default()
-		});
-		for hash in stale_forks.iter() {
-			self.prune_branch(hash);
-		}
+		notification.stale_blocks.iter().for_each(|s| self.prune_branch(&s.hash));
 	}
 }
 

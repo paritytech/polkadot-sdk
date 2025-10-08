@@ -516,7 +516,8 @@ impl Store {
 
 	/// Create a new instance.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
-	fn new<Block, Client>(
+	#[doc(hidden)]
+	pub fn new<Block, Client>(
 		path: &std::path::Path,
 		options: Options,
 		client: Arc<Client>,

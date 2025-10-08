@@ -1,0 +1,24 @@
+title: 'FinalityNotification: Directly include stale blocks'
+doc:
+- audience: Node Dev
+  description: |-
+    The finality notification was already carrying the information about the stale heads. However, most users of the stale heads were expanding these stale heads to all the stale blocks. So, we were iterating the same forks multiple times in the node for each finality notification. Also in a possible future where we start actually pruning headers as well, expanding these forks would fail.
+
+    So, this pull request is changing the finality notification to directly carry the stale blocks (which were calculated any way already).
+crates:
+- name: cumulus-client-pov-recovery
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-consensus-babe
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: mmr-gadget
+  bump: major
+- name: sc-rpc-spec-v2
+  bump: major
+- name: sc-service
+  bump: major
+- name: sp-blockchain
+  bump: major

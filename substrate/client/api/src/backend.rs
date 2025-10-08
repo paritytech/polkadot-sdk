@@ -79,6 +79,15 @@ pub struct ImportSummary<Block: BlockT> {
 	pub import_notification_action: ImportNotificationAction,
 }
 
+/// A stale block.
+#[derive(Clone, Debug)]
+pub struct StaleBlock<Block: BlockT> {
+	/// The hash of this block.
+	pub hash: Block::Hash,
+	/// Is this a head?
+	pub is_head: bool,
+}
+
 /// Finalization operation summary.
 ///
 /// Contains information about the block that just got finalized,
@@ -87,10 +96,11 @@ pub struct FinalizeSummary<Block: BlockT> {
 	/// Last finalized block header.
 	pub header: Block::Header,
 	/// Blocks that were finalized.
+	///
 	/// The last entry is the one that has been explicitly finalized.
 	pub finalized: Vec<Block::Hash>,
-	/// Heads that became stale during this finalization operation.
-	pub stale_heads: Vec<Block::Hash>,
+	/// Blocks that became stale during this finalization operation.
+	pub stale_blocks: Vec<StaleBlock<Block>>,
 }
 
 /// Import operation wrapper.

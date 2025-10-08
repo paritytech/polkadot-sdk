@@ -253,7 +253,13 @@ pub trait Backend<Block: BlockT>:
 		&self,
 		finalized_block_hash: Block::Hash,
 		finalized_block_number: NumberFor<Block>,
+		finalized_block_parent_hash: Block::Hash,
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
+		// There are no forks at genesis.
+		if finalized_block_number.is_zero() {
+			return Ok(DisplacedLeavesAfterFinalization::default());
+		}
+
 		let leaves = self.leaves()?;
 
 		let now = std::time::Instant::now();
@@ -265,37 +271,14 @@ pub trait Backend<Block: BlockT>:
 			"Checking for displaced leaves after finalization."
 		);
 
-		// If we have only one leaf there are no forks, and we can return early.
-		if finalized_block_number == Zero::zero() || leaves.len() == 1 {
-			return Ok(DisplacedLeavesAfterFinalization::default());
-		}
-
 		// Store hashes of finalized blocks for quick checking later, the last block is the
 		// finalized one
 		let mut finalized_chain = VecDeque::new();
-		let current_finalized = match self.header_metadata(finalized_block_hash) {
-			Ok(metadata) => metadata,
-			Err(Error::UnknownBlock(_)) => {
-				debug!(
-					target: crate::LOG_TARGET,
-					hash = ?finalized_block_hash,
-					elapsed = ?now.elapsed(),
-					"Tried to fetch unknown block, block ancestry has gaps.",
-				);
-				return Ok(DisplacedLeavesAfterFinalization::default());
-			},
-			Err(e) => {
-				debug!(
-					target: crate::LOG_TARGET,
-					hash = ?finalized_block_hash,
-					err = ?e,
-					elapsed = ?now.elapsed(),
-					"Failed to fetch block.",
-				);
-				return Err(e);
-			},
-		};
-		finalized_chain.push_front(MinimalBlockMetadata::from(&current_finalized));
+		finalized_chain.push_front(MinimalBlockMetadata {
+			number: finalized_block_number,
+			hash: finalized_block_hash,
+			parent: finalized_block_parent_hash,
+		});
 
 		// Local cache is a performance optimization in case of finalized block deep below the
 		// tip of the chain with a lot of leaves above finalized block
