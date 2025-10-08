@@ -65,6 +65,7 @@ runs:
         k8s_auth
 
     - name: zombie_test
+      timeout-minutes: 60
       shell: bash
       env:
         # don't retry sdk tests

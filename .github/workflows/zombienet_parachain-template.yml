@@ -41,7 +41,7 @@ jobs:
   zombienet-parachain-template-tests:
     name: ${{ matrix.test.job-name }}
     runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
-    timeout-minutes: 30
+    timeout-minutes: 40 # 30 for test + 10 for send logs
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
     container:
