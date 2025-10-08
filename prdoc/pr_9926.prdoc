@@ -1,10 +1,8 @@
 title: 'Staking-Async: Chill stakers should not have a score'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
-    That can re-instate them in the bags-list pallet
-
-    Identified by https://github.com/paritytech-secops/srlabs_findings/issues/559
+    Async: Chill stakers should not have a score.
 
     While no severe consequence, this bug could cause non-validator and non-nominator stakers to retain a spot in the bags-list pallet, preventing other legit nominators/validators from taking their place.
 
