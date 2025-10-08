@@ -85,7 +85,7 @@ pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
 pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
 /// The maximum size of a single statement in bytes.
 /// Accounts for the 1-byte vector length prefix when statements are gossiped as `Vec<Statement>`.
-pub const MAX_STATEMENT_SIZE: u32 = sc_network_statement::config::MAX_STATEMENT_SIZE as u32 - 1;
+pub const MAX_STATEMENT_SIZE: usize = sc_network_statement::config::MAX_STATEMENT_SIZE as usize - 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -380,8 +380,10 @@ impl Index {
 		validation: &ValidStatement,
 		current_time: u64,
 	) -> MaybeInserted {
-		let statement_len = statement.encoded_size();
-		if statement_len > validation.max_size.min(MAX_STATEMENT_SIZE) as usize {
+		let statement_len = statement.data_len();
+		if statement_len > validation.max_size as usize ||
+			statement.encoded_size() > MAX_STATEMENT_SIZE
+		{
 			log::debug!(
 				target: LOG_TARGET,
 				"Ignored oversize message: {:?} ({} bytes)",
@@ -1052,6 +1054,7 @@ mod tests {
 									Some(a) if a == account(2) => (2, 1000),
 									Some(a) if a == account(3) => (3, 1000),
 									Some(a) if a == account(4) => (4, 1000),
+									Some(a) if a == account(42) => (42, 42 * crate::MAX_STATEMENT_SIZE as u32),
 									_ => (2, 2000),
 								};
 								Ok(ValidStatement{ max_count, max_size })
@@ -1322,6 +1325,28 @@ mod tests {
 			store.statements().unwrap().into_iter().map(|(hash, _)| hash).collect();
 		statements.sort();
 		assert_eq!(expected_statements, statements);
+	}
+
+	#[test]
+	fn max_statement_size_for_gossiping() {
+		let (store, _temp) = test_store();
+		store.index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
+
+		assert_eq!(
+			store.submit(
+				statement(42, 1, Some(1), crate::MAX_STATEMENT_SIZE - 500),
+				StatementSource::Local
+			),
+			SubmitResult::New(NetworkPriority::High)
+		);
+
+		assert_eq!(
+			store.submit(
+				statement(42, 2, Some(1), 2 * crate::MAX_STATEMENT_SIZE),
+				StatementSource::Local
+			),
+			SubmitResult::Ignored
+		);
 	}
 
 	#[test]
