@@ -41,7 +41,7 @@
 //! ```text
 //! Before migration:
 //! - Account A owns index 123 with 30 tokens reserved
-//! - Hold creation fails 
+//! - Hold creation fails
 //!
 //! After failed migration:
 //! - Index relationship A→123 preserved
@@ -76,23 +76,22 @@
 
 use super::*;
 extern crate alloc;
-use frame_support::traits::fungible::MutateHold;
-use frame_support::traits::ReservableCurrency;
-use sp_runtime::TryRuntimeError;
-use frame_support::traits::fungible::InspectHold;
-use alloc::collections::BTreeMap;
-use frame_support::traits::Get;
-use frame_support::pallet_prelude::*;
-use frame_support::traits::Currency;
-use crate::pallet::{Config, Accounts, HoldReason};
-use crate::{BalanceOf};
 use super::PALLET_MIGRATIONS_ID;
+use crate::{
+	pallet::{Accounts, Config, HoldReason},
+	BalanceOf,
+};
+use alloc::collections::BTreeMap;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	pallet_prelude::PhantomData,
+	pallet_prelude::{PhantomData, *},
+	traits::{
+		fungible::{InspectHold, MutateHold},
+		Currency, Get, ReservableCurrency,
+	},
 	weights::WeightMeter,
 };
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::Zero, TryRuntimeError};
 
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
@@ -103,8 +102,7 @@ use alloc::vec::Vec;
 // Module containing the OLD (v0) storage items that used Currency trait.
 pub mod v0 {
 	use super::Config;
-	use crate::pallet::Pallet;
-	use crate::BalanceOf;
+	use crate::{pallet::Pallet, BalanceOf};
 	use frame_support::{storage_alias, Blake2_128Concat};
 
 	// Old balance type using Currency trait
@@ -113,21 +111,23 @@ pub mod v0 {
 
 	#[storage_alias]
 	/// The old storage item that used Currency trait with reserves.
-	/// 
+	///
 	/// This storage maps AccountIndex -> (AccountId, ReservedBalance, IsFrozen)
 	/// where ReservedBalance represents the amount reserved via Currency::reserve()
-	pub type OldAccounts<T: Config> =
-		StorageMap<Pallet<T>, Blake2_128Concat, <T as Config>::AccountIndex, (<T as frame_system::Config>::AccountId, OldBalanceOf<T>, bool)>;
+	pub type OldAccounts<T: Config> = StorageMap<
+		Pallet<T>,
+		Blake2_128Concat,
+		<T as Config>::AccountIndex,
+		(<T as frame_system::Config>::AccountId, OldBalanceOf<T>, bool),
+	>;
 }
 
 /// Migration from Currency trait (v0) to Fungibles trait (v1).
-/// 
+///
 /// This migration converts from the old Currency system with reserves to the new
 /// Fungibles system with holds, preserving all index relationships and ensuring
 /// no funds are lost.
-pub struct MigrateCurrencyToFungibles<T: Config, OldCurrency>(
-	PhantomData<(T, OldCurrency)>,
-);
+pub struct MigrateCurrencyToFungibles<T: Config, OldCurrency>(PhantomData<(T, OldCurrency)>);
 
 impl<T: Config, OldCurrency> SteppedMigration for MigrateCurrencyToFungibles<T, OldCurrency>
 where
@@ -147,7 +147,7 @@ where
 		// Check if we have minimal weight to proceed
 		// We need at least enough weight to read one storage item to make progress
 		let min_required = T::DbWeight::get().reads(1);
-		
+
 		if meter.remaining().any_lt(min_required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
 		}
@@ -166,16 +166,19 @@ where
 
 		// If there is a next item in the iterator, perform the migration.
 		if let Some((index, (account, old_deposit, frozen))) = iter.next() {
-			println!("Migrating account {:?} with deposit {:?}, frozen: {:?}", account, old_deposit, frozen);
+			println!(
+				"Migrating account {:?} with deposit {:?}, frozen: {:?}",
+				account, old_deposit, frozen
+			);
 			// Convert old balance to new balance type
 			let old_deposit: BalanceOf<T> = old_deposit.into();
 			println!("Converted old deposit: {:?}", old_deposit);
-			
+
 			// Get current reserved balance from old currency system
 			let old_reserved = OldCurrency::reserved_balance(&account);
 			let reserved_balance: BalanceOf<T> = old_reserved.into();
 			println!("Current reserved balance: {:?}", reserved_balance);
-			
+
 			// Migrate what was actually deposited, bounded by actual reserves
 			let to_migrate = old_deposit.min(reserved_balance);
 			println!("Amount to migrate: {:?}", to_migrate);
@@ -184,10 +187,12 @@ where
 			if !to_migrate.is_zero() {
 				println!("Performing migration for amount: {:?}", to_migrate);
 				// Unreserve from old currency system
-				let old_to_migrate: <OldCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance = to_migrate.into();
+				let old_to_migrate: <OldCurrency as Currency<
+					<T as frame_system::Config>::AccountId,
+				>>::Balance = to_migrate.into();
 				let _unreserved = OldCurrency::unreserve(&account, old_to_migrate);
 				println!("Unreserved amount: {:?}", _unreserved);
-				
+
 				// Try to hold in new fungibles system
 				match T::Currency::hold(&HoldReason::DepositForIndex.into(), &account, to_migrate) {
 					Ok(_) => {
@@ -207,7 +212,7 @@ where
 				println!("No funds to migrate, preserving index with zero deposit");
 				Accounts::<T>::insert(index, (account, BalanceOf::<T>::zero(), frozen));
 			}
-			
+
 			Ok(Some(Some(index)))
 		} else {
 			// Migration complete
@@ -218,7 +223,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
-        Self::do_pre_upgrade()
+		Self::do_pre_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -238,10 +243,9 @@ impl<T: Config, C> MigrateCurrencyToFungibles<T, C> {
 		use codec::Decode;
 
 		println!("Post-upgrade check started");
-		
-		let prev_map: BTreeMap<T::AccountIndex, (T::AccountId, BalanceOf<T>, bool)> = 
-			Decode::decode(&mut &state[..])
-				.expect("Failed to decode the previous storage state");
+
+		let prev_map: BTreeMap<T::AccountIndex, (T::AccountId, BalanceOf<T>, bool)> =
+			Decode::decode(&mut &state[..]).expect("Failed to decode the previous storage state");
 
 		// Verify all accounts were migrated
 		for (index, (account, old_deposit, frozen)) in prev_map {
@@ -249,19 +253,33 @@ impl<T: Config, C> MigrateCurrencyToFungibles<T, C> {
 			match current {
 				Some((current_account, current_deposit, current_frozen)) => {
 					assert_eq!(current_account, account, "Account mismatch for index {:?}", index);
-					assert_eq!(current_frozen, frozen, "Frozen status mismatch for index {:?}", index);
-					
+					assert_eq!(
+						current_frozen, frozen,
+						"Frozen status mismatch for index {:?}",
+						index
+					);
+
 					// Check that either:
 					// 1. Deposit was successfully migrated to hold, OR
 					// 2. Deposit was set to zero (preserved with zero deposit)
 					if !old_deposit.is_zero() {
-						let held = T::Currency::balance_on_hold(&HoldReason::DepositForIndex.into(), &account);
+						let held = T::Currency::balance_on_hold(
+							&HoldReason::DepositForIndex.into(),
+							&account,
+						);
 						if current_deposit.is_zero() {
 							// Should have zero deposit but funds released to free balance
-							assert!(held.is_zero(), "Should have no holds for zero deposit account");
+							assert!(
+								held.is_zero(),
+								"Should have no holds for zero deposit account"
+							);
 						} else {
 							// Should have hold matching the deposit
-							assert!(held >= current_deposit, "Insufficient hold for index {:?}", index);
+							assert!(
+								held >= current_deposit,
+								"Insufficient hold for index {:?}",
+								index
+							);
 						}
 					}
 				},
@@ -270,7 +288,7 @@ impl<T: Config, C> MigrateCurrencyToFungibles<T, C> {
 		}
 
 		println!("Post-upgrade check completed");
-		
+
 		Ok(())
 	}
 }
@@ -290,32 +308,32 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			StorageVersion::new(1).put::<Pallet<Test>>();
 
-            // Insert some accounts into the OLD storage (v0) that need migration
-            // These accounts should have a non-zero deposit and not be frozen
-            for i in 0..10 {
-                let account = account_from_u8(i);
-                let deposit: BalanceOf<Test> = 100u32.into();
-                
-                // Actually reserve funds in the old currency system
-                Balances::set_balance(&account, 1000); // Give them some free balance
-                Balances::reserve(&account, deposit).unwrap(); // Reserve the deposit amount
-                
-                v0::OldAccounts::<Test>::insert(i as u64, (account, deposit, false));
-                println!("Inserted old account {} with deposit {} (reserved)", i, deposit);
-            }
+			// Insert some accounts into the OLD storage (v0) that need migration
+			// These accounts should have a non-zero deposit and not be frozen
+			for i in 0..10 {
+				let account = account_from_u8(i);
+				let deposit: BalanceOf<Test> = 100u32.into();
 
-            // Insert some accounts that were frozen
-            // These accounts should have a zero deposit and be frozen
-            for i in 10..20 {
-                let account = account_from_u8(i);
-                let deposit: BalanceOf<Test> = 0u32.into();
-                
-                // Give them some free balance but don't reserve anything (frozen accounts)
-                Balances::set_balance(&account, 1000);
-                
-                v0::OldAccounts::<Test>::insert(i as u64, (account, deposit, true));
-                println!("Inserted old frozen account {} with deposit {} (frozen)", i, deposit);
-            }
+				// Actually reserve funds in the old currency system
+				Balances::set_balance(&account, 1000); // Give them some free balance
+				Balances::reserve(&account, deposit).unwrap(); // Reserve the deposit amount
+
+				v0::OldAccounts::<Test>::insert(i as u64, (account, deposit, false));
+				println!("Inserted old account {} with deposit {} (reserved)", i, deposit);
+			}
+
+			// Insert some accounts that were frozen
+			// These accounts should have a zero deposit and be frozen
+			for i in 10..20 {
+				let account = account_from_u8(i);
+				let deposit: BalanceOf<Test> = 0u32.into();
+
+				// Give them some free balance but don't reserve anything (frozen accounts)
+				Balances::set_balance(&account, 1000);
+
+				v0::OldAccounts::<Test>::insert(i as u64, (account, deposit, true));
+				println!("Inserted old frozen account {} with deposit {} (frozen)", i, deposit);
+			}
 
 			// Pre-upgrade check.
 			let state = MigrateCurrencyToFungibles::<Test, Balances>::do_pre_upgrade()
@@ -327,12 +345,13 @@ mod tests {
 			let mut cursor = None;
 			let mut step_count = 0;
 			while let Some(new_cursor) =
-				MigrateCurrencyToFungibles::<Test, Balances>::step(cursor, &mut weight_meter).unwrap()
+				MigrateCurrencyToFungibles::<Test, Balances>::step(cursor, &mut weight_meter)
+					.unwrap()
 			{
 				step_count += 1;
 				println!("Migration step {} completed, cursor: {:?}", step_count, new_cursor);
 				cursor = Some(new_cursor);
-				
+
 				// Safety check to prevent infinite loops
 				if step_count > 100 {
 					panic!("Migration ran for too many steps, possible infinite loop");
