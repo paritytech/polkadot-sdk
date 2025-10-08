@@ -31,7 +31,6 @@ use crate::{
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		block_hash::{EthereumBlockBuilder, InMemoryStorage},
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
 		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
 		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256,
@@ -184,16 +183,6 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 	Ok(max_block.0)
 }
 
-/// Extract the block timestamp.
-async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
-	let extrinsics = block.extrinsics().await.ok()?;
-	let ext = extrinsics
-		.find_first::<crate::subxt_client::timestamp::calls::types::Set>()
-		.ok()??;
-
-	Some(ext.value.now)
-}
-
 /// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
 /// clients.
 pub async fn connect(
@@ -237,40 +226,6 @@ impl Client {
 		};
 
 		Ok(client)
-	}
-
-	/// Build the genesis block (block 0) on-demand for RPC queries.
-	///
-	/// This method reconstructs the EVM genesis block using the same logic as
-	/// `ensure_genesis_block()`, but returns it for use in RPC responses.
-	async fn build_genesis_block(&self, genesis_block: &SubstrateBlock) -> Option<Block> {
-		let substrate_hash = genesis_block.hash();
-		let runtime_api = self.runtime_api(substrate_hash);
-
-		let gas_limit = runtime_api.block_gas_limit().await.inspect_err(|err| {
-			log::error!(target: LOG_TARGET, "Failed to get block gas limit for block #{}: {err:?}", genesis_block.number());
-		}).ok()?;
-		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
-		let timestamp = extract_block_timestamp(genesis_block).await.unwrap_or_default();
-
-		// Build genesis block with no transactions
-		let mut builder = EthereumBlockBuilder::new(InMemoryStorage::new());
-		let (genesis_evm_block, _gas_info) = builder.build(
-			0u64.into(),      // block number 0
-			H256::zero(),     // parent hash is zero for genesis
-			timestamp.into(), // timestamp from substrate block
-			block_author,     // block author
-			gas_limit,        // gas limit
-		);
-
-		log::trace!(
-			target: LOG_TARGET,
-			"Built genesis block: EVM hash {:?} for Substrate hash {:?}",
-			genesis_evm_block.hash,
-			substrate_hash
-		);
-
-		Some(genesis_evm_block)
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -365,16 +320,7 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
-			// Special handling for genesis block (block 0)
-			// Genesis block is never stored on-chain, so we need to build it manually
-			let evm_block = if block.number() == 0 {
-				self.build_genesis_block(&block)
-					.await
-					.ok_or(ClientError::EthereumBlockNotFound)?
-			} else {
-				self.storage_api(block.hash()).get_ethereum_block().await?
-			};
-
+			let evm_block = self.storage_api(block.hash()).get_ethereum_block().await?;
 			let (_, receipts): (Vec<_>, Vec<_>) = self
 				.receipt_provider
 				.insert_block_receipts(&block, &evm_block.hash)
@@ -383,8 +329,8 @@ impl Client {
 				.unzip();
 
 			self.block_provider.update_latest(block, subscription_type).await;
-			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
+			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 			Ok(())
 		})
 		.await
@@ -400,21 +346,11 @@ impl Client {
 		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
 
 		self.subscribe_past_blocks(range, |block| async move {
-			// Special handling for genesis block (block 0)
-			// Genesis block is never stored on-chain, so we need to build it manually
-			let ethereum_hash = if block.number() == 0 {
-				let evm_block = self
-					.build_genesis_block(&block)
-					.await
-					.ok_or(ClientError::EthereumBlockNotFound)?;
-				evm_block.hash
-			} else {
-				self.storage_api(block.hash())
-					.get_ethereum_block_hash(block.number() as u64)
-					.await?
-			};
+			let ethereum_hash = self
+				.storage_api(block.hash())
+				.get_ethereum_block_hash(block.number() as u64)
+				.await?;
 			self.receipt_provider.insert_block_receipts(&block, &ethereum_hash).await?;
-
 			Ok(())
 		})
 		.await?;
@@ -729,23 +665,12 @@ impl Client {
 	) -> Option<Block> {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
 
-		// Special handling for genesis block (block 0)
-		// Genesis block is never stored on-chain, so we need to build it manually
-		if block.number() == 0 {
-			log::trace!(target: LOG_TARGET, "Building genesis block (block 0) for RPC query");
-			let genesis_block = self.build_genesis_block(&block).await?;
-
-			return Some(genesis_block);
-		}
-
-		let storage_api = self.storage_api(block.hash());
-
 		// This could potentially fail under below circumstances:
 		//  - state has been pruned
 		//  - the block author cannot be obtained from the digest logs (highly unlikely)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
-		match storage_api.get_ethereum_block().await {
+		match self.storage_api(block.hash()).get_ethereum_block().await {
 			Ok(mut eth_block) => {
 				log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.hash);
 
