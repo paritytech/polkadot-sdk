@@ -91,7 +91,7 @@ pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 	let mut buf = ZSTD_PREFIX.to_vec();
 
 	{
-		let mut v = zstd::Encoder::new(&mut buf, 3).ok()?.auto_finish();
+		let mut v = zstd::Encoder::new(&mut buf, 22).ok()?.auto_finish();
 		v.write_all(blob).ok()?;
 	}
 

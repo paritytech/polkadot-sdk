@@ -85,14 +85,12 @@ impl<T: Config> Pallet<T> {
 			.max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for validators, defaulting to `MinNominatorBond` if not
-	/// set or less than `MinNominatorBond`.
+	/// Returns the minimum required bond for participation in staking as a validator account.
 	pub(crate) fn min_validator_bond() -> BalanceOf<T> {
-		MinValidatorBond::<T>::get().max(Self::min_nominator_bond())
+		MinValidatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for nominators, considering the chain’s existential
-	/// deposit.
+	/// Returns the minimum required bond for participation in staking as a nominator account.
 	pub(crate) fn min_nominator_bond() -> BalanceOf<T> {
 		MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
@@ -1774,6 +1772,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		// If the pallet is not initialized (both ActiveEra and CurrentEra are None),
+		// there's nothing to check, so return early.
+		if ActiveEra::<T>::get().is_none() && CurrentEra::<T>::get().is_none() {
+			return Ok(());
+		}
+
 		session_rotation::Rotator::<T>::do_try_state()?;
 		session_rotation::Eras::<T>::do_try_state()?;
 
@@ -1954,6 +1958,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
+	/// * ActiveEra is Some.
 	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
@@ -1964,7 +1969,13 @@ impl<T: Config> Pallet<T> {
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
 			BTreeMap::new();
-		let era = ActiveEra::<T>::get().unwrap().index;
+		// If the pallet is not initialized, we return immediately from pallet's do_try_state() and
+		// we don't call this method. Otherwise, Eras::do_try_state enforces that both ActiveEra
+		// and CurrentEra are Some. Thus, we should never hit this error.
+		let era = ActiveEra::<T>::get()
+			.ok_or(TryRuntimeError::Other("ActiveEra must be set when checking paged exposures"))?
+			.index;
+
 		let accumulator_default = PagedExposureMetadata {
 			total: Zero::zero(),
 			own: Zero::zero(),
@@ -2094,21 +2105,40 @@ impl<T: Config> Pallet<T> {
 
 		match (is_nominator, is_validator) {
 			(false, false) => {
-				if ledger.active < Self::min_chilled_bond() {
-					log!(warn, "Chilled stash {:?} has less than minimum bond", stash);
+				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
+					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
+					log!(
+						warn,
+						"Chilled stash {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_chilled_bond()
+					);
 				}
 				// is chilled
 			},
 			(true, false) => {
 				// Nominators must have a minimum bond.
 				if ledger.active < Self::min_nominator_bond() {
-					log!(warn, "Nominator {:?} has less than minimum bond", stash);
+					log!(
+						warn,
+						"Nominator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_nominator_bond()
+					);
 				}
 			},
 			(false, true) => {
 				// Validators must have a minimum bond.
 				if ledger.active < Self::min_validator_bond() {
-					log!(warn, "Validator {:?} has less than minimum bond", stash);
+					log!(
+						warn,
+						"Validator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_validator_bond()
+					);
 				}
 			},
 			(true, true) => {
