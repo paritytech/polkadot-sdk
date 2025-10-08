@@ -290,7 +290,6 @@ pub trait EthExtra {
 			InvalidTransaction::BadProof
 		})?;
 
-		let transaction_encoded = tx.signed_payload();
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let base_fee = <Pallet<Self::Config>>::evm_gas_price();
 		let tx = GenericTransaction::from_signed(tx, base_fee, None);
@@ -299,7 +298,7 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 		let call_info =
-			create_call::<Self::Config>(tx, Some(encoded_len as u32), transaction_encoded)?;
+			create_call::<Self::Config>(tx, Some(encoded_len as u32), payload.to_vec())?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
 					call_info.storage_deposit,
