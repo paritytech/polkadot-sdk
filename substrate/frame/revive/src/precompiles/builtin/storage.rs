@@ -173,7 +173,7 @@ mod tests {
 	};
 
 	#[test]
-	fn panic_if_called_without_delegate_call() {
+	fn revert_if_called_without_delegate_call() {
 		ExtBuilder::default().build().execute_with(|| {
 			// given
 			let mut call_setup = CallSetup::<Test>::default();
