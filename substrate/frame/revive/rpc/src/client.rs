@@ -25,8 +25,8 @@ use storage_api::StorageApi;
 
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
-	BlockInfo, BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider,
-	SubxtBlockInfoProvider, TracerType, TransactionInfo,
+	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
+	TracerType, TransactionInfo,
 };
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
@@ -247,7 +247,9 @@ impl Client {
 		let substrate_hash = genesis_block.hash();
 		let runtime_api = self.runtime_api(substrate_hash);
 
-		let gas_limit = runtime_api.block_gas_limit().await.ok()?;
+		let gas_limit = runtime_api.block_gas_limit().await.inspect_err(|err| {
+			log::error!(target: LOG_TARGET, "Failed to get block gas limit for block #{}: {err:?}", genesis_block.number());
+		}).ok()?;
 		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
 		let timestamp = extract_block_timestamp(genesis_block).await.unwrap_or_default();
 
@@ -365,26 +367,24 @@ impl Client {
 		self.subscribe_new_blocks(subscription_type, |block| async {
 			// Special handling for genesis block (block 0)
 			// Genesis block is never stored on-chain, so we need to build it manually
-			let (evm_block, receipts) = if block.number() == 0 {
-				let evm_block = self
-					.build_genesis_block(&block)
+			let evm_block = if block.number() == 0 {
+				self.build_genesis_block(&block)
 					.await
-					.ok_or(ClientError::EthereumBlockNotFound)?;
-				// Store the mapping
-				self.receipt_provider
-					.insert_block_mapping(&evm_block.hash, &block.hash(), 0)
-					.await?;
-				(evm_block, vec![])
+					.ok_or(ClientError::EthereumBlockNotFound)?
 			} else {
-				let (_, receipts): (Vec<_>, Vec<_>) =
-					self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
-				let evm_block = self.storage_api(block.hash()).get_ethereum_block().await?;
-				(evm_block, receipts)
+				self.storage_api(block.hash()).get_ethereum_block().await?
 			};
 
-			self.block_provider.update_latest(block, subscription_type).await;
+			let (_, receipts): (Vec<_>, Vec<_>) = self
+				.receipt_provider
+				.insert_block_receipts(&block, &evm_block.hash)
+				.await?
+				.into_iter()
+				.unzip();
 
+			self.block_provider.update_latest(block, subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
+
 			Ok(())
 		})
 		.await
@@ -402,18 +402,19 @@ impl Client {
 		self.subscribe_past_blocks(range, |block| async move {
 			// Special handling for genesis block (block 0)
 			// Genesis block is never stored on-chain, so we need to build it manually
-			if block.number() == 0 {
+			let ethereum_hash = if block.number() == 0 {
 				let evm_block = self
 					.build_genesis_block(&block)
 					.await
 					.ok_or(ClientError::EthereumBlockNotFound)?;
-				// Store the mapping
-				self.receipt_provider
-					.insert_block_mapping(&evm_block.hash, &block.hash(), 0)
-					.await?;
+				evm_block.hash
 			} else {
-				self.receipt_provider.insert_block_receipts(&block).await?;
-			}
+				self.storage_api(block.hash())
+					.get_ethereum_block_hash(block.number() as u64)
+					.await?
+			};
+			self.receipt_provider.insert_block_receipts(&block, &ethereum_hash).await?;
+
 			Ok(())
 		})
 		.await?;

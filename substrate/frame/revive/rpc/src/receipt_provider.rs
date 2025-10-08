@@ -260,9 +260,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub async fn insert_block_receipts(
 		&self,
 		block: &SubstrateBlock,
+		ethereum_hash: &H256,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let receipts = self.receipts_from_block(block).await?;
-		self.insert(block, &receipts).await?;
+		self.insert(block, &receipts, ethereum_hash).await?;
 		Ok(receipts)
 	}
 
@@ -305,6 +306,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		&self,
 		block: &impl BlockInfo,
 		receipts: &[(TransactionSigned, ReceiptInfo)],
+		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
 		let block_hash = block.hash();
 		let block_hash_ref = block_hash.as_ref();
@@ -380,14 +382,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		// Insert block mapping from Ethereum to Substrate hash
-		if let Some(ethereum_hash) = self
-			.receipt_extractor
-			.get_ethereum_block_hash(&block_hash, block_number as u64)
-			.await
-		{
-			self.insert_block_mapping(&ethereum_hash, &block_hash, block_number as u64)
-				.await?;
-		}
+		self.insert_block_mapping(&ethereum_hash, &block_hash, block_number as u64)
+			.await?;
 
 		Ok(())
 	}
@@ -676,8 +672,9 @@ mod tests {
 				..Default::default()
 			},
 		)];
+		let ethereum_hash = H256::from([1_u8; 32]);
 
-		provider.insert(&block, &receipts).await?;
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
 		let row = provider.fetch_row(&receipts[0].1.transaction_hash).await;
 		assert_eq!(row, Some((block.hash, 0)));
 
@@ -707,7 +704,8 @@ mod tests {
 					..Default::default()
 				},
 			)];
-			provider.insert(&block, &receipts).await?;
+			let ethereum_hash = H256::from([(i + 1) as u8; 32]);
+			provider.insert(&block, &receipts, &ethereum_hash).await?;
 		}
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, n);
 		assert_eq!(count(&provider.pool, "logs", None).await, n);
@@ -736,7 +734,8 @@ mod tests {
 					..Default::default()
 				},
 			)];
-			provider.insert(&block, &receipts).await?;
+			let ethereum_hash = H256::from([i + 1; 32]);
+			provider.insert(&block, &receipts, &ethereum_hash).await?;
 		}
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 1);
 		assert_eq!(count(&provider.pool, "logs", None).await, 1);
@@ -764,8 +763,9 @@ mod tests {
 				ReceiptInfo { transaction_hash: H256::from([1u8; 32]), ..Default::default() },
 			),
 		];
+		let ethereum_hash = H256::from([2u8; 32]);
 
-		provider.insert(&block, &receipts).await?;
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
 		let count = provider.receipts_count_per_block(&block.hash).await;
 		assert_eq!(count, Some(2));
 		Ok(())
@@ -797,6 +797,8 @@ mod tests {
 			log_index: U256::from(1),
 			..Default::default()
 		};
+		let ethereum_hash1 = H256::from([3u8; 32]);
+		let ethereum_hash2 = H256::from([4u8; 32]);
 
 		provider
 			.insert(
@@ -810,6 +812,7 @@ mod tests {
 						..Default::default()
 					},
 				)],
+				&ethereum_hash1,
 			)
 			.await?;
 		provider
@@ -824,6 +827,7 @@ mod tests {
 						..Default::default()
 					},
 				)],
+				&ethereum_hash2,
 			)
 			.await?;
 
@@ -1055,12 +1059,7 @@ mod tests {
 				..Default::default()
 			},
 		)];
-		provider.insert(&block, &receipts).await?;
-
-		// Insert block mapping
-		provider
-			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
-			.await?;
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
 
 		// Query logs using Ethereum block hash (should resolve to substrate hash)
 		let logs = provider
