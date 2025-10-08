@@ -775,12 +775,13 @@ impl StatementStore for Store {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
 		for hash in index.entries.keys().cloned() {
-			let encoded =
-				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?;
-			if let Some(encoded) = encoded {
-				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-					result.push((hash, statement));
-				}
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				continue
+			};
+			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				result.push((hash, statement));
 			}
 		}
 		Ok(result)
@@ -791,12 +792,13 @@ impl StatementStore for Store {
 		let recent = index.take_recent();
 		let mut result = Vec::with_capacity(recent.len());
 		for hash in recent {
-			let encoded =
-				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?;
-			if let Some(encoded) = encoded {
-				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-					result.push((hash, statement));
-				}
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				continue
+			};
+			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				result.push((hash, statement));
 			}
 		}
 		Ok(result)
