@@ -523,11 +523,13 @@ where
 	}
 
 	fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
-		let mut propagated_statements = 0;
-
+		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
 		for (who, peer) in self.peers.iter_mut() {
+			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
+
 			// never send statements to light nodes
 			if matches!(peer.role, ObservedRole::Light) {
+				log::trace!(target: LOG_TARGET, "{} is a light node, skipping propagation", who);
 				continue
 			}
 
@@ -535,30 +537,26 @@ where
 				.iter()
 				.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
 				.collect::<Vec<_>>();
-
-			propagated_statements += to_send.len();
+			log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
 
 			let mut offset = 0;
 			while offset < to_send.len() {
 				// Try to send as many statements as possible in one notification
 				let mut current_end = to_send.len();
+				log::trace!(target: LOG_TARGET, "Looking for better chunk size");
 
 				loop {
 					let chunk = &to_send[offset..current_end];
 					let encoded_size = chunk.encoded_size();
+					log::trace!(target: LOG_TARGET, "Chunk: {} statements, {} KB", chunk.len(), encoded_size / 1024);
 
 					// If chunk fits, send it
 					if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-						log::trace!(
-							target: LOG_TARGET,
-							"Sending {} statements ({} KB) to {}",
-							chunk.len(),
-							encoded_size / 1024,
-							who
-						);
 						self.notification_service.send_sync_notification(who, chunk.encode());
 						offset = current_end;
+						log::trace!(target: LOG_TARGET, "Sent {} statements ({} KB) to {}, {} left", chunk.len(), encoded_size / 1024, who, to_send.len() - offset);
 						if let Some(ref metrics) = self.metrics {
+							metrics.propagated_statements.inc_by(chunk.len() as u64);
 							metrics.propagated_statements_chunks.observe(chunk.len() as f64);
 						}
 						break;
@@ -572,11 +570,7 @@ where
 					// Single statement is too large
 					if new_chunk_size == 0 {
 						if chunk.len() == 1 {
-							log::warn!(
-								target: LOG_TARGET,
-								"Statement too large ({} KB), skipping",
-								encoded_size / 1024
-							);
+							log::warn!(target: LOG_TARGET, "Statement too large ({} KB), skipping", encoded_size / 1024);
 							if let Some(ref metrics) = self.metrics {
 								metrics.skipped_oversized_statements.inc();
 							}
@@ -592,10 +586,7 @@ where
 				}
 			}
 		}
-
-		if let Some(ref metrics) = self.metrics {
-			metrics.propagated_statements.inc_by(propagated_statements as _)
-		}
+		log::trace!(target: LOG_TARGET, "Statements propagated to all peers");
 	}
 
 	/// Call when we must propagate ready statements to peers.
@@ -605,8 +596,8 @@ where
 			return
 		}
 
-		log::debug!(target: LOG_TARGET, "Propagating statements");
-		if let Ok(statements) = self.statement_store.take_recent_statements() {
+		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
+		if !statements.is_empty() {
 			self.do_propagate_statements(&statements);
 		}
 	}
