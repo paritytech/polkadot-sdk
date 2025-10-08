@@ -853,11 +853,7 @@ pub mod pallet {
 			//
 			// Similarly, this is the amount of pallet storage consumed by the
 			// `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.
-			let max_eth_block_builder_size =
-				// `receipts_root` hash builder
-				limits::NUM_EMITTED_EVENTS.saturating_mul(limits::PAYLOAD_BYTES.saturating_mul(3))
-				// `transactions_root` hash builder
-				.saturating_add(limits::MAX_TRANSACTION_PAYLOAD_SIZE.saturating_mul(3));
+			let max_eth_block_builder_bytes = block_storage::block_builder_bytes_usage();
 
 			// Check that the configured memory limits fit into runtime memory.
 			//
@@ -865,8 +861,8 @@ pub mod pallet {
 			// consideration here.
 			let memory_left = i64::from(max_runtime_mem)
 				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
-				.saturating_sub(limits::MEMORY_REQUIRED.into());
-				.saturating_sub(max_eth_block_builder_size.into());
+				.saturating_sub(limits::MEMORY_REQUIRED.into())
+				.saturating_sub(max_eth_block_builder_bytes.into());
 
 			log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
 
@@ -913,6 +909,7 @@ pub mod pallet {
 				.ref_time()))
 			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
 			.saturating_add(max_immutable_size.into())
+			.saturating_add(max_eth_block_builder_bytes.into())
 			.try_into()
 			.expect("Storage size too big");
 
@@ -944,37 +941,6 @@ pub mod pallet {
 				max_events_size < storage_size_limit,
 				"Maximal events size {} exceeds the events limit {}",
 				max_events_size,
-				storage_size_limit
-			);
-
-			// Storage is used for `EthereumBlockBuilderIR`, which builds Ethereum-compatible blocks
-			// by maintaining two incremental hash builders:
-			// 1. `transactions_root` - builds the Merkle root of transaction payloads
-			// 2. `receipts_root` - builds the Merkle root of transaction receipts (event logs)
-			//
-			// Memory usage analysis:
-			// Each incremental hash builder accumulates entries until the trie is finalized.
-			// Hash builder memory usage is no greater than the sum of the consecutive entries
-			// of maximum size + some marginal book-keeping overhead (ignored to simplify
-			// calculations).
-			// = 2 x maximum size of the entry
-			//
-			// Additionally, `EthBlockBuilderFirstValues` caches the first entry for each hash
-			// builder, which gets processed when either:
-			// - The block is finalized, OR
-			// - After 127 transactions (implementation batch limit)
-			// = 1 x maximum size of the entry
-			//
-			// That gives us 3 items of maximum size per each hash builder
-			let max_incremental_trie_builder_size =
-				// `receipts_root` hash builder
-				limits::NUM_EMITTED_EVENTS.saturating_mul(limits::PAYLOAD_BYTES.saturating_mul(3))
-				// `transactions_root` hash builder
-				.saturating_add(limits::MAX_TRANSACTION_PAYLOAD_SIZE.saturating_mul(3));
-			assert!(
-				max_incremental_trie_builder_size < storage_size_limit,
-				"Maximal incremental trie builder size {} exceeds the limit {}",
-				max_incremental_trie_builder_size,
 				storage_size_limit
 			);
 		}
