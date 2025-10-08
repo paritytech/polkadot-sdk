@@ -245,17 +245,21 @@ impl IncrementalHashBuilder {
 		if self.index == 0x7f {
 			// Pushing the previous item since we are expecting the index
 			// to be index + 1 in the sorted order.
-			if let Some(encoded_value) = self.first_value.take() {
-				log::debug!(target: LOG_TARGET, "Adding first value at index 0 while processing index 127");
 
-				let rlp_index = rlp::encode_fixed_size(&0usize);
-				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
+			let encoded_value = self
+				.first_value
+				.take()
+				.expect("First value must be set when processing index 127; qed");
 
-				// Update accounting if enabled
-				#[cfg(test)]
-				if self.stats.is_some() {
-					self.process_stats(value.len(), 0);
-				}
+			log::debug!(target: LOG_TARGET, "Adding first value at index 0 while processing index 127");
+
+			let rlp_index = rlp::encode_fixed_size(&0usize);
+			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
+
+			// Update accounting if enabled
+			#[cfg(test)]
+			if self.stats.is_some() {
+				self.process_stats(value.len(), 0);
 			}
 		}
 
