@@ -1372,6 +1372,9 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 		<Ledger<T>>::insert(who, ledger);
 		<Bonded<T>>::insert(who, who);
+		// we also need to appoint this staker to be validator or nominator, such that their score
+		// is actually there. Note that `fn score` above checks the role.
+		<Validators<T>>::insert(who, ValidatorPrefs::default());
 
 		// also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
 		// This will make sure that total issuance is zero, thus the currency to vote will be a 1-1
