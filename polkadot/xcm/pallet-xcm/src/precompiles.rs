@@ -13,17 +13,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
+use crate::{
+	Config, Fungibility, InspectMessageQueues, VersionedAssets, VersionedLocation, VersionedXcm,
+	Weight, WeightInfo,
+};
 use alloc::vec::Vec;
 use codec::{DecodeAll, DecodeLimit};
 use core::{fmt, marker::PhantomData, num::NonZero};
 use pallet_revive::{
+	evm::fees::InfoT,
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
 	DispatchInfo, ExecOrigin as Origin,
 };
+use sp_runtime::SaturatedConversion;
 use tracing::error;
 use xcm::{v5, IdentifyVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::WeightBounds;
@@ -47,11 +52,14 @@ fn ensure_xcm_version<V: IdentifyVersion>(input: &V) -> Result<(), Error> {
 	Ok(())
 }
 
-pub struct XcmPrecompile<T>(PhantomData<T>);
+pub struct XcmPrecompile<Runtime, Router, XcmConfig>(PhantomData<(Runtime, Router, XcmConfig)>);
 
-impl<Runtime> Precompile for XcmPrecompile<Runtime>
+impl<Runtime, Router, XcmConfig> Precompile for XcmPrecompile<Runtime, Router, XcmConfig>
 where
-	Runtime: crate::Config + pallet_revive::Config,
+	Runtime: crate::Config<RuntimeCall = ()> + pallet_revive::Config,
+	Router: InspectMessageQueues,
+	XcmConfig: xcm_executor::Config<RuntimeCall = ()>,
+	<Runtime as frame_system::Config>::AccountId: Into<[u8; 32]>,
 {
 	type T = Runtime;
 	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(10).unwrap());
@@ -64,7 +72,7 @@ where
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		let origin = env.caller();
-		let frame_origin = match origin {
+		let frame_origin = match &origin {
 			Origin::Root => frame_system::RawOrigin::Root.into(),
 			Origin::Signed(account_id) =>
 				frame_system::RawOrigin::Signed(account_id.clone()).into(),
@@ -163,6 +171,86 @@ where
 					IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() };
 
 				Ok(final_weight.abi_encode())
+			},
+			IXcmCalls::estimateFeesLocally(IXcm::estimateFeesLocallyCall { message }) => {
+				let converted_message = VersionedXcm::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &message[..],
+				)
+				.map_err(|error| revert(&error, "XCM estimateFees: Invalid message format"))?;
+
+				ensure_xcm_version(&converted_message)?;
+
+				let mut final_message = converted_message.clone().try_into().map_err(|error| {
+					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
+				})?;
+
+				// Determine origin location
+				let origin_location = match origin {
+					Origin::Root => VersionedLocation::V5(v5::Location::here()),
+					Origin::Signed(account_id) => VersionedLocation::V5(v5::Location::new(
+						0,
+						[v5::Junction::AccountId32 { network: None, id: account_id.into() }],
+					)),
+				};
+
+				// 1. Get the local execution fee (Weight)
+				let local_weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX)
+					.map_err(|err| revert(&err, "XCM estimateFees: Message weighing failed"))?;
+
+				// Convert local execution weight to token amount
+				let local_execution_fee =
+					<Runtime as pallet_revive::Config>::FeeInfo::weight_to_fee(local_weight);
+
+				// 2. Dry run to get forwarded XCMs
+				let dry_run_result = crate::Pallet::<Runtime>::dry_run_xcm::<
+					Runtime,
+					Router,
+					<Runtime as Config>::RuntimeCall,
+					XcmConfig,
+				>(origin_location, converted_message)
+				.map_err(|error| revert(&error, "XCM estimateFees: Dry run failed"))?;
+
+				// Extract destination and remote XCM from forwarded messages
+				let (destination, remote_xcm) = dry_run_result
+					.forwarded_xcms
+					.first()
+					.and_then(|(dest, xcms)| xcms.first().map(|xcm| (dest.clone(), xcm.clone())))
+					.ok_or_else(|| {
+						revert(&"No XCMs forwarded", "XCM estimateFees: No forwarded XCMs found")
+					})?;
+
+				// 3. Query delivery fees (returns VersionedAssets)
+				let delivery_fees_assets =
+					crate::Pallet::<Runtime>::query_delivery_fees(destination, remote_xcm)
+						.map_err(|error| {
+							revert(&error, "XCM estimateFees: Failed to query delivery fees")
+						})?;
+
+				// 4. Extract the fungible amount from VersionedAssets
+				let delivery_fees_amount = match delivery_fees_assets {
+					VersionedAssets::V5(assets) => assets
+						.inner()
+						.first()
+						.and_then(|asset| match asset.fun {
+							Fungibility::Fungible(amount) => Some(amount),
+							_ => None,
+						})
+						.unwrap_or(0),
+					_ =>
+						return Err(revert(
+							&"Unsupported asset version",
+							"XCM estimateFees: Unsupported asset version",
+						)),
+				};
+
+				// 5. Calculate total fees in token units
+				let local_execution_fee_u128: u128 = local_execution_fee.saturated_into();
+				let total_fees: u128 =
+					local_execution_fee_u128.saturating_add(delivery_fees_amount);
+
+				// Return total fees as a u128/U256
+				Ok(total_fees.abi_encode())
 			},
 		}
 	}

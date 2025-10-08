@@ -38,4 +38,6 @@ interface IXcm {
     /// @param message SCALE-encoded Versioned XCM message to analyze.
     /// @return weight Struct containing estimated `refTime` and `proofSize`.
     function weighMessage(bytes calldata message) external view returns (Weight memory weight);
+
+    function estimateFeesLocally(bytes calldata message) external view returns (Weight memory weight);
 }
