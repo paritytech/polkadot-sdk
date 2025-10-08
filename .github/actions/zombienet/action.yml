@@ -61,7 +61,6 @@ runs:
         k8s_auth
 
     - name: zombie_test
-      timeout-minutes: 60
       shell: bash
       env:
         TEST_DEFINITION: ${{ inputs.test-definition }}
