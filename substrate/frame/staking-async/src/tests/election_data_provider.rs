@@ -913,7 +913,7 @@ mod score_provider {
 					!Nominators::<Test>::contains_key(11)
 			);
 
-			// then they will have a score.
+			// then it will have a score.
 			assert_eq!(<Staking as ScoreProvider<_>>::score(&11), Some(1000));
 		});
 	}
