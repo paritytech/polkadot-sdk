@@ -20,9 +20,6 @@
 mod runtime_api;
 mod storage_api;
 
-use runtime_api::RuntimeApi;
-use storage_api::StorageApi;
-
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
@@ -37,9 +34,11 @@ use pallet_revive::{
 	},
 	EthTransactError,
 };
+use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{ops::Range, sync::Arc, time::Duration};
+use std::{collections::HashSet, ops::Range, sync::Arc, time::Duration};
+use storage_api::StorageApi;
 use subxt::{
 	backend::{
 		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
@@ -53,7 +52,6 @@ use subxt::{
 	Config, OnlineClient,
 };
 use thiserror::Error;
-use tokio::time::sleep;
 
 /// The substrate block type.
 pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
@@ -70,8 +68,10 @@ pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 /// The runtime balance type.
 pub type Balance = u128;
 
+pub type TransactHashes = HashSet<H256>;
+
 /// The subscription type used to listen to new blocks.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SubscriptionType {
 	/// Subscribe to best blocks.
 	BestBlocks,
@@ -165,6 +165,7 @@ pub struct Client {
 	chain_id: u64,
 	max_block_weight: Weight,
 	automine: bool,
+	transact_hashes_sender: tokio::sync::broadcast::Sender<TransactHashes>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -218,6 +219,7 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
+		transact_hashes_sender: tokio::sync::broadcast::Sender<TransactHashes>,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
@@ -232,6 +234,7 @@ impl Client {
 			chain_id,
 			max_block_weight,
 			automine: false,
+			transact_hashes_sender,
 		};
 
 		// Update the automine status by querying the node.
@@ -343,6 +346,10 @@ impl Client {
 			let (signed_txs, receipts): (Vec<_>, Vec<_>) =
 				self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
+			// Broadcast transaction hashes
+			self.broadcast_transact_hashes(subscription_type, &receipts, block.number())
+				.await;
+
 			let evm_block =
 				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
 			self.block_provider.update_latest(block, subscription_type).await;
@@ -369,6 +376,47 @@ impl Client {
 
 		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
 		Ok(())
+	}
+
+	/// Broadcast transaction hashes to subscribers.
+	async fn broadcast_transact_hashes(
+		&self,
+		subscription_type: SubscriptionType,
+		receipts: &[ReceiptInfo],
+		block_number: SubstrateBlockNumber,
+	) {
+		// Closure to extract the transaction hashes from the receipts.
+		let extract_transact_hashes = || {
+			let mut transact_hashes = HashSet::new();
+			for receipt in receipts {
+				transact_hashes.insert(receipt.transaction_hash);
+			}
+			transact_hashes
+		};
+
+		// Only broadcast for best blocks to avoid duplicate notifications.
+		if subscription_type != SubscriptionType::BestBlocks {
+			return;
+		}
+
+		// Only broadcast if there are subscribers.
+		if self.transact_hashes_sender.receiver_count() == 0 {
+			return;
+		}
+
+		let transact_hashes = extract_transact_hashes();
+		if transact_hashes.is_empty() {
+			return;
+		}
+
+		if let Err(err) = self.transact_hashes_sender.send(transact_hashes) {
+			log::warn!(
+				target: LOG_TARGET,
+				"Failed to broadcast transaction hashes for block: {:?}, error: {:?}",
+				block_number,
+				err
+			);
+		}
 	}
 
 	/// Get the block hash for the given block number or tag.
@@ -723,26 +771,6 @@ impl Client {
 			.await
 	}
 
-	/// Wait for a transaction receipt to be available in the database for the given transaction
-	/// hash.
-	pub async fn wait_for_transaction_receipt(&self, hash: H256) -> Result<(), ClientError> {
-		// It retries for a maximum of 10 times, waiting 100 milliseconds between each attempt
-		let max_retries = 10;
-		let wait_time_millis = 100;
-		for attempt in 0..max_retries {
-			if let Some(_receipt) = self.receipt(&hash).await {
-				log::debug!(target: LOG_TARGET, "Transaction receipt found for hash: {hash:?} after {attempt} attempts.");
-				return Ok(());
-			}
-
-			sleep(Duration::from_millis(wait_time_millis)).await;
-		}
-
-		let total_wait = wait_time_millis * max_retries;
-		log::error!(target: LOG_TARGET, "Transaction {hash:?} receipt not found after {total_wait}ms");
-		Err(ClientError::TransactReceiptNotFound)
-	}
-
 	/// Check if automine is enabled.
 	pub fn is_automine(&self) -> bool {
 		self.automine
@@ -759,7 +787,8 @@ impl Client {
 			},
 			Err(err) => {
 				log::error!(target: LOG_TARGET, "Get automine failed: {err:?}");
-				// Return false if the query fails, since only revive-dev-node implements automine.
+				// Return false if the query fails, as some nodes may not support the getAutomine
+				// RPC method.
 				return Ok(false)
 			},
 		}

@@ -16,7 +16,7 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::{connect, Client, SubscriptionType, SubstrateBlockNumber},
+	client::{connect, Client, SubscriptionType, SubstrateBlockNumber, TransactHashes},
 	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	LOG_TARGET,
@@ -106,6 +106,7 @@ fn build_client(
 	node_rpc_url: &str,
 	database_url: &str,
 	abort_signal: Signals,
+	transact_hashes_sender: tokio::sync::broadcast::Sender<TransactHashes>,
 ) -> anyhow::Result<Client> {
 	let fut = async {
 		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
@@ -139,7 +140,7 @@ fn build_client(
 			.await?;
 
 		let client =
-			Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, transact_hashes_sender).await?;
 
 		Ok(client)
 	}
@@ -199,6 +200,10 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let tokio_handle = tokio_runtime.handle();
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
 
+	// Channel used to notify when a transaction hash is included in a block.
+	// Capacity of 32 should be enough since blocks are mined at a relatively low rate.
+	let (transact_hashes_sender, _) = tokio::sync::broadcast::channel::<TransactHashes>(32);
+
 	let client = build_client(
 		tokio_handle,
 		cache_size,
@@ -206,6 +211,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		&node_rpc_url,
 		&database_url,
 		tokio_runtime.block_on(async { Signals::capture() })?,
+		transact_hashes_sender.clone(),
 	)?;
 
 	// Prometheus metrics.
@@ -221,7 +227,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		&rpc_config,
 		prometheus_registry,
 		tokio_handle,
-		|| rpc_module(is_dev, client.clone()),
+		|| rpc_module(is_dev, client.clone(), transact_hashes_sender.clone()),
 		None,
 	)?;
 
@@ -250,8 +256,12 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 }
 
 /// Create the JSON-RPC module.
-fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
-	let eth_api = EthRpcServerImpl::new(client.clone())
+fn rpc_module(
+	is_dev: bool,
+	client: Client,
+	transact_hashes_sender: tokio::sync::broadcast::Sender<TransactHashes>,
+) -> Result<RpcModule<()>, sc_service::Error> {
+	let eth_api = EthRpcServerImpl::new(client.clone(), transact_hashes_sender)
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
 
