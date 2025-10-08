@@ -41,7 +41,7 @@ pub use sp_core::{H160, H256, U256};
 
 use crate::{
 	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError,
+	Error as CrateError, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
@@ -51,7 +51,7 @@ use sp_runtime::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) use builtin::{
-	IBenchmarking, ISystem, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
+	IBenchmarking, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
 	WithInfo as BenchmarkWithInfo,
 };
 
@@ -370,8 +370,11 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
-			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+		let call =
+			<Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "`abi_decode_validate` for pre-compile failed: {err:?}");
+				Error::Panic(PanicKind::ResourceError)
+			})?;
 		<Self as BuiltinPrecompile>::call(address, &call, env)
 	}
 
@@ -381,7 +384,10 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
-			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "`abi_decode_validate` for pre-compile (with info) failed: {err:?}");
+				Error::Panic(PanicKind::ResourceError)
+			})?;
 		<Self as BuiltinPrecompile>::call_with_info(address, &call, env)
 	}
 }
@@ -596,9 +602,6 @@ pub mod run {
 	where
 		P: Precompile<T = E::T>,
 		E: ExtWithInfo,
-		BalanceOf<E::T>: Into<U256> + TryFrom<U256>,
-		MomentOf<E::T>: Into<U256>,
-		<<E as Ext>::T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
 		assert!(P::MATCHER.into_builtin().matches(address));
 		if P::HAS_CONTRACT_INFO {
@@ -613,9 +616,6 @@ pub mod run {
 	pub(crate) fn builtin<E>(ext: &mut E, address: &[u8; 20], input: Vec<u8>) -> ExecResult
 	where
 		E: ExtWithInfo,
-		BalanceOf<E::T>: Into<U256> + TryFrom<U256>,
-		MomentOf<E::T>: Into<U256>,
-		<<E as Ext>::T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
 		let precompile = <Builtin<E::T>>::get(address)
 			.ok_or(DispatchError::from("No pre-compile at address"))?;

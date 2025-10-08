@@ -73,6 +73,12 @@ pub const PAGE_SIZE: u32 = 4 * 1024;
 /// Which should always be enough because Solidity allows for 16 local (stack) variables.
 pub const IMMUTABLE_BYTES: u32 = 4 * 1024;
 
+/// upperbound of memory that can be used by the EVM interpreter.
+pub const EVM_MEMORY_BYTES: u32 = 1024 * 1024;
+
+/// EVM interpreter stack limit.
+pub const EVM_STACK_LIMIT: u32 = 1024;
+
 /// Limits that are only enforced on code upload.
 ///
 /// # Note
@@ -82,7 +88,7 @@ pub const IMMUTABLE_BYTES: u32 = 4 * 1024;
 /// will not be affected by those limits.
 pub mod code {
 	use super::PAGE_SIZE;
-	use crate::{CodeVec, Config, Error, LOG_TARGET};
+	use crate::{Config, Error, LOG_TARGET};
 	use alloc::vec::Vec;
 	use sp_runtime::DispatchError;
 
@@ -115,25 +121,25 @@ pub mod code {
 
 	/// Make sure that the various program parts are within the defined limits.
 	pub fn enforce<T: Config>(
-		blob: Vec<u8>,
+		pvm_blob: Vec<u8>,
 		available_syscalls: &[&[u8]],
-	) -> Result<CodeVec, DispatchError> {
+	) -> Result<Vec<u8>, DispatchError> {
 		use polkavm::program::ISA64_V1 as ISA;
 		use polkavm_common::program::EstimateInterpreterMemoryUsageArgs;
 
-		let len: u64 = blob.len() as u64;
-		let blob: CodeVec = blob.try_into().map_err(|_| {
-			log::debug!(target: LOG_TARGET, "contract blob too large: {len} limit: {}", BLOB_BYTES);
-			<Error<T>>::BlobTooLarge
-		})?;
+		let len: u64 = pvm_blob.len() as u64;
+		if len > crate::limits::code::BLOB_BYTES.into() {
+			log::debug!(target: LOG_TARGET, "contract blob too large: {len} limit: {BLOB_BYTES}");
+			return Err(<Error<T>>::BlobTooLarge.into())
+		}
 
 		#[cfg(feature = "std")]
 		if std::env::var_os("REVIVE_SKIP_VALIDATION").is_some() {
 			log::warn!(target: LOG_TARGET, "Skipping validation because env var REVIVE_SKIP_VALIDATION is set");
-			return Ok(blob)
+			return Ok(pvm_blob)
 		}
 
-		let program = polkavm::ProgramBlob::parse(blob.as_slice().into()).map_err(|err| {
+		let program = polkavm::ProgramBlob::parse(pvm_blob.as_slice().into()).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to parse polkavm blob: {err:?}");
 			Error::<T>::CodeRejected
 		})?;
@@ -220,7 +226,7 @@ pub mod code {
 				Error::<T>::CodeRejected
 			})?;
 
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET, "Contract memory usage: purgable={}/{} KB baseline={}/{}",
 			program_info.purgeable_ram_consumption, PURGABLE_MEMORY_LIMIT,
 			program_info.baseline_ram_consumption, BASELINE_MEMORY_LIMIT,
@@ -242,7 +248,7 @@ pub mod code {
 			return Err(Error::<T>::StaticMemoryTooLarge.into())
 		}
 
-		Ok(blob)
+		Ok(pvm_blob)
 	}
 }
 
@@ -254,7 +260,14 @@ const fn memory_required() -> u32 {
 	let max_call_depth = CALL_STACK_DEPTH + 1;
 
 	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
-	let per_frame_memory = code::BASELINE_MEMORY_LIMIT + CALLDATA_BYTES * 2;
+
+	let evm_max_initcode_size = revm::primitives::eip3860::MAX_INITCODE_SIZE as u32;
+	let evm_overhead = EVM_MEMORY_BYTES + evm_max_initcode_size + EVM_STACK_LIMIT * 32;
+	let per_frame_memory = if code::BASELINE_MEMORY_LIMIT > evm_overhead {
+		code::BASELINE_MEMORY_LIMIT
+	} else {
+		evm_overhead
+	} + CALLDATA_BYTES * 2;
 
 	per_stack_memory + max_call_depth * per_frame_memory
 }

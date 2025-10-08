@@ -30,6 +30,7 @@ use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
+use snowbridge_inbound_queue_primitives::v2::CreateAssetCallInfo;
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
@@ -76,7 +77,7 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const CreateAssetCall: [u8;2] = [53, 0];
+	pub const CreateAssetCallIndex: [u8;2] = [53, 0];
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -88,6 +89,7 @@ parameter_types! {
 	pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(ASSET_HUB_ID)].into();
 	pub InboundQueueV2Location: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
 	pub const SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
+	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateForeignAssetDeposit::get(),min_balance:1};
 	pub SnowbridgeFrontendLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(FRONTEND_PALLET_INDEX)]);
 }
 
@@ -104,7 +106,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v1::MessageToXcm<
-		CreateAssetCall,
+		CreateAssetCallIndex,
 		CreateForeignAssetDeposit,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V1>,
 		AccountId,
@@ -136,14 +138,12 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		CreateAssetCall,
-		CreateForeignAssetDeposit,
 		EthereumNetwork,
-		InboundQueueV2Location,
-		EthereumSystem,
+		RelayNetwork,
 		EthereumGatewayAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueV2Location,
+		AssetHubParaId,
+		EthereumSystem,
 		AccountId,
 	>;
 	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
@@ -192,6 +192,8 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
+	// No consumers of this notifier on Bridge Hub.
+	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 }
@@ -221,7 +223,11 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("90000074"),
-			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
+			epoch: 222464,
+		},
+		fulu: Fork {
+			version: hex!("90000075"),
+			epoch: 272640, // https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
 		},
 	};
 }
@@ -253,6 +259,10 @@ parameter_types! {
 			version: hex!("05000000"),
 			epoch: 0,
 		},
+		fulu: Fork {
+			version: hex!("06000000"),
+			epoch: 5000000,
+		}
 	};
 }
 
@@ -308,17 +318,26 @@ pub mod benchmark_helpers {
 		RuntimeOrigin, System,
 	};
 	use codec::Encode;
+	use frame_support::assert_ok;
 	use hex_literal::hex;
 	use snowbridge_beacon_primitives::BeaconHeader;
+	use snowbridge_inbound_queue_primitives::EventFixture;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
+	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message as make_register_token_message_v2;
 	use snowbridge_pallet_outbound_queue_v2::BenchmarkHelper as OutboundQueueBenchmarkHelperV2;
 	use sp_core::H256;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		fn initialize_storage() -> EventFixture {
+			let message = make_register_token_message();
+			EthereumBeaconClient::store_finalized_header(
+				message.finalized_header,
+				message.block_roots_root,
+			)
+			.unwrap();
 			System::set_storage(
 				RuntimeOrigin::root(),
 				vec![(
@@ -327,12 +346,20 @@ pub mod benchmark_helpers {
 				)],
 			)
 			.unwrap();
+			message
 		}
 	}
 
 	impl<T: snowbridge_pallet_inbound_queue_v2::Config> InboundQueueBenchmarkHelperV2<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		fn initialize_storage() -> EventFixture {
+			let message = make_register_token_message_v2();
+
+			assert_ok!(EthereumBeaconClient::store_finalized_header(
+				message.finalized_header,
+				message.block_roots_root,
+			));
+
+			message
 		}
 	}
 

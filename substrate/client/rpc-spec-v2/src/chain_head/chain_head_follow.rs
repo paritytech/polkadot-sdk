@@ -33,6 +33,7 @@ use futures::{
 use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
+	StaleBlock,
 };
 use sc_rpc::utils::Subscription;
 use schnellru::{ByLength, LruMap};
@@ -603,20 +604,14 @@ where
 		Ok(events)
 	}
 
-	/// Get all pruned block hashes from the provided stale heads.
+	/// Get all pruned block hashes from the provided stale blocks.
 	fn get_pruned_hashes(
 		&mut self,
-		stale_heads: &[Block::Hash],
-		last_finalized: Block::Hash,
+		stale_blocks: &[Arc<StaleBlock<Block>>],
 	) -> Result<Vec<Block::Hash>, SubscriptionManagementError> {
-		let blockchain = self.backend.blockchain();
-		let mut pruned = Vec::new();
-
-		for stale_head in stale_heads {
-			let tree_route = sp_blockchain::tree_route(blockchain, last_finalized, *stale_head)?;
-
-			// Collect only blocks that are not part of the canonical chain.
-			pruned.extend(tree_route.enacted().iter().filter_map(|block| {
+		Ok(stale_blocks
+			.iter()
+			.filter_map(|block| {
 				if self.pruned_blocks.get(&block.hash).is_some() {
 					// The block was already reported as pruned.
 					return None
@@ -624,10 +619,8 @@ where
 
 				self.pruned_blocks.insert(block.hash, ());
 				Some(block.hash)
-			}))
-		}
-
-		Ok(pruned)
+			})
+			.collect())
 	}
 
 	/// Handle the finalization notification by generating the `Finalized` event.
@@ -656,8 +649,7 @@ where
 
 		// Report all pruned blocks from the notification that are not
 		// part of the fork we need to ignore.
-		let pruned_block_hashes =
-			self.get_pruned_hashes(&notification.stale_heads, last_finalized)?;
+		let pruned_block_hashes = self.get_pruned_hashes(&notification.stale_blocks)?;
 
 		for finalized in &finalized_block_hashes {
 			self.announced_blocks.insert(*finalized, true);
