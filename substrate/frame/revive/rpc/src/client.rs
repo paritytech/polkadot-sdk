@@ -25,8 +25,8 @@ use storage_api::StorageApi;
 
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
-	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	TracerType, TransactionInfo,
+	BlockInfo, BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider,
+	SubxtBlockInfoProvider, TracerType, TransactionInfo,
 };
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
@@ -236,56 +236,7 @@ impl Client {
 			max_block_weight,
 		};
 
-		// Initialize genesis block (block 0) if not already present
-		client.ensure_genesis_block().await?;
-
 		Ok(client)
-	}
-
-	/// Ensure the genesis block (block 0) is reconstructed and stored.
-	///
-	/// This method checks if block 0 exists in storage. If not, it reconstructs
-	/// an empty EVM genesis block and stores the mapping between its EVM hash
-	/// and the Substrate hash.
-	async fn ensure_genesis_block(&self) -> Result<(), ClientError> {
-		// Try to get genesis block
-		let genesis_block = match self.block_by_number(0).await? {
-			Some(block) => block,
-			None => {
-				log::warn!(target: LOG_TARGET, "Genesis block (0) not found, skipping initialization");
-				return Ok(());
-			},
-		};
-
-		let substrate_hash = genesis_block.hash();
-
-		// Check if genesis block mapping already exists
-		if self.receipt_provider.get_ethereum_hash(&substrate_hash).await.is_some() {
-			log::debug!(target: LOG_TARGET, "Genesis block mapping already exists");
-			return Ok(());
-		}
-
-		log::info!(target: LOG_TARGET, "🏗️ Reconstructing genesis block (block 0)");
-
-		// Build the genesis EVM block
-		let genesis_evm_block = self
-			.build_genesis_block(&genesis_block)
-			.await
-			.ok_or(ClientError::EthereumBlockNotFound)?;
-
-		let ethereum_hash = genesis_evm_block.hash;
-
-		// Store the mapping
-		self.receipt_provider
-			.insert_block_mapping(&ethereum_hash, &substrate_hash, 0)
-			.await?;
-
-		log::info!(
-			target: LOG_TARGET,
-			"✅ Genesis block reconstructed: EVM hash {ethereum_hash:?} -> Substrate hash {substrate_hash:?}"
-		);
-
-		Ok(())
 	}
 
 	/// Build the genesis block (block 0) on-demand for RPC queries.
@@ -412,10 +363,24 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
-			let (_, receipts): (Vec<_>, Vec<_>) =
-				self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
-
-			let evm_block = self.storage_api(block.hash()).get_ethereum_block().await?;
+			// Special handling for genesis block (block 0)
+			// Genesis block is never stored on-chain, so we need to build it manually
+			let (evm_block, receipts) = if block.number() == 0 {
+				let evm_block = self
+					.build_genesis_block(&block)
+					.await
+					.ok_or(ClientError::EthereumBlockNotFound)?;
+				// Store the mapping
+				self.receipt_provider
+					.insert_block_mapping(&evm_block.hash, &block.hash(), 0)
+					.await?;
+				(evm_block, vec![])
+			} else {
+				let (_, receipts): (Vec<_>, Vec<_>) =
+					self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
+				let evm_block = self.storage_api(block.hash()).get_ethereum_block().await?;
+				(evm_block, receipts)
+			};
 
 			self.block_provider.update_latest(block, subscription_type).await;
 
@@ -435,7 +400,20 @@ impl Client {
 		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
 
 		self.subscribe_past_blocks(range, |block| async move {
-			self.receipt_provider.insert_block_receipts(&block).await?;
+			// Special handling for genesis block (block 0)
+			// Genesis block is never stored on-chain, so we need to build it manually
+			if block.number() == 0 {
+				let evm_block = self
+					.build_genesis_block(&block)
+					.await
+					.ok_or(ClientError::EthereumBlockNotFound)?;
+				// Store the mapping
+				self.receipt_provider
+					.insert_block_mapping(&evm_block.hash, &block.hash(), 0)
+					.await?;
+			} else {
+				self.receipt_provider.insert_block_receipts(&block).await?;
+			}
 			Ok(())
 		})
 		.await?;
