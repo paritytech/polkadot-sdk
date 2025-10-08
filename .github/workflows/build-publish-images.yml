@@ -707,14 +707,13 @@ jobs:
             echo "build_success=true" >> $GITHUB_OUTPUT
           fi
 
-  # Trigger zombienet tests after successful build
-  # This avoids API rate limits and ensures tests only run when builds succeed
   trigger-zombienet-polkadot:
     needs: [preflight, confirm-required-build-jobs-passed]
     if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' && !github.event.pull_request.draft }}
     uses: ./.github/workflows/zombienet_polkadot.yml
     with:
       build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   trigger-zombienet-cumulus:
     needs: [preflight, confirm-required-build-jobs-passed]
@@ -722,6 +721,7 @@ jobs:
     uses: ./.github/workflows/zombienet_cumulus.yml
     with:
       build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   trigger-zombienet-substrate:
     needs: [preflight, confirm-required-build-jobs-passed]
@@ -729,6 +729,7 @@ jobs:
     uses: ./.github/workflows/zombienet_substrate.yml
     with:
       build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   trigger-zombienet-parachain-template:
     needs: [preflight, confirm-required-build-jobs-passed]
@@ -736,3 +737,4 @@ jobs:
     uses: ./.github/workflows/zombienet_parachain-template.yml
     with:
       build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
