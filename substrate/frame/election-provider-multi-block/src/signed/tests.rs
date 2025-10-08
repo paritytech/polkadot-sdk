@@ -951,8 +951,8 @@ mod e2e {
 					vec![crate::signed::Event::Slashed(0, 99, 8)]
 				);
 
-				// we have 2 block left in signed verification, but we cannot do anything here.
-				// status is not set, as not enough time to do anything.
+				// we have 2 blocks left in signed verification, but we cannot do anything here.
+				// status is not set, as there's not enough time to do anything.
 				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::SignedValidation(1));
 				roll_next();
 				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::SignedValidation(0));

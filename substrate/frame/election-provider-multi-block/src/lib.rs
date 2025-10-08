@@ -118,7 +118,7 @@
 //!
 //! ### Phase Transition
 //!
-//! Within all 4 pallets only the parent pallet is allowed to move forward the phases. As of now,
+//! Within all 4 pallets only the parent pallet is allowed to move the phases forward. As of now,
 //! the transition happens `on-poll`, ensuring that we don't consume too much weight. The parent
 //! pallet is in charge of aggregating the work to be done by all pallets, checking if it can fit
 //! within the current block's weight limits, and executing it if so.
@@ -668,7 +668,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
-			// we need current phase to be read in any case -- we can live with it.
+			// read the current phase in any case -- one storage read is the minimum we do in all
+			// cases.
 			let current_phase = Self::current_phase();
 			let next_phase = current_phase.next();
 
@@ -723,7 +724,7 @@ pub mod pallet {
 				});
 			}
 
-			// NOTE: why in here? bc it is more accessible, for example `roll_to_with_ocw`.
+			// NOTE: why in here? because it is more accessible, for example `roll_to_with_ocw`.
 			#[cfg(test)]
 			{
 				if _now > 200u32.into() {
@@ -1243,7 +1244,7 @@ impl<T: Config> Pallet<T> {
 	/// * Upon last page of `Phase::Signed`, instruct the `Verifier` to start, if any solution
 	///   exists.
 	///
-	/// What it does not:
+	/// What it does not do:
 	///
 	/// * Instruct the verifier to move forward. This happens through
 	///   [`verifier::Verifier::per_block_exec`]. On each block [`T::Verifier`] is given a chance to
@@ -1491,10 +1492,156 @@ impl<T: Config> Pallet<T> {
 
 		snapshot + signed + signed_validation + unsigned
 	}
+}
 
-	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
+impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
 		Snapshot::<T>::sanity_check()
+	}
+
+	fn analyze_weight(
+		op_name: &str,
+		op_weight: Weight,
+		limit_weight: Weight,
+		maybe_max_ratio: Option<sp_runtime::Percent>,
+		maybe_max_warn_ratio: Option<sp_runtime::Percent>,
+	) {
+		use frame_support::weights::constants::{
+			WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS,
+		};
+
+		let ref_time_ms = op_weight.ref_time() / WEIGHT_REF_TIME_PER_MILLIS;
+		let ref_time_ratio =
+			sp_runtime::Percent::from_rational(op_weight.ref_time(), limit_weight.ref_time());
+		let proof_size_kb = op_weight.proof_size() / WEIGHT_PROOF_SIZE_PER_KB;
+		let proof_size_ratio =
+			sp_runtime::Percent::from_rational(op_weight.proof_size(), limit_weight.proof_size());
+		let limit_ms = limit_weight.ref_time() / WEIGHT_REF_TIME_PER_MILLIS;
+		let limit_kb = limit_weight.proof_size() / WEIGHT_PROOF_SIZE_PER_KB;
+		log::info!(
+			target: crate::LOG_PREFIX,
+			"weight of {op_name:?} is: ref-time: {ref_time_ms}ms, {ref_time_ratio:?} of total, proof-size: {proof_size_kb}KiB, {proof_size_ratio:?} of total (total: {limit_ms}ms, {limit_kb}KiB)",
+		);
+
+		if let Some(max_ratio) = maybe_max_ratio {
+			assert!(ref_time_ratio <= max_ratio && proof_size_ratio <= max_ratio,)
+		}
+		if let Some(warn_ratio) = maybe_max_warn_ratio {
+			if ref_time_ratio > warn_ratio || proof_size_ratio > warn_ratio {
+				log::warn!(
+					target: crate::LOG_PREFIX,
+					"weight of {op_name:?} is above {warn_ratio:?} of the block limit",
+				);
+			}
+		}
+	}
+
+	pub fn check_all_weights(
+		limit_weight: Weight,
+		maybe_max_ratio: Option<sp_runtime::Percent>,
+		maybe_max_warn_ratio: Option<sp_runtime::Percent>,
+	) where
+		T: crate::verifier::Config + crate::signed::Config + crate::unsigned::Config,
+	{
+		use crate::weights::traits::{
+			pallet_election_provider_multi_block_signed::WeightInfo as _,
+			pallet_election_provider_multi_block_unsigned::WeightInfo as _,
+			pallet_election_provider_multi_block_verifier::WeightInfo as _,
+		};
+
+		// -------------- snapshot
+		Self::analyze_weight(
+			"snapshot_msp",
+			<T as Config>::WeightInfo::per_block_snapshot_msp(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		Self::analyze_weight(
+			"snapshot_rest",
+			<T as Config>::WeightInfo::per_block_snapshot_rest(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		// -------------- signed
+		Self::analyze_weight(
+			"signed_clear_all_pages",
+			<T as crate::signed::Config>::WeightInfo::clear_old_round_data(T::Pages::get()),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+		Self::analyze_weight(
+			"signed_submit_single_pages",
+			<T as crate::signed::Config>::WeightInfo::submit_page(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		// -------------- unsigned
+		Self::analyze_weight(
+			"verify unsigned solution",
+			<T as crate::unsigned::Config>::WeightInfo::submit_unsigned(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		// -------------- verification
+		Self::analyze_weight(
+			"verifier valid terminal",
+			<T as crate::verifier::Config>::WeightInfo::verification_valid_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+		Self::analyze_weight(
+			"verifier invalid terminal",
+			<T as crate::verifier::Config>::WeightInfo::verification_invalid_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		Self::analyze_weight(
+			"verifier valid non terminal",
+			<T as crate::verifier::Config>::WeightInfo::verification_valid_non_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		Self::analyze_weight(
+			"verifier invalid non terminal",
+			<T as crate::verifier::Config>::WeightInfo::verification_invalid_non_terminal(
+				T::Pages::get(),
+			),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		// -------------- export
+		Self::analyze_weight(
+			"export non-terminal",
+			<T as Config>::WeightInfo::export_non_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
+
+		Self::analyze_weight(
+			"export terminal",
+			<T as Config>::WeightInfo::export_terminal(),
+			limit_weight,
+			maybe_max_ratio,
+			maybe_max_warn_ratio,
+		);
 	}
 }
 
@@ -1718,7 +1865,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			// we're not doing anything.
 			Phase::Off => Err(()),
 
-			// we're doing sth but not ready.
+			// we're doing something but not ready.
 			Phase::Signed(_) |
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |

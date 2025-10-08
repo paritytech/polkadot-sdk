@@ -361,8 +361,8 @@ impl<T: crate::Config> Phase<T> {
 			// Done. Wait for export to start.
 			Self::Done => Self::Done,
 
-			// Export never moves forward via this function, and is always manually set in `elect`
-			// code path.
+			// Export never moves forward via this function, and is always manually set in the
+			// `elect` code path.
 			Self::Export(x) => Self::Export(x),
 		}
 	}

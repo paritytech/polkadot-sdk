@@ -524,8 +524,8 @@ pub trait ElectionProvider {
 
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
 	///
-	/// * `Err(())` should signal that we are not doing anything, and `elect` should def. not be
-	/// called.
+	/// * `Err(())` should signal that we are not doing anything, and `elect` should definitely not
+	///   be called.
 	/// * `Ok(None)` means we are doing something, but we are not done. `elect` should
 	/// not be called.
 	/// * `Ok(Some(Weight))` means we are done and ready for a call to `elect`, which should consume

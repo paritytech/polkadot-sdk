@@ -24,9 +24,10 @@ use frame_election_provider_support::{ElectionDataProvider, ElectionProvider};
 use frame_support::pallet_prelude::*;
 
 const SNAPSHOT_NOT_BIG_ENOUGH: &'static str = "Snapshot page is not full, you should run this \
-benchmark with enough genesis stakers in staking (DataProvider) to fill a page of voters/targets \
+benchmark with enough genesis stakers in staking to fill a page of voters/targets \
 as per VoterSnapshotPerBlock and TargetSnapshotPerBlock. Generate at least \
-2 * VoterSnapshotPerBlock) nominators and TargetSnapshotPerBlock validators";
+2 * VoterSnapshotPerBlock) nominators and TargetSnapshotPerBlock validators. Use `dev_stakers` in \
+genesis config.";
 
 // TODO: remove unwraps from all benchmarks of this pallet -- it makes debugging via wasm harder
 
