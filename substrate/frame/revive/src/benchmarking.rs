@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	exec::{Key, PrecompileExt, PrecompileWithInfoExt},
+	exec::{Key, PrecompileExt},
 	limits,
 	precompiles::{
 		self,

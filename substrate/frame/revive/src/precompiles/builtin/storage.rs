@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, ExtWithInfo},
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
 	vm::RuntimeCosts,
 	Config, Key,
@@ -34,12 +34,12 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 	type Interface = IStorage::IStorageCalls;
 	const MATCHER: BuiltinAddressMatcher =
 		BuiltinAddressMatcher::Fixed(NonZero::new(0x901).unwrap());
-	const HAS_CONTRACT_INFO: bool = true;
+	const HAS_CONTRACT_INFO: bool = false;
 
-	fn call_with_info(
+	fn call(
 		_address: &[u8; 20],
 		input: &Self::Interface,
-		env: &mut impl ExtWithInfo<T = Self::T>,
+		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		// Benchmarks call the pre-compile functions directly, without the delegate
 		// call overhead. The `delegate_call` overhead is benchmarked individually.
