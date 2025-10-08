@@ -185,11 +185,8 @@ mod tests {
 				key: [0u8; 32].into(),
 				isFixedKey: true,
 			});
-			let raw_data = <Storage<Test>>::call(
-				&<Storage<Test>>::MATCHER.base_address(),
-				&input,
-				&mut ext,
-			);
+			let raw_data =
+				<Storage<Test>>::call(&<Storage<Test>>::MATCHER.base_address(), &input, &mut ext);
 			assert_eq!(
 				raw_data.unwrap_err(),
 				Error::Revert("Storage precompile can only be called via delegate call".into(),)
