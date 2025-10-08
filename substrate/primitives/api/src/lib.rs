@@ -537,7 +537,7 @@ pub trait ConstructRuntimeApi<Block: BlockT, C: CallApiAt<Block>> {
 	type RuntimeApi: ApiExt<Block>;
 
 	/// Construct an instance of the runtime api.
-	fn construct_runtime_api(call: &C) -> ApiRef<Self::RuntimeApi>;
+	fn construct_runtime_api(call: &C) -> ApiRef<'_, Self::RuntimeApi>;
 }
 
 #[docify::export]
@@ -763,7 +763,7 @@ pub trait ProvideRuntimeApi<Block: BlockT> {
 	/// call to an api function, will `commit` its changes to an internal buffer. Otherwise,
 	/// the modifications will be `discarded`. The modifications will not be applied to the
 	/// storage, even on a `commit`.
-	fn runtime_api(&self) -> ApiRef<Self::Api>;
+	fn runtime_api(&self) -> ApiRef<'_, Self::Api>;
 }
 
 /// Something that provides information about a runtime api.

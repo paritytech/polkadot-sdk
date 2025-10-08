@@ -408,7 +408,6 @@ jobs:
       - check-tracing
       - cargo-check-each-crate
       - test-deterministic-wasm
-      - cargo-check-all-crate-macos
       # - cargo-hfuzz remove from required for now, as it's flaky
     if: always() && !cancelled()
     steps:

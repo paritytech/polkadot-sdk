@@ -22,7 +22,7 @@ use pallet_revive::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
-	DispatchInfo, Origin,
+	DispatchInfo, ExecOrigin as Origin,
 };
 use tracing::error;
 use xcm::{v5, IdentifyVersion, MAX_XCM_DECODE_DEPTH};
@@ -184,7 +184,7 @@ mod test {
 			},
 			H160,
 		},
-		DepositLimit, U256,
+		ExecConfig, U256,
 	};
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
 	use sp_runtime::traits::AccountIdConversion;
@@ -231,8 +231,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 			assert!(result.result.is_ok());
 			let sent_message = Xcm(Some(DescendOrigin(sender.clone().try_into().unwrap()))
@@ -279,8 +280,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			assert!(result.result.is_ok());
@@ -327,8 +329,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 			let return_value = match result.result {
 				Ok(value) => value,
@@ -376,8 +379,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 			let return_value = match result.result {
 				Ok(value) => value,
@@ -402,8 +406,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 			let return_value = match result.result {
 				Ok(value) => value,
@@ -451,8 +456,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 			let return_value = match result.result {
 				Ok(value) => value,
@@ -478,8 +484,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 			let return_value = match result.result {
 				Ok(value) => value,
@@ -520,8 +527,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_weight_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let weight_result = match xcm_weight_results.result {
@@ -542,8 +550,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			assert!(result.result.is_ok());
@@ -580,8 +589,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_weight_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let weight_result = match xcm_weight_results.result {
@@ -602,8 +612,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let return_value = match result.result {
@@ -648,8 +659,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_weight_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let weight_result = match xcm_weight_results.result {
@@ -670,8 +682,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 			let return_value = match result.result {
 				Ok(value) => value,
@@ -715,8 +728,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_weight_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let weight_result = match xcm_weight_results.result {
@@ -744,8 +758,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let return_value = match result.result {
@@ -770,8 +785,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let return_value = match result.result {
@@ -818,8 +834,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_weight_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let result = match xcm_weight_results.result {
@@ -842,8 +859,9 @@ mod test {
 				xcm_precompile_addr,
 				U256::zero(),
 				Weight::MAX,
-				DepositLimit::UnsafeOnlyForDryRun,
+				u128::MAX,
 				encoded_weight_call,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			let result = match xcm_weight_results.result {

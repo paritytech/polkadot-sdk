@@ -19,6 +19,7 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-transaction-payment",
 	"pallet-transaction-payment-rpc-runtime-api",
 	"parachains-common",
+	"polkadot-runtime-common",
 	"runtime",
 	"with-tracing",
 ] }

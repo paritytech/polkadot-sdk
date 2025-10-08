@@ -881,14 +881,14 @@ mod score_provider {
 	#[test]
 	fn no_score_for_non_stakers() {
 		ExtBuilder::default().build_and_execute(|| {
-			// given 777 being not anything in this pallet.
+			// given 777 being neither a nominator nor a validator in this pallet.
 			assert!(
 				!Ledger::<Test>::get(777).is_some() &&
 					!Validators::<Test>::contains_key(777) &&
 					!Nominators::<Test>::contains_key(777)
 			);
 
-			// then they will not have a score when bags-list wants to update it.
+			// then it will not have a score when bags-list wants to update it.
 			assert!(<Staking as ScoreProvider<_>>::score(&777).is_none());
 		});
 	}
@@ -896,14 +896,14 @@ mod score_provider {
 	#[test]
 	fn score_for_validators_nominators() {
 		ExtBuilder::default().nominate(true).build_and_execute(|| {
-			// Given 101 being a nominators
+			// Given 101 being a nominator
 			assert!(
 				Ledger::<Test>::get(101).unwrap().active == 500 &&
 					!Validators::<Test>::contains_key(101) &&
 					Nominators::<Test>::contains_key(101)
 			);
 
-			// then they will have a score.
+			// then it will have a score.
 			assert_eq!(<Staking as ScoreProvider<_>>::score(&101), Some(500));
 
 			// given 11 being a validator
@@ -913,7 +913,7 @@ mod score_provider {
 					!Nominators::<Test>::contains_key(11)
 			);
 
-			// then they will have a score.
+			// then it will have a score.
 			assert_eq!(<Staking as ScoreProvider<_>>::score(&11), Some(1000));
 		});
 	}

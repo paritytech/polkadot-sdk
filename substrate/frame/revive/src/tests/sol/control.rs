@@ -91,7 +91,7 @@ fn jumpdest_works() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let result = builder::bare_call(addr).build().result;
-		assert_err!(result, Error::<Test>::InvalidInstruction);
+		assert_err!(result, Error::<Test>::InvalidJump);
 	});
 }
 
