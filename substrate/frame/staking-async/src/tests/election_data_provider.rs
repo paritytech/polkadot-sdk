@@ -896,7 +896,7 @@ mod score_provider {
 	#[test]
 	fn score_for_validators_nominators() {
 		ExtBuilder::default().nominate(true).build_and_execute(|| {
-			// Given 101 being a nominators
+			// Given 101 being a nominator
 			assert!(
 				Ledger::<Test>::get(101).unwrap().active == 500 &&
 					!Validators::<Test>::contains_key(101) &&
