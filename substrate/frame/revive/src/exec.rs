@@ -544,7 +544,7 @@ pub struct Stack<'a, T: Config, E> {
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// Global behavior determined by the creater of this stack.
-	exec_config: &'a ExecConfig,
+	exec_config: &'a ExecConfig<T>,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -579,7 +579,7 @@ struct Frame<T: Config> {
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
 /// distinguish who delegated the call and where it was delegated to.
-struct DelegateInfo<T: Config> {
+pub struct DelegateInfo<T: Config> {
 	/// The caller of the contract.
 	pub caller: Origin<T>,
 	/// The address of the contract the call was delegated to.
@@ -794,7 +794,7 @@ where
 		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
@@ -804,6 +804,7 @@ where
 			storage_meter,
 			value,
 			exec_config,
+			&input_data,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
@@ -819,14 +820,25 @@ where
 				);
 			});
 
-			let result = Self::transfer_from_origin(
-				&origin,
-				&origin,
-				&dest,
-				value,
-				storage_meter,
-				exec_config,
-			);
+			let result = if let Some(mock_answer) =
+				exec_config.mock_handler.as_ref().and_then(|handler| {
+					handler.mock_call(
+						T::AddressMapper::to_address(&dest),
+						input_data.clone(),
+						value,
+					)
+				}) {
+				Ok(mock_answer)
+			} else {
+				Self::transfer_from_origin(
+					&origin,
+					&origin,
+					&dest,
+					value,
+					storage_meter,
+					exec_config,
+				)
+			};
 
 			if_tracing(|t| match result {
 				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
@@ -852,7 +864,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let deployer = T::AddressMapper::to_address(&origin);
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
@@ -867,6 +879,7 @@ where
 			storage_meter,
 			value,
 			exec_config,
+			&input_data,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
@@ -889,7 +902,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
-		exec_config: &'a ExecConfig,
+		exec_config: &'a ExecConfig<T>,
 	) -> (Self, E) {
 		let call = Self::new(
 			FrameArgs::Call {
@@ -902,6 +915,7 @@ where
 			storage_meter,
 			value.into(),
 			exec_config,
+			&Default::default(),
 		)
 		.unwrap()
 		.unwrap();
@@ -918,7 +932,8 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
-		exec_config: &'a ExecConfig,
+		exec_config: &'a ExecConfig<T>,
+		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
@@ -930,6 +945,8 @@ where
 			BalanceOf::<T>::max_value(),
 			false,
 			true,
+			input_data,
+			exec_config,
 		)?
 		else {
 			return Ok(None);
@@ -964,6 +981,8 @@ where
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
 		origin_is_caller: bool,
+		input_data: &Vec<u8>,
+		exec_config: &ExecConfig<T>,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -991,6 +1010,11 @@ where
 					(None, Some(_)) => CachedContract::None,
 				};
 
+				let delegated_call = delegated_call.or_else(|| {
+					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
+						mock_handler.mock_delegated_caller(address, input_data.clone())
+					})
+				});
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
 					if let Some(precompile) =
@@ -1085,6 +1109,7 @@ where
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
+		input_data: &Vec<u8>,
 	) -> Result<Option<ExecutableOrPrecompile<T, E, Self>>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
 			return Err(Error::<T>::MaxCallDepthReached.into());
@@ -1116,6 +1141,8 @@ where
 			deposit_limit,
 			read_only,
 			false,
+			input_data,
+			self.exec_config,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
@@ -1251,11 +1278,23 @@ where
 				.map(|exec| exec.code_info().deposit())
 				.unwrap_or_default();
 
+			let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
+				handler.mock_call(
+					frame
+						.delegate
+						.as_ref()
+						.map(|delegate| delegate.callee)
+						.unwrap_or(T::AddressMapper::to_address(&frame.account_id)),
+					input_data.clone(),
+					frame.value_transferred,
+				)
+			});
 			let mut output = match executable {
-				ExecutableOrPrecompile::Executable(executable) =>
+				ExecutableOrPrecompile::Executable(executable) if mock_answer.is_none() =>
 					executable.execute(self, entry_point, input_data),
-				ExecutableOrPrecompile::Precompile { instance, .. } =>
+				ExecutableOrPrecompile::Precompile { instance, .. } if mock_answer.is_none() =>
 					instance.call(input_data, self),
+				_ => Ok(mock_answer.expect("Checked above; qed")),
 			}
 			.and_then(|output| {
 				if u32::try_from(output.data.len())
@@ -1467,7 +1506,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
@@ -1579,7 +1618,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1692,6 +1731,7 @@ where
 			gas_limit,
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
+			&input_data,
 		)? {
 			self.run(executable, input_data)
 		} else {
@@ -1859,6 +1899,7 @@ where
 				gas_limit,
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				self.is_read_only(),
+				&input_data,
 			)?
 		};
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
@@ -1926,6 +1967,7 @@ where
 				gas_limit,
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				is_read_only,
+				&input_data,
 			)? {
 				self.run(executable, input_data)
 			} else {
@@ -2001,6 +2043,16 @@ where
 	}
 
 	fn caller(&self) -> Origin<T> {
+		if let Some(Ok(mock_caller)) = self
+			.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_caller(self.frames.len()))
+			.map(|mock_caller| Origin::<T>::from_runtime_origin(mock_caller))
+		{
+			return mock_caller;
+		}
+
 		if let Some(DelegateInfo { caller, .. }) = &self.top_frame().delegate {
 			caller.clone()
 		} else {

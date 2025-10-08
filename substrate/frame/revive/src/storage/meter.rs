@@ -65,7 +65,7 @@ pub trait Ext<T: Config> {
 		contract: &T::AccountId,
 		amount: &DepositOf<T>,
 		state: &ContractState<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<(), DispatchError>;
 }
 
@@ -365,7 +365,7 @@ where
 	pub fn try_into_deposit(
 		self,
 		origin: &Origin<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<DepositOf<T>, DispatchError> {
 		// Only refund or charge deposit if the origin is not root.
 		let origin = match origin {
@@ -453,7 +453,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 		contract: &T::AccountId,
 		amount: &DepositOf<T>,
 		state: &ContractState<T>,
-		exec_config: &ExecConfig,
+		exec_config: &ExecConfig<T>,
 	) -> Result<(), DispatchError> {
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => return Ok(()),
@@ -545,7 +545,7 @@ mod tests {
 			contract: &AccountIdOf<Test>,
 			amount: &DepositOf<Test>,
 			state: &ContractState<Test>,
-			_exec_config: &ExecConfig,
+			_exec_config: &ExecConfig<Test>,
 		) -> Result<(), DispatchError> {
 			TestExtTestValue::mutate(|ext| {
 				ext.charges.push(Charge {

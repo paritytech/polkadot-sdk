@@ -56,7 +56,7 @@ pub struct CallSetup<T: Config> {
 	value: BalanceOf<T>,
 	data: Vec<u8>,
 	transient_storage_size: u32,
-	exec_config: ExecConfig,
+	exec_config: ExecConfig<T>,
 }
 
 impl<T> Default for CallSetup<T>
