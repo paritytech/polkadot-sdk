@@ -44,7 +44,11 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 		// Benchmarks call the pre-compile functions directly, without the delegate
 		// call overhead. The `delegate_call` overhead is benchmarked individually.
 		#[cfg(not(feature = "runtime-benchmarks"))]
-		assert!(env.is_delegate_call(), "Storage precompile can only be called via delegate call");
+		if !env.is_delegate_call() {
+			return Err(
+				Error::Revert("Storage precompile can only be called via delegate call".into())
+			);
+		}
 
 		use IStorage::IStorageCalls;
 		let max_size = env.max_value_size();
