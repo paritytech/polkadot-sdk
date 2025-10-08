@@ -1460,20 +1460,22 @@ impl<T: Config> Pallet<T> {
 		let mut call_info = create_call::<T>(tx, None)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
-		// emulate transaction behavior
+		// the dry-run might leave out certain fields
+		// in those cases we skip the check that the caller has enough balance
+		// to pay for the fees
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
-		match (gas, from, value.is_zero()) {
-			(Some(_), Some(from), _) | (_, Some(from), false) => {
-				let balance = Self::evm_balance(&from).saturating_add(value);
-				if balance < Pallet::<T>::convert_native_to_evm(fees) {
-					return Err(EthTransactError::Message(format!(
-								"insufficient funds for gas * price + value: address {from:?} have {balance:?} (supplied gas {gas:?})",
-					)));
-				}
-			},
-			_ => {},
+		if let Some(from) = &from {
+			let fees = if gas.is_some() { fees } else { Zero::zero() };
+			let balance = Self::evm_balance(from);
+			if balance < Pallet::<T>::convert_native_to_evm(fees).saturating_add(value) {
+				return Err(EthTransactError::Message(format!(
+					"insufficient funds for gas * price + value ({fees:?}): address {from:?} have {balance:?} (supplied gas {gas:?})",
+				)));
+			}
 		}
 
+		// the deposit is done when the transaction is transformed from an `eth_transact`
+		// we emulate this behavior for the dry-run her
 		T::FeeInfo::deposit_txfee(T::Currency::issue(fees));
 
 		let extract_error = |err| {
@@ -1599,6 +1601,7 @@ impl<T: Config> Pallet<T> {
 			)))?;
 		}
 
+		// not enough gas supplied to pay for both the tx fees and the storage deposit
 		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
 		let available_fee = T::FeeInfo::remaining_txfee();
 		if transaction_fee > available_fee {
