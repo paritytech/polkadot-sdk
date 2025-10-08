@@ -236,11 +236,9 @@ impl IncrementalHashBuilder {
 	pub fn add_value(&mut self, value: Vec<u8>) {
 		let rlp_index = rlp::encode_fixed_size(&self.index);
 		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
-		// Update accounting if enabled
+
 		#[cfg(test)]
-		if self.stats.is_some() {
-			self.process_stats(value.len(), self.index);
-		}
+		self.process_stats(value.len(), self.index);
 
 		if self.index == 0x7f {
 			// Pushing the previous item since we are expecting the index
@@ -258,9 +256,7 @@ impl IncrementalHashBuilder {
 
 			// Update accounting if enabled
 			#[cfg(test)]
-			if self.stats.is_some() {
-				self.process_stats(value.len(), 0);
-			}
+			self.process_stats(value.len(), 0);
 		}
 
 		self.index = self.index.saturating_add(1);
@@ -289,11 +285,9 @@ impl IncrementalHashBuilder {
 
 			let rlp_index = rlp::encode_fixed_size(&0usize);
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
-			// Update accounting if enabled
+
 			#[cfg(test)]
-			if self.stats.is_some() {
-				self.process_stats(encoded_value.len(), 0);
-			}
+			self.process_stats(encoded_value.len(), 0);
 		}
 
 		self.hash_builder.root().0.into()
@@ -317,6 +311,10 @@ impl IncrementalHashBuilder {
 	/// Update accounting metrics after processing data.
 	#[cfg(test)]
 	fn process_stats(&mut self, data_len: usize, index: u64) {
+		if self.stats.is_none() {
+			return
+		}
+
 		let hb_current_size = self.calculate_current_size();
 		let stats = self.stats.as_mut().unwrap();
 
