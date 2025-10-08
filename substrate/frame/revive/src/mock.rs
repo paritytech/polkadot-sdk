@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Helper Interfaces and function, that help with controlling the execution of EVM contracts.
-//! It is mostly used to help with the foundry forget test integration.
+//! Helper interfaces and functions, that help with controlling the execution of EVM contracts.
+//! It is mostly used to help with the implementation of foundry cheatscodes for forge test
+//! integration.
 
 use frame_system::pallet_prelude::OriginFor;
 use sp_core::{H160, U256};
