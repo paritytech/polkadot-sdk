@@ -89,7 +89,7 @@ where
 }
 
 /// Create a message from the given data.
-pub fn msg<N: Get<u32>>(x: &str) -> BoundedSlice<u8, N> {
+pub fn msg<N: Get<u32>>(x: &str) -> BoundedSlice<'_, u8, N> {
 	BoundedSlice::defensive_truncate_from(x.as_bytes())
 }
 
