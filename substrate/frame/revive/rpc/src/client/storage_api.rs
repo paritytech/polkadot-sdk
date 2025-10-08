@@ -71,7 +71,7 @@ impl StorageApi {
 		let query = subxt_client::storage().revive().receipt_info_data();
 
 		let Some(receipt_info_data) = self.0.fetch(&query).await? else {
-			log::warn!(target: LOG_TARGET, "Receipt data not found");
+			log::debug!(target: LOG_TARGET, "Receipt data not found");
 			return Err(ClientError::ReceiptDataNotFound);
 		};
 		log::trace!(target: LOG_TARGET, "Receipt data found");
@@ -83,7 +83,7 @@ impl StorageApi {
 	pub async fn get_ethereum_block(&self) -> Result<Block, ClientError> {
 		let query = subxt_client::storage().revive().ethereum_block();
 		let Some(block) = self.0.fetch(&query).await? else {
-			log::warn!(target: LOG_TARGET, "Ethereum block not found");
+			log::debug!(target: LOG_TARGET, "Ethereum block not found");
 			return Err(ClientError::EthereumBlockNotFound);
 		};
 		log::trace!(target: LOG_TARGET, "Ethereum block found hash: {:?}", block.hash);
@@ -97,7 +97,7 @@ impl StorageApi {
 		let query = subxt_client::storage().revive().block_hash(number_u256);
 
 		let Some(hash) = self.0.fetch(&query).await? else {
-			log::warn!(target: LOG_TARGET, "Ethereum block #{number} hash not found");
+			log::debug!(target: LOG_TARGET, "Ethereum block #{number} hash not found");
 			return Err(ClientError::EthereumBlockNotFound);
 		};
 
