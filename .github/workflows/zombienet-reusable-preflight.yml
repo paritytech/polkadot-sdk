@@ -27,6 +27,9 @@ on:
         required: true
         type: string
         description: "Build run ID from the build workflow."
+      ref_slug:
+        required: false
+        type: string
     # Map the workflow outputs to job outputs
     outputs:
       changes_substrate:
@@ -225,11 +228,21 @@ jobs:
       - name: Set vars
         id: set_vars
         shell: bash
+        env:
+          INPUT_REF_SLUG: ${{ inputs.ref_slug }}
         run: |
-          # below section shall only print variables set for GITHUB_OUTPUT
-          {
+          # Determine SOURCE_REF_SLUG
+          if [[ -n "${INPUT_REF_SLUG}" ]]; then
+            echo "Using provided ref_slug: ${INPUT_REF_SLUG}"
+            SOURCE_REF_SLUG="${INPUT_REF_SLUG}"
+          else
+            echo "Calculating ref_slug from current context"
             export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
-            echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}"
+            SOURCE_REF_SLUG="${SOURCE_REF_NAME//\//_}"
+          fi
+          
+          {
+            echo "SOURCE_REF_SLUG=${SOURCE_REF_SLUG}"
 
             # filter out comments and empty lines
             cat .github/zombienet-env | grep -Ev '^\s*#|^\s*$'
