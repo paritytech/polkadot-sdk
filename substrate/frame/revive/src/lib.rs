@@ -853,7 +853,7 @@ pub mod pallet {
 			//
 			// Similarly, this is the amount of pallet storage consumed by the
 			// `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.
-			let max_incremental_trie_builder_size =
+			let max_eth_block_builder_size =
 				// `receipts_root` hash builder
 				limits::NUM_EMITTED_EVENTS.saturating_mul(limits::PAYLOAD_BYTES.saturating_mul(3))
 				// `transactions_root` hash builder
@@ -866,6 +866,7 @@ pub mod pallet {
 			let memory_left = i64::from(max_runtime_mem)
 				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
 				.saturating_sub(limits::MEMORY_REQUIRED.into());
+				.saturating_sub(max_eth_block_builder_size.into());
 
 			log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
 
