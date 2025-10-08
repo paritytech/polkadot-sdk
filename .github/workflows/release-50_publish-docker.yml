@@ -261,6 +261,7 @@ jobs:
       - name: Get version
         id: fetch-latest-apt
         run: |
+          gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
           gpg --export 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE > /usr/share/keyrings/parity.gpg
           apt update
           apt show polkadot
