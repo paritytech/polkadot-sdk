@@ -18,7 +18,7 @@
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
 use crate::{mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, H160, U256};
-use alloc::{fmt::Debug, string::String, vec::Vec};
+use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;

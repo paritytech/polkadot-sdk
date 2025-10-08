@@ -22,6 +22,8 @@
 use frame_system::pallet_prelude::OriginFor;
 use sp_core::{H160, U256};
 
+use alloc::vec::Vec;
+
 use crate::{pallet, DelegateInfo, ExecReturnValue};
 
 /// A trait that provides hooks for mocking EVM contract calls and callers.
