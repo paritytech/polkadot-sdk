@@ -41,7 +41,7 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
+	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -737,29 +737,24 @@ where
 					None => FinalizeSummary {
 						header: header.clone(),
 						finalized: vec![hash],
-						stale_heads: Vec::new(),
+						stale_blocks: Vec::new(),
 					},
 				};
 
 				if parent_exists {
-					// Add to the stale list all heads that are branching from parent besides our
-					// current `head`.
-					for head in self
-						.backend
-						.blockchain()
-						.leaves()?
-						.into_iter()
-						.filter(|h| *h != parent_hash)
-					{
-						let route_from_parent = sp_blockchain::tree_route(
-							self.backend.blockchain(),
-							parent_hash,
-							head,
-						)?;
-						if route_from_parent.retracted().is_empty() {
-							summary.stale_heads.push(head);
-						}
-					}
+					// The stale blocks that will be displaced after the block is finalized.
+					let stale_heads = self.backend.blockchain().displaced_leaves_after_finalizing(
+						hash,
+						*header.number(),
+						parent_hash,
+					)?;
+
+					summary.stale_blocks.extend(stale_heads.displaced_blocks.into_iter().map(
+						|b| StaleBlock {
+							hash: b,
+							is_head: stale_heads.displaced_leaves.iter().any(|(_, h)| *h == b),
+						},
+					));
 				}
 				operation.notify_finalized = Some(summary);
 			}
@@ -935,30 +930,28 @@ where
 			let finalized =
 				route_from_finalized.enacted().iter().map(|elem| elem.hash).collect::<Vec<_>>();
 
-			let block_number = route_from_finalized
-				.last()
-				.expect(
-					"The block to finalize is always the latest \
-						block in the route to the finalized block; qed",
-				)
-				.number;
-
-			// The stale heads are the leaves that will be displaced after the
-			// block is finalized.
-			let stale_heads = self
-				.backend
-				.blockchain()
-				.displaced_leaves_after_finalizing(hash, block_number)?
-				.hashes()
-				.collect();
-
 			let header = self
 				.backend
 				.blockchain()
 				.header(hash)?
 				.expect("Block to finalize expected to be onchain; qed");
+			let block_number = *header.number();
 
-			operation.notify_finalized = Some(FinalizeSummary { header, finalized, stale_heads });
+			// The stale blocks that will be displaced after the block is finalized.
+			let mut stale_blocks = Vec::new();
+
+			let stale_heads = self.backend.blockchain().displaced_leaves_after_finalizing(
+				hash,
+				block_number,
+				*header.parent_hash(),
+			)?;
+
+			stale_blocks.extend(stale_heads.displaced_blocks.into_iter().map(|b| StaleBlock {
+				hash: b,
+				is_head: stale_heads.displaced_leaves.iter().any(|(_, h)| *h == b),
+			}));
+
+			operation.notify_finalized = Some(FinalizeSummary { header, finalized, stale_blocks });
 		}
 
 		Ok(())

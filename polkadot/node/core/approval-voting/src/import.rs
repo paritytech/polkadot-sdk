@@ -61,7 +61,7 @@ use super::approval_db::v3;
 use crate::{
 	backend::{Backend, OverlayedBackend},
 	criteria::{AssignmentCriteria, OurAssignment},
-	get_extended_session_info, get_session_info,
+	get_extended_session_info_by_index, get_session_info_by_index,
 	persisted_entries::CandidateEntry,
 };
 
@@ -220,7 +220,8 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 	};
 
 	let extended_session_info =
-		get_extended_session_info(env.runtime_info, sender, block_hash, session_index).await;
+		get_extended_session_info_by_index(env.runtime_info, sender, block_hash, session_index)
+			.await;
 	let enable_v2_assignments = extended_session_info.map_or(false, |extended_session_info| {
 		*extended_session_info
 			.node_features
@@ -229,9 +230,10 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 			.unwrap_or(&false)
 	});
 
-	let session_info = get_session_info(env.runtime_info, sender, block_hash, session_index)
-		.await
-		.ok_or(ImportedBlockInfoError::SessionInfoUnavailable)?;
+	let session_info =
+		get_session_info_by_index(env.runtime_info, sender, block_hash, session_index)
+			.await
+			.ok_or(ImportedBlockInfoError::SessionInfoUnavailable)?;
 
 	gum::debug!(target: LOG_TARGET, ?enable_v2_assignments, "V2 assignments");
 	let (assignments, slot, relay_vrf_story) = {
@@ -456,7 +458,9 @@ pub(crate) async fn handle_new_head<
 		} = imported_block_info;
 
 		let session_info =
-			match get_session_info(session_info_provider, sender, head, session_index).await {
+			match get_session_info_by_index(session_info_provider, sender, head, session_index)
+				.await
+			{
 				Some(session_info) => session_info,
 				None => return Ok(Vec::new()),
 			};

@@ -231,20 +231,16 @@ where
 					.into_iter()
 					.filter_map(|m| {
 						// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
-						if cfg!(feature = "experimental-ump-signals") {
-							if m == UMP_SEPARATOR {
-								found_separator = true;
-								None
-							} else if found_separator {
-								if upward_message_signals.iter().all(|s| *s != m) {
-									upward_message_signals.push(m);
-								}
-								None
-							} else {
-								// No signal or separator
-								Some(m)
+						if m == UMP_SEPARATOR {
+							found_separator = true;
+							None
+						} else if found_separator {
+							if upward_message_signals.iter().all(|s| *s != m) {
+								upward_message_signals.push(m);
 							}
+							None
 						} else {
+							// No signal or separator
 							Some(m)
 						}
 					})

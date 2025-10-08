@@ -29,6 +29,14 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Download artifact
+      shell: bash
+      run: |
+        echo "::group::📦 Downloading ${{ inputs.artifact-name }}"
+        echo "Artifact: ${{ inputs.artifact-name }}"
+        echo "Run ID: ${{ inputs.run-id }}"
+        echo "::endgroup::"
+    
     - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
         name: ${{ inputs.artifact-name }}
@@ -40,6 +48,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.extract-path }}
       run: |
+        echo "::group::📂 Extracting ${{ inputs.artifact-name }}"
         if [[ -f artifacts.tar ]]; then
           tar -xvf artifacts.tar
         elif [[ -f *.tar ]]; then
@@ -51,9 +60,10 @@ runs:
         elif [[ -f *.zip ]]; then
           unzip *.zip
         else
-          echo "No archive file found to extract"
+          echo "⚠️ No archive file found to extract"
           ls -la
         fi
+        echo "::endgroup::"
 
     - name: Copy files if specified
       if: inputs.files-to-copy != ''
@@ -65,20 +75,24 @@ runs:
 
       shell: bash
       run: |
+        echo "::group::📋 Copying files from ${{ inputs.artifact-name }}"
         # Create destination directory
         mkdir -p "$DESTINATION_PATH"
 
+        FILE_COUNT=0
         echo "$FILES_TO_COPY" | tr ',' '\n' | while read -r file; do
           # trim leading and trailing whitespaces
           file="$(echo "$file" | xargs)"
           if [[ -n "$file" ]]; then
-            echo "Copying $file to $DESTINATION_PATH"
+            echo "✓ Copying $(basename "$file") to $DESTINATION_PATH"
             cp -r "$EXTRACT_PATH/$file" "$DESTINATION_PATH/"
+            FILE_COUNT=$((FILE_COUNT + 1))
           fi
         done
 
         # Cleanup if requested
         if [[ "$CLEANUP" == "true" ]]; then
-          echo "Cleaning up downloaded artifacts in $EXTRACT_PATH"
+          echo "🧹 Cleaning up temporary files in $EXTRACT_PATH"
           rm -rf "$EXTRACT_PATH"
         fi
+        echo "::endgroup::"
