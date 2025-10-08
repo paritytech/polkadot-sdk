@@ -466,26 +466,24 @@ impl Client {
 		self.receipt_provider.receipts_count_per_block(block_hash).await
 	}
 
-	/// Get an EVM transaction receipt by Ethereum hash with automatic resolution.
+	/// Get an EVM transaction receipt by specified Ethereum block hash.
 	pub async fn receipt_by_ethereum_hash_and_index(
 		&self,
 		ethereum_hash: &H256,
 		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
-		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
-			return self.receipt_by_hash_and_index(&substrate_hash, transaction_index).await;
-		}
-		// Fallback: treat as Substrate hash
-		self.receipt_by_hash_and_index(ethereum_hash, transaction_index).await
+		// Fallback: use hash as Substrate hash if Ethereum hash cannot be resolved
+		let substrate_hash =
+			self.resolve_substrate_hash(ethereum_hash).await.unwrap_or(*ethereum_hash);
+		self.receipt_by_hash_and_index(&substrate_hash, transaction_index).await
 	}
 
-	/// Get receipts count per block using Ethereum block hash with automatic resolution.
+	/// Get receipts count per block by specified Ethereum block hash.
 	pub async fn receipts_count_per_ethereum_block(&self, ethereum_hash: &H256) -> Option<usize> {
-		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
-			return self.receipts_count_per_block(&substrate_hash).await;
-		}
-		// Fallback: treat as Substrate hash
-		self.receipts_count_per_block(ethereum_hash).await
+		// Fallback: use hash as Substrate hash if Ethereum hash cannot be resolved
+		let substrate_hash =
+			self.resolve_substrate_hash(ethereum_hash).await.unwrap_or(*ethereum_hash);
+		self.receipts_count_per_block(&substrate_hash).await
 	}
 
 	/// Get the system health.

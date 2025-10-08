@@ -433,12 +433,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			},
 			(None, None, Some(hash)) => {
 				// Try to resolve Ethereum hash to Substrate hash first
-				let substrate_hash = if let Some(resolved) = self.get_substrate_hash(&hash).await {
-					resolved
-				} else {
-					// Fallback: treat as Substrate hash for backward compatibility
-					hash
-				};
+				let substrate_hash = self.get_substrate_hash(&hash).await.unwrap_or(hash);
 				qb.push(" AND block_hash = ").push_bind(substrate_hash.0.to_vec());
 			},
 			(None, None, None) => {
