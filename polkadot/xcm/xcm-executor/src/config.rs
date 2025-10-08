@@ -134,6 +134,6 @@ pub trait Config {
 	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
 	/// Allows recording the last executed XCM (used by dry-run runtime APIs).
 	type XcmRecorder: RecordXcm;
-
+	/// Handler for publish/subscribe operations on the relay chain.
 	type BroadcastHandler: BroadcastHandler;
 }
