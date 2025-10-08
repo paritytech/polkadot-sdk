@@ -1881,15 +1881,7 @@ pub mod pallet {
 			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 
-			if reserves.is_empty() {
-				ReserveLocations::<T, I>::remove(&id);
-				Self::deposit_event(Event::ReservesRemoved { asset_id: id });
-			} else {
-				let bounded_reserves =
-					reserves.clone().try_into().map_err(|_| Error::<T, I>::TooManyReserves)?;
-				ReserveLocations::<T, I>::set(&id, bounded_reserves);
-				Self::deposit_event(Event::ReservesUpdated { asset_id: id, reserves });
-			}
+			Self::unchecked_update_reserves(id, reserves)?;
 			Ok(())
 		}
 	}

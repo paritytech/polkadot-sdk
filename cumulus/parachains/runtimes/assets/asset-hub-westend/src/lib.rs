@@ -1499,9 +1499,10 @@ pub mod foreign_assets_v2 {
 	use core::marker::PhantomData;
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		traits::{GetStorageVersion, StorageVersion},
+		traits::{ContainsPair, GetStorageVersion, StorageVersion},
 		weights::WeightMeter,
 	};
+	use pallet_assets::WeightInfo;
 
 	const PALLET_MIGRATIONS_ID: &[u8; 21] = b"pallet-foreign-assets";
 
@@ -1516,11 +1517,14 @@ pub mod foreign_assets_v2 {
 	/// The resulting state of the step and the actual weight consumed.
 	type StepResultOf<T, I> = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
 
-	pub struct ForeignAssetsLazyMigrationV1ToV2<T: pallet_assets::Config<I>, I: 'static>(
-		PhantomData<(T, I)>,
+	pub struct ForeignAssetsLazyMigrationV1ToV2<T, I, AssetFilter>(
+		PhantomData<(T, I, AssetFilter)>,
 	);
-	impl<T: pallet_assets::Config<I, ReserveId = xcm::v5::Location>, I: 'static> SteppedMigration
-		for ForeignAssetsLazyMigrationV1ToV2<T, I>
+	impl<T, I, AssetFilter> SteppedMigration for ForeignAssetsLazyMigrationV1ToV2<T, I, AssetFilter>
+	where
+		T: pallet_assets::Config<I, AssetId = xcm::v5::Location, ReserveId = xcm::v5::Location>,
+		I: 'static,
+		AssetFilter: ContainsPair<xcm::v5::Location, xcm::v5::Location>,
 	{
 		type Cursor = StepResultOf<T, I>;
 		type Identifier = MigrationId<21>;
@@ -1538,10 +1542,12 @@ pub mod foreign_assets_v2 {
 			{
 				return Ok(None);
 			}
+			// IsForeignConcreteAsset<FromSiblingParachain<AssetHubParaId>>;
 
 			// Check that we have enough weight for at least the next step. If we don't, then the
 			// migration cannot be complete.
-			let required = Self::required_weight_per_asset();
+			let required =
+				<T as pallet_assets::Config<I>>::WeightInfo::migration_v2_foreign_asset_set_reserve_weight();
 			if meter.remaining().any_lt(required) {
 				return Err(SteppedMigrationError::InsufficientWeight { required });
 			}
@@ -1613,13 +1619,12 @@ pub mod foreign_assets_v2 {
 		// }
 	}
 
-	impl<T: pallet_assets::Config<I, ReserveId = xcm::v5::Location>, I: 'static>
-		ForeignAssetsLazyMigrationV1ToV2<T, I>
+	impl<T, I, AssetFilter> ForeignAssetsLazyMigrationV1ToV2<T, I, AssetFilter>
+	where
+		T: pallet_assets::Config<I, AssetId = xcm::v5::Location, ReserveId = xcm::v5::Location>,
+		I: 'static,
+		AssetFilter: ContainsPair<xcm::v5::Location, xcm::v5::Location>,
 	{
-		pub(crate) fn required_weight_per_asset() -> Weight {
-			todo!()
-		}
-
 		// Make `Here` a reserve location for one entry of `Asset`.
 		pub(crate) fn asset_step(maybe_last_key: Option<&T::AssetId>) -> StepResultOf<T, I> {
 			let mut iter = if let Some(last_key) = maybe_last_key {
@@ -1630,25 +1635,18 @@ pub mod foreign_assets_v2 {
 				pallet_assets::Asset::<T, I>::iter_keys()
 			};
 			if let Some(asset_id) = iter.next() {
-				let reserves = BoundedVec::<T::ReserveId, ConstU32<{pallet_assets::MAX_RESERVES}>>::truncate_from(vec![xcm::v5::Location::here()]);
-				pallet_assets::ReserveLocations::<T, I>::insert(asset_id.clone(), reserves);
+				if AssetFilter::contains(&asset_id, &asset_id) {
+					let _ = pallet_assets::Pallet::<T, I>::unchecked_update_reserves(
+						asset_id.clone(),
+						vec![xcm::v5::Location::here()],
+					);
+				}
 				MigrationState::Asset(asset_id)
 			} else {
 				MigrationState::Finished
 			}
 		}
 	}
-
-	// pub struct MarkExistingForeignAssetsAsTeleportable;
-	// impl frame_support::traits::OnRuntimeUpgrade for MarkExistingForeignAssetsAsTeleportable {
-	// 	fn on_runtime_upgrade() -> Weight {
-	// 		let mut writes = 0;
-	//
-	// 		let _assets = ForeignAssets::Asset::iter_keys();
-	//
-	// 		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
-	// 	}
-	// }
 }
 
 /// Asset Hub Westend has some undecodable storage, delete it.

@@ -21,12 +21,15 @@
 
 use super::*;
 use alloc::vec;
-use frame_benchmarking::v1::{
-	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
+use frame_benchmarking::{
+	v1::{
+		account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
+	},
+	BenchmarkResult,
 };
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::Bounded;
+use sp_runtime::{traits::Bounded, Weight};
 
 use crate::Pallet as Assets;
 
@@ -613,6 +616,20 @@ benchmarks_instance_pallet! {
 		amount = Pallet::<T, I>::allowance(asset_id.into(), &caller, &delegate);
 	} verify {
 		assert_eq!(amount, 100u32.into());
+	}
+
+	migration_v2_foreign_asset_set_reserve_weight {
+		let (id, _, _) = create_default_asset::<T, I>(true);
+		let id: <T as pallet::Config<I>>::AssetId = id.into();
+		let reserve = T::BenchmarkHelper::create_reserve_id_parameter(42);
+	}: {
+		let asset_id = Asset::<T, I>::iter_keys().next()
+			.ok_or_else(|| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		assert_eq!(id, asset_id);
+		Pallet::<T, I>::unchecked_update_reserves(asset_id, vec![reserve.clone()]).unwrap();
+	}
+	verify {
+		assert_eq!(ReserveLocations::<T, I>::get(id)[0], reserve);
 	}
 
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)

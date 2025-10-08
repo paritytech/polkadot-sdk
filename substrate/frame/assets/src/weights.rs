@@ -108,6 +108,10 @@ pub trait WeightInfo {
 	fn balance() -> Weight;
 	fn allowance() -> Weight;
 	fn set_reserves() -> Weight;
+	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight {
+		// disabled by default, force explicit benchmarking
+		Weight::MAX
+	}
 }
 
 /// Weights for `pallet_assets` using the Substrate node and recommended hardware.
