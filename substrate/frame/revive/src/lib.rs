@@ -25,6 +25,7 @@ extern crate alloc;
 mod address;
 mod benchmarking;
 mod call_builder;
+mod debug;
 mod exec;
 mod gas;
 mod impl_fungibles;
@@ -87,6 +88,7 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
+	debug::DebugSettings,
 	exec::{Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
@@ -307,6 +309,10 @@ pub mod pallet {
 		///  Default: `0.5`.
 		#[pallet::constant]
 		type MaxEthExtrinsicWeight: Get<FixedU128>;
+
+		/// Allows debug-mode configuration, such as enabling unlimited contract size.
+		#[pallet::constant]
+		type DebugEnabled: Get<bool>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -386,6 +392,7 @@ pub mod pallet {
 			type FindAuthor = ();
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
+			type DebugEnabled = ConstBool<false>;
 		}
 	}
 
@@ -596,6 +603,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
+	/// Debugging settings that can be configured when DebugEnabled config is true.
+	#[pallet::storage]
+	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
+
 	pub mod genesis {
 		use super::*;
 		use crate::evm::Bytes32;
@@ -637,6 +648,10 @@ pub mod pallet {
 		/// Account entries (both EOAs and contracts)
 		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub accounts: Vec<genesis::Account<T>>,
+
+		/// Optional debugging settings applied at genesis.
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		pub debug_settings: Option<DebugSettings>,
 	}
 
 	#[pallet::genesis_build]
@@ -716,6 +731,11 @@ pub mod pallet {
 				let _ = Pallet::<T>::set_evm_balance(address, *balance).inspect_err(|err| {
 					log::error!(target: LOG_TARGET, "Failed to set EVM balance for {address:?}: {err:?}");
 				});
+			}
+
+			// Set debug settings.
+			if let Some(settings) = self.debug_settings.as_ref() {
+				settings.write_to_storage::<T>()
 			}
 		}
 	}
