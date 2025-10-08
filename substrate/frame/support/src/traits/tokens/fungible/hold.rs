@@ -247,12 +247,12 @@ pub trait Mutate<AccountId>:
 
 		// In case precision == BestEffor its possible that we first increased too much than was
 		// later decreased
-		let diff = increased - decreased;
+		let diff = increased.saturating_sub(decreased);
 		if !diff.is_zero() {
-			Self::decrease_balance(who, increased - decreased, Exact, Protect, Force)?;
+			Self::decrease_balance(who, diff, Exact, Protect, Force)?;
 		}
 
-		Self::done_release(reason, who, amount);
+		Self::done_release(reason, who, decreased);
 		Ok(decreased)
 	}
 
