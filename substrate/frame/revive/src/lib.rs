@@ -769,6 +769,12 @@ pub mod pallet {
 					log::error!(target: LOG_TARGET, "Failed to set EVM balance for {address:?}: {err:?}");
 				});
 			}
+			block_storage::on_finalize_build_eth_block::<T>(
+				H160::zero(),
+				U256::zero(),
+				Pallet::<T>::evm_block_gas_limit(),
+				U256::zero(),
+			);
 		}
 	}
 

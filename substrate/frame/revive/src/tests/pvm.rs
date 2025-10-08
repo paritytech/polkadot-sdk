@@ -2958,7 +2958,8 @@ fn block_hash_works() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		// The genesis config sets to the block number to 1
-		let block_hash = [1; 32];
+		let block_hash =
+			hex_literal::hex!("9c168f4b2c0c091bfb4c475f38c55fc1a0c23660df998fb69d9d7f6d686d4eb2");
 		frame_system::BlockHash::<Test>::insert(
 			&crate::BlockNumberFor::<Test>::from(0u32),
 			<Test as frame_system::Config>::Hash::from(&block_hash),
