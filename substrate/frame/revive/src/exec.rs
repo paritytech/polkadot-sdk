@@ -387,9 +387,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	///
-	/// Returns an error if the maximum number of events has been reached.
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError>;
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
@@ -548,11 +546,6 @@ pub struct Stack<'a, T: Config, E> {
 	transient_storage: TransientStorage<T>,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig,
-	/// The number of emitted events.
-	///
-	/// When this reaches the maximum allowed number of events, no further events
-	/// can be emitted, and the transaction will fail.
-	emitted_events: u32,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -953,7 +946,6 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			exec_config,
-			emitted_events: 0,
 			_phantom: Default::default(),
 		};
 
@@ -2113,14 +2105,7 @@ where
 		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError> {
-		// Increment the emitted events counter and check if the limit is exceeded
-		self.emitted_events = self.emitted_events.saturating_add(1);
-
-		if self.emitted_events > limits::NUM_EMITTED_EVENTS {
-			return Err(Error::<T>::TooManyEmittedEvents.into());
-		}
-
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		let contract = T::AddressMapper::to_address(self.account_id());
 		if_tracing(|tracer| {
 			tracer.log_event(contract, &topics, &data);

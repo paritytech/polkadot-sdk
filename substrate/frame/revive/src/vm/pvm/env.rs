@@ -716,7 +716,7 @@ pub mod env {
 		};
 
 		let event_data = memory.read(data_ptr, data_len)?;
-		self.ext.deposit_event(topics, event_data)?;
+		self.ext.deposit_event(topics, event_data);
 		Ok(())
 	}
 

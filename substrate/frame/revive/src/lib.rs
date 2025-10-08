@@ -530,8 +530,6 @@ pub mod pallet {
 		///
 		/// This happens if the passed `gas` inside the ethereum transaction is too low.
 		TxFeeOverdraw = 0x35,
-		/// The amount of emitted events exceeds [`limits::NUM_EMITTED_EVENTS`].
-		TooManyEmittedEvents = 0x36,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
