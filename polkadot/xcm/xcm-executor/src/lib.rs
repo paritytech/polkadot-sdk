@@ -33,11 +33,11 @@ use xcm::latest::{prelude::*, AssetTransferFilter};
 
 pub mod traits;
 use traits::{
-	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, EventEmitter, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
-	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
-	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
-	XcmAssetTransfers,
+	validate_export, AssetExchange, AssetLock, BroadcastHandler, CallDispatcher, ClaimAssets,
+	ConvertOrigin, DropAssets, Enact, EventEmitter, ExportXcm, FeeManager, FeeReason,
+	HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest,
+	OnResponse, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
+	VersionChangeNotifier, WeightBounds, WeightTrader, XcmAssetTransfers,
 };
 
 pub use traits::RecordXcm;
@@ -1819,6 +1819,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Config::TransactionalProcessor::process(|| {
 					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
 				}),
+			Publish { data } => {
+				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				Config::BroadcastHandler::handle_publish(origin, data)?;
+				Ok(())
+			},
 		}
 	}
 

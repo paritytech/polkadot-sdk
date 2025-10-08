@@ -15,10 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{
-	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, EventEmitter,
-	ExportXcm, FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
-	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, RecordXcm, ShouldExecute,
-	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+	AssetExchange, AssetLock, BroadcastHandler, CallDispatcher, ClaimAssets, ConvertOrigin,
+	DropAssets, EventEmitter, ExportXcm, FeeManager, HandleHrmpChannelAccepted,
+	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
+	RecordXcm, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -134,4 +134,6 @@ pub trait Config {
 	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
 	/// Allows recording the last executed XCM (used by dry-run runtime APIs).
 	type XcmRecorder: RecordXcm;
+
+	type BroadcastHandler: BroadcastHandler;
 }
