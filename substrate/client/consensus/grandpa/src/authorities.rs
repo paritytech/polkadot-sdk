@@ -80,14 +80,14 @@ impl<H, N> Clone for SharedAuthoritySet<H, N> {
 
 impl<H, N> SharedAuthoritySet<H, N> {
 	/// Returns access to the [`AuthoritySet`].
-	pub(crate) fn inner(&self) -> MappedMutexGuard<AuthoritySet<H, N>> {
+	pub(crate) fn inner(&self) -> MappedMutexGuard<'_, AuthoritySet<H, N>> {
 		self.inner.shared_data()
 	}
 
 	/// Returns access to the [`AuthoritySet`] and locks it.
 	///
 	/// For more information see [`SharedDataLocked`].
-	pub(crate) fn inner_locked(&self) -> SharedDataLocked<AuthoritySet<H, N>> {
+	pub(crate) fn inner_locked(&self) -> SharedDataLocked<'_, AuthoritySet<H, N>> {
 		self.inner.shared_data_locked()
 	}
 }
