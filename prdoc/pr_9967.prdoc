@@ -1,7 +1,7 @@
-title: Finally remove the `experimental-ump-signals` feature
+title: Remove the `experimental-ump-signals` feature
 doc:
-- audience: Todo
-  description: closes https://github.com/paritytech/polkadot-sdk/issues/5051
+- audience: Runtime Dev
+  description: Enable UMP signals by default.
 crates:
 - name: cumulus-pallet-parachain-system
   bump: major
