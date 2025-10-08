@@ -46,11 +46,9 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EthereumBlockBuilderIR, ReceiptGasInfo},
-		block_storage, create_call,
-		fees::InfoT as FeeInfo,
-		runtime::SetWeightLimit,
-		CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
+		block_hash::EthereumBlockBuilderIR, block_storage, create_call, fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit, CallTracer, GenericTransaction, PrestateTracer, Trace, Tracer,
+		TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -91,7 +89,7 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
-	evm::{Address as EthAddress, Block as EthBlock, ReceiptInfo},
+	evm::{block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, ReceiptInfo},
 	exec::{Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
@@ -1795,6 +1793,11 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// The details needed to reconstruct the receipt information offchain.
+	pub fn eth_receipt_data() -> Vec<ReceiptGasInfo> {
+		ReceiptInfoData::<T>::get()
+	}
+
 	/// Set the EVM balance of an account.
 	///
 	/// The account's total balance becomes the EVM value plus the existential deposit,
@@ -2271,6 +2274,13 @@ sp_api::decl_runtime_apis! {
 		/// Returns the ETH block hash for the given block number.
 		fn eth_block_hash(number: U256) -> Option<H256>;
 
+		/// The details needed to reconstruct the receipt information offchain.
+		///
+		/// # Note
+		///
+		/// Each entry corresponds to the appropriate Ethereum transaction in the current block.
+		fn eth_receipt_data() -> Vec<ReceiptGasInfo>;
+
 		/// Returns the block gas limit.
 		fn block_gas_limit() -> U256;
 
@@ -2431,6 +2441,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 				fn eth_block_hash(number: $crate::U256) -> Option<$crate::H256> {
 					$crate::Pallet::<Self>::eth_block_hash_from_number(number)
+				}
+
+				fn eth_receipt_data() -> Vec<$crate::ReceiptGasInfo> {
+					$crate::Pallet::<Self>::eth_receipt_data()
 				}
 
 				fn balance(address: $crate::H160) -> $crate::U256 {
