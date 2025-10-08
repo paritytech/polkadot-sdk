@@ -69,7 +69,6 @@ mod mock;
 mod tests;
 pub mod weights;
 
-pub use max_parachain_block_weight::{DynamicMaxBlockWeight, MaxParachainBlockWeight};
 pub use weights::WeightInfo;
 
 mod unincluded_segment;
