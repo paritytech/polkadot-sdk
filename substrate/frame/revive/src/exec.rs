@@ -236,30 +236,6 @@ pub trait Ext: PrecompileWithInfoExt {
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
 pub trait PrecompileWithInfoExt: PrecompileExt {
-	/// Returns the storage entry of the executing account by the given `key`.
-	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
-
-	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
-	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
-
-	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
-	/// the storage entry is deleted.
-	fn set_storage(
-		&mut self,
-		key: &Key,
-		value: Option<Vec<u8>>,
-		take_old: bool,
-	) -> Result<WriteOutcome, DispatchError>;
-
-	/// Charges `diff` from the meter.
-	fn charge_storage(&mut self, diff: &Diff);
-
 	/// Instantiate a contract from the given code.
 	///
 	/// Returns the original code size of the called contract.
@@ -455,6 +431,30 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns the effective gas price of this transaction.
 	fn effective_gas_price(&self) -> U256;
+
+	/// Returns the storage entry of the executing account by the given `key`.
+	///
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
+
+	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+	///
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
+
+	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
+	/// the storage entry is deleted.
+	fn set_storage(
+		&mut self,
+		key: &Key,
+		value: Option<Vec<u8>>,
+		take_old: bool,
+	) -> Result<WriteOutcome, DispatchError>;
+
+	/// Charges `diff` from the meter.
+	fn charge_storage(&mut self, diff: &Diff);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1801,33 +1801,6 @@ where
 	T: Config,
 	E: Executable<T>,
 {
-	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
-		self.top_frame_mut().contract_info().read(key)
-	}
-
-	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
-		self.top_frame_mut().contract_info().size(key.into())
-	}
-
-	fn set_storage(
-		&mut self,
-		key: &Key,
-		value: Option<Vec<u8>>,
-		take_old: bool,
-	) -> Result<WriteOutcome, DispatchError> {
-		let frame = self.top_frame_mut();
-		frame.contract_info.get(&frame.account_id).write(
-			key.into(),
-			value,
-			Some(&mut frame.nested_storage),
-			take_old,
-		)
-	}
-
-	fn charge_storage(&mut self, diff: &Diff) {
-		self.top_frame_mut().nested_storage.charge(diff)
-	}
-
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
@@ -2201,6 +2174,33 @@ where
 		self.exec_config
 			.effective_gas_price
 			.unwrap_or_else(|| <Contracts<T>>::evm_gas_price())
+	}
+
+	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
+		self.top_frame_mut().contract_info().read(key)
+	}
+
+	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
+		self.top_frame_mut().contract_info().size(key.into())
+	}
+
+	fn set_storage(
+		&mut self,
+		key: &Key,
+		value: Option<Vec<u8>>,
+		take_old: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		let frame = self.top_frame_mut();
+		frame.contract_info.get(&frame.account_id).write(
+			key.into(),
+			value,
+			Some(&mut frame.nested_storage),
+			take_old,
+		)
+	}
+
+	fn charge_storage(&mut self, diff: &Diff) {
+		self.top_frame_mut().nested_storage.charge(diff)
 	}
 }
 
