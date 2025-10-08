@@ -1352,16 +1352,19 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Calculate weight parameters for benchmarking
-		let p = published_data.len() as u32;
-		let k = published_data.values()
-			.map(|entries| entries.len() as u32)
-			.max()
-			.unwrap_or(0);
-		let v = published_data.values()
-			.flat_map(|entries| entries.iter())
-			.map(|(_, value)| value.len() as u32)
-			.max()
-			.unwrap_or(0);
+		let mut p = 0u32;
+		let mut k = 0u32;
+		let mut v = 0u32;
+
+		for entries in published_data.values() {
+			p += 1;
+			let entry_count = entries.len() as u32;
+			k = k.max(entry_count);
+
+			for (_, value) in entries {
+				v = v.max(value.len() as u32);
+			}
+		}
 
 		// Convert current roots to map for efficient lookups.
 		let current_roots_map: BTreeMap<ParaId, Vec<u8>> = current_roots.iter()
