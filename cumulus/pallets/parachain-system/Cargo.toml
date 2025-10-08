@@ -124,5 +124,3 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental-ump-signals = []

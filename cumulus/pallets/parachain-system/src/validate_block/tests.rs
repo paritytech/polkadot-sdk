@@ -561,7 +561,6 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 }
 
 #[test]
-#[cfg(feature = "experimental-ump-signals")]
 fn validate_block_handles_ump_signal() {
 	use cumulus_primitives_core::{
 		relay_chain::{UMPSignal, UMP_SEPARATOR},
