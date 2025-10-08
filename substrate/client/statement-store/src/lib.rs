@@ -83,6 +83,9 @@ pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
 /// The maximum amount of data the statement store can hold, regardless of the number of
 /// statements from which the data originates.
 pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
+/// The maximum size of a single statement in bytes.
+/// Accounts for the 1-byte vector length prefix when statements are gossiped as Vec<Statement>.
+pub const MAX_STATEMENT_SIZE: u32 = sc_network_statement::config::MAX_STATEMENT_SIZE as u32 - 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -377,8 +380,8 @@ impl Index {
 		validation: &ValidStatement,
 		current_time: u64,
 	) -> MaybeInserted {
-		let statement_len = statement.data_len();
-		if statement_len > validation.max_size as usize {
+		let statement_len = statement.encoded_size();
+		if statement_len > validation.max_size.min(MAX_STATEMENT_SIZE) as usize {
 			log::debug!(
 				target: LOG_TARGET,
 				"Ignored oversize message: {:?} ({} bytes)",
