@@ -808,70 +808,6 @@ pub mod pallet {
 			// stack, keeping the rest for other facilities, such as PoV, etc.
 			const TOTAL_MEMORY_DEVIDER: u32 = 2;
 
-			// The `EthereumBlockBuilder` builds the Ethereum-compatible block by maintaining
-			// two incremental hash builders. Each builder accumulates entries until the trie
-			// is finalized:
-			//  1. `transactions_root` - builds the Merkle root of transaction payloads
-			//  2. `receipts_root` - builds the Merkle root of transaction receipts (event logs)
-			//
-			// The `EthereumBlockBuilder` is serialized and deserialized to and from storage
-			// on every transaction via the `EthereumBlockBuilderIR` object. This is needed until
-			// the runtime exposes a better API to preserve the state between transactions (ie,
-			// the global `environment!` is wiped because each transaction will instantiate a new
-			// WASM instance).
-			//
-			// For this reason, we need to account for the memory used by the `EthereumBlockBuilder`
-			// and for the pallet storage consumed by the `EthereumBlockBuilderIR`.
-			//
-			// ## Memory Usage Analysis
-			//
-			// The incremental hash builder accumulates entries until the trie is finalized.
-			// The last added entry value is kept in memory until it can be hashed.
-			// The keys are always ordered and the hashing happens when the next entry is added to
-			// the trie. The common prefix of the current and previous keys forms the path into the
-			// trie, and together with the value of the previous entry, a hash of 32 bytes is
-			// computed.
-			//
-			// For this reason, the memory usage of the incremental hash builder is no greater
-			// than two entries of maximum size, plus some marginal book-keeping overhead
-			// (ignored to simplify calculations).
-			//
-			// `IncrementalHashBuilder = 2 * maximum size of the entry`
-			//
-			// Additionally, the block builder caches the first entry for each incremental hash.
-			// The entry is loaded from storage into RAM when either:
-			// - The block is finalized, OR
-			// - After 127 transactions.
-			// Therefore, an additional entry of maximum size is needed in memory.
-			//
-			// That gives us 3 items of maximum size per each hash builder.
-			//
-			// `EthereumBlockBuilder = 3 * (max size of transactions + max size of receipts)`
-			// The maximum size of a transaction is limited by
-			// `limits::MAX_TRANSACTION_PAYLOAD_SIZE`, while the maximum size of a receipt is
-			// limited by `limits::PAYLOAD_BYTES`.
-			//
-			// Similarly, this is the amount of pallet storage consumed by the
-			// `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.
-			let max_eth_block_builder_bytes = block_storage::block_builder_bytes_usage();
-
-			// Check that the configured memory limits fit into runtime memory.
-			//
-			// Dynamic allocations are not available, yet. Hence they are not taken into
-			// consideration here.
-			let memory_left = i64::from(max_runtime_mem)
-				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
-				.saturating_sub(limits::MEMORY_REQUIRED.into())
-				.saturating_sub(max_eth_block_builder_bytes.into());
-
-			log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
-
-			assert!(
-				memory_left >= 0,
-				"Runtime does not have enough memory for current limits. Additional runtime memory required: {} KB",
-				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
-			);
-
 			// Validators are configured to be able to use more memory than block builders. This is
 			// because in addition to `max_runtime_mem` they need to hold additional data in
 			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
@@ -899,29 +835,8 @@ pub mod pallet {
 			.try_into()
 			.expect("Immutable data size too big");
 
-			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function.
-			let max_storage_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
-					new_bytes: max_payload_size,
-					old_bytes: 0,
-				})
-				.ref_time()))
-			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
-			.saturating_add(max_immutable_size.into())
-			.saturating_add(max_eth_block_builder_bytes.into())
-			.try_into()
-			.expect("Storage size too big");
-
 			let max_pvf_mem: u32 = T::PVFMemory::get();
 			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
-
-			assert!(
-				max_storage_size < storage_size_limit,
-				"Maximal storage size {} exceeds the storage limit {}",
-				max_storage_size,
-				storage_size_limit
-			);
 
 			// We can use storage to store events using the available block ref_time with the
 			// `deposit_event` host function. The overhead of stored events, which is around 100B,
@@ -941,6 +856,48 @@ pub mod pallet {
 				max_events_size < storage_size_limit,
 				"Maximal events size {} exceeds the events limit {}",
 				max_events_size,
+				storage_size_limit
+			);
+
+			// Maximum memory used by the ethereum block builder.
+			let max_eth_block_builder_bytes =
+				block_storage::block_builder_bytes_usage(max_events_size);
+
+			// Check that the configured memory limits fit into runtime memory.
+			//
+			// Dynamic allocations are not available, yet. Hence they are not taken into
+			// consideration here.
+			let memory_left = i64::from(max_runtime_mem)
+				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
+				.saturating_sub(limits::MEMORY_REQUIRED.into())
+				.saturating_sub(max_eth_block_builder_bytes.into());
+
+			log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
+
+			assert!(
+				memory_left >= 0,
+				"Runtime does not have enough memory for current limits. Additional runtime memory required: {} KB",
+				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
+			);
+
+			// We can use storage to store items using the available block ref_time with the
+			// `set_storage` host function.
+			let max_storage_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+					new_bytes: max_payload_size,
+					old_bytes: 0,
+				})
+				.ref_time()))
+			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
+			.saturating_add(max_immutable_size.into())
+			.saturating_add(max_eth_block_builder_bytes.into())
+			.try_into()
+			.expect("Storage size too big");
+
+			assert!(
+				max_storage_size < storage_size_limit,
+				"Maximal storage size {} exceeds the storage limit {}",
+				max_storage_size,
 				storage_size_limit
 			);
 		}

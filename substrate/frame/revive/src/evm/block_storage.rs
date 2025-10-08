@@ -182,12 +182,12 @@ pub fn process_transaction<T: Config>(
 //
 // Similarly, this is the amount of pallet storage consumed by the
 // `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.
-pub fn block_builder_bytes_usage() -> u32 {
+pub fn block_builder_bytes_usage(max_events_size: u32) -> u32 {
 	// A block builder requires 3 times the maximum size of the entry.
 	const MEMORY_COEFFICIENT: u32 = 3;
 
 	// `receipts_root` hash builder
-	let receipts_hash_builder = limits::PAYLOAD_BYTES.saturating_mul(MEMORY_COEFFICIENT);
+	let receipts_hash_builder = max_events_size.saturating_mul(MEMORY_COEFFICIENT);
 	// `transactions_root` hash builder
 	let transactions_hash_builder =
 		limits::MAX_TRANSACTION_PAYLOAD_SIZE.saturating_mul(MEMORY_COEFFICIENT);

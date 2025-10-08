@@ -128,7 +128,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::minimum_balance")
 	}
 
-	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) -> Result<(), DispatchError> {
+	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) {
 		panic!("MockExt::deposit_event")
 	}
 
