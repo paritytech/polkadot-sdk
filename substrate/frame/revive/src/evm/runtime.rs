@@ -298,7 +298,7 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 		let call_info =
-			create_call::<Self::Config>(tx, Some(encoded_len as u32), payload.to_vec())?;
+			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())))?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
 					call_info.storage_deposit,

@@ -1589,13 +1589,6 @@ impl<T: Config> Pallet<T> {
 			tx.r#type = Some(TYPE_EIP1559.into());
 		}
 
-		let Ok(unsigned) = tx.clone().try_into_unsigned() else {
-			return Err(EthTransactError::Message("Failed to convert to unsigned tx".into()));
-		};
-		const DUMMY_SIGNATURE: [u8; 65] = [1u8; 65];
-		let dummy_signed = unsigned.with_signature(DUMMY_SIGNATURE);
-		let encoded_dummy_payload = dummy_signed.signed_payload();
-
 		// Store values before moving the tx
 		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
@@ -1604,7 +1597,7 @@ impl<T: Config> Pallet<T> {
 
 		// we need to parse the weight from the transaction so that it is run
 		// using the exact weight limit passed by the eth wallet
-		let mut call_info = create_call::<T>(tx, None, encoded_dummy_payload.clone())
+		let mut call_info = create_call::<T>(tx, None)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		// emulate transaction behavior
