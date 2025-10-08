@@ -240,3 +240,107 @@ fn max_stored_keys_limit_enforced() {
 		);
 	});
 }
+
+#[test]
+fn published_keys_storage_matches_child_trie() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para_id = ParaId::from(1000);
+
+		// Publish multiple batches to ensure consistency maintained across updates
+		let data1 = vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+			(b"key2".to_vec(), b"value2".to_vec()),
+		];
+		Broadcaster::handle_publish(para_id, data1).unwrap();
+
+		// Update some keys, add new ones
+		let data2 = vec![
+			(b"key1".to_vec(), b"updated_value1".to_vec()),
+			(b"key3".to_vec(), b"value3".to_vec()),
+		];
+		Broadcaster::handle_publish(para_id, data2).unwrap();
+
+		let tracked_keys = PublishedKeys::<Test>::get(para_id);
+		let actual_data = Broadcaster::get_all_published_data(para_id);
+
+		// Counts must match
+		assert_eq!(tracked_keys.len(), actual_data.len());
+
+		// Every tracked key must exist in child trie
+		for tracked_key in tracked_keys.iter() {
+			let key: Vec<u8> = tracked_key.clone().into();
+			assert!(actual_data.iter().any(|(k, _)| k == &key));
+		}
+
+		// Every child trie key must be tracked
+		for (actual_key, _) in actual_data.iter() {
+			assert!(tracked_keys.iter().any(|tracked| {
+				let k: Vec<u8> = tracked.clone().into();
+				&k == actual_key
+			}));
+		}
+	});
+}
+
+#[test]
+fn subscribe_to_non_publishing_para_returns_empty() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let subscriber = ParaId::from(1000);
+		let non_publisher = ParaId::from(9999);
+
+		// Subscribe to a para that has never published anything
+		assert_ok!(Broadcaster::handle_subscribe_toggle(subscriber, non_publisher));
+
+		// Verify subscription was created
+		assert!(Broadcaster::is_subscribed(subscriber, non_publisher));
+
+		// Get subscribed data - should return empty for non-publishing para
+		let subscribed_data = Broadcaster::get_subscribed_data(subscriber);
+
+		// Non-publishing para should not appear in results (filtered out by is_empty check)
+		assert!(!subscribed_data.contains_key(&non_publisher));
+		assert_eq!(subscribed_data.len(), 0);
+	});
+}
+
+#[test]
+fn multiple_publishers_in_same_block() {
+	new_test_ext(Default::default()).execute_with(|| {
+		let para1 = ParaId::from(1000);
+		let para2 = ParaId::from(2000);
+		let para3 = ParaId::from(3000);
+
+		// Multiple parachains publish data in the same block
+		let data1 = vec![(b"key1".to_vec(), b"value1".to_vec())];
+		let data2 = vec![(b"key2".to_vec(), b"value2".to_vec())];
+		let data3 = vec![(b"key3".to_vec(), b"value3".to_vec())];
+
+		Broadcaster::handle_publish(para1, data1).unwrap();
+		Broadcaster::handle_publish(para2, data2).unwrap();
+		Broadcaster::handle_publish(para3, data3).unwrap();
+
+		// Verify all three publishers exist
+		assert!(PublisherExists::<Test>::get(para1));
+		assert!(PublisherExists::<Test>::get(para2));
+		assert!(PublisherExists::<Test>::get(para3));
+
+		// Verify PublishedDataRoots contains all three
+		let roots = PublishedDataRoots::<Test>::get();
+		assert_eq!(roots.len(), 3);
+
+		// Verify each para has its root in the aggregated roots
+		assert!(roots.iter().any(|(id, _)| *id == para1));
+		assert!(roots.iter().any(|(id, _)| *id == para2));
+		assert!(roots.iter().any(|(id, _)| *id == para3));
+
+		// Verify each para's data is independently accessible
+		assert_eq!(Broadcaster::get_published_value(para1, b"key1"), Some(b"value1".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para2, b"key2"), Some(b"value2".to_vec()));
+		assert_eq!(Broadcaster::get_published_value(para3, b"key3"), Some(b"value3".to_vec()));
+
+		// Verify no cross-contamination
+		assert_eq!(Broadcaster::get_published_value(para1, b"key2"), None);
+		assert_eq!(Broadcaster::get_published_value(para2, b"key3"), None);
+		assert_eq!(Broadcaster::get_published_value(para3, b"key1"), None);
+	});
+}

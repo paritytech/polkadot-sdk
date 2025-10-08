@@ -18,6 +18,12 @@
 //!
 //! This pallet provides a publish-subscribe mechanism for parachains to share data
 //! efficiently through the relay chain storage using child tries per publisher.
+//!
+//! ## Storage Lifecycle
+//!
+//! Note: This pallet does not currently implement publisher removal or cleanup mechanisms.
+//! Once a parachain publishes data, it remains in storage. Publishers can update their data
+//! by publishing again, but there is no explicit removal path. 
 
 use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{
