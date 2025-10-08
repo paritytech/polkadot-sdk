@@ -25,10 +25,7 @@ mod hash_builder;
 pub use hash_builder::{BuilderPhase, IncrementalHashBuilder, IncrementalHashBuilderIR};
 
 mod block_builder;
-pub use block_builder::{
-	BlockBuilderStorage, EthereumBlockBuilder, EthereumBlockBuilderIR, InMemoryStorage,
-	PalletStorage,
-};
+pub use block_builder::{EthereumBlockBuilder, EthereumBlockBuilderIR};
 
 use crate::evm::Block;
 

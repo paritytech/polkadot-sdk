@@ -29,7 +29,6 @@ use crate::{
 };
 
 use alloc::{vec, vec::Vec};
-use core::marker::PhantomData;
 
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
@@ -38,91 +37,23 @@ use sp_core::{keccak_256, H160, H256, U256};
 
 const LOG_TARGET: &str = "runtime::revive::block_builder";
 
-/// Storage abstraction for caching first transaction/receipt values.
-///
-/// The first transaction and receipt need special handling due to RLP encoding rules
-/// for trie indices 0-127. This trait allows different storage backends:
-/// - Pallet storage for on-chain block building
-/// - In-memory storage for RPC block reconstruction
-pub trait BlockBuilderStorage {
-	/// Store the first transaction and receipt values.
-	fn put_first_values(&mut self, values: (Vec<u8>, Vec<u8>));
-
-	/// Retrieve and remove the first transaction and receipt values.
-	fn take_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)>;
-}
-
-/// In-memory storage implementation for RPC usage.
-///
-/// This implementation doesn't need persistence since RPC block reconstruction
-/// happens within a single function call.
-pub struct InMemoryStorage {
-	first_values: Option<(Vec<u8>, Vec<u8>)>,
-}
-
-impl InMemoryStorage {
-	/// Creates a new in-memory storage instance.
-	pub const fn new() -> Self {
-		Self { first_values: None }
-	}
-}
-
-impl BlockBuilderStorage for InMemoryStorage {
-	fn put_first_values(&mut self, values: (Vec<u8>, Vec<u8>)) {
-		self.first_values = Some(values);
-	}
-
-	fn take_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
-		self.first_values.take()
-	}
-}
-
-/// Pallet storage implementation for on-chain block building.
-///
-/// This implementation uses pallet storage to persist the first transaction
-/// and receipt across block construction phases.
-pub struct PalletStorage<T: crate::Config> {
-	_phantom: PhantomData<T>,
-}
-
-impl<T: crate::Config> PalletStorage<T> {
-	/// Creates a new pallet storage instance.
-	pub const fn new() -> Self {
-		Self { _phantom: PhantomData }
-	}
-}
-
-impl<T: crate::Config> BlockBuilderStorage for PalletStorage<T> {
-	fn put_first_values(&mut self, values: (Vec<u8>, Vec<u8>)) {
-		crate::EthBlockBuilderFirstValues::<T>::put(Some(values));
-	}
-
-	fn take_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
-		crate::EthBlockBuilderFirstValues::<T>::take()
-	}
-}
-
 /// Ethereum block builder designed to incrementally build the transaction and receipt trie roots.
 ///
 /// This builder is optimized to minimize memory usage and pallet storage by leveraging the internal
 /// structure of the Ethereum trie and the RLP encoding of receipts.
-///
-/// The generic parameter `S` allows for different storage backends:
-/// - `PalletStorage<T>` for on-chain block building with persistent storage
-/// - `InMemoryStorage` for RPC block reconstruction without persistence
-pub struct EthereumBlockBuilder<S: BlockBuilderStorage> {
+pub struct EthereumBlockBuilder<T> {
 	pub(crate) transaction_root_builder: IncrementalHashBuilder,
 	pub(crate) receipts_root_builder: IncrementalHashBuilder,
 	pub(crate) tx_hashes: Vec<H256>,
 	gas_used: U256,
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
-	storage: S,
+	_phantom: core::marker::PhantomData<T>,
 }
 
-impl<S: BlockBuilderStorage> EthereumBlockBuilder<S> {
-	/// Constructs a new [`EthereumBlockBuilder`] with the provided storage backend.
-	pub fn new(storage: S) -> Self {
+impl<T: crate::Config> EthereumBlockBuilder<T> {
+	/// Constructs a new [`EthereumBlockBuilder`].
+	pub fn new() -> Self {
 		Self {
 			transaction_root_builder: IncrementalHashBuilder::new(),
 			receipts_root_builder: IncrementalHashBuilder::new(),
@@ -130,7 +61,7 @@ impl<S: BlockBuilderStorage> EthereumBlockBuilder<S> {
 			tx_hashes: Vec::new(),
 			logs_bloom: LogsBloom::new(),
 			gas_info: Vec::new(),
-			storage,
+			_phantom: core::marker::PhantomData,
 		}
 	}
 
@@ -148,10 +79,10 @@ impl<S: BlockBuilderStorage> EthereumBlockBuilder<S> {
 		}
 	}
 
-	/// Converts the intermediate representation back into a builder with the provided storage.
+	/// Converts the intermediate representation back into a builder.
 	///
 	/// The intermediate representation is placed into the pallet storage.
-	pub fn from_ir_with_storage(ir: EthereumBlockBuilderIR, storage: S) -> Self {
+	pub fn from_ir(ir: EthereumBlockBuilderIR) -> Self {
 		Self {
 			transaction_root_builder: IncrementalHashBuilder::from_ir(ir.transaction_root_builder),
 			receipts_root_builder: IncrementalHashBuilder::from_ir(ir.receipts_root_builder),
@@ -159,18 +90,18 @@ impl<S: BlockBuilderStorage> EthereumBlockBuilder<S> {
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
 			gas_info: ir.gas_info,
-			storage,
+			_phantom: core::marker::PhantomData,
 		}
 	}
 
-	/// Store the first transaction and receipt in storage.
-	fn put_first_values(&mut self, values: (Vec<u8>, Vec<u8>)) {
-		self.storage.put_first_values(values);
+	/// Store the first transaction and receipt in pallet storage.
+	fn pallet_put_first_values(&mut self, values: (Vec<u8>, Vec<u8>)) {
+		crate::EthBlockBuilderFirstValues::<T>::put(Some(values));
 	}
 
-	/// Take the first transaction and receipt from storage.
-	fn take_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
-		self.storage.take_first_values()
+	/// Take the first transaction and receipt from pallet storage.
+	fn pallet_take_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
+		crate::EthBlockBuilderFirstValues::<T>::take()
 	}
 
 	/// Process a single transaction at a time.
@@ -203,17 +134,17 @@ impl<S: BlockBuilderStorage> EthereumBlockBuilder<S> {
 
 		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
 
-		// The first transaction and receipt are returned to be stored in the storage.
+		// The first transaction and receipt are returned to be stored in the pallet storage.
 		// The index of the incremental hash builders already expects the next items.
 		if self.tx_hashes.len() == 1 {
-			log::debug!(target: LOG_TARGET, "Storing first transaction and receipt in storage");
-			self.put_first_values((transaction_encoded, encoded_receipt));
+			log::debug!(target: LOG_TARGET, "Storing first transaction and receipt in pallet storage");
+			self.pallet_put_first_values((transaction_encoded, encoded_receipt));
 			return;
 		}
 
 		if self.transaction_root_builder.needs_first_value(BuilderPhase::ProcessingValue) {
-			if let Some((first_tx, first_receipt)) = self.take_first_values() {
-				log::debug!(target: LOG_TARGET, "Loaded first transaction and receipt from storage");
+			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
+				log::debug!(target: LOG_TARGET, "Loaded first transaction and receipt from pallet storage");
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
 			} else {
@@ -235,7 +166,7 @@ impl<S: BlockBuilderStorage> EthereumBlockBuilder<S> {
 		gas_limit: U256,
 	) -> (Block, Vec<ReceiptGasInfo>) {
 		if self.transaction_root_builder.needs_first_value(BuilderPhase::Build) {
-			if let Some((first_tx, first_receipt)) = self.take_first_values() {
+			if let Some((first_tx, first_receipt)) = self.pallet_take_first_values() {
 				self.transaction_root_builder.set_first_value(first_tx);
 				self.receipts_root_builder.set_first_value(first_receipt);
 			} else {
@@ -474,7 +405,7 @@ mod test {
 
 		ExtBuilder::default().build().execute_with(|| {
 			// Build the ethereum block incrementally.
-			let mut incremental_block = EthereumBlockBuilder::new(PalletStorage::<Test>::new());
+			let mut incremental_block = EthereumBlockBuilder::<Test>::new();
 			for (signed, logs, success, gas_used) in transaction_details {
 				let mut log_size = 0;
 
@@ -494,8 +425,7 @@ mod test {
 				);
 
 				let ir = incremental_block.to_ir();
-				incremental_block =
-					EthereumBlockBuilder::from_ir_with_storage(ir, PalletStorage::<Test>::new());
+				incremental_block = EthereumBlockBuilder::from_ir(ir);
 				println!(" Log size {:?}", log_size);
 			}
 
