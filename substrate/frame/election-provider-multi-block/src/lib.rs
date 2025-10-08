@@ -1492,14 +1492,15 @@ impl<T: Config> Pallet<T> {
 
 		snapshot + signed + signed_validation + unsigned
 	}
-}
 
-#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
-impl<T: Config> Pallet<T> {
+	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
 		Snapshot::<T>::sanity_check()
 	}
+}
 
+#[cfg(feature = "std")]
+impl<T: Config> Pallet<T> {
 	fn analyze_weight(
 		op_name: &str,
 		op_weight: Weight,
@@ -1537,6 +1538,25 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Helper function to check the weights of all signifcant operations of this this pallet
+	/// against a runtime.
+	///
+	/// Will check the weights for:
+	///
+	/// * snapshot
+	/// * signed submission and cleanip
+	/// * unsigned solution submission
+	/// * signed validation
+	/// * export.
+	///
+	/// Arguments:
+	///
+	/// * `limit_weight` should be the maximum block weight (often obtained from `frame_system`).
+	/// * `maybe_max_ratio` is the maximum ratio of `limit_weight` that we may consume, else we
+	///   panic.
+	/// * `maybe_max_warn_rati` has the same effect, but it emits a warning instead of panic.
+	///
+	/// A reasonable value for `maybe_max_weight` would be 75%, and 50% for `maybe_max_warn_ratio`.
 	pub fn check_all_weights(
 		limit_weight: Weight,
 		maybe_max_ratio: Option<sp_runtime::Percent>,
