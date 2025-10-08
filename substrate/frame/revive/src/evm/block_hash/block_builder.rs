@@ -41,7 +41,6 @@ const LOG_TARGET: &str = "runtime::revive::block_builder";
 ///
 /// This builder is optimized to minimize memory usage and pallet storage by leveraging the internal
 /// structure of the Ethereum trie and the RLP encoding of receipts.
-#[derive(Default)]
 pub struct EthereumBlockBuilder<T> {
 	pub(crate) transaction_root_builder: IncrementalHashBuilder,
 	pub(crate) receipts_root_builder: IncrementalHashBuilder,
@@ -50,6 +49,21 @@ pub struct EthereumBlockBuilder<T> {
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
 	_phantom: core::marker::PhantomData<T>,
+}
+
+impl<T> Default for EthereumBlockBuilder<T> {
+	// Note: Manual implementation to avoid requiring T: Default while deriving.
+	fn default() -> Self {
+		Self {
+			transaction_root_builder: IncrementalHashBuilder::default(),
+			receipts_root_builder: IncrementalHashBuilder::default(),
+			gas_used: U256::zero(),
+			tx_hashes: Vec::new(),
+			logs_bloom: LogsBloom::default(),
+			gas_info: Vec::new(),
+			_phantom: core::marker::PhantomData,
+		}
+	}
 }
 
 impl<T: crate::Config> EthereumBlockBuilder<T> {
