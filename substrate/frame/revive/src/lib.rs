@@ -1434,7 +1434,7 @@ impl<T: Config> Pallet<T> {
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
 
-		let base_fee = Self::evm_gas_price();
+		let base_fee = Self::evm_base_fee();
 		let effective_gas_price = tx.effective_gas_price(base_fee).unwrap_or(base_fee);
 
 		if effective_gas_price < base_fee {
@@ -1729,7 +1729,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Get the base gas price.
-	pub fn evm_gas_price() -> U256 {
+	pub fn evm_base_fee() -> U256 {
 		let multiplier = T::FeeInfo::next_fee_multiplier();
 		multiplier.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into()).into()
 	}
@@ -2289,7 +2289,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn gas_price() -> $crate::U256 {
-					$crate::Pallet::<Self>::evm_gas_price()
+					$crate::Pallet::<Self>::evm_base_fee()
 				}
 
 				fn nonce(address: $crate::H160) -> Nonce {
