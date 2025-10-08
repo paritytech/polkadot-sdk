@@ -593,7 +593,7 @@ impl From<&FragmentNode> for CandidateEntry {
 			relay_parent: node.relay_parent(),
 			// A fragment node is always backed.
 			state: CandidateState::Backed,
-			para_id: node.para_id.clone(),
+			para_id: node.para_id,
 		}
 	}
 }
