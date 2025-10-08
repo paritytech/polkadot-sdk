@@ -1661,6 +1661,17 @@ where
 		let block_hash = System::<T>::block_hash(&block_number);
 		Decode::decode(&mut TrailingZeroInput::new(block_hash.as_ref())).ok()
 	}
+
+	/// Returns true if the current context has contract info.
+	/// This is the case if `no_precompile || precompile_with_info`.
+	fn has_contract_info(&self) -> bool {
+		let address = self.address();
+		let precompile = <AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes());
+		if let Some(precompile) = precompile {
+			return precompile.has_contract_info();
+		}
+		true
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -2177,10 +2188,12 @@ where
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
+		assert!(self.has_contract_info());
 		self.top_frame_mut().contract_info().read(key)
 	}
 
 	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
+		assert!(self.has_contract_info());
 		self.top_frame_mut().contract_info().size(key.into())
 	}
 
@@ -2190,6 +2203,7 @@ where
 		value: Option<Vec<u8>>,
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		assert!(self.has_contract_info());
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
@@ -2200,6 +2214,7 @@ where
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) {
+		assert!(self.has_contract_info());
 		self.top_frame_mut().nested_storage.charge(diff)
 	}
 }
