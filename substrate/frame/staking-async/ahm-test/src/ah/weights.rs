@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Weights to be used with `full_election_cycle_with_occasional_out_of_weight_completes` test.
-//! 
+//!
 //! Note: we put as many things as possible as `unreachable!()` to limit the scope.
 
 use frame_election_provider_support::Weight;
