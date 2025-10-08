@@ -506,7 +506,8 @@ pub mod pallet {
 			let mut pending_processed = 0u32;
 
 			for account in to_process {
-				let was_pending = PendingRebag::<T, I>::contains_key(&account);
+				let pending_value =
+					if PendingRebag::<T, I>::contains_key(&account) { 1 } else { 0 };
 
 				match Self::rebag_internal(&account) {
 					Err(Error::<T, I>::Locked) => {
@@ -520,15 +521,11 @@ pub mod pallet {
 					Ok(Some((from, to))) => {
 						log!(debug, "Rebagged {:?}: moved from {:?} to {:?}", account, from, to);
 						successful_rebags += 1;
-						if was_pending {
-							pending_processed += 1;
-						}
+						pending_processed += pending_value;
 					},
 					Ok(None) => {
 						log!(debug, "Rebagging not needed for {:?}", account);
-						if was_pending {
-							pending_processed += 1;
-						}
+						pending_processed += pending_value;
 					},
 				}
 
@@ -553,13 +550,14 @@ pub mod pallet {
 				},
 				// Normal case: save the next regular node as a cursor for the following block.
 				Some(next) => {
-					NextNodeAutoRebagged::<T, I>::put(next.clone());
+					NextNodeAutoRebagged::<T, I>::put(next);
 					log!(debug, "Saved next node to be processed in rebag cursor: {:?}", next);
 				},
 				// End of regular list reached: no cursor needed.
 				// This happens when either:
 				// 1. We've processed all regular accounts in the list, OR
-				// 2. We collected fewer than budget+1 accounts (meaning the iterator was exhausted)
+				// 2. We've collected fewer than budget+1 accounts (meaning the iterator was
+				//    exhausted)
 				// Since pending accounts are processed first and not tracked in the cursor,
 				// this simply means there are no more regular accounts to process.
 				None => {
@@ -637,8 +635,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Check if the account exists and retrieve its current score
 		let existed = ListNodes::<T, I>::contains_key(account);
-		let score_provider: fn(&T::AccountId) -> Option<T::Score> = T::ScoreProvider::score;
-		let maybe_score = score_provider(account);
+		let maybe_score = T::ScoreProvider::score(account);
 
 		if is_pending && maybe_score.is_none() {
 			// Account is no longer staking - just clean up PendingRebag and skip
@@ -723,13 +720,13 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::ensure_unlocked().map_err(|_| {
+		Pallet::<T, I>::ensure_unlocked().map_err(|e| {
 			// Pallet is locked - store in PendingRebag for later processing
 			// Only queue if auto-rebagging is enabled
 			if T::MaxAutoRebagPerBlock::get() > 0u32 {
 				PendingRebag::<T, I>::insert(&id, score);
 			}
-			ListError::Locked
+			e
 		})?;
 		List::<T, I>::insert(id, score)
 	}

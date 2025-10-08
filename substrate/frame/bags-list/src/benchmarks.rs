@@ -420,8 +420,12 @@ benchmarks_instance_pallet! {
 			T::ScoreProvider::set_score_of(&node, new_score);
 		}
 
-		// Ensure we have pending rebag entries to process
-		assert!(PendingRebag::<T, I>::count() > 0);
+		assert_eq!(
+			PendingRebag::<T, I>::count(),
+			pending_count,
+			"Expected exactly {} pending rebag entries",
+			pending_count
+		);
 		// Ensure we have at least three bags populated before rebag
 		assert!(List::<T, _>::get_bags().len() >= 2);
 	}
@@ -430,7 +434,9 @@ benchmarks_instance_pallet! {
 		<Pallet<T, I> as Hooks<_>>::on_idle(Default::default(), Weight::MAX);
 	}
 	verify {
-		// Verify all pending rebag entries were processed
+		// Verify all pending rebag entries were processed.
+		// This should always be tru since pending_count = rebag_budget / 3 < rebag_budget,
+		// and pending accounts are processed first so all pending entries fit within the budget.
 		assert_eq!(PendingRebag::<T, I>::count(), 0, "All pending rebag entries should be processed");
 
 		// Count how many nodes ended up in higher bags
