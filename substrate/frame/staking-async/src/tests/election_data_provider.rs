@@ -888,7 +888,7 @@ mod score_provider {
 					!Nominators::<Test>::contains_key(777)
 			);
 
-			// then they will not have a score when bags-list wants to update it.
+			// then it will not have a score when bags-list wants to update it.
 			assert!(<Staking as ScoreProvider<_>>::score(&777).is_none());
 		});
 	}
