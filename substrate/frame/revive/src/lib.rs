@@ -41,8 +41,8 @@ pub mod migrations;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
+pub mod weightinfo_extension;
 pub mod weights;
-pub mod weights_utils;
 
 use crate::{
 	evm::{
@@ -102,8 +102,8 @@ pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
 pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
+pub use weightinfo_extension::OnFinalizeBlockParts;
 pub use weights::WeightInfo;
-pub use weights_utils::OnFinalizeBlockParts;
 
 #[cfg(doc)]
 pub use crate::vm::pvm::SyscallDoc;
