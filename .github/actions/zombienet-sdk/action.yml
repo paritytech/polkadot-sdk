@@ -91,27 +91,3 @@ runs:
         # If we want to get rid of '--no-capture' some day, please use '--test-threads 1' or NEXTEST_TEST_THREADS=1
         # Both options cannot coexist for cargo-nextest below v0.9.94
         cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_FILTER}
-
-    - name: process_logs
-      if: ${{ ! cancelled() }}
-      shell: bash
-      run: |
-        echo "Processing log files"
-        echo "::group::Logs"
-        # do not fail the whole run if this step fails
-        if ! ./.github/scripts/process-logs-zombienet-sdk.sh ; then
-          echo "::endgroup::"
-          echo "::warning ::WARNING: Failed to process logs"
-        else
-          echo "::endgroup::"
-        fi
-
-
-    - name: upload_logs
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-      if: ${{ ! cancelled() }}
-      with:
-        name: zombienet-logs-${{ inputs.job-name }}-${{ github.sha }}
-        path: |
-          /tmp/zombie*/logs/*
-
