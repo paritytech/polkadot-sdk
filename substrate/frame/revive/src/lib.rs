@@ -1651,10 +1651,7 @@ impl<T: Config> Pallet<T> {
 						)));
 					};
 
-					EthTransactInfo {
-						gas_required: T::FeeInfo::dispatch_info(&dispatch_call).total_weight(),
-						..Default::default()
-					}
+					Default::default()
 				} else {
 					// Dry run the call.
 					let result = crate::Pallet::<T>::bare_call(
