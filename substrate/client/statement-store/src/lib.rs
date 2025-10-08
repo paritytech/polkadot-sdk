@@ -84,7 +84,7 @@ pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
 /// statements from which the data originates.
 pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
 /// The maximum size of a single statement in bytes.
-/// Accounts for the 1-byte vector length prefix when statements are gossiped as Vec<Statement>.
+/// Accounts for the 1-byte vector length prefix when statements are gossiped as `Vec<Statement>`.
 pub const MAX_STATEMENT_SIZE: u32 = sc_network_statement::config::MAX_STATEMENT_SIZE as u32 - 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
