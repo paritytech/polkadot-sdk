@@ -180,12 +180,12 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 }
 
 /// Get the automine status from the node.
-async fn get_automine(rpc_client: &RpcClient) -> Result<bool, ClientError> {
+async fn get_automine(rpc_client: &RpcClient) -> bool {
 	match rpc_client.request::<bool>("getAutomine", rpc_params![]).await {
-		Ok(val) => Ok(val),
+		Ok(val) => val,
 		Err(err) => {
-			log::warn!(target: LOG_TARGET, "getAutomine RPC call failed: {err:?}");
-			Ok(false)
+			log::info!(target: LOG_TARGET, "Node does not have getAutomine RPC. Defaulting to automine=false. error: {err:?}");
+			false
 		},
 	}
 }
@@ -223,33 +223,18 @@ pub async fn connect(
 async fn broadcast_transact_hashes(
 	transact_hashes_sender: &tokio::sync::broadcast::Sender<TransactHashes>,
 	receipts: &[ReceiptInfo],
-	block_number: SubstrateBlockNumber,
 ) {
-	// Closure to extract the transaction hashes from the receipts.
-	let extract_transact_hashes = || {
-		let mut transact_hashes = HashSet::new();
-		for receipt in receipts {
-			transact_hashes.insert(receipt.transaction_hash);
-		}
-		transact_hashes
-	};
-
-	// Only broadcast if there are subscribers.
-	if transact_hashes_sender.receiver_count() == 0 {
+	if transact_hashes_sender.receiver_count() == 0 || receipts.is_empty() {
 		return;
 	}
 
-	let transact_hashes = extract_transact_hashes();
-	if transact_hashes.is_empty() {
-		return;
-	}
+	let transact_hashes: HashSet<_> =
+		receipts.iter().map(|receipt| receipt.transaction_hash).collect();
 
 	if let Err(err) = transact_hashes_sender.send(transact_hashes) {
 		log::warn!(
 			target: LOG_TARGET,
-			"Failed to broadcast transaction hashes for block: {:?}, error: {:?}",
-			block_number,
-			err
+			"Failed to broadcast transaction hashes. error: {err:?}",
 		);
 	}
 }
@@ -264,7 +249,9 @@ impl Client {
 		receipt_provider: ReceiptProvider,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
-			tokio::try_join!(chain_id(&api), max_block_weight(&api), get_automine(&rpc_client))?;
+			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
+				Ok(get_automine(&rpc_client).await)
+			},)?;
 
 		// Create the transaction hashes sender if automine is enabled.
 		let transact_hashes_sender = automine.then(|| {
@@ -387,7 +374,7 @@ impl Client {
 			// Only broadcast for best blocks to avoid duplicate notifications.
 			match (subscription_type, &self.transact_hashes_sender) {
 				(SubscriptionType::BestBlocks, Some(sender)) => {
-					broadcast_transact_hashes(sender, &receipts, block.number()).await;
+					broadcast_transact_hashes(sender, &receipts).await;
 				},
 				_ => {},
 			}
@@ -784,7 +771,7 @@ impl Client {
 	}
 
 	/// Get the automine status from the node.
-	pub async fn get_automine(&self) -> Result<bool, ClientError> {
+	pub async fn get_automine(&self) -> bool {
 		get_automine(&self.rpc_client).await
 	}
 }

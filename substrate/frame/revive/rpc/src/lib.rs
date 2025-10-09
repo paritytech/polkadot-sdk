@@ -119,22 +119,26 @@ async fn wait_for_transaction_to_be_mined(
 
 	timeout: Duration,
 ) -> Result<bool, String> {
-	let timeout_fut = tokio::time::sleep(timeout);
-	tokio::pin!(timeout_fut);
-
-	loop {
-		tokio::select! {
-			_ = &mut timeout_fut => return Err(format!("Timed out waiting for transaction {hash:?} to be mined.")),
-			recv = transact_hashes_receiver.recv() => match recv {
-				Ok(hashes) => if hashes.contains(&hash) { return Ok(true); },
+	tokio::time::timeout(timeout, async {
+		loop {
+			match transact_hashes_receiver.recv().await {
+				Ok(hashes) => {
+					if hashes.contains(&hash) {
+						return Ok(true);
+					}
+				}
 				Err(broadcast::error::RecvError::Lagged(n)) => {
-					log::warn!(target : LOG_TARGET, "Missed {n} notifications while waiting for transaction {hash:?} to be mined.");
+					log::warn!(target: LOG_TARGET, "Missed {n} notifications while waiting for transaction {hash:?} to be mined.");
 					continue;
-				},
-				Err(err) => return Err(format!("Failed to receive transaction hashes: {err}.").into()),
-			},
+				}
+				Err(err) => {
+					return Err(format!("Failed to receive transaction hashes: error: {err}.").into());
+				}
+			}
 		}
-	}
+	})
+	.await
+	.map_err(|_| format!("Timed out waiting for transaction {hash:?} to be mined."))?
 }
 
 #[async_trait]
@@ -214,7 +218,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		}
 
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
-		return Ok(hash);
+		Ok(hash)
 	}
 
 	async fn send_transaction(&self, mut transaction: GenericTransaction) -> RpcResult<H256> {
