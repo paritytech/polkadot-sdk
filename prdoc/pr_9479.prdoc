@@ -1,0 +1,37 @@
+title: 'cargo: Use rust-yamux version 0.13.6'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR updates the litep2p' rust-yamux crate to version 0.13.6.
+
+    This version solves the following issue:
+
+    ```
+    0: sp_panic_handler::set::{{closure}}
+    1: std::panicking::rust_panic_with_hook
+    2: std::panicking::begin_panic_handler::{{closure}}
+    3: std::sys::backtrace::__rust_end_short_backtrace
+    4: rust_begin_unwind
+    5: core::panicking::panic_fmt
+    6: core::slice::index::slice_start_index_len_fail::do_panic::runtime
+    7: core::slice::index::slice_start_index_len_fail
+    8: <yamux::frame::io::Io as futures_sink::Sink<yamux::frame::Frame<()>>>::poll_ready
+    9: yamux::connection::Connection::poll_next_inbound
+    10: litep2p::transport::websocket::connection::WebSocketConnection::start::{{closure}}
+    11: <litep2p::transport::websocket::WebSocketTransport as litep2p::transport::Transport>::accept::{{closure}}
+    12: <tracing_futures::Instrumented as core::future::future::Future>::poll
+    13: tokio::runtime::task::raw::poll
+    14: tokio::runtime::scheduler::multi_thread::worker::Context::run_task
+    15: tokio::runtime::scheduler::multi_thread::worker::run
+    16: tokio::runtime::task::raw::poll
+    17: std::sys::backtrace::__rust_begin_short_backtrace
+    18: core::ops::function::FnOnce::call_once{{vtable.shim}}
+    19: std::sys::pal::unix::thread::Thread::new::thread_start
+    20: start_thread
+    at /build/glibc-FcRMwW/glibc-2.31/nptl/pthread_create.c:477:8
+    21: clone
+    at /build/glibc-FcRMwW/glibc-2.31/misc/../sysdeps/unix/sysv/linux/x86_64/clone.S:95
+    ```
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/9169
+crates: []
