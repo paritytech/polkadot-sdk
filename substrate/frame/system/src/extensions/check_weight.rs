@@ -307,7 +307,7 @@ impl<T: Config + Send + Sync> core::fmt::Debug for CheckWeight<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		mock::{new_test_ext, System, Test, CALL},
+		mock::{new_test_ext, RuntimeBlockWeights, System, Test, CALL},
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
 	use core::marker::PhantomData;
@@ -808,9 +808,11 @@ mod tests {
 				.unwrap()
 				.0;
 
+			let expected = info.total_weight() + prior_block_weight + base_extrinsic;
+			assert_eq!(expected, BlockWeight::<Test>::get().total());
 			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				info.total_weight() + prior_block_weight + base_extrinsic
+				RuntimeBlockWeights::get().max_block - expected,
+				System::remaining_block_weight().remaining()
 			);
 
 			// Refund less accurately than the benchmark
@@ -833,9 +835,11 @@ mod tests {
 				crate::ExtrinsicWeightReclaimed::<Test>::get(),
 				post_info.calc_unspent(&info)
 			);
+			let expected = post_info.actual_weight.unwrap() + prior_block_weight + base_extrinsic;
+			assert_eq!(expected, BlockWeight::<Test>::get().total());
 			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				post_info.actual_weight.unwrap() + prior_block_weight + base_extrinsic
+				RuntimeBlockWeights::get().max_block - expected,
+				System::remaining_block_weight().remaining()
 			);
 		})
 	}
