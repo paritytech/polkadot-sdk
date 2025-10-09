@@ -1,0 +1,62 @@
+title: Fix `pallet_session` benchmarks
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes the benchmarking code of `pallet_session` such that it works with any `KeyDeposit`.
+crates:
+- name: westend-runtime
+  bump: minor
+- name: pallet-session-benchmarking
+  bump: patch
+- name: pallet-session
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: pallet-babe
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: pallet-grandpa
+  bump: patch
+- name: polkadot-runtime-common
+  bump: patch
+- name: pallet-beefy-mmr
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-im-online
+  bump: patch
+- name: pallet-staking-async-ah-client
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: pallet-collator-selection
+  bump: patch
+- name: cumulus-pallet-session-benchmarking
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: snowbridge-runtime-test-common
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
