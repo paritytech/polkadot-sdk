@@ -379,6 +379,7 @@ where
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ ProvideRuntimeApi<Block>,
 	P::Public: Codec + Debug,
+	P::Signature: Codec,
 	Client::Api: AuraApi<Block, AuthorityId<P>>,
 {
 	type Error = BI::Error;

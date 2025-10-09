@@ -38,6 +38,10 @@ pub trait CompatibleDigestItem<Signature>: Sized {
 
 	/// If this item is an AuRa pre-digest, return the slot number
 	fn as_aura_pre_digest(&self) -> Option<Slot>;
+
+	#[cfg(feature = "std")]
+	/// If this item is an AuRa authorities change, return the new authorities.
+	fn as_authorities_change<A: Codec>(&self) -> Option<Vec<A>>;
 }
 
 impl<Signature> CompatibleDigestItem<Signature> for DigestItem
@@ -58,5 +62,10 @@ where
 
 	fn as_aura_pre_digest(&self) -> Option<Slot> {
 		self.pre_runtime_try_to(&AURA_ENGINE_ID)
+	}
+
+	#[cfg(feature = "std")]
+	fn as_authorities_change<A: Codec>(&self) -> Option<Vec<A>> {
+		self.consensus_try_to(&AURA_ENGINE_ID)
 	}
 }

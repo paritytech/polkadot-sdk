@@ -20,14 +20,17 @@
 
 use std::{fmt::Debug, sync::Arc};
 
-use codec::{Codec, DecodeAll};
+use codec::Codec;
 use fork_tree::ForkTree;
 use parking_lot::RwLock;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_consensus_aura::{AuraApi, ConsensusLog, AURA_ENGINE_ID};
+use sp_consensus_aura::{digests::CompatibleDigestItem, AuraApi};
 use sp_core::Pair;
-use sp_runtime::traits::{Block, Header, NumberFor};
+use sp_runtime::{
+	traits::{Block, Header, NumberFor},
+	DigestItem,
+};
 
 use crate::{fetch_authorities_from_runtime, AuthorityId, CompatibilityMode};
 
@@ -109,6 +112,7 @@ where
 	B: Block,
 	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error> + ProvideRuntimeApi<B>,
 	P::Public: Codec + Debug,
+	P::Signature: Codec,
 	C::Api: AuraApi<B, AuthorityId<P>>,
 {
 	/// Fetch authorities from the tracker, if available. If not available, return an error.
@@ -195,20 +199,12 @@ where
 	B: Block,
 	P: Pair,
 	P::Public: Codec,
+	P::Signature: Codec,
 {
-	header.digest().convert_first(|log| {
+	header.digest().convert_first(|log| -> Option<Vec<AuthorityId<P>>> {
 		log::trace!(target: LOG_TARGET, "Checking log {:?}, looking for authorities change digest.", log);
-		let (engine, log) = log.as_consensus()?;
-
-		if engine != AURA_ENGINE_ID {
-			return None;
-		}
-		if let Some(ConsensusLog::AuthoritiesChange(authorities)) =
-			ConsensusLog::<AuthorityId<P>>::decode_all(&mut &log[..]).ok()
-		{
-			Some(authorities)
-		} else {
-			None
-		}
+		<DigestItem as CompatibleDigestItem<P::Signature>>::as_authorities_change::<AuthorityId<P>>(
+			log,
+		)
 	})
 }
