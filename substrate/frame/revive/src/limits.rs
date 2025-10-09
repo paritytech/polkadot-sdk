@@ -60,7 +60,7 @@ pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + 128 * 1024;
 ///
 /// This ensure the block builder has enough memory and pallet storage
 /// to operate under worst case scenarios.
-pub const EXTRA_EVENT_CHARGE_PER_BYTE: u64 = 1024 * 256;
+pub const EXTRA_EVENT_CHARGE_PER_BYTE: u32 = 1024 * 256;
 
 /// The maximum size for calldata and return data.
 ///
