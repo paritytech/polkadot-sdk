@@ -1020,7 +1020,7 @@ mod tests {
 			build_handler();
 
 		let num_statements = 30;
-		let statement_size = 10 * 1024; // 10KB per statement
+		let statement_size = 100 * 1024; // 100KB per statement
 		for i in 0..num_statements {
 			let mut statement = Statement::new();
 			let mut data = vec![0u8; statement_size];
@@ -1035,8 +1035,8 @@ mod tests {
 		let sent = notification_service.get_sent_notifications();
 		let mut total_statements_sent = 0;
 		assert!(
-			sent.len() == 2,
-			"Expected batch to be split into 2 chunks, but got {} chunks",
+			sent.len() == 3,
+			"Expected batch to be split into 3 chunks, but got {} chunks",
 			sent.len()
 		);
 		for (_peer, notification) in sent.iter() {
