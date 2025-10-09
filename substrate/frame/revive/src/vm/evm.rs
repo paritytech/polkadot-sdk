@@ -137,9 +137,7 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 		extend: ext,
 	};
 
-	let base: [revm::interpreter::Instruction<_, _>; 256] = instruction_table::<'a, E>();
-	let instr = EthInstructions::<EVMInterpreter<'a, E>, DummyHost>::new(base);
-	let table = instr.instruction_table();
+	let table: [revm::interpreter::Instruction<_, _>; 256] = instruction_table::<'a, E>();
 	let result = run(&mut interpreter, &table);
 
 	instruction_result_into_exec_error::<E>(result.result)
