@@ -121,7 +121,7 @@ pub use polkadot_node_core_pvf_common::{
 	SecurityStatus,
 };
 
-use std::{ffi::OsStr, path::Path, process::Command};
+use std::{path::Path, process::Command};
 
 /// The log target for this crate.
 pub const LOG_TARGET: &str = "parachain::pvf";
@@ -135,44 +135,6 @@ pub fn get_worker_version(worker_path: &Path) -> std::io::Result<String> {
 		.expect("version is printed as a string; qed")
 		.trim()
 		.to_string())
-}
-
-/// Call into a worker binary with a `--check-*` flag (and optionally a path arg).
-///
-/// Returns `Ok(())` if the check succeeds, otherwise returns an `io::Error` with
-/// the worker's stderr.
-pub fn probe_worker_security<I, S>(
-	worker_path: &Path,
-	check_arg: &'static str,
-	extra_args: I,
-) -> std::io::Result<()>
-where
-	I: IntoIterator<Item = S>,
-	S: AsRef<OsStr>,
-{
-	let mut command = Command::new(worker_path);
-
-	// Clear env vars. (Running with different envs could affect results.)
-	command.env_clear();
-	// Restore only what's relevant for logging.
-	if let Ok(value) = std::env::var("RUST_LOG") {
-		command.env("RUST_LOG", value);
-	}
-
-	// Add the flag + any extra args, then execute.
-	let output = command.arg(check_arg).args(extra_args).output()?;
-
-	if output.status.success() {
-		Ok(())
-	} else {
-		let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-		let msg = if stderr.is_empty() {
-			format!("{check_arg}: not available")
-		} else {
-			format!("{check_arg}: {stderr}")
-		};
-		Err(std::io::Error::new(std::io::ErrorKind::Other, msg))
-	}
 }
 
 // Trying to run securely and some mandatory errors occurred.
