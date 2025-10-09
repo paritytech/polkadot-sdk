@@ -107,12 +107,17 @@ use assets_common::{
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, InMemoryDbWeight};
+use westend_runtime_constants::system_parachain::AssetHubParaId;
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{
 		VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 		XcmVersion,
 	},
+};
+use xcm_runtime_apis::{
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -122,11 +127,6 @@ use frame_support::traits::PalletInfoAccess;
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
 	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION,
-};
-
-use xcm_runtime_apis::{
-	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
-	fees::Error as XcmPaymentApiError,
 };
 
 impl_opaque_keys! {
@@ -1223,6 +1223,11 @@ impl pallet_migrations::Config for Runtime {
 	type Migrations = (
 		pallet_revive::migrations::v1::Migration<Runtime>,
 		pallet_revive::migrations::v2::Migration<Runtime>,
+		foreign_assets_v2::ForeignAssetsLazyMigrationV1ToV2<
+			Runtime,
+			ForeignAssetsInstance,
+			FromSiblingParachain<AssetHubParaId>,
+		>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1499,12 +1504,18 @@ pub mod foreign_assets_v2 {
 	use core::marker::PhantomData;
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		traits::{ContainsPair, GetStorageVersion, StorageVersion},
+		traits::{ContainsPair, GetStorageVersion, Len, StorageVersion},
 		weights::WeightMeter,
 	};
 	use pallet_assets::WeightInfo;
 
 	const PALLET_MIGRATIONS_ID: &[u8; 21] = b"pallet-foreign-assets";
+
+	#[cfg(feature = "try-runtime")]
+	#[derive(Encode, Decode)]
+	struct TryRuntimeState<T: pallet_assets::Config<I>, I: 'static> {
+		assets: Vec<T::AssetId>,
+	}
 
 	/// Progressive states of a migration. The migration starts with the first variant and ends with
 	/// the last.
@@ -1542,7 +1553,6 @@ pub mod foreign_assets_v2 {
 			{
 				return Ok(None);
 			}
-			// IsForeignConcreteAsset<FromSiblingParachain<AssetHubParaId>>;
 
 			// Check that we have enough weight for at least the next step. If we don't, then the
 			// migration cannot be complete.
@@ -1578,45 +1588,27 @@ pub mod foreign_assets_v2 {
 			Ok(cursor)
 		}
 
-		// #[cfg(feature = "try-runtime")]
-		// fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		// 	let authorities: BTreeMap<Suffix<T>, (T::AccountId, u32)> =
-		// 		types_v1::UsernameAuthorities::<T>::iter()
-		// 			.map(|(account, authority_properties)| {
-		// 				(
-		// 					authority_properties.account_id,
-		// 					(account, authority_properties.allocation),
-		// 				)
-		// 			})
-		// 			.collect();
-		// 	let state: TryRuntimeState<T> = TryRuntimeState {
-		// 		authorities,
-		// 		identities,
-		// 		primary_usernames,
-		// 		usernames,
-		// 		pending_usernames,
-		// 	};
-		//
-		// 	Ok(state.encode())
-		// }
-		//
-		// #[cfg(feature = "try-runtime")]
-		// fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		// 	let mut prev_state: TryRuntimeState<T> = TryRuntimeState::<T>::decode(&mut &state[..])
-		// 		.expect("Failed to decode the previous storage state");
-		//
-		// 	for (suffix, authority_properties) in AuthorityOf::<T>::iter() {
-		// 		let (prev_account, prev_allocation) = prev_state
-		// 			.authorities
-		// 			.remove(&suffix)
-		// 			.expect("should have authority in previous state");
-		// 		assert_eq!(prev_account, authority_properties.account_id);
-		// 		assert_eq!(prev_allocation, authority_properties.allocation);
-		// 	}
-		// 	assert!(prev_state.authorities.is_empty());
-		//
-		// 	Ok(())
-		// }
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let assets = pallet_assets::Asset::<T, I>::iter_keys().collect();
+			let state = TryRuntimeState::<T, I> { assets };
+			Ok(state.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let prev_state = TryRuntimeState::<T, I>::decode(&mut &state[..])
+				.expect("Failed to decode the previous storage state");
+			let local_chain = xcm::v5::Location::here();
+			for id in prev_state.assets {
+				if AssetFilter::contains(&id, &id) {
+					let reserves = pallet_assets::ReserveLocations::<T, I>::get(id);
+					assert_eq!(reserves.len(), 1);
+					assert_eq!(reserves[0], local_chain);
+				}
+			}
+			Ok(())
+		}
 	}
 
 	impl<T, I, AssetFilter> ForeignAssetsLazyMigrationV1ToV2<T, I, AssetFilter>
