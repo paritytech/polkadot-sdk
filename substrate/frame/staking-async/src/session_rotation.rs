@@ -336,7 +336,7 @@ impl<T: Config> Eras<T> {
 						Some(individual) => individual.saturating_accrue(points),
 						None => {
 							// not much we can do -- validators should always be less than
-							// `MaxValidatorCount`.
+							// `MaxValidatorSet`.
 							let _ =
 								era_rewards.individual.try_insert(validator, points).defensive();
 						},

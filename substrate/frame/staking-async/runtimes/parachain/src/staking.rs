@@ -30,6 +30,17 @@ use sp_runtime::{
 };
 use xcm::latest::prelude::*;
 
+// This macro contains all of the variable parameters that we intend to use for Polkadot and
+// Kusama.
+//
+// Note that this runtime has 3 broad presets:
+//
+// 1. dev: fast development preset.
+// 2. dot-size: as close to Polkadot as possible.
+// 3. ksm-size: as close to Kusama as possible.
+//
+// The default values here are related to `dev`. The above helper functions are used at launch (see
+// `build_state` runtime-api) to enable dot/ksm presets.
 parameter_types! {
 	pub storage SignedPhase: u32 = 4 * MINUTES;
 	pub storage UnsignedPhase: u32 = MINUTES;
@@ -61,10 +72,69 @@ parameter_types! {
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub const MaxExposurePageSize: u32 = 64;
 
-	/// Each solution is considered "better" if it is 0.01% better.
-	pub storage SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
+	/// Each solution is considered "better" if it is an epsilon better than the previous one.
+	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
+// Signed phase parameters.
+parameter_types! {
+	/// * Polkadot: 16
+	/// * Kusama: 8
+	///
+	/// Reasoning: This is double the capacity of verification. There is no point for someone to be
+	/// a submitter if they cannot be verified, yet, it is beneficial to act as a "reserve", in case
+	/// someone bails out last minute.
+	pub MaxSubmissions: u32 = 8;
+
+	/// * Polkadot: Geometric progression with starting value 4 DOT, common factor 2. For 16
+	///   submissions, it will be [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384,
+	///   32768, 65536, 131072]. Sum is `262140 DOT` for all 16 submissions.
+	/// * Kusama: Geometric progression with with starting value 0.1 KSM, common factor 4. For 8
+	///   submissions, values will be: `[0.1, 0.4, 1.6, 6.4, 25.6, 102.4, 409.6, 1638.4]`. Sum is
+	///   `2184.5 KSM` for all 8 submissions.
+	pub DepositBase: Balance = 5 * UNITS;
+
+	/// * Polkadot: standard byte deposit configured in PAH.
+	/// * Kusama: standard byte deposit configured in KAH.
+	///
+	/// TODO: need a maximum solution length for each runtime.
+	pub DepositPerPage: Balance = 1 * UNITS;
+
+	/// * Polkadot: 20 DOT
+	/// * Kusama: 1 KSM
+	///
+	///
+	/// Fixed deposit for invulnerable accounts.
+	pub InvulnerableDeposit: Balance = UNITS;
+
+	/// * Polkadot: 10% (more restrictive, don't bail!)
+	/// * Kusama: 25%
+	///
+	/// Reasoning: The weight/fee of the `bail` transaction is already assuming you delete all pages
+	/// of your solution while bailing, and charges you accordingly. So the chain is being
+	/// compensated. The risk would be for an attacker to submit a lot of high score pages, and bail
+	/// at the end to avoid getting slashed.
+	pub BailoutGraceRatio: Perbill = Perbill::from_percent(5);
+
+	/// * Polkadot: 100%
+	/// * Kusama: 100%
+	///
+	/// The transaction fee of `register` takes into account the cost of possibly ejecting another
+	/// submission into account. In the scenario that the honest submitter is being ejected by an
+	/// attacker, the cost is on the attacker, and having 100% grace ratio here is only to the
+	/// benefit of the honest submitter.
+	pub EjectGraceRatio: Perbill = Perbill::from_percent(50);
+
+	/// * Polkadot: 5 DOTs per era/day
+	/// * Kusama: 1 KSM per era/6h
+	pub RewardBase: Balance = 10 * UNITS;
+}
+
+// * Polkadot: as seen here.
+// * Kusama, we will use a similar type, but with 24 as the maximum filed length.
+//
+// Reasoning: using u16, we can have up to 65,536 nominators and validators represented in the
+// snapshot. If we every go beyond this, we have to first adjust this type.
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
 	pub struct NposCompactSolution16::<
@@ -126,16 +196,6 @@ impl multi_block::verifier::Config for Runtime {
 	type SolutionDataProvider = MultiBlockElectionSigned;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
-}
-
-parameter_types! {
-	pub BailoutGraceRatio: Perbill = Perbill::from_percent(50);
-	pub EjectGraceRatio: Perbill = Perbill::from_percent(50);
-	pub DepositBase: Balance = 5 * UNITS;
-	pub DepositPerPage: Balance = 1 * UNITS;
-	pub InvulnerableDeposit: Balance = 1 * UNITS;
-	pub RewardBase: Balance = 10 * UNITS;
-	pub MaxSubmissions: u32 = 8;
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -276,7 +336,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxValidatorSet = MaxValidatorSet;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type HistoryDepth = ConstU32<1>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
@@ -292,6 +352,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
+	type MaxValidatorSetRetries = ConstU32<5>;
 }
 
 parameter_types! {
@@ -334,13 +395,13 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			StakingXcmDestination,
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
-		>::split_then_send(report, Some(8));
+		>::send(report)
 	}
 }
 
