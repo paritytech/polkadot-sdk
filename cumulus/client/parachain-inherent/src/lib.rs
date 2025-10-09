@@ -223,6 +223,19 @@ impl ParachainInherentDataProvider {
 			})
 			.ok()?;
 
+		let published_data = relay_chain_interface
+			.retrieve_all_published_data(relay_parent)
+			.await
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					error = ?e,
+					"An error occurred during requesting published data.",
+				);
+			})
+			.unwrap_or_default();
+
 		Some(ParachainInherentData {
 			downward_messages,
 			horizontal_messages,
@@ -230,7 +243,7 @@ impl ParachainInherentDataProvider {
 			relay_chain_state,
 			relay_parent_descendants,
 			collator_peer_id,
-			published_data: Default::default(),
+			published_data,
 		})
 	}
 }

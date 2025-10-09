@@ -82,6 +82,13 @@ impl RelayChainInterface for RelayChainRpcInterface {
 			.await
 	}
 
+	async fn retrieve_all_published_data(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>> {
+		self.rpc_client.broadcaster_get_all_published_data(relay_parent).await
+	}
+
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
