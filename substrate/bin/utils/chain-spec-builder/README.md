@@ -26,18 +26,19 @@ _Note:_ `chain-spec-builder` binary is published on [crates.io](https://crates.i
 Please note that below usage is backed by integration tests. The commands' examples are wrapped
 around by the `bash!(...)` macro calls.
 
-<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8740 -->
-### Deprecation notice for `CreateCmd`'s `para-id` flag
+### Note for `CreateCmd`'s `para-id` flag
 
 <!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
-`para-id` flag is deprecated. Runtimes relying on generating the chain
-specification with this tool should implement `cumulus_primitives_core::GetParachainInfo`
-trait, a new runtime API designed to provide the parachain ID from the `parachain-info`
-pallet. The `para-id` flag will be removed and nodes support for extracting the
-parachain id from the chain specification will stop from `stable2512`.
+Runtimes relying on generating the chain specification with this tool should
+implement `cumulus_primitives_core::GetParachainInfo` trait, a new runtime API
+designed to provide the parachain ID from the `parachain-info`
+pallet. The `para-id` flag can be used though if the runtime does not implement
+the runtime API, and the parachain id will be fetched by the node from chain
+specification. This can be especially useful when syncing a node from a state
+where the runtime does not implement `cumulus_primitives_core::GetParachainInfo`.
 
-For reference, generating a chain specification with a `para_id` field can still
-be done until `stable2512` like below:
+For reference, generating a chain specification with a `para_id` field can be
+done like below:
 
 ```bash
 chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
