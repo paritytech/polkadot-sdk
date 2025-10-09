@@ -48,7 +48,6 @@ mod sys {
 			key_ptr: *const u8,
 			value_ptr: *const u8,
 		) -> ReturnCode;
-		pub fn clear_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
 		pub fn get_storage(
 			flags: u32,
 			key_ptr: *const u8,
@@ -57,14 +56,6 @@ mod sys {
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
 		pub fn get_storage_or_zero(flags: u32, key_ptr: *const u8, out_ptr: *mut u8);
-		pub fn contains_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
-		pub fn take_storage(
-			flags: u32,
-			key_ptr: *const u8,
-			key_len: u32,
-			out_ptr: *mut u8,
-			out_len_ptr: *mut u32,
-		) -> ReturnCode;
 		pub fn call(
 			flags_and_callee: u64,
 			ref_time_limit: u64,
@@ -438,19 +429,6 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code = unsafe { sys::clear_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code =
-			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
@@ -471,24 +449,6 @@ impl HostFn for HostFnImpl {
 				message.as_ptr(),
 			)
 		};
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
-		let mut output_len = output.len() as u32;
-		let ret_code = {
-			unsafe {
-				sys::take_storage(
-					flags.bits(),
-					key.as_ptr(),
-					key.len() as u32,
-					output.as_mut_ptr(),
-					&mut output_len,
-				)
-			}
-		};
-		extract_from_slice(output, output_len as usize);
 		ret_code.into()
 	}
 
