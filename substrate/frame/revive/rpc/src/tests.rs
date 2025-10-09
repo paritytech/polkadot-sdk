@@ -33,8 +33,8 @@ use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockNumberOrTag, BlockTag, HashesOrTransactionInfos, TransactionInfo,
-		H256, U256,
+		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
+		HashesOrTransactionInfos, TransactionInfo, H256, U256,
 	},
 };
 use static_init::dynamic;
@@ -400,6 +400,97 @@ async fn evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 		panic!("Expected hydrated transactions");
 	};
 	assert_eq!(expected_tx_info, tx_info, "TransationInfos should match");
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = Arc::new(SharedResources::client().await);
+
+	// Deploy a transaction to create a block with transactions
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let value = U256::from(5_000_000_000_000u128);
+	let tx = TransactionBuilder::new(&client)
+		.value(value)
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+
+	let receipt = tx.wait_for_receipt().await?;
+	let ethereum_block_hash = receipt.block_hash;
+
+	println!("Testing with Ethereum block hash: {ethereum_block_hash:?}");
+
+	let block_by_hash = client
+		.get_block_by_hash(ethereum_block_hash, false)
+		.await?
+		.expect("Block should exist");
+
+	let account = Account::default();
+	let balance = client.get_balance(account.address(), ethereum_block_hash.into()).await?;
+
+	assert!(balance >= U256::zero(), "Balance should be retrievable with Ethereum hash");
+	assert_eq!(block_by_hash.hash, ethereum_block_hash, "Block hash should match");
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = Arc::new(SharedResources::client().await);
+
+	let fake_eth_hash = H256::from([0x42u8; 32]);
+
+	println!("Testing with fake Ethereum hash: {fake_eth_hash:?}");
+
+	let account = Account::default();
+	let result = client.get_balance(account.address(), fake_eth_hash.into()).await;
+
+	assert!(result.is_err(), "Should fail with non-existent Ethereum hash");
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn block_hash_for_tag_with_block_number_works() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = Arc::new(SharedResources::client().await);
+
+	let block_number = client.block_number().await?;
+
+	println!("Testing with block number: {block_number}");
+
+	let account = Account::default();
+	let balance = client
+		.get_balance(account.address(), BlockNumberOrTagOrHash::BlockNumber(block_number))
+		.await?;
+
+	assert!(balance >= U256::zero(), "Balance should be retrievable with block number");
+	Ok(())
+}
+
+#[tokio::test]
+async fn block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let tags = vec![
+		BlockTag::Latest,
+		BlockTag::Finalized,
+		BlockTag::Safe,
+		BlockTag::Earliest,
+		BlockTag::Pending,
+	];
+
+	for tag in tags {
+		let balance = client.get_balance(account.address(), tag.clone().into()).await?;
+
+		assert!(balance >= U256::zero(), "Balance should be retrievable with tag {tag:?}");
+	}
 
 	Ok(())
 }
