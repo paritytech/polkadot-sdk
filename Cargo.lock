@@ -20913,6 +20913,7 @@ dependencies = [
 name = "sc-statement-store"
 version = "10.0.0"
 dependencies = [
+ "criterion",
  "log",
  "parity-db",
  "parking_lot 0.12.3",

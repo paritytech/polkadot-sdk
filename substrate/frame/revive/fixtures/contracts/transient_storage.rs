@@ -16,9 +16,12 @@
 // limitations under the License.
 
 //! This contract tests the transient storage APIs.
+
 #![no_std]
 #![no_main]
+
 include!("../panic_handler.rs");
+include!("../sol_utils.rs");
 
 use uapi::{unwrap_output, HostFn, HostFnImpl as api, StorageFlags};
 
@@ -36,7 +39,7 @@ pub extern "C" fn call() {
 
 	let existing = api::set_storage(StorageFlags::TRANSIENT, &KEY, &VALUE_1);
 	assert_eq!(existing, None);
-	assert_eq!(api::contains_storage(StorageFlags::TRANSIENT, &KEY), Some(VALUE_1.len() as _));
+	assert_eq!(contains_storage::<api>(StorageFlags::TRANSIENT, &KEY), Some(VALUE_1.len() as _));
 	unwrap_output!(val, [0u8; 32], api::get_storage, StorageFlags::TRANSIENT, &KEY);
 	assert_eq!(**val, VALUE_1);
 
@@ -45,11 +48,12 @@ pub extern "C" fn call() {
 	unwrap_output!(val, [0u8; 32], api::get_storage, StorageFlags::TRANSIENT, &KEY);
 	assert_eq!(**val, VALUE_2);
 
-	assert_eq!(api::clear_storage(StorageFlags::TRANSIENT, &KEY), Some(VALUE_2.len() as _));
-	assert_eq!(api::contains_storage(StorageFlags::TRANSIENT, &KEY), None);
+	assert_eq!(clear_storage::<api>(StorageFlags::TRANSIENT, &KEY), Some(VALUE_2.len() as _));
+	assert_eq!(contains_storage::<api>(StorageFlags::TRANSIENT, &KEY), None);
 
 	let existing = api::set_storage(StorageFlags::TRANSIENT, &KEY, &VALUE_3);
 	assert_eq!(existing, None);
-	unwrap_output!(val, [0u8; 128], api::take_storage, StorageFlags::TRANSIENT, &KEY);
-	assert_eq!(**val, VALUE_3);
+	let mut output = [0u8; 6];
+	let _ = take_storage::<api>(StorageFlags::TRANSIENT, &KEY, &mut output).expect("value must exist in storage");
+	assert_eq!(output, VALUE_3);
 }
