@@ -19,6 +19,7 @@
 // This is separated into its own crate due to cyclic dependency issues.
 
 use alloc::{vec, vec::Vec};
+use core::marker::PhantomData;
 use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 use codec::Decode;
@@ -37,14 +38,62 @@ use pallet_staking::{
 const MAX_VALIDATORS: u32 = 1000;
 
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
-pub trait Config:
-	pallet_session::Config + pallet_session::historical::Config + pallet_staking::Config
-{
+pub trait Config: pallet_session::Config + pallet_session::historical::Config {
+	type StakingAdapter: StakingAdapter<Self::AccountId>;
 }
 
 impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
 	fn on_initialize(n: BlockNumberFor<T>) -> frame_support::weights::Weight {
 		pallet_session::Pallet::<T>::on_initialize(n)
+	}
+}
+
+/// Adapter to wire benchmarks to various staking systems.
+pub trait StakingAdapter<AccountId> {
+	fn max_nominations() -> u32;
+
+	fn set_validators_count(count: u32);
+
+	fn controller_for_stash_account(a: &AccountId) -> Option<AccountId>;
+
+	fn create_validator_with_nominators(nominations: u32, max_nominations: u32) -> AccountId;
+
+	fn create_many_validators(n: u32) -> Vec<AccountId>;
+}
+
+pub struct PalletStaking<T>(PhantomData<T>);
+impl<T: pallet_staking::Config> StakingAdapter<T::AccountId> for PalletStaking<T> {
+	fn max_nominations() -> u32 {
+		MaxNominationsOf::<T>::get()
+	}
+
+	fn set_validators_count(count: u32) {
+		pallet_staking::ValidatorCount::<T>::put(count);
+	}
+
+	fn controller_for_stash_account(a: &T::AccountId) -> Option<T::AccountId> {
+		pallet_staking::Pallet::<T>::bonded(&a)
+	}
+
+	fn create_validator_with_nominators(nominations: u32, max_nominations: u32) -> T::AccountId {
+		let (stash, _) = create_validator_with_nominators::<T>(
+			nominations,
+			max_nominations,
+			false,
+			true,
+			RewardDestination::Staked,
+		)
+		.expect("failed to create validator");
+
+		stash
+	}
+
+	fn create_many_validators(n: u32) -> Vec<T::AccountId> {
+		create_validators::<T>(n, 1000)
+			.expect("failed to create validators")
+			.into_iter()
+			.map(|who| T::Lookup::lookup(who).unwrap())
+			.collect()
 	}
 }
 
@@ -54,15 +103,13 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_keys() -> Result<(), BenchmarkError> {
-		let n = MaxNominationsOf::<T>::get();
-		let (v_stash, _) = create_validator_with_nominators::<T>(
+		let n = T::StakingAdapter::max_nominations();
+		let v_stash = T::StakingAdapter::create_validator_with_nominators(
 			n,
-			MaxNominationsOf::<T>::get(),
-			false,
-			true,
-			RewardDestination::Staked,
-		)?;
-		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
+			T::StakingAdapter::max_nominations(),
+		);
+		let v_controller =
+			T::StakingAdapter::controller_for_stash_account(&v_stash).ok_or("not stash")?;
 
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 		let proof: Vec<u8> = vec![0, 1, 2, 3];
@@ -79,15 +126,13 @@ mod benchmarks {
 
 	#[benchmark]
 	fn purge_keys() -> Result<(), BenchmarkError> {
-		let n = MaxNominationsOf::<T>::get();
-		let (v_stash, _) = create_validator_with_nominators::<T>(
+		let n = T::StakingAdapter::max_nominations();
+		let v_stash = T::StakingAdapter::create_validator_with_nominators(
 			n,
-			MaxNominationsOf::<T>::get(),
-			false,
-			true,
-			RewardDestination::Staked,
-		)?;
-		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
+			T::StakingAdapter::max_nominations(),
+		);
+		let v_controller =
+			T::StakingAdapter::controller_for_stash_account(&v_stash).ok_or("not stash")?;
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 		let proof: Vec<u8> = vec![0, 1, 2, 3];
 		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
@@ -147,14 +192,13 @@ mod benchmarks {
 fn check_membership_proof_setup<T: Config>(
 	n: u32,
 ) -> ((sp_runtime::KeyTypeId, &'static [u8; 32]), sp_session::MembershipProof) {
-	pallet_staking::ValidatorCount::<T>::put(n);
+	T::StakingAdapter::set_validators_count(n);
 
 	// create validators and set random session keys
-	for (n, who) in create_validators::<T>(n, 1000).unwrap().into_iter().enumerate() {
+	for (n, validator) in T::StakingAdapter::create_many_validators(n).into_iter().enumerate() {
 		use rand::{RngCore, SeedableRng};
 
-		let validator = T::Lookup::lookup(who).unwrap();
-		let controller = pallet_staking::Pallet::<T>::bonded(&validator).unwrap();
+		let controller = T::StakingAdapter::controller_for_stash_account(&validator).unwrap();
 
 		let keys = {
 			let mut keys = [0u8; 128];
