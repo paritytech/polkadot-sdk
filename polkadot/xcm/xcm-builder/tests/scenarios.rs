@@ -403,6 +403,7 @@ fn recursive_xcm_execution_fail() {
 		type HrmpChannelAcceptedHandler = ();
 		type HrmpChannelClosingHandler = ();
 		type XcmRecorder = XcmPallet;
+		type BroadcastHandler = ();
 	}
 
 	let para_acc: AccountId = ParaId::from(PARA_ID).into_account_truncating();

@@ -251,6 +251,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = ();
+	type BroadcastHandler = ();
 }
 
 /// Simple converter from a [`Location`] with an [`AccountIndex64`] junction and no parent to a
