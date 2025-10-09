@@ -630,19 +630,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Ensure the pallet is not locked
 		Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 
-		// Check if this is a pending account that needs to be inserted
-		let is_pending = PendingRebag::<T, I>::contains_key(account);
+		PendingRebag::<T, I>::remove(account);
 
 		// Check if the account exists and retrieve its current score
 		let existed = ListNodes::<T, I>::contains_key(account);
 		let maybe_score = T::ScoreProvider::score(account);
-
-		if is_pending && maybe_score.is_none() {
-			// Account is no longer staking - just clean up PendingRebag and skip
-			PendingRebag::<T, I>::remove(account);
-			log!(debug, "Removed {:?} from PendingRebag as it's no longer staking", account);
-			return Err(Error::<T, I>::List(ListError::NodeNotFound));
-		}
 
 		let result = match (existed, maybe_score) {
 			(true, Some(current_score)) => {
@@ -669,12 +661,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Err(Error::<T, I>::List(ListError::NodeNotFound))
 			},
 		};
-
-		// If processing was successful and this was a pending account, remove it from PendingRebag
-		if result.is_ok() && is_pending {
-			PendingRebag::<T, I>::remove(account);
-			log!(debug, "Removed {:?} from PendingRebag after successful processing", account);
-		}
 
 		result
 	}
