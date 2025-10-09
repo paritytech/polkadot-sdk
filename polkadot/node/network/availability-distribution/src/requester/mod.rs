@@ -42,7 +42,7 @@ use polkadot_node_subsystem_util::{
 	runtime::{get_availability_cores, get_occupied_cores, RuntimeInfo},
 };
 use polkadot_primitives::{
-	BackedCandidate, CandidateHash, CommittedCandidateReceiptV2, CoreIndex, CoreState, GroupIndex,
+	BackedCandidate, CandidateHash, CoreIndex, CoreState, GroupIndex,
 	GroupRotationInfo, Hash, Id as paraId, SessionIndex, ValidatorIndex,
 };
 
@@ -239,9 +239,8 @@ impl Requester {
 				.await?;
 		}
 
-		let groups = get_validator_groups(sender, new_head.hash).await?;
 		if let Err(err) = self
-			.early_request_chunks(ctx, runtime, new_head, leaf_session_index, &groups)
+			.early_request_chunks(ctx, runtime, new_head, leaf_session_index)
 			.await
 		{
 			gum::warn!(
@@ -259,12 +258,12 @@ impl Requester {
 		runtime: &mut RuntimeInfo,
 		activated_leaf: ActivatedLeaf,
 		leaf_session_index: SessionIndex,
-		validator_groups: &(Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
 	) -> Result<()> {
 		let sender = &mut ctx.sender().clone();
+		let validator_groups = &get_validator_groups(sender, activated_leaf.hash).await?;
 
 		let availability_cores =
-			get_availability_cores(sender, activated_leaf.hash).await.map_err(|err| {
+			&get_availability_cores(sender, activated_leaf.hash).await.map_err(|err| {
 				gum::warn!(
 					target: LOG_TARGET,
 					error = ?err,
@@ -272,7 +271,6 @@ impl Requester {
 				);
 				err
 			})?;
-		let availability_cores = availability_cores.as_ref();
 
 		let backable_candidates = self
 			.fetch_backable_candidates(&activated_leaf, sender, availability_cores)
@@ -285,9 +283,11 @@ impl Requester {
 			.into_iter()
 			.flat_map(|(_, candidates)| {
 				candidates.into_iter().filter_map(move |candidate| {
-					let receipt = candidate.candidate();
-					let core_index = Self::core_index_for_candidate(availability_cores, receipt)?;
+					let (_, core_index) = candidate.validator_indices_and_core_index();
+					let Some(core_index) = core_index else { return None };
 
+					let receipt = candidate.candidate();
+					
 					Some((
 						core_index,
 						CoreInfo {
@@ -312,26 +312,6 @@ impl Requester {
 			FetchOrigin::Early,
 		)
 		.await
-	}
-
-	fn core_index_for_candidate(
-		availability_cores: &Vec<CoreState>,
-		candidate: &CommittedCandidateReceiptV2,
-	) -> Option<CoreIndex> {
-		match candidate.descriptor.core_index() {
-			Some(core_index) => Some(core_index), // V2 candidate - has explicit core index
-			None => {
-				// V1 candidate - find core index by matching para_id with scheduled cores
-				availability_cores
-					.iter()
-					.enumerate()
-					.find_map(|(idx, core_state)| match core_state {
-						CoreState::Scheduled(s) if s.para_id == candidate.descriptor.para_id() =>
-							Some(CoreIndex(idx as u32)),
-						_ => None,
-					})
-			},
-		}
 	}
 
 	/// Requests the hashes of backable candidates from prospective parachains subsystem,
