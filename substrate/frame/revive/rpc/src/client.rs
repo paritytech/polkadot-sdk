@@ -122,9 +122,6 @@ pub enum ClientError {
 	/// Failed to filter logs.
 	#[error("Failed to filter logs")]
 	LogFilterFailed(#[from] anyhow::Error),
-	/// The transaction receipt was not found.
-	#[error("Transaction receipt not found")]
-	TransactReceiptNotFound,
 }
 
 const REVERT_CODE: i32 = 3;

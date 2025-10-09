@@ -124,17 +124,15 @@ async fn wait_for_transaction_to_be_mined(
 
 	loop {
 		tokio::select! {
-			_ = &mut timeout_fut => {
-				return Err(format!("Timed out waiting for transaction {hash:?} to be mined in a block").into());
-			}
-			result = transact_hashes_receiver.recv() => {
-				let transact_hashes = result
-					.map_err(|err| format!("Failed to receive transaction hashes: {err}"))?;
-				if transact_hashes.contains(&hash) {
-					return Ok(true);
-				}
-				// otherwise keep waiting
-			}
+			_ = &mut timeout_fut => return Err(format!("Timed out waiting for transaction {hash:?} to be mined.")),
+			recv = transact_hashes_receiver.recv() => match recv {
+				Ok(hashes) => if hashes.contains(&hash) { return Ok(true); },
+				Err(broadcast::error::RecvError::Lagged(n)) => {
+					log::warn!(target : LOG_TARGET, "Missed {n} notifications while waiting for transaction {hash:?} to be mined.");
+					continue;
+				},
+				Err(err) => return Err(format!("Failed to receive transaction hashes: {err}.").into()),
+			},
 		}
 	}
 }
