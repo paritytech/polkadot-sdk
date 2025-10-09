@@ -350,7 +350,7 @@ where
 {
 	/// Create new storage limiting storage deposits to the passed `limit`.
 	///
-	/// If the limit larger then what the origin can afford we will just fail
+	/// If the limit is larger than what the origin can afford we will just fail
 	/// when collecting the deposits in `try_into_deposit`.
 	pub fn new(limit: BalanceOf<T>) -> Self {
 		Self { limit, is_root: true, ..Default::default() }

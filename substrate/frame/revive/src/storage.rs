@@ -250,6 +250,7 @@ impl<T: Config> ContractInfo<T> {
 	/// contract doesn't store under the given `key` `None` is returned.
 	pub fn read(&self, key: &Key) -> Option<Vec<u8>> {
 		let value = child::get_raw(&self.child_trie_info(), key.hash().as_slice());
+		log::trace!(target: crate::LOG_TARGET, "contract storage: read value {:?} for key {:x?}", value, key);
 		if_tracing(|t| {
 			t.storage_read(key, value.as_deref());
 		});
@@ -278,6 +279,7 @@ impl<T: Config> ContractInfo<T> {
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		log::trace!(target: crate::LOG_TARGET, "contract storage: writing value {:?} for key {:x?}", new_value, key);
 		let hashed_key = key.hash();
 		if_tracing(|t| {
 			let old = child::get_raw(&self.child_trie_info(), hashed_key.as_slice());
