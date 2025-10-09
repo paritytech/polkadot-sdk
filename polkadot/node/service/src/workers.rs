@@ -93,38 +93,6 @@ pub fn determine_workers_paths(
 				worker_path: exec_worker_path,
 			})
 		}
-
-		#[cfg(target_os = "linux")]
-		{
-			polkadot_node_core_pvf::probe_worker_security(
-				&prep_worker_path,
-				"--check-can-enable-landlock",
-				std::iter::empty::<&str>(),
-			)?;
-
-			// Seccomp (only on x86_64)
-			#[cfg(target_arch = "x86_64")]
-			polkadot_node_core_pvf::probe_worker_security(
-				&prep_worker_path,
-				"--check-can-enable-seccomp",
-				std::iter::empty::<&str>(),
-			)?;
-
-			// Unshare user namespace + change root needs a temp dir
-			let tmp = tempfile::Builder::new().prefix("pvf-check-can-unshare-").tempdir()?;
-			polkadot_node_core_pvf::probe_worker_security(
-				&prep_worker_path,
-				"--check-can-unshare-user-namespace-and-change-root",
-				std::iter::once(tmp.path()),
-			)?;
-
-			// Secure clone
-			polkadot_node_core_pvf::probe_worker_security(
-				&prep_worker_path,
-				"--check-can-do-secure-clone",
-				std::iter::empty::<&str>(),
-			)?;
-		}
 	} else {
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
 	}
@@ -524,47 +492,6 @@ echo {}
 				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
 				Ok((p1, p2)) if p1 == prepare_worker_lib_path && p2 == execute_worker_lib_path
 			);
-
-			Ok(())
-		})
-		.unwrap();
-	}
-
-	#[test]
-	fn should_probe_worker_security_successfully() {
-		with_temp_dir_structure(|tempdir, _| {
-			let worker_path = tempdir.join("usr/bin/polkadot-prepare-worker");
-
-			// Write a dummy worker that succeeds on a specific check flag.
-			let program = r#"#!/usr/bin/env bash
-if [[ "$1" == "--check-can-enable-landlock" ]]; then
-    exit 0
-else
-    echo "unexpected flag: $1" >&2
-    exit 1
-fi
-"#;
-			std::fs::write(&worker_path, program)?;
-			std::fs::set_permissions(
-				&worker_path,
-				std::os::unix::fs::PermissionsExt::from_mode(0o744),
-			)?;
-
-			// Expect probe to succeed with the supported flag.
-			assert!(polkadot_node_core_pvf::probe_worker_security(
-				&worker_path,
-				"--check-can-enable-landlock",
-				std::iter::empty::<&str>(),
-			)
-			.is_ok());
-
-			// Expect probe to fail with an unsupported flag.
-			assert!(polkadot_node_core_pvf::probe_worker_security(
-				&worker_path,
-				"--check-can-enable-seccomp",
-				std::iter::empty::<&str>(),
-			)
-			.is_err());
 
 			Ok(())
 		})
