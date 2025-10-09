@@ -954,6 +954,15 @@ pub mod pallet {
 			.try_into()
 			.expect("Storage size too big");
 
+			log::debug!(
+				target: LOG_TARGET,
+				"Integrity check: max_storage_size={} KB < storage_size_limit={} KB (max_immutable_size={} KB, max_eth_block_builder_bytes={} KB)",
+				max_storage_size / 1024,
+				storage_size_limit / 1024,
+				max_immutable_size / 1024,
+				max_eth_block_builder_bytes / 1024,
+			);
+
 			assert!(
 				max_storage_size < storage_size_limit,
 				"Maximal storage size {} exceeds the storage limit {}",
