@@ -425,6 +425,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn gas_left() -> u64 {
+		// The name is only for historical reasons; it's the correct method.
 		unsafe { sys::ref_time_left() }
 	}
 
