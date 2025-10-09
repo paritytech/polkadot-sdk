@@ -297,7 +297,6 @@ mod benchmarks {
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
-		let storage_deposit = default_deposit_limit::<T>();
 
 		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
 
@@ -306,7 +305,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(origin, evm_value, Weight::MAX, storage_deposit, code, input, 0u32.into(), 0);
+		_(origin, evm_value, Weight::MAX, code, input, 0u32.into(), 0);
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
@@ -444,9 +443,10 @@ mod benchmarks {
 		let caller_addr = T::AddressMapper::to_address(&instance.caller);
 		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
-		let storage_deposit = default_deposit_limit::<T>();
+
 		#[extrinsic_call]
-		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data, 0u32.into(), 0);
+		_(origin, instance.address, evm_value, Weight::MAX, data, 0u32.into(), 0);
+
 		let deposit = T::Currency::balance_on_hold(
 			&HoldReason::StorageDepositReserve.into(),
 			&instance.account_id,
@@ -807,7 +807,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_ref_time_left(memory.as_mut_slice());
 		}
-		assert_eq!(result.unwrap(), runtime.ext().gas_meter().gas_left().ref_time());
+		assert_eq!(result.unwrap(), runtime.ext().gas_left());
 	}
 
 	#[benchmark(pov_mode = Measured)]
