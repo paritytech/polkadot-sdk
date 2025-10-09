@@ -29,7 +29,7 @@ pub mod tx_extension;
 pub use alloy_core::sol_types::decode_revert_reason;
 
 /// Ethereum block hash builder related types.
-pub mod block_hash;
+pub(crate) mod block_hash;
 pub use block_hash::ReceiptGasInfo;
 
 /// Ethereum block storage module.
