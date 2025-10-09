@@ -152,4 +152,9 @@ impl InstanceMetrics {
 			histogram.observe(self.submitted_at.elapsed().as_secs_f64());
 		}
 	}
+
+	/// Returns the time when the transaction was submitted.
+	pub fn submitted_at(&self) -> Instant {
+		self.submitted_at
+	}
 }

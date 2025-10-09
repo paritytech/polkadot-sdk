@@ -18,10 +18,11 @@
 
 use crate::{
 	hex_string,
-	transaction::{TransactionBlock, TransactionEvent},
+	transaction::{tests::setup::setup_api_tx_with_monitoring, TransactionBlock, TransactionEvent},
 };
 use assert_matches::assert_matches;
 use codec::Encode;
+use futures::StreamExt;
 use jsonrpsee::rpc_params;
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool};
 use sp_core::H256;
@@ -242,4 +243,49 @@ async fn tx_slow_client_replace_old_messages() {
 	];
 
 	assert_eq!(expected, res);
+}
+
+#[tokio::test]
+async fn tx_with_monitoring() {
+	let (api, pool, client, tx_api, _exec_middleware, _pool_middleware, mut tx_monitor) =
+		setup_api_tx_with_monitoring();
+	let block_1_header = api.push_block(1, vec![], true);
+	client.set_best_block(block_1_header.hash(), 1);
+
+	let uxt = uxt(Alice, ALICE_NONCE);
+	let xt = hex_string(&uxt.encode());
+
+	let mut sub = tx_api
+		.subscribe_unbounded("transactionWatch_v1_submitAndWatch", rpc_params![&xt])
+		.await
+		.unwrap();
+
+	let event: TransactionEvent<H256> = get_next_event_sub!(&mut sub);
+	assert_eq!(event, TransactionEvent::Validated);
+
+	// Import block 2 with the transaction included.
+	let block_2_header = api.push_block(2, vec![uxt.clone()], true);
+	let block_2 = block_2_header.hash();
+	let event = ChainEvent::NewBestBlock { hash: block_2, tree_route: None };
+	pool.inner_pool.maintain(event).await;
+
+	let event: TransactionEvent<H256> = get_next_event_sub!(&mut sub);
+	assert_eq!(
+		event,
+		TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock {
+			hash: block_2,
+			index: 0
+		}))
+	);
+
+	// Check the monitor produces the same event
+	let result = tokio::time::timeout(std::time::Duration::from_secs(5), tx_monitor.next())
+		.await
+		.unwrap()
+		.unwrap();
+	let (block_hash, _submitted_at) = match result {
+		crate::transaction::TransactionMonitorEvent::InBlock { block_hash, submitted_at } =>
+			(block_hash, submitted_at),
+	};
+	assert_eq!(block_hash, block_2);
 }

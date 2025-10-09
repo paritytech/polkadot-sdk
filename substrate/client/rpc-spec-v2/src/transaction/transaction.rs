@@ -28,7 +28,7 @@ use crate::{
 };
 
 use codec::Decode;
-use futures::{StreamExt, TryFutureExt};
+use futures::{Stream, StreamExt, TryFutureExt};
 use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 
 use super::metrics::{InstanceMetrics, Metrics};
@@ -43,29 +43,54 @@ use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
-pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
+pub(crate) const LOG_TARGET: &str = "rpc-spec-v2::tx";
 
 /// An API for transaction RPC calls.
-pub struct Transaction<Pool, Client> {
+pub struct Transaction<Pool, Client>
+where
+	Pool: TransactionPool + Sync + Send + 'static,
+	Pool::Hash: Unpin,
+	<Pool::Block as BlockT>::Hash: Unpin,
+	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
+{
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Transactions pool.
 	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
+	/// Channel to announce transactions.
+	tx_announce: tokio::sync::mpsc::Sender<TransactionMonitorEvent<<Pool::Block as BlockT>::Hash>>,
 	/// Metrics for transactions.
 	metrics: Option<Metrics>,
 }
 
-impl<Pool, Client> Transaction<Pool, Client> {
+impl<Pool, Client> Transaction<Pool, Client>
+where
+	Pool: TransactionPool + Sync + Send + 'static,
+	Pool::Hash: Unpin,
+	<Pool::Block as BlockT>::Hash: Unpin,
+	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
+{
 	/// Creates a new [`Transaction`].
 	pub fn new(
 		client: Arc<Client>,
 		pool: Arc<Pool>,
 		executor: SubscriptionTaskExecutor,
 		metrics: Option<Metrics>,
-	) -> Self {
-		Transaction { client, pool, executor, metrics }
+	) -> (Self, TransactionMonitorHandle<<Pool::Block as BlockT>::Hash>) {
+		let (tx_announce, rx_announce) = tokio::sync::mpsc::channel(1024);
+
+		(
+			Transaction {
+				client: client.clone(),
+				pool: pool.clone(),
+				executor,
+				tx_announce,
+				metrics,
+			},
+			TransactionMonitorHandle(Some(rx_announce)),
+		)
 	}
 }
 
@@ -90,6 +115,7 @@ where
 
 		// Get a new transaction metrics instance and increment the counter.
 		let mut metrics = InstanceMetrics::new(self.metrics.clone());
+		let tx_announce = self.tx_announce.clone();
 
 		let fut = async move {
 			let decoded_extrinsic = match TransactionFor::<Pool>::decode(&mut &xt[..]) {
@@ -125,6 +151,7 @@ where
 				return;
 			};
 
+			let submitted_at = metrics.submitted_at();
 			match submit.await {
 				Ok(stream) => {
 					let stream = stream
@@ -135,7 +162,25 @@ where
 								metrics.register_event(event);
 							});
 
-							async move { event }
+							let tx_announce = tx_announce.clone();
+							async move {
+								if let Some(TransactionEvent::BestChainBlockIncluded(Some(
+									TransactionBlock { hash, .. },
+								))) = &event
+								{
+									// Notify the monitor about the transaction being included in a
+									// block.
+									let _ = tx_announce
+										.send(TransactionMonitorEvent::InBlock {
+											block_hash: *hash,
+											submitted_at,
+										})
+										.await;
+									log::trace!(target: LOG_TARGET, "Transaction included in block and notified: {:?}", hash);
+								}
+
+								event
+							}
 						})
 						.boxed();
 
@@ -187,5 +232,40 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		})),
 		// These are the events that are not supported by the new API.
 		TransactionStatus::Broadcast(_) => None,
+	}
+}
+
+/// Handle for the transaction monitor.
+#[derive(Default)]
+pub struct TransactionMonitorHandle<Hash: Clone>(
+	Option<tokio::sync::mpsc::Receiver<TransactionMonitorEvent<Hash>>>,
+);
+
+/// An event emitted by the transaction monitor.
+///
+/// This is used to notify about the state of transactions.
+#[derive(Debug, Clone)]
+pub enum TransactionMonitorEvent<Hash: Clone> {
+	/// The transaction has been included in a block.
+	InBlock {
+		/// The block hash where the transaction was included.
+		block_hash: Hash,
+
+		/// The time when the transaction was submitted.
+		submitted_at: std::time::Instant,
+	},
+}
+
+impl<Hash: Clone> Stream for TransactionMonitorHandle<Hash> {
+	type Item = TransactionMonitorEvent<Hash>;
+
+	fn poll_next(
+		self: std::pin::Pin<&mut Self>,
+		cx: &mut std::task::Context<'_>,
+	) -> std::task::Poll<Option<Self::Item>> {
+		if let Some(rx) = self.get_mut().0.as_mut() {
+			return rx.poll_recv(cx);
+		}
+		std::task::Poll::Pending
 	}
 }

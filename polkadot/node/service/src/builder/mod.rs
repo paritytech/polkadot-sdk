@@ -506,7 +506,8 @@ where
 			system_rpc_tx,
 			tx_handler_controller,
 			telemetry: telemetry.as_mut(),
-		})?;
+		})?
+		.rpc_handlers;
 
 		if let Some(hwbench) = hwbench {
 			sc_sysinfo::print_hwbench(&hwbench);

@@ -61,8 +61,8 @@ pub use self::{
 		new_client, new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
 		new_full_parts_with_genesis_builder, new_wasm_executor,
 		propagate_transaction_notifications, spawn_tasks, BuildNetworkAdvancedParams,
-		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, SpawnTasksParams,
-		TFullBackend, TFullCallExecutor, TFullClient,
+		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, RpcModuleData,
+		SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -83,6 +83,8 @@ pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
 	Properties,
 };
+
+pub use sc_rpc_spec_v2::transaction::{TransactionMonitorEvent, TransactionMonitorHandle};
 
 use crate::config::RpcConfiguration;
 use prometheus_endpoint::Registry;
@@ -379,16 +381,25 @@ pub async fn build_system_rpc_future<
 	debug!("`NetworkWorker` has terminated, shutting down the system RPC future.");
 }
 
+/// The data returned by starting the RPC server.
+pub struct RpcServerData<Hash: Clone> {
+	/// The RPC server instance.
+	pub server: Server,
+	/// Specific handler for the RPC transactions.
+	pub transaction_v2_handle: sc_rpc_spec_v2::transaction::TransactionMonitorHandle<Hash>,
+}
+
 /// Starts RPC servers.
-pub fn start_rpc_servers<R>(
+pub fn start_rpc_servers<R, Hash>(
 	rpc_configuration: &RpcConfiguration,
 	registry: Option<&Registry>,
 	tokio_handle: &Handle,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
-) -> Result<Server, error::Error>
+) -> Result<RpcServerData<Hash>, error::Error>
 where
-	R: Fn() -> Result<RpcModule<()>, Error>,
+	Hash: Clone,
+	R: Fn() -> Result<RpcModuleData<Hash>, Error>,
 {
 	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
 		rpc_configuration.addr.as_ref()
@@ -436,11 +447,11 @@ where
 	};
 
 	let metrics = sc_rpc_server::RpcMetrics::new(registry)?;
-	let rpc_api = gen_rpc_module()?;
+	let RpcModuleData { module, transaction_v2_handle } = gen_rpc_module()?;
 
 	let server_config = sc_rpc_server::Config {
 		endpoints,
-		rpc_api,
+		rpc_api: module,
 		metrics,
 		id_provider: rpc_id_provider,
 		tokio_handle: tokio_handle.clone(),
@@ -453,7 +464,7 @@ where
 	match tokio::task::block_in_place(|| {
 		tokio_handle.block_on(sc_rpc_server::start_server(server_config))
 	}) {
-		Ok(server) => Ok(server),
+		Ok(server) => Ok(RpcServerData { server, transaction_v2_handle }),
 		Err(e) => Err(Error::Application(e)),
 	}
 }

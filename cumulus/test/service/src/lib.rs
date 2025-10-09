@@ -389,7 +389,8 @@ where
 		system_rpc_tx,
 		tx_handler_controller,
 		telemetry: None,
-	})?;
+	})?
+	.rpc_handlers;
 
 	let announce_block = {
 		let sync_service = sync_service.clone();
@@ -427,6 +428,7 @@ where
 		recovery_handle,
 		sync_service: sync_service.clone(),
 		prometheus_registry: None,
+		rpc_transaction_v2_handles: Default::default(),
 	})?;
 
 	if let Some(collator_key) = collator_key {

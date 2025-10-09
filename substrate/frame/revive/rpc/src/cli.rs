@@ -243,14 +243,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			}
 		});
 
-	task_manager.keep_alive(rpc_server_handle);
+	task_manager.keep_alive(rpc_server_handle.server);
 	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))?;
 	Ok(())
 }
 
 /// Create the JSON-RPC module.
-fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
+fn rpc_module(
+	is_dev: bool,
+	client: Client,
+) -> Result<sc_service::RpcModuleData<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
@@ -262,5 +265,6 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
-	Ok(module)
+
+	Ok(sc_service::RpcModuleData { module, transaction_v2_handle: Default::default() })
 }

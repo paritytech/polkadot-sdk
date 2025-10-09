@@ -1,0 +1,71 @@
+title: 'cumulus/metrics: Measure the time of including a tx in a backed block'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR introduces a metric in Cumulus to measure the time it took a transaction received on the RPC layer to be included a backed block.
+
+    - A new `TransactionMonitorHandle` is exposed from the transaction RPC V2 API to listen on monitoring events emitted by substrate
+    - The monitoring event contains the block of the transaction with the timestamp associated
+    - A cumulus task is added to group the backed events from the relay chain with the monitoring events exposed by the RPC layer
+    - The spawning of RPC `spawn_tasks` now returns the additional `TransactionMonitorHandle`
+    - The metric is exposed under the following histogram: `parachain_transaction_backed_duration`
+
+    ## Testing Done
+    - Started a small network with 2 validators and 2 collators (charlie and dave -- using `small_network.toml` as base)
+    - Used subxt with a minimal working code to send a transaction to charlie
+    - Used the RPC-V2 API (ie ChainHeadBackend)
+
+    ```rust
+    use std::sync::Arc;
+    use subxt::{
+        OnlineClient, PolkadotConfig,
+        backend::{chain_head::ChainHeadBackend, rpc::RpcClient},
+    };
+    use subxt_signer::sr25519::dev;
+
+    #[subxt::subxt(runtime_metadata_insecure_url = "ws://127.0.0.1:44919")]
+    pub mod polkadot {}
+
+    #[tokio::main]
+    async fn main() -> Result<(), Box<dyn std::error::Error>> {
+        let rpc = RpcClient::from_url("ws://127.0.0.1:44919".to_string()).await?;
+        let backend = ChainHeadBackend::builder().build_with_background_driver(rpc.clone());
+        let api: OnlineClient<PolkadotConfig> = OnlineClient::from_backend(Arc::new(backend)).await?;
+
+        let from = dev::charlie();
+        let dest = dev::dave().public_key().into();
+        let tx = Box::new(polkadot::tx().balances().transfer_allow_death(dest, 10_000));
+        api.tx()
+            .sign_and_submit_then_watch_default(&tx, &from)
+            .await?
+            .wait_for_finalized_success()
+            .await?;
+
+        Ok(())
+    }
+    ```
+    - After the transaction gets finalized:
+
+    ```
+    parachain_transaction_backed_duration_sum{chain="asset-hub-rococo-local"} 13.097583666
+    parachain_transaction_backed_duration_count{chain="asset-hub-rococo-local"} 1
+    ```
+
+    Closes https://github.com/paritytech/polkadot-sdk/issues/8383
+
+    cc @paritytech/sdk-node
+crates:
+- name: cumulus-relay-chain-interface
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: cumulus-client-service
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: sc-service
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch

@@ -22,6 +22,7 @@ use crate::{
 		api::{TransactionApiServer, TransactionBroadcastApiServer},
 		tests::executor::{TaskExecutorBroadcast, TaskExecutorState},
 		Transaction as RpcTransaction, TransactionBroadcast as RpcTransactionBroadcast,
+		TransactionMonitorHandle,
 	},
 };
 use futures::Future;
@@ -105,6 +106,20 @@ pub fn setup_api_tx() -> (
 	TaskExecutorState,
 	MiddlewarePoolRecv,
 ) {
+	let (api, pool, client_mock, tx_api, executor_recv, pool_state, _tx_monitor) =
+		setup_api_tx_with_monitoring();
+	(api, pool, client_mock, tx_api, executor_recv, pool_state)
+}
+
+pub fn setup_api_tx_with_monitoring() -> (
+	Arc<TestApi>,
+	Arc<MiddlewarePool>,
+	Arc<ChainHeadMockClient<Client<Backend>>>,
+	RpcModule<RpcTransaction<MiddlewarePool, ChainHeadMockClient<Client<Backend>>>>,
+	TaskExecutorState,
+	MiddlewarePoolRecv,
+	TransactionMonitorHandle<sp_core::H256>,
+) {
 	let (pool, api, _) = maintained_pool(Default::default());
 	let (pool, pool_state) = MiddlewarePool::new(Arc::new(pool).clone());
 	let pool = Arc::new(pool);
@@ -114,11 +129,11 @@ pub fn setup_api_tx() -> (
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
 	let (task_executor, executor_recv) = TaskExecutorBroadcast::new();
 
-	let tx_api =
-		RpcTransaction::new(client_mock.clone(), pool.clone(), Arc::new(task_executor), None)
-			.into_rpc();
+	let (tx_api, tx_monitor) =
+		RpcTransaction::new(client_mock.clone(), pool.clone(), Arc::new(task_executor), None);
+	let tx_api = tx_api.into_rpc();
 
-	(api, pool, client_mock, tx_api, executor_recv, pool_state)
+	(api, pool, client_mock, tx_api, executor_recv, pool_state, tx_monitor)
 }
 
 /// Get the next event from the provided middleware in at most 5 seconds.

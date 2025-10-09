@@ -334,7 +334,7 @@ pub async fn start_parachain_node(
 		})
 	};
 
-	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+	let spawn_result = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		rpc_builder,
 		client: client.clone(),
 		transaction_pool: transaction_pool.clone(),
@@ -401,6 +401,7 @@ pub async fn start_parachain_node(
 		recovery_handle: Box::new(overseer_handle.clone()),
 		sync_service: sync_service.clone(),
 		prometheus_registry: prometheus_registry.as_ref(),
+		rpc_transaction_v2_handles: spawn_result.transaction_v2_handles,
 	})?;
 
 	start_bootnode_tasks(StartBootnodeTasksParams {
