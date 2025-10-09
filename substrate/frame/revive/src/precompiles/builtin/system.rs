@@ -17,10 +17,9 @@
 
 use crate::{
 	address::AddressMapper,
-	exec::Origin,
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, Revert},
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
-	Config, DispatchError, H160,
+	Config, H160,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
