@@ -1049,7 +1049,9 @@ mod on_idle {
 
 			// Verify they're in PendingRebag with correct scores
 			assert_eq!(PendingRebag::<Runtime>::count(), 6); // Now 6
-			assert_eq!(PendingRebag::<Runtime>::iter().collect(), vec![...]);
+			let mut pending: Vec<_> = PendingRebag::<Runtime>::iter().collect();
+			pending.sort();
+			assert_eq!(pending, vec![(5, 15), (6, 45), (7, 55), (8, 1500), (11, 100), (99, 500)]);
 
 			// Verify they're NOT in the list yet
 			assert!(!List::<Runtime>::contains(&5));
