@@ -112,6 +112,9 @@ sp-version.workspace = true
 sp-weights.default-features = true
 sp-weights.workspace = true
 
+#[DOPPELGANGER]
+doppelganger-consensus = { path = "../../../doppelganger/consensus", optional = true }
+
 # External Crates
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
@@ -271,6 +274,7 @@ fast-runtime = [
 ]
 
 malus = ["full-node"]
+doppelganger = ["dep:doppelganger-consensus", "full-node"]
 runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",

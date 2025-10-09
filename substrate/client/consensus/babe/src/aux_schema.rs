@@ -19,7 +19,7 @@
 //! Schema for BABE epoch changes in the aux-db.
 
 use codec::{Decode, Encode};
-use log::info;
+use log::{info, trace, warn};
 
 use crate::{migration::EpochV0, Epoch, LOG_TARGET};
 use sc_client_api::backend::AuxStore;
@@ -105,8 +105,46 @@ pub(crate) fn write_epoch_changes<Block: BlockT, F, R>(
 where
 	F: FnOnce(&[(&'static [u8], &[u8])]) -> R,
 {
+	warn!(
+		target: LOG_TARGET,
+		"[DOPPELGANGER] writing epoch changes {:?}",epoch_changes
+	);
+
+	// ensure we always use same auths
+	let mut auths = vec![];
+	for (_k, v) in epoch_changes.epochs() {
+		match v {
+			sc_consensus_epochs::PersistedEpoch::Genesis(_, _) => {
+				// noop
+			},
+			sc_consensus_epochs::PersistedEpoch::Regular(epoch) => {
+				if !epoch.0.authorities.is_empty() {
+					auths = epoch.0.authorities.clone();
+				}
+			},
+		}
+	}
+
+	trace!(target: LOG_TARGET, "[DOPPELGANGER] auths {:?}", auths);
+
+	let epoch_changes_augmented = epoch_changes.clone().map(|hash, n, mut epoch| {
+		trace!(target: LOG_TARGET, "[DOPPELGANGER] hash {:?}", hash);
+		trace!(target: LOG_TARGET, "[DOPPELGANGER] n {:?}", n);
+		trace!(target: LOG_TARGET, "[DOPPELGANGER] epoch {:?}", epoch);
+		if epoch.0.authorities.is_empty() {
+			epoch.0.authorities = auths.clone();
+		}
+
+		epoch
+	});
+
+	warn!(
+		target: LOG_TARGET,
+		"[DOPPELGANGER] writing epoch changes augmented {:?}",epoch_changes_augmented
+	);
+
 	BABE_EPOCH_CHANGES_CURRENT_VERSION.using_encoded(|version| {
-		let encoded_epoch_changes = epoch_changes.encode();
+		let encoded_epoch_changes = epoch_changes_augmented.encode();
 		write_aux(&[
 			(BABE_EPOCH_CHANGES_KEY, encoded_epoch_changes.as_slice()),
 			(BABE_EPOCH_CHANGES_VERSION, version),

@@ -156,6 +156,8 @@ substrate-state-trie-migration-rpc.default-features = true
 substrate-state-trie-migration-rpc.workspace = true
 subxt-metadata = { workspace = true, default-features = true }
 
+doppelganger-consensus = { path = "../../../doppelganger/consensus", optional = true }
+
 [dev-dependencies]
 assert_cmd = { workspace = true }
 cumulus-test-runtime = { workspace = true }
@@ -188,3 +190,5 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+doppelganger = ["dep:doppelganger-consensus"]

@@ -1556,3 +1556,5 @@ pub use xcm_runtime_apis;
 /// Test kit to simulate cross-chain message passing and XCM execution.
 #[cfg(feature = "xcm-simulator")]
 pub use xcm_simulator;
+
+pub use doppelganger as doppelganger_lib;
