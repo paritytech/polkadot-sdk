@@ -39,6 +39,10 @@
 //! Since proxy filters are respected in all dispatches of this pallet, it should never need to be
 //! filtered by any proxy.
 //!
+//! Pre- and post-hooks can be configured via `BatchHook` associated type.
+//! They are triggered for each batch call: `batch`, `batch_all`, and `force_batch`.
+//! Use the unit type `()` if no behavior is required.
+//!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
@@ -72,8 +76,29 @@ use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
 pub use weights::WeightInfo;
-
 pub use pallet::*;
+
+/// Hooks that will be called for `batch` calls.
+pub trait BatchHook {
+	/// Will be called before a batch is executed.
+	fn on_batch_start() -> sp_runtime::DispatchResult;
+	/// Will be called after the batch was executed.
+	///
+	/// Depending on the exact batch call used, it may not be called when a batch item failed.
+	fn on_batch_end() -> sp_runtime::DispatchResult;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl BatchHook for Tuple {
+	fn on_batch_start() -> sp_runtime::DispatchResult {
+		for_tuples!( #( Tuple::on_batch_start()?; )* );
+		Ok(())
+	}
+	fn on_batch_end() -> sp_runtime::DispatchResult {
+		for_tuples!( #( Tuple::on_batch_end()?; )* );
+		Ok(())
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -104,6 +129,9 @@ pub mod pallet {
 		type PalletsOrigin: Parameter +
 			Into<<Self as frame_system::Config>::RuntimeOrigin> +
 			IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
+
+		/// Hook to be called before any batch operation.
+		type BatchHook: BatchHook;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -205,6 +233,8 @@ pub mod pallet {
 				return Err(BadOrigin.into())
 			}
 
+			T::BatchHook::on_batch_start()?;
+
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
 			ensure!(calls_len <= Self::batched_calls_limit() as usize, Error::<T>::TooManyCalls);
@@ -234,6 +264,9 @@ pub mod pallet {
 				Self::deposit_event(Event::ItemCompleted);
 			}
 			Self::deposit_event(Event::BatchCompleted);
+
+			T::BatchHook::on_batch_end()?;
+
 			let base_weight = T::WeightInfo::batch(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())
 		}
@@ -314,6 +347,8 @@ pub mod pallet {
 				return Err(BadOrigin.into())
 			}
 
+			T::BatchHook::on_batch_start()?;
+
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
 			ensure!(calls_len <= Self::batched_calls_limit() as usize, Error::<T>::TooManyCalls);
@@ -348,6 +383,9 @@ pub mod pallet {
 				Self::deposit_event(Event::ItemCompleted);
 			}
 			Self::deposit_event(Event::BatchCompleted);
+
+			T::BatchHook::on_batch_end()?;
+
 			let base_weight = T::WeightInfo::batch_all(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())
 		}
@@ -410,6 +448,8 @@ pub mod pallet {
 				return Err(BadOrigin.into())
 			}
 
+			T::BatchHook::on_batch_start()?;
+
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
 			ensure!(calls_len <= Self::batched_calls_limit() as usize, Error::<T>::TooManyCalls);
@@ -440,6 +480,9 @@ pub mod pallet {
 			} else {
 				Self::deposit_event(Event::BatchCompleted);
 			}
+
+			T::BatchHook::on_batch_end()?;
+
 			let base_weight = T::WeightInfo::batch(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())
 		}

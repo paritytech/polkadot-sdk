@@ -1,0 +1,32 @@
+title: 'feat: add hooks for utility batch'
+doc:
+- audience: Runtime Dev
+  description: |
+    Users of the utility pallet can define pre- and post-hooks via the `BatchHook` associated type.
+    These hooks are triggered for each batch call: `batch`, `batch_all`, and `force_batch`.
+    If no custom behavior is required, use the unit type () as the hook.
+crates:
+- name: pallet-utility
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
