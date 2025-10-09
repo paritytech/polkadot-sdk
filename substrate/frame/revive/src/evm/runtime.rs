@@ -291,7 +291,7 @@ pub trait EthExtra {
 			InvalidTransaction::BadProof
 		})?;
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
-		let base_fee = <Pallet<Self::Config>>::evm_gas_price();
+		let base_fee = <Pallet<Self::Config>>::evm_base_fee();
 		let tx = GenericTransaction::from_signed(tx, base_fee, None);
 		let nonce = tx.nonce.unwrap_or_default().try_into().map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
@@ -406,7 +406,7 @@ mod test {
 			Self::fund_account(&account);
 
 			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone());
-			self.tx.gas_price = Some(<Pallet<Test>>::evm_gas_price());
+			self.tx.gas_price = Some(<Pallet<Test>>::evm_base_fee());
 
 			match dry_run {
 				Ok(dry_run) => {

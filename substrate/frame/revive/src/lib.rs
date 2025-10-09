@@ -25,6 +25,7 @@ extern crate alloc;
 mod address;
 mod benchmarking;
 mod call_builder;
+mod debug;
 mod exec;
 mod gas;
 mod impl_fungibles;
@@ -87,6 +88,7 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
+	debug::DebugSettings,
 	exec::{Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
@@ -307,6 +309,10 @@ pub mod pallet {
 		///  Default: `0.5`.
 		#[pallet::constant]
 		type MaxEthExtrinsicWeight: Get<FixedU128>;
+
+		/// Allows debug-mode configuration, such as enabling unlimited contract size.
+		#[pallet::constant]
+		type DebugEnabled: Get<bool>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -386,6 +392,7 @@ pub mod pallet {
 			type FindAuthor = ();
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
+			type DebugEnabled = ConstBool<false>;
 		}
 	}
 
@@ -596,6 +603,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
+	/// Debugging settings that can be configured when DebugEnabled config is true.
+	#[pallet::storage]
+	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
+
 	pub mod genesis {
 		use super::*;
 		use crate::evm::Bytes32;
@@ -637,6 +648,10 @@ pub mod pallet {
 		/// Account entries (both EOAs and contracts)
 		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub accounts: Vec<genesis::Account<T>>,
+
+		/// Optional debugging settings applied at genesis.
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		pub debug_settings: Option<DebugSettings>,
 	}
 
 	#[pallet::genesis_build]
@@ -716,6 +731,11 @@ pub mod pallet {
 				let _ = Pallet::<T>::set_evm_balance(address, *balance).inspect_err(|err| {
 					log::error!(target: LOG_TARGET, "Failed to set EVM balance for {address:?}: {err:?}");
 				});
+			}
+
+			// Set debug settings.
+			if let Some(settings) = self.debug_settings.as_ref() {
+				settings.write_to_storage::<T>()
 			}
 		}
 	}
@@ -1414,7 +1434,7 @@ impl<T: Config> Pallet<T> {
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
 
-		let base_fee = Self::evm_gas_price();
+		let base_fee = Self::evm_base_fee();
 		let effective_gas_price = tx.effective_gas_price(base_fee).unwrap_or(base_fee);
 
 		if effective_gas_price < base_fee {
@@ -1460,20 +1480,22 @@ impl<T: Config> Pallet<T> {
 		let mut call_info = create_call::<T>(tx, None)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
-		// emulate transaction behavior
+		// the dry-run might leave out certain fields
+		// in those cases we skip the check that the caller has enough balance
+		// to pay for the fees
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
-		match (gas, from, value.is_zero()) {
-			(Some(_), Some(from), _) | (_, Some(from), false) => {
-				let balance = Self::evm_balance(&from).saturating_add(value);
-				if balance < Pallet::<T>::convert_native_to_evm(fees) {
-					return Err(EthTransactError::Message(format!(
-								"insufficient funds for gas * price + value: address {from:?} have {balance:?} (supplied gas {gas:?})",
-					)));
-				}
-			},
-			_ => {},
+		if let Some(from) = &from {
+			let fees = if gas.is_some() { fees } else { Zero::zero() };
+			let balance = Self::evm_balance(from);
+			if balance < Pallet::<T>::convert_native_to_evm(fees).saturating_add(value) {
+				return Err(EthTransactError::Message(format!(
+					"insufficient funds for gas * price + value ({fees:?}): address {from:?} have {balance:?} (supplied gas {gas:?})",
+				)));
+			}
 		}
 
+		// the deposit is done when the transaction is transformed from an `eth_transact`
+		// we emulate this behavior for the dry-run her
 		T::FeeInfo::deposit_txfee(T::Currency::issue(fees));
 
 		let extract_error = |err| {
@@ -1599,6 +1621,7 @@ impl<T: Config> Pallet<T> {
 			)))?;
 		}
 
+		// not enough gas supplied to pay for both the tx fees and the storage deposit
 		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
 		let available_fee = T::FeeInfo::remaining_txfee();
 		if transaction_fee > available_fee {
@@ -1706,7 +1729,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Get the base gas price.
-	pub fn evm_gas_price() -> U256 {
+	pub fn evm_base_fee() -> U256 {
 		let multiplier = T::FeeInfo::next_fee_multiplier();
 		multiplier.saturating_mul_int::<u128>(T::NativeToEthRatio::get().into()).into()
 	}
@@ -2266,7 +2289,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn gas_price() -> $crate::U256 {
-					$crate::Pallet::<Self>::evm_gas_price()
+					$crate::Pallet::<Self>::evm_base_fee()
 				}
 
 				fn nonce(address: $crate::H160) -> Nonce {
