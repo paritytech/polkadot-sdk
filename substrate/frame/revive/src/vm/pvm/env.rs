@@ -945,14 +945,7 @@ pub mod env {
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
 		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
-		// TODO: allow_from_outside_tx should be removed, set to true for now to allow terminating
-		// from any tx. Some tests rely on allow_from_outside_tx=true and they cannot easily be
-		// changed to work with same tx creation-termination rules. In production we only allow
-		// true termination of a contract if it is called in the same tx as it was created.
-		if matches!(
-			self.ext.terminate(&beneficiary, /* allow_from_outside_tx */ true,)?,
-			crate::CodeRemoved::No
-		) {
+		if matches!(self.ext.terminate(&beneficiary)?, crate::CodeRemoved::No) {
 			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
 		}
 		Err(TrapReason::Termination)

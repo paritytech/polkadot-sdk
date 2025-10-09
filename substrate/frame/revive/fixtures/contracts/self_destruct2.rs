@@ -19,56 +19,17 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api};
 
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {
-}
+pub extern "C" fn deploy() {}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	// If the input data is not empty, then recursively call self with empty input data to 
-	// trigger reentry.
-	input!(input, 4,);
-
-	if !input.is_empty() {
-		let mut addr = [0u8; 20];
-		api::address(&mut addr);
-
-		api::call(
-			uapi::CallFlags::ALLOW_REENTRY,
-			&addr,
-			u64::MAX,       // How much ref_time to devote for the execution. u64 = all.
-			u64::MAX,       // How much proof_size to devote for the execution. u64 = all.
-			&[u8::MAX; 32], // No deposit limit.
-			&[0u8; 32],     // Value to transfer.
-			&[0u8; 0],
-			None,
-		)
-		.unwrap();
-	} else {
-        // Call the system terminate precompile
-        const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
-        
-        // Build the calldata: selector + ABI-encoded address
-        let selector = uapi::solidity_selector("terminate(address)");
-        let mut calldata = [0u8; 4 + 32];
-        calldata[0..4].copy_from_slice(&selector);
-        // ABI encode address: right-align into 32 bytes (pad with 12 leading zeros)
-        calldata[4 + 12..4 + 32].copy_from_slice(&DJANGO_FALLBACK);
-
-        let _ = api::call(
-            uapi::CallFlags::ALLOW_REENTRY,
-            &uapi::SYSTEM_PRECOMPILE_ADDR,
-            u64::MAX,
-            u64::MAX,
-            &[u8::MAX; 32],
-            &[0u8; 32],
-            &calldata,
-            None,
-        ).unwrap();
-	}
+	// Call the system terminate precompile
+	const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
+	api::terminate(&DJANGO_FALLBACK);
 }

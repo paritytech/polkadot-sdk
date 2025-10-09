@@ -253,9 +253,7 @@ pub fn log<'ext, const N: usize, E: Ext>(
 pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	let ([], beneficiary) = interpreter.stack.popn_top()?;
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::Terminate { code_removed: true })?;
-	let dispatch_result = interpreter
-		.ext
-		.terminate(&beneficiary.into_address(), /* allow_from_outside_tx */ false);
+	let dispatch_result = interpreter.ext.terminate(&beneficiary.into_address());
 
 	match dispatch_result {
 		Ok(code_removed) => {

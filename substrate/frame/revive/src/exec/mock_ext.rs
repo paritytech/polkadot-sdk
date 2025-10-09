@@ -262,11 +262,7 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(
-		&mut self,
-		_beneficiary: &H160,
-		_allow_from_outside_tx: bool,
-	) -> Result<CodeRemoved, DispatchError> {
+	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate")
 	}
 

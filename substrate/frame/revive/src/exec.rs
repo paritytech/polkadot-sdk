@@ -207,14 +207,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// Contract is deleted only if it was created in the same call stack.
 	///
 	/// This function will fail if called from constructor.
-	///
-	/// TODO: `allow_from_outside_tx` is a workaround to allow selfdestruct to be called from
-	/// outside the tx in which the contract was created. This parameter should be removed.
-	fn terminate(
-		&mut self,
-		beneficiary: &H160,
-		allow_from_outside_tx: bool,
-	) -> Result<CodeRemoved, DispatchError>;
+	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Returns the code hash of the contract being executed.
 	#[allow(dead_code)]
@@ -464,7 +457,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// This is supposed to be used by the selfdestruct precompile.
 	///
 	/// Transfer all funds to `beneficiary`.
-	/// Contract is deleted only if it was created in the same call stack.
+	/// Contract is deleted at the end of the call stack.
 	///
 	/// This function will fail if called from constructor.
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
@@ -1732,11 +1725,7 @@ where
 		}
 	}
 
-	fn terminate(
-		&mut self,
-		beneficiary: &H160,
-		allow_from_outside_tx: bool,
-	) -> Result<CodeRemoved, DispatchError> {
+	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		let contract_address = {
 			let frame = self.top_frame_mut();
 			if frame.entry_point == ExportedFunction::Constructor {
@@ -1745,17 +1734,11 @@ where
 			T::AddressMapper::to_address(&frame.account_id)
 		};
 		let account_id = self.top_frame_mut().account_id.clone();
-		if allow_from_outside_tx {
-			// Pretend the contract was created in the current tx so that it can be destroyed.
-			self.contracts_created.insert(account_id.clone());
-		}
 
-		{
-			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
-				.ok_or(Error::<T>::ContractNotFound)?;
-			self.contracts_to_be_destroyed
-				.insert(contract_address, (contract_info.clone(), *beneficiary));
-		}
+		let contract_info = AccountInfo::<T>::load_contract(&contract_address)
+			.ok_or(Error::<T>::ContractNotFound)?;
+		self.contracts_to_be_destroyed
+			.insert(contract_address, (contract_info.clone(), *beneficiary));
 
 		if self.contracts_created.contains(&account_id) {
 			Ok(CodeRemoved::Yes)
@@ -2237,6 +2220,9 @@ where
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		if matches!(self.caller(), Origin::<T>::Root) {
+			return Err(DispatchError::RootNotAllowed);
+		}
 		let account_id = self.caller().account_id()?.clone();
 		let caller_address = T::AddressMapper::to_address(&account_id);
 		{
@@ -2249,11 +2235,10 @@ where
 			AccountInfo::<T>::load_contract(&caller_address).ok_or(Error::<T>::ContractNotFound)?;
 		self.contracts_to_be_destroyed
 			.insert(caller_address, (contract_info.clone(), *beneficiary));
-		if self.contracts_created.contains(&account_id) {
-			Ok(CodeRemoved::Yes)
-		} else {
-			Ok(CodeRemoved::No)
-		}
+
+		// Pretend the contract was created in the current tx so that its storage can be destroyed.
+		self.contracts_created.insert(account_id);
+		Ok(CodeRemoved::Yes)
 	}
 
 	fn effective_gas_price(&self) -> U256 {
