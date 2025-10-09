@@ -91,6 +91,8 @@ pub struct IncomingBlock<B: BlockT> {
 	pub skip_execution: bool,
 	/// Re-validate existing block.
 	pub import_existing: bool,
+	/// Re-validate existing block.
+	pub allow_missing_parent: bool,
 	/// Do not compute new state, but rather set it to the given set.
 	pub state: Option<ImportedState<B>>,
 }
@@ -329,6 +331,15 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	let hash = block.hash;
 	let parent_hash = *header.parent_hash();
 
+	if matches!(block_origin, BlockOrigin::ConsensusBroadcast) {
+		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
+			import_block: BlockImportParams::new(block_origin, header),
+			hash: block.hash,
+			block_origin: peer,
+			verification_time: Duration::ZERO,
+		}));
+	}
+
 	match import_handler::<B>(
 		number,
 		hash,
@@ -341,7 +352,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 				parent_hash,
 				allow_missing_state: block.allow_missing_state,
 				import_existing: block.import_existing,
-				allow_missing_parent: block.state.is_some(),
+				allow_missing_parent: block.state.is_some() || block.allow_missing_parent,
 			})
 			.await,
 	)? {

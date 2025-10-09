@@ -337,6 +337,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
+	/// Is block pruning enabled? This indicates that the user is not
+	/// interested in historical blocks, so gap sync will be skipped.
+	block_pruning_enabled: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -889,7 +892,7 @@ where
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			trace!(
 				target: LOG_TARGET,
-				"Created `StrategyRequest` to {peer_id}.",
+				"Created `StateRequest` to {peer_id}.",
 			);
 
 			let (tx, rx) = oneshot::channel();
@@ -944,6 +947,7 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
+		block_pruning_enabled: bool,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -965,6 +969,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
+			block_pruning_enabled,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1205,6 +1210,7 @@ where
 										import_existing: self.import_existing,
 										skip_execution: true,
 										state: None,
+										allow_missing_parent: true,
 									}
 								})
 								.collect();
@@ -1244,6 +1250,7 @@ where
 									import_existing: self.import_existing,
 									skip_execution: self.skip_execution(),
 									state: None,
+									allow_missing_parent: false,
 								}
 							})
 							.collect()
@@ -1385,6 +1392,7 @@ where
 							allow_missing_state: true,
 							import_existing: false,
 							skip_execution: true,
+							allow_missing_parent: false,
 							state: None,
 						}
 					})
@@ -1523,6 +1531,8 @@ where
 
 	fn required_block_attributes(&self) -> BlockAttributes {
 		match self.mode {
+			// TODO Not sure if commenting/uncommenting this actually affects the behavior
+			_ if self.block_pruning_enabled /*&& self.gap_sync.is_some()*/ => BlockAttributes::HEADER,
 			ChainSyncMode::Full =>
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
 			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
@@ -1771,6 +1781,7 @@ where
 					allow_missing_state: true,
 					import_existing: self.import_existing,
 					skip_execution: self.skip_execution(),
+					allow_missing_parent: false,
 					state: None,
 				}
 			})
@@ -2019,6 +2030,7 @@ where
 					allow_missing_state: true,
 					import_existing: true,
 					skip_execution: self.skip_execution(),
+					allow_missing_parent: false,
 					state: Some(state),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
