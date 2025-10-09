@@ -46,3 +46,6 @@ jemalloc-allocator = [
 	"dep:tikv-jemallocator",
 	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
+no-jemalloc = [
+	"polkadot-node-core-pvf-common/no-jemalloc",
+]
