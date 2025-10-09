@@ -219,6 +219,7 @@ impl ParachainInherentDataProvider {
 			relay_chain_state,
 			relay_parent_descendants,
 			collator_peer_id: None,
+			published_data: Default::default(),
 		})
 	}
 }
