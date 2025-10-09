@@ -32,3 +32,4 @@ sp-statement-store = { workspace = true, default-features = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
+tokio = { workspace = true }

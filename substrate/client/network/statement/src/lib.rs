@@ -307,7 +307,7 @@ where
 		loop {
 			futures::select! {
 				_ = self.propagate_timeout.next() => {
-					self.propagate_statements();
+					self.propagate_statements().await;
 					if let Some(ref metrics) = self.metrics {
 						metrics.pending_statements.set(self.pending_statements.len() as u64);
 					}
@@ -510,7 +510,7 @@ where
 	}
 
 	/// Propagate one statement.
-	pub fn propagate_statement(&mut self, hash: &Hash) {
+	pub async fn propagate_statement(&mut self, hash: &Hash) {
 		// Accept statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
 			return
@@ -518,11 +518,11 @@ where
 
 		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
 		if let Ok(Some(statement)) = self.statement_store.statement(hash) {
-			self.do_propagate_statements(&[(*hash, statement)]);
+			self.do_propagate_statements(&[(*hash, statement)]).await;
 		}
 	}
 
-	fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
+	async fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
 		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
 		for (who, peer) in self.peers.iter_mut() {
 			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
@@ -552,7 +552,14 @@ where
 
 					// If chunk fits, send it
 					if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-						self.notification_service.send_sync_notification(who, chunk.encode());
+						if let Err(e) = self
+							.notification_service
+							.send_async_notification(who, chunk.encode())
+							.await
+						{
+							log::debug!(target: LOG_TARGET, "Failed to send notification to {}, peer disconnected: {:?}", who, e);
+							break;
+						}
 						offset = current_end;
 						log::trace!(target: LOG_TARGET, "Sent {} statements ({} KB) to {}, {} left", chunk.len(), encoded_size / 1024, who, to_send.len() - offset);
 						if let Some(ref metrics) = self.metrics {
@@ -590,7 +597,7 @@ where
 	}
 
 	/// Call when we must propagate ready statements to peers.
-	fn propagate_statements(&mut self) {
+	async fn propagate_statements(&mut self) {
 		// Send out statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
 			return
@@ -598,7 +605,7 @@ where
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
-			self.do_propagate_statements(&statements);
+			self.do_propagate_statements(&statements).await;
 		}
 	}
 }
@@ -767,10 +774,11 @@ mod tests {
 
 		async fn send_async_notification(
 			&mut self,
-			_peer: &PeerId,
-			_notification: Vec<u8>,
+			peer: &PeerId,
+			notification: Vec<u8>,
 		) -> Result<(), sc_network::error::Error> {
-			unimplemented!()
+			self.sent_notifications.lock().unwrap().push((*peer, notification));
+			Ok(())
 		}
 
 		async fn set_handshake(&mut self, _handshake: Vec<u8>) -> Result<(), ()> {
@@ -1006,8 +1014,8 @@ mod tests {
 		);
 	}
 
-	#[test]
-	fn test_splits_large_batches_into_smaller_chunks() {
+	#[tokio::test]
+	async fn test_splits_large_batches_into_smaller_chunks() {
 		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
 			build_handler();
 
@@ -1022,7 +1030,7 @@ mod tests {
 			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
 		}
 
-		handler.propagate_statements();
+		handler.propagate_statements().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let mut total_statements_sent = 0;
@@ -1050,8 +1058,8 @@ mod tests {
 		);
 	}
 
-	#[test]
-	fn test_skips_only_oversized_statements() {
+	#[tokio::test]
+	async fn test_skips_only_oversized_statements() {
 		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
 			build_handler();
 
@@ -1100,7 +1108,7 @@ mod tests {
 			.unwrap()
 			.insert(hash3, statement3.clone());
 
-		handler.propagate_statements();
+		handler.propagate_statements().await;
 
 		let sent = notification_service.get_sent_notifications();
 
