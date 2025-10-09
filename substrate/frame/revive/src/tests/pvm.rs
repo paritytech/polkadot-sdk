@@ -568,6 +568,23 @@ fn storage_work() {
 	});
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+#[test]
+fn storage_precompile_only_delegate_call() {
+	let (code, _code_hash) = compile_module("storage_precompile_only_delegate_call").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.native_value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		assert!(ret.did_revert());
+	});
+}
+
 #[test]
 fn storage_max_value_limit() {
 	let (binary, _code_hash) = compile_module("storage_size").unwrap();
@@ -760,7 +777,7 @@ fn deploy_and_call_other_contract() {
 						),
 						source: ALICE,
 						dest: callee_account.clone(),
-						transferred: 556,
+						transferred: 2156,
 					}),
 					topics: vec![],
 				},
