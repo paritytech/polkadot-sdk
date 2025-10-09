@@ -328,6 +328,7 @@ mod tests {
 	use super::*;
 	use sp_crypto_hashing::twox_128;
 
+	#[allow(dead_code)]
 	struct Pallet1;
 	impl PalletInfoAccess for Pallet1 {
 		fn index() -> usize {
@@ -346,6 +347,7 @@ mod tests {
 			CrateVersion::new(1, 0, 0)
 		}
 	}
+	#[allow(dead_code)]
 	struct Pallet2;
 	impl PalletInfoAccess for Pallet2 {
 		fn index() -> usize {
