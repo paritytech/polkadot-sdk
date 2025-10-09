@@ -17,7 +17,7 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
-mod runtime_api;
+pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use runtime_api::RuntimeApi;
@@ -320,7 +320,7 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
-			let evm_block = self.storage_api(block.hash()).get_ethereum_block().await?;
+			let evm_block = self.runtime_api(block.hash()).eth_block().await?;
 			let (_, receipts): (Vec<_>, Vec<_>) = self
 				.receipt_provider
 				.insert_block_receipts(&block, &evm_block.hash)
@@ -347,9 +347,10 @@ impl Client {
 
 		self.subscribe_past_blocks(range, |block| async move {
 			let ethereum_hash = self
-				.storage_api(block.hash())
-				.get_ethereum_block_hash(block.number() as u64)
-				.await?;
+				.runtime_api(block.hash())
+				.eth_block_hash(pallet_revive::evm::U256::from(block.number()))
+				.await?
+				.ok_or(ClientError::EthereumBlockNotFound)?;
 			self.receipt_provider.insert_block_receipts(&block, &ethereum_hash).await?;
 			Ok(())
 		})
@@ -668,9 +669,9 @@ impl Client {
 		//  - the block author cannot be obtained from the digest logs (highly unlikely)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
-		match self.storage_api(block.hash()).get_ethereum_block().await {
+		match self.runtime_api(block.hash()).eth_block().await {
 			Ok(mut eth_block) => {
-				log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.hash);
+				log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
 
 				if hydrated_transactions {
 					// Hydrate the block.

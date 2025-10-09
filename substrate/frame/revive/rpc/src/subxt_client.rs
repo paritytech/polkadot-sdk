@@ -73,7 +73,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	),
 	substitute_type(
 		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
-		with = "::subxt::utils::Static<::pallet_revive::evm::block_hash::ReceiptGasInfo>"
+		with = "::subxt::utils::Static<::pallet_revive::evm::ReceiptGasInfo>"
 	)
 )]
 mod src_chain {}

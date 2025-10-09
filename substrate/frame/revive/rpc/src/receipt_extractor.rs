@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	client::{storage_api::StorageApi, SubstrateBlock, SubstrateBlockNumber},
+	client::{runtime_api::RuntimeApi, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
 		self,
 		revive::{calls::types::EthTransact, events::ContractEmitted},
@@ -115,8 +115,8 @@ impl ReceiptExtractor {
 			let api_inner = api_inner.clone();
 
 			let fut = async move {
-				let storage_api = StorageApi::new(api_inner.storage().at(block_hash));
-				storage_api.get_ethereum_block_hash(block_number).await.ok()
+				let runtime_api = RuntimeApi::new(api_inner.runtime_api().at(block_hash));
+				runtime_api.eth_block_hash(U256::from(block_number)).await.ok().flatten()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
@@ -141,8 +141,8 @@ impl ReceiptExtractor {
 			let api_inner = api_inner.clone();
 
 			let fut = async move {
-				let storage_api = StorageApi::new(api_inner.storage().at(block_hash));
-				storage_api.get_receipt_data().await.ok()
+				let runtime_api = RuntimeApi::new(api_inner.runtime_api().at(block_hash));
+				runtime_api.eth_receipt_data().await.ok()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
