@@ -463,7 +463,7 @@ where
 		match self.runtime.runtime_api().beefy_genesis(notification.hash) {
 			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis => {
 				debug!(target: LOG_TARGET, "🥩 ConsensusReset detected. Expected genesis: {}, found genesis: {}", self.persisted_state.pallet_genesis, genesis);
-				return Err(Error::ConsensusReset)
+				return Err(Error::ConsensusReset);
 			},
 			Ok(_) => {},
 			Err(api_error) => {
@@ -1047,7 +1047,7 @@ pub(crate) mod tests {
 		known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider,
 		test_utils::{generate_double_voting_proof, Keyring},
-		ConsensusLog, Payload, SignedCommitment,
+		ConsensusLog, MmrRootHash, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
 	use substrate_test_runtime_client::{
@@ -1421,8 +1421,10 @@ pub(crate) mod tests {
 		let validator_set = ValidatorSet::new(make_beefy_ids(peers), id).unwrap();
 		header.digest_mut().push(DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
-			ConsensusLog::<ecdsa_crypto::AuthorityId>::AuthoritiesChange(validator_set.clone())
-				.encode(),
+			ConsensusLog::<ecdsa_crypto::AuthorityId, MmrRootHash>::AuthoritiesChange(
+				validator_set.clone(),
+			)
+			.encode(),
 		));
 
 		// verify validator set is correctly extracted from digest

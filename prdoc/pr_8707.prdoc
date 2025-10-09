@@ -1,0 +1,28 @@
+title: Add support of additional crypto types for BeefyKeeystore
+doc:
+- audience: Node Dev
+  description: |-
+    Extend BeefyKeystore to support custom crypto types by adding logic that delegates execution to the underlying keystore.
+    Adds the ability to use custom hashing algorithms, defaulting to Keccak256.
+
+- audience: Runtime Dev
+  description: |-
+    A new SignatureHasher associated type has been added to pallet_beefy::Config. To maintain backward compatibility, set it to Keccak256.
+
+crates:
+- name: sc-consensus-beefy
+  bump: major
+- name: sp-consensus-beefy
+  bump: major
+- name: pallet-beefy-mmr
+  bump: major
+- name: pallet-beefy
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: kitchensink-runtime
+  bump: major
