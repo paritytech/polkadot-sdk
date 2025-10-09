@@ -542,7 +542,7 @@ impl Core {
 		self.core_index
 	}
 
-	/// Returns the total number of cores.
+	// Returns the total number of cores.
 	// pub(crate) fn total_cores(&self) -> u16 {
 	// 	self.number_of_cores
 	// }
