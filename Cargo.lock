@@ -16026,6 +16026,7 @@ dependencies = [
  "sc-client-api",
  "sc-client-db",
  "sc-consensus",
+ "sc-consensus-aura",
  "sc-consensus-manual-seal",
  "sc-executor",
  "sc-keystore",
@@ -20912,6 +20913,7 @@ dependencies = [
 name = "sc-statement-store"
 version = "10.0.0"
 dependencies = [
+ "criterion",
  "log",
  "parity-db",
  "parking_lot 0.12.3",
