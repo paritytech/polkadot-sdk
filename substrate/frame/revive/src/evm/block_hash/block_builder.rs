@@ -31,7 +31,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 
 use codec::{Decode, Encode};
-use frame_support::weights::Weight;
+use frame_support::{weights::Weight, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
 
@@ -41,6 +41,7 @@ const LOG_TARGET: &str = "runtime::revive::block_builder";
 ///
 /// This builder is optimized to minimize memory usage and pallet storage by leveraging the internal
 /// structure of the Ethereum trie and the RLP encoding of receipts.
+#[derive(DefaultNoBound)]
 pub struct EthereumBlockBuilder<T> {
 	pub(crate) transaction_root_builder: IncrementalHashBuilder,
 	pub(crate) receipts_root_builder: IncrementalHashBuilder,
@@ -49,21 +50,6 @@ pub struct EthereumBlockBuilder<T> {
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
 	_phantom: core::marker::PhantomData<T>,
-}
-
-impl<T> Default for EthereumBlockBuilder<T> {
-	// Note: Manual implementation to avoid requiring T: Default while deriving.
-	fn default() -> Self {
-		Self {
-			transaction_root_builder: IncrementalHashBuilder::default(),
-			receipts_root_builder: IncrementalHashBuilder::default(),
-			gas_used: U256::zero(),
-			tx_hashes: Vec::new(),
-			logs_bloom: LogsBloom::default(),
-			gas_info: Vec::new(),
-			_phantom: core::marker::PhantomData,
-		}
-	}
 }
 
 impl<T: crate::Config> EthereumBlockBuilder<T> {
@@ -240,11 +226,12 @@ pub struct EthereumBlockBuilderIR {
 impl Default for EthereumBlockBuilderIR {
 	fn default() -> Self {
 		Self {
+			// Default not implemented for [u8; BLOOM_SIZE_BYTES]
+			logs_bloom: [0; BLOOM_SIZE_BYTES],
 			transaction_root_builder: IncrementalHashBuilderIR::default(),
 			receipts_root_builder: IncrementalHashBuilderIR::default(),
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
-			logs_bloom: [0; BLOOM_SIZE_BYTES],
 			gas_info: Vec::new(),
 		}
 	}

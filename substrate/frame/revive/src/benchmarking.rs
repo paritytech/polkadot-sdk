@@ -116,7 +116,6 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	    <T as frame_system::Config>::RuntimeCall:
 		    Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 		T: pallet_transaction_payment::Config,
-	    // OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
