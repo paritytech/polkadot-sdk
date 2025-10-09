@@ -15,15 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// std
 use std::{
 	future::Future,
 	io::{self, IsTerminal},
 	time::Instant,
 };
-
+// crates.io
+use anyhow::Result;
 use spinners::{Spinner, Spinners};
-
-use super::Result;
 
 // A simple helper to time a operation with a nice spinner, start message, and end message.
 //

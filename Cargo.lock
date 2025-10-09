@@ -6923,6 +6923,7 @@ dependencies = [
 name = "frame-remote-externalities"
 version = "0.35.0"
 dependencies = [
+ "anyhow",
  "futures",
  "indicatif",
  "jsonrpsee",
