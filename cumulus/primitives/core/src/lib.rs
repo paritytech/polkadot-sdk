@@ -290,7 +290,7 @@ impl CumulusDigestItem {
 		})
 	}
 
-	/// Returns the found [`CoreInfo`] and  iff [`Self::CoreInfo`] exists at max once in the given
+	/// Returns the found [`CoreInfo`] and iff [`Self::CoreInfo`] exists at max once in the given
 	/// `digest`.
 	pub fn core_info_exists_at_max_once(digest: &Digest) -> CoreInfoExistsAtMaxOnce {
 		let mut core_info = None;
@@ -469,10 +469,12 @@ pub struct CollationInfo {
 
 /// The schedule for the next relay chain slot.
 ///
-/// Returns the number of parachain blocks to produce and the block time per block to use.
+/// Returns the maximum number of parachain blocks to produce and the block time per block to use.
 #[derive(Clone, Debug, codec::Decode, codec::Encode, PartialEq, TypeInfo)]
 pub struct NextSlotSchedule {
-	/// The number of blocks to produce in the relay chain slot.
+	/// The maximum number of blocks to produce in the relay chain slot.
+	///
+	/// The node is free to produce less blocks.
 	pub number_of_blocks: u32,
 	/// The target block time in wall clock time for each block.
 	///
