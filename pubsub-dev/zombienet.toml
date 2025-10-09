@@ -1,0 +1,44 @@
+[relaychain]
+chain = "rococo-local"
+default_command = "./target/release/polkadot"
+default_args = [ "-lparachain=debug", "-lxcm=trace" ]
+
+    [[relaychain.nodes]]
+    name = "alice"
+    rpc_port = 9900
+    validator = true
+    args = ["--trie-cache-size=0", "--disable-worker-version-check"]
+
+    [[relaychain.nodes]]
+    name = "bob"
+    validator = true
+    args = ["--trie-cache-size=0", "--disable-worker-version-check"]
+
+    [[relaychain.nodes]]
+    name = "charlie"
+    validator = true
+    args = ["--trie-cache-size=0", "--disable-worker-version-check"]
+
+    [[relaychain.nodes]]
+    name = "dave"
+    validator = true
+    args = ["--trie-cache-size=0", "--disable-worker-version-check"]
+
+[[parachains]]
+id = 1000
+addToGenesis = true
+cumulus_based = true
+
+    [[parachains.collators]]
+    name = "para-collator01"
+    rpc_port = 9920
+    chain = "penpal-local"
+    command = "./target/release/polkadot-parachain"
+    args = ["-lxcm=trace", "--trie-cache-size=0", "--network-backend=libp2p", "--", "--network-backend=libp2p"]
+
+    [[parachains.collators]]
+    name = "para-collator02"
+    chain = "penpal-local"
+    command = "./target/release/polkadot-parachain"
+    args = ["-lxcm=trace", "--trie-cache-size=0", "--network-backend=libp2p", "--", "--network-backend=libp2p"]
+

@@ -136,6 +136,9 @@ pub enum ExecutionError {
 	/// Too many assets matched the given asset filter.
 	#[codec(index = 35)]
 	TooManyAssets,
+	/// Publishing data failed.
+	#[codec(index = 36)]
+	PublishFailed,
 	// Errors that happen prior to instructions being executed. These fall outside of the XCM
 	// spec.
 	/// XCM version not able to be handled.
@@ -198,6 +201,7 @@ impl From<XcmError> for ExecutionError {
 			XcmError::Unanchored => Self::Unanchored,
 			XcmError::NotDepositable => Self::NotDepositable,
 			XcmError::TooManyAssets => Self::TooManyAssets,
+			XcmError::PublishFailed => Self::PublishFailed,
 			XcmError::UnhandledXcmVersion => Self::UnhandledXcmVersion,
 			XcmError::WeightLimitReached(_) => Self::WeightLimitReached,
 			XcmError::Barrier => Self::Barrier,
