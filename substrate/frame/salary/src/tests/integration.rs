@@ -183,7 +183,7 @@ fn swap_exhaustive_works() {
 
 			// The events mess up the storage root:
 			System::reset_events();
-			sp_io::storage::root(StateVersion::V1)
+			sp_io::storage::root()
 		});
 
 		let root_swap = hypothetically!({
@@ -196,7 +196,7 @@ fn swap_exhaustive_works() {
 
 			// The events mess up the storage root:
 			System::reset_events();
-			sp_io::storage::root(StateVersion::V1)
+			sp_io::storage::root()
 		});
 
 		assert_eq!(root_add, root_swap);
