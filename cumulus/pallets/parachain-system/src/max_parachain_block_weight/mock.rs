@@ -20,7 +20,6 @@ use codec::Compact;
 use cumulus_primitives_core::{
 	BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
 };
-use frame_executive;
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, Pays},
@@ -84,7 +83,7 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
-fn new_test_ext_with_digest(num_cores: Option<u16>) -> sp_io::TestExternalities {
+pub fn new_test_ext_with_digest(num_cores: Option<u16>) -> sp_io::TestExternalities {
 	let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let mut ext = sp_io::TestExternalities::from(storage);

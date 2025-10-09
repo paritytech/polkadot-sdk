@@ -62,19 +62,15 @@ use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
+pub mod consensus_hook;
 pub mod max_parachain_block_weight;
 pub mod migration;
 mod mock;
+pub mod relay_state_snapshot;
 #[cfg(test)]
 mod tests;
-pub mod weights;
-
-pub use weights::WeightInfo;
-
 mod unincluded_segment;
-
-pub mod consensus_hook;
-pub mod relay_state_snapshot;
+pub mod weights;
 #[macro_use]
 pub mod validate_block;
 mod descendant_validation;
@@ -108,6 +104,7 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
+pub use weights::WeightInfo;
 
 pub use pallet::*;
 

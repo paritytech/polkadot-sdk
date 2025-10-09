@@ -4703,6 +4703,7 @@ dependencies = [
  "derive-where",
  "environmental",
  "frame-benchmarking",
+ "frame-executive",
  "frame-support",
  "frame-system",
  "futures",

@@ -50,20 +50,10 @@ async fn elastic_scaling_upgrade_to_3_cores(
 
 	if async_backing {
 		log::info!("Ensuring parachain makes progress making 6s blocks");
-		assert_para_throughput(
-			&alice_client,
-			20,
-			[(ParaId::from(PARA_ID), 15..21)].into_iter().collect(),
-		)
-		.await?;
+		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 15..21)], []).await?;
 	} else {
 		log::info!("Ensuring parachain makes progress making 12s blocks");
-		assert_para_throughput(
-			&alice_client,
-			20,
-			[(ParaId::from(PARA_ID), 7..12)].into_iter().collect(),
-		)
-		.await?;
+		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 7..12)], []).await?;
 	}
 
 	assign_cores(alice, PARA_ID, vec![1, 2]).await?;
@@ -103,12 +93,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	);
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
-	assert_para_throughput(
-		&alice_client,
-		20,
-		[(ParaId::from(PARA_ID), 50..61)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 50..61)], []).await?;
 
 	Ok(())
 }

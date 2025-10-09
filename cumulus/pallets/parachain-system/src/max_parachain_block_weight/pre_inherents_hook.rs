@@ -17,10 +17,17 @@
 use super::{
 	block_weight_over_target_block_weight, is_first_block_in_core, BlockWeightMode, LOG_TARGET,
 };
+use crate::max_parachain_block_weight::MaxParachainBlockWeight;
 use cumulus_primitives_core::CumulusDigestItem;
 use frame_support::traits::PreInherents;
 use sp_core::Get;
 
+/// A pre-inherent hook that may increases max block weight after `on_initialize`.
+///
+/// The hook is called before applying the first inherent. It checks the used block weight of
+/// `on_initialize`. If the used block weight is above the target block weight, the hook will allow
+/// the block to use the weight of a full core. It also sets the [`CumulusDigestItem::UseFullCore`]
+/// digest.
 pub struct DynamicMaxBlockWeightHooks<Config, TargetBlockRate>(
 	pub core::marker::PhantomData<(Config, TargetBlockRate)>,
 );
@@ -41,6 +48,13 @@ where
 			log::error!(
 				target: LOG_TARGET,
 				"Inherent block logic took longer than the target block weight, THIS IS A BUG!!!",
+			);
+
+			// We are already above the allowed maximum and do not want to accept any more
+			// extrinsics.
+			frame_system::Pallet::<Config>::register_extra_weight_unchecked(
+				MaxParachainBlockWeight::<Config>::FULL_CORE_WEIGHT,
+				frame_support::dispatch::DispatchClass::Mandatory,
 			);
 		} else {
 			log::debug!(

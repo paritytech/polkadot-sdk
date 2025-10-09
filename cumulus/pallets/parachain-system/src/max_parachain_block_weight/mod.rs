@@ -14,7 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Utilities for calculating maximum parachain block weight based on core assignments.
+//! Provides functionality to dynamically calculate the max block weight for a parachain.
+//!
+//! With block bundling parachains are relative free to choose whatever block interval they want.
+//! This means they will run under normal conditions with blocks that have a small block weight.
+//! These small blocks may prevent certain transactions to be applied, e.g. a runtime upgrade. But
+//! it is not only about transactions, also certain block logic may requires more weight from time
+//! to time. To serve these needs [`MaxParachainBlockWeight`], [`DynamicMaxBlockWeight`] and
+//! [`DynamicMaxBlockWeightHooks`] exist.
+//!
+//! - [`MaxParachainBlockWeight`]:
 
 use crate::Config;
 use codec::{Decode, Encode};
@@ -46,16 +55,31 @@ pub enum BlockWeightMode {
 	/// The block is allowed to use the weight of a full core.
 	FullCore,
 	/// The current active transaction is allowed to use the weight of a full core.
-	PotentialFullCore { first_transaction_index: Option<u32> },
+	PotentialFullCore {
+		/// The index of the first transaction.
+		first_transaction_index: Option<u32>,
+		/// The target weight that was used to determine that the extrinsic is above this limit.
+		target_weight: Weight,
+	},
 	/// The block is only allowed to consume its fraction of the core.
 	///
 	/// How much each block is allowed to consume, depends on the target number of blocks and the
 	/// available cores on the relay chain.
-	FractionOfCore { first_transaction_index: Option<u32> },
+	FractionOfCore {
+		/// The index of the first transaction.
+		first_transaction_index: Option<u32>,
+	},
 }
 
-/// A utility type for calculating the maximum block weight for a parachain based on
-/// the number of relay chain cores assigned and the target number of blocks.
+/// Provides a [`get`](Self::get) method to calculate the max block weight based on the number of
+/// target blocks.
+///
+/// This takes internally into consideration the number of available cores, communicated via the
+/// [`CumulusDigestItem::CoreInfo`] digest, to calculate the available resources. Based on the
+/// available cores and the number of desired blocks a target weight is calculated. But it does not
+/// only take the number of cores and blocks into consideration, but also the current
+/// [`BlockWeightMode`]. The [`BlockWeightMode`] is set by the [`DynamicMaxBlockWeight`]
+/// transaction extension depending certain conditions.
 pub struct MaxParachainBlockWeight<T>(PhantomData<T>);
 
 impl<T: Config> MaxParachainBlockWeight<T> {
@@ -64,20 +88,7 @@ impl<T: Config> MaxParachainBlockWeight<T> {
 	const FULL_CORE_WEIGHT: Weight =
 		Weight::from_parts(Self::MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
 
-	/// Calculate the maximum block weight based on target blocks and core assignments.
-	///
-	/// This function examines the current block's digest from `frame_system::Digests` storage
-	/// to find `CumulusDigestItem::CoreInfo` entries, which contain information about the
-	/// number of relay chain cores assigned to the parachain. Each core has a maximum
-	/// reference time of 2 seconds and the total maximum PoV size of `MAX_POV_SIZE` is
-	/// shared across all target blocks.
-	///
-	/// # Parameters
-	/// - `target_blocks`: The target number of blocks to be produced
-	///
-	/// # Returns
-	/// Returns the calculated maximum weight, or a conservative default if no core info is found
-	/// or if an error occurs during calculation.
+	/// Calculate the maximum block weight based on target blocks and available cores.
 	pub fn get(target_blocks: u32) -> Weight {
 		let digest = frame_system::Pallet::<T>::digest();
 		let target_block_weight = Self::target_block_weight_with_digest(target_blocks, &digest);

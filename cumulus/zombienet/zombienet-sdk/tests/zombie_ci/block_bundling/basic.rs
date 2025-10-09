@@ -19,7 +19,10 @@ use anyhow::anyhow;
 
 use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput, assign_cores, create_assign_core_call,
+	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -27,6 +30,7 @@ use zombienet_sdk::{
 		backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
 		OnlineClient, PolkadotConfig,
 	},
+	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
 
@@ -66,7 +70,7 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 
 	relay_client
 		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
+		.sign_and_submit_then_watch_default(&assign_cores_call, &dev::alice())
 		.await
 		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
 		.wait_for_finalized_success()

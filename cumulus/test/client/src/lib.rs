@@ -19,7 +19,7 @@
 mod block_builder;
 pub use block_builder::*;
 use codec::{Decode, Encode};
-use cumulus_pallet_parachain_system::DynamicMaxBlockWeight;
+use cumulus_pallet_parachain_system::max_parachain_block_weight::DynamicMaxBlockWeight;
 pub use cumulus_test_runtime as runtime;
 use cumulus_test_runtime::AuraId;
 pub use polkadot_parachain_primitives::primitives::{

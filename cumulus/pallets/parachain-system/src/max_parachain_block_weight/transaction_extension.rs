@@ -38,35 +38,34 @@ use sp_runtime::{
 
 /// Transaction extension that dynamically changes the max block weight.
 ///
-/// With block bundling parachains are running with block weights that may not allow certain
+/// With block bundling, parachains are running with block weights that may not allow certain
 /// transactions to be applied, e.g. a runtime upgrade. To ensure that these transactions can still
 /// be applied, this transaction extension can change the max block weight as required. There are
 /// multiple requirements for it to change the block weight:
 ///
-/// 1. The block weight is only allowed to change in the *first block of a core*.
+/// 1. Only the first block of a core is allowed to change its block weight.
 ///
-/// 2. Either the inherent block logic (`on_initialize` etc), any `inherent` or any transaction up
-///    to `MAX_TRANSACTION_TO_CONSIDER` required more block weight than the target block weight.
+/// 2. Any `inherent` or any transaction up to `MAX_TRANSACTION_TO_CONSIDER` requires more block
+///    weight than the target block weight. Target block weight is the max weight for the respective
+///    extrinsic class.
 ///
-/// We do not allow any block to randomly change the block weight, because the node side is tracking
-/// the wall clock time it takes to build a block. When it takes too long, the node is aborting the
-/// block production. But because the node knows that the first block of a core may runs longer, it
-/// allows this block to take up to `2s` of wall clock time. `2s` is the time each `PoV` gets on the
-/// relay chain for its validation or in other words the maximum core execution time.
+/// Because the node is tracking the wall clock time while building a block to abort block
+/// production if it takes too long, we do not allow any block to change the block weight. The node
+/// knows that the first block of a core may runs longer. So, the node allows this block to take up
+/// to `2s` of wall clock time. `2s` is the time each `PoV` gets on the relay chain for its
+/// validation or in other words the maximum core execution time. The extension sets the
+/// [`CumulusDigestItem::UseFullCore`] digest when the block should occupy the entire core.
 ///
-/// When the extension is changing the block weight, it changes it to the maximum core execution
-/// time of `2s`.
-///
-/// The extension also requires that the weight of *one* transaction alone is bigger than the max
-/// block weight.
-///
-/// Takes the following generic parameters:
+/// # Generic parameters
 ///
 /// - `TargetBlockRate`: The target block rate the parachain should be running with. Or in other
 ///   words, the number of blocks the parachain should produce in `6s`(relay chain slot duration).
 ///
 /// - `MAX_TRANSACTION`: The maximum number of transactions to consider before giving up to change
 ///   the max block weight.
+///
+/// - `ONLY_OPERATIONAL`: Should only operational transactions be allowed to change the max block
+///   weight?
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where::derive_where(Clone, Eq, PartialEq, Default; S)]
 #[scale_info(skip_type_params(T, TargetBlockRate))]
@@ -74,7 +73,7 @@ pub struct DynamicMaxBlockWeight<
 	T,
 	S,
 	TargetBlockRate,
-	const MAX_TRANSACTION_TO_CONSIDER: usize = 100,
+	const MAX_TRANSACTION_TO_CONSIDER: u32 = 10,
 	const ONLY_OPERATIONAL: bool = false,
 >(pub S, core::marker::PhantomData<(T, TargetBlockRate)>);
 
@@ -85,7 +84,13 @@ impl<T, S, TargetBlockRate> DynamicMaxBlockWeight<T, S, TargetBlockRate> {
 	}
 }
 
-impl<T, S, TargetBlockRate> DynamicMaxBlockWeight<T, S, TargetBlockRate>
+impl<
+		T,
+		S,
+		TargetBlockRate,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ONLY_OPERATIONAL: bool,
+	> DynamicMaxBlockWeight<T, S, TargetBlockRate, MAX_TRANSACTION_TO_CONSIDER, ONLY_OPERATIONAL>
 where
 	T: Config,
 	TargetBlockRate: Get<u32>,
@@ -106,7 +111,7 @@ where
 			match current_mode {
 				// We are already allowing the full core, not that much more to do here.
 				BlockWeightMode::FullCore => {},
-				BlockWeightMode::PotentialFullCore { first_transaction_index } |
+				BlockWeightMode::PotentialFullCore { first_transaction_index, .. } |
 				BlockWeightMode::FractionOfCore { first_transaction_index } => {
 					let is_potential =
 						matches!(current_mode, BlockWeightMode::PotentialFullCore { .. });
@@ -117,6 +122,11 @@ where
 
 					let block_weight_over_limit = first_transaction_index == extrinsic_index
 						&& block_weight_over_target_block_weight::<T, TargetBlockRate>();
+
+					let block_weights = T::BlockWeights::get();
+					let target_weight = block_weights.get(info.class).max_total.unwrap_or_else(
+						|| MaxParachainBlockWeight::<T>::target_block_weight(TargetBlockRate::get()).saturating_sub(block_weights.base_block)
+					);
 
 					// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
 					if block_weight_over_limit {
@@ -136,13 +146,11 @@ where
 						.total_weight()
 						// The extrinsic lengths counts towards the POV size
 						.saturating_add(Weight::from_parts(0, len as u64))
-						.any_gt(MaxParachainBlockWeight::<T>::target_block_weight(
-							TargetBlockRate::get(),
-						)) && is_first_block_in_core::<T>()
+						.any_gt(target_weight) && is_first_block_in_core::<T>()
 					{
-						// TODO: make 10 configurable
-						if extrinsic_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < 10 {
+						if extrinsic_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER {
 							*mode = Some(BlockWeightMode::PotentialFullCore {
+								target_weight,
 								// While applying inherents `extrinsic_index` and `first_transaction_index` will be `None`.
 								// When the first transaction is applied, we want to store the index.
 								first_transaction_index: first_transaction_index.or(extrinsic_index),
@@ -161,23 +169,23 @@ where
 		}).map_err(Into::into)
 	}
 
-	fn post_dispatch_extrinsic() {
+	fn post_dispatch_extrinsic(info: &DispatchInfo) {
 		crate::BlockWeightMode::<T>::mutate(|weight_mode| {
 			let Some(mode) = *weight_mode else { return };
-
-			let target_block_weight =
-				MaxParachainBlockWeight::<T>::target_block_weight(TargetBlockRate::get());
-
-			let is_above_limit = frame_system::Pallet::<T>::remaining_block_weight()
-				.consumed()
-				.any_gt(target_block_weight);
 
 			match mode {
 				// If the previous mode was already `FullCore`, we are fine.
 				BlockWeightMode::FullCore => {},
-				BlockWeightMode::FractionOfCore { .. } =>
-				// If we are above the limit, it means the transaction used more weight than what it
-				// had announced, which should not happen.
+				BlockWeightMode::FractionOfCore { .. } => {
+					let target_block_weight =
+						MaxParachainBlockWeight::<T>::target_block_weight(TargetBlockRate::get());
+
+					let is_above_limit = frame_system::Pallet::<T>::remaining_block_weight()
+						.consumed()
+						.any_gt(target_block_weight);
+
+					// If we are above the limit, it means the transaction used more weight than
+					// what it had announced, which should not happen.
 					if is_above_limit {
 						log::error!(
 							target: LOG_TARGET,
@@ -208,11 +216,14 @@ where
 						frame_system::Pallet::<T>::deposit_log(
 							CumulusDigestItem::UseFullCore.to_digest_item(),
 						);
-					},
+					}
+				},
 				// Now we need to check if the transaction required more weight than a fraction of a
 				// core block.
-				BlockWeightMode::PotentialFullCore { first_transaction_index } =>
-					if is_above_limit {
+				BlockWeightMode::PotentialFullCore { first_transaction_index, target_weight } => {
+					let block_weight = frame_system::BlockWeight::<T>::get();
+
+					if block_weight.get(info.class).any_gt(target_weight) {
 						*weight_mode = Some(BlockWeightMode::FullCore);
 
 						// Inform the node that this block uses the full core.
@@ -222,7 +233,8 @@ where
 					} else {
 						*weight_mode =
 							Some(BlockWeightMode::FractionOfCore { first_transaction_index });
-					},
+					}
+				},
 			}
 		});
 	}
@@ -312,7 +324,7 @@ where
 	) -> Result<(), TransactionValidityError> {
 		S::post_dispatch(pre, info, post_info, len, result)?;
 
-		Self::post_dispatch_extrinsic();
+		Self::post_dispatch_extrinsic(info);
 
 		Ok(())
 	}
@@ -345,7 +357,7 @@ where
 	) -> Result<(), TransactionValidityError> {
 		S::bare_post_dispatch(info, post_info, len, result)?;
 
-		Self::post_dispatch_extrinsic();
+		Self::post_dispatch_extrinsic(info);
 
 		Ok(())
 	}

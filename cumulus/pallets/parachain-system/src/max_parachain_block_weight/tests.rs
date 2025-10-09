@@ -20,7 +20,6 @@ use codec::Compact;
 use cumulus_primitives_core::{
 	BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
 };
-use frame_executive;
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, Pays},
@@ -45,7 +44,7 @@ use sp_runtime::{
 #[test]
 fn test_single_core_single_block() {
 	new_test_ext_with_digest(Some(1)).execute_with(|| {
-		let weight = MaxParachainBlockWeight::get::<Test>(1);
+		let weight = MaxParachainBlockWeight::<Test>::get(1);
 
 		// With 1 core and 1 target block, should get full 2s ref time and full PoV size
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
@@ -56,7 +55,7 @@ fn test_single_core_single_block() {
 #[test]
 fn test_single_core_multiple_blocks() {
 	new_test_ext_with_digest(Some(1)).execute_with(|| {
-		let weight = MaxParachainBlockWeight::get::<Test>(4);
+		let weight = MaxParachainBlockWeight::<Test>::get(4);
 
 		// With 1 core and 4 target blocks, should get 0.5s ref time and 1/4 PoV size per block
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND / 4);
@@ -67,7 +66,7 @@ fn test_single_core_multiple_blocks() {
 #[test]
 fn test_multiple_cores_single_block() {
 	new_test_ext_with_digest(Some(3)).execute_with(|| {
-		let weight = MaxParachainBlockWeight::get::<Test>(1);
+		let weight = MaxParachainBlockWeight::<Test>::get(1);
 
 		// With 3 cores and 1 target block, should get max 2s ref time (capped per core) and 3x
 		// PoV size
@@ -79,7 +78,7 @@ fn test_multiple_cores_single_block() {
 #[test]
 fn test_multiple_cores_multiple_blocks() {
 	new_test_ext_with_digest(Some(2)).execute_with(|| {
-		let weight = MaxParachainBlockWeight::get::<Test>(4);
+		let weight = MaxParachainBlockWeight::<Test>::get(4);
 
 		// With 2 cores and 4 target blocks, should get 1s ref time and 2x PoV size / 4 per
 		// block
@@ -91,7 +90,7 @@ fn test_multiple_cores_multiple_blocks() {
 #[test]
 fn test_no_core_info() {
 	new_test_ext_with_digest(None).execute_with(|| {
-		let weight = MaxParachainBlockWeight::get::<Test>(1);
+		let weight = MaxParachainBlockWeight::<Test>::get(1);
 
 		// Without core info, should return conservative default
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
@@ -102,7 +101,7 @@ fn test_no_core_info() {
 #[test]
 fn test_zero_cores() {
 	new_test_ext_with_digest(Some(0)).execute_with(|| {
-		let weight = MaxParachainBlockWeight::get::<Test>(1);
+		let weight = MaxParachainBlockWeight::<Test>::get(1);
 
 		// With 0 cores, should return conservative default
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
@@ -113,7 +112,7 @@ fn test_zero_cores() {
 #[test]
 fn test_zero_target_blocks() {
 	new_test_ext_with_digest(Some(2)).execute_with(|| {
-		let weight = MaxParachainBlockWeight::get::<Test>(0);
+		let weight = MaxParachainBlockWeight::<Test>::get(0);
 
 		// With 0 target blocks, should return conservative default
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
@@ -125,8 +124,8 @@ fn test_zero_target_blocks() {
 fn test_target_block_weight_calculation() {
 	new_test_ext_with_digest(Some(4)).execute_with(|| {
 		// Test target_block_weight function directly
-		let weight_2_blocks = MaxParachainBlockWeight::target_block_weight::<Test>(2);
-		let weight_8_blocks = MaxParachainBlockWeight::target_block_weight::<Test>(8);
+		let weight_2_blocks = MaxParachainBlockWeight::<Test>::target_block_weight(2);
+		let weight_8_blocks = MaxParachainBlockWeight::<Test>::target_block_weight(8);
 
 		// With 4 cores and 2 target blocks, should get 2s per block
 		assert_eq!(weight_2_blocks.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
@@ -142,7 +141,7 @@ fn test_target_block_weight_calculation() {
 fn test_max_ref_time_per_core_cap() {
 	new_test_ext_with_digest(Some(8)).execute_with(|| {
 		// Even with many cores, ref time per block should be capped at MAX_REF_TIME_PER_CORE_NS
-		let weight = MaxParachainBlockWeight::get::<Test>(1);
+		let weight = MaxParachainBlockWeight::<Test>::get(1);
 
 		// Should be capped at 2s ref time per core
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
@@ -158,8 +157,8 @@ fn test_target_block_weight_with_digest_edge_cases() {
 
 	// Test with empty digest
 	let empty_digest = Digest::default();
-	let weight = MaxParachainBlockWeight::target_block_weight_with_digest::<Test>(1, &empty_digest);
-	assert_eq!(weight, MaxParachainBlockWeight::FULL_CORE_WEIGHT);
+	let weight = MaxParachainBlockWeight::<Test>::target_block_weight_with_digest(1, &empty_digest);
+	assert_eq!(weight, MaxParachainBlockWeight::<Test>::FULL_CORE_WEIGHT);
 
 	// Test with digest containing core info
 	let core_info = CoreInfo {
@@ -171,7 +170,7 @@ fn test_target_block_weight_with_digest_edge_cases() {
 	let mut digest = Digest::default();
 	digest.push(digest_item);
 
-	let weight = MaxParachainBlockWeight::target_block_weight_with_digest::<Test>(2, &digest);
+	let weight = MaxParachainBlockWeight::<Test>::target_block_weight_with_digest(2, &digest);
 	assert_eq!(weight.ref_time(), 2 * 2 * WEIGHT_REF_TIME_PER_SECOND / 2);
 	assert_eq!(weight.proof_size(), (2 * MAX_POV_SIZE as u64) / 2);
 }
@@ -234,7 +233,10 @@ fn test_max_block_weight_hooks_type() {
 #[test]
 fn test_block_weight_mode_with_different_transaction_indices() {
 	// Test BlockWeightMode with None transaction indices
-	let mode_with_none = BlockWeightMode::PotentialFullCore { first_transaction_index: None };
+	let mode_with_none = BlockWeightMode::PotentialFullCore {
+		first_transaction_index: None,
+		target_weight: Weight::zero(),
+	};
 	let mode_with_some = BlockWeightMode::FractionOfCore { first_transaction_index: Some(42) };
 
 	// Test encoding/decoding
@@ -243,7 +245,10 @@ fn test_block_weight_mode_with_different_transaction_indices() {
 	let decoded_none = BlockWeightMode::decode(&mut &encoded_none[..]).unwrap();
 	assert!(matches!(
 		decoded_none,
-		BlockWeightMode::PotentialFullCore { first_transaction_index: None }
+		BlockWeightMode::PotentialFullCore {
+			first_transaction_index: None,
+			target_weight: Weight::Zero
+		}
 	));
 
 	let encoded_some = mode_with_some.encode();
@@ -258,7 +263,7 @@ fn test_block_weight_mode_with_different_transaction_indices() {
 fn test_saturation_arithmetic() {
 	new_test_ext_with_digest(Some(u16::MAX)).execute_with(|| {
 		// Test with maximum number of cores to ensure no overflow
-		let weight = MaxParachainBlockWeight::get::<Test>(1);
+		let weight = MaxParachainBlockWeight::<Test>::get(1);
 
 		// Should be capped at 2s ref time per core even with max cores
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
@@ -271,7 +276,7 @@ fn test_saturation_arithmetic() {
 fn test_large_target_blocks() {
 	new_test_ext_with_digest(Some(4)).execute_with(|| {
 		// Test with very large number of target blocks
-		let weight = MaxParachainBlockWeight::get::<Test>(u32::MAX);
+		let weight = MaxParachainBlockWeight::<Test>::get(u32::MAX);
 
 		// Should not panic and should return minimal weights
 		assert!(weight.ref_time() > 0);
