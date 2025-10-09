@@ -1025,6 +1025,7 @@ mod tests {
 	use crate::{assert_ok, storage::unhashed};
 
 	#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
+	#[allow(dead_code)]
 	pub enum Either<L, R> {
 		Left(L),
 		Right(R),
