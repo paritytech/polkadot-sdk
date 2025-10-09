@@ -62,18 +62,12 @@ pub struct EthRpcServerImpl {
 
 	/// The accounts managed by the server.
 	accounts: Vec<Account>,
-
-	/// The transaction hashes sender.
-	transact_hashes_sender: broadcast::Sender<TransactHashes>,
 }
 
 impl EthRpcServerImpl {
 	/// Creates a new [`EthRpcServerImpl`].
-	pub fn new(
-		client: client::Client,
-		transact_hashes_sender: broadcast::Sender<TransactHashes>,
-	) -> Self {
-		Self { client, accounts: vec![], transact_hashes_sender }
+	pub fn new(client: client::Client) -> Self {
+		Self { client, accounts: vec![] }
 	}
 
 	/// Sets the accounts managed by the server.
@@ -120,8 +114,9 @@ impl From<EthRpcError> for ErrorObjectOwned {
 }
 
 async fn wait_for_transaction_to_be_mined(
-	mut transact_hashes_receiver: broadcast::Receiver<TransactHashes>,
 	hash: H256,
+	mut transact_hashes_receiver: broadcast::Receiver<TransactHashes>,
+
 	timeout: Duration,
 ) -> Result<bool, String> {
 	let timeout_fut = tokio::time::sleep(timeout);
@@ -200,11 +195,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 
 		// Subscribe to transaction hashes only when automine is enabled.
-		let transact_hashes_receiver = if self.client.is_automine() {
-			Some(self.transact_hashes_sender.subscribe()) // each task gets its own receiver
-		} else {
-			None
-		};
+		let transact_hashes_receiver =
+			self.client.get_transact_hashes_sender().map(|transact_hashes_sender| {
+				transact_hashes_sender.subscribe() // each task gets its own receiver
+			});
 
 		// Submit the transaction
 		self.client.submit(call).await.map_err(|err| {
@@ -214,7 +208,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(hashes_receiver) = transact_hashes_receiver {
-			let _ = wait_for_transaction_to_be_mined(hashes_receiver, hash, Duration::from_secs(1))
+			let _ = wait_for_transaction_to_be_mined(hash, hashes_receiver, Duration::from_secs(1))
 				.await
 				.map_err(|err| {
 					log::warn!(target : LOG_TARGET, "Waiting for tx receipt failed: {err}");

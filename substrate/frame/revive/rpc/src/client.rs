@@ -165,7 +165,7 @@ pub struct Client {
 	chain_id: u64,
 	max_block_weight: Weight,
 	automine: bool,
-	transact_hashes_sender: tokio::sync::broadcast::Sender<TransactHashes>,
+	transact_hashes_sender: Option<tokio::sync::broadcast::Sender<TransactHashes>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -180,6 +180,17 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 	let weights = api.constants().at(&query)?;
 	let max_block = weights.per_class.normal.max_extrinsic.unwrap_or(weights.max_block);
 	Ok(max_block.0)
+}
+
+/// Get the automine status from the node.
+async fn get_automine(rpc_client: &RpcClient) -> Result<bool, ClientError> {
+	match rpc_client.request::<bool>("getAutomine", rpc_params![]).await {
+		Ok(val) => Ok(val),
+		Err(err) => {
+			log::warn!(target: LOG_TARGET, "getAutomine RPC call failed: {err:?}");
+			Ok(false)
+		},
+	}
 }
 
 /// Extract the block timestamp.
@@ -211,6 +222,41 @@ pub async fn connect(
 	Ok((api, rpc_client, rpc))
 }
 
+/// Broadcast transaction hashes to subscribers.
+async fn broadcast_transact_hashes(
+	transact_hashes_sender: &tokio::sync::broadcast::Sender<TransactHashes>,
+	receipts: &[ReceiptInfo],
+	block_number: SubstrateBlockNumber,
+) {
+	// Closure to extract the transaction hashes from the receipts.
+	let extract_transact_hashes = || {
+		let mut transact_hashes = HashSet::new();
+		for receipt in receipts {
+			transact_hashes.insert(receipt.transaction_hash);
+		}
+		transact_hashes
+	};
+
+	// Only broadcast if there are subscribers.
+	if transact_hashes_sender.receiver_count() == 0 {
+		return;
+	}
+
+	let transact_hashes = extract_transact_hashes();
+	if transact_hashes.is_empty() {
+		return;
+	}
+
+	if let Err(err) = transact_hashes_sender.send(transact_hashes) {
+		log::warn!(
+			target: LOG_TARGET,
+			"Failed to broadcast transaction hashes for block: {:?}, error: {:?}",
+			block_number,
+			err
+		);
+	}
+}
+
 impl Client {
 	/// Create a new client instance.
 	pub async fn new(
@@ -219,12 +265,18 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
-		transact_hashes_sender: tokio::sync::broadcast::Sender<TransactHashes>,
 	) -> Result<Self, ClientError> {
-		let (chain_id, max_block_weight) =
-			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
+		let (chain_id, max_block_weight, automine) =
+			tokio::try_join!(chain_id(&api), max_block_weight(&api), get_automine(&rpc_client))?;
 
-		let mut client = Self {
+		// Create the transaction hashes sender if automine is enabled.
+		let transact_hashes_sender = automine.then(|| {
+			// Channel used to notify when a transaction hash is included in a block.
+			// Capacity of 32 should be enough since blocks are mined at a relatively low rate.
+			tokio::sync::broadcast::channel::<TransactHashes>(32).0
+		});
+
+		let client = Self {
 			api,
 			rpc_client,
 			rpc,
@@ -233,20 +285,9 @@ impl Client {
 			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
-			automine: false,
+			automine,
 			transact_hashes_sender,
 		};
-
-		// Update the automine status by querying the node.
-		// If the query fails, automine is set to false.
-		let update_automine = async {
-			if let Ok(automine) = client.get_automine().await {
-				client.automine = automine;
-			} else {
-				client.automine = false;
-			}
-		};
-		update_automine.await;
 
 		Ok(client)
 	}
@@ -346,9 +387,13 @@ impl Client {
 			let (signed_txs, receipts): (Vec<_>, Vec<_>) =
 				self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
-			// Broadcast transaction hashes
-			self.broadcast_transact_hashes(subscription_type, &receipts, block.number())
-				.await;
+			// Only broadcast for best blocks to avoid duplicate notifications.
+			match (subscription_type, &self.transact_hashes_sender) {
+				(SubscriptionType::BestBlocks, Some(sender)) => {
+					broadcast_transact_hashes(sender, &receipts, block.number()).await;
+				},
+				_ => {},
+			}
 
 			let evm_block =
 				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
@@ -376,47 +421,6 @@ impl Client {
 
 		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
 		Ok(())
-	}
-
-	/// Broadcast transaction hashes to subscribers.
-	async fn broadcast_transact_hashes(
-		&self,
-		subscription_type: SubscriptionType,
-		receipts: &[ReceiptInfo],
-		block_number: SubstrateBlockNumber,
-	) {
-		// Closure to extract the transaction hashes from the receipts.
-		let extract_transact_hashes = || {
-			let mut transact_hashes = HashSet::new();
-			for receipt in receipts {
-				transact_hashes.insert(receipt.transaction_hash);
-			}
-			transact_hashes
-		};
-
-		// Only broadcast for best blocks to avoid duplicate notifications.
-		if subscription_type != SubscriptionType::BestBlocks {
-			return;
-		}
-
-		// Only broadcast if there are subscribers.
-		if self.transact_hashes_sender.receiver_count() == 0 {
-			return;
-		}
-
-		let transact_hashes = extract_transact_hashes();
-		if transact_hashes.is_empty() {
-			return;
-		}
-
-		if let Err(err) = self.transact_hashes_sender.send(transact_hashes) {
-			log::warn!(
-				target: LOG_TARGET,
-				"Failed to broadcast transaction hashes for block: {:?}, error: {:?}",
-				block_number,
-				err
-			);
-		}
 	}
 
 	/// Get the block hash for the given block number or tag.
@@ -749,6 +753,12 @@ impl Client {
 		self.max_block_weight
 	}
 
+	pub fn get_transact_hashes_sender(
+		&self,
+	) -> Option<tokio::sync::broadcast::Sender<TransactHashes>> {
+		self.transact_hashes_sender.clone()
+	}
+
 	/// Get the logs matching the given filter.
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
 		let logs =
@@ -778,19 +788,6 @@ impl Client {
 
 	/// Get the automine status from the node.
 	pub async fn get_automine(&self) -> Result<bool, ClientError> {
-		let result = self.rpc_client.request("getAutomine", rpc_params![]).await;
-
-		match &result {
-			Ok(automine) => {
-				log::debug!(target: LOG_TARGET, "Automine status fetched successfully: {automine}");
-				Ok(*automine)
-			},
-			Err(err) => {
-				log::error!(target: LOG_TARGET, "Get automine failed: {err:?}");
-				// Return false if the query fails, as some nodes may not support the getAutomine
-				// RPC method.
-				return Ok(false)
-			},
-		}
+		get_automine(&self.rpc_client).await
 	}
 }

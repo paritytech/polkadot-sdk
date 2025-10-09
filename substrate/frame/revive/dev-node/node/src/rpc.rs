@@ -54,24 +54,21 @@ pub trait AutoMineRpc {
 
 /// Implementation of the AutoMine RPC api.
 pub struct AutoMineRpcImpl {
-	/// The consensus type of the node.
-	consensus: Consensus,
+	/// Whether the node is running in auto-mine mode.
+	is_auto_mine: bool,
 }
 
 impl AutoMineRpcImpl {
 	/// Create new `AutoMineRpcImpl` instance.
 	pub fn new(consensus: Consensus) -> Self {
-		Self { consensus }
+		Self { is_auto_mine: matches!(consensus, Consensus::InstantSeal) }
 	}
 }
 
 impl AutoMineRpcServer for AutoMineRpcImpl {
 	/// Returns `true` if block production is set to `instant`.
 	fn get_automine(&self) -> RpcResult<bool> {
-		Ok(match self.consensus {
-			Consensus::InstantSeal => true,
-			_ => false,
-		})
+		Ok(self.is_auto_mine)
 	}
 }
 

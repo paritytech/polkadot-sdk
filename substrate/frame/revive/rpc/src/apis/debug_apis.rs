@@ -120,9 +120,6 @@ impl DebugRpcServer for DebugRpcServerImpl {
 	}
 
 	async fn get_automine(&self) -> RpcResult<bool> {
-		self.client.get_automine().await.map_err(|err| {
-			log::error!(target: LOG_TARGET, "Get automine failed: {err:?}");
-			ErrorCode::InternalError.into()
-		})
+		sc_service::Result::Ok(self.client.get_automine().await.unwrap_or_default())
 	}
 }
