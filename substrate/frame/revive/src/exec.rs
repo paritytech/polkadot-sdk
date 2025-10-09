@@ -17,10 +17,11 @@
 
 use crate::{
 	address::{self, AddressMapper},
+	evm::fees::{Combinator, InfoT},
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
-	primitives::{BumpNonce, ExecReturnValue, StorageDeposit},
+	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
@@ -30,7 +31,7 @@ use crate::{
 	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
-use core::{fmt::Debug, marker::PhantomData, mem};
+use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
@@ -54,7 +55,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -236,30 +237,6 @@ pub trait Ext: PrecompileWithInfoExt {
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
 pub trait PrecompileWithInfoExt: PrecompileExt {
-	/// Returns the storage entry of the executing account by the given `key`.
-	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
-
-	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
-	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
-
-	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
-	/// the storage entry is deleted.
-	fn set_storage(
-		&mut self,
-		key: &Key,
-		value: Option<Vec<u8>>,
-		take_old: bool,
-	) -> Result<WriteOutcome, DispatchError>;
-
-	/// Charges `diff` from the meter.
-	fn charge_storage(&mut self, diff: &Diff);
-
 	/// Instantiate a contract from the given code.
 	///
 	/// Returns the original code size of the called contract.
@@ -288,6 +265,14 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn adjust_gas(&mut self, charged: crate::gas::ChargedAmount, actual_weight: Weight) {
 		self.gas_meter_mut()
 			.adjust_gas(charged, RuntimeCosts::Precompile(actual_weight));
+	}
+
+	/// Charges the gas meter with the given token or halts execution if not enough gas is left.
+	fn charge_or_halt<Tok: crate::gas::Token<Self::T>>(
+		&mut self,
+		token: Tok,
+	) -> ControlFlow<crate::vm::evm::Halt, crate::gas::ChargedAmount> {
+		self.gas_meter_mut().charge_or_halt(token)
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
@@ -399,9 +384,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
-	/// Returns the price for the specified amount of weight.
-	fn get_weight_price(&self, weight: Weight) -> U256;
-
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
 
@@ -430,6 +412,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
+	/// Check if running as a delegate call.
+	fn is_delegate_call(&self) -> bool;
+
 	/// Returns an immutable reference to the output of the last executed call frame.
 	fn last_frame_output(&self) -> &ExecReturnValue;
 
@@ -444,6 +429,35 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
 	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
+
+	/// Returns the effective gas price of this transaction.
+	fn effective_gas_price(&self) -> U256;
+
+	/// The amount of gas left in eth gas units.
+	fn gas_left(&self) -> u64;
+	/// Returns the storage entry of the executing account by the given `key`.
+	///
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
+
+	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+	///
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
+
+	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
+	/// the storage entry is deleted.
+	fn set_storage(
+		&mut self,
+		key: &Key,
+		value: Option<Vec<u8>>,
+		take_old: bool,
+	) -> Result<WriteOutcome, DispatchError>;
+
+	/// Charges `diff` from the meter.
+	fn charge_storage(&mut self, diff: &Diff);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -535,9 +549,8 @@ pub struct Stack<'a, T: Config, E> {
 	first_frame: Frame<T>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
-	/// Whether or not actual transfer of funds should be performed.
-	/// This is set to `true` exclusively when we simulate a call through eth_transact.
-	skip_transfer: bool,
+	/// Global behavior determined by the creater of this stack.
+	exec_config: &'a ExecConfig,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -773,10 +786,7 @@ impl<T: Config> CachedContract<T> {
 impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create and run a new call stack by calling into `dest`.
 	///
@@ -790,7 +800,7 @@ where
 		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
-		skip_transfer: bool,
+		exec_config: &ExecConfig,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
@@ -799,11 +809,9 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			skip_transfer,
+			exec_config,
 		)? {
-			stack
-				.run(executable, input_data, BumpNonce::Yes)
-				.map(|_| stack.first_frame.last_frame_output)
+			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
 			if_tracing(|t| {
 				t.enter_child_span(
@@ -817,12 +825,21 @@ where
 				);
 			});
 
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value, storage_meter);
+			let result = Self::transfer_from_origin(
+				&origin,
+				&origin,
+				&dest,
+				value,
+				storage_meter,
+				exec_config,
+			);
 
 			if_tracing(|t| match result {
 				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
 				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 			});
+
+			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
 
 			result
 		}
@@ -841,8 +858,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		skip_transfer: bool,
-		bump_nonce: BumpNonce,
+		exec_config: &ExecConfig,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let deployer = T::AddressMapper::to_address(&origin);
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
@@ -856,18 +872,19 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			skip_transfer,
+			exec_config,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
 		let result = stack
-			.run(executable, input_data, bump_nonce)
+			.run(executable, input_data)
 			.map(|_| (address, stack.first_frame.last_frame_output));
 		if let Ok((contract, ref output)) = result {
 			if !output.did_revert() {
 				Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract });
 			}
 		}
+		log::trace!(target: LOG_TARGET, "instantiate finished with: {result:?}");
 		result
 	}
 
@@ -878,6 +895,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
+		exec_config: &'a ExecConfig,
 	) -> (Self, E) {
 		let call = Self::new(
 			FrameArgs::Call {
@@ -889,7 +907,7 @@ where
 			gas_meter,
 			storage_meter,
 			value.into(),
-			false,
+			exec_config,
 		)
 		.unwrap()
 		.unwrap();
@@ -906,7 +924,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
-		skip_transfer: bool,
+		exec_config: &'a ExecConfig,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
@@ -932,7 +950,7 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
-			skip_transfer,
+			exec_config,
 			_phantom: Default::default(),
 		};
 
@@ -969,6 +987,7 @@ where
 							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
+						log::trace!(target: crate::LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
@@ -1119,7 +1138,6 @@ where
 		&mut self,
 		executable: ExecutableOrPrecompile<T, E, Self>,
 		input_data: Vec<u8>,
-		bump_nonce: BumpNonce,
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
@@ -1153,7 +1171,8 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
-			let skip_transfer = self.skip_transfer;
+			let is_first_frame = self.frames.len() == 0;
+			let bump_nonce = self.exec_config.bump_nonce;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
@@ -1173,12 +1192,8 @@ where
 
 				let ed = <Contracts<T>>::min_balance();
 				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
-				if self.skip_transfer {
-					T::Currency::set_balance(account_id, ed);
-				} else {
-					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)
-						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
-				}
+				<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
+					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
 
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
@@ -1189,7 +1204,7 @@ where
 				// Contracts nonce starts at 1
 				<System<T>>::inc_account_nonce(account_id);
 
-				if matches!(bump_nonce, BumpNonce::Yes) {
+				if bump_nonce || !is_first_frame {
 					// Needs to be incremented before calling into the code so that it is visible
 					// in case of recursion.
 					<System<T>>::inc_account_nonce(caller.account_id()?);
@@ -1215,6 +1230,7 @@ where
 					account_id,
 					frame.value_transferred,
 					&mut frame.nested_storage,
+					self.exec_config,
 				)?;
 			}
 
@@ -1268,8 +1284,7 @@ where
 			// Hence we need to delay charging the base deposit after execution.
 			let frame = if entry_point == ExportedFunction::Constructor {
 				let origin = self.origin.account_id()?.clone();
-				let frame = self.top_frame_mut();
-				let contract_info = frame.contract_info();
+				let frame = top_frame_mut!(self);
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
@@ -1281,14 +1296,15 @@ where
 					};
 
 					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
-					module.store_code(skip_transfer)?;
+					module.store_code(&self.exec_config, Some(&mut frame.nested_storage))?;
 					code_deposit = module.code_info().deposit();
-					contract_info.code_hash = *module.code_hash();
 
+					let contract_info = frame.contract_info();
+					contract_info.code_hash = *module.code_hash();
 					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
 				}
 
-				let deposit = contract_info.update_base_deposit(code_deposit);
+				let deposit = frame.contract_info().update_base_deposit(code_deposit);
 				frame
 					.nested_storage
 					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
@@ -1458,6 +1474,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
+		exec_config: &ExecConfig,
 	) -> DispatchResult {
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
@@ -1534,7 +1551,8 @@ where
 			Ok(())
 		}
 
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		if value.is_zero() {
 			return Ok(());
 		}
@@ -1549,8 +1567,9 @@ where
 			match storage_meter
 				.record_charge(&StorageDeposit::Charge(ed))
 				.and_then(|_| {
-					T::Currency::transfer(origin, to, ed, Preservation::Preserve)
-						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+					<Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config)
+						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+					Ok(())
 				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value))
 			{
@@ -1567,6 +1586,7 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
+		exec_config: &ExecConfig,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1575,7 +1595,7 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(origin, from, to, value, storage_meter)
+		Self::transfer(origin, from, to, value, storage_meter, exec_config)
 			.map(|_| Default::default())
 			.map_err(Into::into)
 	}
@@ -1641,7 +1661,19 @@ where
 		if block_number < self.block_number.saturating_sub(256u32.into()) {
 			return None;
 		}
-		Some(System::<T>::block_hash(&block_number).into())
+		let block_hash = System::<T>::block_hash(&block_number);
+		Decode::decode(&mut TrailingZeroInput::new(block_hash.as_ref())).ok()
+	}
+
+	/// Returns true if the current context has contract info.
+	/// This is the case if `no_precompile || precompile_with_info`.
+	fn has_contract_info(&self) -> bool {
+		let address = self.address();
+		let precompile = <AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes());
+		if let Some(precompile) = precompile {
+			return precompile.has_contract_info();
+		}
+		true
 	}
 }
 
@@ -1649,9 +1681,6 @@ impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
 	E: Executable<T>,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn delegate_call(
 		&mut self,
@@ -1682,7 +1711,7 @@ where
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)? {
-			self.run(executable, input_data, BumpNonce::Yes)
+			self.run(executable, input_data)
 		} else {
 			// Delegate-calls to non-contract accounts are considered success.
 			Ok(())
@@ -1785,37 +1814,7 @@ impl<'a, T, E> PrecompileWithInfoExt for Stack<'a, T, E>
 where
 	T: Config,
 	E: Executable<T>,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
-	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
-		self.top_frame_mut().contract_info().read(key)
-	}
-
-	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
-		self.top_frame_mut().contract_info().size(key.into())
-	}
-
-	fn set_storage(
-		&mut self,
-		key: &Key,
-		value: Option<Vec<u8>>,
-		take_old: bool,
-	) -> Result<WriteOutcome, DispatchError> {
-		let frame = self.top_frame_mut();
-		frame.contract_info.get(&frame.account_id).write(
-			key.into(),
-			value,
-			Some(&mut frame.nested_storage),
-			take_old,
-		)
-	}
-
-	fn charge_storage(&mut self, diff: &Diff) {
-		self.top_frame_mut().nested_storage.charge(diff)
-	}
-
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
@@ -1856,7 +1855,7 @@ where
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
-		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)
+		self.run(executable, input_data).map(|_| address)
 	}
 }
 
@@ -1864,9 +1863,6 @@ impl<'a, T, E> PrecompileExt for Stack<'a, T, E>
 where
 	T: Config,
 	E: Executable<T>,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	type T = T;
 
@@ -1922,7 +1918,7 @@ where
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				is_read_only,
 			)? {
-				self.run(executable, input_data, BumpNonce::Yes)
+				self.run(executable, input_data)
 			} else {
 				if_tracing(|t| {
 					t.enter_child_span(
@@ -1949,6 +1945,7 @@ where
 						&dest,
 						value,
 						&mut frame.nested_storage,
+						self.exec_config,
 					)
 				};
 
@@ -2120,10 +2117,6 @@ where
 		limits::PAYLOAD_BYTES
 	}
 
-	fn get_weight_price(&self, weight: Weight) -> U256 {
-		T::WeightPrice::convert(weight).into()
-	}
-
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
 		&self.top_frame().nested_gas
 	}
@@ -2162,6 +2155,10 @@ where
 		self.top_frame().read_only
 	}
 
+	fn is_delegate_call(&self) -> bool {
+		self.top_frame().delegate.is_some()
+	}
+
 	fn last_frame_output(&self) -> &ExecReturnValue {
 		&self.top_frame().last_frame_output
 	}
@@ -2186,6 +2183,86 @@ where
 
 		buf[len..].fill(0);
 	}
+
+	fn effective_gas_price(&self) -> U256 {
+		self.exec_config
+			.effective_gas_price
+			.unwrap_or_else(|| <Contracts<T>>::evm_base_fee())
+	}
+
+	fn gas_left(&self) -> u64 {
+		let frame = self.top_frame();
+		if let Some((encoded_len, base_weight)) = self.exec_config.collect_deposit_from_hold {
+			// when using the txhold we know the overall available fee by looking at the tx credit
+			// we work backwards: the gas_left is the overall fee minus what was already consumed
+			let weight_fee_consumed = T::FeeInfo::tx_fee_from_weight(
+				encoded_len,
+				&frame.nested_gas.gas_consumed().saturating_add(base_weight),
+			);
+			let available = T::FeeInfo::remaining_txfee().saturating_sub(weight_fee_consumed);
+			let deposit_consumed = self
+				.frames
+				.iter()
+				.chain(core::iter::once(&self.first_frame))
+				.fold(StorageDeposit::default(), |acc, frame| {
+					acc.saturating_add(&frame.nested_storage.consumed())
+				});
+			deposit_consumed.available(&available)
+		} else {
+			// when not using the hold we expect the transaction to contain a limit for the storage
+			// deposit we work forwards: add up what is left from both meters
+			// in case no storage limit is set we limit by all the free balance of the signer
+			use frame_support::traits::tokens::{Fortitude, Preservation};
+			let weight_fee_available =
+				T::FeeInfo::weight_to_fee(&frame.nested_gas.gas_left(), Combinator::Min);
+			let available_balance = self
+				.origin
+				.account_id()
+				.map(|acc| {
+					T::Currency::reducible_balance(acc, Preservation::Preserve, Fortitude::Polite)
+				})
+				.unwrap_or(BalanceOf::<T>::max_value());
+			let deposit_available = frame.nested_storage.available().min(available_balance);
+			weight_fee_available.saturating_add(deposit_available)
+		}
+		.saturated_into()
+	}
+
+	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
+		assert!(self.has_contract_info());
+		self.top_frame_mut().contract_info().read(key)
+	}
+
+	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
+		assert!(self.has_contract_info());
+		self.top_frame_mut().contract_info().size(key.into())
+	}
+
+	fn set_storage(
+		&mut self,
+		key: &Key,
+		value: Option<Vec<u8>>,
+		take_old: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		assert!(self.has_contract_info());
+		let frame = self.top_frame_mut();
+		frame.contract_info.get(&frame.account_id).write(
+			key.into(),
+			value,
+			Some(&mut frame.nested_storage),
+			take_old,
+		)
+	}
+
+	fn charge_storage(&mut self, diff: &Diff) {
+		assert!(self.has_contract_info());
+		self.top_frame_mut().nested_storage.charge(diff)
+	}
+}
+
+/// Returns true if the address has a precompile contract, else false.
+pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
+	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
 }
 
 mod sealing {

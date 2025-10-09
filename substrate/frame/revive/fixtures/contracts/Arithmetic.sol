@@ -16,16 +16,16 @@ contract Arithmetic {
         require(100 / 5 == 20, "DIV basic");
 
         // SDIV tests
-        require(int(-100) / 5 == -20, "SDIV neg/pos");
-        require(int(100) / -5 == -20, "SDIV pos/neg");
-        require(int(-100) / -5 == 20, "SDIV neg/neg");
+        require(int256(-100) / 5 == -20, "SDIV neg/pos");
+        require(int256(100) / -5 == -20, "SDIV pos/neg");
+        require(int256(-100) / -5 == 20, "SDIV neg/neg");
 
         // REM/MOD tests
         require(100 % 7 == 2, "REM basic");
 
         // SMOD tests
-        require(int(-100) % 7 == -2, "SMOD neg dividend");
-        require(int(100) % -7 == 2, "SMOD neg divisor");
+        require(int256(-100) % 7 == -2, "SMOD neg dividend");
+        require(int256(100) % -7 == 2, "SMOD neg divisor");
 
         // ADDMOD tests
         require((10 + 15) % 7 == 4, "ADDMOD basic");
@@ -39,12 +39,12 @@ contract Arithmetic {
         require(0 ** 5 == 0, "EXP zero base");
 
         // SIGNEXTEND tests
-        uint result1;
+        uint256 result1;
         assembly {
             result1 := signextend(0, 0xff)
         }
         require(result1 == type(uint256).max, "SIGNEXTEND negative byte");
-        uint result2;
+        uint256 result2;
         assembly {
             result2 := signextend(0, 0x7f)
         }
