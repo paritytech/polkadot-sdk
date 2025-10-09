@@ -37,12 +37,12 @@ frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 # Substrate
-frame-support = { features = ["experimental"], default-features = true, path = "../../../substrate/frame/support" }
-pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+frame-support = { features = ["experimental"], default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
 
 # Cumulus
-cumulus-pallet-parachain-system = { default-features = true, path = "../parachain-system" }
+cumulus-pallet-parachain-system = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
