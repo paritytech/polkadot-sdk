@@ -4670,7 +4670,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "approx",
  "bounded-collections 0.2.3",
@@ -12951,7 +12951,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ranked-collective"
-version = "41.0.0"
+version = "41.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -20542,7 +20542,7 @@ dependencies = [
 
 [[package]]
 name = "sc-statement-store"
-version = "22.0.0"
+version = "22.1.0"
 dependencies = [
  "log",
  "parity-db",
@@ -23803,7 +23803,7 @@ dependencies = [
 
 [[package]]
 name = "sp-statement-store"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "aes-gcm",
  "curve25519-dalek 4.1.3",

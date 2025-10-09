@@ -1,6 +1,6 @@
 [package]
 name = "sc-statement-store"
-version = "22.0.0"
+version = "22.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -38,5 +38,5 @@ sp-statement-store.workspace = true
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }
 tempfile = { workspace = true }
