@@ -23,12 +23,10 @@ use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {
-	assert!(api::ref_time_left() > api::ref_time_left());
-}
+pub extern "C" fn deploy() {}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	api::return_value(ReturnFlags::empty(), &api::ref_time_left().to_le_bytes());
+	api::return_value(ReturnFlags::empty(), &api::gas_left().to_le_bytes());
 }

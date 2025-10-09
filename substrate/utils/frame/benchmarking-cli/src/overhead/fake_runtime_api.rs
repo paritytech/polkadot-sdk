@@ -28,10 +28,13 @@ use sp_runtime::{
 };
 
 /// Block number
+#[allow(dead_code)]
 type BlockNumber = u32;
 /// Opaque block header type.
+#[allow(dead_code)]
 type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Opaque block type.
+#[allow(dead_code)]
 type Block = generic::Block<Header, OpaqueExtrinsic>;
 
 #[allow(unused)]

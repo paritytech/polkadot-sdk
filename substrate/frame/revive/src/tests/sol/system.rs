@@ -18,12 +18,13 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	evm::fees::InfoT,
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, GAS_LIMIT},
 	tests::{builder, Contracts, ExtBuilder, Test},
-	Code, Config, U256,
+	Code, Combinator, Config, ExecConfig, U256,
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::traits::fungible::Mutate;
+use frame_support::traits::fungible::{Balanced, Mutate};
 use pallet_revive_fixtures::{
 	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
 };
@@ -199,6 +200,36 @@ fn codesize_works(fixture_type: FixtureType) {
 		let expected_size = code.len() as u64;
 
 		assert_eq!(expected_size, decoded);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn gas_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		// enable txhold collection which we expect to be on when using the evm backend
+		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Max);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
+		let mut exec_config = ExecConfig::new_substrate_tx();
+		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
+
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::gasCall {}.abi_encode())
+			.exec_config(exec_config)
+			.build_and_unwrap_result();
+
+		let gas_left: u64 = SystemFixture::gasCall::abi_decode_returns(&result.data)
+			.unwrap()
+			.try_into()
+			.unwrap();
+
+		assert!(gas_left > 0);
+		assert!(gas_left < hold_initial);
 	});
 }
 
