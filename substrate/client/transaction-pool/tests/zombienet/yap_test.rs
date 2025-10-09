@@ -111,7 +111,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	tracing::info!("2 more cores assigned to the parachain");
 
 	// Wait for the parachain collator to start block production.
-	spawner.wait_for_block_production("dave").await.unwrap();
+	spawner.wait_for_block_production("dave", false).await.unwrap();
 
 	// Create txs executor.
 	let ws = spawner.node_rpc_uri("dave").unwrap();
