@@ -1,0 +1,8 @@
+title: pallet-revive update basefee instruction
+doc:
+- audience: Runtime Dev
+  description: The base fee instruction now returns the proper base price instead
+    of a hard coded value.
+crates:
+- name: pallet-revive
+  bump: major

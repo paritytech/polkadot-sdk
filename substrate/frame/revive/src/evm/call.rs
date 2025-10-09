@@ -55,7 +55,7 @@ where
 	T: Config,
 	CallOf<T>: SetWeightLimit,
 {
-	let base_fee = <Pallet<T>>::evm_gas_price();
+	let base_fee = <Pallet<T>>::evm_base_fee();
 
 	let Some(gas) = tx.gas else {
 		log::debug!(target: LOG_TARGET, "No gas provided");
