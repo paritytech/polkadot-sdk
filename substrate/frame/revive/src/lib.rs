@@ -48,7 +48,7 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
-	exec::{DelegateInfo, Key, MomentOf, Origin as ExecOrigin},
+	exec::{DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
 };
@@ -57,7 +57,7 @@ use crate::{
 		create_call, fees::InfoT as FeeInfo, runtime::SetWeightLimit, CallTracer,
 		GenericTransaction, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
-	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
@@ -1851,7 +1851,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_pvm_code(
+	pub fn try_upload_pvm_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
