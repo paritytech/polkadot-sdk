@@ -526,7 +526,9 @@ impl<T: Config> Ext<T> for ReservingExt {
 			},
 		}
 		if let ContractState::<T>::Terminated { beneficiary, delete_code } = state {
-			terminate::<T>(contract, &beneficiary, delete_code)?;
+			if let Err(e) = terminate::<T>(contract, &beneficiary, delete_code) {
+				log::debug!(target: LOG_TARGET, "Failed to terminate contract: {:?}", e);
+			}
 		}
 		Ok(())
 	}
@@ -547,14 +549,20 @@ fn terminate<T: Config>(
 		ImmutableDataOf::<T>::remove(contract_address);
 		let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
 		System::<T>::dec_consumers(&contract);
+
+		// Whatever is left in the contract is sent to the termination beneficiary.
+		let balance = T::Currency::total_balance(&contract);
+		if !balance.is_zero() {
+			T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
+		}
+	} else {
+		// Whatever is left in the contract is sent to the termination beneficiary.
+		let balance = T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite);
+		if !balance.is_zero() {
+			T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
+		}
 	}
-	// Whatever is left in the contract is sent to the termination beneficiary.
-	T::Currency::transfer(
-		&contract,
-		&beneficiary,
-		T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite),
-		Preservation::Expendable,
-	)?;
+
 	Ok(())
 }
 

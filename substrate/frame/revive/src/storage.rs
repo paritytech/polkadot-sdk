@@ -120,19 +120,6 @@ pub struct ContractInfo<T: Config> {
 	/// The size of the immutable data of this contract.
 	immutable_data_len: u32,
 }
-use core::cmp::Ordering;
-impl<T: Config> PartialOrd for ContractInfo<T> {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		// Use `as_slice()` to get a concrete `[u8]` slice so the comparator type is known.
-		Some(self.trie_id.as_slice().cmp(other.trie_id.as_slice()))
-	}
-}
-
-impl<T: Config> Ord for ContractInfo<T> {
-	fn cmp(&self, other: &Self) -> Ordering {
-		self.trie_id.as_slice().cmp(other.trie_id.as_slice())
-	}
-}
 
 impl<T: Config> From<H160> for AccountIdOrAddress<T> {
 	fn from(address: H160) -> Self {

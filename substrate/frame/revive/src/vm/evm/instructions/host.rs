@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	gas::Token,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{
@@ -251,13 +252,20 @@ pub fn log<'ext, const N: usize, E: Ext>(
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	let ([], beneficiary) = interpreter.stack.popn_top()?;
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::Terminate { code_removed: true })?;
 	let dispatch_result = interpreter
 		.ext
 		.terminate(&beneficiary.into_address(), /* allow_from_outside_tx */ false);
 
 	match dispatch_result {
-		Ok(_) => {
+		Ok(code_removed) => {
 			// halt execution on successful selfdestruct
+			if matches!(code_removed, crate::CodeRemoved::No) {
+				let actual_cost = RuntimeCosts::Terminate { code_removed: false };
+				interpreter
+					.ext
+					.adjust_gas(charged, <RuntimeCosts as Token<E::T>>::weight(&actual_cost));
+			}
 			ControlFlow::Break(Halt::Return(Vec::default()))
 		},
 		Err(e) => {

@@ -20,7 +20,7 @@ use crate::{
 	exec::Origin,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, Revert},
 	vm::RuntimeCosts,
-	Config, H160,
+	Config, DispatchError, H160,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -93,16 +93,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let charged =
 					env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
-				let caller_account_id = match env.caller() {
-					Origin::<T>::Root => {
-						return Err(Error::Revert(Revert::from(
-							"Not allowed to call terminate as Root",
-						)));
-					},
-					Origin::<T>::Signed(c) => c,
-				};
-				let caller_h160: H160 = T::AddressMapper::to_address(&caller_account_id);
-				let code_removed = env.terminate_caller(&h160, &caller_h160)?;
+				let code_removed = env.terminate_caller(&h160)?;
 				if matches!(code_removed, crate::CodeRemoved::No) {
 					env.gas_meter_mut()
 						.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
