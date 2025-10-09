@@ -57,6 +57,10 @@
 //! `update_bond`, but candidates who are on top slots and try to decrease their deposits will fail
 //! in order to enforce auction mechanics and have meaningful bids.
 //!
+//! Candidates that are kicked or intentionally leave the auction will have their deposit reserved
+//! for an additional period of time, referred to as the unbonding period. The deposit can be
+//! unreserved after the unbonding period has passed.
+//!
 //! Candidates will not be allowed to get kicked or `leave_intent` if the total number of collators
 //! would fall below `MinEligibleCollators`. This is to ensure that some collators will always
 //! exist, i.e. someone is eligible to produce a block.
@@ -112,7 +116,7 @@ pub mod pallet {
 			Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, ReservableCurrency,
 			ValidatorRegistration,
 		},
-		BoundedVec, DefaultNoBound, PalletId,
+		BoundedVec, DefaultNoBound, PalletId, Twox64Concat,
 	};
 	use frame_system::{pallet_prelude::*, Config as SystemConfig};
 	use pallet_session::SessionManager;
@@ -170,9 +174,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
-		// Will be kicked if block is not produced in threshold.
+		/// Will be kicked if block is not produced in threshold.
 		#[pallet::constant]
 		type KickThreshold: Get<BlockNumberFor<Self>>;
+
+		/// The additional period of time the candidate deposits are reserved for after being kicked
+		/// or leaving the candidate set.
+		type UnbondingPeriod: Get<BlockNumberFor<Self>>;
 
 		/// A stable ID for a validator.
 		type ValidatorId: Member + Parameter;
@@ -246,6 +254,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CandidacyBond<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+	/// Information about the candidates that have started the unbonding process.
+	#[pallet::storage]
+	pub type UnbondingCandidates<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, (BalanceOf<T>, BlockNumberFor<T>)>;
+
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -306,6 +319,8 @@ pub mod pallet {
 		/// An account was unable to be added to the Invulnerables because they did not have keys
 		/// registered. Other Invulnerables may have been set.
 		InvalidInvulnerableSkipped { account_id: T::AccountId },
+		/// A deposit has been withdrawn.
+		UnbondedWithdrawn { account_id: T::AccountId, deposit: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -344,6 +359,12 @@ pub mod pallet {
 		IdenticalDeposit,
 		/// Cannot lower candidacy bond while occupying a future collator slot in the list.
 		InvalidUnreserve,
+		/// There is no unbonding deposit associated with the account.
+		NotUnbonding,
+		/// The unbonding period hasn't passed for the deposit to be withdrawable.
+		EarlyWithdraw,
+		/// The candidate's deposit is still unbonding.
+		StillUnbonding,
 	}
 
 	#[pallet::hooks]
@@ -531,6 +552,7 @@ pub mod pallet {
 				.unwrap_or_default();
 			ensure!(length < T::MaxCandidates::get(), Error::<T>::TooManyCandidates);
 			ensure!(!Invulnerables::<T>::get().contains(&who), Error::<T>::AlreadyInvulnerable);
+			ensure!(!UnbondingCandidates::<T>::contains_key(&who), Error::<T>::StillUnbonding);
 
 			let validator_key = T::ValidatorIdOf::convert(who.clone())
 				.ok_or(Error::<T>::NoAssociatedValidatorId)?;
@@ -565,7 +587,8 @@ pub mod pallet {
 		}
 
 		/// Deregister `origin` as a collator candidate. Note that the collator can only leave on
-		/// session change. The `CandidacyBond` will be unreserved immediately.
+		/// session change. The `CandidacyBond` will remain reserved and, after the unbonding period
+		/// passes, it can be unreserved using [`withdraw_unbonded`](Call::withdraw_unbonded).
 		///
 		/// This call will fail if the total number of candidates would drop below
 		/// `MinEligibleCollators`.
@@ -579,7 +602,7 @@ pub mod pallet {
 			);
 			let length = CandidateList::<T>::decode_len().unwrap_or_default();
 			// Do remove their last authored block.
-			Self::try_remove_candidate(&who, true)?;
+			Self::try_remove_candidate(&who, false)?;
 
 			Ok(Some(T::WeightInfo::leave_intent(length.saturating_sub(1) as u32)).into())
 		}
@@ -619,7 +642,7 @@ pub mod pallet {
 
 			// Error just means `who` wasn't a candidate, which is the state we want anyway. Don't
 			// remove their last authored block, as they are still a collator.
-			let _ = Self::try_remove_candidate(&who, false);
+			let _ = Self::try_remove_candidate(&who, true);
 
 			Self::deposit_event(Event::InvulnerableAdded { account_id: who });
 
@@ -741,6 +764,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(!Invulnerables::<T>::get().contains(&who), Error::<T>::AlreadyInvulnerable);
+			ensure!(!UnbondingCandidates::<T>::contains_key(&who), Error::<T>::StillUnbonding);
 			ensure!(deposit >= CandidacyBond::<T>::get(), Error::<T>::InsufficientBond);
 
 			let validator_key = T::ValidatorIdOf::convert(who.clone())
@@ -809,6 +833,26 @@ pub mod pallet {
 			Self::deposit_event(Event::CandidateReplaced { old: target, new: who, deposit });
 			Ok(Some(T::WeightInfo::take_candidate_slot(length as u32)).into())
 		}
+
+		/// The caller `origin` unreserves their deposit as a candidate.
+		///
+		/// This call will fail if the caller does not have an unbonding deposit or if the unbonding
+		/// period has not passed since unbonding the deposit.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::withdraw_unbonded())]
+		pub fn withdraw_unbonded(origin: OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let now = frame_system::Pallet::<T>::block_number();
+			let (deposit, unbond_start) =
+				UnbondingCandidates::<T>::take(&who).ok_or(Error::<T>::NotUnbonding)?;
+			ensure!(
+				unbond_start.saturating_add(T::UnbondingPeriod::get()) <= now,
+				Error::<T>::EarlyWithdraw
+			);
+			T::Currency::unreserve(&who, deposit);
+			Self::deposit_event(Event::UnbondedWithdrawn { account_id: who, deposit });
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -827,10 +871,11 @@ pub mod pallet {
 				.unwrap_or(u32::MAX)
 		}
 
-		/// Removes a candidate if they exist and sends them back their deposit.
+		/// Removes a candidate if they exist and sends them back their deposit if they are still
+		/// collating.
 		fn try_remove_candidate(
 			who: &T::AccountId,
-			remove_last_authored: bool,
+			still_collating: bool,
 		) -> Result<(), DispatchError> {
 			CandidateList::<T>::try_mutate(|candidates| -> Result<(), DispatchError> {
 				let idx = candidates
@@ -838,11 +883,21 @@ pub mod pallet {
 					.position(|candidate_info| candidate_info.who == *who)
 					.ok_or(Error::<T>::NotCandidate)?;
 				let deposit = candidates[idx].deposit;
-				T::Currency::unreserve(who, deposit);
+
 				candidates.remove(idx);
-				if remove_last_authored {
+				// If the candiadte is still collating, this means it was promoted to invulnerable
+				// or is already an invulnerable and shouldn't be a candidate in the first place.
+				if still_collating {
+					// Unreserve their deposit immediately.
+					T::Currency::unreserve(who, deposit);
+				} else {
+					// If the candidate isn't collating anymore, then they were either kicked or
+					// they left the list on their own. In this case, we start unbonding their
+					// deposit and we remove their entry in the authored blocks map.
+					let now = frame_system::Pallet::<T>::block_number();
+					UnbondingCandidates::<T>::insert(&who, (deposit, now));
 					LastAuthoredBlock::<T>::remove(who.clone())
-				};
+				}
 				Ok(())
 			})?;
 			Self::deposit_event(Event::CandidateRemoved { account_id: who.clone() });
@@ -878,7 +933,7 @@ pub mod pallet {
 			candidates
 				.into_iter()
 				.filter_map(|c| {
-					let last_block = LastAuthoredBlock::<T>::get(c.clone());
+					let last_block = LastAuthoredBlock::<T>::get(&c);
 					let since_last = now.saturating_sub(last_block);
 
 					let is_invulnerable = Invulnerables::<T>::get().contains(&c);
@@ -888,7 +943,7 @@ pub mod pallet {
 						// They are invulnerable. No reason for them to be in `CandidateList` also.
 						// We don't even care about the min collators here, because an Account
 						// should not be a collator twice.
-						let _ = Self::try_remove_candidate(&c, false);
+						let _ = Self::try_remove_candidate(&c, true);
 						None
 					} else {
 						if Self::eligible_collators() <= min_collators || !is_lazy {
@@ -897,7 +952,7 @@ pub mod pallet {
 							Some(c)
 						} else {
 							// This collator has not produced a block recently enough. Bye bye.
-							let _ = Self::try_remove_candidate(&c, true);
+							let _ = Self::try_remove_candidate(&c, false);
 							None
 						}
 					}

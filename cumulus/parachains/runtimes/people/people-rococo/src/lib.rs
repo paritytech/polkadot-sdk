@@ -353,6 +353,7 @@ impl cumulus_pallet_xcmp_queue::migration::v5::V5Config for Runtime {
 
 pub const PERIOD: u32 = 6 * HOURS;
 pub const OFFSET: u32 = 0;
+pub const UNBONDING_PERIOD: u32 = 24 * HOURS;
 
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -402,6 +403,7 @@ impl pallet_collator_selection::Config for Runtime {
 	type MaxInvulnerables = ConstU32<20>;
 	// should be a multiple of session or things will get inconsistent
 	type KickThreshold = ConstU32<PERIOD>;
+	type UnbondingPeriod = ConstU32<UNBONDING_PERIOD>;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;

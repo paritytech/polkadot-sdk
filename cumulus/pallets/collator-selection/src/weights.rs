@@ -35,6 +35,7 @@ pub trait WeightInfo {
 	fn leave_intent(_c: u32) -> Weight;
 	fn update_bond(_c: u32) -> Weight;
 	fn take_candidate_slot(_c: u32) -> Weight;
+	fn withdraw_unbonded() -> Weight;
 	fn note_author() -> Weight;
 	fn new_session(_c: u32, _r: u32) -> Weight;
 }
@@ -81,6 +82,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(198_000_u64, 0).saturating_mul(c as u64))
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	fn withdraw_unbonded() -> Weight {
+		Weight::zero()
 	}
 	fn note_author() -> Weight {
 		Weight::from_parts(71_461_000_u64, 0)
@@ -187,6 +191,9 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(198_000_u64, 0).saturating_mul(c as u64))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	fn withdraw_unbonded() -> Weight {
+		Weight::zero()
 	}
 	fn new_session(r: u32, c: u32) -> Weight {
 		Weight::from_parts(0_u64, 0)
