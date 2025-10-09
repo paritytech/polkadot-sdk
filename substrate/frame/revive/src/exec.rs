@@ -2192,7 +2192,7 @@ where
 	fn effective_gas_price(&self) -> U256 {
 		self.exec_config
 			.effective_gas_price
-			.unwrap_or_else(|| <Contracts<T>>::evm_gas_price())
+			.unwrap_or_else(|| <Contracts<T>>::evm_base_fee())
 	}
 }
 

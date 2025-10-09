@@ -994,7 +994,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_gas_price(memory.as_mut_slice());
 		}
-		assert_eq!(U256::from(result.unwrap()), <Pallet<T>>::evm_gas_price());
+		assert_eq!(U256::from(result.unwrap()), <Pallet<T>>::evm_base_fee());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1006,7 +1006,7 @@ mod benchmarks {
 			result = runtime.bench_base_fee(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), U256::zero());
+		assert_eq!(U256::from_little_endian(&memory[..]), <crate::Pallet<T>>::evm_base_fee());
 	}
 
 	#[benchmark(pov_mode = Measured)]
