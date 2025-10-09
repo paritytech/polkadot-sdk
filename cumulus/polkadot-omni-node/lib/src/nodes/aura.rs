@@ -39,7 +39,6 @@ use cumulus_client_consensus_aura::collators::slot_based::{
 	self as slot_based, Params as SlotBasedParams,
 };
 use cumulus_client_consensus_aura::{
-	collator::{collator_protocol_helper, COLLATOR_PROTOCOL_HELPER_TASK_GROUP},
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
 		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
@@ -250,7 +249,8 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	#[docify::export_content]
 	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS, Spawner>(
@@ -279,7 +279,7 @@ where
 		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
 		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
-		Spawner: SpawnNamed,
+		Spawner: SpawnNamed + Clone + 'static,
 	{
 		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
 			params_with_export,
@@ -323,7 +323,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
-		overseer_handle: OverseerHandle,
+		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
@@ -342,18 +342,6 @@ where
 			Arc::new(task_manager.spawn_handle()),
 			announce_block,
 			client.clone(),
-		);
-
-		// Spawn the collator protocol helper task
-		task_manager.spawn_essential_handle().spawn(
-			COLLATOR_PROTOCOL_HELPER_TASK_GROUP,
-			Some(COLLATOR_PROTOCOL_HELPER_TASK_GROUP),
-			collator_protocol_helper::<_, _, <AuraId as AppCrypto>::Pair, _>(
-				client.clone(),
-				keystore.clone(),
-				overseer_handle,
-				task_manager.spawn_handle(),
-			),
 		);
 
 		let client_for_aura = client.clone();
@@ -481,18 +469,6 @@ where
 			client.clone(),
 		);
 
-		// Spawn the collator protocol helper task
-		task_manager.spawn_essential_handle().spawn(
-			COLLATOR_PROTOCOL_HELPER_TASK_GROUP,
-			Some(COLLATOR_PROTOCOL_HELPER_TASK_GROUP),
-			collator_protocol_helper::<_, _, <AuraId as AppCrypto>::Pair, _>(
-				client.clone(),
-				keystore.clone(),
-				overseer_handle.clone(),
-				task_manager.spawn_handle(),
-			),
-		);
-
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
@@ -517,12 +493,13 @@ where
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
 				max_pov_percentage: node_extra_args.max_pov_percentage,
+				spawner: task_manager.spawn_handle(),
 			},
 		};
 
 		let fut = async move {
 			wait_for_aura(client).await;
-			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(
+			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
 				params,
 			)
 			.await;

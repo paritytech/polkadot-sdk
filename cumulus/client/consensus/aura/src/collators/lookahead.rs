@@ -45,7 +45,11 @@ use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use crate::{collator as collator_util, collators::claim_queue_at, export_pov_to_path};
+use crate::{
+	collator as collator_util,
+	collators::{claim_queue_at, collator_protocol_helper},
+	export_pov_to_path,
+};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
@@ -53,14 +57,14 @@ use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, traits::SpawnNamed};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -96,11 +100,13 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
+	/// Spawner for spawning tasks.
+	pub spawner: Spawner,
 }
 
 /// Run async-backing-friendly Aura.
-pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
-	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
+	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -122,17 +128,21 @@ where
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	Spawner: SpawnNamed + Clone + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	run_with_export::<_, P, _, _, _, _, _, _, _, _>(ParamsWithExport { params, export_pov: None })
+	run_with_export::<_, P, _, _, _, _, _, _, _, _, _>(ParamsWithExport {
+		params,
+		export_pov: None,
+	})
 }
 
 /// Parameters for [`run_with_export`].
-pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// The parameters.
-	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
@@ -142,7 +152,7 @@ pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, C
 ///
 /// This is exactly the same as [`run`], but it supports the optional export of each produced `POV`
 /// to the file system.
-pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
+pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
 	ParamsWithExport { mut params, export_pov }: ParamsWithExport<
 		BI,
 		CIDP,
@@ -152,6 +162,7 @@ pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Propos
 		CHP,
 		Proposer,
 		CS,
+		Spawner,
 	>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
@@ -174,7 +185,8 @@ where
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	Spawner: SpawnNamed + Clone + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -214,6 +226,8 @@ where
 
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
+
+		let mut our_slot = None;
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
@@ -290,14 +304,18 @@ where
 					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
 					"Adjusted relay-chain slot to parachain slot"
 				);
-				Some(super::can_build_upon::<_, _, P>(
+				Some((
 					slot_now,
-					relay_slot,
-					timestamp,
-					block_hash,
-					included_block.hash(),
-					para_client,
-					&keystore,
+					slot_duration,
+					super::can_build_upon::<_, _, P>(
+						slot_now,
+						relay_slot,
+						timestamp,
+						block_hash,
+						included_block.hash(),
+						para_client,
+						&keystore,
+					),
 				))
 			};
 
@@ -316,8 +334,21 @@ where
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
 				let slot_claim = match can_build_upon(parent_hash) {
-					Some(fut) => match fut.await {
-						None => break,
+					Some((current_slot, slot_duration, fut)) => match fut.await {
+						None => {
+							our_slot = collator_protocol_helper::<_, _, P, _>(
+								params.para_client.clone(),
+								params.keystore.clone(),
+								params.overseer_handle.clone(),
+								params.spawner.clone(),
+								parent_hash,
+								slot_duration,
+								current_slot,
+								our_slot,
+							)
+							.await;
+							break
+						},
 						Some(c) => c,
 					},
 					None => break,
