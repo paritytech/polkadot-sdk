@@ -19870,6 +19870,7 @@ dependencies = [
  "serde",
  "sp-blockchain",
  "sp-consensus",
+ "sp-consensus-babe 0.32.0",
  "sp-core 28.0.0",
  "sp-runtime",
  "sp-state-machine",
