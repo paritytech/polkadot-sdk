@@ -40,6 +40,9 @@ pub mod runtime_api;
 mod traits;
 pub use traits::PublishSubscribe;
 
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;

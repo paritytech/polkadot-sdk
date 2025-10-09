@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	assigner_coretime, broadcaster, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -74,6 +74,7 @@ frame_support::construct_runtime!(
 		Paras: paras,
 		Configuration: configuration,
 		ParasShared: shared,
+		Broadcaster: broadcaster,
 		ParaInclusion: inclusion,
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
@@ -250,6 +251,21 @@ impl crate::paras::Config for Test {
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
 	type AuthorizeCurrentCodeOrigin = EnsureRoot<AccountId>;
+}
+
+parameter_types! {
+	pub const MaxPublishItems: u32 = 16;
+	pub const MaxKeyLength: u32 = 256;
+	pub const MaxValueLength: u32 = 1024;
+	pub const MaxStoredKeys: u32 = 100;
+}
+
+impl crate::broadcaster::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type MaxPublishItems = MaxPublishItems;
+	type MaxKeyLength = MaxKeyLength;
+	type MaxValueLength = MaxValueLength;
+	type MaxStoredKeys = MaxStoredKeys;
 }
 
 impl crate::dmp::Config for Test {}
