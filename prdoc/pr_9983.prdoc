@@ -1,0 +1,21 @@
+title: Fix utility::force_batch returning incorrect weights causing mismatch
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    The returned weights from the `pallet_utility::force_batch` dispatch is using `batch` weights instead of its own `force_batch` causing a weight mismatch log:
+
+    ```
+    2025-10-03 14:57:48 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.
+                                            Pre dispatch weight: Weight { ref_time: 5963137729, proof_size: 3997 },
+                                            Post dispatch weight: Weight { ref_time: 5963148560, proof_size: 3997 }
+    2025-10-03 14:59:00 Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.
+                                            Pre dispatch weight: Weight { ref_time: 2837593294, proof_size: 8703 },
+                                            Post dispatch weight: Weight { ref_time: 2837604125, proof_size: 8703 }
+    ```
+
+    This PR correct the returned weights.
+crates:
+- name: pallet-utility
+  bump: patch
