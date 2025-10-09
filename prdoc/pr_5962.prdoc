@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Remove periodic tick from Syncing_Engine"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR removes periodic tick from `SyncingEngine`
+
+crates: 
+  - name: sc-network-sync
+    bump: patch
+
