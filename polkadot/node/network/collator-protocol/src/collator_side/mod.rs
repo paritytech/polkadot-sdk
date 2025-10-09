@@ -1445,7 +1445,7 @@ async fn handle_our_view_change<Context>(
 
 			if let Some(block_number) = maybe_block_number {
 				let expired_collations = state.collation_tracker.drain_expired(block_number);
-				process_expired_collations(expired_collations, *removed, para_id, &state.metrics);
+				process_expired_collations(expired_collations, para_id, &state.metrics);
 			}
 
 			// Get all the collations built on top of the removed leaf.
@@ -1534,7 +1534,6 @@ fn process_out_of_view_collation(
 /// Collations no more tracked after this call.
 fn process_expired_collations(
 	expired_collations: Vec<CollationStats>,
-	removed: Hash,
 	para_id: ParaId,
 	metrics: &Metrics,
 ) {
