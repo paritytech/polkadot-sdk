@@ -366,7 +366,10 @@ impl Client {
 		at: BlockNumberOrTagOrHash,
 	) -> Result<SubstrateBlockHash, ClientError> {
 		match at {
-			BlockNumberOrTagOrHash::BlockHash(hash) => Ok(hash),
+			BlockNumberOrTagOrHash::BlockHash(hash) => self
+				.resolve_substrate_hash(&hash)
+				.await
+				.ok_or(ClientError::EthereumBlockNotFound),
 			BlockNumberOrTagOrHash::BlockNumber(block_number) => {
 				let n: SubstrateBlockNumber =
 					(block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
