@@ -178,6 +178,18 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	/// Checks if a slash has been cancelled for the given era and slash parameters.
+	pub(crate) fn check_slash_cancelled(
+		era: EraIndex,
+		validator: &T::AccountId,
+		slash_fraction: Perbill,
+	) -> bool {
+		let cancelled_slashes = CancelledSlashes::<T>::get(&era);
+		cancelled_slashes.iter().any(|(cancelled_validator, cancel_fraction)| {
+			*cancelled_validator == *validator && *cancel_fraction >= slash_fraction
+		})
+	}
+
 	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
 		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
@@ -1123,7 +1135,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	) -> Weight {
 		// worst case weight of this is always
 		T::WeightInfo::rc_on_session_report()
-			.saturating_add(T::WeightInfo::prune_era(ValidatorCount::<T>::get()))
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
@@ -1322,11 +1333,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		weight
 	}
 
-	fn weigh_on_new_offences(
-		_slash_session: SessionIndex,
-		offences: &[pallet_staking_async_rc_client::Offence<Self::AccountId>],
-	) -> Weight {
-		T::WeightInfo::rc_on_offence(offences.len() as u32)
+	fn weigh_on_new_offences(offence_count: u32) -> Weight {
+		T::WeightInfo::rc_on_offence(offence_count)
 	}
 }
 
@@ -1335,12 +1343,20 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 	fn score(who: &T::AccountId) -> Option<Self::Score> {
 		Self::ledger(Stash(who.clone()))
-			.map(|l| l.active)
+			.ok()
+			.and_then(|l| {
+				if Nominators::<T>::contains_key(&l.stash) ||
+					Validators::<T>::contains_key(&l.stash)
+				{
+					Some(l.active)
+				} else {
+					None
+				}
+			})
 			.map(|a| {
 				let issuance = asset::total_issuance::<T>();
 				T::CurrencyToVote::to_vote(a, issuance)
 			})
-			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1356,6 +1372,9 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 		<Ledger<T>>::insert(who, ledger);
 		<Bonded<T>>::insert(who, who);
+		// we also need to appoint this staker to be validator or nominator, such that their score
+		// is actually there. Note that `fn score` above checks the role.
+		<Validators<T>>::insert(who, ValidatorPrefs::default());
 
 		// also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
 		// This will make sure that total issuance is zero, thus the currency to vote will be a 1-1
@@ -1744,6 +1763,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		// If the pallet is not initialized (both ActiveEra and CurrentEra are None),
+		// there's nothing to check, so return early.
+		if ActiveEra::<T>::get().is_none() && CurrentEra::<T>::get().is_none() {
+			return Ok(());
+		}
+
 		session_rotation::Rotator::<T>::do_try_state()?;
 		session_rotation::Eras::<T>::do_try_state()?;
 
@@ -1924,6 +1949,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
+	/// * ActiveEra is Some.
 	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
@@ -1934,7 +1960,13 @@ impl<T: Config> Pallet<T> {
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
 			BTreeMap::new();
-		let era = ActiveEra::<T>::get().unwrap().index;
+		// If the pallet is not initialized, we return immediately from pallet's do_try_state() and
+		// we don't call this method. Otherwise, Eras::do_try_state enforces that both ActiveEra
+		// and CurrentEra are Some. Thus, we should never hit this error.
+		let era = ActiveEra::<T>::get()
+			.ok_or(TryRuntimeError::Other("ActiveEra must be set when checking paged exposures"))?
+			.index;
+
 		let accumulator_default = PagedExposureMetadata {
 			total: Zero::zero(),
 			own: Zero::zero(),

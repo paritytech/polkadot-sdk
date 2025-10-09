@@ -76,7 +76,6 @@ pub type Client = client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
 pub struct GenesisParameters {
 	pub endowed_accounts: Vec<cumulus_test_runtime::AccountId>,
 	pub wasm: Option<Vec<u8>>,
-	pub blocks_per_pov: Option<u32>,
 }
 
 impl substrate_test_client::GenesisInit for GenesisParameters {
@@ -87,7 +86,6 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 			self.wasm.as_deref().unwrap_or_else(|| {
 				cumulus_test_runtime::WASM_BINARY.expect("WASM binary not compiled!")
 			}),
-			self.blocks_per_pov,
 		)
 		.build_storage()
 		.expect("Builds test runtime genesis storage")

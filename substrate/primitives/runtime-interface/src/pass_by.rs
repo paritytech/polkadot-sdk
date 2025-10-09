@@ -618,7 +618,7 @@ macro_rules! impl_primitive {
 				self.to_le_bytes().to_vec()
 			}
 		}
-	}
+	};
 }
 
 impl_primitive!(u8);

@@ -17,8 +17,8 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
-	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
+	address::AddressMapper, AccountIdOf, BalanceOf, Code, Config, ContractResult, ExecConfig,
+	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -48,12 +48,7 @@ macro_rules! builder {
 		}
 
 		#[allow(dead_code)]
-		impl<T: Config> $name<T>
-		where
-			BalanceOf<T>: Into<sp_core::U256> + TryFrom<sp_core::U256>,
-			crate::MomentOf<T>: Into<sp_core::U256>,
-			T::Hash: frame_support::traits::IsType<sp_core::H256>,
-		{
+		impl<T: Config> $name<T> {
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]
 				pub fn $field(mut self, value: $type) -> Self {
@@ -134,12 +129,20 @@ builder!(
 		origin: OriginFor<T>,
 		evm_value: U256,
 		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
+		storage_deposit_limit: BalanceOf<T>,
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		bump_nonce: BumpNonce,
+		exec_config: ExecConfig,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
+
+	pub fn concat_evm_data(mut self, more_data: &[u8]) -> Self {
+		let Code::Upload(code) = &mut self.code else {
+			panic!("concat_evm_data should only be used with Code::Upload");
+		};
+		code.extend_from_slice(more_data);
+		self
+	}
 
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
@@ -168,11 +171,11 @@ builder!(
 			origin,
 			evm_value: Default::default(),
 			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
+			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
-			bump_nonce: BumpNonce::Yes,
+			exec_config: ExecConfig::new_substrate_tx(),
 		}
 	}
 );
@@ -206,8 +209,9 @@ builder!(
 		dest: H160,
 		evm_value: U256,
 		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
+		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
+		exec_config: ExecConfig,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
 	/// Set the call's evm_value using a native_value amount.
@@ -228,8 +232,9 @@ builder!(
 			dest,
 			evm_value: Default::default(),
 			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
+			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
+			exec_config: ExecConfig::new_substrate_tx(),
 		}
 	}
 );
@@ -240,8 +245,9 @@ builder!(
 		dest: H160,
 		value: U256,
 		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
+		effective_gas_price: U256,
+		encoded_len: u32,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -251,8 +257,9 @@ builder!(
 			dest,
 			value: 0u32.into(),
 			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
+			effective_gas_price: 0u32.into(),
+			encoded_len: 0,
 		}
 	}
 );

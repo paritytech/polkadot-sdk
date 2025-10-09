@@ -57,7 +57,7 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, Block, CandidateHash,
+	AuthorityDiscoveryId, Block, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	ExecutorParams, Hash, NodeFeatures, SessionIndex, SessionInfo,
 };
 

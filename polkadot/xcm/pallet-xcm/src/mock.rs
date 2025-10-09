@@ -337,6 +337,7 @@ impl pallet_assets::Config for Test {
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
+	type Balance = Balance;
 	type Currency = Balances;
 	type Precompiles = (XcmPrecompile<Self>,);
 	type Time = Timestamp;
@@ -769,7 +770,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE] }
+	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

@@ -604,8 +604,9 @@ pub trait Storage {
 		self.storage(key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = core::cmp::min(data.len(), value_out.len());
-			value_out[..written].copy_from_slice(&data[..written]);
+			if value_out.len() >= data.len() {
+				value_out[..data.len()].copy_from_slice(&data[..]);
+			}
 			data.len() as u32
 		})
 	}
@@ -698,9 +699,10 @@ pub trait Storage {
 	/// operating on the same prefix should always pass `Some`, and this should be equal to the
 	/// previous call result's `maybe_cursor` field.
 	///
-	/// Stores the output cursor and three counters (backend deletions, unique key deletions, number of iterations performed)
-	/// into the provided output buffers. See [`MultiRemovalResults`](sp_io::MultiRemovalResults) for more details.
-	/// 
+	/// Stores the output cursor and three counters (backend deletions, unique key deletions, number
+	/// of iterations performed) into the provided output buffers. See
+	/// [`MultiRemovalResults`](sp_io::MultiRemovalResults) for more details.
+	///
 	/// Returns the number of bytes in the output cursor. If the output buffer is not large enough,
 	/// the cursor will be truncated to the length of the buffer, but the full length of the cursor
 	/// is still returned.
@@ -731,8 +733,9 @@ pub trait Storage {
 		);
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
-			let write_len = cursor_out_len.min(maybe_cursor_out.len());
-			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
 		}
 		*backend = removal_results.backend;
 		*unique = removal_results.unique;
@@ -805,8 +808,9 @@ pub trait Storage {
 	#[wrapped]
 	fn root(&mut self, out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
 		let root = self.storage_root(StateVersion::V0);
-		let write_len = root.len().min(out.len());
-		out[..write_len].copy_from_slice(&root[..write_len]);
+		if out.len() >= root.len() {
+			out[..root.len()].copy_from_slice(&root[..]);
+		}
 		root.len() as u32
 	}
 
@@ -852,8 +856,9 @@ pub trait Storage {
 		let next_key = self.next_storage_key(key_in);
 		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
 		if let Some(next_key) = next_key {
-			let write_len = next_key_len.min(key_out.len());
-			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
 		}
 		next_key_len as u32
 	}
@@ -979,8 +984,9 @@ pub trait DefaultChildStorage {
 			.map(|value| {
 				let value_offset = value_offset as usize;
 				let data = &value[value_offset.min(value.len())..];
-				let written = core::cmp::min(data.len(), value_out.len());
-				value_out[..written].copy_from_slice(&data[..written]);
+				if value_out.len() >= data.len() {
+					value_out[..data.len()].copy_from_slice(&data[..]);
+				}
 				data.len() as u32
 			})
 			.into()
@@ -1084,8 +1090,9 @@ pub trait DefaultChildStorage {
 		);
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
-			let write_len = cursor_out_len.min(maybe_cursor_out.len());
-			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
 		}
 		*backend = removal_results.backend;
 		*unique = removal_results.unique;
@@ -1180,8 +1187,9 @@ pub trait DefaultChildStorage {
 		);
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
-			let write_len = cursor_out_len.min(maybe_cursor_out.len());
-			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
 		}
 		*backend = removal_results.backend;
 		*unique = removal_results.unique;
@@ -1234,8 +1242,9 @@ pub trait DefaultChildStorage {
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let root = self.child_storage_root(&child_info, StateVersion::V0);
-		let write_len = root.len().min(out.len());
-		out[..write_len].copy_from_slice(&root[..write_len]);
+		if out.len() >= root.len() {
+			out[..root.len()].copy_from_slice(&root[..]);
+		}
 		root.len() as u32
 	}
 
@@ -1281,8 +1290,9 @@ pub trait DefaultChildStorage {
 		let next_key = self.next_child_storage_key(&child_info, key_in);
 		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
 		if let Some(next_key) = next_key {
-			let write_len = next_key_len.min(key_out.len());
-			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
 		}
 		next_key_len as u32
 	}
@@ -1663,8 +1673,9 @@ pub trait Misc {
 			.read_runtime_version(wasm, &mut ext)
 		{
 			Ok(v) => {
-				let written = core::cmp::min(v.len(), out.len());
-				out.copy_from_slice(&v[..written]);
+				if out.len() >= v.len() {
+					out.copy_from_slice(&v[..]);
+				}
 				Some(v.len() as u32)
 			},
 			Err(err) => {
@@ -2607,10 +2618,11 @@ pub trait Crypto {
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		pub_key: PassPointerAndRead<&bls381::Public, 144>,
-	) -> AllocateAndReturnByCodec<Option<bls381::Signature>> {
+		owner: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<bls381::ProofOfPossession>> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls381_generate_proof_of_possession(id, pub_key)
+			.bls381_generate_proof_of_possession(id, pub_key, owner)
 			.ok()
 			.flatten()
 	}
@@ -3291,8 +3303,9 @@ pub trait Offchain {
 			.expect("http_response_header_name can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.0;
-		let written = core::cmp::min(out.len(), res.len());
-		out.copy_from_slice(&res[..written]);
+		if out.len() >= res.len() {
+			out.copy_from_slice(&res[..]);
+		}
 		Some(res.len() as u32)
 	}
 
@@ -3313,8 +3326,9 @@ pub trait Offchain {
 			.expect("http_response_header_value can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.1;
-		let written = core::cmp::min(out.len(), res.len());
-		out.copy_from_slice(&res[..written]);
+		if out.len() >= res.len() {
+			out.copy_from_slice(&res[..]);
+		}
 		Some(res.len() as u32)
 	}
 

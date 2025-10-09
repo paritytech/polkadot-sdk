@@ -22,7 +22,7 @@ use std::{
 use futures::future::pending;
 
 use polkadot_node_network_protocol::request_response::DISPUTE_REQUEST_TIMEOUT;
-use polkadot_primitives::{vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash};
+use polkadot_primitives::{CandidateHash, CandidateReceiptV2 as CandidateReceipt};
 
 use crate::{
 	receiver::batches::{batch::TickResult, waiting_queue::PendingWake},
@@ -97,7 +97,7 @@ impl Batches {
 		&mut self,
 		candidate_hash: CandidateHash,
 		candidate_receipt: CandidateReceipt,
-	) -> JfyiResult<FoundBatch> {
+	) -> JfyiResult<FoundBatch<'_>> {
 		if self.batches.len() >= MAX_BATCHES {
 			return Err(JfyiError::MaxBatchLimitReached)
 		}

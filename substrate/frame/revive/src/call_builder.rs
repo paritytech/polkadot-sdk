@@ -32,8 +32,8 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
-	AccountInfo, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
-	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
+	Error, ExecConfig, ExecOrigin as Origin, GasMeter, OriginFor, Pallet as Contracts,
 	PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
@@ -56,14 +56,12 @@ pub struct CallSetup<T: Config> {
 	value: BalanceOf<T>,
 	data: Vec<u8>,
 	transient_storage_size: u32,
+	exec_config: ExecConfig,
 }
 
 impl<T> Default for CallSetup<T>
 where
 	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn default() -> Self {
 		Self::new(VmBinaryModule::dummy())
@@ -73,9 +71,6 @@ where
 impl<T> CallSetup<T>
 where
 	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Setup a new call for the given module.
 	pub fn new(module: VmBinaryModule) -> Self {
@@ -111,6 +106,7 @@ where
 			value: 0u32.into(),
 			data: vec![],
 			transient_storage_size: 0,
+			exec_config: ExecConfig::new_substrate_tx(),
 		}
 	}
 
@@ -157,6 +153,7 @@ where
 			&mut self.gas_meter,
 			&mut self.storage_meter,
 			self.value,
+			&self.exec_config,
 		);
 		if self.transient_storage_size > 0 {
 			Self::with_transient_storage(&mut ext.0, self.transient_storage_size).unwrap();
@@ -224,9 +221,6 @@ pub struct Contract<T: Config> {
 impl<T> Contract<T>
 where
 	T: Config,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create new contract and use a default account id as instantiator.
 	pub fn new(module: VmBinaryModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
@@ -252,7 +246,7 @@ where
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let salt = Some([0xffu8; 32]);
-		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller.clone()).into();
+		let origin: OriginFor<T> = RawOrigin::Signed(caller.clone()).into();
 
 		// We ignore the error since we might also pass an already mapped account here.
 		Contracts::<T>::map_account(origin.clone()).ok();
@@ -266,11 +260,11 @@ where
 			origin,
 			U256::zero(),
 			Weight::MAX,
-			DepositLimit::Balance(default_deposit_limit::<T>()),
+			default_deposit_limit::<T>(),
 			Code::Upload(module.code),
 			data,
 			salt,
-			BumpNonce::Yes,
+			ExecConfig::new_substrate_tx(),
 		);
 
 		let address = outcome.result?.addr;
@@ -390,12 +384,22 @@ pub struct VmBinaryModule {
 impl VmBinaryModule {
 	/// Return a contract code that does nothing.
 	pub fn dummy() -> Self {
-		Self::new(bench_fixtures::DUMMY.to_vec())
+		Self::new(bench_fixtures::dummy().to_vec())
 	}
 
 	fn new(code: Vec<u8>) -> Self {
 		let hash = keccak_256(&code);
 		Self { code, hash: H256(hash) }
+	}
+}
+
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+impl VmBinaryModule {
+	// Same as [`Self::sized`] but using EVM bytecode.
+	pub fn evm_sized(size: u32) -> Self {
+		use revm::bytecode::opcode::STOP;
+		let code = vec![STOP; size as usize];
+		Self::new(code)
 	}
 }
 
@@ -451,7 +455,7 @@ impl VmBinaryModule {
 
 	/// A contract code that calls the "noop" host function in a loop depending in the input.
 	pub fn noop() -> Self {
-		Self::new(bench_fixtures::NOOP.to_vec())
+		Self::new(bench_fixtures::noop().to_vec())
 	}
 
 	/// A contract code that does unaligned memory accessed in a loop.
@@ -475,6 +479,14 @@ impl VmBinaryModule {
 		"
 		);
 		let code = polkavm_common::assembler::assemble(&text).unwrap();
+		Self::new(code)
+	}
+
+	/// An evm contract that executes `size` JUMPDEST instructions.
+	pub fn evm_noop(size: u32) -> Self {
+		use revm::bytecode::opcode::JUMPDEST;
+
+		let code = vec![JUMPDEST; size as usize];
 		Self::new(code)
 	}
 }

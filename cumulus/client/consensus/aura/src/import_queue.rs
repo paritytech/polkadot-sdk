@@ -27,7 +27,7 @@ use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_blockchain::HeaderBackend;
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
@@ -72,7 +72,8 @@ where
 		+ Sync
 		+ AuxStore
 		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
+		+ HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
 	I: BlockImport<Block, Error = ConsensusError>
 		+ ParachainBlockImportMarker
 		+ Send
@@ -109,12 +110,12 @@ pub struct BuildVerifierParams<C, CIDP> {
 }
 
 /// Build the [`AuraVerifier`].
-pub fn build_verifier<P, C, CIDP, N>(
+pub fn build_verifier<P: Pair, C, CIDP, B: BlockT>(
 	BuildVerifierParams { client, create_inherent_data_providers, telemetry }: BuildVerifierParams<
 		C,
 		CIDP,
 	>,
-) -> AuraVerifier<C, P, CIDP, N> {
+) -> AuraVerifier<C, P, CIDP, B> {
 	sc_consensus_aura::build_verifier(sc_consensus_aura::BuildVerifierParams {
 		client,
 		create_inherent_data_providers,

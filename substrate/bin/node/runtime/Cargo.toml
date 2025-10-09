@@ -21,6 +21,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 array-bytes = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 log = { workspace = true }
+rand = { workspace = true, optional = true }
+rand_pcg = { workspace = true, optional = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 sp-debug-derive = { workspace = true, features = ["force-debug"] }
@@ -52,6 +54,7 @@ std = [
 	"pallet-example-tasks/std",
 	"polkadot-sdk/std",
 	"primitive-types/std",
+	"rand?/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-debug-derive/std",
@@ -61,6 +64,8 @@ runtime-benchmarks = [
 	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
+	"rand",
+	"rand_pcg",
 ]
 try-runtime = [
 	"pallet-example-mbm/try-runtime",

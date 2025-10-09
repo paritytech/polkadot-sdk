@@ -25,7 +25,7 @@ use codec::{Decode, Encode};
 
 use super::{InvalidDisputeVote, SignedDisputeStatement, ValidDisputeVote};
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, DisputeStatement, SessionIndex, SessionInfo,
+	CandidateReceiptV2 as CandidateReceipt, DisputeStatement, SessionIndex, SessionInfo,
 	ValidatorIndex,
 };
 
