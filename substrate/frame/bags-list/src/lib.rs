@@ -660,9 +660,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// The account doesn't exist and has no valid score - do nothing
 				Err(Error::<T, I>::List(ListError::NodeNotFound))
 			},
-		};
-
-		result
+		}
 	}
 }
 
