@@ -298,10 +298,9 @@ pub mod pallet {
 	/// 4. An artificial limit could be exhausted by an attacker, preventing legitimate
 	///    auto-rebagging from putting accounts in the correct position
 	///
-	/// Accounts pending rebag insertion/update that were blocked due to pallet being locked.
-	/// We don't store the score here - it's always freshly fetched from `ScoreProvider` when
-	/// processing, ensuring we use the most up-to-date score (accounts may have been slashed,
-	/// rewarded, etc. while waiting in the queue).
+	/// We don't store the score here - it's always fetched from `ScoreProvider` when processing,
+	/// ensuring we use the most up-to-date score (accounts may have been slashed, rewarded, etc.
+	/// while waiting in the queue).
 	#[pallet::storage]
 	pub type PendingRebag<T: Config<I>, I: 'static = ()> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
