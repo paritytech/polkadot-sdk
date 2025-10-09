@@ -2445,6 +2445,7 @@ impl<T: Config> HandleLifetime<T::AccountId> for Consumer<T> {
 }
 
 impl<T: Config> BlockNumberProvider for Pallet<T> {
+	const IDENTIFIER: &'static str = "System";
 	type BlockNumber = BlockNumberFor<T>;
 
 	fn current_block_number() -> Self::BlockNumber {
