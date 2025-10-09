@@ -324,9 +324,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
 
-	/// Returns the account id for the given `address`.
-	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
-
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
@@ -1937,10 +1934,6 @@ where
 
 	fn origin(&self) -> &Origin<T> {
 		&self.origin
-	}
-
-	fn to_account_id(&self, address: &H160) -> T::AccountId {
-		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {

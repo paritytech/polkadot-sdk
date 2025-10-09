@@ -23,11 +23,14 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
-	precompiles::{self, run::builtin as run_builtin_precompile},
+	precompiles::{
+		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
+	},
 	storage::WriteOutcome,
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
+use alloy_core::sol_types::SolInterface;
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -548,35 +551,40 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_to_account_id() {
+	fn to_account_id() {
 		// use a mapped address for the benchmark, to ensure that we bench the worst
 		// case (and not the fallback case).
+		let account_id = account("precompile_to_account_id", 0, 0);
 		let address = {
-			let caller = account("seal_to_account_id", 0, 0);
-			T::Currency::set_balance(&caller, caller_funding::<T>());
-			T::AddressMapper::map(&caller).unwrap();
-			T::AddressMapper::to_address(&caller)
+			T::Currency::set_balance(&account_id, caller_funding::<T>());
+			T::AddressMapper::map(&account_id).unwrap();
+			T::AddressMapper::to_address(&account_id)
 		};
 
-		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
-		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+		let input_bytes = ISystem::ISystemCalls::toAccountId(ISystem::toAccountIdCall {
+			input: address.0.into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-
-		assert_ok!(result);
+		let data = result.unwrap().data;
 		assert_ne!(
-			memory.as_slice()[20..32],
+			data.as_slice()[20..32],
 			[0xEE; 12],
 			"fallback suffix found where none should be"
 		);
-		assert_eq!(
-			T::AccountId::decode(&mut memory.as_slice()),
-			Ok(runtime.ext().to_account_id(&address))
-		);
+		assert_eq!(T::AccountId::decode(&mut data.as_slice()), Ok(account_id),);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1969,9 +1977,6 @@ mod benchmarks {
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
-		use alloy_core::sol_types::SolInterface;
-
 		let input = vec![0u8; n as usize];
 		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
 			input: input.clone().into(),
