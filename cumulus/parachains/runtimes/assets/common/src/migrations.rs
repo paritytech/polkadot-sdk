@@ -23,19 +23,19 @@
 /// needs to be explicitly opted-in to by the asset's `Owner`.
 ///
 /// See <https://github.com/paritytech/polkadot-sdk/pull/9948> for more info.
-pub mod foreign_assets_v2 {
+pub mod foreign_assets_reserves {
 	use crate::*;
 	use alloc::vec;
 	use codec::{Decode, Encode, MaxEncodedLen};
 	use core::marker::PhantomData;
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		traits::{ContainsPair, GetStorageVersion, StorageVersion},
+		traits::ContainsPair,
 		weights::WeightMeter,
 	};
 	use pallet_assets::WeightInfo;
 
-	const PALLET_MIGRATIONS_ID: &[u8; 21] = b"pallet-foreign-assets";
+	const MIGRATIONS_ID: &[u8; 23] = b"foreign-assets-reserves";
 
 	#[cfg(feature = "try-runtime")]
 	use frame_support::traits::Len;
@@ -56,37 +56,31 @@ pub mod foreign_assets_v2 {
 	/// The resulting state of the step and the actual weight consumed.
 	type StepResultOf<T, I> = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
 
-	pub struct ForeignAssetsLazyMigrationV1ToV2<T, I, AssetFilter>(
-		PhantomData<(T, I, AssetFilter)>,
-	);
-	impl<T, I, AssetFilter> SteppedMigration for ForeignAssetsLazyMigrationV1ToV2<T, I, AssetFilter>
+	pub struct ForeignAssetsReservesMigration<T, I, AssetFilter>(PhantomData<(T, I, AssetFilter)>);
+	impl<T, I, AssetFilter> SteppedMigration for ForeignAssetsReservesMigration<T, I, AssetFilter>
 	where
 		T: pallet_assets::Config<I, AssetId = xcm::v5::Location, ReserveId = xcm::v5::Location>,
 		I: 'static,
 		AssetFilter: ContainsPair<xcm::v5::Location, xcm::v5::Location>,
 	{
 		type Cursor = StepResultOf<T, I>;
-		type Identifier = MigrationId<21>;
+		type Identifier = MigrationId<23>;
 
 		fn id() -> Self::Identifier {
-			MigrationId { pallet_id: *PALLET_MIGRATIONS_ID, version_from: 1, version_to: 2 }
+			// this migration doesn't change pallet storage version, from and to are both `1`
+			MigrationId { pallet_id: *MIGRATIONS_ID, version_from: 1, version_to: 1 }
 		}
 
 		fn step(
 			mut cursor: Option<Self::Cursor>,
 			meter: &mut WeightMeter,
 		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-			if pallet_assets::Pallet::<T, I>::on_chain_storage_version() !=
-				Self::id().version_from as u16
-			{
-				return Ok(None);
-			}
-
 			// Check that we have enough weight for at least the next step. If we don't, then the
 			// migration cannot be complete.
 			let required =
 				<T as pallet_assets::Config<I>>::WeightInfo::migration_v2_foreign_asset_set_reserve_weight();
-			if meter.remaining().any_lt(required) {
+			tracing::debug!(target: "runtime::ForeignAssetsReservesMigration", ?meter, ?required);
+			if !meter.can_consume(required) {
 				return Err(SteppedMigrationError::InsufficientWeight { required });
 			}
 
@@ -103,8 +97,7 @@ pub mod foreign_assets_v2 {
 						Self::asset_step(Some(maybe_last_asset)),
 					// After the last asset, migration is finished.
 					Some(MigrationState::Finished) => {
-						StorageVersion::new(Self::id().version_to as u16)
-							.put::<pallet_assets::Pallet<T, I>>();
+						tracing::debug!(target: "runtime::ForeignAssetsReservesMigration", "migration finished");
 						return Ok(None)
 					},
 				};
@@ -119,6 +112,7 @@ pub mod foreign_assets_v2 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			let assets = pallet_assets::Asset::<T, I>::iter_keys().collect();
+			tracing::debug!(target: "runtime::ForeignAssetsReservesMigration::pre_upgrade", ?assets);
 			let state = TryRuntimeState::<T, I> { assets };
 			Ok(state.encode())
 		}
@@ -129,6 +123,7 @@ pub mod foreign_assets_v2 {
 				.expect("Failed to decode the previous storage state");
 			let local_chain = xcm::v5::Location::here();
 			for id in prev_state.assets {
+				tracing::debug!(target: "runtime::ForeignAssetsReservesMigration::post_upgrade", ?id, "verify asset");
 				if AssetFilter::contains(&id, &id) {
 					let reserves = pallet_assets::ReserveLocations::<T, I>::get(id);
 					assert_eq!(reserves.len(), 1);
@@ -139,7 +134,7 @@ pub mod foreign_assets_v2 {
 		}
 	}
 
-	impl<T, I, AssetFilter> ForeignAssetsLazyMigrationV1ToV2<T, I, AssetFilter>
+	impl<T, I, AssetFilter> ForeignAssetsReservesMigration<T, I, AssetFilter>
 	where
 		T: pallet_assets::Config<I, AssetId = xcm::v5::Location, ReserveId = xcm::v5::Location>,
 		I: 'static,
@@ -147,6 +142,7 @@ pub mod foreign_assets_v2 {
 	{
 		// Make `Here` a reserve location for one entry of `Asset`.
 		fn asset_step(maybe_last_key: Option<&T::AssetId>) -> StepResultOf<T, I> {
+			tracing::debug!(target: "runtime::ForeignAssetsReservesMigration::asset_step", ?maybe_last_key);
 			let mut iter = if let Some(last_key) = maybe_last_key {
 				pallet_assets::Asset::<T, I>::iter_keys_from(
 					pallet_assets::Asset::<T, I>::hashed_key_for(last_key),
@@ -156,9 +152,18 @@ pub mod foreign_assets_v2 {
 			};
 			if let Some(asset_id) = iter.next() {
 				if AssetFilter::contains(&asset_id, &asset_id) {
+					tracing::debug!(
+						target: "runtime::ForeignAssetsReservesMigration::asset_step",
+						?asset_id, "updating reserves for"
+					);
 					let _ = pallet_assets::Pallet::<T, I>::unchecked_update_reserves(
 						asset_id.clone(),
 						vec![xcm::v5::Location::here()],
+					);
+				} else {
+					tracing::debug!(
+						target: "runtime::ForeignAssetsReservesMigration::asset_step",
+						?asset_id, "skipping"
 					);
 				}
 				MigrationState::Asset(asset_id)

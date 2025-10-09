@@ -107,7 +107,6 @@ use assets_common::{
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, InMemoryDbWeight};
-use westend_runtime_constants::system_parachain::AssetHubParaId;
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{
@@ -1220,15 +1219,12 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = (
-		pallet_revive::migrations::v1::Migration<Runtime>,
-		pallet_revive::migrations::v2::Migration<Runtime>,
-		assets_common::migrations::foreign_assets_v2::ForeignAssetsLazyMigrationV1ToV2<
+	type Migrations =
+		assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesMigration<
 			Runtime,
 			ForeignAssetsInstance,
-			FromSiblingParachain<AssetHubParaId>,
-		>,
-	);
+			FromSiblingParachain<westend_runtime_constants::system_parachain::AssetHubParaId>,
+		>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

@@ -634,6 +634,8 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 	}
 	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight {
 		// FIXME: benchmark!
-		Weight::MAX
+		Weight::from_parts(9_236_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
