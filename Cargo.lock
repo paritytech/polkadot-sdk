@@ -20259,6 +20259,7 @@ version = "0.29.0"
 dependencies = [
  "polkavm 0.26.0",
  "sc-allocator",
+ "sp-crypto-hashing 0.1.0",
  "sp-maybe-compressed-blob",
  "sp-wasm-interface 20.0.0",
  "thiserror 1.0.65",

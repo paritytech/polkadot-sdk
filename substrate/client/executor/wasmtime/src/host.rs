@@ -19,6 +19,8 @@
 //! This module defines `HostState` and `HostContext` structs which provide logic and state
 //! required for execution of host.
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use wasmtime::Caller;
 
 use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
@@ -37,12 +39,25 @@ pub struct HostState {
 	/// once.
 	allocator: Option<FreeingBumpHeapAllocator>,
 	panic_message: Option<String>,
+	instance_id: u64,
+	runtime_code_hash: Option<Vec<u8>>,
+	allocator_call_id: AtomicU64,
 }
 
 impl HostState {
 	/// Constructs a new `HostState`.
-	pub fn new(allocator: FreeingBumpHeapAllocator) -> Self {
-		HostState { allocator: Some(allocator), panic_message: None }
+	pub fn new(
+		allocator: FreeingBumpHeapAllocator,
+		instance_id: u64,
+		runtime_code_hash: Option<Vec<u8>>,
+	) -> Self {
+		HostState {
+			allocator: Some(allocator),
+			panic_message: None,
+			instance_id,
+			runtime_code_hash,
+			allocator_call_id: AtomicU64::new(1),
+		}
 	}
 
 	/// Takes the error message out of the host state, leaving a `None` in its place.
@@ -54,6 +69,11 @@ impl HostState {
 		self.allocator.as_ref()
 			.expect("Allocator is always set and only unavailable when doing an allocation/deallocation; qed")
 			.stats()
+	}
+
+	/// Increment the call id atomically and return the previous value before incrementing.
+	pub(crate) fn increment_call_id(&mut self) -> u64 {
+		self.allocator_call_id.fetch_add(1, Ordering::Relaxed)
 	}
 }
 
@@ -69,6 +89,13 @@ impl<'a> HostContext<'a> {
 		self.caller
 			.data_mut()
 			.host_state_mut()
+			.expect("host state is not empty when calling a function in wasm; qed")
+	}
+
+	fn host_state(&mut self) -> &HostState {
+		self.caller
+			.data()
+			.host_state()
 			.expect("host state is not empty when calling a function in wasm; qed")
 	}
 }
@@ -97,10 +124,18 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		// We can not return on error early, as we need to store back allocator.
 		let res = allocator
 			.allocate(&mut MemoryWrapper(&memory, &mut self.caller), size)
+			.inspect(|ptr| {
+				let call_id = self.host_state_mut().increment_call_id();
+				let instance_id = self.host_state().instance_id;
+				let runtime_code_hash = &self.host_state().runtime_code_hash;
+				runtime_code_hash.as_ref().inspect(|code_hash| {
+					let display_ptr = u64::from(*ptr);
+					log::debug!(target: "runtime_host_allocator", "allocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id}, size={size}, ptr=0x{display_ptr:x?}")
+				});
+			})
 			.map_err(|e| e.to_string());
 
 		self.host_state_mut().allocator = Some(allocator);
-
 		res
 	}
 
@@ -115,10 +150,18 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		// We can not return on error early, as we need to store back allocator.
 		let res = allocator
 			.deallocate(&mut MemoryWrapper(&memory, &mut self.caller), ptr)
+			.inspect(|_| {
+				let call_id = self.host_state_mut().increment_call_id();
+				let instance_id = self.host_state().instance_id;
+				let runtime_code_hash = &self.host_state().runtime_code_hash;
+				runtime_code_hash.as_ref().inspect(|code_hash| {
+					let display_ptr = u64::from(ptr);
+					log::debug!(target: "runtime_host_allocator", "deallocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id}, ptr=0x{display_ptr:x?}");
+				});
+			})
 			.map_err(|e| e.to_string());
 
 		self.host_state_mut().allocator = Some(allocator);
-
 		res
 	}
 
