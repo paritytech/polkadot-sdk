@@ -636,7 +636,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let existed = ListNodes::<T, I>::contains_key(account);
 		let maybe_score = T::ScoreProvider::score(account);
 
-		let result = match (existed, maybe_score) {
+		match (existed, maybe_score) {
 			(true, Some(current_score)) => {
 				// The account exists and has a valid score, so try to rebag
 				log!(debug, "Attempting to rebag node {:?}", account);
