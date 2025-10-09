@@ -586,7 +586,7 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
-	TargetFromLeft<xcm_config::RelayLocation, xcm::latest::Location>,
+	TargetFromLeft<xcm_config::PenpalNativeCurrency, xcm::latest::Location>,
 	xcm::latest::Location,
 	AccountId,
 >;

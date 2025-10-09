@@ -41,7 +41,7 @@ use super::{
 	RuntimeHoldReason, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
-use assets_common::TrustBackedAssetsAsLocation;
+use assets_common::{matching::LocalLocationPattern, TrustBackedAssetsAsLocation};
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
@@ -70,11 +70,12 @@ use xcm_builder::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
 	DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
-	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
-	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	LocalMint, MatchedConvertedConcreteId, NativeAsset, NoChecking, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithLatestLocationConverter,
+	WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -380,6 +381,14 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 			xcm::latest::Location,
 		>,
 		ForeignAssetsConvertedConcreteId,
+		// `ForeignAssetsConvertedConcreteId` excludes the native token, so we add it back here.
+		MatchedConvertedConcreteId<
+			xcm::v5::Location,
+			parachains_common::Balance,
+			Equals<LocalLocationPattern>,
+			WithLatestLocationConverter<xcm::v5::Location>,
+			TryConvertInto,
+		>,
 	),
 	AccountId,
 >;
