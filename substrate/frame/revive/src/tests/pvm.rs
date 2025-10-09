@@ -3376,7 +3376,7 @@ fn gas_price_api_works() {
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(
 			u64::from_le_bytes(received.data[..].try_into().unwrap()),
-			u64::try_from(<Pallet<Test>>::evm_gas_price()).unwrap(),
+			u64::try_from(<Pallet<Test>>::evm_base_fee()).unwrap(),
 		);
 	});
 }
@@ -3395,7 +3395,10 @@ fn base_fee_api_works() {
 		// Call the contract: It echoes back the value returned by the base fee API.
 		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
-		assert_eq!(U256::from_little_endian(received.data[..].try_into().unwrap()), U256::zero());
+		assert_eq!(
+			U256::from_little_endian(received.data[..].try_into().unwrap()),
+			<Pallet<Test>>::evm_base_fee(),
+		);
 	});
 }
 

@@ -609,6 +609,7 @@ pub mod pallet {
 
 /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
+#[allow(dead_code)]
 struct IndexedUtilityPalletId(u16);
 
 impl TypeId for IndexedUtilityPalletId {

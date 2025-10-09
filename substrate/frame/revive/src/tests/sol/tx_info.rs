@@ -46,7 +46,7 @@ fn gasprice_works(fixture_type: FixtureType) {
 			)
 			.build_and_unwrap_result();
 		let decoded = TransactionInfo::gaspriceCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(<Pallet<Test>>::evm_gas_price().as_u64(), decoded);
+		assert_eq!(<Pallet<Test>>::evm_base_fee().as_u64(), decoded);
 	});
 }
 

@@ -101,6 +101,20 @@ pub struct IncrementalHashBuilder {
 	stats: Option<HashBuilderStats>,
 }
 
+impl Default for IncrementalHashBuilder {
+	fn default() -> Self {
+		Self {
+			// First deserialization time from the pallet storage, is expected
+			// to contain index 1.
+			index: 1,
+			hash_builder: HashBuilder::default(),
+			first_value: None,
+			#[cfg(test)]
+			stats: None,
+		}
+	}
+}
+
 /// Accounting data for the hash builder, used for testing and analysis.
 #[cfg(test)]
 #[derive(Debug, Clone)]
@@ -147,17 +161,6 @@ impl core::fmt::Display for HashBuilderStats {
 }
 
 impl IncrementalHashBuilder {
-	/// Construct the hash builder from the first value.
-	pub fn new() -> Self {
-		Self {
-			hash_builder: HashBuilder::default(),
-			index: 1,
-			first_value: None,
-			#[cfg(test)]
-			stats: None,
-		}
-	}
-
 	/// Converts the intermediate representation back into a builder.
 	pub fn from_ir(serialized: IncrementalHashBuilderIR) -> Self {
 		let value = match serialized.value_type {
@@ -236,27 +239,27 @@ impl IncrementalHashBuilder {
 	pub fn add_value(&mut self, value: Vec<u8>) {
 		let rlp_index = rlp::encode_fixed_size(&self.index);
 		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
-		// Update accounting if enabled
+
 		#[cfg(test)]
-		if self.stats.is_some() {
-			self.process_stats(value.len(), self.index);
-		}
+		self.process_stats(value.len(), self.index);
 
 		if self.index == 0x7f {
 			// Pushing the previous item since we are expecting the index
 			// to be index + 1 in the sorted order.
-			if let Some(encoded_value) = self.first_value.take() {
-				log::debug!(target: LOG_TARGET, "Adding first value at index 0 while processing index 127");
 
-				let rlp_index = rlp::encode_fixed_size(&0usize);
-				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
+			let encoded_value = self
+				.first_value
+				.take()
+				.expect("First value must be set when processing index 127; qed");
 
-				// Update accounting if enabled
-				#[cfg(test)]
-				if self.stats.is_some() {
-					self.process_stats(value.len(), 0);
-				}
-			}
+			log::debug!(target: LOG_TARGET, "Adding first value at index 0 while processing index 127");
+
+			let rlp_index = rlp::encode_fixed_size(&0usize);
+			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
+
+			// Update accounting if enabled
+			#[cfg(test)]
+			self.process_stats(value.len(), 0);
 		}
 
 		self.index = self.index.saturating_add(1);
@@ -285,11 +288,9 @@ impl IncrementalHashBuilder {
 
 			let rlp_index = rlp::encode_fixed_size(&0usize);
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
-			// Update accounting if enabled
+
 			#[cfg(test)]
-			if self.stats.is_some() {
-				self.process_stats(encoded_value.len(), 0);
-			}
+			self.process_stats(encoded_value.len(), 0);
 		}
 
 		self.hash_builder.root().0.into()
@@ -313,6 +314,10 @@ impl IncrementalHashBuilder {
 	/// Update accounting metrics after processing data.
 	#[cfg(test)]
 	fn process_stats(&mut self, data_len: usize, index: u64) {
+		if self.stats.is_none() {
+			return
+		}
+
 		let hb_current_size = self.calculate_current_size();
 		let stats = self.stats.as_mut().unwrap();
 
@@ -446,7 +451,7 @@ mod tests {
 
 	#[test]
 	fn test_hash_builder_stats() {
-		let mut builder = IncrementalHashBuilder::new();
+		let mut builder = IncrementalHashBuilder::default();
 		builder.enable_stats();
 
 		let stats = builder.get_stats().expect("Stats should be enabled");
@@ -475,7 +480,7 @@ mod tests {
 
 	#[test]
 	fn test_hash_builder_without_stats() {
-		let mut builder = IncrementalHashBuilder::new();
+		let mut builder = IncrementalHashBuilder::default();
 
 		// Without enabling stats
 		assert!(builder.get_stats().is_none());
@@ -499,7 +504,7 @@ mod tests {
 		] {
 			println!("\n=== Testing Hash Builder with {item_count} items ===");
 
-			let mut builder = IncrementalHashBuilder::new();
+			let mut builder = IncrementalHashBuilder::default();
 			builder.enable_stats();
 
 			let initial_stats = builder.get_stats().unwrap();
@@ -542,7 +547,7 @@ mod tests {
 	fn test_ir_size_calculation() {
 		println!("\n=== Testing IncrementalHashBuilderIR Size Calculation ===");
 
-		let mut builder = IncrementalHashBuilder::new();
+		let mut builder = IncrementalHashBuilder::default();
 		builder.enable_stats();
 
 		// Calculate initial IR size (we need to restore the builder after to_ir())

@@ -51,20 +51,22 @@ pub struct EthereumBlockBuilder<T> {
 	_phantom: core::marker::PhantomData<T>,
 }
 
-impl<T: crate::Config> EthereumBlockBuilder<T> {
-	/// Constructs a new [`EthereumBlockBuilder`].
-	pub fn new() -> Self {
+impl<T> Default for EthereumBlockBuilder<T> {
+	// Note: Manual implementation to avoid requiring T: Default while deriving.
+	fn default() -> Self {
 		Self {
-			transaction_root_builder: IncrementalHashBuilder::new(),
-			receipts_root_builder: IncrementalHashBuilder::new(),
+			transaction_root_builder: IncrementalHashBuilder::default(),
+			receipts_root_builder: IncrementalHashBuilder::default(),
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
-			logs_bloom: LogsBloom::new(),
+			logs_bloom: LogsBloom::default(),
 			gas_info: Vec::new(),
 			_phantom: core::marker::PhantomData,
 		}
 	}
+}
 
+impl<T: crate::Config> EthereumBlockBuilder<T> {
 	/// Converts the builder into an intermediate representation.
 	///
 	/// The intermediate representation is extracted from the pallet storage.
@@ -317,7 +319,7 @@ mod test {
 			let manual_hash = manual_trie_root_compute(rlp_values.clone());
 
 			let mut first_value = Some(rlp_values[0].clone());
-			let mut builder = IncrementalHashBuilder::new();
+			let mut builder = IncrementalHashBuilder::default();
 			for rlp_value in rlp_values.iter().skip(1) {
 				if builder.needs_first_value(BuilderPhase::ProcessingValue) {
 					let value = first_value.take().expect("First value must be present; qed");
@@ -405,7 +407,7 @@ mod test {
 
 		ExtBuilder::default().build().execute_with(|| {
 			// Build the ethereum block incrementally.
-			let mut incremental_block = EthereumBlockBuilder::<Test>::new();
+			let mut incremental_block = EthereumBlockBuilder::<Test>::default();
 			for (signed, logs, success, gas_used) in transaction_details {
 				let mut log_size = 0;
 
@@ -458,7 +460,7 @@ mod test {
 			}
 			println!("Total size used by transactions: {:?}", total_size);
 
-			let mut builder = IncrementalHashBuilder::new();
+			let mut builder = IncrementalHashBuilder::default();
 			let mut loaded = false;
 			for tx in encoded_tx.iter().skip(1) {
 				if builder.needs_first_value(BuilderPhase::ProcessingValue) {

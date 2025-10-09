@@ -660,7 +660,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&U256::zero().to_little_endian(),
+			&Pallet::<E::T>::evm_base_fee().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -716,7 +716,7 @@ pub mod env {
 		};
 
 		let event_data = memory.read(data_ptr, data_len)?;
-		self.ext.deposit_event(topics, event_data)?;
+		self.ext.deposit_event(topics, event_data);
 		Ok(())
 	}
 
