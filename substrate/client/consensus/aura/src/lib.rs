@@ -626,7 +626,7 @@ mod tests {
 		Box<
 			dyn CreateInherentDataProviders<
 				TestBlock,
-				(),
+				SlotDuration,
 				InherentDataProviders = (InherentDataProvider,),
 			>,
 		>,

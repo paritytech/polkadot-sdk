@@ -1,0 +1,12 @@
+title: 'feat: `AuraVerifier` only fetches slot duration from runtime if it changed'
+doc:
+- audience: Node Operator
+  description: |-
+    `AuraVerifier`: only fetch slot duration once, and then re-fetch and update the local cache only when block validation actually fails due to incorrect slot duration being used.
+
+    Closes https://github.com/paritytech/polkadot-sdk/issues/9271.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: sc-consensus-aura
+  bump: patch

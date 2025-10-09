@@ -24,6 +24,7 @@ use crate::{
 };
 use codec::Codec;
 use log::{debug, info, trace};
+use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
@@ -36,7 +37,7 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
+use sp_consensus_aura::{inherents::AuraInherentData, AuraApi, SlotDuration};
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider as _};
@@ -106,6 +107,7 @@ pub struct AuraVerifier<C, P: Pair, CIDP, B: BlockT> {
 	telemetry: Option<TelemetryHandle>,
 	compatibility_mode: CompatibilityMode<NumberFor<B>>,
 	authorities_tracker: AuthoritiesTracker<P, B, C>,
+	latest_slot_duration: Mutex<Option<SlotDuration>>,
 }
 
 impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B> {
@@ -123,6 +125,7 @@ impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B> {
 			telemetry,
 			compatibility_mode,
 			authorities_tracker: AuthoritiesTracker::new(client),
+			latest_slot_duration: Mutex::new(None),
 		}
 	}
 }
@@ -141,7 +144,7 @@ where
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
-	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
+	CIDP: CreateInherentDataProviders<B, SlotDuration> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
@@ -172,31 +175,81 @@ where
 				format!("Could not fetch authorities for block {hash:?} at number {number}: {e}")
 			})?;
 
-		let create_inherent_data_providers = self
+		let slot_duration = {
+			let mut latest_slot_duration = self.latest_slot_duration.lock();
+			match *latest_slot_duration {
+				Some(duration) => duration,
+				None => {
+					let duration =
+						self.client.runtime_api().slot_duration(parent_hash).map_err(|e| {
+							format!("Could not fetch slot duration for block {parent_hash:?}: {e}")
+						})?;
+					*latest_slot_duration = Some(duration);
+					duration
+				},
+			}
+		};
+
+		let mut create_inherent_data_providers = self
 			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
+			.create_inherent_data_providers(parent_hash, slot_duration)
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
-
 		let mut inherent_data = create_inherent_data_providers
 			.create_inherent_data()
 			.await
 			.map_err(Error::<B>::Inherent)?;
-
 		let slot_now = create_inherent_data_providers.slot();
 
 		// we add one to allow for some small drift.
 		// FIXME #1019 in the future, alter this queue to allow deferring of
 		// headers
-		let checked_header = check_header::<C, B, P>(
+		let mut checked_header = check_header::<C, B, P>(
 			&self.client,
 			slot_now + 1,
-			block.header,
+			block.header.clone(),
 			hash,
 			&authorities[..],
 			self.check_for_equivocation,
 		)
 		.map_err(|e| e.to_string())?;
+
+		// If the check fails, it might be because the slot duration has changed.
+		if matches!(checked_header, CheckedHeader::Deferred(_, _)) {
+			let new_slot_duration =
+				self.client.runtime_api().slot_duration(parent_hash).map_err(|e| {
+					format!("Could not fetch slot duration for block {parent_hash:?}: {e}")
+				})?;
+			if new_slot_duration != slot_duration {
+				// The slot duration really changed. Update the value and try the check again.
+				log::info!(
+					"Slot duration changed from {}ms to {}ms at block {parent_hash:?}.",
+					slot_duration.as_millis(),
+					new_slot_duration.as_millis(),
+				);
+				*self.latest_slot_duration.lock() = Some(new_slot_duration);
+				create_inherent_data_providers = self
+					.create_inherent_data_providers
+					.create_inherent_data_providers(parent_hash, new_slot_duration)
+					.await
+					.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
+				inherent_data = create_inherent_data_providers
+					.create_inherent_data()
+					.await
+					.map_err(Error::<B>::Inherent)?;
+				let slot_now = create_inherent_data_providers.slot();
+				checked_header = check_header::<C, B, P>(
+					&self.client,
+					slot_now + 1,
+					block.header,
+					hash,
+					&authorities[..],
+					self.check_for_equivocation,
+				)
+				.map_err(|e| e.to_string())?;
+			}
+		}
+
 		match checked_header {
 			CheckedHeader::Checked(pre_header, (slot, seal)) => {
 				// if the body is passed through, we need to use the runtime
@@ -346,7 +399,7 @@ where
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<Block, SlotDuration> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
