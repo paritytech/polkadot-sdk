@@ -1,0 +1,22 @@
+title: Return unified gas for `gas_left` syscalls and opcodes
+doc:
+- audience: Runtime Dev
+  description: |-
+    In https://github.com/paritytech/polkadot-sdk/pull/9803 we introduced the new gas mapping. However, when contracts are querying the remaining gas we still returned the `ref_time`. This PR changes that.
+
+    ## Changes
+    - Added a new `Stack::gas_left` function that calculates the remaining gas as eth gas that matches the gas passed in the transaction. It supports both the `eth_` and non `eth_` flavors of dispatchables.
+    - Changed the PVM syscall `ref_time_left` to return the new unified gas.
+    - Changes the EVM `GAS` opcode to return the new unified gas
+    - When calculating the consumed storage we now take into account what was charged during the current frame
+    - Removed `storage_deposit_limit` from `eth_*` dispatchables. It is always uncapped in this case and the overall limit is conveyed using the tx credit.
+
+    ## Follow ups
+    Now that we can return the proper remaining gas that also includes the storage deposit we can change the EVM `call` instruction next to take the passed `gas` into account. Since the unified gas takes both the txfee and the deposit into account it will be able to limit both effectively.
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
