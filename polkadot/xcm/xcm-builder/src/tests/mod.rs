@@ -35,6 +35,7 @@ mod expecting;
 mod locking;
 mod origins;
 mod pay;
+mod publish_subscribe;
 mod querying;
 mod routing;
 mod transacting;
