@@ -29,10 +29,7 @@ use crate::{
 use futures::{stream, StreamExt};
 use pallet_revive::{
 	create1,
-	evm::{
-		block_hash::ReceiptGasInfo, GenericTransaction, Log, ReceiptInfo, TransactionSigned, H256,
-		U256,
-	},
+	evm::{GenericTransaction, Log, ReceiptGasInfo, ReceiptInfo, TransactionSigned, H256, U256},
 };
 use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
