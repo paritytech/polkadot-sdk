@@ -35,7 +35,7 @@ use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing::{blake2_128, keccak_256};
+use sp_io::hashing::keccak_256;
 use sp_runtime::{DispatchError, RuntimeDebug};
 
 /// Abstraction over the memory access within syscalls.
@@ -366,10 +366,10 @@ pub enum RuntimeCosts {
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
 	HashKeccak256(u32),
-	/// Weight of calling the `System::hash_blake2_256` precompile function for the given input
+	/// Weight of calling the `System::hashBlake256` precompile function for the given input
 	/// size.
 	HashBlake256(u32),
-	/// Weight of calling `seal_hash_blake2_128` for the given input size.
+	/// Weight of calling `System::hashBlake128` precompile function for the given input size.
 	HashBlake128(u32),
 	/// Weight of calling `ECERecover` precompile.
 	EcdsaRecovery,
@@ -523,7 +523,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) => T::WeightInfo::hash_blake2_256(len),
-			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
+			HashBlake128(len) => T::WeightInfo::hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
 			Precompile(weight) => weight,
@@ -1995,21 +1995,6 @@ pub mod env {
 			},
 			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
 		}
-	}
-
-	/// Computes the BLAKE2 128-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_128`].
-	fn hash_blake2_128(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_128, input_ptr, input_len, output_ptr,
-		)?)
 	}
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
