@@ -1,0 +1,20 @@
+title: '[log]: Log the `candidate_hash` in more places in the lifecycle of a parablock'
+doc:
+- audience: Node Dev
+  description: |-
+    It is extremely convenient to have `candidate_hash` printed in the path of a parachain block, 
+    it makes following its life cycle so much easier.
+
+    This PR ensures to log `candidate_hash` of a collation in more places.
+    
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
+- name: polkadot-primitives
+  bump: patch
+- name: polkadot-node-core-dispute-coordinator
+  bump: patch
+- name: polkadot-node-core-candidate-validation
+  bump: patch
+- name: polkadot-node-collation-generation
+  bump: patch

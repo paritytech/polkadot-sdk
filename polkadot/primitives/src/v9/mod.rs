@@ -2180,7 +2180,7 @@ impl<H> CandidateReceiptV2<H> {
 		&self.descriptor
 	}
 
-	/// Computes the blake2-256 hash of the receipt.
+	/// Computes the blake2-256 hash (aka `candidate_hash`) of the receipt.
 	pub fn hash(&self) -> CandidateHash
 	where
 		H: Encode,
