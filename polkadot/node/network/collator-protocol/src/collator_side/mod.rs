@@ -1543,11 +1543,12 @@ fn process_expired_collations(
 		let age = expired_collation.expired().unwrap_or_default();
 		let candidate_hash = expired_collation.candidate_hash();
 		let pov_hash = expired_collation.pov_hash();
+		let relay_parent = expired_collation.relay_parent();
 		gum::debug!(
 			target: crate::LOG_TARGET_STATS,
 			?age,
 			?collation_state,
-			relay_parent = ?removed,
+			?relay_parent,
 			?para_id,
 			head = ?expired_collation.head(),
 			?candidate_hash,
