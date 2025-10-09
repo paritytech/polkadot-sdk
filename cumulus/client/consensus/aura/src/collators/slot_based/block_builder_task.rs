@@ -543,9 +543,9 @@ impl Core {
 	}
 
 	/// Returns the total number of cores.
-	pub(crate) fn total_cores(&self) -> u16 {
-		self.number_of_cores
-	}
+	// pub(crate) fn total_cores(&self) -> u16 {
+	// 	self.number_of_cores
+	// }
 }
 
 /// Determine the core for the given `para_id`.
