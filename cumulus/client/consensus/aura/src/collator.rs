@@ -552,10 +552,8 @@ pub async fn collator_protocol_helper<Block, Client, P, Spawner>(
 			"send-pre-connect-message",
 			Some(COLLATOR_PROTOCOL_HELPER_TASK_GROUP),
 			async move {
-				if pre_connect_delay > 0 {
-					futures_timer::Delay::new(std::time::Duration::from_millis(pre_connect_delay))
-						.await;
-				}
+				futures_timer::Delay::new(std::time::Duration::from_millis(pre_connect_delay))
+					.await;
 
 				tracing::debug!(target: crate::LOG_TARGET, "Sending pre-connect message");
 
