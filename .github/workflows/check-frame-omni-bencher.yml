@@ -112,6 +112,12 @@ jobs:
 
           echo "Running command: $cmd"
           eval "$cmd"
+
+          # WIP: just to see where the weight files were generated
+          git status
+
+          echo "Compiling PACKAGE_NAME=$PACKAGE_NAME with fresh generated weights..."
+          forklift cargo build --release --locked -p $PACKAGE_NAME --features=${{ matrix.runtime.bench_features }} --quiet
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
