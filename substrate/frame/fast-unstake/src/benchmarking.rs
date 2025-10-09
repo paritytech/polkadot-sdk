@@ -102,6 +102,9 @@ mod benchmarks {
 	#[benchmark]
 	fn on_idle_unstake(b: Linear<1, { T::BatchSize::get() }>) {
 		ErasToCheckPerBlock::<T>::put(1);
+		// initialise the era.
+		T::Staking::set_active_era(0, Some(0));
+
 		for who in create_unexposed_batch::<T>(b).into_iter() {
 			assert_ok!(Pallet::<T>::register_fast_unstake(RawOrigin::Signed(who.clone()).into(),));
 		}
@@ -134,7 +137,7 @@ mod benchmarks {
 		let u = T::MaxErasToCheckPerBlock::get().min(T::Staking::bonding_duration());
 
 		ErasToCheckPerBlock::<T>::put(u);
-		T::Staking::set_current_era(u);
+		T::Staking::set_active_era(u, Some(0));
 
 		// setup staking with v validators and u eras of data (0..=u+1)
 		setup_staking::<T>(v, u);

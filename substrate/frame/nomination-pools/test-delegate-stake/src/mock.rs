@@ -339,6 +339,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,
 		));
+
+		// ensure staking era is initialised.
+		set_active_era(0);
 	});
 
 	ext
@@ -385,4 +388,12 @@ pub(crate) fn delegated_staking_events_since_last_call(
 	let already_seen = ObservedEventsDelegatedStaking::get();
 	ObservedEventsDelegatedStaking::set(events.len());
 	events.into_iter().skip(already_seen).collect()
+}
+
+pub fn set_active_era(era: sp_staking::EraIndex) {
+	pallet_staking::CurrentEra::<T>::put(era);
+	pallet_staking::ActiveEra::<T>::put(pallet_staking::ActiveEraInfo {
+		index: era,
+		start: Some(0),
+	});
 }

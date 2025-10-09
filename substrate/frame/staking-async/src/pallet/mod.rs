@@ -18,10 +18,11 @@
 //! `pallet-staking-async`'s main `pallet` module.
 
 use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	asset, session_rotation::Rotator, slashing, weights::WeightInfo, AccountIdLookupOf,
+	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
+	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -521,6 +522,8 @@ pub mod pallet {
 	///
 	/// This is the latest planned era, depending on how the Session pallet queues the validator
 	/// set, it might be active or not.
+	///
+	/// Managed via the [`session_rotation::Rotator`].
 	#[pallet::storage]
 	pub type CurrentEra<T> = StorageValue<_, EraIndex>;
 
@@ -528,6 +531,8 @@ pub mod pallet {
 	///
 	/// The active era is the era being currently rewarded. Validator set of this era must be
 	/// equal to what is RC's session pallet.
+	///
+	/// Managed via the [`session_rotation::Rotator`].
 	#[pallet::storage]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
@@ -912,6 +917,10 @@ pub mod pallet {
 				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
 				"Too many invulnerable validators at genesis."
 			);
+			let (active_era, session_index, timestamp) = self.active_era;
+			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
+			// at genesis, we do not have any new planned era.
+			CurrentEra::<T>::put(active_era);
 			<Invulnerables<T>>::put(&self.invulnerables);
 
 			ForceEra::<T>::put(self.force_era);
@@ -1053,10 +1062,6 @@ pub mod pallet {
 				})
 			}
 
-			let (active_era, session_index, timestamp) = self.active_era;
-			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
-			// at genesis, we do not have any new planned era.
-			CurrentEra::<T>::put(active_era);
 			// set the bonded genesis era
 			BondedEras::<T>::put(
 				BoundedVec::<_, BondedErasBound<T>>::try_from(
@@ -1621,11 +1626,8 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Note: we used current era before, but that is meant to be used for only election.
-				// The right value to use here is the active era.
-
-				let era = session_rotation::Rotator::<T>::active_era()
-					.saturating_add(T::BondingDuration::get());
+				let era =
+					Rotator::<T>::active_era().defensive_saturating_add(T::BondingDuration::get());
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
@@ -1791,7 +1793,7 @@ pub mod pallet {
 			let nominations = Nominations {
 				targets,
 				// Initial nominations are considered submitted at era 0. See `Nominations` doc.
-				submitted_in: CurrentEra::<T>::get().unwrap_or(0),
+				submitted_in: Rotator::<T>::active_era(),
 				suppressed: false,
 			};
 

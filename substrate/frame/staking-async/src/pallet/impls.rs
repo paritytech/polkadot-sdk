@@ -331,15 +331,11 @@ impl<T: Config> Pallet<T> {
 		page: Page,
 	) -> DispatchResultWithPostInfo {
 		// Validate input data
-		let current_era = CurrentEra::<T>::get().ok_or_else(|| {
-			Error::<T>::InvalidEraToReward
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-		})?;
-
+		let active_era = Rotator::<T>::active_era();
 		let history_depth = T::HistoryDepth::get();
 
 		ensure!(
-			era <= current_era && era >= current_era.saturating_sub(history_depth),
+			era <= active_era && era >= active_era.saturating_sub(history_depth),
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		);
@@ -1560,8 +1556,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::BondingDuration::get()
 	}
 
-	fn current_era() -> EraIndex {
-		CurrentEra::<T>::get().unwrap_or(Zero::zero())
+	fn active_era() -> EraIndex {
+		Rotator::<T>::active_era()
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<BalanceOf<T>>, DispatchError> {
@@ -1706,8 +1702,18 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			Eras::<T>::upsert_exposure(*current_era, stash, exposure);
 		}
 
-		fn set_current_era(era: EraIndex) {
+		fn set_active_era(era: EraIndex, start: Option<u64>) {
 			CurrentEra::<T>::put(era);
+			ActiveEra::<T>::put(crate::ActiveEraInfo { index: era, start });
+		}
+
+		fn activate_next_era(era_duration_in_session: SessionIndex, era_duration_in_millis: u64) {
+			let planning_era = Rotator::<T>::is_planning().expect("No planning era found");
+			let last_activation_timestamp = ActiveEra::<T>::get()
+				.and_then(|a| a.start)
+				.unwrap_or(0);
+
+			Rotator::<T>::end_session(Rotator::<T>::active_era_start_session_index() + era_duration_in_session, Some((last_activation_timestamp + era_duration_in_millis, planning_era)));
 		}
 
 		fn max_exposure_page_size() -> Page {

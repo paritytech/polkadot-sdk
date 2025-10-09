@@ -200,10 +200,8 @@ pub trait StakingInterface {
 	/// Number of eras that staked funds must remain bonded for.
 	fn bonding_duration() -> EraIndex;
 
-	/// The current era index.
-	///
-	/// This should be the latest planned era that the staking system knows about.
-	fn current_era() -> EraIndex;
+	/// The ongoing era index in the staking system.
+	fn active_era() -> EraIndex;
 
 	/// Returns the [`Stake`] of `who`.
 	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError>;
@@ -244,7 +242,7 @@ pub trait StakingInterface {
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult;
 
 	/// Schedule a portion of the active bonded balance to be unlocked at era
-	/// [Self::current_era] + [`Self::bonding_duration`].
+	/// [Self::active_era] + [`Self::bonding_duration`].
 	///
 	/// Once the unlock era has been reached, [`Self::withdraw_unbonded`] can be called to unlock
 	/// the funds.
@@ -313,8 +311,18 @@ pub trait StakingInterface {
 		exposures: Vec<(Self::AccountId, Self::Balance)>,
 	);
 
+	/// Unsafe sets the current and active era index in the staking system.
+	///
+	/// Note: This may break some invariance. Only to be used in tests where era transition can be
+	/// unsafe. Use [`Self::activate_next_era`] when possible.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: EraIndex);
+	fn set_active_era(era: EraIndex, start: Option<u64>);
+
+	/// Activates the next era by ending the active era and starting a new one.
+	///
+	/// An era must be planned.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn activate_next_era(era_duration_in_session: SessionIndex, era_duration_in_millis: u64);
 }
 
 /// Set of low level apis to manipulate staking ledger.
