@@ -194,6 +194,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
+	fn is_delegate_call(&self) -> bool {
+		panic!("MockExt::is_delegate_call")
+	}
+
 	fn last_frame_output(&self) -> &ExecReturnValue {
 		panic!("MockExt::last_frame_output")
 	}
@@ -217,9 +221,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn gas_left(&self) -> u64 {
 		panic!("MockExt::gas_left")
 	}
-}
 
-impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	fn get_storage(&mut self, _key: &Key) -> Option<Vec<u8>> {
 		panic!("MockExt::get_storage")
 	}
@@ -238,7 +240,9 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) {}
+}
 
+impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	fn instantiate(
 		&mut self,
 		_gas_limit: Weight,
