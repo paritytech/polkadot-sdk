@@ -224,6 +224,8 @@ mod v3 {
 		pub sellout_price: Option<Balance>,
 		/// Number of cores which have been sold; never more than cores_offered.
 		pub cores_sold: CoreIndex,
+		/// Identifier for the current sale.
+		pub sale_index: u32,
 	}
 }
 
@@ -328,6 +330,7 @@ pub mod v4 {
 					first_core: sale_info.first_core,
 					sellout_price: sale_info.sellout_price,
 					cores_sold: sale_info.cores_sold,
+					sale_index: sale_info.sale_index,
 				};
 				SaleInfo::<T>::put(updated_sale_info);
 			}
