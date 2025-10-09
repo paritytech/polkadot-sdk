@@ -550,7 +550,7 @@ fn can_hold_entire_balance_when_second_provider() {
 		.monied(false)
 		.build_and_execute_with(|| {
 			<Balances as fungible::Mutate<_>>::set_balance(&1, 100);
-			assert_noop!(Balances::hold(&TestId::Foo, &1, 100), TokenError::FundsUnavailable);
+			assert_noop!(Balances::hold(&TestId::Foo, &1, 100), TokenError::BelowMinimum);
 			System::inc_providers(&1);
 			assert_eq!(System::providers(&1), 2);
 			assert_ok!(Balances::hold(&TestId::Foo, &1, 100));
@@ -664,7 +664,7 @@ fn withdraw_precision_exact_works() {
 
 			assert_noop!(
 				<Balances as fungible::Balanced<_>>::withdraw(&1, 5, Exact, Preserve, Polite),
-				TokenError::FundsUnavailable
+				TokenError::BelowMinimum
 			);
 		});
 }
