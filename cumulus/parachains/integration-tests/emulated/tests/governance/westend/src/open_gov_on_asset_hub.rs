@@ -62,6 +62,10 @@ fn assethub_can_authorize_upgrade_for_itself() {
 		},
 	);
 
+	AssetHubWestend::execute_with(|| {
+		assert_whitelisted!(AssetHubWestend, call_hash);
+	});
+
 	// Err - when dispatch wrong origin
 	assert_err!(
 		dispatch_whitelisted_call_with_preimage::<AssetHubWestend>(
