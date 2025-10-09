@@ -60,3 +60,13 @@ impl FeeManager for () {
 
 	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
 }
+
+pub struct WaiveDeliveryFees;
+
+impl FeeManager for WaiveDeliveryFees {
+	fn is_waived(_: Option<&Location>, _: FeeReason) -> bool {
+		true
+	}
+
+	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+}

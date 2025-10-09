@@ -124,7 +124,9 @@ pub use origin_conversion::{
 };
 
 mod pay;
-pub use pay::{FixedLocation, LocatableAssetId, PayAccountId32OnChainOverXcm, PayOverXcm};
+pub use pay::{
+	FixedLocation, LocatableAssetId, PayAccountId32OnChainOverXcm, PayOverXcm, PayOverXcmWithHelper,
+};
 
 mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
@@ -139,6 +141,10 @@ pub use transactional::FrameTransactionalProcessor;
 
 #[allow(deprecated)]
 pub use universal_exports::UnpaidLocalExporter;
+
+mod transfer;
+pub use transfer::{Transfer, TransferOverXcm, TransferOverXcmHelper, TransferStatus};
+
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,

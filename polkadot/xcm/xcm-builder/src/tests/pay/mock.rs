@@ -16,18 +16,15 @@
 
 use super::*;
 
-use frame_support::traits::{AsEnsureOriginWithArg, Disabled, Nothing};
-
-use frame_support::derive_impl;
-
 use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ConstU32, Everything},
+	construct_runtime, derive_impl, parameter_types,
+	traits::{AsEnsureOriginWithArg, ConstU32, Disabled, Everything, Nothing},
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
 use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_simulator::ParaId;
 
 pub type TxExtension = (
 	frame_system::AuthorizeCall<Test>,
@@ -125,9 +122,10 @@ impl pallet_assets::Config for Test {
 }
 
 parameter_types! {
-	pub const RelayLocation: Location = Here.into_location();
+	pub const RelayLocation: Location = Location::parent();
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(42)).into();
+	pub MockRuntimeParachainId: ParaId = 42u32.into();
+	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(MockRuntimeParachainId::get().into())).into();
 	pub UnitWeightCost: u64 = 1_000;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
@@ -135,6 +133,21 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
+}
+
+/// Type representing both a location and an asset that is held at that location.
+/// The id of the held asset is relative to the location where it is being held.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct AssetKind {
+	pub destination: Location,
+	pub asset_id: AssetId,
+}
+
+pub struct LocatableAssetKindConverter;
+impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAssetKindConverter {
+	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
+		Ok(LocatableAssetId { asset_id: value.asset_id, location: value.destination })
+	}
 }
 
 type AssetIdForAssets = u128;
@@ -156,6 +169,7 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 	fn convert_back(value: &AssetIdForAssets) -> Option<Location> {
 		match value {
 			0u128 => Some(Location { parents: 1, interior: Here }),
+			1u128 => Some(Location { parents: 0, interior: Here }),
 			para_id @ 1..=1000 =>
 				Some(Location { parents: 1, interior: [Parachain(*para_id as u32)].into() }),
 			_ => None,
@@ -252,7 +266,7 @@ impl ConvertLocation<AccountId> for TreasuryToAccount {
 	}
 }
 
-type SovereignAccountOf = (
+pub(crate) type SovereignAccountOf = (
 	AccountId32Aliases<AnyNetwork, AccountId>,
 	TreasuryToAccount,
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
