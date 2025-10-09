@@ -834,8 +834,6 @@ async fn process_msg<Context>(
 
 	match msg {
 		ConnectToBackingGroups => {
-			// This message is used to instruct the collator to pre-connect to backing groups.
-			// For now, we do not need to take any action here.
 			gum::debug!(
 				target: LOG_TARGET,
 				"Received PreConnectToBackingGroups message."
@@ -855,8 +853,6 @@ async fn process_msg<Context>(
 			}
 		},
 		DisconnectFromBackingGroups => {
-			// This message is used to instruct the collator to disconnect from backing groups.
-			// For now, we do not need to take any action here.
 			gum::debug!(
 				target: LOG_TARGET,
 				"Received DisconnectFromBackingGroups message."
