@@ -863,6 +863,13 @@ pub mod pallet {
 			let max_eth_block_builder_bytes =
 				block_storage::block_builder_bytes_usage(max_events_size);
 
+			log::debug!(
+				target: LOG_TARGET,
+				"Integrity check: max_eth_block_builder_bytes={} KB using max_events_size={} KB",
+				max_eth_block_builder_bytes / 1024,
+				max_events_size / 1024,
+			);
+
 			// Check that the configured memory limits fit into runtime memory.
 			//
 			// Dynamic allocations are not available, yet. Hence they are not taken into
