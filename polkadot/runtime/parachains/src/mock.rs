@@ -261,7 +261,6 @@ parameter_types! {
 }
 
 impl crate::broadcaster::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type MaxPublishItems = MaxPublishItems;
 	type MaxKeyLength = MaxKeyLength;
 	type MaxValueLength = MaxValueLength;
