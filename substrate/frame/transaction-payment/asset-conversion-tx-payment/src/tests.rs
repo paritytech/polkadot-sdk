@@ -232,7 +232,7 @@ fn transaction_payment_in_asset_possible() {
 
 			// mint into the caller account
 			let caller = 1;
-			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let beneficiary = <Runtime as system::Config>::Lookup::un(caller);
 			let balance = 1000;
 
 			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
