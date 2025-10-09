@@ -435,7 +435,7 @@ benchmarks_instance_pallet! {
 	}
 	verify {
 		// Verify all pending rebag entries were processed.
-		// This should always be tru since pending_count = rebag_budget / 3 < rebag_budget,
+		// This should always be true since pending_count = rebag_budget / 3 < rebag_budget,
 		// and pending accounts are processed first so all pending entries fit within the budget.
 		assert_eq!(PendingRebag::<T, I>::count(), 0, "All pending rebag entries should be processed");
 
