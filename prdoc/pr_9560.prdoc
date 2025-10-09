@@ -1,0 +1,38 @@
+title: 'proxy: migrate from Currency to fungible traits'
+doc:
+  - audience: Runtime User
+    description: |
+      - Migrate pallet-proxy from using Currency trait to using fungible traits, addressing the balance overlap issue where proxy reserves couldn't overlap with staking holds.
+      - Implements multi-block migration (`SteppedMigration`) with proxy preservation: migration failures preserve proxy relationships with zero deposits.
+      - Implements also single-block migration (`OnRuntimeUpgrade`) for runtimes not supporting multi-block migrations.
+      - Fix benchmarks and update weights.
+      - Update relevant runtimes to include the migration.
+crates: 
+- name: pallet-proxy
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: pallet-contracts
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-safe-mode
+  bump: patch
+- name: pallet-tx-pause
+  bump: patch

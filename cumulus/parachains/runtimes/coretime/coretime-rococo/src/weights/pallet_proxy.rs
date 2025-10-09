@@ -239,4 +239,40 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// The range of component `p` is `[1, 50]`.
+	fn migrate_proxy_account(p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `130 + p * (33 ±0)`
+		//  Estimated: `3716`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3716))
+			.saturating_add(Weight::from_parts(50_000, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// The range of component `a` is `[1, 50]`.
+	fn migrate_announcement_account(a: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `120 + a * (68 ±0)`
+		//  Estimated: `4708`
+		// Minimum execution time: 6_000_000 picoseconds.
+		Weight::from_parts(7_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4708))
+			.saturating_add(Weight::from_parts(80_000, 0).saturating_mul(a.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// The range of component `n` is `[1, 50]`.
+	fn migration_complete(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `250 + n * (100 ±0)`
+		//  Estimated: `5000`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 5000))
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 }

@@ -21,9 +21,12 @@
 
 use super::*;
 use crate::Pallet as Proxy;
-use alloc::{boxed::Box, vec};
-use frame::benchmarking::prelude::{
-	account, benchmarks, impl_test_function, whitelisted_caller, BenchmarkError, RawOrigin,
+use alloc::{boxed::Box, vec::Vec};
+use frame::{
+	benchmarking::prelude::{
+		account, benchmarks, impl_test_function, whitelisted_caller, BenchmarkError, RawOrigin,
+	},
+	traits::fungible::{InspectHold, Mutate as FunMutate, MutateHold},
 };
 
 const SEED: u32 = 0;
@@ -36,9 +39,14 @@ fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
 
-fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str> {
+fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str>
+where
+	T::Currency: FunMutate<T::AccountId>,
+{
 	let caller = maybe_who.unwrap_or_else(whitelisted_caller);
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+	// Mint sufficient balance for operations and deposits
+	let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+	let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
 	for i in 0..n {
 		let real = T::Lookup::unlookup(account("target", i, SEED));
 
@@ -56,15 +64,28 @@ fn add_announcements<T: Config>(
 	n: u32,
 	maybe_who: Option<T::AccountId>,
 	maybe_real: Option<T::AccountId>,
-) -> Result<(), &'static str> {
-	let caller = maybe_who.unwrap_or_else(|| account("caller", 0, SEED));
+) -> Result<(), &'static str>
+where
+	T::Currency: FunMutate<T::AccountId>,
+{
+	let caller = if let Some(who) = maybe_who {
+		who
+	} else {
+		let caller = account("caller", 0, SEED);
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
+		caller
+	};
 	let caller_lookup = T::Lookup::unlookup(caller.clone());
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 	let real = if let Some(real) = maybe_real {
 		real
 	} else {
 		let real = account("real", 0, SEED);
-		T::Currency::make_free_balance_be(&real, BalanceOf::<T>::max_value() / 2u32.into());
+		let _ = <T::Currency as FunMutate<_>>::mint_into(
+			&real,
+			BalanceOf::<T>::max_value() / 2u32.into(),
+		);
 		Proxy::<T>::add_proxy(
 			RawOrigin::Signed(real.clone()).into(),
 			caller_lookup,
@@ -84,7 +105,7 @@ fn add_announcements<T: Config>(
 	Ok(())
 }
 
-#[benchmarks]
+#[benchmarks(where T::Currency: FunMutate<T::AccountId>)]
 mod benchmarks {
 	use super::*;
 
@@ -93,10 +114,12 @@ mod benchmarks {
 		add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
-		let real_lookup = T::Lookup::unlookup(real);
+		let real_lookup = T::Lookup::unlookup(real.clone());
 		let call: <T as Config>::RuntimeCall =
 			frame_system::Call::<T>::remark { remark: vec![] }.into();
 
@@ -118,10 +141,13 @@ mod benchmarks {
 		let caller: T::AccountId = account("pure", 0, SEED);
 		let delegate: T::AccountId = account("target", p - 1, SEED);
 		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
-		T::Currency::make_free_balance_be(&delegate, BalanceOf::<T>::max_value() / 2u32.into());
+		let _ = <T::Currency as FunMutate<_>>::mint_into(
+			&delegate,
+			BalanceOf::<T>::max_value() / 2u32.into(),
+		);
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
-		let real_lookup = T::Lookup::unlookup(real);
+		let real_lookup = T::Lookup::unlookup(real.clone());
 		let call: <T as Config>::RuntimeCall =
 			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		Proxy::<T>::announce(
@@ -129,7 +155,7 @@ mod benchmarks {
 			real_lookup.clone(),
 			T::CallHasher::hash_of(&call),
 		)?;
-		add_announcements::<T>(a, Some(delegate.clone()), None)?;
+		add_announcements::<T>(a, Some(delegate.clone()), Some(real.clone()))?;
 
 		#[extrinsic_call]
 		_(
@@ -153,10 +179,12 @@ mod benchmarks {
 		add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
-		let real_lookup = T::Lookup::unlookup(real);
+		let real_lookup = T::Lookup::unlookup(real.clone());
 		let call: <T as Config>::RuntimeCall =
 			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		Proxy::<T>::announce(
@@ -164,7 +192,7 @@ mod benchmarks {
 			real_lookup.clone(),
 			T::CallHasher::hash_of(&call),
 		)?;
-		add_announcements::<T>(a, Some(caller.clone()), None)?;
+		add_announcements::<T>(a, Some(caller.clone()), Some(real.clone()))?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), real_lookup, T::CallHasher::hash_of(&call));
@@ -184,7 +212,9 @@ mod benchmarks {
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real.clone());
@@ -195,7 +225,7 @@ mod benchmarks {
 			real_lookup,
 			T::CallHasher::hash_of(&call),
 		)?;
-		add_announcements::<T>(a, Some(caller.clone()), None)?;
+		add_announcements::<T>(a, Some(caller.clone()), Some(real.clone()))?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(real), caller_lookup, T::CallHasher::hash_of(&call));
@@ -214,11 +244,16 @@ mod benchmarks {
 		add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real.clone());
-		add_announcements::<T>(a, Some(caller.clone()), None)?;
+		// Mint sufficient balance for announcement deposits
+		let _ = <T::Currency as FunMutate<_>>::mint_into(
+			&caller,
+			BalanceOf::<T>::max_value() / 10u32.into(),
+		);
+		// Pass real so caller announces for the correct account (whitelisted_caller)
+		add_announcements::<T>(a, Some(caller.clone()), Some(real.clone()))?;
 		let call: <T as Config>::RuntimeCall =
 			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		let call_hash = T::CallHasher::hash_of(&call);
@@ -318,7 +353,9 @@ mod benchmarks {
 	fn kill_pure(p: Linear<0, { T::MaxProxies::get() - 2 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
 		Pallet::<T>::create_pure(
 			RawOrigin::Signed(whitelisted_caller()).into(),
 			T::ProxyType::default(),
@@ -355,9 +392,18 @@ mod benchmarks {
 		let account_3: T::AccountId = account("account", 3, SEED);
 
 		// Fund accounts
-		T::Currency::make_free_balance_be(&account_1, BalanceOf::<T>::max_value() / 100u8.into());
-		T::Currency::make_free_balance_be(&account_2, BalanceOf::<T>::max_value() / 100u8.into());
-		T::Currency::make_free_balance_be(&account_3, BalanceOf::<T>::max_value() / 100u8.into());
+		let _ = <T::Currency as FunMutate<_>>::mint_into(
+			&account_1,
+			BalanceOf::<T>::max_value() / 100u8.into(),
+		);
+		let _ = <T::Currency as FunMutate<_>>::mint_into(
+			&account_2,
+			BalanceOf::<T>::max_value() / 100u8.into(),
+		);
+		let _ = <T::Currency as FunMutate<_>>::mint_into(
+			&account_3,
+			BalanceOf::<T>::max_value() / 100u8.into(),
+		);
 
 		// Add proxy relationships
 		Proxy::<T>::add_proxy(
@@ -374,7 +420,8 @@ mod benchmarks {
 		)?;
 		let (proxies, initial_proxy_deposit) = Proxies::<T>::get(&account_2);
 		assert!(!initial_proxy_deposit.is_zero());
-		assert_eq!(initial_proxy_deposit, T::Currency::reserved_balance(&account_2));
+		let proxy_hold = T::Currency::balance_on_hold(&HoldReason::ProxyDeposit.into(), &account_2);
+		assert_eq!(initial_proxy_deposit, proxy_hold);
 
 		// Create announcement
 		Proxy::<T>::announce(
@@ -384,20 +431,35 @@ mod benchmarks {
 		)?;
 		let (announcements, initial_announcement_deposit) = Announcements::<T>::get(&account_2);
 		assert!(!initial_announcement_deposit.is_zero());
-		assert_eq!(
-			initial_announcement_deposit.saturating_add(initial_proxy_deposit),
-			T::Currency::reserved_balance(&account_2)
-		);
+		let announcement_hold =
+			T::Currency::balance_on_hold(&HoldReason::AnnouncementDeposit.into(), &account_2);
+		let total_hold = proxy_hold.saturating_add(announcement_hold);
+		assert_eq!(initial_announcement_deposit.saturating_add(initial_proxy_deposit), total_hold);
 
-		// Artificially inflate deposits and reserve the extra amount
+		// Artificially inflate deposits and hold the extra amount to simulate deposits being too
+		// high. This is to test that poke_deposit correctly reduces the deposits and releases the
+		// excess
 		let extra_proxy_deposit = initial_proxy_deposit; // Double the deposit
 		let extra_announcement_deposit = initial_announcement_deposit; // Double the deposit
-		let total = extra_proxy_deposit.saturating_add(extra_announcement_deposit);
 
-		T::Currency::reserve(&account_2, total)?;
+		T::Currency::hold(&HoldReason::ProxyDeposit.into(), &account_2, extra_proxy_deposit)?;
+		T::Currency::hold(
+			&HoldReason::AnnouncementDeposit.into(),
+			&account_2,
+			extra_announcement_deposit,
+		)?;
 
-		let initial_reserved = T::Currency::reserved_balance(&account_2);
-		assert_eq!(initial_reserved, total.saturating_add(total)); // Double
+		let initial_total_hold =
+			T::Currency::balance_on_hold(&HoldReason::ProxyDeposit.into(), &account_2)
+				.saturating_add(T::Currency::balance_on_hold(
+					&HoldReason::AnnouncementDeposit.into(),
+					&account_2,
+				));
+		let expected_total = initial_proxy_deposit
+			.saturating_add(initial_announcement_deposit)
+			.saturating_add(extra_proxy_deposit)
+			.saturating_add(extra_announcement_deposit);
+		assert_eq!(initial_total_hold, expected_total); // Double
 
 		// Update storage with increased deposits
 		Proxies::<T>::insert(
@@ -433,8 +495,13 @@ mod benchmarks {
 		assert_eq!(final_proxy_deposit, initial_proxy_deposit);
 		assert_eq!(final_announcement_deposit, initial_announcement_deposit);
 
-		let final_reserved = T::Currency::reserved_balance(&account_2);
-		assert_eq!(final_reserved, initial_reserved.saturating_sub(total));
+		let final_proxy_hold =
+			T::Currency::balance_on_hold(&HoldReason::ProxyDeposit.into(), &account_2);
+		let final_announcement_hold =
+			T::Currency::balance_on_hold(&HoldReason::AnnouncementDeposit.into(), &account_2);
+		let final_total_hold = final_proxy_hold.saturating_add(final_announcement_hold);
+		let expected_final = initial_proxy_deposit.saturating_add(initial_announcement_deposit);
+		assert_eq!(final_total_hold, expected_final);
 
 		// Verify events
 		assert_has_event::<T>(
@@ -455,6 +522,201 @@ mod benchmarks {
 			}
 			.into(),
 		);
+
+		Ok(())
+	}
+
+	/// Benchmark the v1 migration step for proxy reserves to holds conversion.
+	/// This measures the weight of migrating accounts from the old reserves system to the new holds
+	/// system.
+	#[benchmark]
+	fn migrate_proxy_account(p: Linear<0, { T::MaxProxies::get() }>) -> Result<(), BenchmarkError> {
+		use crate::migrations::v1::{
+			benchmarking_helpers::BenchmarkOldCurrency, MigrateReservesToHolds, MigrationStats,
+		};
+
+		let proxy_count = p;
+		let who: T::AccountId = account("proxy_owner", 0, 0);
+
+		// Set up proxy data for benchmarking
+		let deposit_per_proxy = T::ProxyDepositBase::get() + T::ProxyDepositFactor::get();
+		let total_deposit = deposit_per_proxy * proxy_count.into();
+
+		let mut proxies = Vec::new();
+		for i in 0..proxy_count {
+			let delegate: T::AccountId = account("proxy_delegate", i, 0);
+			proxies.push(ProxyDefinition {
+				delegate,
+				proxy_type: T::ProxyType::default(),
+				delay: BlockNumberFor::<T>::default(),
+			});
+		}
+		let proxies: BoundedVec<_, T::MaxProxies> =
+			proxies.try_into().map_err(|_| BenchmarkError::Stop("Too many proxies"))?;
+
+		// Set up proxy storage entry
+		Proxies::<T>::insert(&who, (&proxies, total_deposit));
+		let mut stats = MigrationStats::default();
+
+		#[block]
+		{
+			let _result =
+				MigrateReservesToHolds::<
+					T,
+					BenchmarkOldCurrency<T>,
+					crate::weights::SubstrateWeight<T>,
+				>::migrate_proxy_account(&who, proxies.clone(), total_deposit, &mut stats);
+		}
+
+		Ok(())
+	}
+
+	/// Benchmark the v1 migration step for announcement reserves to holds conversion.
+	/// This measures the weight of migrating announcement accounts from reserves to holds.
+	#[benchmark]
+	fn migrate_announcement_account(
+		a: Linear<0, { T::MaxPending::get() }>,
+	) -> Result<(), BenchmarkError> {
+		use crate::migrations::v1::{
+			benchmarking_helpers::BenchmarkOldCurrency, MigrateReservesToHolds, MigrationStats,
+		};
+
+		let announcement_count = a;
+		let who: T::AccountId = account("announcement_owner", 0, 0);
+
+		// Set up announcement data for benchmarking
+		let deposit_per_announcement =
+			T::AnnouncementDepositBase::get() + T::AnnouncementDepositFactor::get();
+		let total_deposit = deposit_per_announcement * announcement_count.into();
+
+		let mut announcements = Vec::new();
+		for i in 0..announcement_count {
+			let real: T::AccountId = account("announcement_real", i, 0);
+			announcements.push(Announcement {
+				real,
+				call_hash: <T::CallHasher as frame::traits::Hash>::Output::default(),
+				height: BlockNumberFor::<T>::default(),
+			});
+		}
+		let announcements: BoundedVec<_, T::MaxPending> = announcements
+			.try_into()
+			.map_err(|_| BenchmarkError::Stop("Too many announcements"))?;
+
+		// Set up announcement storage entry
+		Announcements::<T>::insert(&who, (&announcements, total_deposit));
+		let mut stats = MigrationStats::default();
+
+		#[block]
+		{
+			let _result = MigrateReservesToHolds::<
+				T,
+				BenchmarkOldCurrency<T>,
+				crate::weights::SubstrateWeight<T>,
+			>::migrate_announcement_account(
+				&who, announcements.clone(), total_deposit, &mut stats
+			);
+		}
+
+		Ok(())
+	}
+
+	/// Benchmark the complete v1 migration process until completion.
+	/// This simulates the full multi-block migration behavior.
+	#[benchmark]
+	fn migration_complete(
+		n: Linear<1, { T::MaxProxies::get().max(T::MaxPending::get()) }>,
+	) -> Result<(), BenchmarkError> {
+		use crate::migrations::v1::{
+			benchmarking_helpers::BenchmarkOldCurrency, MigrateReservesToHolds,
+		};
+		use frame::deps::frame_support::{migrations::SteppedMigration, weights::WeightMeter};
+
+		let total_accounts = n;
+
+		let proxy_accounts = total_accounts / 2;
+		let announcement_accounts = total_accounts - proxy_accounts;
+		let mut account_id = 0u32;
+
+		let deposit_per_proxy = T::ProxyDepositBase::get() + T::ProxyDepositFactor::get();
+		let proxies_per_account = T::MaxProxies::get().min(10u32); // Up to 10 proxies per account, limited by MaxProxies
+		let total_proxy_deposit = deposit_per_proxy * proxies_per_account.into();
+
+		(0..proxy_accounts).try_for_each(|_| -> Result<(), BenchmarkError> {
+			let who: T::AccountId = account("proxy_owner", account_id, 0);
+			account_id = account_id.saturating_add(1);
+
+			let proxies: BoundedVec<_, T::MaxProxies> = (0..proxies_per_account)
+				.map(|_| {
+					let delegate: T::AccountId = account("proxy_delegate", account_id, 0);
+					account_id = account_id.saturating_add(1);
+					ProxyDefinition {
+						delegate,
+						proxy_type: T::ProxyType::default(),
+						delay: BlockNumberFor::<T>::default(),
+					}
+				})
+				.collect::<Vec<_>>()
+				.try_into()
+				.map_err(|_| BenchmarkError::Stop("Too many proxies"))?;
+
+			Proxies::<T>::insert(&who, (&proxies, total_proxy_deposit));
+			Ok(())
+		})?;
+
+		let deposit_per_announcement =
+			T::AnnouncementDepositBase::get() + T::AnnouncementDepositFactor::get();
+		let announcements_per_account = T::MaxPending::get().min(5u32); // Up to 5 announcements per account, limited by MaxPending
+		let total_announcement_deposit =
+			deposit_per_announcement * announcements_per_account.into();
+
+		(0..announcement_accounts).try_for_each(|_| -> Result<(), BenchmarkError> {
+			let who: T::AccountId = account("announcement_owner", account_id, 0);
+			account_id = account_id.saturating_add(1);
+
+			let announcements: BoundedVec<_, T::MaxPending> = (0..announcements_per_account)
+				.map(|i| {
+					let real: T::AccountId = account("announcement_real", account_id + i, 0);
+					Announcement {
+						real,
+						call_hash: <T::CallHasher as frame::traits::Hash>::Output::default(),
+						height: BlockNumberFor::<T>::default(),
+					}
+				})
+				.collect::<Vec<_>>()
+				.try_into()
+				.map_err(|_| BenchmarkError::Stop("Too many announcements"))?;
+
+			account_id = account_id.saturating_add(announcements_per_account);
+			Announcements::<T>::insert(&who, (&announcements, total_announcement_deposit));
+			Ok(())
+		})?;
+
+		#[block]
+		{
+			// Process complete migration - loop until completion
+			let mut cursor = None;
+			loop {
+				let block_weights = T::BlockWeights::get();
+				let weight_limit = block_weights.max_block.saturating_div(10);
+				let mut meter = WeightMeter::with_limit(weight_limit);
+
+				match MigrateReservesToHolds::<
+					T,
+					BenchmarkOldCurrency<T>,
+					crate::weights::SubstrateWeight<T>,
+				>::step(cursor, &mut meter)
+				{
+					Ok(Some(next_cursor)) => {
+						cursor = Some(next_cursor);
+					},
+					Ok(None) => {
+						// Migration complete
+						break;
+					},
+					Err(_) => return Err(BenchmarkError::Stop("Migration step failed")),
+				}
+			}
+		}
 
 		Ok(())
 	}
