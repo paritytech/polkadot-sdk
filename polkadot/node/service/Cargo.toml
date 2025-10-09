@@ -84,7 +84,6 @@ parity-db = { optional = true, workspace = true }
 parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tempfile = { workspace = true }
 thiserror = { workspace = true }
 
 # Polkadot
