@@ -1224,6 +1224,21 @@ impl parachains_slashing::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxPublishItems: u32 = 16;
+	pub const MaxKeyLength: u32 = 256;
+	pub const MaxValueLength: u32 = 1024;
+	pub const MaxStoredKeys: u32 = 100;
+}
+
+impl polkadot_runtime_parachains::broadcaster::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MaxPublishItems = MaxPublishItems;
+	type MaxKeyLength = MaxKeyLength;
+	type MaxValueLength = MaxValueLength;
+	type MaxStoredKeys = MaxStoredKeys;
+}
+
+parameter_types! {
 	pub const ParaDeposit: Balance = 40 * UNITS;
 }
 
@@ -1597,6 +1612,7 @@ construct_runtime! {
 		Auctions: auctions = 72,
 		Crowdloan: crowdloan = 73,
 		Coretime: coretime = 74,
+		Broadcaster: polkadot_runtime_parachains::broadcaster = 75,
 
 		// Migrations pallet
 		MultiBlockMigrations: pallet_migrations = 98,
@@ -2011,7 +2027,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(14)]
+	#[api_version(15)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2192,6 +2208,10 @@ sp_api::impl_runtime_apis! {
 
 		fn para_ids() -> Vec<ParaId> {
 			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
+		}
+
+		fn get_all_published_data() -> BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>> {
+			Broadcaster::get_all_published_data_map()
 		}
 	}
 
