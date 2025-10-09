@@ -1220,6 +1220,9 @@ mod benchmarks {
 			)
 			.unwrap();
 		}
+
+		assert!(PristineCode::<T>::get(code_hash).is_none());
+
 		Ok(())
 	}
 
