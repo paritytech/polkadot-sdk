@@ -17,6 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
+	evm::fees::{Combinator, InfoT},
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -432,6 +433,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the effective gas price of this transaction.
 	fn effective_gas_price(&self) -> U256;
 
+	/// The amount of gas left in eth gas units.
+	fn gas_left(&self) -> u64;
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
@@ -2185,6 +2188,44 @@ where
 		self.exec_config
 			.effective_gas_price
 			.unwrap_or_else(|| <Contracts<T>>::evm_base_fee())
+	}
+
+	fn gas_left(&self) -> u64 {
+		let frame = self.top_frame();
+		if let Some((encoded_len, base_weight)) = self.exec_config.collect_deposit_from_hold {
+			// when using the txhold we know the overall available fee by looking at the tx credit
+			// we work backwards: the gas_left is the overall fee minus what was already consumed
+			let weight_fee_consumed = T::FeeInfo::tx_fee_from_weight(
+				encoded_len,
+				&frame.nested_gas.gas_consumed().saturating_add(base_weight),
+			);
+			let available = T::FeeInfo::remaining_txfee().saturating_sub(weight_fee_consumed);
+			let deposit_consumed = self
+				.frames
+				.iter()
+				.chain(core::iter::once(&self.first_frame))
+				.fold(StorageDeposit::default(), |acc, frame| {
+					acc.saturating_add(&frame.nested_storage.consumed())
+				});
+			deposit_consumed.available(&available)
+		} else {
+			// when not using the hold we expect the transaction to contain a limit for the storage
+			// deposit we work forwards: add up what is left from both meters
+			// in case no storage limit is set we limit by all the free balance of the signer
+			use frame_support::traits::tokens::{Fortitude, Preservation};
+			let weight_fee_available =
+				T::FeeInfo::weight_to_fee(&frame.nested_gas.gas_left(), Combinator::Min);
+			let available_balance = self
+				.origin
+				.account_id()
+				.map(|acc| {
+					T::Currency::reducible_balance(acc, Preservation::Preserve, Fortitude::Polite)
+				})
+				.unwrap_or(BalanceOf::<T>::max_value());
+			let deposit_available = frame.nested_storage.available().min(available_balance);
+			weight_fee_available.saturating_add(deposit_available)
+		}
+		.saturated_into()
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {

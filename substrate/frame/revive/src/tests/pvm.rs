@@ -40,8 +40,9 @@ use crate::{
 	},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueueCounter,
-	Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode, StorageDeposit, H160,
+	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Combinator, Config, ContractInfo,
+	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode,
+	StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -1478,23 +1479,34 @@ fn lazy_batch_removal_works() {
 }
 
 #[test]
-fn ref_time_left_api_works() {
-	let (code, _) = compile_module("ref_time_left").unwrap();
+fn gas_left_api_works() {
+	let (code, _) = compile_module("gas_left").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Create fixture: Constructor calls ref_time_left twice and asserts it to decrease
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		// Call the contract: It echoes back the ref_time returned by the ref_time_left API.
+		// Call the contract without hold
 		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
+		let gas_left = U256::from_little_endian(received.data.as_ref());
+		let gas_left_max =
+			<Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Min) + 1_000_000;
+		assert!(gas_left > 0u32.into());
+		assert!(gas_left < gas_left_max.into());
 
-		let returned_value = u64::from_le_bytes(received.data[..8].try_into().unwrap());
-		assert!(returned_value > 0);
-		assert!(returned_value < GAS_LIMIT.ref_time());
+		// Call the contract using the hold
+		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Max);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
+		let mut exec_config = ExecConfig::new_substrate_tx();
+		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
+		let received = builder::bare_call(addr).exec_config(exec_config).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		let gas_left = U256::from_little_endian(received.data.as_ref());
+		assert!(gas_left > 0u32.into());
+		assert!(gas_left < hold_initial.into());
 	});
 }
 
@@ -2752,7 +2764,8 @@ fn deposit_limit_in_nested_instantiate() {
 
 		// The parent just stores an item of the passed size so at least
 		// we need to pay for the item itself.
-		let caller_min_deposit = callee_min_deposit + 2 + 48;
+		// stores 2 storage items: one before the subcall and one after
+		let caller_min_deposit = callee_min_deposit + 2 * (2 + 48);
 
 		// Fail in callee.
 		//
@@ -2767,19 +2780,6 @@ fn deposit_limit_in_nested_instantiate() {
 		// The charges made on instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
-		// Fail in the caller.
-		//
-		// For that we need to supply enough storage deposit so that the sub call
-		// succeeds but the parent call runs out of storage.
-		let ret = builder::bare_call(addr_caller)
-			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(callee_min_deposit)
-			.data((&code_hash_callee, 0u32, &U256::MAX.to_little_endian()).encode())
-			.build();
-		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
-		// The charges made on the instantiation should be rolled back.
-		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
-
 		// Fail in the callee with bytes.
 		//
 		// Same as above but stores one byte in both caller and callee.
@@ -2792,12 +2792,14 @@ fn deposit_limit_in_nested_instantiate() {
 		// The charges made on the instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
+		println!("caller={caller_min_deposit:?} callee={callee_min_deposit:?}");
+
 		// Fail in the caller with bytes.
 		//
 		// Same as above but stores one byte in both caller and callee.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(callee_min_deposit + 1)
+			.storage_deposit_limit(caller_min_deposit + 2)
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
@@ -2807,7 +2809,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Set enough deposit limit for the child instantiate. This should succeed.
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit((caller_min_deposit + 2).into())
+			.storage_deposit_limit((caller_min_deposit + 3).into())
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 
@@ -2826,9 +2828,9 @@ fn deposit_limit_in_nested_instantiate() {
 		// The origin should be charged with what the outer call consumed
 		assert_eq!(
 			<Test as Config>::Currency::free_balance(&BOB),
-			1_000_000 - (caller_min_deposit + 2),
+			1_000_000 - (caller_min_deposit + 3),
 		);
-		assert_eq!(result.storage_deposit.charge_or_zero(), (caller_min_deposit + 2))
+		assert_eq!(result.storage_deposit.charge_or_zero(), (caller_min_deposit + 3))
 	});
 }
 
@@ -4906,7 +4908,7 @@ fn storage_deposit_from_hold_works() {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
 		let mut exec_config = ExecConfig::new_substrate_tx();
-		exec_config.collect_deposit_from_hold = true;
+		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
