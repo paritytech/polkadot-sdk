@@ -820,7 +820,8 @@ pub mod pallet {
 				Self::block_author(),
 				block_number.into(),
 				Self::evm_block_gas_limit(),
-				T::Time::now().into(),
+				// Eth uses timestamps in seconds
+				(T::Time::now() / 1000u32.into()).into(),
 			);
 		}
 
