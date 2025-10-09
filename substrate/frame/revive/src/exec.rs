@@ -565,13 +565,13 @@ pub struct Stack<'a, T: Config, E> {
 	transient_storage: TransientStorage<T>,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig,
-	/// No executable is held by the struct but influences its behaviour.
-	_phantom: PhantomData<E>,
 	/// The set of contracts that were created during this call stack.
 	contracts_created: BTreeSet<T::AccountId>,
 	/// The set of contracts that are registered for destruction at the end of this call stack.
 	/// The tuple contains: (address of contract, contract info, address of beneficiary)
 	contracts_to_be_destroyed: BTreeSet<(H160, ContractInfo<T>, H160)>,
+	/// No executable is held by the struct but influences its behaviour.
+	_phantom: PhantomData<E>,
 }
 
 /// Represents one entry in the call stack.
@@ -582,7 +582,7 @@ struct Frame<T: Config> {
 	/// The address of the executing contract.
 	account_id: T::AccountId,
 	/// The cached in-storage data of the contract.
-	cached_contract_info: CachedContract<T>,
+	contract_info: CachedContract<T>,
 	/// The EVM balance transferred by the caller as part of the call.
 	value_transferred: U256,
 	/// Determines whether this is a call or instantiate frame.
@@ -694,7 +694,7 @@ enum CachedContract<T: Config> {
 impl<T: Config> Frame<T> {
 	/// Return the `contract_info` of the current contract.
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
-		self.cached_contract_info.get(&self.account_id)
+		self.contract_info.get(&self.account_id)
 	}
 }
 
@@ -949,9 +949,9 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			exec_config,
-			_phantom: Default::default(),
 			contracts_created: BTreeSet::new(),
 			contracts_to_be_destroyed: BTreeSet::new(),
+			_phantom: Default::default(),
 		};
 
 		Ok(Some((stack, executable)))
@@ -1070,7 +1070,7 @@ where
 		let frame = Frame {
 			delegate,
 			value_transferred,
-			cached_contract_info: contract_info,
+			contract_info,
 			account_id,
 			entry_point,
 			nested_gas: gas_meter.nested(gas_limit),
@@ -1102,7 +1102,7 @@ where
 		// from its own constructor.
 		let frame = self.top_frame();
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
-			(&frame.cached_contract_info, frame.entry_point)
+			(&frame.contract_info, frame.entry_point)
 		{
 			AccountInfo::<T>::insert_contract(
 				&T::AddressMapper::to_address(&frame.account_id),
@@ -1315,7 +1315,7 @@ where
 			// The storage deposit is only charged at the end of every call stack.
 			// To make sure that no sub call uses more than it is allowed to,
 			// the limit is manually enforced here.
-			let contract = frame.cached_contract_info.as_contract();
+			let contract = frame.contract_info.as_contract();
 			frame
 				.nested_storage
 				.enforce_limit(contract)
@@ -1406,8 +1406,8 @@ where
 			// If the dropped frame's contract has a contract info we update the deposit
 			// counter in its contract info. The load is necessary to pull it from storage in case
 			// it was invalidated.
-			frame.cached_contract_info.load(account_id);
-			let mut contract = frame.cached_contract_info.into_contract();
+			frame.contract_info.load(account_id);
+			let mut contract = frame.contract_info.into_contract();
 			prev.nested_storage.absorb(frame.nested_storage, account_id, contract.as_mut());
 
 			// In case the contract wasn't terminated we need to persist changes made to it.
@@ -1417,7 +1417,7 @@ where
 				// This is possible when there is no other contract in-between that could
 				// trigger a rollback.
 				if prev.account_id == *account_id {
-					prev.cached_contract_info = CachedContract::Cached(contract);
+					prev.contract_info = CachedContract::Cached(contract);
 					return Ok(());
 				}
 
@@ -1431,7 +1431,7 @@ where
 					contract,
 				);
 				if let Some(f) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
-					f.cached_contract_info.invalidate();
+					f.contract_info.invalidate();
 				}
 			}
 		} else {
@@ -1439,7 +1439,7 @@ where
 			if !persist {
 				return Ok(());
 			}
-			let mut contract = self.first_frame.cached_contract_info.as_contract();
+			let mut contract = self.first_frame.contract_info.as_contract();
 			self.storage_meter.absorb(
 				mem::take(&mut self.first_frame.nested_storage),
 				&self.first_frame.account_id,
@@ -1863,7 +1863,7 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let frame = self.top_frame_mut();
-		frame.cached_contract_info.get(&frame.account_id).write(
+		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
 			value,
 			Some(&mut frame.nested_storage),
@@ -1970,7 +1970,7 @@ where
 			let cached_info = self
 				.frames()
 				.find(|f| f.entry_point == ExportedFunction::Call && f.account_id == dest)
-				.and_then(|f| match &f.cached_contract_info {
+				.and_then(|f| match &f.contract_info {
 					CachedContract::Cached(contract) => Some(contract.clone()),
 					_ => None,
 				});
