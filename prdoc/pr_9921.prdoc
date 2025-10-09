@@ -1,0 +1,10 @@
+title: 'Log consistency: use para_id= like everywhere else, instead of para='
+doc:
+- audience: Node Dev
+  description: |-
+    We incoherently sometimes use "para=" and sometimes "para_id=", this PR fixes that. This
+    makes it easier to follow the path of a parablock in logs, e.g. Loki (Grafana).
+    
+crates:
+- name: polkadot-node-core-prospective-parachains
+  bump: patch
