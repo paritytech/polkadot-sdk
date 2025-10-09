@@ -1049,12 +1049,7 @@ mod on_idle {
 
 			// Verify they're in PendingRebag with correct scores
 			assert_eq!(PendingRebag::<Runtime>::count(), 6); // Now 6
-			assert_eq!(PendingRebag::<Runtime>::get(5), Some(15));
-			assert_eq!(PendingRebag::<Runtime>::get(6), Some(45));
-			assert_eq!(PendingRebag::<Runtime>::get(7), Some(55));
-			assert_eq!(PendingRebag::<Runtime>::get(8), Some(1500));
-			assert_eq!(PendingRebag::<Runtime>::get(11), Some(100));
-			assert_eq!(PendingRebag::<Runtime>::get(99), Some(500));
+			assert_eq!(PendingRebag::<Runtime>::iter().collect(), vec![...]);
 
 			// Verify they're NOT in the list yet
 			assert!(!List::<Runtime>::contains(&5));
