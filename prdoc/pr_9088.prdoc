@@ -1,0 +1,9 @@
+title: Port remote-proxy pallet to polkadot-sdk
+doc:
+- audience: Runtime Dev
+  description: Port remote-proxy pallet from the fellowship's runtime to polkadot-sdk
+crates:
+- name: pallet-remote-proxy
+  bump: none
+- name: westend-runtime
+  bump: major
