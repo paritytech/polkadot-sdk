@@ -433,16 +433,17 @@ fn deposit_event_max_value_limit() {
 			.build_and_unwrap_contract();
 
 		// Call contract with allowed storage value.
-		let gas_limit = GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 10);
-		println!("gas_limit: {gas_limit:?}");
 		assert_ok!(builder::call(addr)
-			.gas_limit(gas_limit)
+			.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
 			.data(limits::PAYLOAD_BYTES.encode())
 			.build());
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
-			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
+			builder::call(addr)
+				.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
+				.data((limits::PAYLOAD_BYTES + 1).encode())
+				.build(),
 			Error::<Test>::ValueTooLarge,
 		);
 	});
