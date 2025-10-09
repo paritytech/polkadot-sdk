@@ -516,6 +516,7 @@ async fn distribute_collation<Context>(
 	}
 
 	let para_head = receipt.descriptor.para_head();
+	let pov_hash = pov.hash();
 	per_relay_parent.collations.insert(
 		candidate_hash,
 		CollationData {
@@ -527,9 +528,16 @@ async fn distribute_collation<Context>(
 			},
 			core_index,
 			session_index,
-			stats: per_relay_parent
-				.block_number
-				.map(|n| CollationStats::new(para_head, n, candidate_relay_parent, &state.metrics)),
+			stats: per_relay_parent.block_number.map(|n| {
+				CollationStats::new(
+					para_head,
+					n,
+					candidate_relay_parent,
+					&state.metrics,
+					*candidate_hash,
+					pov_hash,
+				)
+			}),
 		},
 	);
 
@@ -1533,6 +1541,8 @@ fn process_expired_collations(
 	for expired_collation in expired_collations {
 		let collation_state = expired_collation.expiry_state();
 		let age = expired_collation.expired().unwrap_or_default();
+		let candidate_hash = expired_collation.candidate_hash();
+		let pov_hash = expired_collation.pov_hash();
 		gum::debug!(
 			target: crate::LOG_TARGET_STATS,
 			?age,
@@ -1540,6 +1550,8 @@ fn process_expired_collations(
 			relay_parent = ?removed,
 			?para_id,
 			head = ?expired_collation.head(),
+			?candidate_hash,
+			?pov_hash,
 			"Collation expired",
 		);
 
