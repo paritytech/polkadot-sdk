@@ -716,7 +716,8 @@ async fn update_validator_connections<Context>(
 			failed,
 		}
 	} else {
-		// Get all connected peer_ids on the Collation peer set.
+		// Get all connected peer_ids on the Collation peer set
+		// This is just for logging purposes.
 		let connected_validator_peer_ids: Vec<_> = peer_ids.keys().cloned().collect();
 
 		if connected_validator_peer_ids.is_empty() {
@@ -729,7 +730,12 @@ async fn update_validator_connections<Context>(
 			"Disconnecting from validators: {:?}",
 			connected_validator_peer_ids,
 		);
-		NetworkBridgeTxMessage::DisconnectPeers(connected_validator_peer_ids, PeerSet::Collation)
+
+		NetworkBridgeTxMessage::ConnectToValidators {
+			validator_ids: vec![],
+			peer_set: PeerSet::Collation,
+			failed,
+		}
 	};
 
 	ctx.send_message(msg).await;

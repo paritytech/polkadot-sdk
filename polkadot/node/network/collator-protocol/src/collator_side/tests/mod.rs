@@ -1942,15 +1942,17 @@ fn connect_advertise_disconnect_three_backing_groups() {
 			)
 			.await;
 
-			// Expect a DisconnectPeers for all connected peers
+			// Expect a DisconnectPeers for all connected validators
 			assert_matches!(
 				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(
-					peer_ids,
-					PeerSet::Collation,
-				)) => {
-					// We should disconnect from all peers we were connected to
-					assert_eq!(peer_ids.into_iter().sorted().collect::<Vec<_>>(), validator_peer_ids, "Expected to disconnect from all validators");
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ConnectToValidators{
+					validator_ids,
+					peer_set,
+					failed: _,
+				}) => {
+					// We should disconnect from all validators we were connected to
+					assert_eq!(validator_ids, vec![], "Expected to disconnect from all validators");
+					assert_eq!(peer_set, PeerSet::Collation);
 				}
 			);
 
