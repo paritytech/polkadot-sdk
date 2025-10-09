@@ -37,7 +37,7 @@ use pallet_revive::{
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{collections::HashSet, ops::Range, sync::Arc, time::Duration};
+use std::{ops::Range, sync::Arc, time::Duration};
 use storage_api::StorageApi;
 use subxt::{
 	backend::{
@@ -67,8 +67,6 @@ pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 
 /// The runtime balance type.
 pub type Balance = u128;
-
-pub type TransactHashes = HashSet<H256>;
 
 /// The subscription type used to listen to new blocks.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -161,8 +159,10 @@ pub struct Client {
 	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
+	/// Whether the node has automine enabled.
 	automine: bool,
-	transact_hashes_sender: Option<tokio::sync::broadcast::Sender<TransactHashes>>,
+	/// A notifier for new blocks when automine is enabled.
+	block_notifier: Option<tokio::sync::broadcast::Sender<()>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -219,26 +219,6 @@ pub async fn connect(
 	Ok((api, rpc_client, rpc))
 }
 
-/// Broadcast transaction hashes to subscribers.
-async fn broadcast_transact_hashes(
-	transact_hashes_sender: &tokio::sync::broadcast::Sender<TransactHashes>,
-	receipts: &[ReceiptInfo],
-) {
-	if transact_hashes_sender.receiver_count() == 0 || receipts.is_empty() {
-		return;
-	}
-
-	let transact_hashes: HashSet<_> =
-		receipts.iter().map(|receipt| receipt.transaction_hash).collect();
-
-	if let Err(err) = transact_hashes_sender.send(transact_hashes) {
-		log::warn!(
-			target: LOG_TARGET,
-			"Failed to broadcast transaction hashes. error: {err:?}",
-		);
-	}
-}
-
 impl Client {
 	/// Create a new client instance.
 	pub async fn new(
@@ -253,13 +233,6 @@ impl Client {
 				Ok(get_automine(&rpc_client).await)
 			},)?;
 
-		// Create the transaction hashes sender if automine is enabled.
-		let transact_hashes_sender = automine.then(|| {
-			// Channel used to notify when a transaction hash is included in a block.
-			// Capacity of 32 should be enough since blocks are mined at a relatively low rate.
-			tokio::sync::broadcast::channel::<TransactHashes>(32).0
-		});
-
 		let client = Self {
 			api,
 			rpc_client,
@@ -270,7 +243,7 @@ impl Client {
 			chain_id,
 			max_block_weight,
 			automine,
-			transact_hashes_sender,
+			block_notifier: automine.then(|| tokio::sync::broadcast::channel::<()>(1).0),
 		};
 
 		Ok(client)
@@ -371,19 +344,19 @@ impl Client {
 			let (signed_txs, receipts): (Vec<_>, Vec<_>) =
 				self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
-			// Only broadcast for best blocks to avoid duplicate notifications.
-			match (subscription_type, &self.transact_hashes_sender) {
-				(SubscriptionType::BestBlocks, Some(sender)) => {
-					broadcast_transact_hashes(sender, &receipts).await;
-				},
-				_ => {},
-			}
-
 			let evm_block =
 				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
 			self.block_provider.update_latest(block, subscription_type).await;
 
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
+
+			// Only broadcast for best blocks to avoid duplicate notifications.
+			match (subscription_type, &self.block_notifier) {
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
+					let _ = sender.send(());
+				},
+				_ => {},
+			}
 			Ok(())
 		})
 		.await
@@ -737,10 +710,9 @@ impl Client {
 		self.max_block_weight
 	}
 
-	pub fn get_transact_hashes_sender(
-		&self,
-	) -> Option<tokio::sync::broadcast::Sender<TransactHashes>> {
-		self.transact_hashes_sender.clone()
+	/// Get the block notifier, if automine is enabled.
+	pub fn block_notifier(&self) -> Option<tokio::sync::broadcast::Sender<()>> {
+		self.block_notifier.clone()
 	}
 
 	/// Get the logs matching the given filter.

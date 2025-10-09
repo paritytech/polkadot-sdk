@@ -17,7 +17,7 @@
 //! The [`EthRpcServer`] RPC server implementation
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use client::{ClientError, TransactHashes};
+use client::ClientError;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	types::{ErrorCode, ErrorObjectOwned},
@@ -50,8 +50,6 @@ pub use receipt_extractor::*;
 
 mod apis;
 pub use apis::*;
-
-use tokio::sync::broadcast;
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
@@ -113,34 +111,6 @@ impl From<EthRpcError> for ErrorObjectOwned {
 	}
 }
 
-async fn wait_for_transaction_to_be_mined(
-	hash: H256,
-	mut transact_hashes_receiver: broadcast::Receiver<TransactHashes>,
-
-	timeout: Duration,
-) -> Result<bool, String> {
-	tokio::time::timeout(timeout, async {
-		loop {
-			match transact_hashes_receiver.recv().await {
-				Ok(hashes) => {
-					if hashes.contains(&hash) {
-						return Ok(true);
-					}
-				}
-				Err(broadcast::error::RecvError::Lagged(n)) => {
-					log::warn!(target: LOG_TARGET, "Missed {n} notifications while waiting for transaction {hash:?} to be mined.");
-					continue;
-				}
-				Err(err) => {
-					return Err(format!("Failed to receive transaction hashes: error: {err}.").into());
-				}
-			}
-		}
-	})
-	.await
-	.map_err(|_| format!("Timed out waiting for transaction {hash:?} to be mined."))?
-}
-
 #[async_trait]
 impl EthRpcServer for EthRpcServerImpl {
 	async fn net_version(&self) -> RpcResult<String> {
@@ -196,11 +166,8 @@ impl EthRpcServer for EthRpcServerImpl {
 		let hash = H256(keccak_256(&transaction.0));
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 
-		// Subscribe to transaction hashes only when automine is enabled.
-		let transact_hashes_receiver =
-			self.client.get_transact_hashes_sender().map(|transact_hashes_sender| {
-				transact_hashes_sender.subscribe() // each task gets its own receiver
-			});
+		// Subscribe to new block only when automine is enabled.
+		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
 		self.client.submit(call).await.map_err(|err| {
@@ -209,12 +176,14 @@ impl EthRpcServer for EthRpcServerImpl {
 		})?;
 
 		// Wait for the transaction to be included in a block if automine is enabled
-		if let Some(hashes_receiver) = transact_hashes_receiver {
-			let _ = wait_for_transaction_to_be_mined(hash, hashes_receiver, Duration::from_secs(1))
-				.await
-				.map_err(|err| {
-					log::warn!(target : LOG_TARGET, "Waiting for tx receipt failed: {err}");
-				});
+		if let Some(mut receiver) = receiver {
+			let _ = tokio::time::timeout(Duration::from_millis(500), async {
+				let _ = receiver.recv().await;
+			})
+			.inspect_err(|_| {
+				log::debug!(target: LOG_TARGET, "timeout waiting for new block");
+			})
+			.await;
 		}
 
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
