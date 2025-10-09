@@ -1,0 +1,14 @@
+title: '[debug]: change impl of Debug of (para)Id to be just "<ID>".'
+doc:
+- audience: Node Dev
+  description: |-
+   The std::fmt::Debug impl (derived) of Id results in "Id(42)" instead of "42", this causes discrepancies in logs. 
+   Sometimes we log "para_id=Id(3392)" but sometimes we log "para_id=3392" (without the "Id()").
+
+   This makes e.g. Grafana PromQL queries harder to do, and logs harder to search in general.
+   
+   This PR changes the impl of Debug to be just "<ID>".
+    
+crates:
+- name: polkadot-parachain-primitives
+  bump: patch
