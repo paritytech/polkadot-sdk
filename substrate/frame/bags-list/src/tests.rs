@@ -1005,7 +1005,7 @@ mod on_idle {
 
 			// Should NOT be added to PendingRebag since auto-rebag is disabled
 			assert_eq!(PendingRebag::<Runtime>::count(), 0);
-			assert_eq!(PendingRebag::<Runtime>::get(5), None);
+			assert!(!PendingRebag::<Runtime>::contains_key(&5));
 
 			BagsList::unlock();
 
@@ -1047,11 +1047,11 @@ mod on_idle {
 			assert_eq!(BagsList::on_insert(11, 100), Err(ListError::Locked));
 			assert_eq!(BagsList::on_insert(99, 500), Err(ListError::Locked)); // Will lose staking
 
-			// Verify they're in PendingRebag with correct scores
+			// Verify they're in PendingRebag
 			assert_eq!(PendingRebag::<Runtime>::count(), 6); // Now 6
-			let mut pending: Vec<_> = PendingRebag::<Runtime>::iter().collect();
+			let mut pending: Vec<_> = PendingRebag::<Runtime>::iter_keys().collect();
 			pending.sort();
-			assert_eq!(pending, vec![(5, 15), (6, 45), (7, 55), (8, 1500), (11, 100), (99, 500)]);
+			assert_eq!(pending, vec![5, 6, 7, 8, 11, 99]);
 
 			// Verify they're NOT in the list yet
 			assert!(!List::<Runtime>::contains(&5));
@@ -1107,7 +1107,6 @@ mod on_idle {
 			// Verify account 99 is still pending (not processed yet due to budget limit)
 			assert!(!List::<Runtime>::contains(&99));
 			assert!(PendingRebag::<Runtime>::contains_key(&99));
-			assert_eq!(PendingRebag::<Runtime>::get(99), Some(500));
 
 			assert_eq!(List::<Runtime>::get_score(&6).unwrap(), 45);
 			assert_eq!(List::<Runtime>::get_score(&5).unwrap(), 15);
@@ -1160,7 +1159,6 @@ mod on_idle {
 			// Verify account 99 was cleaned up (not in list, removed from pending)
 			assert!(!List::<Runtime>::contains(&99));
 			assert!(!PendingRebag::<Runtime>::contains_key(&99));
-			assert_eq!(PendingRebag::<Runtime>::get(99), None);
 
 			// Verify all processed accounts are in their correct bags
 			let final_bags = List::<Runtime>::get_bags();

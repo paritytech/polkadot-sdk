@@ -297,9 +297,14 @@ pub mod pallet {
 	/// 3. Processing happens at multiple accounts per block, clearing even large backlogs quickly
 	/// 4. An artificial limit could be exhausted by an attacker, preventing legitimate
 	///    auto-rebagging from putting accounts in the correct position
+	///
+	/// Accounts pending rebag insertion/update that were blocked due to pallet being locked.
+	/// We don't store the score here - it's always freshly fetched from `ScoreProvider` when
+	/// processing, ensuring we use the most up-to-date score (accounts may have been slashed,
+	/// rewarded, etc. while waiting in the queue).
 	#[pallet::storage]
 	pub type PendingRebag<T: Config<I>, I: 'static = ()> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, T::Score>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -708,7 +713,7 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 			// Pallet is locked - store in PendingRebag for later processing
 			// Only queue if auto-rebagging is enabled
 			if T::MaxAutoRebagPerBlock::get() > 0u32 {
-				PendingRebag::<T, I>::insert(&id, score);
+				PendingRebag::<T, I>::insert(&id, ());
 			}
 		})?;
 		List::<T, I>::insert(id, score)
