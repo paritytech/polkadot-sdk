@@ -113,7 +113,7 @@ cargo install staging-chain-spec-builder
 
 ```sh
 chain-spec-builder create --relay-chain "rococo-local" --runtime \
-    target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
+    target/production/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 
 **Note**: the `relay-chain` flag is required by Omni Node. The `relay-chain` value is set in accordance
