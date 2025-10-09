@@ -111,7 +111,7 @@ fn events_are_captured() {
 	let (binary, code_hash) = compile_module("event_and_return_on_deploy").unwrap();
 
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
@@ -126,7 +126,9 @@ fn events_are_captured() {
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
-		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+			500_000_000_000,
+		));
 
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 
