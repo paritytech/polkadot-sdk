@@ -64,14 +64,11 @@
 //! - [high level docs](https://docs.polkadot.com/develop/toolkit/parachains/polkadot-omni-node/)
 //! - [`crate::reference_docs::omni_node`]
 //!
-//! ### Enable UMP signals
+//! ### UMP signals
 //!
-//! The only required change for the runtime is enabling the `experimental-ump-signals` feature of
-//! the `parachain-system` pallet:
-//! `cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"]
-//! }`
-//!
-//! You can find more technical details about UMP signals and their usage for elastic scaling
+//! UMP signals are now enabled by default in the `parachain-system` pallet and are used for
+//! elastic scaling. You can find more technical details about UMP signals and their usage for
+//! elastic scaling
 //! [here](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md).
 //!
 //! ### Enable the relay parent offset feature
