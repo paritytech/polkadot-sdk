@@ -887,7 +887,40 @@ pub mod pallet {
 				storage_size_limit
 			);
 
-			// Maximum memory used by the ethereum block builder.
+			// The incremental block builder uses 3 x maximum entry size for receipts and
+			// for transactions. Transactions are bounded to `MAX_TRANSACTION_PAYLOAD_SIZE`.
+			//
+			// To determine the maximum size of the receipts, we know the following:
+			// - (I) first receipt is stored into pallet storage and not given to the hasher until
+			//   finalization.
+			// - (II) the hasher will not consume more memory than the receipts we are giving it.
+			// - (III) the hasher is capped by 3 x maximum entry for 3 or more transactions.
+			//
+			// # Case 1. One transaction with maximum receipts
+			//
+			// The worst case scenario for having one single transaction is for the transaction
+			// to emit the maximum receipt size (ie `max_events_size`). In this case,
+			// the maximum storage (and memory) consumed is bounded by `max_events_size` (II). The
+			// receipt is stored in pallet storage, and loaded from storage in the
+			// `on_finalize` hook (I).
+			//
+			// # Case 2. Two transactions
+			//
+			// The sum of the receipt size of both transactions cannot exceed `max_events_size`,
+			// otherwise one transaction will be reverted. From (II), the bytes utilized
+			// by the builder are capped to `max_events_size`.
+			//
+			// # Case 3. Three or more transactions
+			//
+			// Similar to the above case, the sum of all receipt size is bounded to
+			// `max_events_size`. Therefore, the bytes are capped to `max_events_size`.
+			//
+			// On average, a transaction could emit `max_events_size / num_tx`. The would
+			// consume `max_events_size / num_tx * 3` bytes, which is lower than
+			// `max_events_size` for more than 3 transactions.
+			//
+			// In practice, the builder will consume even lower amounts considering
+			// it is unlikely for a transaction to utilize all the weight of the block for events.
 			let max_eth_block_builder_bytes =
 				block_storage::block_builder_bytes_usage(max_events_size);
 

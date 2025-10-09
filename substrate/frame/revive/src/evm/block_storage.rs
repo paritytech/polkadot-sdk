@@ -186,8 +186,14 @@ pub fn block_builder_bytes_usage(max_events_size: u32) -> u32 {
 	// A block builder requires 3 times the maximum size of the entry.
 	const MEMORY_COEFFICIENT: u32 = 3;
 
-	// `receipts_root` hash builder
-	let receipts_hash_builder = max_events_size.saturating_mul(MEMORY_COEFFICIENT);
+	// Because events are not capped, and the builder cannot exceed the
+	// number of bytes received, the actual memory usage for receipts is:
+	// `receipts_hash_builder = min(events_per_tx * 3, max_events_size)`
+	// where `max_events_size` can be consumed by a single transaction.
+	// Since we don't know in advance the `events_per_tx`, we'll assume the
+	// worst case scenario.
+	let receipts_hash_builder = max_events_size;
+
 	// `transactions_root` hash builder
 	let transactions_hash_builder =
 		limits::MAX_TRANSACTION_PAYLOAD_SIZE.saturating_mul(MEMORY_COEFFICIENT);

@@ -59,7 +59,6 @@ use k256::ecdsa::SigningKey;
 use pallet_revive_uapi::{
 	pack_hi_lo, precompiles::system::ISystem, CallFlags, ReturnErrorCode, StorageFlags,
 };
-pub use pallet_transaction_payment;
 use revm::bytecode::Bytecode;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
@@ -113,11 +112,6 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 #[benchmarks(
 	where
 		T: Config,
-	    <T as frame_system::Config>::RuntimeCall:
-		    Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
-		T: pallet_transaction_payment::Config,
-	    // OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
-		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 		OriginFor<T>: From<Origin<T>>,
