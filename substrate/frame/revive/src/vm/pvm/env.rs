@@ -836,31 +836,6 @@ pub mod env {
 		Ok(self.ext.gas_meter().gas_left().ref_time())
 	}
 
-	/// Clear the value at the given key in the contract storage.
-	/// See [`pallet_revive_uapi::HostFn::clear_storage`]
-	#[mutating]
-	fn clear_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.clear_storage(memory, flags, key_ptr, key_len)
-	}
-
-	/// Checks whether there is a value stored under the given key.
-	/// See [`pallet_revive_uapi::HostFn::contains_storage`]
-	fn contains_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.contains_storage(memory, flags, key_ptr, key_len)
-	}
-
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// See [`pallet_revive_uapi::HostFn::ecdsa_to_eth_address`].
 	fn ecdsa_to_eth_address(
@@ -922,21 +897,6 @@ pub mod env {
 		} else {
 			Ok(ReturnErrorCode::Sr25519VerifyFailed)
 		}
-	}
-
-	/// Retrieve and remove the value under the given key from storage.
-	/// See [`pallet_revive_uapi::HostFn::take_storage`]
-	#[mutating]
-	fn take_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
 	}
 
 	/// Remove the calling account and transfer remaining **free** balance.
