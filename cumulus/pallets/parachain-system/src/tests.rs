@@ -60,6 +60,7 @@ fn test_inherent_compatibility() {
 				horizontal_messages: Default::default(),
 				relay_parent_descendants: Default::default(),
 				collator_peer_id: None,
+				published_data: Default::default(),
 			},
 		)
 		.expect("Put validation function params failed");
@@ -85,6 +86,7 @@ fn test_inherent_compatibility() {
 		horizontal_messages: Default::default(),
 		relay_parent_descendants: Default::default(),
 		collator_peer_id: None,
+		published_data: Default::default(),
 	};
 	let _ = futures::executor::block_on(
 		data.provide_inherent_data(&mut valid_inherent_data_full_compatibility),
