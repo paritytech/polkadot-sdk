@@ -792,9 +792,9 @@ reason = "changed"
 [[crate]]
 # substrate/primitives/statement-store
 name = "sp-statement-store"
-from = "20.1.0"
-to = "21.0.0"
-bump = "major"
+from = "21.0.0"
+to = "21.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1236,9 +1236,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/statement-store
 name = "sc-statement-store"
-from = "21.0.0"
-to = "22.0.0"
-bump = "major"
+from = "22.0.0"
+to = "22.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1602,9 +1602,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/ranked-collective
 name = "pallet-ranked-collective"
-from = "40.1.0"
-to = "41.0.0"
-bump = "major"
+from = "41.0.0"
+to = "41.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2968,9 +2968,9 @@ reason = "changed"
 [[crate]]
 # cumulus/pallets/xcmp-queue
 name = "cumulus-pallet-xcmp-queue"
-from = "0.20.0"
-to = "0.21.0"
-bump = "major"
+from = "0.21.0"
+to = "0.21.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
