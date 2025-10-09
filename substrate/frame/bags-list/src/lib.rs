@@ -288,7 +288,7 @@ pub mod pallet {
 	pub type Lock<T: Config<I>, I: 'static = ()> = StorageValue<_, (), OptionQuery>;
 
 	/// Accounts that failed to be inserted into the bags-list due to locking.
-	/// These accounts will be processed with priority in `on_idle`.
+	/// These accounts will be processed with priority in `on_idle` or via `rebag` extrinsic.
 	///
 	/// Note: This storage is intentionally unbounded. The following factors make bounding
 	/// unnecessary:
