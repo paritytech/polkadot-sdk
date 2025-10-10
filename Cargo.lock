@@ -11528,7 +11528,12 @@ dependencies = [
  "sp-core 38.1.0",
  "sp-io",
  "sp-runtime",
+<<<<<<< HEAD
  "sp-tracing 19.0.0",
+=======
+ "sp-tracing 16.0.0",
+ "substrate-test-utils",
+>>>>>>> 5c63e5e (bags-list: implement pending rebag (#9725))
 ]
 
 [[package]]

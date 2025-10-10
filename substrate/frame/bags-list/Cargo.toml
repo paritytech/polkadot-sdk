@@ -34,12 +34,22 @@ sp-io = { optional = true, workspace = true }
 sp-tracing = { optional = true, workspace = true }
 
 [dev-dependencies]
+<<<<<<< HEAD
 frame-benchmarking = { default-features = true, workspace = true }
 frame-election-provider-support = { default-features = true, workspace = true }
 pallet-balances = { default-features = true, workspace = true }
 sp-core = { default-features = true, workspace = true }
 sp-io = { default-features = true, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
+=======
+frame-benchmarking = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-utils = { workspace = true }
+>>>>>>> 5c63e5e (bags-list: implement pending rebag (#9725))
 
 [features]
 default = ["std"]

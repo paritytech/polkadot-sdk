@@ -352,7 +352,8 @@ benchmarks_instance_pallet! {
 		// This benchmark generates weights for `on_idle` based on runtime configuration.
 		// The main input is the runtime's `MaxAutoRebagPerBlock` type, which defines how many
 		// nodes can be rebagged per block.
-		// This benchmark simulates a more realistic and fragmented rebag scenario.
+		// This benchmark simulates a scenario with both pending rebag processing
+		// and fragmented rebag scenario.
 
 		List::<T, _>::unsafe_clear();
 
@@ -362,11 +363,14 @@ benchmarks_instance_pallet! {
 		let high = bag_thresh[2];
 
 		let rebag_budget = <T as Config<I>>::MaxAutoRebagPerBlock::get();
-		let n = rebag_budget + 5;
 
-		// Insert nodes with varying scores
-		for i in 0..n {
-			let node: T::AccountId = account("node", i, 0);
+		// Adjust counts to ensure exact budget usage
+		let pending_count = rebag_budget / 3; // Smaller portion for pending
+		let regular_count = rebag_budget + 5;
+
+		// Insert regular nodes with varying scores
+		for i in 0..regular_count {
+			let node: T::AccountId = account("regular_node", i, 0);
 			let score = match i % 3 {
 				0 => low - One::one(),
 				1 => mid - One::one(),
@@ -376,14 +380,38 @@ benchmarks_instance_pallet! {
 		}
 
 		// Corrupt some nodes to simulate edge cases
-		for i in (0..n).step_by(4) {
-			let node: T::AccountId = account("node", i, 0);
+		for i in (0..regular_count).step_by(4) {
+			let node: T::AccountId = account("regular_node", i, 0);
 			let _ = List::<T, _>::remove(&node); // orphan nodes
 		}
 
+		// Lock the list and simulate pending rebag insertions
+		<Pallet<T, I>>::lock();
+
+		// Create pending rebag entries (mix of valid and corrupted)
+		for i in 0..pending_count {
+			let pending_node: T::AccountId = account("pending_node", i, 0);
+			let pending_score = match i % 3 {
+				0 => mid,
+				1 => high,
+				_ => high + high,
+			};
+
+			// Set score first for most nodes, but skip some to simulate cleanup scenarios
+			if i % 7 != 0 {
+				T::ScoreProvider::set_score_of(&pending_node, pending_score);
+			}
+
+			let _ = <Pallet<T, I> as SortedListProvider<T::AccountId>>::on_insert(
+				pending_node, pending_score
+			);
+		}
+
+		<Pallet<T, I>>::unlock();
+
 		// Now set new scores that will move nodes into higher bags
-		for i in 0..n {
-			let node: T::AccountId = account("node", i, 0);
+		for i in 0..regular_count {
+			let node: T::AccountId = account("regular_node", i, 0);
 			let new_score = match i % 3 {
 				0 => mid,
 				1 => high,
@@ -392,6 +420,12 @@ benchmarks_instance_pallet! {
 			T::ScoreProvider::set_score_of(&node, new_score);
 		}
 
+		assert_eq!(
+			PendingRebag::<T, I>::count(),
+			pending_count,
+			"Expected exactly {} pending rebag entries",
+			pending_count
+		);
 		// Ensure we have at least three bags populated before rebag
 		assert!(List::<T, _>::get_bags().len() >= 2);
 	}
@@ -400,6 +434,11 @@ benchmarks_instance_pallet! {
 		<Pallet<T, I> as Hooks<_>>::on_idle(Default::default(), Weight::MAX);
 	}
 	verify {
+		// Verify all pending rebag entries were processed.
+		// This should always be true since pending_count = rebag_budget / 3 < rebag_budget,
+		// and pending accounts are processed first so all pending entries fit within the budget.
+		assert_eq!(PendingRebag::<T, I>::count(), 0, "All pending rebag entries should be processed");
+
 		// Count how many nodes ended up in higher bags
 		let total_rebagged: usize = List::<T, _>::get_bags()
 			.iter()
@@ -408,7 +447,7 @@ benchmarks_instance_pallet! {
 			.sum();
 
 		let expected = <T as Config<I>>::MaxAutoRebagPerBlock::get() as usize;
-		assert_eq!(total_rebagged, expected,"Expected exactly{:?} rebagged nodes, found {:?}", expected, total_rebagged);
+		assert_eq!(total_rebagged, expected, "Expected exactly {:?} rebagged nodes, found {:?}", expected, total_rebagged);
 	}
 
 	impl_benchmark_test_suite!(
