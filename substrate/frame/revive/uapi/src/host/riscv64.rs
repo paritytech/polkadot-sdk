@@ -122,6 +122,7 @@ mod sys {
 		pub fn instantiation_nonce() -> u64;
 		pub fn return_data_size() -> u64;
 		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
+		pub fn consume_all_gas();
 	}
 }
 
@@ -427,6 +428,11 @@ impl HostFn for HostFnImpl {
 	fn call_data_copy(output: &mut [u8], offset: u32) {
 		let len = output.len() as u32;
 		unsafe { sys::call_data_copy(output.as_mut_ptr(), len, offset) };
+	}
+
+	fn consume_all_gas() -> ! {
+		unsafe { sys::consume_all_gas() }
+		unreachable!("consume_all_gas does not return");
 	}
 
 	#[unstable_hostfn]
