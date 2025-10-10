@@ -4642,6 +4642,7 @@ dependencies = [
  "sc-service",
  "sc-sysinfo",
  "sc-telemetry",
+ "sc-tracing",
  "sc-transaction-pool",
  "sc-utils",
  "sp-api",
@@ -4651,6 +4652,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-transaction-pool",
+ "sp-trie",
 ]
 
 [[package]]
