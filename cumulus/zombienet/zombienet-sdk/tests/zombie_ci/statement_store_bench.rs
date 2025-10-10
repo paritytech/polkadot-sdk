@@ -18,11 +18,11 @@ use zombienet_sdk::{
 
 const GROUP_SIZE: u32 = 6;
 const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
-const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
+const MESSAGE_SIZE: usize = 512;
 const MESSAGE_COUNT: usize = 1;
 const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
-const PROPOGATION_DELAY_MS: u64 = 1000;
+const PROPAGATION_DELAY_MS: u64 = 2000;
 const TIMEOUT_MS: u64 = 3000;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -31,19 +31,19 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let collator_namess = ["alice", "bob"];
-	let network = spawn_network(&collator_namess).await?;
+	let collator_names = ["alice", "bob"];
+	let network = spawn_network(&collator_names).await?;
 
 	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
 
-	let target_node = collator_namess[0];
+	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
 	let rpc_client = node.rpc().await?;
 	info!("Created single RPC client for target node: {}", target_node);
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		participants.push(Participant::new(i as u32, rpc_client.clone(), false));
+		participants.push(Participant::new(i as u32, rpc_client.clone()));
 	}
 
 	let handles: Vec<_> = participants
@@ -85,7 +85,7 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
 		let client_idx = i % collator_names.len();
-		participants.push(Participant::new(i as u32, rpc_clients[client_idx].clone(), true));
+		participants.push(Participant::new(i as u32, rpc_clients[client_idx].clone()));
 	}
 	info!(
 		"{} participants were distributed across {} nodes: {} participants per node",
@@ -384,16 +384,16 @@ impl AggregatedStats {
 			"Participants: {}, each sent: {}, received: {}",
 			self.participants, self.sent, self.received
 		);
-		info!("Summary         min        avg        max");
+		info!("Summary        min       avg       max");
 		info!(
-			" {:<8} {:>8}s  {:>8}s  {:>8}s",
-			"time",
+			" {:<8} {:>8}  {:>8}  {:>8}",
+			"time, s",
 			self.min_time.as_secs(),
 			self.avg_time.as_secs(),
 			self.max_time.as_secs(),
 		);
 		info!(
-			" {:<8} {:>8}s  {:>8}s  {:>8}s",
+			" {:<8} {:>8}  {:>8}  {:>8}",
 			"retries", self.min_retries, self.avg_retries, self.max_retries
 		);
 	}
@@ -412,7 +412,6 @@ struct Participant {
 	pending_messages: HashMap<u32, Option<u32>>,
 	retry_count: u32,
 	rpc_client: RpcClient,
-	with_propagation_delay: bool,
 }
 
 impl Participant {
@@ -420,7 +419,7 @@ impl Participant {
 		format!("participant_{}", self.idx)
 	}
 
-	fn new(idx: u32, rpc_client: RpcClient, with_propagation_delay: bool) -> Self {
+	fn new(idx: u32, rpc_client: RpcClient) -> Self {
 		debug!(target: &format!("participant_{}", idx), "Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
@@ -442,7 +441,6 @@ impl Participant {
 			received_count: 0,
 			retry_count: 0,
 			rpc_client,
-			with_propagation_delay,
 		}
 	}
 
@@ -461,9 +459,8 @@ impl Participant {
 	}
 
 	async fn wait_for_propagation(&mut self) {
-		if self.with_propagation_delay {
-			tokio::time::sleep(tokio::time::Duration::from_millis(PROPOGATION_DELAY_MS)).await;
-		}
+		trace!(target: &self.log_target(), "Waiting {}ms for propagation", PROPAGATION_DELAY_MS);
+		tokio::time::sleep(tokio::time::Duration::from_millis(PROPAGATION_DELAY_MS)).await;
 	}
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
@@ -547,6 +544,7 @@ impl Participant {
 	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
 		let mut pending = self.group_members.clone();
 
+		trace!(target: &self.log_target(), "Pending session keys to receive: {:?}", pending.len());
 		loop {
 			let mut completed_this_round = Vec::new();
 			for &idx in &pending {
@@ -574,6 +572,7 @@ impl Participant {
 			if pending.is_empty() {
 				break;
 			}
+			trace!(target: &self.log_target(), "Session keys left to receive: {:?}, waiting {}ms for retry", pending.len(), RETRY_DELAY_MS);
 			self.wait_for_retry().await?;
 		}
 
@@ -609,6 +608,7 @@ impl Participant {
 			self.session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
 		let own_session_key = self.session_key.public();
 
+		trace!(target: &self.log_target(), "Pending messages to receive: {:?}", pending.len());
 		loop {
 			let mut completed_this_round = Vec::new();
 			for &(sender_idx, sender_session_key) in &pending {
@@ -643,6 +643,7 @@ impl Participant {
 			if pending.is_empty() {
 				break;
 			}
+			trace!(target: &self.log_target(), "Messages left to receive: {:?}, waiting {}ms for retry", pending.len(), RETRY_DELAY_MS);
 			self.wait_for_retry().await?;
 		}
 
@@ -665,14 +666,20 @@ impl Participant {
 
 		debug!(target: &self.log_target(), "Session keys exchange");
 		self.send_session_key().await?;
+		trace!(target: &self.log_target(), "Session keys sent");
 		self.wait_for_propagation().await;
+		trace!(target: &self.log_target(), "Session keys requests started");
 		self.receive_session_keys().await?;
+		trace!(target: &self.log_target(), "Session keys received");
 
 		for round in 0..MESSAGE_COUNT {
 			debug!(target: &self.log_target(), "Messages exchange, round {}", round + 1);
 			self.send_messages(round).await?;
+			trace!(target: &self.log_target(), "Messages sent");
 			self.wait_for_propagation().await;
+			trace!(target: &self.log_target(), "Messages requests started");
 			self.receive_messages(round).await?;
+			trace!(target: &self.log_target(), "Messages received");
 		}
 
 		let elapsed = start_time.elapsed();
