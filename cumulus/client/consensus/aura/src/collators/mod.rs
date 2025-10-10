@@ -69,7 +69,7 @@ pub const COLLATOR_PROTOCOL_HELPER_TASK_GROUP: &str = "collator-protocol-helper"
 /// Helper for triggering backing group connections early.
 ///
 /// Returns the updated `our_slot` value.
-pub async fn update_backing_group_connections<Block, Client, P, Spawner>(
+pub(crate) async fn update_backing_group_connections<Block, Client, P, Spawner>(
 	client: &std::sync::Arc<Client>,
 	keystore: &sp_keystore::KeystorePtr,
 	overseer_handle: &mut cumulus_relay_chain_interface::OverseerHandle,
