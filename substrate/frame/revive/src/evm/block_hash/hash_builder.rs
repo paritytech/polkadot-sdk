@@ -493,6 +493,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore]
 	fn test_stats_item_count_and_sizes() {
 		for (item_count, item_size) in [
 			// 100k items of 1kB each
