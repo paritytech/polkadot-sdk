@@ -1,0 +1,49 @@
+title: Query delivery fees v2
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/7061
+
+    Continuation of https://github.com/paritytech/polkadot-sdk/pull/8297
+
+    ## TODO
+    - [x] Add parameter to runtime API
+    - [x] Add parameter to pallet-xcm helper
+    - [x] Test querying delivery fee in an asset other than native
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: asset-test-utils
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: parachains-runtimes-test-utils
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: xcm-runtime-apis
+  bump: major
+- name: emulated-integration-tests-common
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: staging-xcm-executor
+  bump: major
