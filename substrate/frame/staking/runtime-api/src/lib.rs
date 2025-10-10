@@ -33,7 +33,7 @@ sp_api::decl_runtime_apis! {
 		/// Returns the page count of exposures for a validator `account` in a given era.
 		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page;
 
-		/// Returns true if validator `account` has pages to be claimed for the given era.
+		/// Returns true if a validator `account` has pages to be claimed for the given era.
 		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool;
 	}
 }

@@ -43,10 +43,10 @@ The staking system in Substrate NPoS is designed to make the following possible:
 
 #### Staking
 
-Almost any interaction with the Staking module requires a process of _**bonding**_ (also known as being a _staker_). To
-become *bonded*, a fund-holding account known as the _stash account_, which holds some or all of the funds that become
-frozen in place as part of the staking process. The controller account, which this pallet now assigns the stash account to,
-issues instructions on how funds shall be used.
+Almost any interaction with the Staking module requires a process of _**bonding**_ (also known as becoming a _staker_). To
+become *bonded*, a fund-holding account known as the _stash account_ (which holds some or all of the funds that become
+frozen in place as part of the staking process) gets assigned by the pallet to a _controller account_. The controller account
+then issues instructions on how funds shall be used.
 
 An account can become a bonded stash account using the
 [`bond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.bond) call.
@@ -120,15 +120,15 @@ An account can step back via the
 
 ### Session managing
 
-The module implement the trait `SessionManager`. Which is the only API to query new validator set and allowing these
-validator set to be rewarded once their era is ended.
+The module implements the `SessionManager` trait. This is the only API to query new validator sets and to allow these
+validator sets to be rewarded once their era is ended.
 
 ## Interface
 
 ### Dispatchable Functions
 
 The dispatchable functions of the Staking module enable the steps needed for entities to accept and change their role,
-alongside some helper functions to get/set the metadata of the module.
+alongside some helper functions to get / set the metadata of the module.
 
 ### Public Functions
 
@@ -170,7 +170,7 @@ pub mod pallet {
 
 ### Era payout
 
-The era payout is computed using yearly inflation curve defined at
+The era payout is computed using a yearly inflation curve defined at
 [`T::RewardCurve`](https://docs.rs/pallet-staking/latest/pallet_staking/trait.Config.html#associatedtype.RewardCurve) as
 such:
 
@@ -178,13 +178,13 @@ such:
 staker_payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year
 ```
 
-This payout is used to reward stakers as defined in next section
+This payout is used to reward stakers as defined in next section:
 
 ```nocompile
 remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 ```
 
-The remaining reward is send to the configurable end-point
+The remaining reward is sent to the configurable end-point
 [`T::RewardRemainder`](https://docs.rs/pallet-staking/latest/pallet_staking/trait.Config.html#associatedtype.RewardRemainder).
 
 ### Reward Calculation
@@ -201,17 +201,16 @@ era. Points are added to a validator using
 
 [`Module`](https://docs.rs/pallet-staking/latest/pallet_staking/struct.Module.html) implements
 [`pallet_authorship::EventHandler`](https://docs.rs/pallet-authorship/latest/pallet_authorship/trait.EventHandler.html)
-to add reward points to block producer and block producer of referenced uncles.
+to add reward points to block producers and block producers of referenced uncles.
 
-The validator and its nominator split their reward as following:
+The validator and its nominator split their reward as follows:
 
 The validator can declare an amount, named
 [`commission`](https://docs.rs/pallet-staking/latest/pallet_staking/struct.ValidatorPrefs.html#structfield.commission),
 that does not get shared with the nominators at each reward payout through its
 [`ValidatorPrefs`](https://docs.rs/pallet-staking/latest/pallet_staking/struct.ValidatorPrefs.html). This value gets
 deducted from the total reward that is paid to the validator and its nominators. The remaining portion is split among
-the validator and all of the nominators that nominated the validator, proportional to the value staked behind this
-validator (_i.e._ dividing the
+the validator and all of its nominators, proportional to the value staked behind this validator (_i.e._ dividing the
 [`own`](https://docs.rs/pallet-staking/latest/pallet_staking/struct.Exposure.html#structfield.own) or
 [`others`](https://docs.rs/pallet-staking/latest/pallet_staking/struct.Exposure.html#structfield.others) by
 [`total`](https://docs.rs/pallet-staking/latest/pallet_staking/struct.Exposure.html#structfield.total) in
@@ -222,9 +221,9 @@ All entities who receive a reward have the option to choose their reward destina
 [`set_payee`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.set_payee)), to be one of the
 following:
 
-- Controller account, (obviously) not increasing the staked value.
-- Stash account, not increasing the staked value.
-- Stash account, also increasing the staked value.
+- Controller account, (obviously) without increasing the staked value.
+- Stash account without increasing the staked value.
+- Stash account together with increasing the staked value.
 
 ### Additional Fund Management Operations
 
@@ -240,12 +239,12 @@ call can be used to actually withdraw the funds.
 
 Note that there is a limitation to the number of fund-chunks that can be scheduled to be unlocked in the future via
 [`unbond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.unbond). In case this maximum
-(`MAX_UNLOCKING_CHUNKS`) is reached, the bonded account _must_ first wait until a successful call to `withdraw_unbonded`
+(`MAX_UNLOCKING_CHUNKS`) is reached, the bonded account _must_ first wait for a successful call to `withdraw_unbonded`
 to remove some of the chunks.
 
 ### Election Algorithm
 
-The current election algorithm is implemented based on Phragmén. The reference implementation can be found
+The current election algorithm is implemented based on _Phragmén_. The reference implementation can be found
 [here](https://github.com/w3f/consensus/tree/master/NPoS).
 
 The election algorithm, aside from electing the validators with the most stake value and votes, tries to divide the
@@ -257,7 +256,7 @@ are less than a threshold.
 
 The Staking module depends on the
 [`GenesisConfig`](https://docs.rs/pallet-staking/latest/pallet_staking/struct.GenesisConfig.html). The `GenesisConfig`
-is optional and allow to set some initial stakers.
+is optional and allows the setting of some initial stakers.
 
 ## Related Modules
 

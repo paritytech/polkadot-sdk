@@ -89,10 +89,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Inspects and returns the corruption state of a ledger and direct bond, if any.
 	///
-	/// Note: all operations in this method access directly the `Bonded` and `Ledger` storage maps
+	/// Note: all operations in this method access the `Bonded` and `Ledger` storage maps directly
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
-	/// It is also meant to check state for direct bonds and may not work as expected for virtual
-	/// bonds.
+	/// The method is also meant to check state for direct bonds and may not work as expected for
+	/// virtual bonds.
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
@@ -272,7 +272,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::InvalidPage.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		);
 
-		// Note: if era has no reward to be claimed, era may be future. better not to update
+		// Note: if era has no reward to be claimed, era may be future. It's better to not update
 		// `ledger.legacy_claimed_rewards` in this case.
 		let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
-		// Take that fraction of the eras rewards to split to nominator and validator
+		// Take that fraction of the era's rewards to split to nominator and validator
 		//
 		// Then look at the validator, figure out the proportion of their reward
 		// which goes to them and each of their nominators.
@@ -369,7 +369,7 @@ impl<T: Config> Pallet<T> {
 		// out, so we do not need to count their payout op.
 		let mut nominator_payout_count: u32 = 0;
 
-		// Lets now calculate how this is split to the nominators.
+		// Let's now calculate how this is split to the nominators.
 		// Reward only the clipped exposures. Note this is not necessarily sorted.
 		for nominator in exposure.others().iter() {
 			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
@@ -447,7 +447,7 @@ impl<T: Config> Pallet<T> {
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
-	/// Plan a new session potentially trigger a new era.
+	/// Plan a new session, potentially triggering a new era.
 	fn new_session(
 		session_index: SessionIndex,
 		is_genesis: bool,
@@ -492,7 +492,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Start a session potentially starting an era.
+	/// Start a session, potentially starting an era.
 	fn start_session(start_session: SessionIndex) {
 		let next_active_era = ActiveEra::<T>::get().map(|e| e.index + 1).unwrap_or(0);
 		// This is only `Some` when current era has already progressed to the next era, while the
@@ -512,7 +512,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// End a session potentially ending an era.
+	/// End a session, potentially ending an era.
 	fn end_session(session_index: SessionIndex) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
 			if let Some(next_active_era_start_session_index) =
@@ -1813,7 +1813,7 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 }
 
 /// A simple sorted list implementation that does not require any additional pallets. Note, this
-/// does not provide validators in sorted order. If you desire nominators in a sorted order take
+/// does not provide validators in sorted order. If you desire validators in a sorted order take
 /// a look at [`pallet-bags-list`].
 pub struct UseValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
@@ -1883,7 +1883,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 }
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
-/// does not provided nominators in sorted ordered. If you desire nominators in a sorted order take
+/// does not provide nominators in sorted order. If you desire nominators in a sorted order take
 /// a look at [`pallet-bags-list].
 pub struct UseNominatorsAndValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsMap<T> {
