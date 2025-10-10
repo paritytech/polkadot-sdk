@@ -678,6 +678,10 @@ pub mod pallet {
 			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
 				let account_id = T::AddressMapper::to_account_id(address);
 
+				if !System::<T>::account_exists(&account_id) {
+					let _ = T::Currency::mint_into(&account_id, T::Currency::minimum_balance());
+				}
+
 				frame_system::Account::<T>::mutate(&account_id, |info| {
 					info.nonce = (*nonce).into();
 				});
