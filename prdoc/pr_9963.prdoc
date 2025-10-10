@@ -2,6 +2,10 @@ title: Query delivery fees v2
 doc:
 - audience: Runtime Dev
   description: |-
+    BREAKING CHANGE
+    
+    Adds a new parameter to `XcmPaymentApi.query_delivery_fees` to specify the asset id in which you'd like to get the delivery fees. This makes it possible to estimate how much to pay for fees for assets other than the native asset.
+
     Fixes https://github.com/paritytech/polkadot-sdk/issues/7061
 
     Continuation of https://github.com/paritytech/polkadot-sdk/pull/8297
