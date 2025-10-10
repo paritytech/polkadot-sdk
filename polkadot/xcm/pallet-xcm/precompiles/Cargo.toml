@@ -66,4 +66,9 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-xcm/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
 ]
