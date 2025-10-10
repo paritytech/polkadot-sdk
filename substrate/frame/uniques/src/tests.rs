@@ -1904,7 +1904,7 @@ mod asset_ops_tests {
 					&(collection_id, item_id),
 					WithConfig::from(Owner::with_config_value(item_owner)),
 				),
-				Error::<Test>::InUse,
+				Error::<Test>::AlreadyExists,
 			);
 
 			assert_ok!(Item::stash(&(collection_id, item_id), NoParams));
@@ -1971,7 +1971,7 @@ mod asset_ops_tests {
 					&(collection_id, item_id),
 					WithConfig::from(Owner::with_config_value(item_owner)),
 				),
-				Error::<Test>::InUse,
+				Error::<Test>::AlreadyExists,
 			);
 
 			assert_noop!(
@@ -2049,7 +2049,7 @@ mod asset_ops_tests {
 					&(collection_id, item_id),
 					WithConfig::from(Owner::with_config_value(alice)),
 				),
-				Error::<Test>::InUse,
+				Error::<Test>::AlreadyExists,
 			);
 
 			// Bob is not the admin and not the token owner

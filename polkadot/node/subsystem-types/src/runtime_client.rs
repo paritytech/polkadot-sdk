@@ -16,18 +16,14 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing,
+	async_backing::{self, Constraints},
 	runtime_api::ParachainHost,
-	slashing,
-	vstaging::{
-		self, async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
+	slashing, ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
 	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, ValidatorSignature,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sc_client_api::{AuxStore, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -310,7 +306,7 @@ pub trait RuntimeApiSubsystemClient {
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError>;
+	) -> Result<Option<async_backing::BackingState>, ApiError>;
 
 	// === v8 ===
 
@@ -607,7 +603,7 @@ where
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError> {
+	) -> Result<Option<async_backing::BackingState>, ApiError> {
 		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 

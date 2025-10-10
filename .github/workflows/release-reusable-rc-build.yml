@@ -29,21 +29,6 @@ on:
         required: false
         type: string
 
-    secrets:
-      PGP_KMS_KEY:
-        required: true
-      PGP_KMS_HASH:
-        required: true
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-      AWS_DEFAULT_REGION:
-        required: true
-      AWS_RELEASE_ACCESS_KEY_ID:
-        required: true
-      AWS_RELEASE_SECRET_ACCESS_KEY:
-        required: true
 
 permissions:
   id-token: write
@@ -61,7 +46,7 @@ jobs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
@@ -91,7 +76,7 @@ jobs:
           which pgpkms
 
       - name: Checkout sources
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
@@ -109,7 +94,7 @@ jobs:
           ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with:
           subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
 
@@ -136,7 +121,7 @@ jobs:
           check_gpg  ${{ matrix.binaries }}
 
       - name: Upload ${{ matrix.binaries }} artifacts
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: /artifacts/${{ matrix.binaries }}
@@ -156,7 +141,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
@@ -178,7 +163,7 @@ jobs:
         run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
 
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+        uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
@@ -194,6 +179,32 @@ jobs:
 
       - name: Install protobuf
         run: brew install protobuf
+
+      - name: Install solc
+        run: brew install solidity
+
+      - name: Install resolc
+        run: |
+          VERSION="0.3.0"
+          ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
+          echo "Downloading resolc v$VERSION from $ASSET_URL"
+          curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
+          chmod +x $HOME/.cargo/bin/resolc
+          xattr -c $HOME/.cargo/bin/resolc
+          resolc --version
+
+      - name: Install llvm
+        run: |
+          brew install llvm@21
+
+      - name: Set dynamic library path
+        run: |
+          LLVM_PATH=$(brew --prefix llvm)
+          export LIBCLANG_PATH="$LLVM_PATH/lib"
+          export LDFLAGS="-L$LLVM_PATH/lib"
+          export CPPFLAGS="-I$LLVM_PATH/include"
+          echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+
       - name: Install gpg
         run: |
           brew install gnupg
@@ -224,7 +235,7 @@ jobs:
           ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with:
           subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
@@ -251,7 +262,7 @@ jobs:
           check_gpg  ${{ matrix.binaries }}
 
       - name: Upload ${{ matrix.binaries }} artifacts
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: ${{ env.ARTIFACTS_PATH }}
@@ -263,27 +274,27 @@ jobs:
 
     steps:
     - name: Checkout sources
-      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         ref: ${{ inputs.release_tag }}
         fetch-depth: 0
 
     - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
       with:
         name: polkadot_x86_64-unknown-linux-gnu
         path: target/production
         merge-multiple: true
 
     - name: Download polkadot-execute-worker_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
       with:
         name: polkadot-execute-worker_x86_64-unknown-linux-gnu
         path: target/production
         merge-multiple: true
 
     - name: Download polkadot-prepare-worker_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
       with:
         name: polkadot-prepare-worker_x86_64-unknown-linux-gnu
         path: target/production
@@ -297,12 +308,12 @@ jobs:
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
 
     - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
       with:
         subject-path: target/production/*.deb
 
     - name: Upload ${{inputs.package }} artifacts
-      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: ${{ inputs.package }}_${{ inputs.target }}
         path: target/production
@@ -316,10 +327,7 @@ jobs:
       package: ${{ inputs.package }}
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
 
   upload-polkadot-parachain-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot-parachain-bin' && inputs.target == 'x86_64-unknown-linux-gnu' }}
@@ -329,10 +337,7 @@ jobs:
       package: polkadot-parachain
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
 
   upload-polkadot-omni-node-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot-omni-node' && inputs.target == 'x86_64-unknown-linux-gnu' }}
@@ -342,10 +347,7 @@ jobs:
       package: ${{ inputs.package }}
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
 
   upload-frame-omni-bencher-artifacts-to-s3:
     if: ${{ inputs.package == 'frame-omni-bencher' && inputs.target == 'x86_64-unknown-linux-gnu' }}
@@ -355,10 +357,7 @@ jobs:
       package: ${{ inputs.package }}
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
 
   upload-chain-spec-builder-artifacts-to-s3:
     if: ${{ inputs.package == 'staging-chain-spec-builder' && inputs.target == 'x86_64-unknown-linux-gnu' }}
@@ -368,10 +367,37 @@ jobs:
       package: chain-spec-builder
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+
+  upload-substrate-node-artifacts-to-s3:
+    if: ${{ inputs.package == 'staging-node-cli' && inputs.target == 'x86_64-unknown-linux-gnu' }}
+    needs: [build-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: substrate-node
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets: inherit
+
+  upload-eth-rpc-artifacts-to-s3:
+    if: ${{ inputs.package == 'pallet-revive-eth-rpc' && inputs.target == 'x86_64-unknown-linux-gnu' }}
+    needs: [build-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: eth-rpc
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets: inherit
+
+  upload-subkey-artifacts-to-s3:
+    if: ${{ inputs.package == 'subkey' && inputs.target == 'x86_64-unknown-linux-gnu' }}
+    needs: [build-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: subkey
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets: inherit
 
   upload-polkadot-macos-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot' && inputs.target == 'aarch64-apple-darwin' }}
@@ -383,10 +409,7 @@ jobs:
       package: ${{ inputs.package }}
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
 
   upload-polkadot-prepare-worker-macos-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot' && inputs.target == 'aarch64-apple-darwin' }}
@@ -396,10 +419,7 @@ jobs:
       package: polkadot-prepare-worker
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
 
   upload-polkadot-execute-worker-macos-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot' && inputs.target == 'aarch64-apple-darwin' }}
@@ -409,10 +429,10 @@ jobs:
       package: polkadot-execute-worker
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+      # AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      # AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      # AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
   upload-polkadot-omni-node-macos-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot-omni-node' && inputs.target == 'aarch64-apple-darwin' }}
@@ -422,10 +442,7 @@ jobs:
       package: ${{ inputs.package }}
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
 
   upload-polkadot-parachain-macos-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot-parachain-bin' && inputs.target == 'aarch64-apple-darwin' }}
@@ -435,10 +452,7 @@ jobs:
       package: polkadot-parachain
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
 
   upload-frame-omni-bencher-macos-artifacts-to-s3:
     if: ${{ inputs.package == 'frame-omni-bencher' && inputs.target == 'aarch64-apple-darwin' }}
@@ -448,10 +462,10 @@ jobs:
       package: ${{ inputs.package }}
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+      # AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      # AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      # AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
   upload-chain-spec-builder-macos-artifacts-to-s3:
     if: ${{ inputs.package == 'staging-chain-spec-builder' && inputs.target == 'aarch64-apple-darwin' }}
@@ -461,7 +475,37 @@ jobs:
       package: chain-spec-builder
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+
+  upload-substrate-node-macos-artifacts-to-s3:
+    if: ${{ inputs.package == 'staging-node-cli' && inputs.target == 'aarch64-apple-darwin' }}
+    needs: [build-macos-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: substrate-node
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets: inherit
+      # AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      # AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      # AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+  upload-eth-rpc-macos-artifacts-to-s3:
+    if: ${{ inputs.package == 'pallet-revive-eth-rpc' && inputs.target == 'aarch64-apple-darwin' }}
+    needs: [build-macos-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: eth-rpc
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets: inherit
+
+  upload-subkey-macos-artifacts-to-s3:
+    if: ${{ inputs.package == 'subkey' && inputs.target == 'aarch64-apple-darwin' }}
+    needs: [build-macos-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: subkey
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets: inherit

@@ -2091,6 +2091,16 @@ impl<T: Config> Pallet<T> {
 		// Ensure all assets (including fees) have same reserve location.
 		ensure!(assets_transfer_type == fees_transfer_type, Error::<T>::TooManyReserves);
 
+		// We check for network native asset reserve transfers in preparation for the Asset Hub
+		// Migration. This check will be removed after the migration and the determined
+		// reserve location adjusted accordingly. For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
+		Self::ensure_network_asset_reserve_transfer_allowed(
+			&assets,
+			fee_asset_item,
+			&assets_transfer_type,
+			&fees_transfer_type,
+		)?;
+
 		let (local_xcm, remote_xcm) = Self::build_xcm_transfer_type(
 			origin.clone(),
 			dest.clone(),
@@ -3733,7 +3743,6 @@ impl<T: Config> xcm_executor::traits::AssetLock for Pallet<T> {
 		use xcm_executor::traits::LockError::*;
 		let sovereign_account = T::SovereignAccountOf::convert_location(&owner).ok_or(BadOwner)?;
 		let amount = T::CurrencyMatcher::matches_fungible(&asset).ok_or(UnknownAsset)?;
-		ensure!(T::Currency::free_balance(&sovereign_account) >= amount, AssetNotOwned);
 		let locks = LockedFungibles::<T>::get(&sovereign_account).unwrap_or_default();
 		let item_index =
 			locks.iter().position(|x| x.1.try_as::<_>() == Ok(&unlocker)).ok_or(NotLocked)?;

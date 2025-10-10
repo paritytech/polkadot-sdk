@@ -45,7 +45,7 @@ use assets_common::{
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -188,6 +188,7 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
+	type SingleBlockMigrations = Migrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -512,6 +513,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		ConstantStoragePrice<StakePoolCreationDeposit, Balance>,
 	>;
 	type WeightInfo = weights::pallet_asset_rewards::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;
 }
@@ -808,7 +810,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 	type RelayParentOffset = ConstU32<0>;
 }
 
@@ -822,7 +823,10 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	// TODO: note that this value is different from most system chains, and is changed here only
+	// until lazy era pruning is implemented. The actual weight of the era pruning is not huge due
+	// to the fact that deletion is not expensive in `state_version: 1`.
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(70) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -1107,9 +1111,7 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-// impl pallet_root_offences::Config for Runtime {
-// 	type RuntimeEvent = RuntimeEvent;
-// }
+impl pallet_staking_async_preset_store::Config for Runtime {}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1196,7 +1198,7 @@ construct_runtime!(
 
 		// AHN specific.
 		Sudo: pallet_sudo = 110,
-		// RootOffences: pallet_root_offences = 111,
+		PresetStore: pallet_staking_async_preset_store = 111,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -1244,7 +1246,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1710,12 +1711,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-			ParachainSystem::core_selector()
-		}
-	}
-
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
@@ -1848,9 +1843,6 @@ impl_runtime_apis! {
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
 				crate::staking::Pages::key().to_vec().into()
-			);
-			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::staking::SolutionImprovementThreshold::key().to_vec().into()
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
 				crate::staking::SignedPhase::key().to_vec().into()
@@ -2166,26 +2158,32 @@ impl_runtime_apis! {
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			let res = build_state::<RuntimeGenesisConfig>(config);
-			// tweak some of our parameter-types as well..
-			match pallet_staking_async::ValidatorCount::<Runtime>::get() {
-				500 => {
-					log::info!(target: "runtime", "detected a polkadot-like chain during `build_state`");
-					// this is a polkadot-like chain
-					crate::staking::MaxElectingVoters::set(&22_500);
-					crate::staking::Pages::set(&32);
+			match PresetStore::preset().unwrap().as_str() {
+				"real-s" => {
+					log::info!(target: "runtime", "detected a real-s preset");
+					// used for slashing, better make it faster.
+					crate::staking::SignedPhase::set(&0);
+					crate::staking::SignedValidationPhase::set(&0);
 				},
-				1000 => {
-					log::info!(target: "runtime", "detected a kusama-like chain during `build_state`");
-					// this is a kusama-like chain
-					crate::staking::MaxElectingVoters::set(&12_500);
-					crate::staking::Pages::set(&16);
+				"real-m" => {
+					log::info!(target: "runtime", "detected a real-m preset");
+					crate::staking::SignedPhase::set(&0);
+					crate::staking::SignedValidationPhase::set(&0);
 				}
-				10 => {
-					log::info!(target: "runtime", "detected a dev chain during `build_state`");
-					// this is a dev-chain -- no change needed
+				"fake-dev" => {
+					log::info!(target: "runtime", "detected a fake-dev preset");
+					// noop, default values are for dev.
+				},
+				"fake-ksm" => {
+					log::info!(target: "runtime", "detected fake-ksm preset");
+					crate::staking::enable_ksm_preset(true);
+				},
+				"fake-dot" => {
+					log::info!(target: "runtime", "detected fake-dot preset");
+					crate::staking::enable_dot_preset(true);
 				},
 				_ => {
-					panic!("Unrecognized validator count -- genesis-config and this block should match");
+					panic!("Unrecognized preset to build");
 				}
 			}
 

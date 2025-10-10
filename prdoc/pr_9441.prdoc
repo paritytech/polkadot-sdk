@@ -1,0 +1,12 @@
+title: '[pallet-revive] Implement basic `System` pre-compile, move `seal_hash_blake2_256` into it.'
+doc:
+- audience: Runtime Dev
+  description: Implements a basic `System` pre-compile and moves the unstable 
+    host function `hash_blake2_256` in there.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

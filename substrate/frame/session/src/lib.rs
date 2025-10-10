@@ -129,7 +129,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible::{hold::Mutate as HoldMutate, Inspect},
+		fungible::{hold::Mutate as HoldMutate, Inspect, Mutate},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
@@ -447,7 +447,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The currency type for placing holds when setting keys.
-		type Currency: Inspect<Self::AccountId>
+		type Currency: Mutate<Self::AccountId>
 			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
 
 		/// The amount to be held when setting keys.
@@ -666,6 +666,25 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			Self::do_purge_keys(&who)?;
 			Ok(())
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl<T: Config> Pallet<T> {
+		/// Mint enough funds into `who`, such that they can pay the session key setting deposit.
+		///
+		/// Meant to be used if any pallet's benchmarking code wishes to set session keys, and wants
+		/// to make sure it will succeed.
+		pub fn ensure_can_pay_key_deposit(who: &T::AccountId) -> Result<(), DispatchError> {
+			use frame_support::traits::tokens::{Fortitude, Preservation};
+			let deposit = T::KeyDeposit::get();
+			let has = T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force);
+			if let Some(deficit) = deposit.checked_sub(&has) {
+				T::Currency::mint_into(who, deficit.max(T::Currency::minimum_balance()))
+					.map(|_inc| ())
+			} else {
+				Ok(())
+			}
 		}
 	}
 }

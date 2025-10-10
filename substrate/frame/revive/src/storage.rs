@@ -152,7 +152,7 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 
 impl<T: Config> AccountInfo<T> {
 	/// Returns true if the account is a contract.
-	fn is_contract(address: &H160) -> bool {
+	pub fn is_contract(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
 		matches!(info.account_type, AccountType::Contract(_))
 	}
@@ -250,6 +250,7 @@ impl<T: Config> ContractInfo<T> {
 	/// contract doesn't store under the given `key` `None` is returned.
 	pub fn read(&self, key: &Key) -> Option<Vec<u8>> {
 		let value = child::get_raw(&self.child_trie_info(), key.hash().as_slice());
+		log::trace!(target: crate::LOG_TARGET, "contract storage: read value {:?} for key {:x?}", value, key);
 		if_tracing(|t| {
 			t.storage_read(key, value.as_deref());
 		});
@@ -278,6 +279,7 @@ impl<T: Config> ContractInfo<T> {
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		log::trace!(target: crate::LOG_TARGET, "contract storage: writing value {:?} for key {:x?}", new_value, key);
 		let hashed_key = key.hash();
 		if_tracing(|t| {
 			let old = child::get_raw(&self.child_trie_info(), hashed_key.as_slice());
@@ -454,7 +456,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
@@ -556,7 +558,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// Note:
 	/// we use the delete counter to get the next value to read from the queue and thus don't pay
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
-	fn next(&mut self) -> Option<DeletionQueueEntry<T>> {
+	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
 			return None
 		}

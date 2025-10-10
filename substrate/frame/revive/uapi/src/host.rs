@@ -219,7 +219,7 @@ pub trait HostFn: private::Sealed {
 
 	/// Retrieve the value under the given key from storage.
 	///
-	/// The key length must not exceed the maximum defined by the contracts module parameter.
+	/// The key length must not exceed the maximum defined by the `pallet-revive` parameter.
 	///
 	/// # Parameters
 	/// - `key`: The storage key.
@@ -355,7 +355,7 @@ pub trait HostFn: private::Sealed {
 
 	/// Set the value at the given key in the contract storage.
 	///
-	/// The key and value lengths must not exceed the maximums defined by the contracts module
+	/// The key and value lengths must not exceed the maximums defined by the `pallet-revive`
 	/// parameters.
 	///
 	/// # Parameters
@@ -397,15 +397,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the transferred value.
 	fn value_transferred(output: &mut [u8; 32]);
 
-	/// Stores the price for the specified amount of gas into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `ref_time_limit`: The *ref_time* Weight limit to query the price for.
-	/// - `proof_size_limit`: The *proof_size* Weight limit to query the price for.
-	/// - `output`: A reference to the output data buffer to write the price.
-	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]);
-
 	/// Returns the size of the returned data of the last contract call or instantiation.
 	fn return_data_size() -> u64;
 
@@ -416,8 +407,8 @@ pub trait HostFn: private::Sealed {
 	/// - `offset`: Byte offset into the returned data
 	fn return_data_copy(output: &mut &mut [u8], offset: u32);
 
-	/// Returns the amount of ref_time left.
-	fn ref_time_left() -> u64;
+	/// Returns the amount of ethereum gas left.
+	fn gas_left() -> u64;
 
 	/// Stores the current block author of into the supplied buffer.
 	///
@@ -433,97 +424,13 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_number(output: &mut [u8; 32]);
 
-	/// Retrieve the account id for a specified address.
-	///
-	/// # Parameters
-	///
-	/// - `addr`: A `H160` address.
-	/// - `output`: A reference to the output data buffer to write the account id.
-	///
-	/// # Note
-	///
-	/// If no mapping exists for `addr`, the fallback account id will be returned.
-	#[unstable_hostfn]
-	fn to_account_id(addr: &[u8; 20], output: &mut [u8]);
-
 	/// Stores the block hash of the given block number into the supplied buffer.
 	///
 	/// # Parameters
 	///
 	/// - `block_number`: A reference to the block number buffer.
 	/// - `output`: A reference to the output data buffer to write the block number.
-	#[unstable_hostfn]
 	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
-
-	/// Call into the chain extension provided by the chain if any.
-	///
-	/// Handling of the input values is up to the specific chain extension and so is the
-	/// return value. The extension can decide to use the inputs as primitive inputs or as
-	/// in/out arguments by interpreting them as pointers. Any caller of this function
-	/// must therefore coordinate with the chain that it targets.
-	///
-	/// # Note
-	///
-	/// If no chain extension exists the contract will trap with the `NoChainExtension`
-	/// module error.
-	///
-	/// # Parameters
-	///
-	/// - `func_id`: The function id of the chain extension.
-	/// - `input`: The input data buffer.
-	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
-	///   is provided then the output buffer is not copied.
-	///
-	/// # Return
-	///
-	/// The chain extension returned value, if executed successfully.
-	#[unstable_hostfn]
-	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
-
-	/// Checks whether the caller of the current contract is the origin of the whole call stack.
-	///
-	///
-	/// # Return
-	///
-	/// A return value of `true` indicates that this contract is being called by a plain account
-	/// and `false` indicates that the caller is another contract.
-	#[unstable_hostfn]
-	fn caller_is_origin() -> bool;
-
-	/// Checks whether the caller of the current contract is root.
-	///
-	/// Note that only the origin of the call stack can be root. Hence this function returning
-	/// `true` implies that the contract is being called by the origin.
-	///
-	/// A return value of `true` indicates that this contract is being called by a root origin,
-	/// and `false` indicates that the caller is a signed origin.
-	#[unstable_hostfn]
-	fn caller_is_root() -> bool;
-
-	/// Clear the value at the given key in the contract storage.
-	///
-	/// # Parameters
-	///
-	/// - `key`: The storage key.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	#[unstable_hostfn]
-	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
-
-	/// Checks whether there is a value stored under the given key.
-	///
-	/// The key length must not exceed the maximum defined by the contracts module parameter.
-	///
-	/// # Parameters
-	/// - `key`: The storage key.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	#[unstable_hostfn]
-	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.
@@ -538,49 +445,6 @@ pub trait HostFn: private::Sealed {
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Computes the blake2_256 32-bit hash on the given input buffer.
-	///
-	/// - The `input` and `output` buffer may overlap.
-	/// - The output buffer is expected to hold at least 32 bits.
-	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
-	///   the expected amount of bytes returned by the hash function.
-	///
-	/// # Parameters
-	///											*/
-	/// - `input`: The input data buffer.
-	/// - `output`: The output buffer to write the hash result to.
-	#[unstable_hostfn]
-	fn hash_blake2_256(input: &[u8], output: &mut [u8; 32]);
-
-	/// Computes the blake2_128 16-bit hash on the given input buffer.
-	///
-	/// - The `input` and `output` buffer may overlap.
-	/// - The output buffer is expected to hold at least 16 bits.
-	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
-	///   the expected amount of bytes returned by the hash function.
-	/// # Parameters
-	///
-	/// - `input`: The input data buffer.
-	/// - `output`: The output buffer to write the hash result to.
-	#[unstable_hostfn]
-	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]);
-
-	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the minimum balance.
-	#[unstable_hostfn]
-	fn minimum_balance(output: &mut [u8; 32]);
-
-	/// Retrieve the code hash of the currently executing contract.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the code hash.
-	#[unstable_hostfn]
-	fn own_code_hash(output: &mut [u8; 32]);
 
 	/// Replace the contract code at the specified address with new code.
 	///
@@ -626,18 +490,6 @@ pub trait HostFn: private::Sealed {
 	#[unstable_hostfn]
 	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
 
-	/// Retrieve and remove the value under the given key from storage.
-	///
-	/// # Parameters
-	/// - `key`: The storage key.
-	/// - `output`: A reference to the output data buffer to write the storage entry.
-	///
-	/// # Errors
-	///
-	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
-	#[unstable_hostfn]
-	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
-
 	/// Remove the calling account and transfer remaining **free** balance.
 	///
 	/// This function never returns. Either the termination was successful and the
@@ -655,17 +507,6 @@ pub trait HostFn: private::Sealed {
 	/// - The deletion queue is full.
 	#[unstable_hostfn]
 	fn terminate(beneficiary: &[u8; 20]) -> !;
-
-	/// Stores the amount of weight left into the supplied buffer.
-	/// The data is encoded as Weight.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the weight left.
-	#[unstable_hostfn]
-	fn weight_left(output: &mut &mut [u8]);
 }
 
 mod private {

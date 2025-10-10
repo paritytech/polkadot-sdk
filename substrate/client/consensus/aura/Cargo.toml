@@ -18,8 +18,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
+fork-tree = { workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
@@ -40,7 +42,6 @@ sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-parking_lot = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-test = { workspace = true }

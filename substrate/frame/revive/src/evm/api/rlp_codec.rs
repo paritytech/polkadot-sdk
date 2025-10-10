@@ -27,6 +27,10 @@ impl TransactionUnsigned {
 		use TransactionUnsigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
+			Transaction7702Unsigned(ref tx) => {
+				s.append(&tx.r#type.value());
+				s.append(tx);
+			},
 			Transaction2930Unsigned(ref tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
@@ -54,6 +58,7 @@ impl TransactionSigned {
 		use TransactionSigned::*;
 		use TransactionUnsigned::*;
 		match self {
+			Transaction7702Signed(tx) => Transaction7702Unsigned(tx.transaction_7702_unsigned),
 			Transaction2930Signed(tx) => Transaction2930Unsigned(tx.transaction_2930_unsigned),
 			Transaction1559Signed(tx) => Transaction1559Unsigned(tx.transaction_1559_unsigned),
 			Transaction4844Signed(tx) => Transaction4844Unsigned(tx.transaction_4844_unsigned),
@@ -67,6 +72,10 @@ impl TransactionSigned {
 		use TransactionSigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
+			Transaction7702Signed(ref tx) => {
+				s.append(&tx.transaction_7702_unsigned.r#type.value());
+				s.append(tx);
+			},
 			Transaction2930Signed(ref tx) => {
 				s.append(&tx.transaction_2930_unsigned.r#type.value());
 				s.append(tx);
@@ -195,6 +204,31 @@ impl Encodable for AccessListEntry {
 impl Decodable for AccessListEntry {
 	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
 		Ok(AccessListEntry { address: rlp.val_at(0)?, storage_keys: rlp.list_at(1)? })
+	}
+}
+
+impl Encodable for AuthorizationListEntry {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(6);
+		s.append(&self.chain_id);
+		s.append(&self.address);
+		s.append(&self.nonce);
+		s.append(&self.y_parity);
+		s.append(&self.r);
+		s.append(&self.s);
+	}
+}
+
+impl Decodable for AuthorizationListEntry {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(AuthorizationListEntry {
+			chain_id: rlp.val_at(0)?,
+			address: rlp.val_at(1)?,
+			nonce: rlp.val_at(2)?,
+			y_parity: rlp.val_at(3)?,
+			r: rlp.val_at(4)?,
+			s: rlp.val_at(5)?,
+		})
 	}
 }
 
@@ -344,7 +378,23 @@ impl Decodable for Transaction2930Signed {
 	}
 }
 
-//See https://eips.ethereum.org/EIPS/eip-4844
+//See https://eips.ethereum.org/EIPS/eip-7702
+impl Encodable for Transaction7702Unsigned {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(10);
+		s.append(&self.chain_id);
+		s.append(&self.nonce);
+		s.append(&self.max_priority_fee_per_gas);
+		s.append(&self.max_fee_per_gas);
+		s.append(&self.gas);
+		s.append(&self.to);
+		s.append(&self.value);
+		s.append(&self.input.0);
+		s.append_list(&self.access_list);
+		s.append_list(&self.authorization_list);
+	}
+}
+
 impl Encodable for Transaction4844Unsigned {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		s.begin_list(11);
@@ -359,6 +409,27 @@ impl Encodable for Transaction4844Unsigned {
 		s.append_list(&self.access_list);
 		s.append(&self.max_fee_per_blob_gas);
 		s.append_list(&self.blob_versioned_hashes);
+	}
+}
+
+//See https://eips.ethereum.org/EIPS/eip-7702
+impl Encodable for Transaction7702Signed {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		let tx = &self.transaction_7702_unsigned;
+		s.begin_list(13);
+		s.append(&tx.chain_id);
+		s.append(&tx.nonce);
+		s.append(&tx.max_priority_fee_per_gas);
+		s.append(&tx.max_fee_per_gas);
+		s.append(&tx.gas);
+		s.append(&tx.to);
+		s.append(&tx.value);
+		s.append(&tx.input.0);
+		s.append_list(&tx.access_list);
+		s.append_list(&tx.authorization_list);
+		s.append(&self.y_parity);
+		s.append(&self.r);
+		s.append(&self.s);
 	}
 }
 

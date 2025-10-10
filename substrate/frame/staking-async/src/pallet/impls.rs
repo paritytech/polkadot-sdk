@@ -85,14 +85,12 @@ impl<T: Config> Pallet<T> {
 			.max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for validators, defaulting to `MinNominatorBond` if not
-	/// set or less than `MinNominatorBond`.
+	/// Returns the minimum required bond for participation in staking as a validator account.
 	pub(crate) fn min_validator_bond() -> BalanceOf<T> {
-		MinValidatorBond::<T>::get().max(Self::min_nominator_bond())
+		MinValidatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for nominators, considering the chain’s existential
-	/// deposit.
+	/// Returns the minimum required bond for participation in staking as a nominator account.
 	pub(crate) fn min_nominator_bond() -> BalanceOf<T> {
 		MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
@@ -178,6 +176,18 @@ impl<T: Config> Pallet<T> {
 	pub fn weight_of(who: &T::AccountId) -> VoteWeight {
 		let issuance = asset::total_issuance::<T>();
 		Self::slashable_balance_of_vote_weight(who, issuance)
+	}
+
+	/// Checks if a slash has been cancelled for the given era and slash parameters.
+	pub(crate) fn check_slash_cancelled(
+		era: EraIndex,
+		validator: &T::AccountId,
+		slash_fraction: Perbill,
+	) -> bool {
+		let cancelled_slashes = CancelledSlashes::<T>::get(&era);
+		cancelled_slashes.iter().any(|(cancelled_validator, cancel_fraction)| {
+			*cancelled_validator == *validator && *cancel_fraction >= slash_fraction
+		})
 	}
 
 	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
@@ -739,11 +749,6 @@ impl<T: Config> Pallet<T> {
 				.defensive_unwrap_or_default();
 		}
 		Nominators::<T>::insert(who, nominations);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -763,11 +768,6 @@ impl<T: Config> Pallet<T> {
 			false
 		};
 
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
-
 		outcome
 	}
 
@@ -784,11 +784,6 @@ impl<T: Config> Pallet<T> {
 			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who));
 		}
 		Validators::<T>::insert(who, prefs);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -806,11 +801,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			false
 		};
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 
 		outcome
 	}
@@ -979,11 +969,13 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		log!(
 			debug,
-			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters",
+			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters [first: {:?}, last: {:?}]",
 			page,
 			status,
 			bounds,
 			voters.len(),
+			voters.first().map(|(x, y, _)| (x, y)),
+			voters.last().map(|(x, y, _)| (x, y)),
 		);
 
 		match status {
@@ -1014,8 +1006,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 
 		let targets = Self::get_npos_targets(bounds);
-		// We can't handle this case yet -- return an error. WIP to improve handling this case in
-		// <https://github.com/paritytech/substrate/pull/13195>.
 		if bounds.exhausted(None, CountBound(targets.len() as u32).into()) {
 			return Err("Target snapshot too big")
 		}
@@ -1145,7 +1135,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	) -> Weight {
 		// worst case weight of this is always
 		T::WeightInfo::rc_on_session_report()
-			.saturating_add(T::WeightInfo::prune_era(ValidatorCount::<T>::get()))
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
@@ -1344,11 +1333,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		weight
 	}
 
-	fn weigh_on_new_offences(
-		_slash_session: SessionIndex,
-		offences: &[pallet_staking_async_rc_client::Offence<Self::AccountId>],
-	) -> Weight {
-		T::WeightInfo::rc_on_offence(offences.len() as u32)
+	fn weigh_on_new_offences(offence_count: u32) -> Weight {
+		T::WeightInfo::rc_on_offence(offence_count)
 	}
 }
 
@@ -1357,12 +1343,20 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 	fn score(who: &T::AccountId) -> Option<Self::Score> {
 		Self::ledger(Stash(who.clone()))
-			.map(|l| l.active)
+			.ok()
+			.and_then(|l| {
+				if Nominators::<T>::contains_key(&l.stash) ||
+					Validators::<T>::contains_key(&l.stash)
+				{
+					Some(l.active)
+				} else {
+					None
+				}
+			})
 			.map(|a| {
 				let issuance = asset::total_issuance::<T>();
 				T::CurrencyToVote::to_vote(a, issuance)
 			})
-			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1378,6 +1372,9 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 		<Ledger<T>>::insert(who, ledger);
 		<Bonded<T>>::insert(who, who);
+		// we also need to appoint this staker to be validator or nominator, such that their score
+		// is actually there. Note that `fn score` above checks the role.
+		<Validators<T>>::insert(who, ValidatorPrefs::default());
 
 		// also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
 		// This will make sure that total issuance is zero, thus the currency to vote will be a 1-1
@@ -1766,6 +1763,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		// If the pallet is not initialized (both ActiveEra and CurrentEra are None),
+		// there's nothing to check, so return early.
+		if ActiveEra::<T>::get().is_none() && CurrentEra::<T>::get().is_none() {
+			return Ok(());
+		}
+
 		session_rotation::Rotator::<T>::do_try_state()?;
 		session_rotation::Eras::<T>::do_try_state()?;
 
@@ -1946,6 +1949,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
+	/// * ActiveEra is Some.
 	/// * For each paged era exposed validator, check if the exposure total is sane (exposure.total
 	/// = exposure.own + exposure.own).
 	/// * Paged exposures metadata (`ErasStakersOverview`) matches the paged exposures state.
@@ -1956,7 +1960,13 @@ impl<T: Config> Pallet<T> {
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
 			BTreeMap::new();
-		let era = ActiveEra::<T>::get().unwrap().index;
+		// If the pallet is not initialized, we return immediately from pallet's do_try_state() and
+		// we don't call this method. Otherwise, Eras::do_try_state enforces that both ActiveEra
+		// and CurrentEra are Some. Thus, we should never hit this error.
+		let era = ActiveEra::<T>::get()
+			.ok_or(TryRuntimeError::Other("ActiveEra must be set when checking paged exposures"))?
+			.index;
+
 		let accumulator_default = PagedExposureMetadata {
 			total: Zero::zero(),
 			own: Zero::zero(),
@@ -2086,21 +2096,40 @@ impl<T: Config> Pallet<T> {
 
 		match (is_nominator, is_validator) {
 			(false, false) => {
-				if ledger.active < Self::min_chilled_bond() {
-					log!(warn, "Chilled stash {:?} has less than minimum bond", stash);
+				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
+					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
+					log!(
+						warn,
+						"Chilled stash {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_chilled_bond()
+					);
 				}
 				// is chilled
 			},
 			(true, false) => {
 				// Nominators must have a minimum bond.
 				if ledger.active < Self::min_nominator_bond() {
-					log!(warn, "Nominator {:?} has less than minimum bond", stash);
+					log!(
+						warn,
+						"Nominator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_nominator_bond()
+					);
 				}
 			},
 			(false, true) => {
 				// Validators must have a minimum bond.
 				if ledger.active < Self::min_validator_bond() {
-					log!(warn, "Validator {:?} has less than minimum bond", stash);
+					log!(
+						warn,
+						"Validator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_validator_bond()
+					);
 				}
 			},
 			(true, true) => {

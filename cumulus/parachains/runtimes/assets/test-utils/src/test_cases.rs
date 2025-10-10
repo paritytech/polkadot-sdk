@@ -38,8 +38,11 @@ use sp_runtime::{
 	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, SaturatedConversion, Saturating,
 };
-use xcm::{latest::prelude::*, VersionedAssets};
-use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
+use xcm_executor::{
+	traits::{ConvertLocation, TransferType},
+	XcmExecutor,
+};
 use xcm_runtime_apis::fees::{
 	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
 };
@@ -1551,12 +1554,18 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				Asset { fun: Fungible(balance_to_transfer.into()), id: AssetId(native_asset) };
 
 			// pallet_xcm call reserve transfer
-			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
+			assert_ok!(<pallet_xcm::Pallet<Runtime>>::transfer_assets_using_type_and_then(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
 				Box::new(dest.clone().into_versioned()),
-				Box::new(dest_beneficiary.clone().into_versioned()),
 				Box::new(VersionedAssets::from(Assets::from(asset_to_transfer))),
-				0,
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedXcm::from(
+					Xcm::<()>::builder_unsafe()
+						.deposit_asset(AllCounted(1), dest_beneficiary.clone())
+						.build()
+				)),
 				weight_limit,
 			));
 

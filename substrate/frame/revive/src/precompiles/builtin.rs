@@ -23,6 +23,8 @@ mod modexp;
 mod point_eval;
 mod ripemd160;
 mod sha256;
+mod storage;
+mod system;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -34,7 +36,11 @@ use crate::{
 };
 
 #[cfg(feature = "runtime-benchmarks")]
-pub use benchmarking::{IBenchmarking, NoInfo, WithInfo};
+pub use self::{
+	benchmarking::{IBenchmarking, NoInfo, WithInfo},
+	storage::Storage,
+	system::System,
+};
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub type Builtin<T> = Production<T>;
@@ -53,6 +59,8 @@ type Production<T> = (
 	bn128::Bn128Pairing<T>,
 	blake2f::Blake2F<T>,
 	point_eval::PointEval<T>,
+	system::System<T>,
+	storage::Storage<T>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]
