@@ -56,9 +56,6 @@ pub struct PotentialParent<B: BlockT> {
 	pub header: B::Header,
 	/// The depth of the block with respect to the included block.
 	pub depth: usize,
-	/// Whether the block is the included block, is itself pending on-chain, or descends
-	/// from the block pending availability.
-	pub aligned_with_pending: bool,
 }
 
 impl<B: BlockT> std::fmt::Debug for PotentialParent<B> {
@@ -66,7 +63,6 @@ impl<B: BlockT> std::fmt::Debug for PotentialParent<B> {
 		f.debug_struct("PotentialParent")
 			.field("hash", &self.hash)
 			.field("depth", &self.depth)
-			.field("aligned_with_pending", &self.aligned_with_pending)
 			.field("number", &self.header.number())
 			.finish()
 	}
@@ -109,7 +105,6 @@ pub async fn find_potential_parents<B: BlockT>(
 		hash: included_hash,
 		header: included_header.clone(),
 		depth: 0,
-		aligned_with_pending: true,
 	}];
 
 	if params.max_depth == 0 {
@@ -175,8 +170,9 @@ pub async fn find_potential_parents<B: BlockT>(
 
 			// Add all items on the path included -> pending - 1 to the potential parents, but
 			// not more than `max_depth`.
-			let num_parents_on_path =
-				route_to_pending.enacted().len().saturating_sub(1).min(params.max_depth);
+			let pending_depth = route_to_pending.enacted().len();
+			let num_parents_on_path = pending_depth.saturating_sub(1).min(params.max_depth);
+
 			for (num, block) in
 				route_to_pending.enacted().iter().take(num_parents_on_path).enumerate()
 			{
@@ -186,21 +182,23 @@ pub async fn find_potential_parents<B: BlockT>(
 					hash: block.hash,
 					header,
 					depth: 1 + num,
-					aligned_with_pending: true,
 				});
 			}
 
-			// The search for additional potential parents should now start at the children of
-			// the pending block.
-			(
+			// The frontier contains blocks whose children we want to explore.
+			// We put the pending block in the frontier so search_child_branches_for_parents
+			// will validate it and explore its children.
+			let frontier = if pending_depth <= params.max_depth {
 				vec![PotentialParent {
 					hash: *pending_hash,
 					header: pending_header.clone(),
-					depth: route_to_pending.enacted().len(),
-					aligned_with_pending: true,
-				}],
-				potential_parents,
-			)
+					depth: pending_depth,
+				}]
+			} else {
+				vec![]
+			};
+
+			(frontier, potential_parents)
 		},
 		_ => (only_included, Default::default()),
 	};
@@ -318,6 +316,10 @@ async fn build_relay_parent_ancestry(
 /// Start search for child blocks that can be used as parents.
 ///
 /// This function only respects branches that contain the pending block.
+///
+/// The frontier is initialized with either the pending block (if it exists and is within max_depth)
+/// or the included block (if there's no pending block). This function validates blocks from the
+/// frontier and explores their children, ensuring all blocks are aligned with the pending block.
 pub fn search_child_branches_for_parents<Block: BlockT>(
 	mut frontier: Vec<PotentialParent<Block>>,
 	maybe_route_to_last_pending: Option<TreeRoute<Block>>,
@@ -355,9 +357,9 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 		let is_pending = pending_hash.as_ref().map_or(false, |h| &entry.hash == h);
 		let is_included = included_hash == entry.hash;
 
-		// note: even if the pending block or included block have a relay parent
-		// outside of the expected part of the relay chain, they are always allowed
-		// because they have already been posted on chain.
+		// The frontier is initialized with either the included block (no pending) or the pending
+		// block. Both are always potential parents because they're already posted on chain.
+		// For other blocks, check if their relay parent is in the acceptable ancestry.
 		let is_potential = is_pending || is_included || {
 			let digest = entry.header.digest();
 			let is_hash_in_ancestry_check = cumulus_primitives_core::extract_relay_parent(digest)
@@ -370,7 +372,6 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 			is_hash_in_ancestry_check || is_root_in_ancestry_check
 		};
 
-		let parent_aligned_with_pending = entry.aligned_with_pending;
 		let child_depth = entry.depth + 1;
 		let hash = entry.hash;
 
@@ -395,9 +396,9 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 		for child in backend.blockchain().children(hash).ok().into_iter().flatten() {
 			tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?child, child_depth, ?pending_distance, "Looking at child.");
 
-			let aligned_with_pending = parent_aligned_with_pending &&
-				(pending_distance.map_or(true, |dist| child_depth > dist) ||
-					is_child_pending(child));
+			let aligned_with_pending =
+				pending_distance.map_or(true, |dist| child_depth > dist) ||
+					is_child_pending(child);
 
 			// We only respect branches that contain the pending block.
 			if !aligned_with_pending {
@@ -411,7 +412,6 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 				hash: child,
 				header,
 				depth: child_depth,
-				aligned_with_pending,
 			});
 		}
 	}
