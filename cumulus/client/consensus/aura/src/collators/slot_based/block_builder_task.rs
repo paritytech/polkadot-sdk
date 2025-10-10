@@ -323,6 +323,33 @@ where
 				},
 			};
 
+			// Checking that we _can_ build is not enough, we also should check if
+			// we _should_ build, determined by whether there is any point in doing so.
+			let should_skip =
+				crate::collators::should_skip_building_block_due_to_relay_parent_in_old_session(
+					&relay_client,
+					relay_best_hash,
+					relay_parent,
+				)
+				.await;
+
+			// Respect the relay-chain rule not to cross session boundaries.
+			if should_skip {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					unincluded_segment_len = parent.depth,
+					relay_parent = %relay_parent,
+					relay_parent_num = %relay_parent_header.number(),
+					relay_parent_offset,
+					included_hash = %included_header_hash,
+					included_num = %included_header.number(),
+					parent = %parent_hash,
+					slot = ?para_slot.slot,
+					"Skipping building block on relay parent in old session",
+				);
+				continue
+			}
+
 			tracing::debug!(
 				target: crate::LOG_TARGET,
 				unincluded_segment_len = parent.depth,
