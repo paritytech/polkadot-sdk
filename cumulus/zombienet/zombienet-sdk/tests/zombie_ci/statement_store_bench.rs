@@ -146,7 +146,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 			for statement_count in 0..statements_per_task {
 				let mut statement = Statement::new();
 				let topic = |idx: usize| {
-					blake2_256(format!("{}{}{:?}", idx, statement_count, public).as_bytes())
+					blake2_256(format!("{idx}{statement_count}{public:?}").as_bytes())
 				};
 				statement.set_topic(0, topic(0));
 				statement.set_topic(1, topic(1));
@@ -420,7 +420,7 @@ impl Participant {
 	}
 
 	fn new(idx: u32, rpc_client: RpcClient) -> Self {
-		debug!(target: &format!("participant_{}", idx), "Initializing participant {}", idx);
+		debug!(target: &format!("participant_{idx}"), "Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
 
@@ -510,7 +510,7 @@ impl Participant {
 	}
 
 	fn create_message_statement(&mut self, receiver_idx: u32) -> Option<(Statement, u32)> {
-		let Some(receiver_session_key) = self.session_keys.get(&receiver_idx) else { return None };
+		let receiver_session_key = self.session_keys.get(&receiver_idx)?;
 
 		let message_id = self.sent_count;
 		let mut data = vec![0u8; MESSAGE_SIZE];
@@ -568,7 +568,7 @@ impl Participant {
 				}
 			}
 
-			pending.retain(|x| !completed_this_round.contains(&x));
+			pending.retain(|x| !completed_this_round.contains(x));
 			if pending.is_empty() {
 				break;
 			}
@@ -626,8 +626,8 @@ impl Participant {
 							let data = statement.data().expect("Must contain request");
 							let req = StatementMessage::decode(&mut &data[..])?;
 
-							if !self.received_messages.contains_key(&(sender_idx, req.message_id)) {
-								self.received_messages.insert((sender_idx, req.message_id), false);
+							if let std::collections::hash_map::Entry::Vacant(e) = self.received_messages.entry((sender_idx, req.message_id)) {
+								e.insert(false);
 								self.pending_messages.insert(sender_idx, Some(req.message_id));
 								completed_this_round.push((sender_idx, sender_session_key));
 							}
@@ -639,7 +639,7 @@ impl Participant {
 				}
 			}
 
-			pending.retain(|x| !completed_this_round.contains(&x));
+			pending.retain(|x| !completed_this_round.contains(x));
 			if pending.is_empty() {
 				break;
 			}
