@@ -16,7 +16,13 @@
 
 //! Provides functionality to dynamically calculate the max block weight for a parachain.
 //!
-//! With block bundling parachains are relative free to choose whatever block interval they want.
+//! With block bundling, parachains are relative free to choose whatever block interval they want.
+//! The block interval is the time between individual blocks. The available resources per block (max
+//! block weight) depend on the number of cores allocated to the parachain on the relay chain. Each
+//! relay chain cores provides an execution time of `2s` and a storage size of `10MiB`. Depending on
+//! the desired number of blocks to produce, the resources need to be divided for
+//!
+//!
 //! This means they will run under normal conditions with blocks that have a small block weight.
 //! These small blocks may prevent certain transactions to be applied, e.g. a runtime upgrade. But
 //! it is not only about transactions, also certain block logic may requires more weight from time
@@ -71,15 +77,13 @@ pub enum BlockWeightMode {
 	},
 }
 
-/// Provides a [`get`](Self::get) method to calculate the max block weight based on the number of
-/// target blocks.
+/// Calculates the maximum block weight for a parachain.
 ///
-/// This takes internally into consideration the number of available cores, communicated via the
-/// [`CumulusDigestItem::CoreInfo`] digest, to calculate the available resources. Based on the
-/// available cores and the number of desired blocks a target weight is calculated. But it does not
-/// only take the number of cores and blocks into consideration, but also the current
-/// [`BlockWeightMode`]. The [`BlockWeightMode`] is set by the [`DynamicMaxBlockWeight`]
-/// transaction extension depending certain conditions.
+/// Based on the available cores and the number of desired blocks a block weight is calculated.
+///
+/// The max block weight is partly dynamic and controlled via the [`DynamicMaxBlockWeight`]
+/// transaction extension. The transaction extension is communicating the desired max block weight
+/// using the [`BlockWeightMode`].
 pub struct MaxParachainBlockWeight<T>(PhantomData<T>);
 
 impl<T: Config> MaxParachainBlockWeight<T> {

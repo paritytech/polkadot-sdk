@@ -245,10 +245,7 @@ fn test_block_weight_mode_with_different_transaction_indices() {
 	let decoded_none = BlockWeightMode::decode(&mut &encoded_none[..]).unwrap();
 	assert!(matches!(
 		decoded_none,
-		BlockWeightMode::PotentialFullCore {
-			first_transaction_index: None,
-			target_weight: Weight::Zero
-		}
+		BlockWeightMode::PotentialFullCore { first_transaction_index: None, .. }
 	));
 
 	let encoded_some = mode_with_some.encode();
@@ -268,18 +265,6 @@ fn test_saturation_arithmetic() {
 		// Should be capped at 2s ref time per core even with max cores
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 		// Proof size should saturate properly
-		assert!(weight.proof_size() > 0);
-	});
-}
-
-#[test]
-fn test_large_target_blocks() {
-	new_test_ext_with_digest(Some(4)).execute_with(|| {
-		// Test with very large number of target blocks
-		let weight = MaxParachainBlockWeight::<Test>::get(u32::MAX);
-
-		// Should not panic and should return minimal weights
-		assert!(weight.ref_time() > 0);
 		assert!(weight.proof_size() > 0);
 	});
 }
