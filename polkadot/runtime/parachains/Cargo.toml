@@ -165,3 +165,6 @@ runtime-metrics = [
 	"polkadot-runtime-metrics/runtime-metrics",
 	"sp-tracing/with-tracing",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+development = ["thousands"]

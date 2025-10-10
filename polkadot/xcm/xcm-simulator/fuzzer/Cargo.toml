@@ -64,3 +64,6 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["honggfuzz"]

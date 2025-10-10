@@ -41,3 +41,6 @@ std = [
 	"sp-core",
 	"sp-io",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+build = ["pallet-revive-uapi"]

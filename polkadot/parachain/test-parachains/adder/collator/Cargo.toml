@@ -40,3 +40,6 @@ polkadot-test-service = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 
 tokio = { features = ["macros"], workspace = true, default-features = true }
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["dlmalloc"]
