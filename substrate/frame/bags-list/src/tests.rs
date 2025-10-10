@@ -21,6 +21,7 @@ use super::*;
 use frame_election_provider_support::{SortedListProvider, VoteWeight};
 use list::Bag;
 use mock::{test_utils::*, *};
+use substrate_test_utils::assert_eq_uvec;
 
 #[docify::export]
 #[test]
@@ -1048,10 +1049,8 @@ mod on_idle {
 			assert_eq!(BagsList::on_insert(99, 500), Err(ListError::Locked)); // Will lose staking
 
 			// Verify they're in PendingRebag
-			assert_eq!(PendingRebag::<Runtime>::count(), 6); // Now 6
-			let mut pending: Vec<_> = PendingRebag::<Runtime>::iter_keys().collect();
-			pending.sort();
-			assert_eq!(pending, vec![5, 6, 7, 8, 11, 99]);
+			let pending: Vec<_> = PendingRebag::<Runtime>::iter_keys().collect();
+			assert_eq_uvec!(pending, vec![5, 6, 7, 8, 11, 99]);
 
 			// Verify they're NOT in the list yet
 			assert!(!List::<Runtime>::contains(&5));
@@ -1113,29 +1112,28 @@ mod on_idle {
 			assert_eq!(List::<Runtime>::get_score(&8).unwrap(), 1500);
 
 			// Verify the bags contain the right accounts
-			let bags = List::<Runtime>::get_bags();
-
-			assert!(bags
-				.iter()
-				.any(|(threshold, accounts)| *threshold == 10 && accounts.contains(&1)));
-
-			assert!(bags.iter().any(|(threshold, accounts)| *threshold == 1_000 &&
-				accounts.contains(&2) &&
-				accounts.contains(&3) &&
-				accounts.contains(&4) &&
-				accounts.contains(&9) &&
-				accounts.contains(&10)));
-
-			// Check that the three processed pending accounts are in their correct bags
-			assert!(bags
-				.iter()
-				.any(|(threshold, accounts)| *threshold == 50 && accounts.contains(&6)));
-			assert!(bags
-				.iter()
-				.any(|(threshold, accounts)| *threshold == 20 && accounts.contains(&5)));
-			assert!(bags
-				.iter()
-				.any(|(threshold, accounts)| *threshold == 2_000 && accounts.contains(&8)));
+			// After processing 3 pending accounts (5, 6, 8):
+			// - Account 1: score 10 -> bag 10 (unchanged)
+			// - Account 2: score 10 -> still in bag 1000 (not rebagged, only pending accounts
+			//   processed)
+			// - Account 3: score 20 -> still in bag 1000 (not rebagged, only pending accounts
+			//   processed)
+			// - Account 4: score 1000 -> bag 1000 (unchanged)
+			// - Account 5: score 15 -> bag 20 (newly inserted from pending)
+			// - Account 6: score 45 -> bag 50 (newly inserted from pending)
+			// - Account 8: score 1500 -> bag 2000 (newly inserted from pending)
+			// - Account 9: score 1000 -> bag 1000 (unchanged)
+			// - Account 10: score 1000 -> bag 1000 (unchanged)
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![
+					(10, vec![1]),
+					(20, vec![5]),
+					(50, vec![6]),
+					(1_000, vec![2, 3, 4, 9, 10]),
+					(2_000, vec![8])
+				]
+			);
 
 			// After processing 3 pending accounts [6, 5, 8] with budget of 3:
 			// The 4th account collected would be the next pending account (7), but since
@@ -1176,6 +1174,29 @@ mod on_idle {
 			let mut actual_final = final_list.clone();
 			actual_final.sort();
 			assert_eq!(actual_final, expected_final);
+		});
+	}
+
+	#[test]
+	fn rebag_extrinsic_removes_from_pending() {
+		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+			BagsList::lock();
+
+			// Try to insert while locked - should go to PendingRebag
+			StakingMock::set_score_of(&1, 1000);
+			assert_eq!(BagsList::on_insert(1, 1000), Err(ListError::Locked));
+			assert!(PendingRebag::<Runtime>::contains_key(&1));
+			assert!(!List::<Runtime>::contains(&1));
+
+			// Unlock
+			BagsList::unlock();
+
+			// Call rebag extrinsic - should insert the account and remove from PendingRebag
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 1));
+
+			// Verify account is now in the list and removed from PendingRebag
+			assert!(!PendingRebag::<Runtime>::contains_key(&1));
+			assert_eq!(List::<Runtime>::get_bags(), vec![(1000, vec![1])]);
 		});
 	}
 }
