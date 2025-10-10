@@ -1,0 +1,190 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The Rust core allocation and collections library"><title>yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../../../../" data-static-root-path="../../../../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../../../../crates.js"></script><script defer src="../../../../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#the-rust-core-allocation-and-collections-library" title="The Rust core allocation and collections library">The Rust core allocation and collections library</a><ul><li><a href="#boxed-values" title="Boxed values">Boxed values</a></li><li><a href="#reference-counted-pointers" title="Reference counted pointers">Reference counted pointers</a></li><li><a href="#atomically-reference-counted-pointers" title="Atomically reference counted pointers">Atomically reference counted pointers</a></li><li><a href="#collections" title="Collections">Collections</a></li><li><a href="#heap-interfaces" title="Heap interfaces">Heap interfaces</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>support::<wbr>sp_<wbr>runtime::<wbr>app_<wbr>crypto::<wbr>sp_<wbr>core::<wbr>bounded</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../../../../index.html">frame_support</a>::<wbr><a href="../../../../index.html">sp_runtime</a>::<wbr><a href="../../../index.html">app_crypto</a>::<wbr><a href="../../index.html">sp_core</a>::<wbr><a href="../index.html">bounded</a></div><h1>Crate <span>alloc</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><span class="since" title="Stable since Rust version 1.36.0">1.36.0</span> · <a class="src" href="https://doc.rust-lang.org/1.88.0/src/alloc/lib.rs.html#1-241">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="the-rust-core-allocation-and-collections-library"><a class="doc-anchor" href="#the-rust-core-allocation-and-collections-library">§</a>The Rust core allocation and collections library</h2>
+<p>This library provides smart pointers and collections for managing
+heap-allocated values.</p>
+<p>This library, like core, normally doesn’t need to be used directly
+since its contents are re-exported in the <a href="../std/index.html"><code>std</code> crate</a>.
+Crates that use the <code>#![no_std]</code> attribute however will typically
+not depend on <code>std</code>, so they’d use this crate instead.</p>
+<h3 id="boxed-values"><a class="doc-anchor" href="#boxed-values">§</a>Boxed values</h3>
+<p>The <a href="https://doc.rust-lang.org/1.88.0/alloc/boxed/index.html" title="mod alloc::boxed"><code>Box</code></a> type is a smart pointer type. There can only be one owner of a
+<a href="https://doc.rust-lang.org/1.88.0/alloc/boxed/index.html" title="mod alloc::boxed"><code>Box</code></a>, and the owner can decide to mutate the contents, which live on the
+heap.</p>
+<p>This type can be sent among threads efficiently as the size of a <code>Box</code> value
+is the same as that of a pointer. Tree-like data structures are often built
+with boxes because each node often has only one owner, the parent.</p>
+<h3 id="reference-counted-pointers"><a class="doc-anchor" href="#reference-counted-pointers">§</a>Reference counted pointers</h3>
+<p>The <a href="https://doc.rust-lang.org/1.88.0/alloc/rc/index.html" title="mod alloc::rc"><code>Rc</code></a> type is a non-threadsafe reference-counted pointer type intended
+for sharing memory within a thread. An <a href="https://doc.rust-lang.org/1.88.0/alloc/rc/index.html" title="mod alloc::rc"><code>Rc</code></a> pointer wraps a type, <code>T</code>, and
+only allows access to <code>&amp;T</code>, a shared reference.</p>
+<p>This type is useful when inherited mutability (such as using <a href="https://doc.rust-lang.org/1.88.0/alloc/boxed/index.html" title="mod alloc::boxed"><code>Box</code></a>) is too
+constraining for an application, and is often paired with the <a href="https://doc.rust-lang.org/1.88.0/core/cell/index.html" title="mod core::cell"><code>Cell</code></a> or
+<a href="https://doc.rust-lang.org/1.88.0/core/cell/index.html" title="mod core::cell"><code>RefCell</code></a> types in order to allow mutation.</p>
+<h3 id="atomically-reference-counted-pointers"><a class="doc-anchor" href="#atomically-reference-counted-pointers">§</a>Atomically reference counted pointers</h3>
+<p>The <a href="sync/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::sync"><code>Arc</code></a> type is the threadsafe equivalent of the <a href="https://doc.rust-lang.org/1.88.0/alloc/rc/index.html" title="mod alloc::rc"><code>Rc</code></a> type. It
+provides all the same functionality of <a href="https://doc.rust-lang.org/1.88.0/alloc/rc/index.html" title="mod alloc::rc"><code>Rc</code></a>, except it requires that the
+contained type <code>T</code> is shareable. Additionally, <a href="sync/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::sync"><code>Arc&lt;T&gt;</code></a> is itself
+sendable while <a href="https://doc.rust-lang.org/1.88.0/alloc/rc/index.html" title="mod alloc::rc"><code>Rc&lt;T&gt;</code></a> is not.</p>
+<p>This type allows for shared access to the contained data, and is often
+paired with synchronization primitives such as mutexes to allow mutation of
+shared resources.</p>
+<h3 id="collections"><a class="doc-anchor" href="#collections">§</a>Collections</h3>
+<p>Implementations of the most common general purpose data structures are
+defined in this library. They are re-exported through the
+<a href="../std/collections/index.html">standard collections library</a>.</p>
+<h3 id="heap-interfaces"><a class="doc-anchor" href="#heap-interfaces">§</a>Heap interfaces</h3>
+<p>The <a href="alloc/index.html"><code>alloc</code></a> module defines the low-level interface to the
+default global allocator. It is not compatible with the libc allocator API.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="alloc/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::alloc">alloc</a></dt><dd>Memory allocation APIs</dd><dt><a class="mod" href="collections/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::collections">collections</a></dt><dd>Collection types.</dd><dt><a class="mod" href="ffi/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::ffi">ffi</a></dt><dd>Utilities related to FFI bindings.</dd><dt><a class="mod" href="sync/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::sync">sync</a></dt><dd>Thread-safe reference-counting pointers.</dd><dt><a class="mod" href="task/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::task">task</a></dt><dd>Types and Traits for working with asynchronous tasks.</dd><dt><a class="mod" href="bstr/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::bstr">bstr</a><wbr><span class="stab unstable" title="">Experimental</span></dt><dd>The <code>ByteStr</code> and <code>ByteString</code> types and trait implementations.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.format.html" title="macro yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::format">format</a></dt><dd>Creates a <code>String</code> using interpolation of runtime expressions.</dd><dt><a class="macro" href="macro.vec.html" title="macro yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::vec">vec</a></dt><dd>Creates a <a href="../../../../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec"><code>Vec</code></a> containing the arguments.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

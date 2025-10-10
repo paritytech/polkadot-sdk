@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"rococo_runtime":[["impl <a class=\"trait\" href=\"polkadot_runtime_parachains/coretime/migration/v_coretime/trait.GetLegacyLease.html\" title=\"trait polkadot_runtime_parachains::coretime::migration::v_coretime::GetLegacyLease\">GetLegacyLease</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.74.0/std/primitive.u32.html\">u32</a>&gt; for <a class=\"struct\" href=\"rococo_runtime/migrations/struct.GetLegacyLeaseImpl.html\" title=\"struct rococo_runtime::migrations::GetLegacyLeaseImpl\">GetLegacyLeaseImpl</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

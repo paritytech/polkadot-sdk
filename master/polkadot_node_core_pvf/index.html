@@ -1,0 +1,205 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The PVF validation host. Responsible for coordinating preparation and execution of PVFs."><title>polkadot_node_core_pvf - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_node_core_pvf/index.html">polkadot_<wbr>node_<wbr>core_<wbr>pvf</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#entrypoint" title="Entrypoint">Entrypoint</a></li><li><a href="#priority" title="Priority">Priority</a></li><li><a href="#under-the-hood" title="Under the hood">Under the hood</a><ul><li><a href="#the-flow" title="The flow">The flow</a></li><li><a href="#artifacts" title="Artifacts">Artifacts</a></li><li><a href="#execution" title="Execution">Execution</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>polkadot_node_core_pvf</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/polkadot_node_core_pvf/lib.rs.html#17-157">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The PVF validation host. Responsible for coordinating preparation and execution of PVFs.</p>
+<p>For more background, refer to the Implementer’s Guide: <a href="https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html">PVF
+Pre-checking</a>, <a href="https://paritytech.github.io/polkadot-sdk/book/node/utility/candidate-validation.html">Candidate
+Validation</a>
+and <a href="https://paritytech.github.io/polkadot-sdk/book/node/utility/pvf-host-and-workers.html">PVF Host and Workers</a>.</p>
+<h2 id="entrypoint"><a class="doc-anchor" href="#entrypoint">§</a>Entrypoint</h2>
+<p>This crate provides a simple API. You first <a href="fn.start.html" title="fn polkadot_node_core_pvf::start"><code>start</code></a> the validation host, which gives you the
+<a href="struct.ValidationHost.html" title="struct polkadot_node_core_pvf::ValidationHost">handle</a> and the future you need to poll.</p>
+<p>Then using the handle the client can send three types of requests:</p>
+<p>(a) PVF pre-checking. This takes the <code>Pvf</code> code and tries to prepare it (verify and
+compile) in order to pre-check its validity.</p>
+<p>(b) PVF execution. This accepts the PVF
+<a href="../polkadot_parachain_primitives/primitives/struct.ValidationParams.html" title="struct polkadot_parachain_primitives::primitives::ValidationParams"><code>params</code></a>     and the <code>Pvf</code>
+code, prepares (verifies and compiles) the code, and then executes PVF     with the <code>params</code>.</p>
+<p>(c) Heads up. This request allows to signal that the given PVF may be needed soon and that it
+should be prepared for execution.</p>
+<p>The preparation results are cached for some time after they either used or was signaled in heads
+up. All requests that depends on preparation of the same PVF are bundled together and will be
+executed as soon as the artifact is prepared.</p>
+<h2 id="priority"><a class="doc-anchor" href="#priority">§</a>Priority</h2>
+<p>PVF execution requests can specify the <a href="enum.Priority.html" title="enum polkadot_node_core_pvf::Priority">priority</a> with which the given request
+should be handled. Different priority levels have different effects. This is discussed below.</p>
+<p>Preparation started by a heads up signal always starts with the background priority. If there
+is already a request for that PVF preparation under way the priority is inherited. If after
+heads up, a new PVF execution request comes in with a higher priority, then the original task’s
+priority will be adjusted to match the new one if it’s larger.</p>
+<p>Priority can never go down, only up.</p>
+<h2 id="under-the-hood"><a class="doc-anchor" href="#under-the-hood">§</a>Under the hood</h2><h3 id="the-flow"><a class="doc-anchor" href="#the-flow">§</a>The flow</h3>
+<p>Under the hood, the validation host is built using a bunch of communicating processes, not
+dissimilar to actors. Each of such “processes” is a future task that contains an event loop that
+processes incoming messages, potentially delegating sub-tasks to other “processes”.</p>
+<p>Two of these processes are queues. The first one is for preparation jobs and the second one is
+for execution. Both of the queues are backed by separate pools of workers of different kind.</p>
+<p>Preparation workers handle preparation requests by prevalidating and instrumenting PVF wasm
+code, and then passing it into the compiler, to prepare the artifact.</p>
+<h3 id="artifacts"><a class="doc-anchor" href="#artifacts">§</a>Artifacts</h3>
+<p>An artifact is the final product of preparation. If the preparation succeeded, then the artifact
+will contain the compiled code usable for quick execution by a worker later on. If the
+preparation failed, then no artifact is created.</p>
+<p>The artifact is saved on disk and is also tracked by an in memory table. This in memory table
+doesn’t contain the artifact contents though, only a flag for the state of the given artifact
+and some associated data. If the artifact failed to process, this also includes the error.</p>
+<p>A pruning task will run at a fixed interval of time. This task will remove all artifacts that
+weren’t used or received a heads up signal for a while.</p>
+<h3 id="execution"><a class="doc-anchor" href="#execution">§</a>Execution</h3>
+<p>The execute workers will be fed by the requests from the execution queue, which is basically a
+combination of a path to the compiled artifact and the
+<a href="../polkadot_parachain_primitives/primitives/struct.ValidationParams.html" title="struct polkadot_parachain_primitives::primitives::ValidationParams"><code>params</code></a>.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="testing/index.html" title="mod polkadot_node_core_pvf::testing">testing</a></dt><dd>Various utilities for testing.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Config.html" title="struct polkadot_node_core_pvf::Config">Config</a></dt><dd>Configuration for the validation host.</dd><dt><a class="struct" href="struct.Metrics.html" title="struct polkadot_node_core_pvf::Metrics">Metrics</a></dt><dd>Validation host metrics.</dd><dt><a class="struct" href="struct.PrepareStats.html" title="struct polkadot_node_core_pvf::PrepareStats">Prepare<wbr>Stats</a></dt><dd>Preparation statistics, including the CPU time and memory taken.</dd><dt><a class="struct" href="struct.PvfPrepData.html" title="struct polkadot_node_core_pvf::PvfPrepData">PvfPrep<wbr>Data</a></dt><dd>A struct that carries the exhaustive set of data to prepare an artifact out of plain
+Wasm binary</dd><dt><a class="struct" href="struct.SecurityStatus.html" title="struct polkadot_node_core_pvf::SecurityStatus">Security<wbr>Status</a></dt><dd>Status of security features on the current system.</dd><dt><a class="struct" href="struct.ValidationHost.html" title="struct polkadot_node_core_pvf::ValidationHost">Validation<wbr>Host</a></dt><dd>A handle to the async process serving the validation host requests.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.InternalValidationError.html" title="enum polkadot_node_core_pvf::InternalValidationError">Internal<wbr>Validation<wbr>Error</a></dt><dd>Some internal error occurred.</dd><dt><a class="enum" href="enum.InvalidCandidate.html" title="enum polkadot_node_core_pvf::InvalidCandidate">Invalid<wbr>Candidate</a></dt><dd>A description of an error raised during executing a PVF and can be attributed to the combination
+of the candidate <a href="../polkadot_parachain_primitives/primitives/struct.ValidationParams.html" title="struct polkadot_parachain_primitives::primitives::ValidationParams"><code>polkadot_parachain_primitives::primitives::ValidationParams</code></a> and the PVF.</dd><dt><a class="enum" href="enum.PossiblyInvalidError.html" title="enum polkadot_node_core_pvf::PossiblyInvalidError">Possibly<wbr>Invalid<wbr>Error</a></dt><dd>Possibly transient issue that may resolve after retries.</dd><dt><a class="enum" href="enum.PrepareError.html" title="enum polkadot_node_core_pvf::PrepareError">Prepare<wbr>Error</a></dt><dd>An error that occurred during the prepare part of the PVF pipeline.</dd><dt><a class="enum" href="enum.PrepareJobKind.html" title="enum polkadot_node_core_pvf::PrepareJobKind">Prepare<wbr>JobKind</a></dt><dd>The kind of prepare job.</dd><dt><a class="enum" href="enum.Priority.html" title="enum polkadot_node_core_pvf::Priority">Priority</a></dt><dd>A priority assigned to preparation of a PVF.</dd><dt><a class="enum" href="enum.ValidationError.html" title="enum polkadot_node_core_pvf::ValidationError">Validation<wbr>Error</a></dt><dd>A error raised during validation of the candidate.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.EXECUTE_BINARY_NAME.html" title="constant polkadot_node_core_pvf::EXECUTE_BINARY_NAME">EXECUTE_<wbr>BINARY_<wbr>NAME</a></dt><dd>The name of binary spawned to execute a PVF</dd><dt><a class="constant" href="constant.HOST_MESSAGE_QUEUE_SIZE.html" title="constant polkadot_node_core_pvf::HOST_MESSAGE_QUEUE_SIZE">HOST_<wbr>MESSAGE_<wbr>QUEUE_<wbr>SIZE</a></dt><dd>The size of incoming message queue</dd><dt><a class="constant" href="constant.JOB_TIMEOUT_WALL_CLOCK_FACTOR.html" title="constant polkadot_node_core_pvf::JOB_TIMEOUT_WALL_CLOCK_FACTOR">JOB_<wbr>TIMEOUT_<wbr>WALL_<wbr>CLOCK_<wbr>FACTOR</a></dt><dd>A multiple of the job timeout (in CPU time) for which we are willing to wait on the host (in
+wall clock time). This is lenient because CPU time may go slower than wall clock time.</dd><dt><a class="constant" href="constant.LOG_TARGET.html" title="constant polkadot_node_core_pvf::LOG_TARGET">LOG_<wbr>TARGET</a></dt><dd>The log target for this crate.</dd><dt><a class="constant" href="constant.PREPARE_BINARY_NAME.html" title="constant polkadot_node_core_pvf::PREPARE_BINARY_NAME">PREPARE_<wbr>BINARY_<wbr>NAME</a></dt><dd>The name of binary spawned to prepare a PVF artifact</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.framed_recv.html" title="fn polkadot_node_core_pvf::framed_recv">framed_<wbr>recv</a></dt><dd>Read some data prefixed by its length from <code>r</code>.</dd><dt><a class="fn" href="fn.framed_send.html" title="fn polkadot_node_core_pvf::framed_send">framed_<wbr>send</a></dt><dd>Write some data prefixed by its length into <code>w</code>.</dd><dt><a class="fn" href="fn.get_worker_version.html" title="fn polkadot_node_core_pvf::get_worker_version">get_<wbr>worker_<wbr>version</a></dt><dd>Utility to get the version of a worker, used for version checks.</dd><dt><a class="fn" href="fn.start.html" title="fn polkadot_node_core_pvf::start">start</a></dt><dd>Start the validation host.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

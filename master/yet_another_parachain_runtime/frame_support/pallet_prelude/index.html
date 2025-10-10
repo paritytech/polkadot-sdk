@@ -1,0 +1,220 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Prelude to be used alongside pallet macro, for ease of use."><title>yet_another_parachain_runtime::frame_support::pallet_prelude - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module pallet_<wbr>prelude</a></h2><h3><a href="#macros">Module Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">frame_support</a></div><h1>Module <span>pallet_prelude</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/frame_support/lib.rs.html#417">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Prelude to be used alongside pallet macro, for ease of use.</p>
+</div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.defensive.html" title="macro yet_another_parachain_runtime::frame_support::pallet_prelude::defensive">defensive</a></dt><dd>Generic function to mark an execution path as ONLY defensive.</dd><dt><a class="macro" href="macro.defensive_assert.html" title="macro yet_another_parachain_runtime::frame_support::pallet_prelude::defensive_assert">defensive_<wbr>assert</a></dt><dd>Trigger a defensive failure if a condition is not met.</dd><dt><a class="macro" href="macro.ensure.html" title="macro yet_another_parachain_runtime::frame_support::pallet_prelude::ensure">ensure</a></dt><dd>Evaluate <code>$x:expr</code> and if not true return <code>Err($y:expr)</code>.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Blake2_128.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::Blake2_128">Blake2_<wbr>128</a></dt><dd>Hash storage keys with blake2 128</dd><dt><a class="struct" href="struct.Blake2_256.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::Blake2_256">Blake2_<wbr>256</a></dt><dd>Hash storage keys with blake2 256</dd><dt><a class="struct" href="struct.Blake2_128Concat.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::Blake2_128Concat">Blake2_<wbr>128Concat</a></dt><dd>Hash storage keys with <code>concat(blake2_128(key), key)</code></dd><dt><a class="struct" href="struct.BoundedBTreeMap.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::BoundedBTreeMap">BoundedB<wbr>Tree<wbr>Map</a></dt><dd>A bounded map based on a B-Tree.</dd><dt><a class="struct" href="struct.BoundedBTreeSet.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::BoundedBTreeSet">BoundedB<wbr>Tree<wbr>Set</a></dt><dd>A bounded set based on a B-Tree.</dd><dt><a class="struct" href="struct.BoundedVec.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::BoundedVec">Bounded<wbr>Vec</a></dt><dd>A bounded vector.</dd><dt><a class="struct" href="struct.ConstU32.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::ConstU32">Const<wbr>U32</a></dt><dd>Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstUint.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::ConstUint">Const<wbr>Uint</a></dt><dd>Const getter for unsigned integers.</dd><dt><a class="struct" href="struct.CountedStorageMap.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::CountedStorageMap">Counted<wbr>Storage<wbr>Map</a></dt><dd>A wrapper around a <a href="struct.StorageMap.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageMap"><code>StorageMap</code></a> and a <a href="struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue"><code>StorageValue</code></a> (with the value being <code>u32</code>) to keep
+track of how many items are in a map, without needing to iterate all the values.</dd><dt><a class="struct" href="struct.CountedStorageNMap.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::CountedStorageNMap">Counted<wbr>StorageN<wbr>Map</a></dt><dd>A wrapper around a <a href="struct.StorageNMap.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageNMap"><code>StorageNMap</code></a> and a <a href="struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue"><code>StorageValue</code></a> (with the value being <code>u32</code>) to keep
+track of how many items are in a map, without needing to iterate all the values.</dd><dt><a class="struct" href="struct.GetDefault.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::GetDefault">GetDefault</a></dt><dd>Implement Get by returning Default for any type that implements Default.</dd><dt><a class="struct" href="struct.Identity.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::Identity">Identity</a></dt><dd>Store the key directly.</dd><dt><a class="struct" href="struct.InherentData.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::InherentData">Inherent<wbr>Data</a></dt><dd>Inherent data to include in a block.</dd><dt><a class="struct" href="struct.MakeFatalError.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::MakeFatalError">Make<wbr>Fatal<wbr>Error</a></dt><dd>Auxiliary to make any given error resolve to <code>is_fatal_error() == true</code> for <a href="../inherent/trait.IsFatalError.html" title="trait yet_another_parachain_runtime::frame_support::inherent::IsFatalError"><code>IsFatalError</code></a>.</dd><dt><a class="struct" href="struct.NMapKey.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::NMapKey">NMapKey</a></dt><dd>A type used exclusively by storage maps as their key type.</dd><dt><a class="struct" href="struct.OptionQuery.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::OptionQuery">Option<wbr>Query</a></dt><dd>Implements <a href="../../../frame_support/storage/types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait"><code>QueryKindTrait</code></a> with <code>Query</code> type being <code>Option&lt;_&gt;</code>.</dd><dt><a class="struct" href="struct.PhantomData.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::PhantomData">Phantom<wbr>Data</a></dt><dd>Zero-sized type used to mark things that “act like” they own a <code>T</code>.</dd><dt><a class="struct" href="struct.ResultQuery.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::ResultQuery">Result<wbr>Query</a></dt><dd>Implements <a href="../../../frame_support/storage/types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait"><code>QueryKindTrait</code></a> with <code>Query</code> type being <code>Result&lt;Value, PalletError&gt;</code>.</dd><dt><a class="struct" href="struct.StorageDoubleMap.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageDoubleMap">Storage<wbr>Double<wbr>Map</a></dt><dd>A type representing a <em>double map</em> in storage. This structure associates a pair of keys with a
+value of a specified type stored on-chain.</dd><dt><a class="struct" href="struct.StorageMap.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageMap">Storage<wbr>Map</a></dt><dd>A type representing a <em>map</em> in storage. A <em>storage map</em> is a mapping of keys to values of a
+given type stored on-chain.</dd><dt><a class="struct" href="struct.StorageNMap.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageNMap">StorageN<wbr>Map</a></dt><dd>A type representing an <em>NMap</em> in storage. This structure associates an arbitrary number of keys
+with a value of a specified type stored on-chain.</dd><dt><a class="struct" href="struct.StorageValue.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageValue">Storage<wbr>Value</a></dt><dd>A type representing a <em>value</em> in storage. A <em>storage value</em> is a single value of a given type
+stored on-chain.</dd><dt><a class="struct" href="struct.StorageVersion.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::StorageVersion">Storage<wbr>Version</a></dt><dd>The storage version of a pallet.</dd><dt><a class="struct" href="struct.Twox64Concat.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::Twox64Concat">Twox64<wbr>Concat</a></dt><dd>Hash storage keys with <code>concat(twox64(key), key)</code></dd><dt><a class="struct" href="struct.Twox128.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::Twox128">Twox128</a></dt><dd>Hash storage keys with twox 128</dd><dt><a class="struct" href="struct.Twox256.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::Twox256">Twox256</a></dt><dd>Hash storage keys with twox 256</dd><dt><a class="struct" href="struct.ValidTransaction.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::ValidTransaction">Valid<wbr>Transaction</a></dt><dd>Information concerning a valid transaction.</dd><dt><a class="struct" href="struct.ValueQuery.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::ValueQuery">Value<wbr>Query</a></dt><dd>Implements <a href="../../../frame_support/storage/types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait"><code>QueryKindTrait</code></a> with <code>Query</code> type being <code>Value</code>.</dd><dt><a class="struct" href="struct.WeakBoundedVec.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::WeakBoundedVec">Weak<wbr>Bounded<wbr>Vec</a></dt><dd>A weakly bounded vector.</dd><dt><a class="struct" href="struct.Weight.html" title="struct yet_another_parachain_runtime::frame_support::pallet_prelude::Weight">Weight</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.DispatchClass.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchClass">Dispatch<wbr>Class</a></dt><dd>A generalized group of dispatch types.</dd><dt><a class="enum" href="enum.DispatchError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchError">Dispatch<wbr>Error</a></dt><dd>Reason why a dispatch call failed.</dd><dt><a class="enum" href="enum.InvalidTransaction.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::InvalidTransaction">Invalid<wbr>Transaction</a></dt><dd>An invalid transaction validity.</dd><dt><a class="enum" href="enum.Pays.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::Pays">Pays</a></dt><dd>Explicit enum to denote if a transaction pays fee or not.</dd><dt><a class="enum" href="enum.TransactionSource.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::TransactionSource">Transaction<wbr>Source</a></dt><dd>The source of the transaction.</dd><dt><a class="enum" href="enum.TransactionValidityError.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::TransactionValidityError">Transaction<wbr>Validity<wbr>Error</a></dt><dd>Errors that can occur while checking the validity of a transaction.</dd><dt><a class="enum" href="enum.UnknownTransaction.html" title="enum yet_another_parachain_runtime::frame_support::pallet_prelude::UnknownTransaction">Unknown<wbr>Transaction</a></dt><dd>An unknown transaction validity.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.MAX_MODULE_ERROR_ENCODED_SIZE.html" title="constant yet_another_parachain_runtime::frame_support::pallet_prelude::MAX_MODULE_ERROR_ENCODED_SIZE">MAX_<wbr>MODULE_<wbr>ERROR_<wbr>ENCODED_<wbr>SIZE</a></dt><dd>The number of bytes of the module-specific <code>error</code> field defined in <a href="../sp_runtime/struct.ModuleError.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::ModuleError"><code>ModuleError</code></a>.
+In FRAME, this is the maximum encoded size of a pallet error type.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Authorize.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Authorize">Authorize</a></dt><dd>A trait to allow calls to authorize themselves from the origin <code>None</code>.</dd><dt><a class="trait" href="trait.BuildGenesisConfig.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::BuildGenesisConfig">Build<wbr>Genesis<wbr>Config</a></dt><dd>A trait to define the build function of a genesis config for both runtime and pallets.</dd><dt><a class="trait" href="trait.CheckedAdd.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::CheckedAdd">Checked<wbr>Add</a></dt><dd>Performs addition that returns <code>None</code> instead of wrapping around on
+overflow.</dd><dt><a class="trait" href="trait.CheckedConversion.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::CheckedConversion">Checked<wbr>Conversion</a></dt><dd>Convenience type to work around the highly unergonomic syntax needed
+to invoke the functions of overloaded generic traits, in this case
+<code>TryFrom</code> and <code>TryInto</code>.</dd><dt><a class="trait" href="trait.CheckedDiv.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::CheckedDiv">Checked<wbr>Div</a></dt><dd>Performs division that returns <code>None</code> instead of panicking on division by zero and instead of
+wrapping around on underflow and overflow.</dd><dt><a class="trait" href="trait.CheckedMul.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::CheckedMul">Checked<wbr>Mul</a></dt><dd>Performs multiplication that returns <code>None</code> instead of wrapping around on underflow or
+overflow.</dd><dt><a class="trait" href="trait.CheckedShl.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::CheckedShl">Checked<wbr>Shl</a></dt><dd>Performs a left shift that returns <code>None</code> on shifts larger than
+or equal to the type width.</dd><dt><a class="trait" href="trait.CheckedShr.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::CheckedShr">Checked<wbr>Shr</a></dt><dd>Performs a right shift that returns <code>None</code> on shifts larger than
+or equal to the type width.</dd><dt><a class="trait" href="trait.CheckedSub.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::CheckedSub">Checked<wbr>Sub</a></dt><dd>Performs subtraction that returns <code>None</code> instead of wrapping around on underflow.</dd><dt><a class="trait" href="trait.Decode.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Decode">Decode</a></dt><dd>Trait that allows zero-copy read of value-references from slices in LE format.</dd><dt><a class="trait" href="trait.DecodeWithMemTracking.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::DecodeWithMemTracking">Decode<wbr>With<wbr>MemTracking</a></dt><dd>Marker trait used for identifying types that call the [<code>Input::on_before_alloc_mem</code>] hook
+while decoding.</dd><dt><a class="trait" href="trait.Encode.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Encode">Encode</a></dt><dd>Trait that allows zero-copy write of value-references to slices in LE format.</dd><dt><a class="trait" href="trait.EnsureOrigin.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::EnsureOrigin">Ensure<wbr>Origin</a></dt><dd>Some sort of check on the origin is performed by this object.</dd><dt><a class="trait" href="trait.Get.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Get">Get</a></dt><dd>A trait for querying a single value from a type.</dd><dt><a class="trait" href="trait.GetStorageVersion.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::GetStorageVersion">GetStorage<wbr>Version</a></dt><dd>Provides information about a pallet’s storage versions.</dd><dt><a class="trait" href="trait.Hooks.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Hooks">Hooks</a></dt><dd>The pallet hooks trait. This is merely an umbrella trait for:</dd><dt><a class="trait" href="trait.IsType.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::IsType">IsType</a></dt><dd>Trait to be used when types are exactly same.</dd><dt><a class="trait" href="trait.MaxEncodedLen.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::MaxEncodedLen">MaxEncoded<wbr>Len</a></dt><dd>Items implementing <code>MaxEncodedLen</code> have a statically known maximum encoded size.</dd><dt><a class="trait" href="trait.MaybeSerializeDeserialize.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::MaybeSerializeDeserialize">Maybe<wbr>Serialize<wbr>Deserialize</a></dt><dd>A type that implements Serialize, DeserializeOwned and Debug when in std environment or serde feature is activated.</dd><dt><a class="trait" href="trait.Member.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Member">Member</a></dt><dd>A type that can be used in runtime structures.</dd><dt><a class="trait" href="trait.One.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::One">One</a></dt><dd>Defines a multiplicative identity element for <code>Self</code>.</dd><dt><a class="trait" href="trait.OriginTrait.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::OriginTrait">Origin<wbr>Trait</a></dt><dd>Methods available on <code>frame_system::Config::RuntimeOrigin</code>.</dd><dt><a class="trait" href="trait.PalletInfoAccess.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::PalletInfoAccess">Pallet<wbr>Info<wbr>Access</a></dt><dd>Provides information about the pallet itself and its setup in the runtime.</dd><dt><a class="trait" href="trait.Parameter.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Parameter">Parameter</a></dt><dd>A type that can be used as a parameter in a dispatchable function.</dd><dt><a class="trait" href="trait.ProvideInherent.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::ProvideInherent">Provide<wbr>Inherent</a></dt><dd>A pallet that provides or verifies an inherent extrinsic will implement this trait.</dd><dt><a class="trait" href="trait.StorageInfoTrait.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::StorageInfoTrait">Storage<wbr>Info<wbr>Trait</a></dt><dd>A trait to give information about storage.</dd><dt><a class="trait" href="trait.StorageList.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::StorageList">Storage<wbr>List</a></dt><dd>A non-continuous container type.</dd><dt><a class="trait" href="trait.Task.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Task">Task</a></dt><dd>A general-purpose trait which defines a type of service work (i.e., work to performed by an
+off-chain worker) including methods for enumerating, validating, indexing, and running
+tasks of this type.</dd><dt><a class="trait" href="trait.TypeInfo.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::TypeInfo">Type<wbr>Info</a></dt><dd>Implementors return their meta type information.</dd><dt><a class="trait" href="trait.TypedGet.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::TypedGet">Typed<wbr>Get</a></dt><dd>A trait for querying a single value from a type defined in the trait.</dd><dt><a class="trait" href="trait.ValidateUnsigned.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::ValidateUnsigned">Validate<wbr>Unsigned</a></dt><dd>Provide validation for unsigned extrinsics.</dd><dt><a class="trait" href="trait.Zero.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::Zero">Zero</a></dt><dd>Defines an additive identity element for <code>Self</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.DispatchResult.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchResult">Dispatch<wbr>Result</a></dt><dd>Un-augmented version of <code>DispatchResultWithPostInfo</code> that can be returned from
+dispatchable functions and is automatically converted to the augmented type. Should be
+used whenever the <code>PostDispatchInfo</code> does not need to be overwritten. As this should
+be the common case it is the implicit return type when none is specified.</dd><dt><a class="type" href="type.DispatchResultWithPostInfo.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::DispatchResultWithPostInfo">Dispatch<wbr>Result<wbr>With<wbr>Post<wbr>Info</a></dt><dd>The return type of a <code>Dispatchable</code> in frame. When returned explicitly from
+a dispatchable function it allows overriding the default <code>PostDispatchInfo</code>
+returned from a dispatch.</dd><dt><a class="type" href="type.InherentIdentifier.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::InherentIdentifier">Inherent<wbr>Identifier</a></dt><dd>An identifier for an inherent.</dd><dt><a class="type" href="type.TransactionLongevity.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::TransactionLongevity">Transaction<wbr>Longevity</a></dt><dd>Minimum number of blocks a transaction will remain valid for.
+<code>TransactionLongevity::max_value()</code> means “forever”.</dd><dt><a class="type" href="type.TransactionPriority.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::TransactionPriority">Transaction<wbr>Priority</a></dt><dd>Priority for a transaction. Additive. Higher is better.</dd><dt><a class="type" href="type.TransactionTag.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::TransactionTag">Transaction<wbr>Tag</a></dt><dd>Tag for a transaction. No two transactions with the same tag should be placed on-chain.</dd><dt><a class="type" href="type.TransactionValidity.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::TransactionValidity">Transaction<wbr>Validity</a></dt><dd>Information on a transaction’s validity and, if valid, on how it relates to other transactions.</dd><dt><a class="type" href="type.TransactionValidityWithRefund.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::TransactionValidityWithRefund">Transaction<wbr>Validity<wbr>With<wbr>Refund</a></dt><dd>Information on a transaction’s validity and, if valid, on how it relates to other transactions
+and some refund for the operation.</dd><dt><a class="type" href="type.ValidateResult.html" title="type yet_another_parachain_runtime::frame_support::pallet_prelude::ValidateResult">Validate<wbr>Result</a></dt><dd>Shortcut for the result value of the <code>validate</code> function.</dd></dl><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><dl class="item-table"><dt><a class="attr" href="attr.authorize.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::authorize">authorize</a></dt><dd>Allows to authorize some general transactions with specific dispatchable functions
+(dispatchable functions a.k.a. calls).</dd><dt><a class="attr" href="attr.call.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::call">call</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.call_index.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::call_index">call_<wbr>index</a></dt><dd>Each dispatchable may also be annotated with the <code>#[pallet::call_index($idx)]</code> attribute,
+which explicitly defines the codec index for the dispatchable function in the <code>Call</code> enum.</dd><dt><a class="attr" href="attr.compact.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::compact">compact</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.composite_enum.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::composite_enum">composite_<wbr>enum</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.config.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::config">config</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.constant.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::constant">constant</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.disable_frame_system_supertrait_check.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::disable_frame_system_supertrait_check">disable_<wbr>frame_<wbr>system_<wbr>supertrait_<wbr>check</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.disable_try_decode_storage.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::disable_try_decode_storage">disable_<wbr>try_<wbr>decode_<wbr>storage</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.error.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::error">error</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.event.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::event">event</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.extra_constants.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::extra_constants">extra_<wbr>constants</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.feeless_if.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::feeless_if">feeless_<wbr>if</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.generate_deposit.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::generate_deposit">generate_<wbr>deposit</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.genesis_build.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::genesis_build">genesis_<wbr>build</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.genesis_config.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::genesis_config">genesis_<wbr>config</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.getter.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::getter">getter</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.hooks.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::hooks">hooks</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.import_section.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::import_section">import_<wbr>section</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.include_metadata.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::include_metadata">include_<wbr>metadata</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.inherent.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::inherent">inherent</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.inject_runtime_type.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::inject_runtime_type">inject_<wbr>runtime_<wbr>type</a></dt><dd>The optional attribute <code>#[inject_runtime_type]</code> can be attached to <code>RuntimeCall</code>,
+<code>RuntimeEvent</code>, <code>RuntimeOrigin</code> or <code>PalletInfo</code> in an impl statement that has
+<code>#[register_default_impl]</code> attached to indicate that this item is generated by
+<code>construct_runtime</code>.</dd><dt><a class="attr" href="attr.no_default.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::no_default">no_<wbr>default</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.no_default_bounds.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::no_default_bounds">no_<wbr>default_<wbr>bounds</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.origin.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::origin">origin</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.pallet_section.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::pallet_section">pallet_<wbr>section</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.register_default_impl.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::register_default_impl">register_<wbr>default_<wbr>impl</a></dt><dd>Attach this attribute to an impl statement that you want to use with
+<a href="../../attr.derive_impl.html" title="attr yet_another_parachain_runtime::derive_impl"><code>#[derive_impl(..)]</code></a>.</dd><dt><a class="attr" href="attr.storage.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::storage">storage</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.storage_prefix.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::storage_prefix">storage_<wbr>prefix</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.storage_version.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::storage_version">storage_<wbr>version</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.task_condition.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::task_condition">task_<wbr>condition</a></dt><dd>Allows defining conditions for a task to run.</dd><dt><a class="attr" href="attr.task_index.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::task_index">task_<wbr>index</a></dt><dd>Allows defining an index for a task.</dd><dt><a class="attr" href="attr.task_list.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::task_list">task_<wbr>list</a></dt><dd>Allows defining an iterator over available work items for a task.</dd><dt><a class="attr" href="attr.task_weight.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::task_weight">task_<wbr>weight</a></dt><dd>Allows defining the weight of a task.</dd><dt><a class="attr" href="attr.tasks_experimental.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::tasks_experimental">tasks_<wbr>experimental</a></dt><dd>Allows you to define some service work that can be recognized by a script or an
+off-chain worker.</dd><dt><a class="attr" href="attr.type_value.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::type_value">type_<wbr>value</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.unbounded.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::unbounded">unbounded</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.validate_unsigned.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::validate_unsigned">validate_<wbr>unsigned</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.view_functions.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::view_functions">view_<wbr>functions</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.weight.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::weight">weight</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.weight_of_authorize.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::weight_of_authorize">weight_<wbr>of_<wbr>authorize</a></dt><dd>Allows to define the weight of the authorize function.</dd><dt><a class="attr" href="attr.whitelist_storage.html" title="attr yet_another_parachain_runtime::frame_support::pallet_prelude::whitelist_storage">whitelist_<wbr>storage</a></dt><dd><hr />
+</dd></dl><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><dl class="item-table"><dt><a class="derive" href="derive.CloneNoBound.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::CloneNoBound">Clone<wbr>NoBound</a></dt><dd>Derive [<code>Clone</code>] but do not bound any generic.</dd><dt><a class="derive" href="derive.DebugNoBound.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::DebugNoBound">Debug<wbr>NoBound</a></dt><dd>Derive [<code>Debug</code>] but do not bound any generics.</dd><dt><a class="derive" href="derive.Decode.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::Decode">Decode</a></dt><dd>Derive <code>parity_scale_codec::Decode</code> for struct and enum.</dd><dt><a class="derive" href="derive.DecodeWithMemTracking.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::DecodeWithMemTracking">Decode<wbr>With<wbr>MemTracking</a></dt><dd>Derive <code>parity_scale_codec::DecodeWithMemTracking</code> for struct and enum.</dd><dt><a class="derive" href="derive.Encode.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::Encode">Encode</a></dt><dd>Derive <code>parity_scale_codec::Encode</code> and <code>parity_scale_codec::EncodeLike</code> for struct and enum.</dd><dt><a class="derive" href="derive.EqNoBound.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::EqNoBound">EqNo<wbr>Bound</a></dt><dd>DeriveEq but do no bound any generic.</dd><dt><a class="derive" href="derive.MaxEncodedLen.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::MaxEncodedLen">MaxEncoded<wbr>Len</a></dt><dd>Derive <code>parity_scale_codec::MaxEncodedLen</code> for struct and enum.</dd><dt><a class="derive" href="derive.PartialEqNoBound.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::PartialEqNoBound">Partial<wbr>EqNo<wbr>Bound</a></dt><dd>Derive [<code>PartialEq</code>] but do not bound any generic.</dd><dt><a class="derive" href="derive.RuntimeDebug.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::RuntimeDebug">Runtime<wbr>Debug</a></dt><dt><a class="derive" href="derive.RuntimeDebugNoBound.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::RuntimeDebugNoBound">Runtime<wbr>Debug<wbr>NoBound</a></dt><dd>Derive [<code>Debug</code>], if <code>std</code> is enabled it uses <code>frame_support::DebugNoBound</code>, if <code>std</code> is not
+enabled it just returns <code>"&lt;wasm:stripped&gt;"</code>.
+This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.</dd><dt><a class="derive" href="derive.TypeInfo.html" title="derive yet_another_parachain_runtime::frame_support::pallet_prelude::TypeInfo">Type<wbr>Info</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

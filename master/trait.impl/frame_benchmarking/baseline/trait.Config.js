@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["kitchensink_runtime",[["impl <a class=\"trait\" href=\"frame_benchmarking/baseline/trait.Config.html\" title=\"trait frame_benchmarking::baseline::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]]],["rococo_runtime",[["impl <a class=\"trait\" href=\"frame_benchmarking/baseline/trait.Config.html\" title=\"trait frame_benchmarking::baseline::Config\">Config</a> for <a class=\"struct\" href=\"rococo_runtime/struct.Runtime.html\" title=\"struct rococo_runtime::Runtime\">Runtime</a>"]]],["solochain_template_runtime",[["impl <a class=\"trait\" href=\"frame_benchmarking/baseline/trait.Config.html\" title=\"trait frame_benchmarking::baseline::Config\">Config</a> for <a class=\"struct\" href=\"solochain_template_runtime/struct.Runtime.html\" title=\"struct solochain_template_runtime::Runtime\">Runtime</a>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[303,289,325,37]}

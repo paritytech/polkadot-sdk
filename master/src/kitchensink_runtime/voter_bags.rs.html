@@ -1,0 +1,391 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/runtime/src/voter_bags.rs`."><title>voter_bags.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="kitchensink_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">kitchensink_runtime/</div>voter_bags.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: Apache-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// Licensed under the Apache License, Version 2.0 (the "License");
+<a href=#7 id=7 data-nosnippet>7</a>// you may not use this file except in compliance with the License.
+<a href=#8 id=8 data-nosnippet>8</a>// You may obtain a copy of the License at
+<a href=#9 id=9 data-nosnippet>9</a>//
+<a href=#10 id=10 data-nosnippet>10</a>// 	http://www.apache.org/licenses/LICENSE-2.0
+<a href=#11 id=11 data-nosnippet>11</a>//
+<a href=#12 id=12 data-nosnippet>12</a>// Unless required by applicable law or agreed to in writing, software
+<a href=#13 id=13 data-nosnippet>13</a>// distributed under the License is distributed on an "AS IS" BASIS,
+<a href=#14 id=14 data-nosnippet>14</a>// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<a href=#15 id=15 data-nosnippet>15</a>// See the License for the specific language governing permissions and
+<a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
+<a href=#17 id=17 data-nosnippet>17</a>
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="doccomment">//! Autogenerated bag thresholds.
+<a href=#19 id=19 data-nosnippet>19</a>//!
+<a href=#20 id=20 data-nosnippet>20</a>//! Generated on 2022-08-15T19:26:59.939787+00:00
+<a href=#21 id=21 data-nosnippet>21</a>//! Arguments
+<a href=#22 id=22 data-nosnippet>22</a>//! Total issuance: 100000000000000
+<a href=#23 id=23 data-nosnippet>23</a>//! Minimum balance: 100000000000000
+<a href=#24 id=24 data-nosnippet>24</a>//! for the node runtime.
+<a href=#25 id=25 data-nosnippet>25</a>
+<a href=#26 id=26 data-nosnippet>26</a>/// Existential weight for this runtime.
+<a href=#27 id=27 data-nosnippet>27</a></span><span class="attr">#[cfg(any(test, feature = <span class="string">"std"</span>))]
+<a href=#28 id=28 data-nosnippet>28</a>#[allow(unused)]
+<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">pub const </span>EXISTENTIAL_WEIGHT: u64 = <span class="number">100_000_000_000_000</span>;
+<a href=#30 id=30 data-nosnippet>30</a>
+<a href=#31 id=31 data-nosnippet>31</a><span class="doccomment">/// Constant ratio between bags for this runtime.
+<a href=#32 id=32 data-nosnippet>32</a></span><span class="attr">#[cfg(any(test, feature = <span class="string">"std"</span>))]
+<a href=#33 id=33 data-nosnippet>33</a>#[allow(unused)]
+<a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">pub const </span>CONSTANT_RATIO: f64 = <span class="number">1.0628253590743408</span>;
+<a href=#35 id=35 data-nosnippet>35</a>
+<a href=#36 id=36 data-nosnippet>36</a><span class="doccomment">/// Upper thresholds delimiting the bag list.
+<a href=#37 id=37 data-nosnippet>37</a></span><span class="kw">pub const </span>THRESHOLDS: [u64; <span class="number">200</span>] = [
+<a href=#38 id=38 data-nosnippet>38</a>	<span class="number">100_000_000_000_000</span>,
+<a href=#39 id=39 data-nosnippet>39</a>	<span class="number">106_282_535_907_434</span>,
+<a href=#40 id=40 data-nosnippet>40</a>	<span class="number">112_959_774_389_150</span>,
+<a href=#41 id=41 data-nosnippet>41</a>	<span class="number">120_056_512_776_105</span>,
+<a href=#42 id=42 data-nosnippet>42</a>	<span class="number">127_599_106_300_477</span>,
+<a href=#43 id=43 data-nosnippet>43</a>	<span class="number">135_615_565_971_369</span>,
+<a href=#44 id=44 data-nosnippet>44</a>	<span class="number">144_135_662_599_590</span>,
+<a href=#45 id=45 data-nosnippet>45</a>	<span class="number">153_191_037_357_827</span>,
+<a href=#46 id=46 data-nosnippet>46</a>	<span class="number">162_815_319_286_803</span>,
+<a href=#47 id=47 data-nosnippet>47</a>	<span class="number">173_044_250_183_800</span>,
+<a href=#48 id=48 data-nosnippet>48</a>	<span class="number">183_915_817_337_347</span>,
+<a href=#49 id=49 data-nosnippet>49</a>	<span class="number">195_470_394_601_017</span>,
+<a href=#50 id=50 data-nosnippet>50</a>	<span class="number">207_750_892_330_229</span>,
+<a href=#51 id=51 data-nosnippet>51</a>	<span class="number">220_802_916_738_890</span>,
+<a href=#52 id=52 data-nosnippet>52</a>	<span class="number">234_674_939_267_673</span>,
+<a href=#53 id=53 data-nosnippet>53</a>	<span class="number">249_418_476_592_914</span>,
+<a href=#54 id=54 data-nosnippet>54</a>	<span class="number">265_088_281_944_639</span>,
+<a href=#55 id=55 data-nosnippet>55</a>	<span class="number">281_742_548_444_211</span>,
+<a href=#56 id=56 data-nosnippet>56</a>	<span class="number">299_443_125_216_738</span>,
+<a href=#57 id=57 data-nosnippet>57</a>	<span class="number">318_255_747_080_822</span>,
+<a href=#58 id=58 data-nosnippet>58</a>	<span class="number">338_250_278_668_647</span>,
+<a href=#59 id=59 data-nosnippet>59</a>	<span class="number">359_500_973_883_001</span>,
+<a href=#60 id=60 data-nosnippet>60</a>	<span class="number">382_086_751_654_776</span>,
+<a href=#61 id=61 data-nosnippet>61</a>	<span class="number">406_091_489_025_036</span>,
+<a href=#62 id=62 data-nosnippet>62</a>	<span class="number">431_604_332_640_068</span>,
+<a href=#63 id=63 data-nosnippet>63</a>	<span class="number">458_720_029_816_222</span>,
+<a href=#64 id=64 data-nosnippet>64</a>	<span class="number">487_539_280_404_019</span>,
+<a href=#65 id=65 data-nosnippet>65</a>	<span class="number">518_169_110_758_247</span>,
+<a href=#66 id=66 data-nosnippet>66</a>	<span class="number">550_723_271_202_866</span>,
+<a href=#67 id=67 data-nosnippet>67</a>	<span class="number">585_322_658_466_782</span>,
+<a href=#68 id=68 data-nosnippet>68</a>	<span class="number">622_095_764_659_305</span>,
+<a href=#69 id=69 data-nosnippet>69</a>	<span class="number">661_179_154_452_653</span>,
+<a href=#70 id=70 data-nosnippet>70</a>	<span class="number">702_717_972_243_610</span>,
+<a href=#71 id=71 data-nosnippet>71</a>	<span class="number">746_866_481_177_808</span>,
+<a href=#72 id=72 data-nosnippet>72</a>	<span class="number">793_788_636_038_393</span>,
+<a href=#73 id=73 data-nosnippet>73</a>	<span class="number">843_658_692_126_636</span>,
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="number">896_661_852_395_681</span>,
+<a href=#75 id=75 data-nosnippet>75</a>	<span class="number">952_994_955_240_703</span>,
+<a href=#76 id=76 data-nosnippet>76</a>	<span class="number">1_012_867_205_499_736</span>,
+<a href=#77 id=77 data-nosnippet>77</a>	<span class="number">1_076_500_951_379_881</span>,
+<a href=#78 id=78 data-nosnippet>78</a>	<span class="number">1_144_132_510_194_192</span>,
+<a href=#79 id=79 data-nosnippet>79</a>	<span class="number">1_216_013_045_975_769</span>,
+<a href=#80 id=80 data-nosnippet>80</a>	<span class="number">1_292_409_502_228_280</span>,
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="number">1_373_605_593_276_862</span>,
+<a href=#82 id=82 data-nosnippet>82</a>	<span class="number">1_459_902_857_901_004</span>,
+<a href=#83 id=83 data-nosnippet>83</a>	<span class="number">1_551_621_779_162_291</span>,
+<a href=#84 id=84 data-nosnippet>84</a>	<span class="number">1_649_102_974_585_730</span>,
+<a href=#85 id=85 data-nosnippet>85</a>	<span class="number">1_752_708_461_114_642</span>,
+<a href=#86 id=86 data-nosnippet>86</a>	<span class="number">1_862_822_999_536_805</span>,
+<a href=#87 id=87 data-nosnippet>87</a>	<span class="number">1_979_855_523_374_646</span>,
+<a href=#88 id=88 data-nosnippet>88</a>	<span class="number">2_104_240_657_545_975</span>,
+<a href=#89 id=89 data-nosnippet>89</a>	<span class="number">2_236_440_332_435_128</span>,
+<a href=#90 id=90 data-nosnippet>90</a>	<span class="number">2_376_945_499_368_703</span>,
+<a href=#91 id=91 data-nosnippet>91</a>	<span class="number">2_526_277_953_866_680</span>,
+<a href=#92 id=92 data-nosnippet>92</a>	<span class="number">2_684_992_273_439_945</span>,
+<a href=#93 id=93 data-nosnippet>93</a>	<span class="number">2_853_677_877_130_641</span>,
+<a href=#94 id=94 data-nosnippet>94</a>	<span class="number">3_032_961_214_443_876</span>,
+<a href=#95 id=95 data-nosnippet>95</a>	<span class="number">3_223_508_091_799_862</span>,
+<a href=#96 id=96 data-nosnippet>96</a>	<span class="number">3_426_026_145_146_232</span>,
+<a href=#97 id=97 data-nosnippet>97</a>	<span class="number">3_641_267_467_913_124</span>,
+<a href=#98 id=98 data-nosnippet>98</a>	<span class="number">3_870_031_404_070_482</span>,
+<a href=#99 id=99 data-nosnippet>99</a>	<span class="number">4_113_167_516_660_186</span>,
+<a href=#100 id=100 data-nosnippet>100</a>	<span class="number">4_371_578_742_827_277</span>,
+<a href=#101 id=101 data-nosnippet>101</a>	<span class="number">4_646_224_747_067_156</span>,
+<a href=#102 id=102 data-nosnippet>102</a>	<span class="number">4_938_125_485_141_739</span>,
+<a href=#103 id=103 data-nosnippet>103</a>	<span class="number">5_248_364_991_899_922</span>,
+<a href=#104 id=104 data-nosnippet>104</a>	<span class="number">5_578_095_407_069_235</span>,
+<a href=#105 id=105 data-nosnippet>105</a>	<span class="number">5_928_541_253_969_291</span>,
+<a href=#106 id=106 data-nosnippet>106</a>	<span class="number">6_301_003_987_036_955</span>,
+<a href=#107 id=107 data-nosnippet>107</a>	<span class="number">6_696_866_825_051_405</span>,
+<a href=#108 id=108 data-nosnippet>108</a>	<span class="number">7_117_599_888_008_300</span>,
+<a href=#109 id=109 data-nosnippet>109</a>	<span class="number">7_564_765_656_719_910</span>,
+<a href=#110 id=110 data-nosnippet>110</a>	<span class="number">8_040_024_775_416_580</span>,
+<a href=#111 id=111 data-nosnippet>111</a>	<span class="number">8_545_142_218_898_723</span>,
+<a href=#112 id=112 data-nosnippet>112</a>	<span class="number">9_081_993_847_142_344</span>,
+<a href=#113 id=113 data-nosnippet>113</a>	<span class="number">9_652_573_371_700_016</span>,
+<a href=#114 id=114 data-nosnippet>114</a>	<span class="number">10_258_999_759_768_490</span>,
+<a href=#115 id=115 data-nosnippet>115</a>	<span class="number">10_903_525_103_419_522</span>,
+<a href=#116 id=116 data-nosnippet>116</a>	<span class="number">11_588_542_983_217_942</span>,
+<a href=#117 id=117 data-nosnippet>117</a>	<span class="number">12_316_597_357_287_042</span>,
+<a href=#118 id=118 data-nosnippet>118</a>	<span class="number">13_090_392_008_832_678</span>,
+<a href=#119 id=119 data-nosnippet>119</a>	<span class="number">13_912_800_587_211_472</span>,
+<a href=#120 id=120 data-nosnippet>120</a>	<span class="number">14_786_877_279_832_732</span>,
+<a href=#121 id=121 data-nosnippet>121</a>	<span class="number">15_715_868_154_526_436</span>,
+<a href=#122 id=122 data-nosnippet>122</a>	<span class="number">16_703_223_214_499_558</span>,
+<a href=#123 id=123 data-nosnippet>123</a>	<span class="number">17_752_609_210_649_358</span>,
+<a href=#124 id=124 data-nosnippet>124</a>	<span class="number">18_867_923_258_814_856</span>,
+<a href=#125 id=125 data-nosnippet>125</a>	<span class="number">20_053_307_312_537_008</span>,
+<a href=#126 id=126 data-nosnippet>126</a>	<span class="number">21_313_163_545_075_252</span>,
+<a href=#127 id=127 data-nosnippet>127</a>	<span class="number">22_652_170_697_804_756</span>,
+<a href=#128 id=128 data-nosnippet>128</a>	<span class="number">24_075_301_455_707_600</span>,
+<a href=#129 id=129 data-nosnippet>129</a>	<span class="number">25_587_840_914_485_432</span>,
+<a href=#130 id=130 data-nosnippet>130</a>	<span class="number">27_195_406_207_875_088</span>,
+<a href=#131 id=131 data-nosnippet>131</a>	<span class="number">28_903_967_368_057_400</span>,
+<a href=#132 id=132 data-nosnippet>132</a>	<span class="number">30_719_869_496_628_636</span>,
+<a href=#133 id=133 data-nosnippet>133</a>	<span class="number">32_649_856_328_471_220</span>,
+<a href=#134 id=134 data-nosnippet>134</a>	<span class="number">34_701_095_276_033_064</span>,
+<a href=#135 id=135 data-nosnippet>135</a>	<span class="number">36_881_204_047_022_752</span>,
+<a href=#136 id=136 data-nosnippet>136</a>	<span class="number">39_198_278_934_370_992</span>,
+<a href=#137 id=137 data-nosnippet>137</a>	<span class="number">41_660_924_883_519_016</span>,
+<a href=#138 id=138 data-nosnippet>138</a>	<span class="number">44_278_287_448_695_240</span>,
+<a href=#139 id=139 data-nosnippet>139</a>	<span class="number">47_060_086_756_856_400</span>,
+<a href=#140 id=140 data-nosnippet>140</a>	<span class="number">50_016_653_605_425_536</span>,
+<a href=#141 id=141 data-nosnippet>141</a>	<span class="number">53_158_967_827_883_320</span>,
+<a href=#142 id=142 data-nosnippet>142</a>	<span class="number">56_498_699_069_691_424</span>,
+<a href=#143 id=143 data-nosnippet>143</a>	<span class="number">60_048_250_125_977_912</span>,
+<a href=#144 id=144 data-nosnippet>144</a>	<span class="number">63_820_803_001_928_304</span>,
+<a href=#145 id=145 data-nosnippet>145</a>	<span class="number">67_830_367_866_937_216</span>,
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="number">72_091_835_084_322_176</span>,
+<a href=#147 id=147 data-nosnippet>147</a>	<span class="number">76_621_030_509_822_880</span>,
+<a href=#148 id=148 data-nosnippet>148</a>	<span class="number">81_434_774_264_248_528</span>,
+<a href=#149 id=149 data-nosnippet>149</a>	<span class="number">86_550_943_198_537_824</span>,
+<a href=#150 id=150 data-nosnippet>150</a>	<span class="number">91_988_537_283_208_848</span>,
+<a href=#151 id=151 data-nosnippet>151</a>	<span class="number">97_767_750_168_749_840</span>,
+<a href=#152 id=152 data-nosnippet>152</a>	<span class="number">103_910_044_178_992_000</span>,
+<a href=#153 id=153 data-nosnippet>153</a>	<span class="number">110_438_230_015_967_792</span>,
+<a href=#154 id=154 data-nosnippet>154</a>	<span class="number">117_376_551_472_255_616</span>,
+<a href=#155 id=155 data-nosnippet>155</a>	<span class="number">124_750_775_465_407_920</span>,
+<a href=#156 id=156 data-nosnippet>156</a>	<span class="number">132_588_287_728_824_640</span>,
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="number">140_918_194_514_440_064</span>,
+<a href=#158 id=158 data-nosnippet>158</a>	<span class="number">149_771_430_684_917_568</span>,
+<a href=#159 id=159 data-nosnippet>159</a>	<span class="number">159_180_874_596_775_264</span>,
+<a href=#160 id=160 data-nosnippet>160</a>	<span class="number">169_181_470_201_085_280</span>,
+<a href=#161 id=161 data-nosnippet>161</a>	<span class="number">179_810_356_815_193_344</span>,
+<a href=#162 id=162 data-nosnippet>162</a>	<span class="number">191_107_007_047_393_216</span>,
+<a href=#163 id=163 data-nosnippet>163</a>	<span class="number">203_113_373_386_768_288</span>,
+<a href=#164 id=164 data-nosnippet>164</a>	<span class="number">215_874_044_002_592_672</span>,
+<a href=#165 id=165 data-nosnippet>165</a>	<span class="number">229_436_408_331_885_600</span>,
+<a href=#166 id=166 data-nosnippet>166</a>	<span class="number">243_850_833_070_063_392</span>,
+<a href=#167 id=167 data-nosnippet>167</a>	<span class="number">259_170_849_218_267_264</span>,
+<a href=#168 id=168 data-nosnippet>168</a>	<span class="number">275_453_350_882_006_752</span>,
+<a href=#169 id=169 data-nosnippet>169</a>	<span class="number">292_758_806_559_399_232</span>,
+<a href=#170 id=170 data-nosnippet>170</a>	<span class="number">311_151_483_703_668_992</span>,
+<a href=#171 id=171 data-nosnippet>171</a>	<span class="number">330_699_687_393_865_920</span>,
+<a href=#172 id=172 data-nosnippet>172</a>	<span class="number">351_476_014_000_157_824</span>,
+<a href=#173 id=173 data-nosnippet>173</a>	<span class="number">373_557_620_785_735_808</span>,
+<a href=#174 id=174 data-nosnippet>174</a>	<span class="number">397_026_512_446_556_096</span>,
+<a href=#175 id=175 data-nosnippet>175</a>	<span class="number">421_969_845_653_044_224</span>,
+<a href=#176 id=176 data-nosnippet>176</a>	<span class="number">448_480_252_724_740_928</span>,
+<a href=#177 id=177 data-nosnippet>177</a>	<span class="number">476_656_185_639_923_904</span>,
+<a href=#178 id=178 data-nosnippet>178</a>	<span class="number">506_602_281_657_757_760</span>,
+<a href=#179 id=179 data-nosnippet>179</a>	<span class="number">538_429_751_910_786_752</span>,
+<a href=#180 id=180 data-nosnippet>180</a>	<span class="number">572_256_794_410_890_176</span>,
+<a href=#181 id=181 data-nosnippet>181</a>	<span class="number">608_209_033_002_485_632</span>,
+<a href=#182 id=182 data-nosnippet>182</a>	<span class="number">646_419_983_893_124_352</span>,
+<a href=#183 id=183 data-nosnippet>183</a>	<span class="number">687_031_551_494_039_552</span>,
+<a href=#184 id=184 data-nosnippet>184</a>	<span class="number">730_194_555_412_054_016</span>,
+<a href=#185 id=185 data-nosnippet>185</a>	<span class="number">776_069_290_549_944_960</span>,
+<a href=#186 id=186 data-nosnippet>186</a>	<span class="number">824_826_122_395_314_176</span>,
+<a href=#187 id=187 data-nosnippet>187</a>	<span class="number">876_646_119_708_695_936</span>,
+<a href=#188 id=188 data-nosnippet>188</a>	<span class="number">931_721_726_960_522_368</span>,
+<a href=#189 id=189 data-nosnippet>189</a>	<span class="number">990_257_479_014_182_144</span>,
+<a href=#190 id=190 data-nosnippet>190</a>	<span class="number">1_052_470_760_709_299_712</span>,
+<a href=#191 id=191 data-nosnippet>191</a>	<span class="number">1_118_592_614_166_106_112</span>,
+<a href=#192 id=192 data-nosnippet>192</a>	<span class="number">1_188_868_596_808_997_376</span>,
+<a href=#193 id=193 data-nosnippet>193</a>	<span class="number">1_263_559_693_295_730_432</span>,
+<a href=#194 id=194 data-nosnippet>194</a>	<span class="number">1_342_943_284_738_898_688</span>,
+<a href=#195 id=195 data-nosnippet>195</a>	<span class="number">1_427_314_178_819_094_784</span>,
+<a href=#196 id=196 data-nosnippet>196</a>	<span class="number">1_516_985_704_615_302_400</span>,
+<a href=#197 id=197 data-nosnippet>197</a>	<span class="number">1_612_290_876_218_400_768</span>,
+<a href=#198 id=198 data-nosnippet>198</a>	<span class="number">1_713_583_629_449_105_408</span>,
+<a href=#199 id=199 data-nosnippet>199</a>	<span class="number">1_821_240_136_273_157_632</span>,
+<a href=#200 id=200 data-nosnippet>200</a>	<span class="number">1_935_660_201_795_120_128</span>,
+<a href=#201 id=201 data-nosnippet>201</a>	<span class="number">2_057_268_749_018_809_600</span>,
+<a href=#202 id=202 data-nosnippet>202</a>	<span class="number">2_186_517_396_888_336_384</span>,
+<a href=#203 id=203 data-nosnippet>203</a>	<span class="number">2_323_886_137_470_138_880</span>,
+<a href=#204 id=204 data-nosnippet>204</a>	<span class="number">2_469_885_118_504_583_168</span>,
+<a href=#205 id=205 data-nosnippet>205</a>	<span class="number">2_625_056_537_947_004_416</span>,
+<a href=#206 id=206 data-nosnippet>206</a>	<span class="number">2_789_976_657_533_970_944</span>,
+<a href=#207 id=207 data-nosnippet>207</a>	<span class="number">2_965_257_942_852_572_160</span>,
+<a href=#208 id=208 data-nosnippet>208</a>	<span class="number">3_151_551_337_860_326_400</span>,
+<a href=#209 id=209 data-nosnippet>209</a>	<span class="number">3_349_548_682_302_620_672</span>,
+<a href=#210 id=210 data-nosnippet>210</a>	<span class="number">3_559_985_281_005_267_968</span>,
+<a href=#211 id=211 data-nosnippet>211</a>	<span class="number">3_783_642_634_583_792_128</span>,
+<a href=#212 id=212 data-nosnippet>212</a>	<span class="number">4_021_351_341_710_503_936</span>,
+<a href=#213 id=213 data-nosnippet>213</a>	<span class="number">4_273_994_183_717_548_544</span>,
+<a href=#214 id=214 data-nosnippet>214</a>	<span class="number">4_542_509_402_991_247_872</span>,
+<a href=#215 id=215 data-nosnippet>215</a>	<span class="number">4_827_894_187_332_742_144</span>,
+<a href=#216 id=216 data-nosnippet>216</a>	<span class="number">5_131_208_373_224_844_288</span>,
+<a href=#217 id=217 data-nosnippet>217</a>	<span class="number">5_453_578_381_757_959_168</span>,
+<a href=#218 id=218 data-nosnippet>218</a>	<span class="number">5_796_201_401_831_965_696</span>,
+<a href=#219 id=219 data-nosnippet>219</a>	<span class="number">6_160_349_836_169_256_960</span>,
+<a href=#220 id=220 data-nosnippet>220</a>	<span class="number">6_547_376_026_650_146_816</span>,
+<a href=#221 id=221 data-nosnippet>221</a>	<span class="number">6_958_717_276_519_173_120</span>,
+<a href=#222 id=222 data-nosnippet>222</a>	<span class="number">7_395_901_188_113_309_696</span>,
+<a href=#223 id=223 data-nosnippet>223</a>	<span class="number">7_860_551_335_934_872_576</span>,
+<a href=#224 id=224 data-nosnippet>224</a>	<span class="number">8_354_393_296_137_270_272</span>,
+<a href=#225 id=225 data-nosnippet>225</a>	<span class="number">8_879_261_054_815_360_000</span>,
+<a href=#226 id=226 data-nosnippet>226</a>	<span class="number">9_437_103_818_898_946_048</span>,
+<a href=#227 id=227 data-nosnippet>227</a>	<span class="number">10_029_993_254_943_105_024</span>,
+<a href=#228 id=228 data-nosnippet>228</a>	<span class="number">10_660_131_182_698_121_216</span>,
+<a href=#229 id=229 data-nosnippet>229</a>	<span class="number">11_329_857_752_030_707_712</span>,
+<a href=#230 id=230 data-nosnippet>230</a>	<span class="number">12_041_660_133_563_240_448</span>,
+<a href=#231 id=231 data-nosnippet>231</a>	<span class="number">12_798_181_755_305_525_248</span>,
+<a href=#232 id=232 data-nosnippet>232</a>	<span class="number">13_602_232_119_581_272_064</span>,
+<a href=#233 id=233 data-nosnippet>233</a>	<span class="number">14_456_797_236_706_498_560</span>,
+<a href=#234 id=234 data-nosnippet>234</a>	<span class="number">15_365_050_714_167_523_328</span>,
+<a href=#235 id=235 data-nosnippet>235</a>	<span class="number">16_330_365_542_480_556_032</span>,
+<a href=#236 id=236 data-nosnippet>236</a>	<span class="number">17_356_326_621_502_140_416</span>,
+<a href=#237 id=237 data-nosnippet>237</a>	<span class="number">18_446_744_073_709_551_615</span>,
+<a href=#238 id=238 data-nosnippet>238</a>];</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

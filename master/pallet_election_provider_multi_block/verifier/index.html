@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The verifier pallet"><title>pallet_election_provider_multi_block::verifier - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_multi_block" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_election_provider_multi_block/index.html">pallet_<wbr>election_<wbr>provider_<wbr>multi_<wbr>block</a><span class="version">0.9.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module verifier</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#the-verifier-pallet" title="The Verifier Pallet">The Verifier Pallet</a><ul><li><a href="#feasibility-check" title="Feasibility Check">Feasibility Check</a></li><li><a href="#modes-of-verification" title="Modes of Verification">Modes of Verification</a></li><li><a href="#queued-solution" title="Queued Solution">Queued Solution</a></li></ul></li></ul><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate pallet_<wbr>election_<wbr>provider_<wbr>multi_<wbr>block</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_election_provider_multi_block</a></div><h1>Module <span>verifier</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#18-291">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The verifier pallet</p>
+<h2 id="the-verifier-pallet"><a class="doc-anchor" href="#the-verifier-pallet">§</a>The Verifier Pallet</h2>
+<p>This pallet has no end-user functionality, and is only used internally by other pallets in the
+EPMB machinery to verify solutions.</p>
+<h4 id="feasibility-check"><a class="doc-anchor" href="#feasibility-check">§</a><em>Feasibility</em> Check</h4>
+<p>Before explaining the pallet itself, it should be explained what a <em>verification</em> even means.
+Verification of a solution page (<a href="../unsigned/miner/trait.MinerConfig.html#associatedtype.Solution" title="associated type pallet_election_provider_multi_block::unsigned::miner::MinerConfig::Solution"><code>crate::unsigned::miner::MinerConfig::Solution</code></a>) includes the
+process of checking all of its edges against a snapshot to be correct. For instance, all voters
+that are presented in a solution page must have actually voted for the winner that they are
+backing, based on the snapshot kept in the parent pallet.</p>
+<p>Such checks are bound to each page of the solution, and happen per-page. After checking all of
+the edges in each page, a handful of other checks are performed. These checks cannot happen
+per-page, and in order to do them we need to have the entire solution checked and verified.</p>
+<ol>
+<li>Check that the total number of winners is sufficient (<code>DesiredTargets</code>).</li>
+<li>Check that the claimed score (<a href="../types/struct.ElectionScore.html" title="struct pallet_election_provider_multi_block::types::ElectionScore"><code>sp_npos_elections::ElectionScore</code></a>) is correct,</li>
+</ol>
+<ul>
+<li>and more than the minimum score that can be specified via <a href="trait.Verifier.html#tymethod.set_minimum_score" title="associated function pallet_election_provider_multi_block::verifier::Verifier::set_minimum_score"><code>Verifier::set_minimum_score</code></a>.</li>
+</ul>
+<ol start="3">
+<li>Check that all of the bounds of the solution are respected, namely
+<a href="trait.Verifier.html#associatedtype.MaxBackersPerWinner" title="associated type pallet_election_provider_multi_block::verifier::Verifier::MaxBackersPerWinner"><code>Verifier::MaxBackersPerWinner</code></a>, <a href="trait.Verifier.html#associatedtype.MaxWinnersPerPage" title="associated type pallet_election_provider_multi_block::verifier::Verifier::MaxWinnersPerPage"><code>Verifier::MaxWinnersPerPage</code></a> and
+<a href="trait.Verifier.html#associatedtype.MaxBackersPerWinnerFinal" title="associated type pallet_election_provider_multi_block::verifier::Verifier::MaxBackersPerWinnerFinal"><code>Verifier::MaxBackersPerWinnerFinal</code></a>.</li>
+</ol>
+<p>Note that the common factor of all of the above checks is that they can ONLY be checked after
+all pages are already verified. So, in the case of a multi-page verification, these checks are
+performed at the last page.</p>
+<p>The errors that can arise while performing the feasibility check are encapsulated in
+<a href="enum.FeasibilityError.html" title="enum pallet_election_provider_multi_block::verifier::FeasibilityError"><code>verifier::FeasibilityError</code></a>.</p>
+<h3 id="modes-of-verification"><a class="doc-anchor" href="#modes-of-verification">§</a>Modes of Verification</h3>
+<p>The verifier pallet provide two modes of functionality:</p>
+<ol>
+<li>Single or multi-page, synchronous verification. This is useful in the context of single-page,
+emergency, or unsigned solutions that need to be verified on the fly. This is similar to how
+the old school <code>multi-phase</code> pallet works. See <a href="trait.Verifier.html#method.verify_synchronous" title="associated function pallet_election_provider_multi_block::verifier::Verifier::verify_synchronous"><code>Verifier::verify_synchronous</code></a> and
+<a href="trait.Verifier.html#tymethod.verify_synchronous_multi" title="associated function pallet_election_provider_multi_block::verifier::Verifier::verify_synchronous_multi"><code>Verifier::verify_synchronous_multi</code></a>.</li>
+<li>Multi-page, asynchronous verification. This is useful in the context of multi-page, signed
+solutions. See <a href="trait.AsynchronousVerifier.html" title="trait pallet_election_provider_multi_block::verifier::AsynchronousVerifier"><code>verifier::AsynchronousVerifier</code></a> and <a href="trait.SolutionDataProvider.html" title="trait pallet_election_provider_multi_block::verifier::SolutionDataProvider"><code>verifier::SolutionDataProvider</code></a>.</li>
+</ol>
+<p>Both of this, plus some helper functions, is exposed via the <a href="trait.Verifier.html" title="trait pallet_election_provider_multi_block::verifier::Verifier"><code>verifier::Verifier</code></a> trait.</p>
+<h3 id="queued-solution"><a class="doc-anchor" href="#queued-solution">§</a>Queued Solution</h3>
+<p>once a solution has been verified, it is called a <em>queued solution</em>. It is sitting in a queue,
+waiting for either of:</p>
+<ol>
+<li>being challenged and potentially replaced by better solution, if any.</li>
+<li>being exported as the final outcome of the election.</li>
+</ol>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub use crate::weights::traits::<a class="mod" href="../weights/traits/pallet_election_provider_multi_block_verifier/index.html" title="mod pallet_election_provider_multi_block::weights::traits::pallet_election_provider_multi_block_verifier">pallet_election_provider_multi_block_verifier</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmarking/index.html" title="mod pallet_election_provider_multi_block::verifier::benchmarking">benchmarking</a></dt><dt><a class="mod" href="dispatchables/index.html" title="mod pallet_election_provider_multi_block::verifier::dispatchables">dispatchables</a></dt><dd>Auto-generated docs-only module listing all defined dispatchables for this pallet.</dd><dt><a class="mod" href="storage_types/index.html" title="mod pallet_election_provider_multi_block::verifier::storage_types">storage_<wbr>types</a></dt><dd>Auto-generated docs-only module listing all (public and private) defined storage types
+for this pallet.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.GenesisConfig.html" title="struct pallet_election_provider_multi_block::verifier::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct pallet_election_provider_multi_block::verifier::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.QueuedSolution.html" title="struct pallet_election_provider_multi_block::verifier::QueuedSolution">Queued<wbr>Solution</a></dt><dd>A wrapper interface for the storage items related to the queued solution.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum pallet_election_provider_multi_block::verifier::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Event.html" title="enum pallet_election_provider_multi_block::verifier::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.FeasibilityError.html" title="enum pallet_election_provider_multi_block::verifier::FeasibilityError">Feasibility<wbr>Error</a></dt><dd>Errors that can happen in the feasibility check.</dd><dt><a class="enum" href="enum.Status.html" title="enum pallet_election_provider_multi_block::verifier::Status">Status</a></dt><dd>The status of this pallet.</dd><dt><a class="enum" href="enum.VerificationResult.html" title="enum pallet_election_provider_multi_block::verifier::VerificationResult">Verification<wbr>Result</a></dt><dd>Simple enum to encapsulate the result of the verification of a candidate solution.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AsynchronousVerifier.html" title="trait pallet_election_provider_multi_block::verifier::AsynchronousVerifier">Asynchronous<wbr>Verifier</a></dt><dd>Something that can do the verification asynchronously.</dd><dt><a class="trait" href="trait.Config.html" title="trait pallet_election_provider_multi_block::verifier::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.SolutionDataProvider.html" title="trait pallet_election_provider_multi_block::verifier::SolutionDataProvider">Solution<wbr>Data<wbr>Provider</a></dt><dd>Something that can provide candidate solutions to the verifier.</dd><dt><a class="trait" href="trait.Verifier.html" title="trait pallet_election_provider_multi_block::verifier::Verifier">Verifier</a></dt><dd>The interface of something that can verify solutions for other sub-pallets in the multi-block
+election pallet-network.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.feasibility_check_page_inner_with_snapshot.html" title="fn pallet_election_provider_multi_block::verifier::feasibility_check_page_inner_with_snapshot">feasibility_<wbr>check_<wbr>page_<wbr>inner_<wbr>with_<wbr>snapshot</a></dt><dd>Same as <code>feasibility_check_page_inner</code>, but with a snapshot.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Module.html" title="type pallet_election_provider_multi_block::verifier::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

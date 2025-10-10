@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A manual sealing engine: the engine listens for rpc calls to seal blocks and create forks. This is suitable for a testing environment."><title>yet_another_parachain_runtime::sc_consensus_manual_seal - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sc_consensus_manual_seal</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sc_consensus_manual_seal/lib.rs.html#19-803">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A manual sealing engine: the engine listens for rpc calls to seal blocks and create forks.
+This is suitable for a testing environment.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="consensus/index.html" title="mod yet_another_parachain_runtime::sc_consensus_manual_seal::consensus">consensus</a></dt><dd>Extensions for manual seal to produce blocks valid for any runtime.</dd><dt><a class="mod" href="rpc/index.html" title="mod yet_another_parachain_runtime::sc_consensus_manual_seal::rpc">rpc</a></dt><dd>RPC interface for the <code>ManualSeal</code> Engine.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CreatedBlock.html" title="struct yet_another_parachain_runtime::sc_consensus_manual_seal::CreatedBlock">Created<wbr>Block</a></dt><dd>return type of <code>engine_createBlock</code></dd><dt><a class="struct" href="struct.DelayedFinalizeParams.html" title="struct yet_another_parachain_runtime::sc_consensus_manual_seal::DelayedFinalizeParams">Delayed<wbr>Finalize<wbr>Params</a></dt><dd>Params required to start the delayed finalization task.</dd><dt><a class="struct" href="struct.FinalizeBlockParams.html" title="struct yet_another_parachain_runtime::sc_consensus_manual_seal::FinalizeBlockParams">Finalize<wbr>Block<wbr>Params</a></dt><dd>params for block finalization.</dd><dt><a class="struct" href="struct.InstantSealParams.html" title="struct yet_another_parachain_runtime::sc_consensus_manual_seal::InstantSealParams">Instant<wbr>Seal<wbr>Params</a></dt><dd>Params required to start the instant sealing authorship task.</dd><dt><a class="struct" href="struct.ManualSealParams.html" title="struct yet_another_parachain_runtime::sc_consensus_manual_seal::ManualSealParams">Manual<wbr>Seal<wbr>Params</a></dt><dd>Params required to start the manual sealing authorship task.</dd><dt><a class="struct" href="struct.SealBlockParams.html" title="struct yet_another_parachain_runtime::sc_consensus_manual_seal::SealBlockParams">Seal<wbr>Block<wbr>Params</a></dt><dd>params for sealing a new block</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.EngineCommand.html" title="enum yet_another_parachain_runtime::sc_consensus_manual_seal::EngineCommand">Engine<wbr>Command</a></dt><dd>Message sent to the background authorship task, usually by RPC.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::sc_consensus_manual_seal::Error">Error</a></dt><dd>errors encountered by background block authorship task</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.MANUAL_SEAL_ENGINE_ID.html" title="constant yet_another_parachain_runtime::sc_consensus_manual_seal::MANUAL_SEAL_ENGINE_ID">MANUAL_<wbr>SEAL_<wbr>ENGINE_<wbr>ID</a></dt><dd>The <code>ConsensusEngineId</code> of Manual Seal.</dd><dt><a class="constant" href="constant.MAX_PROPOSAL_DURATION.html" title="constant yet_another_parachain_runtime::sc_consensus_manual_seal::MAX_PROPOSAL_DURATION">MAX_<wbr>PROPOSAL_<wbr>DURATION</a></dt><dd>max duration for creating a proposal in secs</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.ConsensusDataProvider.html" title="trait yet_another_parachain_runtime::sc_consensus_manual_seal::ConsensusDataProvider">Consensus<wbr>Data<wbr>Provider</a></dt><dd>Consensus data provider, manual seal uses this trait object for authoring blocks valid
+for any runtime.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.finalize_block.html" title="fn yet_another_parachain_runtime::sc_consensus_manual_seal::finalize_block">finalize_<wbr>block</a></dt><dd>finalizes a block in the backend with the given params.</dd><dt><a class="fn" href="fn.import_queue.html" title="fn yet_another_parachain_runtime::sc_consensus_manual_seal::import_queue">import_<wbr>queue</a></dt><dd>Instantiate the import queue for the manual seal consensus engine.</dd><dt><a class="fn" href="fn.run_delayed_finalize.html" title="fn yet_another_parachain_runtime::sc_consensus_manual_seal::run_delayed_finalize">run_<wbr>delayed_<wbr>finalize</a></dt><dd>Creates a future for delayed finalization of manual sealed blocks.</dd><dt><a class="fn" href="fn.run_instant_seal.html" title="fn yet_another_parachain_runtime::sc_consensus_manual_seal::run_instant_seal">run_<wbr>instant_<wbr>seal</a></dt><dd>runs the background authorship task for the instant seal engine.
+instant-seal creates a new block for every transaction imported into
+the transaction pool.</dd><dt><a class="fn" href="fn.run_instant_seal_and_finalize.html" title="fn yet_another_parachain_runtime::sc_consensus_manual_seal::run_instant_seal_and_finalize">run_<wbr>instant_<wbr>seal_<wbr>and_<wbr>finalize</a></dt><dd>Runs the background authorship task for the instant seal engine.
+instant-seal creates a new block for every transaction imported into
+the transaction pool.</dd><dt><a class="fn" href="fn.run_manual_seal.html" title="fn yet_another_parachain_runtime::sc_consensus_manual_seal::run_manual_seal">run_<wbr>manual_<wbr>seal</a></dt><dd>Creates the background authorship task for the manually seal engine.</dd><dt><a class="fn" href="fn.seal_block.html" title="fn yet_another_parachain_runtime::sc_consensus_manual_seal::seal_block">seal_<wbr>block</a></dt><dd>seals a new block with the given params</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

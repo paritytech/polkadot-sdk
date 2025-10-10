@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["ed25519","migration","pallet","sr25519","weights"],"struct":["GenesisConfig","Heartbeat","Pallet","UnresponsivenessOffence"],"trait":["Config","WeightInfo"],"type":["AuthIndex","AuthoredBlocks","HeartbeatAfter","IdentificationTuple","Keys","Module","ReceivedHeartbeats","ValidatorId"]};

@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["frame_support",[]],["pallet_core_fellowship",[["impl&lt;T: <a class=\"trait\" href=\"pallet_core_fellowship/pallet/trait.Config.html\" title=\"trait pallet_core_fellowship::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; RankedMembersSwapHandler&lt;&lt;T as Config&gt;::AccountId, <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u16.html\">u16</a>&gt; for <a class=\"struct\" href=\"pallet_core_fellowship/pallet/struct.Pallet.html\" title=\"struct pallet_core_fellowship::pallet::Pallet\">Pallet</a>&lt;T, I&gt;"]]],["pallet_salary",[["impl&lt;T: <a class=\"trait\" href=\"pallet_salary/pallet/trait.Config.html\" title=\"trait pallet_salary::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; RankedMembersSwapHandler&lt;&lt;T as Config&gt;::AccountId, &lt;&lt;T as <a class=\"trait\" href=\"pallet_salary/pallet/trait.Config.html\" title=\"trait pallet_salary::pallet::Config\">Config</a>&lt;I&gt;&gt;::<a class=\"associatedtype\" href=\"pallet_salary/pallet/trait.Config.html#associatedtype.Members\" title=\"type pallet_salary::pallet::Config::Members\">Members</a> as RankedMembers&gt;::Rank&gt; for <a class=\"struct\" href=\"pallet_salary/pallet/struct.Pallet.html\" title=\"struct pallet_salary::pallet::Pallet\">Pallet</a>&lt;T, I&gt;"]]],["polkadot_sdk_frame",[]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[20,532,734,26,37]}

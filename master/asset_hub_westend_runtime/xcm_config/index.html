@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `xcm_config` mod in crate `asset_hub_westend_runtime`."><title>asset_hub_westend_runtime::xcm_config - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="asset_hub_westend_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../asset_hub_westend_runtime/index.html">asset_<wbr>hub_<wbr>westend_<wbr>runtime</a><span class="version">0.15.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module xcm_<wbr>config</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate asset_<wbr>hub_<wbr>westend_<wbr>runtime</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">asset_hub_westend_runtime</a></div><h1>Module <span>xcm_config</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/asset_hub_westend_runtime/xcm_config.rs.html#16-803">Source</a> </span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="bridging/index.html" title="mod asset_hub_westend_runtime::xcm_config::bridging">bridging</a></dt><dd>All configuration related to bridging</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AmbassadorEntities.html" title="struct asset_hub_westend_runtime::xcm_config::AmbassadorEntities">Ambassador<wbr>Entities</a></dt><dt><a class="struct" href="struct.AuthorizeAliasHoldReason.html" title="struct asset_hub_westend_runtime::xcm_config::AuthorizeAliasHoldReason">Authorize<wbr>Alias<wbr>Hold<wbr>Reason</a></dt><dt><a class="struct" href="struct.CheckingAccount.html" title="struct asset_hub_westend_runtime::xcm_config::CheckingAccount">Checking<wbr>Account</a></dt><dt><a class="struct" href="struct.Collectives.html" title="struct asset_hub_westend_runtime::xcm_config::Collectives">Collectives</a></dt><dt><a class="struct" href="struct.ERC20TransferGasLimit.html" title="struct asset_hub_westend_runtime::xcm_config::ERC20TransferGasLimit">ERC20<wbr>Transfer<wbr>GasLimit</a></dt><dd>Taken from the real gas and deposits of a standard ERC20 transfer call.</dd><dt><a class="struct" href="struct.ERC20TransferStorageDepositLimit.html" title="struct asset_hub_westend_runtime::xcm_config::ERC20TransferStorageDepositLimit">ERC20<wbr>Transfer<wbr>Storage<wbr>Deposit<wbr>Limit</a></dt><dt><a class="struct" href="struct.ERC20TransfersCheckingAccount.html" title="struct asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount">ERC20<wbr>Transfers<wbr>Checking<wbr>Account</a></dt><dt><a class="struct" href="struct.FellowshipAdminBodyId.html" title="struct asset_hub_westend_runtime::xcm_config::FellowshipAdminBodyId">Fellowship<wbr>Admin<wbr>Body<wbr>Id</a></dt><dt><a class="struct" href="struct.FellowshipEntities.html" title="struct asset_hub_westend_runtime::xcm_config::FellowshipEntities">Fellowship<wbr>Entities</a></dt><dt><a class="struct" href="struct.ForeignAssetsPalletLocation.html" title="struct asset_hub_westend_runtime::xcm_config::ForeignAssetsPalletLocation">Foreign<wbr>Assets<wbr>Pallet<wbr>Location</a></dt><dt><a class="struct" href="struct.GeneralAdminBodyId.html" title="struct asset_hub_westend_runtime::xcm_config::GeneralAdminBodyId">General<wbr>Admin<wbr>Body<wbr>Id</a></dt><dt><a class="struct" href="struct.LocalPlurality.html" title="struct asset_hub_westend_runtime::xcm_config::LocalPlurality">Local<wbr>Plurality</a></dt><dt><a class="struct" href="struct.MaxAssetsIntoHolding.html" title="struct asset_hub_westend_runtime::xcm_config::MaxAssetsIntoHolding">MaxAssets<wbr>Into<wbr>Holding</a></dt><dt><a class="struct" href="struct.MaxInstructions.html" title="struct asset_hub_westend_runtime::xcm_config::MaxInstructions">MaxInstructions</a></dt><dt><a class="struct" href="struct.ParentOrParentsPlurality.html" title="struct asset_hub_westend_runtime::xcm_config::ParentOrParentsPlurality">Parent<wbr>OrParents<wbr>Plurality</a></dt><dt><a class="struct" href="struct.PoolAssetsPalletLocation.html" title="struct asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocation">Pool<wbr>Assets<wbr>Pallet<wbr>Location</a></dt><dt><a class="struct" href="struct.RelayChainOrigin.html" title="struct asset_hub_westend_runtime::xcm_config::RelayChainOrigin">Relay<wbr>Chain<wbr>Origin</a></dt><dt><a class="struct" href="struct.RelayNetwork.html" title="struct asset_hub_westend_runtime::xcm_config::RelayNetwork">Relay<wbr>Network</a></dt><dt><a class="struct" href="struct.RelayTreasuryLocation.html" title="struct asset_hub_westend_runtime::xcm_config::RelayTreasuryLocation">Relay<wbr>Treasury<wbr>Location</a></dt><dt><a class="struct" href="struct.RootLocation.html" title="struct asset_hub_westend_runtime::xcm_config::RootLocation">Root<wbr>Location</a></dt><dt><a class="struct" href="struct.SecretaryEntities.html" title="struct asset_hub_westend_runtime::xcm_config::SecretaryEntities">Secretary<wbr>Entities</a></dt><dt><a class="struct" href="struct.StakingAdminBodyId.html" title="struct asset_hub_westend_runtime::xcm_config::StakingAdminBodyId">Staking<wbr>Admin<wbr>Body<wbr>Id</a></dt><dt><a class="struct" href="struct.StakingPot.html" title="struct asset_hub_westend_runtime::xcm_config::StakingPot">Staking<wbr>Pot</a></dt><dt><a class="struct" href="struct.TeleportTracking.html" title="struct asset_hub_westend_runtime::xcm_config::TeleportTracking">Teleport<wbr>Tracking</a></dt><dd>Asset Hub has mint authority since the Asset Hub migration.</dd><dt><a class="struct" href="struct.TreasurerBodyId.html" title="struct asset_hub_westend_runtime::xcm_config::TreasurerBodyId">Treasurer<wbr>Body<wbr>Id</a></dt><dt><a class="struct" href="struct.TrustBackedAssetsPalletIndex.html" title="struct asset_hub_westend_runtime::xcm_config::TrustBackedAssetsPalletIndex">Trust<wbr>Backed<wbr>Assets<wbr>Pallet<wbr>Index</a></dt><dt><a class="struct" href="struct.TrustBackedAssetsPalletLocation.html" title="struct asset_hub_westend_runtime::xcm_config::TrustBackedAssetsPalletLocation">Trust<wbr>Backed<wbr>Assets<wbr>Pallet<wbr>Location</a></dt><dt><a class="struct" href="struct.UniquesPalletLocation.html" title="struct asset_hub_westend_runtime::xcm_config::UniquesPalletLocation">Uniques<wbr>Pallet<wbr>Location</a></dt><dt><a class="struct" href="struct.UniversalLocation.html" title="struct asset_hub_westend_runtime::xcm_config::UniversalLocation">Universal<wbr>Location</a></dt><dt><a class="struct" href="struct.UniversalLocationNetworkId.html" title="struct asset_hub_westend_runtime::xcm_config::UniversalLocationNetworkId">Universal<wbr>Location<wbr>Network<wbr>Id</a></dt><dt><a class="struct" href="struct.WestendLocation.html" title="struct asset_hub_westend_runtime::xcm_config::WestendLocation">Westend<wbr>Location</a></dt><dt><a class="struct" href="struct.XcmBenchmarkHelper.html" title="struct asset_hub_westend_runtime::xcm_config::XcmBenchmarkHelper">XcmBenchmark<wbr>Helper</a></dt><dd>Simple conversion of <code>u32</code> into an <code>AssetId</code> for use in benchmarking.</dd><dt><a class="struct" href="struct.XcmConfig.html" title="struct asset_hub_westend_runtime::xcm_config::XcmConfig">XcmConfig</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AssetTransactors.html" title="type asset_hub_westend_runtime::xcm_config::AssetTransactors">Asset<wbr>Transactors</a></dt><dd>Means for transacting assets on this chain.</dd><dt><a class="type" href="type.Barrier.html" title="type asset_hub_westend_runtime::xcm_config::Barrier">Barrier</a></dt><dt><a class="type" href="type.ERC20Transactor.html" title="type asset_hub_westend_runtime::xcm_config::ERC20Transactor">ERC20<wbr>Transactor</a></dt><dd>Transactor for ERC20 tokens.</dd><dt><a class="type" href="type.FellowshipAdminToPlurality.html" title="type asset_hub_westend_runtime::xcm_config::FellowshipAdminToPlurality">Fellowship<wbr>Admin<wbr>ToPlurality</a></dt><dd>Type to convert the <code>FellowshipAdmin</code> origin to a Plurality <code>Location</code> value.</dd><dt><a class="type" href="type.ForeignAssetsConvertedConcreteId.html" title="type asset_hub_westend_runtime::xcm_config::ForeignAssetsConvertedConcreteId">Foreign<wbr>Assets<wbr>Converted<wbr>Concrete<wbr>Id</a></dt><dd><code>AssetId</code>/<code>Balance</code> converter for <code>ForeignAssets</code>.</dd><dt><a class="type" href="type.ForeignFungiblesTransactor.html" title="type asset_hub_westend_runtime::xcm_config::ForeignFungiblesTransactor">Foreign<wbr>Fungibles<wbr>Transactor</a></dt><dd>Means for transacting foreign assets from different global consensus.</dd><dt><a class="type" href="type.FungibleTransactor.html" title="type asset_hub_westend_runtime::xcm_config::FungibleTransactor">Fungible<wbr>Transactor</a></dt><dd>Means for transacting the native currency on this chain.</dd><dt><a class="type" href="type.FungiblesTransactor.html" title="type asset_hub_westend_runtime::xcm_config::FungiblesTransactor">Fungibles<wbr>Transactor</a></dt><dd>Means for transacting assets besides the native currency on this chain.</dd><dt><a class="type" href="type.GeneralAdminToPlurality.html" title="type asset_hub_westend_runtime::xcm_config::GeneralAdminToPlurality">General<wbr>Admin<wbr>ToPlurality</a></dt><dd>Type to convert the <code>GeneralAdmin</code> origin to a Plurality <code>Location</code> value.</dd><dt><a class="type" href="type.LocalOriginToLocation.html" title="type asset_hub_westend_runtime::xcm_config::LocalOriginToLocation">Local<wbr>Origin<wbr>ToLocation</a></dt><dd>Local origins on this chain are allowed to dispatch XCM sends/executions.</dd><dt><a class="type" href="type.LocalPalletOriginToLocation.html" title="type asset_hub_westend_runtime::xcm_config::LocalPalletOriginToLocation">Local<wbr>Pallet<wbr>Origin<wbr>ToLocation</a></dt><dd>Type to convert a pallet <code>Origin</code> type value into a <code>Location</code> value which represents an
+interior location of this chain for a destination chain.</dd><dt><a class="type" href="type.LocationToAccountId.html" title="type asset_hub_westend_runtime::xcm_config::LocationToAccountId">Location<wbr>ToAccount<wbr>Id</a></dt><dd>Type for specifying how a <code>Location</code> can be converted into an <code>AccountId</code>. This is used
+when determining ownership of accounts for asset transacting and when attempting to use XCM
+<code>Transact</code> in order to determine the dispatch Origin.</dd><dt><a class="type" href="type.PoolAssetsConvertedConcreteId.html" title="type asset_hub_westend_runtime::xcm_config::PoolAssetsConvertedConcreteId">Pool<wbr>Assets<wbr>Converted<wbr>Concrete<wbr>Id</a></dt><dd><code>AssetId</code>/<code>Balance</code> converter for <code>PoolAssets</code>.</dd><dt><a class="type" href="type.PoolAssetsExchanger.html" title="type asset_hub_westend_runtime::xcm_config::PoolAssetsExchanger">Pool<wbr>Assets<wbr>Exchanger</a></dt><dd>Asset converter for pool assets.
+Used to convert one asset to another, when there is a pool available between the two.
+This type thus allows paying fees with any asset as long as there is a pool between said
+asset and the asset required for fee payment.</dd><dt><a class="type" href="type.PoolFungiblesTransactor.html" title="type asset_hub_westend_runtime::xcm_config::PoolFungiblesTransactor">Pool<wbr>Fungibles<wbr>Transactor</a></dt><dd>Means for transacting asset conversion pool assets on this chain.</dd><dt><a class="type" href="type.PriceForParentDelivery.html" title="type asset_hub_westend_runtime::xcm_config::PriceForParentDelivery">Price<wbr>ForParent<wbr>Delivery</a></dt><dt><a class="type" href="type.StakingAdminToPlurality.html" title="type asset_hub_westend_runtime::xcm_config::StakingAdminToPlurality">Staking<wbr>Admin<wbr>ToPlurality</a></dt><dd>Type to convert the <code>StakingAdmin</code> origin to a Plurality <code>Location</code> value.</dd><dt><a class="type" href="type.TreasurerToPlurality.html" title="type asset_hub_westend_runtime::xcm_config::TreasurerToPlurality">Treasurer<wbr>ToPlurality</a></dt><dd>Type to convert the <code>Treasurer</code> origin to a Plurality <code>Location</code> value.</dd><dt><a class="type" href="type.TrustBackedAssetsConvertedConcreteId.html" title="type asset_hub_westend_runtime::xcm_config::TrustBackedAssetsConvertedConcreteId">Trust<wbr>Backed<wbr>Assets<wbr>Converted<wbr>Concrete<wbr>Id</a></dt><dd><code>AssetId</code>/<code>Balance</code> converter for <code>TrustBackedAssets</code>.</dd><dt><a class="type" href="type.TrustedAliasers.html" title="type asset_hub_westend_runtime::xcm_config::TrustedAliasers">Trusted<wbr>Aliasers</a></dt><dd>Defines origin aliasing rules for this chain.</dd><dt><a class="type" href="type.TrustedTeleporters.html" title="type asset_hub_westend_runtime::xcm_config::TrustedTeleporters">Trusted<wbr>Teleporters</a></dt><dd>Cases where a remote origin is accepted as trusted Teleporter for a given asset:</dd><dt><a class="type" href="type.UniquesConvertedConcreteId.html" title="type asset_hub_westend_runtime::xcm_config::UniquesConvertedConcreteId">Uniques<wbr>Converted<wbr>Concrete<wbr>Id</a></dt><dd>Matcher for converting <code>ClassId</code>/<code>InstanceId</code> into a uniques asset.</dd><dt><a class="type" href="type.UniquesTransactor.html" title="type asset_hub_westend_runtime::xcm_config::UniquesTransactor">Uniques<wbr>Transactor</a></dt><dd>Means for transacting unique assets.</dd><dt><a class="type" href="type.WaivedLocations.html" title="type asset_hub_westend_runtime::xcm_config::WaivedLocations">Waived<wbr>Locations</a></dt><dd>Locations that will not be charged fees in the executor,
+either execution or delivery.
+We only waive fees for system functions, which these locations represent.</dd><dt><a class="type" href="type.XcmOriginToTransactDispatchOrigin.html" title="type asset_hub_westend_runtime::xcm_config::XcmOriginToTransactDispatchOrigin">XcmOrigin<wbr>ToTransact<wbr>Dispatch<wbr>Origin</a></dt><dd>This is the type we use to convert an (incoming) XCM origin into a local <code>Origin</code> instance,
+ready for dispatching a transaction with Xcm’s <code>Transact</code>. There is an <code>OriginKind</code> which can
+biases the kind of local <code>Origin</code> it will become.</dd><dt><a class="type" href="type.XcmRouter.html" title="type asset_hub_westend_runtime::xcm_config::XcmRouter">XcmRouter</a></dt><dd>The means for routing XCM messages which are not for local execution into the right message
+queues.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

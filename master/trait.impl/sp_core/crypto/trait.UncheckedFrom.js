@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["sp_core",[]],["sp_runtime",[["impl&lt;T: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/convert/trait.Into.html\" title=\"trait core::convert::Into\">Into</a>&lt;<a class=\"struct\" href=\"sp_runtime/testing/struct.H256.html\" title=\"struct sp_runtime::testing::H256\">H256</a>&gt;&gt; UncheckedFrom&lt;T&gt; for <a class=\"enum\" href=\"sp_runtime/enum.MultiSigner.html\" title=\"enum sp_runtime::MultiSigner\">MultiSigner</a>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[14,437,37]}

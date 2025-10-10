@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","InconsistentError"],"mod":["migration","pallet"],"struct":["ActiveConfigHrmpChannelSizeAndCapacityRatio","GenesisConfig","HostConfiguration","Pallet","SessionChangeOutcome","TestWeightInfo"],"trait":["Config","WeightInfo"],"type":["ActiveConfig","Module","PendingConfigs"]};

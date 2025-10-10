@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["bp_parachains",[["impl StorageDoubleMapKeyProvider for <a class=\"struct\" href=\"bp_parachains/struct.ImportedParaHeadsKeyProvider.html\" title=\"struct bp_parachains::ImportedParaHeadsKeyProvider\">ImportedParaHeadsKeyProvider</a>"]]],["bp_relayers",[["impl&lt;AccountId, Reward, RewardBalance&gt; StorageDoubleMapKeyProvider for <a class=\"struct\" href=\"bp_relayers/struct.RelayerRewardsKeyProvider.html\" title=\"struct bp_relayers::RelayerRewardsKeyProvider\">RelayerRewardsKeyProvider</a>&lt;AccountId, Reward, RewardBalance&gt;<div class=\"where\">where\n    AccountId: 'static + Codec + EncodeLike + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/marker/trait.Sync.html\" title=\"trait core::marker::Sync\">Sync</a>,\n    Reward: Codec + EncodeLike + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/marker/trait.Sync.html\" title=\"trait core::marker::Sync\">Sync</a>,\n    RewardBalance: 'static + Codec + EncodeLike + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/marker/trait.Sync.html\" title=\"trait core::marker::Sync\">Sync</a>,</div>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[238,1275,37]}

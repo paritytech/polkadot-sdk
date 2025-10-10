@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["Details"],"trait":["BenchmarkHelper"],"type":["AccountIdLookupOf","AssetBalanceOf","AssetIdOf","DepositOf"]};

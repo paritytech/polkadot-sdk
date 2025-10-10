@@ -1,0 +1,189 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in snowbridge_pallet_outbound_queue_v2::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_pallet_outbound_queue_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../snowbridge_pallet_outbound_queue_v2/index.html">snowbridge_<wbr>pallet_<wbr>outbound_<wbr>queue_<wbr>v2</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Config</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Balance" title="Balance">Balance</a></li><li><a href="#associatedtype.DefaultRewardKind" title="DefaultRewardKind">DefaultRewardKind</a></li><li><a href="#associatedtype.EthereumNetwork" title="EthereumNetwork">EthereumNetwork</a></li><li><a href="#associatedtype.GasMeter" title="GasMeter">GasMeter</a></li><li><a href="#associatedtype.GatewayAddress" title="GatewayAddress">GatewayAddress</a></li><li><a href="#associatedtype.Hashing" title="Hashing">Hashing</a></li><li><a href="#associatedtype.Helper" title="Helper">Helper</a></li><li><a href="#associatedtype.MaxMessagePayloadSize" title="MaxMessagePayloadSize">MaxMessagePayloadSize</a></li><li><a href="#associatedtype.MaxMessagesPerBlock" title="MaxMessagesPerBlock">MaxMessagesPerBlock</a></li><li><a href="#associatedtype.MessageQueue" title="MessageQueue">MessageQueue</a></li><li><a href="#associatedtype.OnNewCommitment" title="OnNewCommitment">OnNewCommitment</a></li><li><a href="#associatedtype.RewardKind" title="RewardKind">RewardKind</a></li><li><a href="#associatedtype.RewardPayment" title="RewardPayment">RewardPayment</a></li><li><a href="#associatedtype.RuntimeEvent" title="RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.Verifier" title="Verifier">Verifier</a></li><li><a href="#associatedtype.WeightInfo" title="WeightInfo">WeightInfo</a></li><li><a href="#associatedtype.WeightToFee" title="WeightToFee">WeightToFee</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In snowbridge_<wbr>pallet_<wbr>outbound_<wbr>queue_<wbr>v2::<wbr>pallet</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">snowbridge_pallet_outbound_queue_v2</a>::<wbr><a href="index.html">pallet</a></div><h1>Trait <span class="trait">Config</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#119-166">Source</a> </span></div><pre class="rust item-decl"><code>pub trait Config: Config + Config&lt;RuntimeEvent: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum snowbridge_pallet_outbound_queue_v2::pallet::Event">Event</a>&lt;Self&gt;&gt;&gt; {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 17 associated items</span></summary>    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum snowbridge_pallet_outbound_queue_v2::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.Hashing" class="associatedtype">Hashing</a>: Hash&lt;Output = H256&gt;;
+    type <a href="#associatedtype.MessageQueue" class="associatedtype">MessageQueue</a>: EnqueueMessage&lt;AggregateMessageOrigin&gt;;
+    type <a href="#associatedtype.GasMeter" class="associatedtype">GasMeter</a>: GasMeter;
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Balance + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;;
+    type <a href="#associatedtype.MaxMessagePayloadSize" class="associatedtype">MaxMessagePayloadSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxMessagesPerBlock" class="associatedtype">MaxMessagesPerBlock</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.OnNewCommitment" class="associatedtype">OnNewCommitment</a>: <a class="trait" href="../types/trait.OnNewCommitment.html" title="trait snowbridge_pallet_outbound_queue_v2::types::OnNewCommitment">OnNewCommitment</a>;
+    type <a href="#associatedtype.WeightToFee" class="associatedtype">WeightToFee</a>: WeightToFee&lt;Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type snowbridge_pallet_outbound_queue_v2::pallet::Config::Balance">Balance</a>&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait snowbridge_pallet_outbound_queue_v2::weights::WeightInfo">WeightInfo</a>;
+    type <a href="#associatedtype.Verifier" class="associatedtype">Verifier</a>: Verifier;
+    type <a href="#associatedtype.GatewayAddress" class="associatedtype">GatewayAddress</a>: Get&lt;H160&gt;;
+    type <a href="#associatedtype.RewardKind" class="associatedtype">RewardKind</a>: Parameter + MaxEncodedLen + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>;
+    type <a href="#associatedtype.DefaultRewardKind" class="associatedtype">DefaultRewardKind</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RewardKind" title="type snowbridge_pallet_outbound_queue_v2::pallet::Config::RewardKind">RewardKind</a>&gt;;
+    type <a href="#associatedtype.RewardPayment" class="associatedtype">RewardPayment</a>: RewardLedger&lt;Self::AccountId, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RewardKind" title="type snowbridge_pallet_outbound_queue_v2::pallet::Config::RewardKind">RewardKind</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;;
+    type <a href="#associatedtype.EthereumNetwork" class="associatedtype">EthereumNetwork</a>: Get&lt;NetworkId&gt;;
+    type <a href="#associatedtype.Helper" class="associatedtype">Helper</a>: <a class="trait" href="trait.BenchmarkHelper.html" title="trait snowbridge_pallet_outbound_queue_v2::pallet::BenchmarkHelper">BenchmarkHelper</a>&lt;Self&gt;;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#121">Source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum snowbridge_pallet_outbound_queue_v2::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section><section id="associatedtype.Hashing" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#123">Source</a><h4 class="code-header">type <a href="#associatedtype.Hashing" class="associatedtype">Hashing</a>: Hash&lt;Output = H256&gt;</h4></section><section id="associatedtype.MessageQueue" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#125">Source</a><h4 class="code-header">type <a href="#associatedtype.MessageQueue" class="associatedtype">MessageQueue</a>: EnqueueMessage&lt;AggregateMessageOrigin&gt;</h4></section><details class="toggle" open><summary><section id="associatedtype.GasMeter" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#128">Source</a><h4 class="code-header">type <a href="#associatedtype.GasMeter" class="associatedtype">GasMeter</a>: GasMeter</h4></section></summary><div class="docblock"><p>Measures the maximum gas used to execute a command on Ethereum</p>
+</div></details><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#130">Source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Balance + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</h4></section><details class="toggle" open><summary><section id="associatedtype.MaxMessagePayloadSize" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#134">Source</a><h4 class="code-header">type <a href="#associatedtype.MaxMessagePayloadSize" class="associatedtype">MaxMessagePayloadSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Max bytes in a message payload</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxMessagesPerBlock" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#138">Source</a><h4 class="code-header">type <a href="#associatedtype.MaxMessagesPerBlock" class="associatedtype">MaxMessagesPerBlock</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Max number of messages processed per block</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OnNewCommitment" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#141">Source</a><h4 class="code-header">type <a href="#associatedtype.OnNewCommitment" class="associatedtype">OnNewCommitment</a>: <a class="trait" href="../types/trait.OnNewCommitment.html" title="trait snowbridge_pallet_outbound_queue_v2::types::OnNewCommitment">OnNewCommitment</a></h4></section></summary><div class="docblock"><p>Hook that is called whenever there is a new commitment.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightToFee" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#144">Source</a><h4 class="code-header">type <a href="#associatedtype.WeightToFee" class="associatedtype">WeightToFee</a>: WeightToFee&lt;Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type snowbridge_pallet_outbound_queue_v2::pallet::Config::Balance">Balance</a>&gt;</h4></section></summary><div class="docblock"><p>Convert a weight value into a deductible fee based.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#147">Source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait snowbridge_pallet_outbound_queue_v2::weights::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>Weight information for extrinsics in this pallet</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Verifier" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#150">Source</a><h4 class="code-header">type <a href="#associatedtype.Verifier" class="associatedtype">Verifier</a>: Verifier</h4></section></summary><div class="docblock"><p>The verifier for delivery proof from Ethereum</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.GatewayAddress" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#154">Source</a><h4 class="code-header">type <a href="#associatedtype.GatewayAddress" class="associatedtype">GatewayAddress</a>: Get&lt;H160&gt;</h4></section></summary><div class="docblock"><p>Address of the Gateway contract</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RewardKind" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#156">Source</a><h4 class="code-header">type <a href="#associatedtype.RewardKind" class="associatedtype">RewardKind</a>: Parameter + MaxEncodedLen + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a></h4></section></summary><div class="docblock"><p>Reward discriminator type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DefaultRewardKind" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#159">Source</a><h4 class="code-header">type <a href="#associatedtype.DefaultRewardKind" class="associatedtype">DefaultRewardKind</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RewardKind" title="type snowbridge_pallet_outbound_queue_v2::pallet::Config::RewardKind">RewardKind</a>&gt;</h4></section></summary><div class="docblock"><p>The default RewardKind discriminator for rewards allocated to relayers from this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RewardPayment" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#161">Source</a><h4 class="code-header">type <a href="#associatedtype.RewardPayment" class="associatedtype">RewardPayment</a>: RewardLedger&lt;Self::AccountId, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RewardKind" title="type snowbridge_pallet_outbound_queue_v2::pallet::Config::RewardKind">RewardKind</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</h4></section></summary><div class="docblock"><p>Relayer reward payment.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.EthereumNetwork" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#163">Source</a><h4 class="code-header">type <a href="#associatedtype.EthereumNetwork" class="associatedtype">EthereumNetwork</a>: Get&lt;NetworkId&gt;</h4></section></summary><div class="docblock"><p>Ethereum NetworkId</p>
+</div></details><section id="associatedtype.Helper" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue_v2/lib.rs.html#165">Source</a><h4 class="code-header">type <a href="#associatedtype.Helper" class="associatedtype">Helper</a>: <a class="trait" href="trait.BenchmarkHelper.html" title="trait snowbridge_pallet_outbound_queue_v2::pallet::BenchmarkHelper">BenchmarkHelper</a>&lt;Self&gt;</h4></section></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/snowbridge_pallet_outbound_queue_v2/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

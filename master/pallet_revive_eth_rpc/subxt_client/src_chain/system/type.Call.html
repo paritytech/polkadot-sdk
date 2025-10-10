@@ -1,0 +1,189 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Call` type in crate `pallet_revive_eth_rpc`."><title>Call in pallet_revive_eth_rpc::subxt_client::src_chain::system - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Call</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.apply_authorized_upgrade" title="apply_authorized_upgrade">apply_authorized_upgrade</a></li><li><a href="#variant.authorize_upgrade" title="authorize_upgrade">authorize_upgrade</a></li><li><a href="#variant.authorize_upgrade_without_checks" title="authorize_upgrade_without_checks">authorize_upgrade_without_checks</a></li><li><a href="#variant.kill_prefix" title="kill_prefix">kill_prefix</a></li><li><a href="#variant.kill_storage" title="kill_storage">kill_storage</a></li><li><a href="#variant.remark" title="remark">remark</a></li><li><a href="#variant.remark_with_event" title="remark_with_event">remark_with_event</a></li><li><a href="#variant.set_code" title="set_code">set_code</a></li><li><a href="#variant.set_code_without_checks" title="set_code_without_checks">set_code_without_checks</a></li><li><a href="#variant.set_heap_pages" title="set_heap_pages">set_heap_pages</a></li><li><a href="#variant.set_storage" title="set_storage">set_storage</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>system</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">system</a></div><h1>Type Alias <span class="type">Call</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Call = <a class="enum" href="../runtime_types/frame_system/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_system::pallet::Call">Call</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Call {
+    remark {
+        remark: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    set_heap_pages {
+        pages: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u64.html">u64</a>,
+    },
+    set_code {
+        code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    set_code_without_checks {
+        code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    set_storage {
+        items: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;)&gt;,
+    },
+    kill_storage {
+        keys: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt;,
+    },
+    kill_prefix {
+        prefix: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        subkeys: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    remark_with_event {
+        remark: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    authorize_upgrade {
+        code_hash: H256,
+    },
+    authorize_upgrade_without_checks {
+        code_hash: H256,
+    },
+    apply_authorized_upgrade {
+        code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.remark" class="variant"><a href="#variant.remark" class="anchor">§</a><h3 class="code-header">remark</h3></section><div class="sub-variant" id="variant.remark.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.remark.field.remark" class="section-header"><a href="#variant.remark.field.remark" class="anchor field">§</a><code>remark: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.set_heap_pages" class="variant"><a href="#variant.set_heap_pages" class="anchor">§</a><h3 class="code-header">set_heap_pages</h3></section><div class="sub-variant" id="variant.set_heap_pages.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_heap_pages.field.pages" class="section-header"><a href="#variant.set_heap_pages.field.pages" class="anchor field">§</a><code>pages: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u64.html">u64</a></code></span></div></div><section id="variant.set_code" class="variant"><a href="#variant.set_code" class="anchor">§</a><h3 class="code-header">set_code</h3></section><div class="sub-variant" id="variant.set_code.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_code.field.code" class="section-header"><a href="#variant.set_code.field.code" class="anchor field">§</a><code>code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.set_code_without_checks" class="variant"><a href="#variant.set_code_without_checks" class="anchor">§</a><h3 class="code-header">set_code_without_checks</h3></section><div class="sub-variant" id="variant.set_code_without_checks.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_code_without_checks.field.code" class="section-header"><a href="#variant.set_code_without_checks.field.code" class="anchor field">§</a><code>code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.set_storage" class="variant"><a href="#variant.set_storage" class="anchor">§</a><h3 class="code-header">set_storage</h3></section><div class="sub-variant" id="variant.set_storage.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_storage.field.items" class="section-header"><a href="#variant.set_storage.field.items" class="anchor field">§</a><code>items: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;)&gt;</code></span></div></div><section id="variant.kill_storage" class="variant"><a href="#variant.kill_storage" class="anchor">§</a><h3 class="code-header">kill_storage</h3></section><div class="sub-variant" id="variant.kill_storage.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.kill_storage.field.keys" class="section-header"><a href="#variant.kill_storage.field.keys" class="anchor field">§</a><code>keys: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt;</code></span></div></div><section id="variant.kill_prefix" class="variant"><a href="#variant.kill_prefix" class="anchor">§</a><h3 class="code-header">kill_prefix</h3></section><div class="sub-variant" id="variant.kill_prefix.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.kill_prefix.field.prefix" class="section-header"><a href="#variant.kill_prefix.field.prefix" class="anchor field">§</a><code>prefix: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.kill_prefix.field.subkeys" class="section-header"><a href="#variant.kill_prefix.field.subkeys" class="anchor field">§</a><code>subkeys: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.remark_with_event" class="variant"><a href="#variant.remark_with_event" class="anchor">§</a><h3 class="code-header">remark_with_event</h3></section><div class="sub-variant" id="variant.remark_with_event.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.remark_with_event.field.remark" class="section-header"><a href="#variant.remark_with_event.field.remark" class="anchor field">§</a><code>remark: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.authorize_upgrade" class="variant"><a href="#variant.authorize_upgrade" class="anchor">§</a><h3 class="code-header">authorize_upgrade</h3></section><div class="sub-variant" id="variant.authorize_upgrade.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.authorize_upgrade.field.code_hash" class="section-header"><a href="#variant.authorize_upgrade.field.code_hash" class="anchor field">§</a><code>code_hash: H256</code></span></div></div><section id="variant.authorize_upgrade_without_checks" class="variant"><a href="#variant.authorize_upgrade_without_checks" class="anchor">§</a><h3 class="code-header">authorize_upgrade_without_checks</h3></section><div class="sub-variant" id="variant.authorize_upgrade_without_checks.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.authorize_upgrade_without_checks.field.code_hash" class="section-header"><a href="#variant.authorize_upgrade_without_checks.field.code_hash" class="anchor field">§</a><code>code_hash: H256</code></span></div></div><section id="variant.apply_authorized_upgrade" class="variant"><a href="#variant.apply_authorized_upgrade" class="anchor">§</a><h3 class="code-header">apply_authorized_upgrade</h3></section><div class="sub-variant" id="variant.apply_authorized_upgrade.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.apply_authorized_upgrade.field.code" class="section-header"><a href="#variant.apply_authorized_upgrade.field.code" class="anchor field">§</a><code>code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/frame_system/pallet/enum.Call.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::system::Call" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration of the networking layer."><title>polkadot_node_network_protocol::request_response::network - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_network_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_node_network_protocol/index.html">polkadot_<wbr>node_<wbr>network_<wbr>protocol</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module network</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In polkadot_<wbr>node_<wbr>network_<wbr>protocol::<wbr>request_<wbr>response</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">polkadot_node_network_protocol</a>::<wbr><a href="../index.html">request_response</a></div><h1>Module <span>network</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/sc_network/lib.rs.html#253">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration of the networking layer.</p>
+<p>The <a href="struct.Params.html" title="struct polkadot_node_network_protocol::request_response::network::Params"><code>Params</code></a> struct is the struct that must be passed in order to initialize the networking.
+See the documentation of <a href="struct.Params.html" title="struct polkadot_node_network_protocol::request_response::network::Params"><code>Params</code></a>.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="ed25519/index.html" title="mod polkadot_node_network_protocol::request_response::network::ed25519">ed25519</a></dt><dd>Ed25519 keys.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.build_multiaddr.html" title="macro polkadot_node_network_protocol::request_response::network::build_multiaddr">build_<wbr>multiaddr</a></dt><dd>Easy way for a user to create a <code>Multiaddr</code>.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.FullNetworkConfiguration.html" title="struct polkadot_node_network_protocol::request_response::network::FullNetworkConfiguration">Full<wbr>Network<wbr>Configuration</a></dt><dd>Full network configuration.</dd><dt><a class="struct" href="struct.IncomingRequest.html" title="struct polkadot_node_network_protocol::request_response::network::IncomingRequest">Incoming<wbr>Request</a></dt><dd>A single request received by a peer on a request-response protocol.</dd><dt><a class="struct" href="struct.MultiaddrWithPeerId.html" title="struct polkadot_node_network_protocol::request_response::network::MultiaddrWithPeerId">Multiaddr<wbr>With<wbr>Peer<wbr>Id</a></dt><dd>Address of a node, including its identity.</dd><dt><a class="struct" href="struct.NetworkConfiguration.html" title="struct polkadot_node_network_protocol::request_response::network::NetworkConfiguration">Network<wbr>Configuration</a></dt><dd>Network service configuration.</dd><dt><a class="struct" href="struct.NonDefaultSetConfig.html" title="struct polkadot_node_network_protocol::request_response::network::NonDefaultSetConfig">NonDefault<wbr>SetConfig</a></dt><dd>Extension to <a href="struct.SetConfig.html" title="struct polkadot_node_network_protocol::request_response::network::SetConfig"><code>SetConfig</code></a> for sets that aren’t the default set.</dd><dt><a class="struct" href="struct.NotificationHandshake.html" title="struct polkadot_node_network_protocol::request_response::network::NotificationHandshake">Notification<wbr>Handshake</a></dt><dd>Custom handshake for the notification protocol</dd><dt><a class="struct" href="struct.NotificationMetrics.html" title="struct polkadot_node_network_protocol::request_response::network::NotificationMetrics">Notification<wbr>Metrics</a></dt><dd>Notification metrics.</dd><dt><a class="struct" href="struct.NotificationsSink.html" title="struct polkadot_node_network_protocol::request_response::network::NotificationsSink">Notifications<wbr>Sink</a></dt><dd>Sink connected directly to the node background task. Allows sending notifications to the peer.</dd><dt><a class="struct" href="struct.OutgoingResponse.html" title="struct polkadot_node_network_protocol::request_response::network::OutgoingResponse">Outgoing<wbr>Response</a></dt><dd>Response for an incoming request to be send by a request protocol handler.</dd><dt><a class="struct" href="struct.Params.html" title="struct polkadot_node_network_protocol::request_response::network::Params">Params</a></dt><dd>Network initialization parameters.</dd><dt><a class="struct" href="struct.ProtocolHandlePair.html" title="struct polkadot_node_network_protocol::request_response::network::ProtocolHandlePair">Protocol<wbr>Handle<wbr>Pair</a></dt><dd>Channel pair which allows <code>Notifications</code> to interact with a protocol.</dd><dt><a class="struct" href="struct.ProtocolId.html" title="struct polkadot_node_network_protocol::request_response::network::ProtocolId">Protocol<wbr>Id</a></dt><dd>Protocol name prefix, transmitted on the wire for legacy protocol names.
+I.e., <code>dot</code> in <code>/dot/sync/2</code>. Should be unique for each chain. Always UTF-8.
+Deprecated in favour of genesis hash &amp; fork ID based protocol names.</dd><dt><a class="struct" href="struct.RequestResponseConfig.html" title="struct polkadot_node_network_protocol::request_response::network::RequestResponseConfig">Request<wbr>Response<wbr>Config</a></dt><dd>Configuration for a single request-response protocol.</dd><dt><a class="struct" href="struct.Roles.html" title="struct polkadot_node_network_protocol::request_response::network::Roles">Roles</a></dt><dd>Bitmask of the roles that a node fulfills.</dd><dt><a class="struct" href="struct.SetConfig.html" title="struct polkadot_node_network_protocol::request_response::network::SetConfig">SetConfig</a></dt><dd>Configuration for a set of nodes.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.NetworkBackendType.html" title="enum polkadot_node_network_protocol::request_response::network::NetworkBackendType">Network<wbr>Backend<wbr>Type</a></dt><dd>Network backend type.</dd><dt><a class="enum" href="enum.NodeKeyConfig.html" title="enum polkadot_node_network_protocol::request_response::network::NodeKeyConfig">Node<wbr>KeyConfig</a></dt><dd>The configuration of a node’s secret key, describing the type of key
+and how it is obtained. A node’s identity keypair is the result of
+the evaluation of the node key configuration.</dd><dt><a class="enum" href="enum.NonReservedPeerMode.html" title="enum polkadot_node_network_protocol::request_response::network::NonReservedPeerMode">NonReserved<wbr>Peer<wbr>Mode</a></dt><dd>The policy for connections to non-reserved peers.</dd><dt><a class="enum" href="enum.ParseErr.html" title="enum polkadot_node_network_protocol::request_response::network::ParseErr">Parse<wbr>Err</a></dt><dd>Error that can be generated by <code>parse_str_addr</code>.</dd><dt><a class="enum" href="enum.ProtocolName.html" title="enum polkadot_node_network_protocol::request_response::network::ProtocolName">Protocol<wbr>Name</a></dt><dd>The protocol name transmitted on the wire.</dd><dt><a class="enum" href="enum.Role.html" title="enum polkadot_node_network_protocol::request_response::network::Role">Role</a></dt><dd>Role of the local node.</dd><dt><a class="enum" href="enum.Secret.html" title="enum polkadot_node_network_protocol::request_response::network::Secret">Secret</a></dt><dd>The configuration options for obtaining a secret key <code>K</code>.</dd><dt><a class="enum" href="enum.SyncMode.html" title="enum polkadot_node_network_protocol::request_response::network::SyncMode">Sync<wbr>Mode</a></dt><dd>Sync operation mode.</dd><dt><a class="enum" href="enum.TransportConfig.html" title="enum polkadot_node_network_protocol::request_response::network::TransportConfig">Transport<wbr>Config</a></dt><dd>Configuration for the transport layer.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.DEFAULT_IDLE_CONNECTION_TIMEOUT.html" title="constant polkadot_node_network_protocol::request_response::network::DEFAULT_IDLE_CONNECTION_TIMEOUT">DEFAULT_<wbr>IDLE_<wbr>CONNECTION_<wbr>TIMEOUT</a></dt><dd>Default timeout for idle connections of 10 seconds is good enough for most networks.
+It doesn’t make sense to expose it as a CLI parameter on individual nodes, but customizations
+are possible in custom nodes through <a href="struct.NetworkConfiguration.html" title="struct polkadot_node_network_protocol::request_response::network::NetworkConfiguration"><code>NetworkConfiguration</code></a>.</dd><dt><a class="constant" href="constant.DEFAULT_KADEMLIA_REPLICATION_FACTOR.html" title="constant polkadot_node_network_protocol::request_response::network::DEFAULT_KADEMLIA_REPLICATION_FACTOR">DEFAULT_<wbr>KADEMLIA_<wbr>REPLICATION_<wbr>FACTOR</a></dt><dd>Default value for Kademlia replication factor which  determines to how many closest peers a
+record is replicated to.</dd><dt><a class="constant" href="constant.KADEMLIA_MAX_PROVIDER_KEYS.html" title="constant polkadot_node_network_protocol::request_response::network::KADEMLIA_MAX_PROVIDER_KEYS">KADEMLIA_<wbr>MAX_<wbr>PROVIDER_<wbr>KEYS</a></dt><dd>Maximum number of locally kept Kademlia provider keys.</dd><dt><a class="constant" href="constant.KADEMLIA_PROVIDER_RECORD_TTL.html" title="constant polkadot_node_network_protocol::request_response::network::KADEMLIA_PROVIDER_RECORD_TTL">KADEMLIA_<wbr>PROVIDER_<wbr>RECORD_<wbr>TTL</a></dt><dd>Time to keep Kademlia content provider records.</dd><dt><a class="constant" href="constant.KADEMLIA_PROVIDER_REPUBLISH_INTERVAL.html" title="constant polkadot_node_network_protocol::request_response::network::KADEMLIA_PROVIDER_REPUBLISH_INTERVAL">KADEMLIA_<wbr>PROVIDER_<wbr>REPUBLISH_<wbr>INTERVAL</a></dt><dd>Interval of republishing Kademlia provider records.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.ExHashT.html" title="trait polkadot_node_network_protocol::request_response::network::ExHashT">ExHashT</a></dt><dd>Minimum Requirements for a Hash within Networking</dd><dt><a class="trait" href="trait.NotificationConfig.html" title="trait polkadot_node_network_protocol::request_response::network::NotificationConfig">Notification<wbr>Config</a></dt><dd>Trait defining the required functionality from a notification protocol configuration.</dd><dt><a class="trait" href="trait.NotificationService.html" title="trait polkadot_node_network_protocol::request_response::network::NotificationService">Notification<wbr>Service</a></dt><dd>Notification service</dd><dt><a class="trait" href="trait.PeerStore.html" title="trait polkadot_node_network_protocol::request_response::network::PeerStore">Peer<wbr>Store</a></dt><dd>Trait defining required functionality from <code>PeerStore</code>.</dd><dt><a class="trait" href="trait.PeerStoreProvider.html" title="trait polkadot_node_network_protocol::request_response::network::PeerStoreProvider">Peer<wbr>Store<wbr>Provider</a></dt><dd>Trait providing peer reputation management and connection candidates.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.notification_service.html" title="fn polkadot_node_network_protocol::request_response::network::notification_service">notification_<wbr>service</a></dt><dd>Create new (protocol, notification) handle pair.</dd><dt><a class="fn" href="fn.parse_addr.html" title="fn polkadot_node_network_protocol::request_response::network::parse_addr">parse_<wbr>addr</a></dt><dd>Splits a Multiaddress into a Multiaddress and PeerId.</dd><dt><a class="fn" href="fn.parse_str_addr.html" title="fn polkadot_node_network_protocol::request_response::network::parse_str_addr">parse_<wbr>str_<wbr>addr</a></dt><dd>Parses a string address and splits it into Multiaddress and PeerId, if
+valid.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Ed25519Secret.html" title="type polkadot_node_network_protocol::request_response::network::Ed25519Secret">Ed25519<wbr>Secret</a></dt><dd>The options for obtaining a Ed25519 secret key.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Invulnerables","SortedScores","SubmissionMetadataStorage","SubmissionStorage"]};

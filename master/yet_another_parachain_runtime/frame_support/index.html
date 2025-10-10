@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Support code for the runtime."><title>yet_another_parachain_runtime::frame_support - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#note-on-tuple-traits" title="Note on Tuple Traits">Note on Tuple Traits</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>frame_support</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/frame_support/lib.rs.html#18-2388">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Support code for the runtime.</p>
+<h3 id="note-on-tuple-traits"><a class="doc-anchor" href="#note-on-tuple-traits">§</a>Note on Tuple Traits</h3>
+<p>Many of the traits defined in <a href="../../frame_support/traits/index.html" title="mod frame_support::traits"><code>traits</code></a> have auto-implementations on tuples as well. Usually,
+the tuple is a function of number of pallets in the runtime. By default, the traits are
+implemented for tuples of up to 64 items.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="crypto/index.html" title="mod yet_another_parachain_runtime::frame_support::crypto">crypto</a></dt><dd>Utilities for dealing with crypto primitives. Sometimes we need to use these from inside WASM
+contracts, where crypto calculations have weak performance.</dd><dt><a class="mod" href="dispatch/index.html" title="mod yet_another_parachain_runtime::frame_support::dispatch">dispatch</a></dt><dd>Dispatch system. Contains a macro for defining runtime modules and
+generating values representing lazy module function calls.</dd><dt><a class="mod" href="dispatch_context/index.html" title="mod yet_another_parachain_runtime::frame_support::dispatch_context">dispatch_<wbr>context</a></dt><dd>Provides functions to interact with the dispatch context.</dd><dt><a class="mod" href="dynamic_params/index.html" title="mod yet_another_parachain_runtime::frame_support::dynamic_params">dynamic_<wbr>params</a></dt><dd>Experimental macros for defining dynamic params that can be used in pallet configs.</dd><dt><a class="mod" href="error/index.html" title="mod yet_another_parachain_runtime::frame_support::error">error</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dt><a class="mod" href="generate_genesis_config/index.html" title="mod yet_another_parachain_runtime::frame_support::generate_genesis_config">generate_<wbr>genesis_<wbr>config</a></dt><dd>Helper for generating the <code>RuntimeGenesisConfig</code> instance for presets.
+Helper macro allowing to construct JSON representation of partially initialized structs.</dd><dt><a class="mod" href="genesis_builder_helper/index.html" title="mod yet_another_parachain_runtime::frame_support::genesis_builder_helper">genesis_<wbr>builder_<wbr>helper</a></dt><dd>Helper for implementing GenesisBuilder runtime API
+Helper functions for implementing <a href="../polkadot_sdk_frame/runtime/apis/trait.GenesisBuilder.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::GenesisBuilder"><code>sp_genesis_builder::GenesisBuilder</code></a> for runtimes.</dd><dt><a class="mod" href="inherent/index.html" title="mod yet_another_parachain_runtime::frame_support::inherent">inherent</a></dt><dt><a class="mod" href="instances/index.html" title="mod yet_another_parachain_runtime::frame_support::instances">instances</a></dt><dd>Some instance placeholder to be used in <a href="attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>frame_support::pallet</code></a> attribute macro.</dd><dt><a class="mod" href="macro_magic/index.html" title="mod yet_another_parachain_runtime::frame_support::macro_magic">macro_<wbr>magic</a></dt><dd>Macro Magic 🪄</dd><dt><a class="mod" href="migrations/index.html" title="mod yet_another_parachain_runtime::frame_support::migrations">migrations</a></dt><dt><a class="mod" href="pallet_macros/index.html" title="mod yet_another_parachain_runtime::frame_support::pallet_macros">pallet_<wbr>macros</a></dt><dd>Contains macro stubs for all of the <code>pallet::</code> macros</dd><dt><a class="mod" href="pallet_prelude/index.html" title="mod yet_another_parachain_runtime::frame_support::pallet_prelude">pallet_<wbr>prelude</a></dt><dd>Prelude to be used alongside pallet macro, for ease of use.</dd><dt><a class="mod" href="sp_runtime/index.html" title="mod yet_another_parachain_runtime::frame_support::sp_runtime">sp_<wbr>runtime</a></dt><dd>Substrate Runtime Primitives.</dd><dt><a class="mod" href="testing_prelude/index.html" title="mod yet_another_parachain_runtime::frame_support::testing_prelude">testing_<wbr>prelude</a></dt><dd>Prelude to be used for pallet testing, for ease of use.</dd><dt><a class="mod" href="view_functions/index.html" title="mod yet_another_parachain_runtime::frame_support::view_functions">view_<wbr>functions</a></dt><dd>Traits for querying pallet view functions.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::frame_support::weights">weights</a></dt><dd>Re-exports <code>sp-weights</code> public API, and contains benchmarked weight constants specific to FRAME.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.__create_tt_macro.html" title="macro yet_another_parachain_runtime::frame_support::__create_tt_macro">__<wbr>create_<wbr>tt_<wbr>macro</a></dt><dd>Internal macro used by <code>frame_support</code> to create tt-call-compliant macros</dd><dt><a class="macro" href="macro.__generate_dummy_part_checker.html" title="macro yet_another_parachain_runtime::frame_support::__generate_dummy_part_checker">__<wbr>generate_<wbr>dummy_<wbr>part_<wbr>checker</a></dt><dd>Internal macro use by frame_support to generate dummy part checker for old pallet declaration</dd><dt><a class="macro" href="macro._std_enabled.html" title="macro yet_another_parachain_runtime::frame_support::_std_enabled">_std_<wbr>enabled</a></dt><dt><a class="macro" href="macro._try_runtime_and_std_not_enabled.html" title="macro yet_another_parachain_runtime::frame_support::_try_runtime_and_std_not_enabled">_try_<wbr>runtime_<wbr>and_<wbr>std_<wbr>not_<wbr>enabled</a></dt><dt><a class="macro" href="macro._try_runtime_enabled.html" title="macro yet_another_parachain_runtime::frame_support::_try_runtime_enabled">_try_<wbr>runtime_<wbr>enabled</a></dt><dt><a class="macro" href="macro._try_runtime_or_std_enabled.html" title="macro yet_another_parachain_runtime::frame_support::_try_runtime_or_std_enabled">_try_<wbr>runtime_<wbr>or_<wbr>std_<wbr>enabled</a></dt><dt><a class="macro" href="macro.assert_err.html" title="macro yet_another_parachain_runtime::frame_support::assert_err">assert_<wbr>err</a></dt><dd>Assert an expression returns an error specified.</dd><dt><a class="macro" href="macro.assert_err_ignore_postinfo.html" title="macro yet_another_parachain_runtime::frame_support::assert_err_ignore_postinfo">assert_<wbr>err_<wbr>ignore_<wbr>postinfo</a></dt><dd>Assert an expression returns an error specified.</dd><dt><a class="macro" href="macro.assert_err_with_weight.html" title="macro yet_another_parachain_runtime::frame_support::assert_err_with_weight">assert_<wbr>err_<wbr>with_<wbr>weight</a></dt><dd>Assert an expression returns error with the given weight.</dd><dt><a class="macro" href="macro.assert_error_encoded_size.html" title="macro yet_another_parachain_runtime::frame_support::assert_error_encoded_size">assert_<wbr>error_<wbr>encoded_<wbr>size</a></dt><dd>Assert that the maximum encoding size does not exceed the value defined in
+<a href="constant.MAX_MODULE_ERROR_ENCODED_SIZE.html" title="constant yet_another_parachain_runtime::frame_support::MAX_MODULE_ERROR_ENCODED_SIZE"><code>MAX_MODULE_ERROR_ENCODED_SIZE</code></a> during compilation.</dd><dt><a class="macro" href="macro.assert_noop.html" title="macro yet_another_parachain_runtime::frame_support::assert_noop">assert_<wbr>noop</a></dt><dd>Evaluate an expression, assert it returns an expected <code>Err</code> value and that
+runtime storage has not been mutated (i.e. expression is a no-operation).</dd><dt><a class="macro" href="macro.assert_ok.html" title="macro yet_another_parachain_runtime::frame_support::assert_ok">assert_<wbr>ok</a></dt><dd>Panic if an expression doesn’t evaluate to <code>Ok</code>.</dd><dt><a class="macro" href="macro.assert_storage_noop.html" title="macro yet_another_parachain_runtime::frame_support::assert_storage_noop">assert_<wbr>storage_<wbr>noop</a></dt><dd>Evaluate any expression and assert that runtime storage has not been mutated
+(i.e. expression is a storage no-operation).</dd><dt><a class="macro" href="macro.build_struct_json_patch.html" title="macro yet_another_parachain_runtime::frame_support::build_struct_json_patch">build_<wbr>struct_<wbr>json_<wbr>patch</a></dt><dd>Creates a JSON patch for given <code>struct_type</code>, supporting recursive field initialization.</dd><dt><a class="macro" href="macro.construct_runtime.html" title="macro yet_another_parachain_runtime::frame_support::construct_runtime">construct_<wbr>runtime</a></dt><dd>Construct a runtime, with the given name and the given pallets.</dd><dt><a class="macro" href="macro.crate_to_crate_version.html" title="macro yet_another_parachain_runtime::frame_support::crate_to_crate_version">crate_<wbr>to_<wbr>crate_<wbr>version</a></dt><dd>Macro used internally in FRAME to generate the crate version for a pallet.</dd><dt><a class="macro" href="macro.defensive.html" title="macro yet_another_parachain_runtime::frame_support::defensive">defensive</a></dt><dd>Generic function to mark an execution path as ONLY defensive.</dd><dt><a class="macro" href="macro.defensive_assert.html" title="macro yet_another_parachain_runtime::frame_support::defensive_assert">defensive_<wbr>assert</a></dt><dd>Trigger a defensive failure if a condition is not met.</dd><dt><a class="macro" href="macro.ensure.html" title="macro yet_another_parachain_runtime::frame_support::ensure">ensure</a></dt><dd>Evaluate <code>$x:expr</code> and if not true return <code>Err($y:expr)</code>.</dd><dt><a class="macro" href="macro.fail.html" title="macro yet_another_parachain_runtime::frame_support::fail">fail</a></dt><dd>Return Err of the expression: <code>return Err($expression);</code>.</dd><dt><a class="macro" href="macro.hypothetically.html" title="macro yet_another_parachain_runtime::frame_support::hypothetically">hypothetically</a></dt><dd>Do something hypothetically by rolling back any changes afterwards.</dd><dt><a class="macro" href="macro.hypothetically_ok.html" title="macro yet_another_parachain_runtime::frame_support::hypothetically_ok">hypothetically_<wbr>ok</a></dt><dd>Assert something to be <em>hypothetically</em> <code>Ok</code>, without actually committing it.</dd><dt><a class="macro" href="macro.impl_ensure_origin_with_arg_ignoring_arg.html" title="macro yet_another_parachain_runtime::frame_support::impl_ensure_origin_with_arg_ignoring_arg">impl_<wbr>ensure_<wbr>origin_<wbr>with_<wbr>arg_<wbr>ignoring_<wbr>arg</a></dt><dd>Simple macro to explicitly implement <a href="../polkadot_sdk_frame/traits/trait.EnsureOriginWithArg.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::traits::EnsureOriginWithArg">EnsureOriginWithArg</a> to be used on any type which
+implements <a href="pallet_prelude/trait.EnsureOrigin.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::EnsureOrigin">EnsureOrigin</a>. This is quick and dirty, so you must use the type parameters <code>O</code>
+(the origin type), <code>T</code> (the argument type) and <code>AccountId</code> (if you are using the <code>O: ..</code> form).</dd><dt><a class="macro" href="macro.impl_filter_stack.html" title="macro yet_another_parachain_runtime::frame_support::impl_filter_stack">impl_<wbr>filter_<wbr>stack</a></dt><dt><a class="macro" href="macro.impl_for_tuples_attr.html" title="macro yet_another_parachain_runtime::frame_support::impl_for_tuples_attr">impl_<wbr>for_<wbr>tuples_<wbr>attr</a></dt><dd>Puts the <a href="impl_trait_for_tuples::impl_for_tuples"><code>impl_for_tuples</code></a> attribute above the given
+code.</dd><dt><a class="macro" href="macro.match_and_insert.html" title="macro yet_another_parachain_runtime::frame_support::match_and_insert">match_<wbr>and_<wbr>insert</a></dt><dd>Macro that inserts some tokens after the first match of some pattern.</dd><dt><a class="macro" href="macro.match_type.html" title="macro yet_another_parachain_runtime::frame_support::match_type">match_<wbr>type</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Create a type which implements the <code>Contains</code> trait for a particular type with syntax similar
+to <code>matches!</code>.</dd><dt><a class="macro" href="macro.match_types.html" title="macro yet_another_parachain_runtime::frame_support::match_types">match_<wbr>types</a></dt><dd>Create a type which implements the <code>Contains</code> trait for a particular type with syntax similar
+to <code>matches!</code>.</dd><dt><a class="macro" href="macro.ord_parameter_types.html" title="macro yet_another_parachain_runtime::frame_support::ord_parameter_types">ord_<wbr>parameter_<wbr>types</a></dt><dd>Macro for easily creating a new implementation of both the <code>Get</code> and <code>Contains</code> traits. Use
+exactly as with <code>parameter_types</code>, only the type must be <code>Ord</code>.</dd><dt><a class="macro" href="macro.parameter_types.html" title="macro yet_another_parachain_runtime::frame_support::parameter_types">parameter_<wbr>types</a></dt><dd>Create new implementations of the <a href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get"><code>Get</code></a> trait.</dd><dt><a class="macro" href="macro.parameter_types_impl_thread_local.html" title="macro yet_another_parachain_runtime::frame_support::parameter_types_impl_thread_local">parameter_<wbr>types_<wbr>impl_<wbr>thread_<wbr>local</a></dt><dt><a class="macro" href="macro.runtime_print.html" title="macro yet_another_parachain_runtime::frame_support::runtime_print">runtime_<wbr>print</a></dt><dd>Print out a formatted message.</dd><dt><a class="macro" href="macro.std_enabled.html" title="macro yet_another_parachain_runtime::frame_support::std_enabled">std_<wbr>enabled</a></dt><dt><a class="macro" href="macro.try_runtime_and_std_not_enabled.html" title="macro yet_another_parachain_runtime::frame_support::try_runtime_and_std_not_enabled">try_<wbr>runtime_<wbr>and_<wbr>std_<wbr>not_<wbr>enabled</a></dt><dt><a class="macro" href="macro.try_runtime_enabled.html" title="macro yet_another_parachain_runtime::frame_support::try_runtime_enabled">try_<wbr>runtime_<wbr>enabled</a></dt><dt><a class="macro" href="macro.try_runtime_or_std_enabled.html" title="macro yet_another_parachain_runtime::frame_support::try_runtime_or_std_enabled">try_<wbr>runtime_<wbr>or_<wbr>std_<wbr>enabled</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Blake2_128.html" title="struct yet_another_parachain_runtime::frame_support::Blake2_128">Blake2_<wbr>128</a></dt><dd>Hash storage keys with blake2 128</dd><dt><a class="struct" href="struct.Blake2_256.html" title="struct yet_another_parachain_runtime::frame_support::Blake2_256">Blake2_<wbr>256</a></dt><dd>Hash storage keys with blake2 256</dd><dt><a class="struct" href="struct.Blake2_128Concat.html" title="struct yet_another_parachain_runtime::frame_support::Blake2_128Concat">Blake2_<wbr>128Concat</a></dt><dd>Hash storage keys with <code>concat(blake2_128(key), key)</code></dd><dt><a class="struct" href="struct.BoundedBTreeMap.html" title="struct yet_another_parachain_runtime::frame_support::BoundedBTreeMap">BoundedB<wbr>Tree<wbr>Map</a></dt><dd>A bounded map based on a B-Tree.</dd><dt><a class="struct" href="struct.BoundedBTreeSet.html" title="struct yet_another_parachain_runtime::frame_support::BoundedBTreeSet">BoundedB<wbr>Tree<wbr>Set</a></dt><dd>A bounded set based on a B-Tree.</dd><dt><a class="struct" href="struct.BoundedSlice.html" title="struct yet_another_parachain_runtime::frame_support::BoundedSlice">Bounded<wbr>Slice</a></dt><dd>A bounded slice.</dd><dt><a class="struct" href="struct.BoundedVec.html" title="struct yet_another_parachain_runtime::frame_support::BoundedVec">Bounded<wbr>Vec</a></dt><dd>A bounded vector.</dd><dt><a class="struct" href="struct.Identity.html" title="struct yet_another_parachain_runtime::frame_support::Identity">Identity</a></dt><dd>Store the key directly.</dd><dt><a class="struct" href="struct.PalletId.html" title="struct yet_another_parachain_runtime::frame_support::PalletId">Pallet<wbr>Id</a></dt><dd>A pallet identifier. These are per pallet and should be stored in a registry somewhere.</dd><dt><a class="struct" href="struct.StorageNoopGuard.html" title="struct yet_another_parachain_runtime::frame_support::StorageNoopGuard">Storage<wbr>Noop<wbr>Guard</a></dt><dd>Asserts that no storage changes took place between con- and destruction of <a href="struct.StorageNoopGuard.html" title="struct yet_another_parachain_runtime::frame_support::StorageNoopGuard"><code>Self</code></a>.</dd><dt><a class="struct" href="struct.Twox64Concat.html" title="struct yet_another_parachain_runtime::frame_support::Twox64Concat">Twox64<wbr>Concat</a></dt><dd>Hash storage keys with <code>concat(twox64(key), key)</code></dd><dt><a class="struct" href="struct.Twox128.html" title="struct yet_another_parachain_runtime::frame_support::Twox128">Twox128</a></dt><dd>Hash storage keys with twox 128</dd><dt><a class="struct" href="struct.Twox256.html" title="struct yet_another_parachain_runtime::frame_support::Twox256">Twox256</a></dt><dd>Hash storage keys with twox 256</dd><dt><a class="struct" href="struct.WeakBoundedVec.html" title="struct yet_another_parachain_runtime::frame_support::WeakBoundedVec">Weak<wbr>Bounded<wbr>Vec</a></dt><dd>A weakly bounded vector.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Never.html" title="enum yet_another_parachain_runtime::frame_support::Never">Never</a></dt><dd>A type that cannot be instantiated.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.LOG_TARGET.html" title="constant yet_another_parachain_runtime::frame_support::LOG_TARGET">LOG_<wbr>TARGET</a></dt><dd>A unified log target for support operations.</dd><dt><a class="constant" href="constant.MAX_EXTRINSIC_DEPTH.html" title="constant yet_another_parachain_runtime::frame_support::MAX_EXTRINSIC_DEPTH">MAX_<wbr>EXTRINSIC_<wbr>DEPTH</a></dt><dd>Maximum nesting level for extrinsics.</dd><dt><a class="constant" href="constant.MAX_MODULE_ERROR_ENCODED_SIZE.html" title="constant yet_another_parachain_runtime::frame_support::MAX_MODULE_ERROR_ENCODED_SIZE">MAX_<wbr>MODULE_<wbr>ERROR_<wbr>ENCODED_<wbr>SIZE</a></dt><dd>The number of bytes of the module-specific <code>error</code> field defined in <a href="sp_runtime/struct.ModuleError.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::ModuleError"><code>ModuleError</code></a>.
+In FRAME, this is the maximum encoded size of a pallet error type.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Callable.html" title="trait yet_another_parachain_runtime::frame_support::Callable">Callable</a></dt><dd>Serializable version of pallet dispatchable.</dd><dt><a class="trait" href="trait.Deserialize.html" title="trait yet_another_parachain_runtime::frame_support::Deserialize">Deserialize</a></dt><dd>A <strong>data structure</strong> that can be deserialized from any data format supported
+by Serde.</dd><dt><a class="trait" href="trait.Hashable.html" title="trait yet_another_parachain_runtime::frame_support::Hashable">Hashable</a></dt><dt><a class="trait" href="trait.IterableStorageDoubleMap.html" title="trait yet_another_parachain_runtime::frame_support::IterableStorageDoubleMap">Iterable<wbr>Storage<wbr>Double<wbr>Map</a></dt><dd>A strongly-typed double map in storage whose secondary keys and values can be iterated over.</dd><dt><a class="trait" href="trait.IterableStorageMap.html" title="trait yet_another_parachain_runtime::frame_support::IterableStorageMap">Iterable<wbr>Storage<wbr>Map</a></dt><dd>A strongly-typed map in storage whose keys and values can be iterated over.</dd><dt><a class="trait" href="trait.IterableStorageNMap.html" title="trait yet_another_parachain_runtime::frame_support::IterableStorageNMap">Iterable<wbr>StorageN<wbr>Map</a></dt><dd>A strongly-typed map with arbitrary number of keys in storage whose keys and values can be
+iterated over.</dd><dt><a class="trait" href="trait.Parameter.html" title="trait yet_another_parachain_runtime::frame_support::Parameter">Parameter</a></dt><dd>A type that can be used as a parameter in a dispatchable function.</dd><dt><a class="trait" href="trait.Printable.html" title="trait yet_another_parachain_runtime::frame_support::Printable">Printable</a></dt><dd>Trait for things which can be printed from the runtime.</dd><dt><a class="trait" href="trait.ReversibleStorageHasher.html" title="trait yet_another_parachain_runtime::frame_support::ReversibleStorageHasher">Reversible<wbr>Storage<wbr>Hasher</a></dt><dd>Hasher to use to hash keys to insert to storage.</dd><dt><a class="trait" href="trait.Serialize.html" title="trait yet_another_parachain_runtime::frame_support::Serialize">Serialize</a></dt><dd>A <strong>data structure</strong> that can be serialized into any data format supported
+by Serde.</dd><dt><a class="trait" href="trait.StorageDoubleMap.html" title="trait yet_another_parachain_runtime::frame_support::StorageDoubleMap">Storage<wbr>Double<wbr>Map</a></dt><dd>An implementation of a map with a two keys.</dd><dt><a class="trait" href="trait.StorageHasher.html" title="trait yet_another_parachain_runtime::frame_support::StorageHasher">Storage<wbr>Hasher</a></dt><dd>Hasher to use to hash keys to insert to storage.</dd><dt><a class="trait" href="trait.StorageMap.html" title="trait yet_another_parachain_runtime::frame_support::StorageMap">Storage<wbr>Map</a></dt><dd>A strongly-typed map in storage.</dd><dt><a class="trait" href="trait.StorageNMap.html" title="trait yet_another_parachain_runtime::frame_support::StorageNMap">StorageN<wbr>Map</a></dt><dd>An implementation of a map with an arbitrary number of keys.</dd><dt><a class="trait" href="trait.StoragePrefixedMap.html" title="trait yet_another_parachain_runtime::frame_support::StoragePrefixedMap">Storage<wbr>Prefixed<wbr>Map</a></dt><dd>Trait for maps that store all its value after a unique prefix.</dd><dt><a class="trait" href="trait.StorageValue.html" title="trait yet_another_parachain_runtime::frame_support::StorageValue">Storage<wbr>Value</a></dt><dd>A trait for working with macro-generated storage values under the substrate storage API.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.print.html" title="fn yet_another_parachain_runtime::frame_support::print">print</a></dt><dd>Print something that implements <code>Printable</code> from the runtime.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ConsensusEngineId.html" title="type yet_another_parachain_runtime::frame_support::ConsensusEngineId">Consensus<wbr>Engine<wbr>Id</a></dt><dd>Consensus engine unique ID.</dd></dl><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><dl class="item-table"><dt><a class="attr" href="attr.derive_impl.html" title="attr yet_another_parachain_runtime::frame_support::derive_impl">derive_<wbr>impl</a></dt><dd>This attribute can be used to derive a full implementation of a trait based on a local partial
+impl and an external impl containing defaults that can be overridden in the local impl.</dd><dt><a class="attr" href="attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet">pallet</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.register_default_impl.html" title="attr yet_another_parachain_runtime::frame_support::register_default_impl">register_<wbr>default_<wbr>impl</a></dt><dd>Attach this attribute to an impl statement that you want to use with
+<a href="../attr.derive_impl.html" title="attr yet_another_parachain_runtime::derive_impl"><code>#[derive_impl(..)]</code></a>.</dd><dt><a class="attr" href="attr.require_transactional.html" title="attr yet_another_parachain_runtime::frame_support::require_transactional">require_<wbr>transactional</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.runtime.html" title="attr yet_another_parachain_runtime::frame_support::runtime">runtime</a></dt><dd>Construct a runtime, with the given name and the given pallets.</dd><dt><a class="attr" href="attr.storage_alias.html" title="attr yet_another_parachain_runtime::frame_support::storage_alias">storage_<wbr>alias</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.transactional.html" title="attr yet_another_parachain_runtime::frame_support::transactional">transactional</a></dt><dd>Execute the annotated function in a new storage transaction.</dd></dl><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><dl class="item-table"><dt><a class="derive" href="derive.CloneNoBound.html" title="derive yet_another_parachain_runtime::frame_support::CloneNoBound">Clone<wbr>NoBound</a></dt><dd>Derive [<code>Clone</code>] but do not bound any generic.</dd><dt><a class="derive" href="derive.DebugNoBound.html" title="derive yet_another_parachain_runtime::frame_support::DebugNoBound">Debug<wbr>NoBound</a></dt><dd>Derive [<code>Debug</code>] but do not bound any generics.</dd><dt><a class="derive" href="derive.DefaultNoBound.html" title="derive yet_another_parachain_runtime::frame_support::DefaultNoBound">Default<wbr>NoBound</a></dt><dd>derive <code>Default</code> but do no bound any generic. Docs are at <code>frame_support::DefaultNoBound</code>.</dd><dt><a class="derive" href="derive.Deserialize.html" title="derive yet_another_parachain_runtime::frame_support::Deserialize">Deserialize</a></dt><dt><a class="derive" href="derive.EqNoBound.html" title="derive yet_another_parachain_runtime::frame_support::EqNoBound">EqNo<wbr>Bound</a></dt><dd>DeriveEq but do no bound any generic.</dd><dt><a class="derive" href="derive.OrdNoBound.html" title="derive yet_another_parachain_runtime::frame_support::OrdNoBound">OrdNo<wbr>Bound</a></dt><dd>Derive [<code>Ord</code>] but do no bound any generic. Docs are at <code>frame_support::OrdNoBound</code>.</dd><dt><a class="derive" href="derive.PalletError.html" title="derive yet_another_parachain_runtime::frame_support::PalletError">Pallet<wbr>Error</a></dt><dt><a class="derive" href="derive.PartialEqNoBound.html" title="derive yet_another_parachain_runtime::frame_support::PartialEqNoBound">Partial<wbr>EqNo<wbr>Bound</a></dt><dd>Derive [<code>PartialEq</code>] but do not bound any generic.</dd><dt><a class="derive" href="derive.PartialOrdNoBound.html" title="derive yet_another_parachain_runtime::frame_support::PartialOrdNoBound">Partial<wbr>OrdNo<wbr>Bound</a></dt><dd>Derive [<code>PartialOrd</code>] but do not bound any generic. Docs are at
+<code>frame_support::PartialOrdNoBound</code>.</dd><dt><a class="derive" href="derive.RuntimeDebugNoBound.html" title="derive yet_another_parachain_runtime::frame_support::RuntimeDebugNoBound">Runtime<wbr>Debug<wbr>NoBound</a></dt><dd>Derive [<code>Debug</code>], if <code>std</code> is enabled it uses <code>frame_support::DebugNoBound</code>, if <code>std</code> is not
+enabled it just returns <code>"&lt;wasm:stripped&gt;"</code>.
+This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.</dd><dt><a class="derive" href="derive.Serialize.html" title="derive yet_another_parachain_runtime::frame_support::Serialize">Serialize</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_xcm_send_authorize_upgrade_call","call_hash_of","dispatch_whitelisted_call_with_preimage","fee_asset","find_all_mq_processed_ids","find_mq_processed_id","find_xcm_sent_message_id","get_amount_from_versioned_assets","non_fee_asset","xcm_transact_paid_execution","xcm_transact_unpaid_execution"]};

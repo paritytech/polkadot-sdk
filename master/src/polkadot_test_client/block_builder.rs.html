@@ -1,0 +1,314 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/test/client/src/block_builder.rs`."><title>block_builder.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_test_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_test_client/</div>block_builder.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#2 id=2 data-nosnippet>2</a>// This file is part of Polkadot.
+<a href=#3 id=3 data-nosnippet>3</a>
+<a href=#4 id=4 data-nosnippet>4</a>// Polkadot is free software: you can redistribute it and/or modify
+<a href=#5 id=5 data-nosnippet>5</a>// it under the terms of the GNU General Public License as published by
+<a href=#6 id=6 data-nosnippet>6</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#7 id=7 data-nosnippet>7</a>// (at your option) any later version.
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a>// Polkadot is distributed in the hope that it will be useful,
+<a href=#10 id=10 data-nosnippet>10</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#11 id=11 data-nosnippet>11</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<a href=#12 id=12 data-nosnippet>12</a>// GNU General Public License for more details.
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a>// You should have received a copy of the GNU General Public License
+<a href=#15 id=15 data-nosnippet>15</a>// along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">use </span><span class="kw">crate</span>::Client;
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>codec::{Decode, Encode};
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>polkadot_primitives::{Block, InherentData <span class="kw">as </span>ParachainsInherentData};
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>polkadot_test_runtime::UncheckedExtrinsic;
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>polkadot_test_service::GetLastTimestamp;
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>sp_api::ProvideRuntimeApi;
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>sp_consensus_babe::{
+<a href=#25 id=25 data-nosnippet>25</a>	digests::{PreDigest, SecondaryPlainPreDigest},
+<a href=#26 id=26 data-nosnippet>26</a>	BABE_ENGINE_ID,
+<a href=#27 id=27 data-nosnippet>27</a>};
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>sp_runtime::{traits::Block <span class="kw">as </span>BlockT, Digest, DigestItem};
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>sp_state_machine::BasicExternalities;
+<a href=#30 id=30 data-nosnippet>30</a>
+<a href=#31 id=31 data-nosnippet>31</a><span class="doccomment">/// An extension for the test client to initialize a Polkadot specific block builder.
+<a href=#32 id=32 data-nosnippet>32</a></span><span class="kw">pub trait </span>InitPolkadotBlockBuilder {
+<a href=#33 id=33 data-nosnippet>33</a>	<span class="doccomment">/// Init a Polkadot specific block builder that works for the test runtime.
+<a href=#34 id=34 data-nosnippet>34</a>	///
+<a href=#35 id=35 data-nosnippet>35</a>	/// This will automatically create and push the inherents for you to make the block valid for
+<a href=#36 id=36 data-nosnippet>36</a>	/// the test runtime.
+<a href=#37 id=37 data-nosnippet>37</a>	</span><span class="kw">fn </span>init_polkadot_block_builder(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sc_block_builder::BlockBuilder&lt;<span class="lifetime">'_</span>, Block, Client&gt;;
+<a href=#38 id=38 data-nosnippet>38</a>
+<a href=#39 id=39 data-nosnippet>39</a>	<span class="doccomment">/// Init a Polkadot specific block builder at a specific block that works for the test runtime.
+<a href=#40 id=40 data-nosnippet>40</a>	///
+<a href=#41 id=41 data-nosnippet>41</a>	/// Same as [`InitPolkadotBlockBuilder::init_polkadot_block_builder`] besides that it takes a
+<a href=#42 id=42 data-nosnippet>42</a>	/// `Hash` to say which should be the parent block of the block that is being build.
+<a href=#43 id=43 data-nosnippet>43</a>	</span><span class="kw">fn </span>init_polkadot_block_builder_at(
+<a href=#44 id=44 data-nosnippet>44</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#45 id=45 data-nosnippet>45</a>		hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+<a href=#46 id=46 data-nosnippet>46</a>	) -&gt; sc_block_builder::BlockBuilder&lt;<span class="lifetime">'_</span>, Block, Client&gt;;
+<a href=#47 id=47 data-nosnippet>47</a>}
+<a href=#48 id=48 data-nosnippet>48</a>
+<a href=#49 id=49 data-nosnippet>49</a><span class="kw">impl </span>InitPolkadotBlockBuilder <span class="kw">for </span>Client {
+<a href=#50 id=50 data-nosnippet>50</a>	<span class="kw">fn </span>init_polkadot_block_builder(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BlockBuilder&lt;<span class="lifetime">'_</span>, Block, Client&gt; {
+<a href=#51 id=51 data-nosnippet>51</a>		<span class="kw">let </span>chain_info = <span class="self">self</span>.chain_info();
+<a href=#52 id=52 data-nosnippet>52</a>		<span class="self">self</span>.init_polkadot_block_builder_at(chain_info.best_hash)
+<a href=#53 id=53 data-nosnippet>53</a>	}
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a>	<span class="kw">fn </span>init_polkadot_block_builder_at(
+<a href=#56 id=56 data-nosnippet>56</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#57 id=57 data-nosnippet>57</a>		hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+<a href=#58 id=58 data-nosnippet>58</a>	) -&gt; BlockBuilder&lt;<span class="lifetime">'_</span>, Block, Client&gt; {
+<a href=#59 id=59 data-nosnippet>59</a>		<span class="kw">let </span>last_timestamp =
+<a href=#60 id=60 data-nosnippet>60</a>			<span class="self">self</span>.runtime_api().get_last_timestamp(hash).expect(<span class="string">"Get last timestamp"</span>);
+<a href=#61 id=61 data-nosnippet>61</a>
+<a href=#62 id=62 data-nosnippet>62</a>		<span class="comment">// `MinimumPeriod` is a storage parameter type that requires externalities to access the
+<a href=#63 id=63 data-nosnippet>63</a>		// value.
+<a href=#64 id=64 data-nosnippet>64</a>		</span><span class="kw">let </span>minimum_period = BasicExternalities::new_empty()
+<a href=#65 id=65 data-nosnippet>65</a>			.execute_with(|| polkadot_test_runtime::MinimumPeriod::get());
+<a href=#66 id=66 data-nosnippet>66</a>
+<a href=#67 id=67 data-nosnippet>67</a>		<span class="kw">let </span>timestamp = <span class="kw">if </span>last_timestamp == <span class="number">0 </span>{
+<a href=#68 id=68 data-nosnippet>68</a>			std::time::SystemTime::now()
+<a href=#69 id=69 data-nosnippet>69</a>				.duration_since(std::time::SystemTime::UNIX_EPOCH)
+<a href=#70 id=70 data-nosnippet>70</a>				.expect(<span class="string">"Time is always after UNIX_EPOCH; qed"</span>)
+<a href=#71 id=71 data-nosnippet>71</a>				.as_millis() <span class="kw">as </span>u64
+<a href=#72 id=72 data-nosnippet>72</a>		} <span class="kw">else </span>{
+<a href=#73 id=73 data-nosnippet>73</a>			last_timestamp + minimum_period
+<a href=#74 id=74 data-nosnippet>74</a>		};
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>		<span class="comment">// `SlotDuration` is a storage parameter type that requires externalities to access the
+<a href=#77 id=77 data-nosnippet>77</a>		// value.
+<a href=#78 id=78 data-nosnippet>78</a>		</span><span class="kw">let </span>slot_duration = BasicExternalities::new_empty()
+<a href=#79 id=79 data-nosnippet>79</a>			.execute_with(|| polkadot_test_runtime::SlotDuration::get());
+<a href=#80 id=80 data-nosnippet>80</a>
+<a href=#81 id=81 data-nosnippet>81</a>		<span class="kw">let </span>slot = (timestamp / slot_duration).into();
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a>		<span class="kw">let </span>digest = Digest {
+<a href=#84 id=84 data-nosnippet>84</a>			logs: <span class="macro">vec!</span>[DigestItem::PreRuntime(
+<a href=#85 id=85 data-nosnippet>85</a>				BABE_ENGINE_ID,
+<a href=#86 id=86 data-nosnippet>86</a>				PreDigest::SecondaryPlain(SecondaryPlainPreDigest { slot, authority_index: <span class="number">42 </span>})
+<a href=#87 id=87 data-nosnippet>87</a>					.encode(),
+<a href=#88 id=88 data-nosnippet>88</a>			)],
+<a href=#89 id=89 data-nosnippet>89</a>		};
+<a href=#90 id=90 data-nosnippet>90</a>
+<a href=#91 id=91 data-nosnippet>91</a>		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="self">self</span>)
+<a href=#92 id=92 data-nosnippet>92</a>			.on_parent_block(hash)
+<a href=#93 id=93 data-nosnippet>93</a>			.fetch_parent_block_number(<span class="kw-2">&amp;</span><span class="self">self</span>)
+<a href=#94 id=94 data-nosnippet>94</a>			.expect(<span class="string">"Fetches parent block number"</span>)
+<a href=#95 id=95 data-nosnippet>95</a>			.with_inherent_digests(digest)
+<a href=#96 id=96 data-nosnippet>96</a>			.build()
+<a href=#97 id=97 data-nosnippet>97</a>			.expect(<span class="string">"Creates new block builder for test runtime"</span>);
+<a href=#98 id=98 data-nosnippet>98</a>
+<a href=#99 id=99 data-nosnippet>99</a>		<span class="kw">let </span><span class="kw-2">mut </span>inherent_data = sp_inherents::InherentData::new();
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a>		inherent_data
+<a href=#102 id=102 data-nosnippet>102</a>			.put_data(sp_timestamp::INHERENT_IDENTIFIER, <span class="kw-2">&amp;</span>timestamp)
+<a href=#103 id=103 data-nosnippet>103</a>			.expect(<span class="string">"Put timestamp inherent data"</span>);
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a>		<span class="kw">let </span>parent_header = <span class="self">self
+<a href=#106 id=106 data-nosnippet>106</a>			</span>.header(hash)
+<a href=#107 id=107 data-nosnippet>107</a>			.expect(<span class="string">"Get the parent block header"</span>)
+<a href=#108 id=108 data-nosnippet>108</a>			.expect(<span class="string">"The target block header must exist"</span>);
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>		<span class="kw">let </span>parachains_inherent_data = ParachainsInherentData {
+<a href=#111 id=111 data-nosnippet>111</a>			bitfields: Vec::new(),
+<a href=#112 id=112 data-nosnippet>112</a>			backed_candidates: Vec::new(),
+<a href=#113 id=113 data-nosnippet>113</a>			disputes: Vec::new(),
+<a href=#114 id=114 data-nosnippet>114</a>			parent_header,
+<a href=#115 id=115 data-nosnippet>115</a>		};
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a>		inherent_data
+<a href=#118 id=118 data-nosnippet>118</a>			.put_data(
+<a href=#119 id=119 data-nosnippet>119</a>				polkadot_primitives::PARACHAINS_INHERENT_IDENTIFIER,
+<a href=#120 id=120 data-nosnippet>120</a>				<span class="kw-2">&amp;</span>parachains_inherent_data,
+<a href=#121 id=121 data-nosnippet>121</a>			)
+<a href=#122 id=122 data-nosnippet>122</a>			.expect(<span class="string">"Put parachains inherent data"</span>);
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>		<span class="kw">let </span>inherents = block_builder.create_inherents(inherent_data).expect(<span class="string">"Creates inherents"</span>);
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>		inherents
+<a href=#127 id=127 data-nosnippet>127</a>			.into_iter()
+<a href=#128 id=128 data-nosnippet>128</a>			.for_each(|ext| block_builder.push(ext).expect(<span class="string">"Pushes inherent"</span>));
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a>		block_builder
+<a href=#131 id=131 data-nosnippet>131</a>	}
+<a href=#132 id=132 data-nosnippet>132</a>}
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a><span class="doccomment">/// Polkadot specific extensions for the [`BlockBuilder`].
+<a href=#135 id=135 data-nosnippet>135</a></span><span class="kw">pub trait </span>BlockBuilderExt {
+<a href=#136 id=136 data-nosnippet>136</a>	<span class="doccomment">/// Push a Polkadot test runtime specific extrinsic to the block.
+<a href=#137 id=137 data-nosnippet>137</a>	///
+<a href=#138 id=138 data-nosnippet>138</a>	/// This will internally use the [`BlockBuilder::push`] method, but this method expects a opaque
+<a href=#139 id=139 data-nosnippet>139</a>	/// extrinsic. So, we provide this wrapper which converts a test runtime specific extrinsic to a
+<a href=#140 id=140 data-nosnippet>140</a>	/// opaque extrinsic and pushes it to the block.
+<a href=#141 id=141 data-nosnippet>141</a>	///
+<a href=#142 id=142 data-nosnippet>142</a>	/// Returns the result of the application of the extrinsic.
+<a href=#143 id=143 data-nosnippet>143</a>	</span><span class="kw">fn </span>push_polkadot_extrinsic(
+<a href=#144 id=144 data-nosnippet>144</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#145 id=145 data-nosnippet>145</a>		ext: UncheckedExtrinsic,
+<a href=#146 id=146 data-nosnippet>146</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_blockchain::Error&gt;;
+<a href=#147 id=147 data-nosnippet>147</a>}
+<a href=#148 id=148 data-nosnippet>148</a>
+<a href=#149 id=149 data-nosnippet>149</a><span class="kw">impl </span>BlockBuilderExt <span class="kw">for </span>BlockBuilder&lt;<span class="lifetime">'_</span>, Block, Client&gt; {
+<a href=#150 id=150 data-nosnippet>150</a>	<span class="kw">fn </span>push_polkadot_extrinsic(
+<a href=#151 id=151 data-nosnippet>151</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#152 id=152 data-nosnippet>152</a>		ext: UncheckedExtrinsic,
+<a href=#153 id=153 data-nosnippet>153</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_blockchain::Error&gt; {
+<a href=#154 id=154 data-nosnippet>154</a>		<span class="kw">let </span>encoded = ext.encode();
+<a href=#155 id=155 data-nosnippet>155</a>		<span class="self">self</span>.push(
+<a href=#156 id=156 data-nosnippet>156</a>			Decode::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).expect(
+<a href=#157 id=157 data-nosnippet>157</a>				<span class="string">"The runtime specific extrinsic always decodes to an opaque extrinsic; qed"</span>,
+<a href=#158 id=158 data-nosnippet>158</a>			),
+<a href=#159 id=159 data-nosnippet>159</a>		)
+<a href=#160 id=160 data-nosnippet>160</a>	}
+<a href=#161 id=161 data-nosnippet>161</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

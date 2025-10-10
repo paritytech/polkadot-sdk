@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `impls` mod in crate `yet_another_parachain_runtime`."><title>yet_another_parachain_runtime::emulated_integration_tests_common::impls - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module impls</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>emulated_<wbr>integration_<wbr>tests_<wbr>common</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">emulated_integration_tests_common</a></div><h1>Module <span>impls</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/emulated_integration_tests_common/lib.rs.html#16">Source</a> </span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="dmp/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::impls::dmp">dmp</a></dt><dd>To prevent Out of Memory errors on the <code>DownwardMessageQueue</code>, an
+exponential fee factor (<code>DeliveryFeeFactor</code>) is set. The fee factor
+increments exponentially after the number of messages in the
+<code>DownwardMessageQueue</code> passes a threshold. This threshold is set as:</dd><dt><a class="mod" href="hrmp/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::impls::hrmp">hrmp</a></dt><dt><a class="mod" href="pallet_assets/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::impls::pallet_assets">pallet_<wbr>assets</a></dt><dd>Assets Pallet</dd><dt><a class="mod" href="pallet_message_queue/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::impls::pallet_message_queue">pallet_<wbr>message_<wbr>queue</a></dt><dd>Generalized Message Queue Pallet</dd><dt><a class="mod" href="pallet_xcm/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::impls::pallet_xcm">pallet_<wbr>xcm</a></dt><dd>Pallet to handle XCM messages.</dd><dt><a class="mod" href="xcm/index.html" title="mod yet_another_parachain_runtime::emulated_integration_tests_common::impls::xcm">xcm</a></dt><dd>Cross-Consensus Message format data structures.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.assert_expected_events.html" title="macro yet_another_parachain_runtime::emulated_integration_tests_common::impls::assert_expected_events">assert_<wbr>expected_<wbr>events</a></dt><dt><a class="macro" href="macro.assert_ok.html" title="macro yet_another_parachain_runtime::emulated_integration_tests_common::impls::assert_ok">assert_<wbr>ok</a></dt><dd>Panic if an expression doesn’t evaluate to <code>Ok</code>.</dd><dt><a class="macro" href="macro.bx.html" title="macro yet_another_parachain_runtime::emulated_integration_tests_common::impls::bx">bx</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AccountId32.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::AccountId32">Account<wbr>Id32</a></dt><dd>An opaque 32-byte cryptographic identifier.</dd><dt><a class="struct" href="struct.Asset.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::Asset">Asset</a></dt><dd>Either an amount of a single fungible asset, or a single well-identified non-fungible asset.</dd><dt><a class="struct" href="struct.BridgeHubMessageHandler.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::BridgeHubMessageHandler">Bridge<wbr>HubMessage<wbr>Handler</a></dt><dt><a class="struct" href="struct.BridgeMessage.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::BridgeMessage">Bridge<wbr>Message</a></dt><dt><a class="struct" href="struct.BridgeMessageDispatchError.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::BridgeMessageDispatchError">Bridge<wbr>Message<wbr>Dispatch<wbr>Error</a></dt><dt><a class="struct" href="struct.BridgeMessagesInstance1.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::BridgeMessagesInstance1">Bridge<wbr>Messages<wbr>Instance1</a></dt><dd><code>Instance1</code> to be used for instantiable pallets defined with the
+<a href="../../frame_support/attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>#[pallet]</code></a> macro. Instances 2-16 are also available but are hidden
+from docs.</dd><dt><a class="struct" href="struct.DoubleEncoded.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::DoubleEncoded">Double<wbr>Encoded</a></dt><dd>Wrapper around the encoded and decoded versions of a value.
+Caches the decoded value once computed.</dd><dt><a class="struct" href="struct.HrmpChannelId.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::HrmpChannelId">Hrmp<wbr>Channel<wbr>Id</a></dt><dd>A type that uniquely identifies an HRMP channel. An HRMP channel is established between two
+paras. In text, we use the notation <code>(A, B)</code> to specify a channel between A and B. The channels
+are unidirectional, meaning that <code>(A, B)</code> and <code>(B, A)</code> refer to different channels. The
+convention is that we use the first item tuple for the sender and the second for the recipient.
+Only one channel is allowed between two participants in one direction, i.e. there cannot be 2
+different channels identified by <code>(A, B)</code>. A channel with the same para id in sender and
+recipient is invalid. That is, however, not enforced.</dd><dt><a class="struct" href="struct.Location.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::Location">Location</a></dt><dd>A relative path between state-bearing consensus systems.</dd><dt><a class="struct" href="struct.ParaId.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::ParaId">ParaId</a></dt><dd>Unique identifier of a parachain.</dd><dt><a class="struct" href="struct.Weight.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::Weight">Weight</a></dt><dt><a class="struct" href="struct.WeightMeter.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::impls::WeightMeter">Weight<wbr>Meter</a></dt><dd>Meters consumed weight and a hard limit for the maximal consumable weight.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AggregateMessageOrigin.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::AggregateMessageOrigin">Aggregate<wbr>Message<wbr>Origin</a></dt><dd>Aggregate message origin for the <code>MessageQueue</code> pallet.</dd><dt><a class="enum" href="enum.Junction.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::Junction">Junction</a></dt><dd>A single item in a path to describe the relative location of a consensus system.</dd><dt><a class="enum" href="enum.Junctions.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::Junctions">Junctions</a></dt><dd>Non-parent junctions that can be constructed, up to the length of 8. This specific <code>Junctions</code>
+implementation uses a Rust <code>enum</code> in order to make pattern matching easier.</dd><dt><a class="enum" href="enum.NetworkId.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::NetworkId">Network<wbr>Id</a></dt><dd>A global identifier of a data structure existing within consensus.</dd><dt><a class="enum" href="enum.OriginKind.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::OriginKind">Origin<wbr>Kind</a></dt><dd>Basically just the XCM (more general) version of <code>ParachainDispatchOrigin</code>.</dd><dt><a class="enum" href="enum.Outcome.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::Outcome">Outcome</a></dt><dd>Outcome of an XCM execution.</dd><dt><a class="enum" href="enum.UmpQueueId.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::UmpQueueId">UmpQueue<wbr>Id</a></dt><dd>Identifies a UMP queue inside the <code>MessageQueue</code> pallet.</dd><dt><a class="enum" href="enum.VersionedXcm.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::VersionedXcm">Versioned<wbr>Xcm</a></dt><dd>A single XCM message, together with its version code.</dd><dt><a class="enum" href="enum.XcmBridgeHubCall.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::XcmBridgeHubCall">XcmBridge<wbr>HubCall</a></dt><dd>A minimized version of <code>pallet_xcm_bridge_hub::Call</code> that can be used without a runtime.</dd><dt><a class="enum" href="enum.XcmError.html" title="enum yet_another_parachain_runtime::emulated_integration_tests_common::impls::XcmError">XcmError</a></dt><dd>Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
+format. Those trailing are merely part of the XCM implementation; there is no expectation that
+they will retain the same index over time.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.PROOF_SIZE_THRESHOLD.html" title="constant yet_another_parachain_runtime::emulated_integration_tests_common::impls::PROOF_SIZE_THRESHOLD">PROOF_<wbr>SIZE_<wbr>THRESHOLD</a></dt><dt><a class="constant" href="constant.REF_TIME_THRESHOLD.html" title="constant yet_another_parachain_runtime::emulated_integration_tests_common::impls::REF_TIME_THRESHOLD">REF_<wbr>TIME_<wbr>THRESHOLD</a></dt></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.BridgeMessageHandler.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::BridgeMessageHandler">Bridge<wbr>Message<wbr>Handler</a></dt><dt><a class="trait" href="trait.Chain.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Chain">Chain</a></dt><dt><a class="trait" href="trait.Decode.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Decode">Decode</a></dt><dd>Trait that allows zero-copy read of value-references from slices in LE format.</dd><dt><a class="trait" href="trait.DmpMessageHandler.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::DmpMessageHandler">DmpMessage<wbr>Handler</a></dt><dd>Something that should be called when a downward message is received.</dd><dt><a class="trait" href="trait.Encode.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Encode">Encode</a></dt><dd>Trait that allows zero-copy write of value-references to slices in LE format.</dd><dt><a class="trait" href="trait.Inspect.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Inspect">Inspect</a></dt><dd>Trait for providing balance-inspection access to a set of named fungible assets.</dd><dt><a class="trait" href="trait.Network.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Network">Network</a></dt><dt><a class="trait" href="trait.Parachain.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::Parachain">Parachain</a></dt><dt><a class="trait" href="trait.RelayChain.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::RelayChain">Relay<wbr>Chain</a></dt><dt><a class="trait" href="trait.TestExt.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::TestExt">TestExt</a></dt><dt><a class="trait" href="trait.XcmpMessageHandler.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::impls::XcmpMessageHandler">Xcmp<wbr>Message<wbr>Handler</a></dt><dd>Something that should be called for each batch of messages received over XCMP.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.weight_within_threshold.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::impls::weight_within_threshold">weight_<wbr>within_<wbr>threshold</a></dt><dt><a class="fn" href="fn.xcm_transact_paid_execution.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::impls::xcm_transact_paid_execution">xcm_<wbr>transact_<wbr>paid_<wbr>execution</a></dt><dd>Helper method to build a XCM with a <code>Transact</code> instruction and paying for its execution</dd><dt><a class="fn" href="fn.xcm_transact_unpaid_execution.html" title="fn yet_another_parachain_runtime::emulated_integration_tests_common::impls::xcm_transact_unpaid_execution">xcm_<wbr>transact_<wbr>unpaid_<wbr>execution</a></dt><dd>Helper method to build a XCM with a <code>Transact</code> instruction without paying for its execution</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AccountId.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::impls::AccountId">Account<wbr>Id</a></dt><dd>Some way of identifying an account on the chain. We intentionally make it equivalent
+to the public key of our transaction signing scheme.</dd><dt><a class="type" href="type.Balance.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::impls::Balance">Balance</a></dt><dd>Balance of an account.</dd><dt><a class="type" href="type.BridgeLaneId.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::impls::BridgeLaneId">Bridge<wbr>Lane<wbr>Id</a></dt><dt><a class="type" href="type.InteriorLocation.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::impls::InteriorLocation">Interior<wbr>Location</a></dt><dd>A relative location which is constrained to be an interior location of the context.</dd><dt><a class="type" href="type.XcmVersion.html" title="type yet_another_parachain_runtime::emulated_integration_tests_common::impls::XcmVersion">XcmVersion</a></dt><dd>A version of XCM.</dd></dl><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><dl class="item-table"><dt><a class="derive" href="derive.Decode.html" title="derive yet_another_parachain_runtime::emulated_integration_tests_common::impls::Decode">Decode</a></dt><dd>Derive <code>parity_scale_codec::Decode</code> for struct and enum.</dd><dt><a class="derive" href="derive.Encode.html" title="derive yet_another_parachain_runtime::emulated_integration_tests_common::impls::Encode">Encode</a></dt><dd>Derive <code>parity_scale_codec::Encode</code> and <code>parity_scale_codec::EncodeLike</code> for struct and enum.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

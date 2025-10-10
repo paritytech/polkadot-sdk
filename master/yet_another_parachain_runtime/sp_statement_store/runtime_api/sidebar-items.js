@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InvalidStatement","StatementSource","SubmitResult"],"struct":["StatementStoreExt","ValidStatement"],"trait":["ValidateStatement"],"type":["HostFunctions"]};

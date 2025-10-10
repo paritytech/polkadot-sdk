@@ -1,0 +1,168 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Something that is bound to a fixed `RuntimeAppPublic`."><title>BoundToRuntimeAppPublic in yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Bound<wbr>ToRuntime<wbr>AppPublic</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Public" title="Public">Public</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>support::<wbr>sp_<wbr>runtime::<wbr>app_<wbr>crypto</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">frame_support</a>::<wbr><a href="../index.html">sp_runtime</a>::<wbr><a href="index.html">app_crypto</a></div><h1>Trait <span class="trait">BoundToRuntimeAppPublic</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/sp_application_crypto/traits.rs.html#252">Source</a> </span></div><pre class="rust item-decl"><code>pub trait BoundToRuntimeAppPublic {
+    type <a href="#associatedtype.Public" class="associatedtype">Public</a>: <a class="trait" href="../trait.RuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::RuntimeAppPublic">RuntimeAppPublic</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Something that is bound to a fixed <a href="../trait.RuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::RuntimeAppPublic"><code>RuntimeAppPublic</code></a>.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Public" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#254">Source</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a>: <a class="trait" href="../trait.RuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::RuntimeAppPublic">RuntimeAppPublic</a></h4></section></summary><div class="docblock"><p>The <a href="../trait.RuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::RuntimeAppPublic"><code>RuntimeAppPublic</code></a> this type is bound to.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../../../src/pallet_aura/lib.rs.html#300">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::pallet_aura::<a class="struct" href="../../../emulated_integration_tests_common/xcm_emulator/pallet_aura/struct.Pallet.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::pallet_aura::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/pallet_aura/trait.Config.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::pallet_aura::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/pallet_aura/lib.rs.html#301">Source</a><a href="#associatedtype.Public-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = &lt;T as <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/pallet_aura/trait.Config.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::pallet_aura::Config">Config</a>&gt;::<a class="associatedtype" href="../../../emulated_integration_tests_common/xcm_emulator/pallet_aura/trait.Config.html#associatedtype.AuthorityId" title="type yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::pallet_aura::Config::AuthorityId">AuthorityId</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-1" class="impl"><a class="src rightside" href="../../../../src/pallet_authority_discovery/lib.rs.html#116">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::pallet_authority_discovery::<a class="struct" href="../../../pallet_authority_discovery/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_authority_discovery::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../pallet_authority_discovery/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_authority_discovery::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-2" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/pallet_authority_discovery/lib.rs.html#117">Source</a><a href="#associatedtype.Public-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = Public</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-2" class="impl"><a class="src rightside" href="../../../../src/pallet_babe/lib.rs.html#980">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-2" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::pallet_babe::<a class="struct" href="../../../pallet_babe/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_babe::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../pallet_babe/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_babe::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-3" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/pallet_babe/lib.rs.html#981">Source</a><a href="#associatedtype.Public-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = Public</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-3" class="impl"><a class="src rightside" href="../../../../src/pallet_beefy/lib.rs.html#661">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-3" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::pallet_beefy::<a class="struct" href="../../../pallet_beefy/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_beefy::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../pallet_beefy/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_beefy::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-4" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/pallet_beefy/lib.rs.html#662">Source</a><a href="#associatedtype.Public-4" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = &lt;T as <a class="trait" href="../../../pallet_beefy/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_beefy::Config">Config</a>&gt;::<a class="associatedtype" href="../../../pallet_beefy/trait.Config.html#associatedtype.BeefyId" title="type yet_another_parachain_runtime::pallet_beefy::Config::BeefyId">BeefyId</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-4" class="impl"><a class="src rightside" href="../../../../src/pallet_grandpa/lib.rs.html#594">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-4" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::pallet_grandpa::<a class="struct" href="../../../pallet_grandpa/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_grandpa::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../pallet_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_grandpa::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-5" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/pallet_grandpa/lib.rs.html#595">Source</a><a href="#associatedtype.Public-5" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = Public</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-5" class="impl"><a class="src rightside" href="../../../../src/pallet_im_online/lib.rs.html#739">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-5" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::pallet_im_online::<a class="struct" href="../../../pallet_im_online/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_im_online::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../pallet_im_online/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_im_online::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-6" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/pallet_im_online/lib.rs.html#740">Source</a><a href="#associatedtype.Public-6" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = &lt;T as <a class="trait" href="../../../pallet_im_online/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_im_online::Config">Config</a>&gt;::<a class="associatedtype" href="../../../pallet_im_online/trait.Config.html#associatedtype.AuthorityId" title="type yet_another_parachain_runtime::pallet_im_online::Config::AuthorityId">AuthorityId</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-6" class="impl"><a class="src rightside" href="../../../../src/pallet_mixnet/lib.rs.html#549">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-6" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::pallet_mixnet::<a class="struct" href="../../../pallet_mixnet/struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_mixnet::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../pallet_mixnet/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_mixnet::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-7" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/pallet_mixnet/lib.rs.html#550">Source</a><a href="#associatedtype.Public-7" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = Public</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-AssignmentSessionKeyPlaceholder%3CT%3E" class="impl"><a class="src rightside" href="../../../../src/polkadot_runtime_common/lib.rs.html#204">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-AssignmentSessionKeyPlaceholder%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for <a class="struct" href="../../../polkadot_runtime_common/struct.AssignmentSessionKeyPlaceholder.html" title="struct yet_another_parachain_runtime::polkadot_runtime_common::AssignmentSessionKeyPlaceholder">AssignmentSessionKeyPlaceholder</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Public-8" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/polkadot_runtime_common/lib.rs.html#205">Source</a><a href="#associatedtype.Public-8" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = Public</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-ParachainSessionKeyPlaceholder%3CT%3E" class="impl"><a class="src rightside" href="../../../../src/polkadot_runtime_common/lib.rs.html#175">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-ParachainSessionKeyPlaceholder%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for <a class="struct" href="../../../polkadot_runtime_common/struct.ParachainSessionKeyPlaceholder.html" title="struct yet_another_parachain_runtime::polkadot_runtime_common::ParachainSessionKeyPlaceholder">ParachainSessionKeyPlaceholder</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Public-9" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/polkadot_runtime_common/lib.rs.html#176">Source</a><a href="#associatedtype.Public-9" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = Public</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-7" class="impl"><a class="src rightside" href="../../../../src/polkadot_runtime_parachains/initializer.rs.html#335">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-7" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::polkadot_runtime_parachains::initializer::<a class="struct" href="../../../polkadot_runtime_parachains/initializer/struct.Pallet.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::initializer::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../polkadot_runtime_parachains/initializer/trait.Config.html" title="trait yet_another_parachain_runtime::polkadot_runtime_parachains::initializer::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-10" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/polkadot_runtime_parachains/initializer.rs.html#336">Source</a><a href="#associatedtype.Public-10" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = Public</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-8" class="impl"><a class="src rightside" href="../../../../src/polkadot_runtime_parachains/session_info.rs.html#205">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-Pallet%3CT%3E-8" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for yet_another_parachain_runtime::polkadot_runtime_parachains::session_info::<a class="struct" href="../../../polkadot_runtime_parachains/session_info/struct.Pallet.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::session_info::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../../polkadot_runtime_parachains/session_info/trait.Config.html" title="trait yet_another_parachain_runtime::polkadot_runtime_parachains::session_info::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-11" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/polkadot_runtime_parachains/session_info.rs.html#206">Source</a><a href="#associatedtype.Public-11" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = Public</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BoundToRuntimeAppPublic-for-T" class="impl"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#257">Source</a><a href="#impl-BoundToRuntimeAppPublic-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.BoundToRuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::BoundToRuntimeAppPublic">BoundToRuntimeAppPublic</a> for T<div class="where">where
+    T: <a class="trait" href="../trait.RuntimeAppPublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::RuntimeAppPublic">RuntimeAppPublic</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Public-12" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#258">Source</a><a href="#associatedtype.Public-12" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Public" class="associatedtype">Public</a> = T</h4></section></div></details></div><script src="../../../../trait.impl/sp_application_crypto/traits/trait.BoundToRuntimeAppPublic.js" data-ignore-extern-crates="polkadot_runtime_common,polkadot_runtime_parachains,pallet_babe,pallet_authority_discovery,pallet_grandpa,pallet_beefy,pallet_aura,pallet_im_online,pallet_mixnet" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

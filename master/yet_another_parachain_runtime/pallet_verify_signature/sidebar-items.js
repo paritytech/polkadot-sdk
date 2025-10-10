@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","VerifySignature"],"mod":["extension","pallet","weights"],"struct":["Pallet"],"trait":["BenchmarkHelper","Config","WeightInfo"],"type":["Module"]};

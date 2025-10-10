@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","HoldReason"],"mod":["pallet","weights"],"struct":["Details","Pallet"],"trait":["BenchmarkHelper","Config","WeightInfo"],"type":["AccountIdLookupOf","AssetBalanceOf","AssetIdOf","DepositOf","Module","NftToAsset"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CalleeCalls"],"struct":["echoCall","echoReturn","invalidCall","invalidReturn","revertCall","revertReturn","stopCall","stopReturn","storeCall","storeReturn","storedCall","storedReturn","whoSenderCall","whoSenderReturn"]};

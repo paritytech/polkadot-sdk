@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The interface of something that can verify solutions for other sub-pallets in the multi-block election pallet-network."><title>Verifier in yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Verifier</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountId" title="AccountId">AccountId</a></li><li><a href="#associatedtype.MaxBackersPerWinner" title="MaxBackersPerWinner">MaxBackersPerWinner</a></li><li><a href="#associatedtype.MaxBackersPerWinnerFinal" title="MaxBackersPerWinnerFinal">MaxBackersPerWinnerFinal</a></li><li><a href="#associatedtype.MaxWinnersPerPage" title="MaxWinnersPerPage">MaxWinnersPerPage</a></li><li><a href="#associatedtype.Solution" title="Solution">Solution</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.ensure_claimed_score_improves" title="ensure_claimed_score_improves">ensure_claimed_score_improves</a></li><li><a href="#tymethod.force_set_single_page_valid" title="force_set_single_page_valid">force_set_single_page_valid</a></li><li><a href="#tymethod.get_queued_solution_page" title="get_queued_solution_page">get_queued_solution_page</a></li><li><a href="#tymethod.kill" title="kill">kill</a></li><li><a href="#tymethod.queued_score" title="queued_score">queued_score</a></li><li><a href="#tymethod.set_minimum_score" title="set_minimum_score">set_minimum_score</a></li><li><a href="#tymethod.verify_synchronous_multi" title="verify_synchronous_multi">verify_synchronous_multi</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.verify_synchronous" title="verify_synchronous">verify_synchronous</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>election_<wbr>provider_<wbr>multi_<wbr>block::<wbr>verifier</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">pallet_election_provider_multi_block</a>::<wbr><a href="index.html">verifier</a></div><h1>Trait <span class="trait">Verifier</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#138">Source</a> </span></div><pre class="rust item-decl"><code>pub trait Verifier {
+    type <a href="#associatedtype.Solution" class="associatedtype">Solution</a>;
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>;
+    type <a href="#associatedtype.MaxWinnersPerPage" class="associatedtype">MaxWinnersPerPage</a>: <a class="trait" href="../../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxBackersPerWinnerFinal" class="associatedtype">MaxBackersPerWinnerFinal</a>: <a class="trait" href="../../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxBackersPerWinner" class="associatedtype">MaxBackersPerWinner</a>: <a class="trait" href="../../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;;
+
+    // Required methods
+    fn <a href="#tymethod.set_minimum_score" class="fn">set_minimum_score</a>(score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.queued_score" class="fn">queued_score</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ensure_claimed_score_improves" class="fn">ensure_claimed_score_improves</a>(claimed_score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.kill" class="fn">kill</a>();
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_queued_solution_page" class="fn">get_queued_solution_page</a>(
+        page: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../frame_election_provider_support/struct.BoundedSupports.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BoundedSupports">BoundedSupports</a>&lt;Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::AccountId">AccountId</a>, Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.MaxWinnersPerPage" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::MaxWinnersPerPage">MaxWinnersPerPage</a>, Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.MaxBackersPerWinner" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::MaxBackersPerWinner">MaxBackersPerWinner</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.verify_synchronous_multi" class="fn">verify_synchronous_multi</a>(
+        partial_solution: <a class="struct" href="../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.Solution" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::Solution">Solution</a>&gt;,
+        pages: <a class="struct" href="../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        claimed_score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>,
+    ) -&gt; <a class="enum" href="../../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.FeasibilityError.html" title="enum yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::FeasibilityError">FeasibilityError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_set_single_page_valid" class="fn">force_set_single_page_valid</a>(
+        partial_supports: <a class="struct" href="../../frame_election_provider_support/struct.BoundedSupports.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BoundedSupports">BoundedSupports</a>&lt;Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::AccountId">AccountId</a>, Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.MaxWinnersPerPage" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::MaxWinnersPerPage">MaxWinnersPerPage</a>, Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.MaxBackersPerWinner" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::MaxBackersPerWinner">MaxBackersPerWinner</a>&gt;,
+        page: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>,
+    );
+
+    // Provided method
+    fn <a href="#method.verify_synchronous" class="fn">verify_synchronous</a>(
+        partial_solution: Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.Solution" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::Solution">Solution</a>,
+        claimed_score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>,
+        page: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    ) -&gt; <a class="enum" href="../../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.FeasibilityError.html" title="enum yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::FeasibilityError">FeasibilityError</a>&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The interface of something that can verify solutions for other sub-pallets in the multi-block
+election pallet-network.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Solution" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#140">Source</a><h4 class="code-header">type <a href="#associatedtype.Solution" class="associatedtype">Solution</a></h4></section></summary><div class="docblock"><p>The solution type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AccountId" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#142">Source</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a></h4></section></summary><div class="docblock"><p>The account if type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxWinnersPerPage" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#148">Source</a><h4 class="code-header">type <a href="#associatedtype.MaxWinnersPerPage" class="associatedtype">MaxWinnersPerPage</a>: <a class="trait" href="../../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Maximum number of winners that can be represented in each page.</p>
+<p>A reasonable value for this should be the maximum number of winners that the election user
+(e.g. the staking pallet) could ever desire.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxBackersPerWinnerFinal" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#153">Source</a><h4 class="code-header">type <a href="#associatedtype.MaxBackersPerWinnerFinal" class="associatedtype">MaxBackersPerWinnerFinal</a>: <a class="trait" href="../../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Maximum number of backers, per winner, among all pages of an election.</p>
+<p>This can only be checked at the very final step of verification.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxBackersPerWinner" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#156">Source</a><h4 class="code-header">type <a href="#associatedtype.MaxBackersPerWinner" class="associatedtype">MaxBackersPerWinner</a>: <a class="trait" href="../../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Maximum number of backers that each winner could have, per page.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.set_minimum_score" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#162">Source</a><h4 class="code-header">fn <a href="#tymethod.set_minimum_score" class="fn">set_minimum_score</a>(score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>)</h4></section></summary><div class="docblock"><p>Set the minimum score that is acceptable for any solution.</p>
+<p>Henceforth, all solutions must have at least this degree of quality, single-page or
+multi-page.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.queued_score" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#165">Source</a><h4 class="code-header">fn <a href="#tymethod.queued_score" class="fn">queued_score</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>&gt;</h4></section></summary><div class="docblock"><p>The score of the current best solution. <code>None</code> if there is none.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ensure_claimed_score_improves" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#168">Source</a><h4 class="code-header">fn <a href="#tymethod.ensure_claimed_score_improves" class="fn">ensure_claimed_score_improves</a>(claimed_score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Check if the claimed score is sufficient to challenge the current queued solution, if any.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.kill" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#171">Source</a><h4 class="code-header">fn <a href="#tymethod.kill" class="fn">kill</a>()</h4></section></summary><div class="docblock"><p>Clear all storage items, there’s nothing else to do until further notice.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_queued_solution_page" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#177">Source</a><h4 class="code-header">fn <a href="#tymethod.get_queued_solution_page" class="fn">get_queued_solution_page</a>(
+    page: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../frame_election_provider_support/struct.BoundedSupports.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BoundedSupports">BoundedSupports</a>&lt;Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::AccountId">AccountId</a>, Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.MaxWinnersPerPage" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::MaxWinnersPerPage">MaxWinnersPerPage</a>, Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.MaxBackersPerWinner" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::MaxBackersPerWinner">MaxBackersPerWinner</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Get a single page of the best verified solution, if any.</p>
+<p>It is the responsibility of the call site to call this function with all appropriate
+<code>page</code> arguments.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.verify_synchronous_multi" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#201-205">Source</a><h4 class="code-header">fn <a href="#tymethod.verify_synchronous_multi" class="fn">verify_synchronous_multi</a>(
+    partial_solution: <a class="struct" href="../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.Solution" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::Solution">Solution</a>&gt;,
+    pages: <a class="struct" href="../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    claimed_score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>,
+) -&gt; <a class="enum" href="../../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.FeasibilityError.html" title="enum yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::FeasibilityError">FeasibilityError</a>&gt;</h4></section></summary><div class="docblock"><p>Perform synchronous feasibility check on the given multi-page solution.</p>
+<p>Same semantics as <a href="trait.Verifier.html#method.verify_synchronous" title="associated function pallet_election_provider_multi_block::verifier::Verifier::verify_synchronous::verify_synchronous"><code>Self::verify_synchronous</code></a>, but for multi-page solutions.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.force_set_single_page_valid" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#211-215">Source</a><h4 class="code-header">fn <a href="#tymethod.force_set_single_page_valid" class="fn">force_set_single_page_valid</a>(
+    partial_supports: <a class="struct" href="../../frame_election_provider_support/struct.BoundedSupports.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BoundedSupports">BoundedSupports</a>&lt;Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::AccountId">AccountId</a>, Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.MaxWinnersPerPage" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::MaxWinnersPerPage">MaxWinnersPerPage</a>, Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.MaxBackersPerWinner" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::MaxBackersPerWinner">MaxBackersPerWinner</a>&gt;,
+    page: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>,
+)</h4></section></summary><div class="docblock"><p>Force set a single page solution as the valid one.</p>
+<p>Will erase any previous solution. Should only be used in case of emergency fallbacks,
+trusted governance solutions and so on.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.verify_synchronous" class="method"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/mod.rs.html#190-194">Source</a><h4 class="code-header">fn <a href="#method.verify_synchronous" class="fn">verify_synchronous</a>(
+    partial_solution: Self::<a class="associatedtype" href="trait.Verifier.html#associatedtype.Solution" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier::Solution">Solution</a>,
+    claimed_score: <a class="struct" href="../struct.ElectionScore.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::ElectionScore">ElectionScore</a>,
+    page: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+) -&gt; <a class="enum" href="../../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.FeasibilityError.html" title="enum yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::FeasibilityError">FeasibilityError</a>&gt;</h4></section></summary><div class="docblock"><p>Perform the feasibility check on the given single-page solution.</p>
+<p>This will perform:</p>
+<ol>
+<li>feasibility-check</li>
+<li>claimed score is correct and an improvement.</li>
+<li>bounds are respected</li>
+</ol>
+<p>Corresponding snapshot (represented by <code>page</code>) is assumed to be available.</p>
+<p>If all checks pass, the solution is also queued.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Verifier-for-Pallet%3CT%3E" class="impl"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/impls.rs.html#937">Source</a><a href="#impl-Verifier-for-Pallet%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Verifier.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Verifier">Verifier</a> for <a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Pallet">Pallet</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.AccountId-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/impls.rs.html#938">Source</a><a href="#associatedtype.AccountId-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a> = &lt;T as <a class="trait" href="../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a></h4></section><section id="associatedtype.Solution-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/impls.rs.html#939">Source</a><a href="#associatedtype.Solution-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Solution" class="associatedtype">Solution</a> = &lt;&lt;T as <a class="trait" href="../trait.Config.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::Config">Config</a>&gt;::<a class="associatedtype" href="../trait.Config.html#associatedtype.MinerConfig" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::Config::MinerConfig">MinerConfig</a> as <a class="trait" href="../unsigned/miner/trait.MinerConfig.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::unsigned::miner::MinerConfig">MinerConfig</a>&gt;::<a class="associatedtype" href="../unsigned/miner/trait.MinerConfig.html#associatedtype.Solution" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::unsigned::miner::MinerConfig::Solution">Solution</a></h4></section><section id="associatedtype.MaxBackersPerWinner-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/impls.rs.html#940">Source</a><a href="#associatedtype.MaxBackersPerWinner-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MaxBackersPerWinner" class="associatedtype">MaxBackersPerWinner</a> = &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.MaxBackersPerWinner" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Config::MaxBackersPerWinner">MaxBackersPerWinner</a></h4></section><section id="associatedtype.MaxWinnersPerPage-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/impls.rs.html#941">Source</a><a href="#associatedtype.MaxWinnersPerPage-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MaxWinnersPerPage" class="associatedtype">MaxWinnersPerPage</a> = &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.MaxWinnersPerPage" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Config::MaxWinnersPerPage">MaxWinnersPerPage</a></h4></section><section id="associatedtype.MaxBackersPerWinnerFinal-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../src/pallet_election_provider_multi_block/verifier/impls.rs.html#942">Source</a><a href="#associatedtype.MaxBackersPerWinnerFinal-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MaxBackersPerWinnerFinal" class="associatedtype">MaxBackersPerWinnerFinal</a> = &lt;T as <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.MaxBackersPerWinnerFinal" title="type yet_another_parachain_runtime::pallet_election_provider_multi_block::verifier::Config::MaxBackersPerWinnerFinal">MaxBackersPerWinnerFinal</a></h4></section></div></details></div><script src="../../../trait.impl/pallet_election_provider_multi_block/verifier/trait.Verifier.js" data-ignore-extern-crates="pallet_election_provider_multi_block" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

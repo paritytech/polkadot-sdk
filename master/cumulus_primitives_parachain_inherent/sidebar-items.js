@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["INHERENT_IDENTIFIER","PARACHAIN_INHERENT_IDENTIFIER_V0"],"mod":["v0"],"struct":["HashedMessage","MessageQueueChain","ParachainInherentData"]};

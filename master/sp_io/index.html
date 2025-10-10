@@ -1,0 +1,197 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate Primitives: IO"><title>sp_io - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_io" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_io/index.html">sp_io</a><span class="version">30.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#substrate-primitives-io" title="Substrate Primitives: IO">Substrate Primitives: IO</a><ul><li><a href="#externalities" title="Externalities">Externalities</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sp_io</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sp_io/lib.rs.html#18-2158">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="substrate-primitives-io"><a class="doc-anchor" href="#substrate-primitives-io">§</a>Substrate Primitives: IO</h2>
+<p>This crate contains interfaces for the runtime to communicate with the outside world, ergo <code>io</code>.
+In other context, such interfaces are referred to as “<strong>host functions</strong>”.</p>
+<p>Each set of host functions are defined with an instance of the
+<a href="../sp_runtime_interface_proc_macro/attr.runtime_interface.html" title="attr sp_runtime_interface_proc_macro::runtime_interface"><code>sp_runtime_interface::runtime_interface</code></a> macro.</p>
+<p>Most notably, this crate contains host functions for:</p>
+<ul>
+<li><a href="hashing/index.html" title="mod sp_io::hashing"><code>hashing</code></a></li>
+<li><a href="crypto/index.html" title="mod sp_io::crypto"><code>crypto</code></a></li>
+<li><a href="trie/index.html" title="mod sp_io::trie"><code>trie</code></a></li>
+<li><a href="offchain/index.html" title="mod sp_io::offchain"><code>offchain</code></a></li>
+<li><a href="storage/index.html" title="mod sp_io::storage"><code>storage</code></a></li>
+<li><a href="allocator/index.html" title="mod sp_io::allocator"><code>allocator</code></a></li>
+<li><a href="logging/index.html" title="mod sp_io::logging"><code>logging</code></a></li>
+</ul>
+<p>All of the default host functions provided by this crate, and by default contained in all
+substrate-based clients are amalgamated in <a href="type.SubstrateHostFunctions.html" title="type sp_io::SubstrateHostFunctions"><code>SubstrateHostFunctions</code></a>.</p>
+<h3 id="externalities"><a class="doc-anchor" href="#externalities">§</a>Externalities</h3>
+<p>Host functions go hand in hand with the concept of externalities. Externalities are an
+environment in which host functions are provided, and thus can be accessed. Some host functions
+are only accessible in an externality environment that provides it.</p>
+<p>A typical error for substrate developers is the following:</p>
+
+<div class="example-wrap should_panic"><a href="#" class="tooltip" title="This example panics">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>sp_io::storage::get;
+<span class="kw">let </span>data = get(<span class="string">b"hello world"</span>);</code></pre></div>
+<p>This code will panic with the following error:</p>
+<div class="example-wrap"><pre class="language-no_compile"><code>thread &#39;main&#39; panicked at &#39;`get_version_1` called outside of an Externalities-provided environment.&#39;</code></pre></div>
+<p>Such error messages should always be interpreted as “code accessing host functions accessed
+outside of externalities”.</p>
+<p>An externality is any type that implements [<code>sp_externalities::Externalities</code>]. A simple example
+of which is <a href="type.TestExternalities.html" title="type sp_io::TestExternalities"><code>TestExternalities</code></a>, which is commonly used in tests and is exported from this
+crate.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>sp_io::{storage::get, TestExternalities};
+TestExternalities::default().execute_with(|| {
+	<span class="kw">let </span>data = get(<span class="string">b"hello world"</span>);
+});</code></pre></div>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="allocator/index.html" title="mod sp_io::allocator">allocator</a></dt><dd>Wasm only interface that provides functions for calling into the allocator.</dd><dt><a class="mod" href="crypto/index.html" title="mod sp_io::crypto">crypto</a></dt><dd>Interfaces for working with crypto related types from within the runtime.</dd><dt><a class="mod" href="default_child_storage/index.html" title="mod sp_io::default_child_storage">default_<wbr>child_<wbr>storage</a></dt><dd>Interface for accessing the child storage for default child trie,
+from within the runtime.</dd><dt><a class="mod" href="hashing/index.html" title="mod sp_io::hashing">hashing</a></dt><dd>Interface that provides functions for hashing with different algorithms.</dd><dt><a class="mod" href="logging/index.html" title="mod sp_io::logging">logging</a></dt><dd>Interface that provides functions for logging from within the runtime.</dd><dt><a class="mod" href="misc/index.html" title="mod sp_io::misc">misc</a></dt><dd>Interface that provides miscellaneous functions for communicating between the runtime and the
+node.</dd><dt><a class="mod" href="offchain/index.html" title="mod sp_io::offchain">offchain</a></dt><dd>Interface that provides functions to access the offchain functionality.</dd><dt><a class="mod" href="offchain_index/index.html" title="mod sp_io::offchain_index">offchain_<wbr>index</a></dt><dd>Interface that provides functions to access the Offchain DB.</dd><dt><a class="mod" href="panic_handler/index.html" title="mod sp_io::panic_handler">panic_<wbr>handler</a></dt><dd>WASM-only interface which allows for aborting the execution in case
+of an unrecoverable error.</dd><dt><a class="mod" href="storage/index.html" title="mod sp_io::storage">storage</a></dt><dd>Interface for accessing the storage from within the runtime.</dd><dt><a class="mod" href="transaction_index/index.html" title="mod sp_io::transaction_index">transaction_<wbr>index</a></dt><dd>Interface that provides transaction indexing API.</dd><dt><a class="mod" href="trie/index.html" title="mod sp_io::trie">trie</a></dt><dd>Interface that provides trie related functionality.</dd><dt><a class="mod" href="wasm_tracing/index.html" title="mod sp_io::wasm_tracing">wasm_<wbr>tracing</a></dt><dd>Interface to provide tracing facilities for wasm. Modelled after tokios <code>tracing</code>-crate
+interfaces. See <code>sp-tracing</code> for more information.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.MultiRemovalResults.html" title="struct sp_io::MultiRemovalResults">Multi<wbr>Removal<wbr>Results</a></dt><dd>Results concerning an operation to remove many keys.</dd><dt><a class="struct" href="struct.UseDalekExt.html" title="struct sp_io::UseDalekExt">UseDalek<wbr>Ext</a></dt><dd>Extension to signal to [<code>crypt::ed25519_verify</code>] to use the dalek crate.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.EcdsaVerifyError.html" title="enum sp_io::EcdsaVerifyError">Ecdsa<wbr>Verify<wbr>Error</a></dt><dd>Error verifying ECDSA signature</dd><dt><a class="enum" href="enum.KillStorageResult.html" title="enum sp_io::KillStorageResult">Kill<wbr>Storage<wbr>Result</a></dt><dd>The outcome of calling <code>storage_kill</code>. Returned value is the number of storage items
+removed from the backend from making the <code>storage_kill</code> call.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.init_tracing.html" title="fn sp_io::init_tracing">init_<wbr>tracing</a></dt><dd>Initialize tracing of sp_tracing not necessary – noop. To enable build
+when not both <code>substrate_runtime</code> and <code>with-tracing</code>-feature.</dd><dt><a class="fn" href="fn.unreachable.html" title="fn sp_io::unreachable">unreachable</a></dt><dd>Crashes the execution of the program.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.SubstrateHostFunctions.html" title="type sp_io::SubstrateHostFunctions">Substrate<wbr>Host<wbr>Functions</a></dt><dd>The host functions Substrate provides for the Wasm runtime environment.</dd><dt><a class="type" href="type.TestExternalities.html" title="type sp_io::TestExternalities">Test<wbr>Externalities</a></dt><dd>Type alias for Externalities implementation used in tests.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

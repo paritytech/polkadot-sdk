@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Primitives for GRANDPA integration, suitable for WASM compilation."><title>yet_another_parachain_runtime::pallet_grandpa::fg_primitives - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>grandpa</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">pallet_grandpa</a></div><h1>Crate <span>fg_primitives</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/sp_consensus_grandpa/lib.rs.html#18-590">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Primitives for GRANDPA integration, suitable for WASM compilation.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.EquivocationProof.html" title="struct yet_another_parachain_runtime::pallet_grandpa::fg_primitives::EquivocationProof">Equivocation<wbr>Proof</a></dt><dd>Proof of voter misbehavior on a given set id. Misbehavior/equivocation in
+GRANDPA happens when a voter votes on the same round (either at prevote or
+precommit stage) for different blocks. Proving is achieved by collecting the
+signed messages of conflicting votes.</dd><dt><a class="struct" href="struct.GrandpaJustification.html" title="struct yet_another_parachain_runtime::pallet_grandpa::fg_primitives::GrandpaJustification">Grandpa<wbr>Justification</a></dt><dd>A GRANDPA justification for block finality, it includes a commit message and
+an ancestry proof including all headers routing all precommit target blocks
+to the commit target block. Due to the current voting strategy the precommit
+targets should be the same as the commit target, since honest voters don’t
+vote past authority set change blocks.</dd><dt><a class="struct" href="struct.ScheduledChange.html" title="struct yet_another_parachain_runtime::pallet_grandpa::fg_primitives::ScheduledChange">Scheduled<wbr>Change</a></dt><dd>A scheduled change of authority set.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ConsensusLog.html" title="enum yet_another_parachain_runtime::pallet_grandpa::fg_primitives::ConsensusLog">Consensus<wbr>Log</a></dt><dd>An consensus log item for GRANDPA.</dd><dt><a class="enum" href="enum.Equivocation.html" title="enum yet_another_parachain_runtime::pallet_grandpa::fg_primitives::Equivocation">Equivocation</a></dt><dd>Wrapper object for GRANDPA equivocation proofs, useful for unifying prevote
+and precommit equivocations under a common type.</dd><dt><a class="enum" href="enum.SignatureResult.html" title="enum yet_another_parachain_runtime::pallet_grandpa::fg_primitives::SignatureResult">Signature<wbr>Result</a></dt><dd>Result of checking a message signature.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.CLIENT_LOG_TARGET.html" title="constant yet_another_parachain_runtime::pallet_grandpa::fg_primitives::CLIENT_LOG_TARGET">CLIENT_<wbr>LOG_<wbr>TARGET</a></dt><dd>The log target to be used by client code.</dd><dt><a class="constant" href="constant.GRANDPA_ENGINE_ID.html" title="constant yet_another_parachain_runtime::pallet_grandpa::fg_primitives::GRANDPA_ENGINE_ID">GRANDPA_<wbr>ENGINE_<wbr>ID</a></dt><dd>The <code>ConsensusEngineId</code> of GRANDPA.</dd><dt><a class="constant" href="constant.KEY_TYPE.html" title="constant yet_another_parachain_runtime::pallet_grandpa::fg_primitives::KEY_TYPE">KEY_<wbr>TYPE</a></dt><dd>Key type for GRANDPA module.</dd><dt><a class="constant" href="constant.RUNTIME_LOG_TARGET.html" title="constant yet_another_parachain_runtime::pallet_grandpa::fg_primitives::RUNTIME_LOG_TARGET">RUNTIME_<wbr>LOG_<wbr>TARGET</a></dt><dd>The log target to be used by runtime code.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.GrandpaApi.html" title="trait yet_another_parachain_runtime::pallet_grandpa::fg_primitives::GrandpaApi">Grandpa<wbr>Api</a></dt><dd>APIs for integrating the GRANDPA finality gadget into runtimes.
+This should be implemented on the runtime side.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.check_equivocation_proof.html" title="fn yet_another_parachain_runtime::pallet_grandpa::fg_primitives::check_equivocation_proof">check_<wbr>equivocation_<wbr>proof</a></dt><dd>Verifies the equivocation proof by making sure that both votes target
+different blocks and that its signatures are valid.</dd><dt><a class="fn" href="fn.check_message_signature.html" title="fn yet_another_parachain_runtime::pallet_grandpa::fg_primitives::check_message_signature">check_<wbr>message_<wbr>signature</a></dt><dd>Check a message signature by encoding the message as a localized payload and
+verifying the provided signature using the expected authority id.</dd><dt><a class="fn" href="fn.check_message_signature_with_buffer.html" title="fn yet_another_parachain_runtime::pallet_grandpa::fg_primitives::check_message_signature_with_buffer">check_<wbr>message_<wbr>signature_<wbr>with_<wbr>buffer</a></dt><dd>Check a message signature by encoding the message as a localized payload and
+verifying the provided signature using the expected authority id.
+The encoding necessary to verify the signature will be done using the given
+buffer, the original content of the buffer will be cleared.</dd><dt><a class="fn" href="fn.localized_payload.html" title="fn yet_another_parachain_runtime::pallet_grandpa::fg_primitives::localized_payload">localized_<wbr>payload</a></dt><dd>Encode round message localized to a given round and set id.</dd><dt><a class="fn" href="fn.localized_payload_with_buffer.html" title="fn yet_another_parachain_runtime::pallet_grandpa::fg_primitives::localized_payload_with_buffer">localized_<wbr>payload_<wbr>with_<wbr>buffer</a></dt><dd>Encode round message localized to a given round and set id using the given
+buffer. The given buffer will be cleared and the resulting encoded payload
+will always be written to the start of the buffer.</dd><dt><a class="fn" href="fn.sign_message.html" title="fn yet_another_parachain_runtime::pallet_grandpa::fg_primitives::sign_message">sign_<wbr>message</a></dt><dd>Localizes the message to the given set and round and signs the payload.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AuthorityId.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::AuthorityId">Authority<wbr>Id</a></dt><dd>Identity of a Grandpa authority.</dd><dt><a class="type" href="type.AuthorityIndex.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::AuthorityIndex">Authority<wbr>Index</a></dt><dd>The index of an authority.</dd><dt><a class="type" href="type.AuthorityList.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::AuthorityList">Authority<wbr>List</a></dt><dd>A list of Grandpa authorities with associated weights.</dd><dt><a class="type" href="type.AuthorityPair.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::AuthorityPair">Authority<wbr>Pair</a></dt><dd>The grandpa crypto scheme defined via the keypair type.</dd><dt><a class="type" href="type.AuthoritySignature.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::AuthoritySignature">Authority<wbr>Signature</a></dt><dd>Signature for a Grandpa authority.</dd><dt><a class="type" href="type.AuthorityWeight.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::AuthorityWeight">Authority<wbr>Weight</a></dt><dd>The weight of an authority.</dd><dt><a class="type" href="type.CatchUp.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::CatchUp">CatchUp</a></dt><dd>A catch up message for this chain’s block type.</dd><dt><a class="type" href="type.Commit.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::Commit">Commit</a></dt><dd>A commit message for this chain’s block type.</dd><dt><a class="type" href="type.CompactCommit.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::CompactCommit">Compact<wbr>Commit</a></dt><dd>A compact commit message for this chain’s block type.</dd><dt><a class="type" href="type.Message.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::Message">Message</a></dt><dd>A GRANDPA message for a substrate chain.</dd><dt><a class="type" href="type.OpaqueKeyOwnershipProof.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::OpaqueKeyOwnershipProof">Opaque<wbr>KeyOwnership<wbr>Proof</a></dt><dd>An opaque type used to represent the key ownership proof at the runtime API
+boundary. The inner value is an encoded representation of the actual key
+ownership proof which will be parameterized when defining the runtime. At
+the runtime API boundary this type is unknown and as such we keep this
+opaque representation, implementors of the runtime API will have to make
+sure that all usages of <code>OpaqueKeyOwnershipProof</code> refer to the same type.</dd><dt><a class="type" href="type.Precommit.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::Precommit">Precommit</a></dt><dd>A precommit message for this chain’s block type.</dd><dt><a class="type" href="type.Prevote.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::Prevote">Prevote</a></dt><dd>A prevote message for this chain’s block type.</dd><dt><a class="type" href="type.PrimaryPropose.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::PrimaryPropose">Primary<wbr>Propose</a></dt><dd>A primary propose message for this chain’s block type.</dd><dt><a class="type" href="type.RoundNumber.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::RoundNumber">Round<wbr>Number</a></dt><dd>The round indicator.</dd><dt><a class="type" href="type.SetId.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::SetId">SetId</a></dt><dd>The monotonic identifier of a GRANDPA set of authorities.</dd><dt><a class="type" href="type.SignedMessage.html" title="type yet_another_parachain_runtime::pallet_grandpa::fg_primitives::SignedMessage">Signed<wbr>Message</a></dt><dd>A signed message.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

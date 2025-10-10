@@ -1,0 +1,303 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Multi-phase, multi-block, election provider pallet."><title>pallet_election_provider_multi_block - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_election_provider_multi_block" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_election_provider_multi_block/index.html">pallet_<wbr>election_<wbr>provider_<wbr>multi_<wbr>block</a><span class="version">0.9.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#multi-phase-multi-block-election-provider-pallet" title="Multi-phase, multi-block, election provider pallet.">Multi-phase, multi-block, election provider pallet.</a><ul><li><a href="#overall-idea" title="Overall idea">Overall idea</a></li><li><a href="#companion-pallets" title="Companion pallets">Companion pallets</a></li><li><a href="#pagination" title="Pagination">Pagination</a></li><li><a href="#phases" title="Phases">Phases</a></li><li><a href="#feasible-solution-correct-solution" title="Feasible Solution (correct solution)">Feasible Solution (correct solution)</a></li><li><a href="#unsigned-phase" title="Unsigned Phase">Unsigned Phase</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_election_provider_multi_block</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_election_provider_multi_block/lib.rs.html#18-2914">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="multi-phase-multi-block-election-provider-pallet"><a class="doc-anchor" href="#multi-phase-multi-block-election-provider-pallet">§</a>Multi-phase, multi-block, election provider pallet.</h2>
+<blockquote>
+<p>This pallet is sometimes abbreviated as <code>EPMB</code>, and <code>pallet_election_provider_multi_phase</code> as
+<code>EPM</code>.</p>
+</blockquote>
+<h3 id="overall-idea"><a class="doc-anchor" href="#overall-idea">§</a>Overall idea</h3>
+<p><code>pallet_election_provider_multi_phase</code> provides the basic ability for NPoS solutions to be
+computed offchain (essentially anywhere) and submitted back to the chain as signed or unsigned
+transaction, with sensible configurations and fail-safe mechanisms to ensure system safety.
+Nonetheless, it has a limited capacity in terms of number of voters it can process in a <strong>single
+block</strong>.</p>
+<p>This pallet takes <code>EPM</code> system, keeps most of its ideas and core premises, and extends it to
+support paginated, multi-block operations. The final goal of this pallet is to scale linearly
+with the number of blocks allocated to the elections. Moreover, the amount of work that it does
+in one block should be bounded and measurable, making it suitable for a parachain. In principle,
+with large enough blocks (in a dedicated parachain), the number of voters included in the NPoS
+system can grow significantly (yet, obviously not indefinitely).</p>
+<p>Note that this pallet does not consider how the recipient is processing the results. To ensure
+scalability, the recipient of this pallet’s data (i.e. <code>pallet-staking</code>) must also be capable of
+pagination and multi-block processing.</p>
+<h3 id="companion-pallets"><a class="doc-anchor" href="#companion-pallets">§</a>Companion pallets</h3>
+<p>This pallet will only function in a sensible way if it is peered with its companion pallets.</p>
+<ul>
+<li>The <a href="verifier/index.html" title="mod pallet_election_provider_multi_block::verifier"><code>verifier</code></a> pallet provides a standard implementation of the <a href="verifier/trait.Verifier.html" title="trait pallet_election_provider_multi_block::verifier::Verifier"><code>verifier::Verifier</code></a>. This
+pallet is mandatory.</li>
+<li>The <a href="unsigned/index.html" title="mod pallet_election_provider_multi_block::unsigned"><code>unsigned</code></a> module provides the implementation of unsigned submission by validators. If
+this pallet is included, then <a href="pallet/trait.Config.html#associatedtype.UnsignedPhase" title="associated type pallet_election_provider_multi_block::pallet::Config::UnsignedPhase"><code>Config::UnsignedPhase</code></a> will determine its duration.</li>
+<li>The <a href="signed/index.html" title="mod pallet_election_provider_multi_block::signed"><code>signed</code></a> module provides the implementation of the signed submission by any account. If
+this pallet is included, the combined <a href="pallet/trait.Config.html#associatedtype.SignedPhase" title="associated type pallet_election_provider_multi_block::pallet::Config::SignedPhase"><code>Config::SignedPhase</code></a> and
+<a href="pallet/trait.Config.html#associatedtype.SignedValidationPhase" title="associated type pallet_election_provider_multi_block::pallet::Config::SignedValidationPhase"><code>Config::SignedValidationPhase</code></a> will determine its duration</li>
+</ul>
+<p>These pallets are in fact hierarchical. This particular one is the top level one. It contains
+the shared information that all child pallets use. All child pallets depend on the top level
+pallet ONLY, but not the other way around. For those cases, traits are used.</p>
+<p>As in, notice that <a href="verifier/trait.Config.html" title="trait pallet_election_provider_multi_block::verifier::Config"><code>crate::verifier::Config</code></a> relies on <a href="pallet/trait.Config.html" title="trait pallet_election_provider_multi_block::pallet::Config"><code>crate::Config</code></a>, but for the
+reverse, we rely on <a href="verifier/trait.Verifier.html" title="trait pallet_election_provider_multi_block::verifier::Verifier"><code>crate::verifier::Verifier</code></a> trait, which is indeed part of
+<a href="pallet/trait.Config.html" title="trait pallet_election_provider_multi_block::pallet::Config"><code>crate::Config</code></a>. This is merely an implementation opinion.</p>
+<h4 id="pallet-ordering"><a class="doc-anchor" href="#pallet-ordering">§</a>Pallet Ordering:</h4>
+<p>TODO: @kiaenigma: this needs clarification and a enforcement. Signed pallet should come first.
+Fixing this should yield removing <code>verifier_done</code> from the phase transition.</p>
+<p>The ordering of these pallets in a runtime should be:</p>
+<ul>
+<li>parent</li>
+<li>verifier</li>
+<li>signed</li>
+<li>unsigned</li>
+</ul>
+<p>This is critical for the phase transition to work.</p>
+<blockquote>
+<p>This should be manually checked, there is not automated way to test it.</p>
+</blockquote>
+<h3 id="pagination"><a class="doc-anchor" href="#pagination">§</a>Pagination</h3>
+<p>Most of the external APIs of this pallet are paginated. All pagination follow a pattern where if
+<code>N</code> pages exist, the first paginated call is <code>function(N-1)</code> and the last one is <code>function(0)</code>.
+For example, with 3 pages, the <code>elect</code> of [<code>ElectionProvider</code>] is expected to be called as
+<code>elect(2) -&gt; elect(1) -&gt; elect(0)</code>. In essence, calling a paginated function with index 0 is
+always a signal of termination, meaning that no further calls will follow.</p>
+<p>The snapshot creation for voters (Nominators in staking), submission of signed pages, validation
+of signed solutions and exporting of pages are all paginated. Note that this pallet is yet to
+support paginated target (Validators in staking) snapshotting.</p>
+<h4 id="terminology-note-msp-and-lsp"><a class="doc-anchor" href="#terminology-note-msp-and-lsp">§</a>Terminology Note: <code>msp</code> and <code>lsp</code></h4>
+<p>Stand for <em>most significant page</em> (n-1) and <em>least significant page</em> (0).</p>
+<p>See [<code>ElectionProvider::msp</code>] and [<code>ElectionProvider::lsp</code>], and their usage.</p>
+<h3 id="phases"><a class="doc-anchor" href="#phases">§</a>Phases</h3>
+<p>The operations in this pallet are divided intor rounds, a <code>u32</code> number stored in <a href="pallet/type.Round.html" title="type pallet_election_provider_multi_block::pallet::Round"><code>Round</code></a>.
+This value helps this pallet organize itself, and leaves the door open for lazy deletion of any
+stale data. A round, under the happy path, starts by receiving the call to
+[<code>ElectionProvider::start</code>], and is terminated by receiving a call to
+[<code>ElectionProvider::elect</code>] with value 0.</p>
+<p>The timeline of pallet is overall as follows:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code> &lt;  Off  &gt;
+<span class="number">0 </span>------------ <span class="number">12 13 14 15 </span>----------- <span class="number">20 </span>---------<span class="number">25 </span>------- <span class="number">30
+	           </span>|       |              |            |          |
+	     Snapshot      Signed   SignedValidation  Unsigned   Elect</code></pre></div>
+<ul>
+<li>Duration of <code>Snapshot</code> is determined by <a href="pallet/trait.Config.html#associatedtype.Pages" title="associated type pallet_election_provider_multi_block::pallet::Config::Pages"><code>Config::Pages</code></a> + 1.
+<ul>
+<li>Whereby in the first page we take the “Targets” snapshot, and in the subsequent pages we take
+the voter snapshot.</li>
+<li>For example, with <code>Pages = 4</code>:
+<ul>
+<li><code>Snapshot(4)</code> -&gt; <code>Targets(all)</code></li>
+<li><code>Snapshot(3)</code> -&gt; <code>Voters(3)</code></li>
+<li><code>Snapshot(2)</code> -&gt; <code>Voters(2)</code></li>
+<li><code>Snapshot(1)</code> -&gt; <code>Voters(1)</code></li>
+<li><code>Snapshot(0)</code> -&gt; <code>Voters(0)</code></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Duration of <code>Signed</code>, <code>SignedValidation</code> and <code>Unsigned</code> are determined by
+<a href="pallet/trait.Config.html#associatedtype.SignedPhase" title="associated type pallet_election_provider_multi_block::pallet::Config::SignedPhase"><code>Config::SignedPhase</code></a>, <a href="pallet/trait.Config.html#associatedtype.SignedValidationPhase" title="associated type pallet_election_provider_multi_block::pallet::Config::SignedValidationPhase"><code>Config::SignedValidationPhase</code></a> and <a href="pallet/trait.Config.html#associatedtype.UnsignedPhase" title="associated type pallet_election_provider_multi_block::pallet::Config::UnsignedPhase"><code>Config::UnsignedPhase</code></a>
+respectively.</li>
+<li><a href="pallet/trait.Config.html#associatedtype.Pages" title="associated type pallet_election_provider_multi_block::pallet::Config::Pages"><code>Config::Pages</code></a> calls to elect are expected, but all in all the pallet will close a round
+once <code>elect(0)</code> is called.</li>
+</ul>
+<blockquote>
+<p>Given this, it is rather important for the user of this pallet to ensure it always terminates
+election via <code>elect</code> before requesting a new one.</p>
+</blockquote>
+<h3 id="feasible-solution-correct-solution"><a class="doc-anchor" href="#feasible-solution-correct-solution">§</a>Feasible Solution (correct solution)</h3>
+<p>All submissions must undergo a feasibility check. Signed solutions are checked one by one at the
+end of the signed phase, and the unsigned solutions are checked on the spot. A feasible solution
+is as follows:</p>
+<ol start="0">
+<li><strong>all</strong> of the used indices must be correct.</li>
+<li>present <em>exactly</em> correct number of winners.</li>
+<li>any assignment is checked to match with <code>PagedVoterSnapshot</code>.</li>
+<li>the claimed score is valid, based on the fixed point arithmetic accuracy.</li>
+</ol>
+<p>More about this in <a href="verifier/index.html" title="mod pallet_election_provider_multi_block::verifier"><code>verifier</code></a>, who is responsible for doing all of the above.</p>
+<h4 id="fallback-and-emergency"><a class="doc-anchor" href="#fallback-and-emergency">§</a>Fallback and Emergency</h4>
+<p>If at any page, [<code>ElectionProvider::elect</code>] fails, a call with the same page-index is dispatched
+to <a href="pallet/trait.Config.html#associatedtype.Fallback" title="associated type pallet_election_provider_multi_block::pallet::Config::Fallback"><code>Config::Fallback</code></a>. <a href="pallet/trait.Config.html#associatedtype.Fallback" title="associated type pallet_election_provider_multi_block::pallet::Config::Fallback"><code>Config::Fallback</code></a> is itself (yet) another implementation of
+[<code>ElectionProvider</code>], and can decide to do anything, but a few reasonable options are provided
+here:</p>
+<ol>
+<li>Do nothing: <a href="struct.Continue.html" title="struct pallet_election_provider_multi_block::Continue"><code>Continue</code></a></li>
+<li>Force us into the emergency phase: <a href="struct.InitiateEmergencyPhase.html" title="struct pallet_election_provider_multi_block::InitiateEmergencyPhase"><code>crate::InitiateEmergencyPhase</code></a>. This initiates
+<a href="types/enum.Phase.html#variant.Emergency" title="variant pallet_election_provider_multi_block::types::Phase::Emergency"><code>Phase::Emergency</code></a>, which will halt almost all operations of this pallet, and it can only
+be recovered by <a href="enum.AdminOperation.html" title="enum pallet_election_provider_multi_block::AdminOperation"><code>AdminOperation</code></a>, dispatched via <a href="pallet/enum.Call.html#variant.manage" title="variant pallet_election_provider_multi_block::pallet::Call::manage"><code>Call::manage</code></a>.</li>
+<li>compute an onchain from the give page of snapshot.</li>
+</ol>
+<p>Note that configuring the fallback to be onchain computation is not recommended, unless for
+test-nets for a number of reasons:</p>
+<ol>
+<li>The solution score of fallback is never checked to match the “minimum” score. That being
+said, the computation happens onchain so we can trust it.</li>
+<li>The onchain fallback runs on the same number of voters and targets that reside on a single
+page of a snapshot, which will very likely be too much for actual onchain computation. Yet,
+we don’t have another choice as we cannot request another smaller snapshot from the data
+provider mid-election without more bookkeeping on the staking side.</li>
+</ol>
+<p>If onchain solution is to be seriously considered, an improvement to this pallet should
+re-request a smaller set of voters from <code>T::DataProvider</code> in a stateless manner.</p>
+<h4 id="signed-phase"><a class="doc-anchor" href="#signed-phase">§</a>Signed Phase</h4>
+<p>Signed phase is when an offchain miner, aka, <code>polkadot-staking-miner</code> should operate upon. See
+<a href="signed/index.html" title="mod pallet_election_provider_multi_block::signed"><code>signed</code></a> for more information.</p>
+<h3 id="unsigned-phase"><a class="doc-anchor" href="#unsigned-phase">§</a>Unsigned Phase</h3>
+<p>Unsigned phase is a built-in fallback in which validators may submit a single page election,
+taking into account only the [<code>ElectionProvider::msp</code>] (<em>most significant page</em>). See
+<a href="unsigned/index.html" title="mod pallet_election_provider_multi_block::unsigned"><code>crate::unsigned</code></a> for more information.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.WeightInfo"><code>pub use weights::traits::pallet_election_provider_multi_block::<a class="trait" href="weights/traits/pallet_election_provider_multi_block/trait.WeightInfo.html" title="trait pallet_election_provider_multi_block::weights::traits::pallet_election_provider_multi_block::WeightInfo">WeightInfo</a>;</code></dt><dt><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_election_provider_multi_block::pallet">pallet</a>::*;</code></dt><dt><code>pub use <a class="mod" href="types/index.html" title="mod pallet_election_provider_multi_block::types">types</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmarking/index.html" title="mod pallet_election_provider_multi_block::benchmarking">benchmarking</a></dt><dt><a class="mod" href="helpers/index.html" title="mod pallet_election_provider_multi_block::helpers">helpers</a></dt><dd>Some helper functions/macros for this crate.</dd><dt><a class="mod" href="pallet/index.html" title="mod pallet_election_provider_multi_block::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="signed/index.html" title="mod pallet_election_provider_multi_block::signed">signed</a></dt><dd>The signed pallet
+The signed phase of the multi-block election system.</dd><dt><a class="mod" href="types/index.html" title="mod pallet_election_provider_multi_block::types">types</a></dt><dd>Common types of the pallet
+Common types and traits of the EPMB pallet group.</dd><dt><a class="mod" href="unsigned/index.html" title="mod pallet_election_provider_multi_block::unsigned">unsigned</a></dt><dd>The unsigned pallet</dd><dt><a class="mod" href="verifier/index.html" title="mod pallet_election_provider_multi_block::verifier">verifier</a></dt><dd>The verifier pallet</dd><dt><a class="mod" href="weights/index.html" title="mod pallet_election_provider_multi_block::weights">weights</a></dt><dd>The weight module
+WeightInfo for the election provider multi-block pallet group.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.log.html" title="macro pallet_election_provider_multi_block::log">log</a></dt><dd>Emit a log specific to this pallet, setting the target to <a href="constant.LOG_PREFIX.html" title="constant pallet_election_provider_multi_block::LOG_PREFIX"><code>crate::LOG_PREFIX</code></a></dd><dt><a class="macro" href="macro.miner_log.html" title="macro pallet_election_provider_multi_block::miner_log">miner_<wbr>log</a></dt><dd>Emit a log from within the offchain miner.</dd><dt><a class="macro" href="macro.sublog.html" title="macro pallet_election_provider_multi_block::sublog">sublog</a></dt><dd>Emit a log within a submodule of the pallet</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CleanRound.html" title="struct pallet_election_provider_multi_block::CleanRound">Clean<wbr>Round</a></dt><dd>An implementation of <a href="trait.OnRoundRotation.html" title="trait pallet_election_provider_multi_block::OnRoundRotation"><code>OnRoundRotation</code></a> that immediately deletes all the data in all the
+pallets, once the round is over.</dd><dt><a class="struct" href="struct.Continue.html" title="struct pallet_election_provider_multi_block::Continue">Continue</a></dt><dd>A fallback implementation that silently continues into the next page.</dd><dt><a class="struct" href="struct.GetDone.html" title="struct pallet_election_provider_multi_block::GetDone">GetDone</a></dt><dd>A <code>Get</code> impl for <code>Phase::Done</code></dd><dt><a class="struct" href="struct.GetSigned.html" title="struct pallet_election_provider_multi_block::GetSigned">GetSigned</a></dt><dd>A <code>Get</code> impl for <code>Phase::Signed(T::SignedPhase::get())</code></dd><dt><a class="struct" href="struct.IfSolutionQueuedElse.html" title="struct pallet_election_provider_multi_block::IfSolutionQueuedElse">IfSolution<wbr>Queued<wbr>Else</a></dt><dd>A easy means to configure <a href="pallet/trait.Config.html#associatedtype.AreWeDone" title="associated type pallet_election_provider_multi_block::pallet::Config::AreWeDone"><code>Config::AreWeDone</code></a>.</dd><dt><a class="struct" href="struct.InitiateEmergencyPhase.html" title="struct pallet_election_provider_multi_block::InitiateEmergencyPhase">Initiate<wbr>Emergency<wbr>Phase</a></dt><dd>A fallback implementation that transitions the pallet to the emergency phase.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AdminOperation.html" title="enum pallet_election_provider_multi_block::AdminOperation">Admin<wbr>Operation</a></dt><dd>Different operations that the <a href="pallet/trait.Config.html#associatedtype.AdminOrigin" title="associated type pallet_election_provider_multi_block::pallet::Config::AdminOrigin"><code>Config::AdminOrigin</code></a> can perform on the pallet.</dd><dt><a class="enum" href="enum.ElectionError.html" title="enum pallet_election_provider_multi_block::ElectionError">Election<wbr>Error</a></dt><dd>Internal errors of the pallet. This is used in the implementation of [<code>ElectionProvider</code>].</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.LOG_PREFIX.html" title="constant pallet_election_provider_multi_block::LOG_PREFIX">LOG_<wbr>PREFIX</a></dt><dd>The common logging prefix of all pallets in this crate.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.OnRoundRotation.html" title="trait pallet_election_provider_multi_block::OnRoundRotation">OnRound<wbr>Rotation</a></dt><dd>Trait to notify other sub-systems that a round has ended.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ProceedRegardlessOf.html" title="type pallet_election_provider_multi_block::ProceedRegardlessOf">Proceed<wbr>Regardless<wbr>Of</a></dt><dd>A shorthand for <a href="struct.IfSolutionQueuedElse.html" title="struct pallet_election_provider_multi_block::IfSolutionQueuedElse"><code>IfSolutionQueuedElse</code></a> that proceeds regardless of the solution being queued.</dd><dt><a class="type" href="type.RevertToSignedIfNotQueuedOf.html" title="type pallet_election_provider_multi_block::RevertToSignedIfNotQueuedOf">Revert<wbr>ToSigned<wbr>IfNot<wbr>Queued<wbr>Of</a></dt><dd>A shorthand for <a href="struct.IfSolutionQueuedElse.html" title="struct pallet_election_provider_multi_block::IfSolutionQueuedElse"><code>IfSolutionQueuedElse</code></a> that proceeds to <code>Phase::Done</code> if the solution is
+queued. Otherwise, it proceeds to <code>Phase::Signed</code>.</dd></dl><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Vec<PageIndex>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

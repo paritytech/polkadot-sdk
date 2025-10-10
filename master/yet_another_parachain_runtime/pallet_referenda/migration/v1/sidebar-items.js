@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MigrateV0ToV1","ReferendumInfoFor_Storage_Instance"],"type":["ReferendumInfoFor"]};

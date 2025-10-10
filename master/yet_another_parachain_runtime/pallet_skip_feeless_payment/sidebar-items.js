@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Event","Intermediate"],"mod":["pallet"],"struct":["Pallet","SkipCheckIfFeeless"],"trait":["Config"],"type":["Module"]};

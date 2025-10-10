@@ -1,0 +1,168 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate CLI library."><title>yet_another_parachain_runtime::sc_cli - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sc_cli</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sc_cli/lib.rs.html#19-253">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate CLI library.</p>
+<p>To see a full list of commands available, see <a href="commands/index.html" title="mod yet_another_parachain_runtime::sc_cli::commands"><code>commands</code></a>.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="arg_enums/index.html" title="mod yet_another_parachain_runtime::sc_cli::arg_enums">arg_<wbr>enums</a></dt><dd>Definitions of <a href="clap/trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum"><code>ValueEnum</code></a> types.</dd><dt><a class="mod" href="clap/index.html" title="mod yet_another_parachain_runtime::sc_cli::clap">clap</a></dt><dd><blockquote>
+<strong>Command Line Argument Parser for Rust</strong></blockquote>
+</dd><dt><a class="mod" href="commands/index.html" title="mod yet_another_parachain_runtime::sc_cli::commands">commands</a></dt><dd>Various subcommands that can be included in a substrate-based chain’s CLI.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.with_crypto_scheme.html" title="macro yet_another_parachain_runtime::sc_cli::with_crypto_scheme">with_<wbr>crypto_<wbr>scheme</a></dt><dd>Allows for calling $method with appropriate crypto impl.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BlockNumberOrHash.html" title="struct yet_another_parachain_runtime::sc_cli::BlockNumberOrHash">Block<wbr>Number<wbr>OrHash</a></dt><dd>Wrapper type that is either a <code>Hash</code> or the number of a <code>Block</code>.</dd><dt><a class="struct" href="struct.BuildSpecCmd.html" title="struct yet_another_parachain_runtime::sc_cli::BuildSpecCmd">Build<wbr>Spec<wbr>Cmd</a></dt><dd>The <code>build-spec</code> command used to build a specification.</dd><dt><a class="struct" href="struct.ChainInfoCmd.html" title="struct yet_another_parachain_runtime::sc_cli::ChainInfoCmd">Chain<wbr>Info<wbr>Cmd</a></dt><dd>The <code>chain-info</code> subcommand used to output db meta columns information.</dd><dt><a class="struct" href="struct.CheckBlockCmd.html" title="struct yet_another_parachain_runtime::sc_cli::CheckBlockCmd">Check<wbr>Block<wbr>Cmd</a></dt><dd>The <code>check-block</code> command used to validate blocks.</dd><dt><a class="struct" href="struct.CryptoSchemeFlag.html" title="struct yet_another_parachain_runtime::sc_cli::CryptoSchemeFlag">Crypto<wbr>Scheme<wbr>Flag</a></dt><dd>Optional flag for specifying crypto algorithm</dd><dt><a class="struct" href="struct.DatabaseParams.html" title="struct yet_another_parachain_runtime::sc_cli::DatabaseParams">Database<wbr>Params</a></dt><dd>Parameters for database</dd><dt><a class="struct" href="struct.ExecutionStrategiesParams.html" title="struct yet_another_parachain_runtime::sc_cli::ExecutionStrategiesParams">Execution<wbr>Strategies<wbr>Params</a></dt><dd>Execution strategies parameters.</dd><dt><a class="struct" href="struct.ExportBlocksCmd.html" title="struct yet_another_parachain_runtime::sc_cli::ExportBlocksCmd">Export<wbr>Blocks<wbr>Cmd</a></dt><dd>The <code>export-blocks</code> command used to export blocks.</dd><dt><a class="struct" href="struct.ExportChainSpecCmd.html" title="struct yet_another_parachain_runtime::sc_cli::ExportChainSpecCmd">Export<wbr>Chain<wbr>Spec<wbr>Cmd</a></dt><dd>Export a chain-spec to a JSON file in plain or in raw storage format.</dd><dt><a class="struct" href="struct.ExportStateCmd.html" title="struct yet_another_parachain_runtime::sc_cli::ExportStateCmd">Export<wbr>State<wbr>Cmd</a></dt><dd>The <code>export-state</code> command used to export the state of a given block into
+a chain spec.</dd><dt><a class="struct" href="struct.GenerateCmd.html" title="struct yet_another_parachain_runtime::sc_cli::GenerateCmd">Generate<wbr>Cmd</a></dt><dd>The <code>generate</code> command</dd><dt><a class="struct" href="struct.GenerateKeyCmdCommon.html" title="struct yet_another_parachain_runtime::sc_cli::GenerateKeyCmdCommon">Generate<wbr>KeyCmd<wbr>Common</a></dt><dd>Common arguments accross all generate key commands, subkey and node.</dd><dt><a class="struct" href="struct.GenericNumber.html" title="struct yet_another_parachain_runtime::sc_cli::GenericNumber">Generic<wbr>Number</a></dt><dd>Wrapper type of <code>String</code> that holds an unsigned integer of arbitrary size, formatted as a
+decimal.</dd><dt><a class="struct" href="struct.ImportBlocksCmd.html" title="struct yet_another_parachain_runtime::sc_cli::ImportBlocksCmd">Import<wbr>Blocks<wbr>Cmd</a></dt><dd>The <code>import-blocks</code> command used to import blocks.</dd><dt><a class="struct" href="struct.ImportParams.html" title="struct yet_another_parachain_runtime::sc_cli::ImportParams">Import<wbr>Params</a></dt><dd>Parameters for block import.</dd><dt><a class="struct" href="struct.InsertKeyCmd.html" title="struct yet_another_parachain_runtime::sc_cli::InsertKeyCmd">Insert<wbr>KeyCmd</a></dt><dd>The <code>insert</code> command</dd><dt><a class="struct" href="struct.InspectKeyCmd.html" title="struct yet_another_parachain_runtime::sc_cli::InspectKeyCmd">Inspect<wbr>KeyCmd</a></dt><dd>The <code>inspect</code> command</dd><dt><a class="struct" href="struct.InspectNodeKeyCmd.html" title="struct yet_another_parachain_runtime::sc_cli::InspectNodeKeyCmd">Inspect<wbr>Node<wbr>KeyCmd</a></dt><dd>The <code>inspect-node-key</code> command</dd><dt><a class="struct" href="struct.KeystoreParams.html" title="struct yet_another_parachain_runtime::sc_cli::KeystoreParams">Keystore<wbr>Params</a></dt><dd>Parameters of the keystore</dd><dt><a class="struct" href="struct.LoggerBuilder.html" title="struct yet_another_parachain_runtime::sc_cli::LoggerBuilder">Logger<wbr>Builder</a></dt><dd>A builder that is used to initialize the global logger.</dd><dt><a class="struct" href="struct.MessageParams.html" title="struct yet_another_parachain_runtime::sc_cli::MessageParams">Message<wbr>Params</a></dt><dd>Params to configure how a message should be passed into a command.</dd><dt><a class="struct" href="struct.MixnetParams.html" title="struct yet_another_parachain_runtime::sc_cli::MixnetParams">Mixnet<wbr>Params</a></dt><dd>Parameters used to create the mixnet configuration.</dd><dt><a class="struct" href="struct.NetworkParams.html" title="struct yet_another_parachain_runtime::sc_cli::NetworkParams">Network<wbr>Params</a></dt><dd>Parameters used to create the network configuration.</dd><dt><a class="struct" href="struct.NetworkSchemeFlag.html" title="struct yet_another_parachain_runtime::sc_cli::NetworkSchemeFlag">Network<wbr>Scheme<wbr>Flag</a></dt><dd>Optional flag for specifying network scheme</dd><dt><a class="struct" href="struct.NodeKeyParams.html" title="struct yet_another_parachain_runtime::sc_cli::NodeKeyParams">Node<wbr>KeyParams</a></dt><dd>Parameters used to create the <code>NodeKeyConfig</code>, which determines the keypair
+used for libp2p networking.</dd><dt><a class="struct" href="struct.OffchainWorkerParams.html" title="struct yet_another_parachain_runtime::sc_cli::OffchainWorkerParams">Offchain<wbr>Worker<wbr>Params</a></dt><dd>Offchain worker related parameters.</dd><dt><a class="struct" href="struct.OutputTypeFlag.html" title="struct yet_another_parachain_runtime::sc_cli::OutputTypeFlag">Output<wbr>Type<wbr>Flag</a></dt><dd>Optional flag for specifying output type</dd><dt><a class="struct" href="struct.PrometheusParams.html" title="struct yet_another_parachain_runtime::sc_cli::PrometheusParams">Prometheus<wbr>Params</a></dt><dd>Parameters used to config prometheus.</dd><dt><a class="struct" href="struct.PruningParams.html" title="struct yet_another_parachain_runtime::sc_cli::PruningParams">Pruning<wbr>Params</a></dt><dd>Parameters to define the pruning mode</dd><dt><a class="struct" href="struct.PurgeChainCmd.html" title="struct yet_another_parachain_runtime::sc_cli::PurgeChainCmd">Purge<wbr>Chain<wbr>Cmd</a></dt><dd>The <code>purge-chain</code> command used to remove the whole chain.</dd><dt><a class="struct" href="struct.RevertCmd.html" title="struct yet_another_parachain_runtime::sc_cli::RevertCmd">Revert<wbr>Cmd</a></dt><dd>The <code>revert</code> command used revert the chain to a previous state.</dd><dt><a class="struct" href="struct.RpcEndpoint.html" title="struct yet_another_parachain_runtime::sc_cli::RpcEndpoint">RpcEndpoint</a></dt><dd>Represent a single RPC endpoint with its configuration.</dd><dt><a class="struct" href="struct.RpcParams.html" title="struct yet_another_parachain_runtime::sc_cli::RpcParams">RpcParams</a></dt><dd>Parameters of RPC.</dd><dt><a class="struct" href="struct.RunCmd.html" title="struct yet_another_parachain_runtime::sc_cli::RunCmd">RunCmd</a></dt><dd>The <code>run</code> command used to run a node.</dd><dt><a class="struct" href="struct.Runner.html" title="struct yet_another_parachain_runtime::sc_cli::Runner">Runner</a></dt><dd>A Substrate CLI runtime that can be used to run a node or a command</dd><dt><a class="struct" href="struct.RuntimeParams.html" title="struct yet_another_parachain_runtime::sc_cli::RuntimeParams">Runtime<wbr>Params</a></dt><dd>Parameters used to config runtime.</dd><dt><a class="struct" href="struct.RuntimeVersion.html" title="struct yet_another_parachain_runtime::sc_cli::RuntimeVersion">Runtime<wbr>Version</a></dt><dd>Runtime version.
+This should not be thought of as classic Semver (major/minor/tiny).
+This triplet have different semantics and mis-interpretation could cause problems.
+In particular: bug fixes should result in an increment of <code>spec_version</code> and possibly
+<code>authoring_version</code>, absolutely not <code>impl_version</code> since they change the semantics of the
+runtime.</dd><dt><a class="struct" href="struct.SharedParams.html" title="struct yet_another_parachain_runtime::sc_cli::SharedParams">Shared<wbr>Params</a></dt><dd>Shared parameters used by all <code>CoreParams</code>.</dd><dt><a class="struct" href="struct.SignCmd.html" title="struct yet_another_parachain_runtime::sc_cli::SignCmd">SignCmd</a></dt><dd>The <code>sign</code> command</dd><dt><a class="struct" href="struct.Signals.html" title="struct yet_another_parachain_runtime::sc_cli::Signals">Signals</a></dt><dd>Abstraction over OS signals to handle the shutdown of the node smoothly.</dd><dt><a class="struct" href="struct.TelemetryParams.html" title="struct yet_another_parachain_runtime::sc_cli::TelemetryParams">Telemetry<wbr>Params</a></dt><dd>Parameters used to config telemetry.</dd><dt><a class="struct" href="struct.TransactionPoolParams.html" title="struct yet_another_parachain_runtime::sc_cli::TransactionPoolParams">Transaction<wbr>Pool<wbr>Params</a></dt><dd>Parameters used to create the pool configuration.</dd><dt><a class="struct" href="struct.VanityCmd.html" title="struct yet_another_parachain_runtime::sc_cli::VanityCmd">Vanity<wbr>Cmd</a></dt><dd>The <code>vanity</code> command</dd><dt><a class="struct" href="struct.VerifyCmd.html" title="struct yet_another_parachain_runtime::sc_cli::VerifyCmd">Verify<wbr>Cmd</a></dt><dd>The <code>verify</code> command</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Cors.html" title="enum yet_another_parachain_runtime::sc_cli::Cors">Cors</a></dt><dd>CORS setting</dd><dt><a class="enum" href="enum.CryptoScheme.html" title="enum yet_another_parachain_runtime::sc_cli::CryptoScheme">Crypto<wbr>Scheme</a></dt><dd>The crypto scheme to use.</dd><dt><a class="enum" href="enum.Database.html" title="enum yet_another_parachain_runtime::sc_cli::Database">Database</a></dt><dd>Database backend</dd><dt><a class="enum" href="enum.DatabasePruningMode.html" title="enum yet_another_parachain_runtime::sc_cli::DatabasePruningMode">Database<wbr>Pruning<wbr>Mode</a></dt><dd>Specifies the pruning mode of the database.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::sc_cli::Error">Error</a></dt><dd>Error type for the CLI.</dd><dt><a class="enum" href="enum.ExecutionStrategy.html" title="enum yet_another_parachain_runtime::sc_cli::ExecutionStrategy">Execution<wbr>Strategy</a></dt><dd>How to execute blocks</dd><dt><a class="enum" href="enum.KeySubcommand.html" title="enum yet_another_parachain_runtime::sc_cli::KeySubcommand">KeySubcommand</a></dt><dd>Key utilities for the cli.</dd><dt><a class="enum" href="enum.NetworkBackendType.html" title="enum yet_another_parachain_runtime::sc_cli::NetworkBackendType">Network<wbr>Backend<wbr>Type</a></dt><dd>Network backend type.</dd><dt><a class="enum" href="enum.NodeKeyType.html" title="enum yet_another_parachain_runtime::sc_cli::NodeKeyType">Node<wbr>KeyType</a></dt><dd>The type of the node key.</dd><dt><a class="enum" href="enum.OffchainWorkerEnabled.html" title="enum yet_another_parachain_runtime::sc_cli::OffchainWorkerEnabled">Offchain<wbr>Worker<wbr>Enabled</a></dt><dd>Whether off-chain workers are enabled.</dd><dt><a class="enum" href="enum.OutputType.html" title="enum yet_another_parachain_runtime::sc_cli::OutputType">Output<wbr>Type</a></dt><dd>The type of the output format.</dd><dt><a class="enum" href="enum.Role.html" title="enum yet_another_parachain_runtime::sc_cli::Role">Role</a></dt><dd>Role of the local node.</dd><dt><a class="enum" href="enum.RpcMethods.html" title="enum yet_another_parachain_runtime::sc_cli::RpcMethods">RpcMethods</a></dt><dd>Available RPC methods.</dd><dt><a class="enum" href="enum.SyncMode.html" title="enum yet_another_parachain_runtime::sc_cli::SyncMode">Sync<wbr>Mode</a></dt><dd>Syncing mode.</dd><dt><a class="enum" href="enum.TracingReceiver.html" title="enum yet_another_parachain_runtime::sc_cli::TracingReceiver">Tracing<wbr>Receiver</a></dt><dt><a class="enum" href="enum.TransactionPoolType.html" title="enum yet_another_parachain_runtime::sc_cli::TransactionPoolType">Transaction<wbr>Pool<wbr>Type</a></dt><dd>Type of transaction pool to be used</dd><dt><a class="enum" href="enum.TrieCacheWarmUpStrategy.html" title="enum yet_another_parachain_runtime::sc_cli::TrieCacheWarmUpStrategy">Trie<wbr>Cache<wbr>Warm<wbr>UpStrategy</a></dt><dd>Warmup strategy for the trie cache.</dd><dt><a class="enum" href="enum.WasmExecutionMethod.html" title="enum yet_another_parachain_runtime::sc_cli::WasmExecutionMethod">Wasm<wbr>Execution<wbr>Method</a></dt><dd>How to execute Wasm runtime code.</dd><dt><a class="enum" href="enum.WasmtimeInstantiationStrategy.html" title="enum yet_another_parachain_runtime::sc_cli::WasmtimeInstantiationStrategy">Wasmtime<wbr>Instantiation<wbr>Strategy</a></dt><dd>The instantiation strategy to use in compiled mode.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.DEFAULT_WASMTIME_INSTANTIATION_STRATEGY.html" title="constant yet_another_parachain_runtime::sc_cli::DEFAULT_WASMTIME_INSTANTIATION_STRATEGY">DEFAULT_<wbr>WASMTIME_<wbr>INSTANTIATION_<wbr>STRATEGY</a></dt><dd>The default <a href="enum.WasmtimeInstantiationStrategy.html" title="enum yet_another_parachain_runtime::sc_cli::WasmtimeInstantiationStrategy"><code>WasmtimeInstantiationStrategy</code></a>.</dd><dt><a class="constant" href="constant.DEFAULT_WASM_EXECUTION_METHOD.html" title="constant yet_another_parachain_runtime::sc_cli::DEFAULT_WASM_EXECUTION_METHOD">DEFAULT_<wbr>WASM_<wbr>EXECUTION_<wbr>METHOD</a></dt><dd>The default <a href="enum.WasmExecutionMethod.html" title="enum yet_another_parachain_runtime::sc_cli::WasmExecutionMethod"><code>WasmExecutionMethod</code></a>.</dd><dt><a class="constant" href="constant.RPC_DEFAULT_MAX_CONNECTIONS.html" title="constant yet_another_parachain_runtime::sc_cli::RPC_DEFAULT_MAX_CONNECTIONS">RPC_<wbr>DEFAULT_<wbr>MAX_<wbr>CONNECTIONS</a></dt><dd>The default concurrent connection limit.</dd><dt><a class="constant" href="constant.RPC_DEFAULT_MAX_REQUEST_SIZE_MB.html" title="constant yet_another_parachain_runtime::sc_cli::RPC_DEFAULT_MAX_REQUEST_SIZE_MB">RPC_<wbr>DEFAULT_<wbr>MAX_<wbr>REQUEST_<wbr>SIZE_<wbr>MB</a></dt><dd>The default max request size in MB.</dd><dt><a class="constant" href="constant.RPC_DEFAULT_MAX_RESPONSE_SIZE_MB.html" title="constant yet_another_parachain_runtime::sc_cli::RPC_DEFAULT_MAX_RESPONSE_SIZE_MB">RPC_<wbr>DEFAULT_<wbr>MAX_<wbr>RESPONSE_<wbr>SIZE_<wbr>MB</a></dt><dd>The default max response size in MB.</dd><dt><a class="constant" href="constant.RPC_DEFAULT_MAX_SUBS_PER_CONN.html" title="constant yet_another_parachain_runtime::sc_cli::RPC_DEFAULT_MAX_SUBS_PER_CONN">RPC_<wbr>DEFAULT_<wbr>MAX_<wbr>SUBS_<wbr>PER_<wbr>CONN</a></dt><dd>The default max number of subscriptions per connection.</dd><dt><a class="constant" href="constant.RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN.html" title="constant yet_another_parachain_runtime::sc_cli::RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN">RPC_<wbr>DEFAULT_<wbr>MESSAGE_<wbr>CAPACITY_<wbr>PER_<wbr>CONN</a></dt><dd>The default number of messages the RPC server
+is allowed to keep in memory per connection.</dd><dt><a class="constant" href="constant.RPC_DEFAULT_PORT.html" title="constant yet_another_parachain_runtime::sc_cli::RPC_DEFAULT_PORT">RPC_<wbr>DEFAULT_<wbr>PORT</a></dt><dd>The default port.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.ChainSpec.html" title="trait yet_another_parachain_runtime::sc_cli::ChainSpec">Chain<wbr>Spec</a></dt><dd>Common interface of a chain specification.</dd><dt><a class="trait" href="trait.CliConfiguration.html" title="trait yet_another_parachain_runtime::sc_cli::CliConfiguration">CliConfiguration</a></dt><dd>A trait that allows converting an object to a Configuration</dd><dt><a class="trait" href="trait.DefaultConfigurationValues.html" title="trait yet_another_parachain_runtime::sc_cli::DefaultConfigurationValues">Default<wbr>Configuration<wbr>Values</a></dt><dd>Default configuration values used by Substrate</dd><dt><a class="trait" href="trait.SubstrateCli.html" title="trait yet_another_parachain_runtime::sc_cli::SubstrateCli">Substrate<wbr>Cli</a></dt><dd>Substrate client CLI</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.build_runtime.html" title="fn yet_another_parachain_runtime::sc_cli::build_runtime">build_<wbr>runtime</a></dt><dd>Build a tokio runtime with all features.</dd><dt><a class="fn" href="fn.execution_method_from_cli.html" title="fn yet_another_parachain_runtime::sc_cli::execution_method_from_cli">execution_<wbr>method_<wbr>from_<wbr>cli</a></dt><dd>Converts the execution method and instantiation strategy command line arguments
+into an execution method which can be used internally.</dd><dt><a class="fn" href="fn.generate_node_name.html" title="fn yet_another_parachain_runtime::sc_cli::generate_node_name">generate_<wbr>node_<wbr>name</a></dt><dd>Generate a valid random name for the node</dd><dt><a class="fn" href="fn.parse_ss58_address_format.html" title="fn yet_another_parachain_runtime::sc_cli::parse_ss58_address_format">parse_<wbr>ss58_<wbr>address_<wbr>format</a></dt><dd>Parse Ss58AddressFormat</dd><dt><a class="fn" href="fn.print_node_infos.html" title="fn yet_another_parachain_runtime::sc_cli::print_node_infos">print_<wbr>node_<wbr>infos</a></dt><dd>Log information about the node itself.</dd><dt><a class="fn" href="fn.secret_string_from_str.html" title="fn yet_another_parachain_runtime::sc_cli::secret_string_from_str">secret_<wbr>string_<wbr>from_<wbr>str</a></dt><dd>Parse a secret string, returning a displayable error.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Result.html" title="type yet_another_parachain_runtime::sc_cli::Result">Result</a></dt><dd>Result type alias for the CLI.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

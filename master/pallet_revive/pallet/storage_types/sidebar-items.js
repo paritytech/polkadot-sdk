@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AccountInfoOf","CodeInfoOf","DebugSettingsOf","DeletionQueue","DeletionQueueCounter","ImmutableDataOf","OriginalAccount","PristineCode"]};

@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Prepare a batch call with relay finality proof, parachain head proof and message proof."><title>make_complex_relayer_delivery_batch in yet_another_parachain_runtime::bridge_hub_test_utils::test_data::from_parachain - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>bridge_<wbr>hub_<wbr>test_<wbr>utils::<wbr>test_<wbr>data::<wbr>from_<wbr>parachain</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">bridge_hub_test_utils</a>::<wbr><a href="../index.html">test_data</a>::<wbr><a href="index.html">from_parachain</a></div><h1>Function <span class="fn">make_complex_relayer_delivery_batch</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/bridge_hub_test_utils/test_data/from_parachain.rs.html#53-77">Source</a> </span></div><pre class="rust item-decl"><code>pub fn make_complex_relayer_delivery_batch&lt;Runtime, GPI, PPI, MPI&gt;(
+    relay_chain_header: &lt;&lt;Runtime as <a class="trait" href="../../../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;GPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_grandpa/trait.Config.html#associatedtype.BridgedChain" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::Config::BridgedChain">BridgedChain</a> as <a class="trait" href="../../../bp_runtime/trait.Chain.html" title="trait yet_another_parachain_runtime::bp_runtime::Chain">Chain</a>&gt;::<a class="associatedtype" href="../../../bp_runtime/trait.Chain.html#associatedtype.Header" title="type yet_another_parachain_runtime::bp_runtime::Chain::Header">Header</a>,
+    grandpa_justification: <a class="struct" href="../../../bp_header_chain/justification/struct.GrandpaJustification.html" title="struct yet_another_parachain_runtime::bp_header_chain::justification::GrandpaJustification">GrandpaJustification</a>&lt;&lt;&lt;Runtime as <a class="trait" href="../../../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;GPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_grandpa/trait.Config.html#associatedtype.BridgedChain" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::Config::BridgedChain">BridgedChain</a> as <a class="trait" href="../../../bp_runtime/trait.Chain.html" title="trait yet_another_parachain_runtime::bp_runtime::Chain">Chain</a>&gt;::<a class="associatedtype" href="../../../bp_runtime/trait.Chain.html#associatedtype.Header" title="type yet_another_parachain_runtime::bp_runtime::Chain::Header">Header</a>&gt;,
+    parachain_heads: <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;(<a class="struct" href="../../../bp_polkadot_core/parachains/struct.ParaId.html" title="struct yet_another_parachain_runtime::bp_polkadot_core::parachains::ParaId">ParaId</a>, &lt;<a class="struct" href="../../../polkadot_core_primitives/struct.BlakeTwo256.html" title="struct yet_another_parachain_runtime::polkadot_core_primitives::BlakeTwo256">BlakeTwo256</a> as <a class="trait" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher">Hasher</a>&gt;::<a class="associatedtype" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html#associatedtype.Out" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher::Out">Out</a>)&gt;,
+    para_heads_proof: <a class="struct" href="../../../bp_polkadot_core/parachains/struct.ParaHeadsProof.html" title="struct yet_another_parachain_runtime::bp_polkadot_core::parachains::ParaHeadsProof">ParaHeadsProof</a>,
+    message_proof: <a class="struct" href="../../../bp_messages/target_chain/struct.FromBridgedChainMessagesProof.html" title="struct yet_another_parachain_runtime::bp_messages::target_chain::FromBridgedChainMessagesProof">FromBridgedChainMessagesProof</a>&lt;&lt;<a class="struct" href="../../../polkadot_core_primitives/struct.BlakeTwo256.html" title="struct yet_another_parachain_runtime::polkadot_core_primitives::BlakeTwo256">BlakeTwo256</a> as <a class="trait" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher">Hasher</a>&gt;::<a class="associatedtype" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html#associatedtype.Out" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher::Out">Out</a>, &lt;Runtime as <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;MPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_messages/trait.Config.html#associatedtype.LaneId" title="type yet_another_parachain_runtime::pallet_bridge_messages::Config::LaneId">LaneId</a>&gt;,
+    relayer_id_at_bridged_chain: &lt;&lt;Runtime as <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;MPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_messages/trait.Config.html#associatedtype.BridgedChain" title="type yet_another_parachain_runtime::pallet_bridge_messages::Config::BridgedChain">BridgedChain</a> as <a class="trait" href="../../../bp_runtime/trait.Chain.html" title="trait yet_another_parachain_runtime::bp_runtime::Chain">Chain</a>&gt;::<a class="associatedtype" href="../../../bp_runtime/trait.Chain.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::bp_runtime::Chain::AccountId">AccountId</a>,
+) -&gt; <a class="enum" href="../../../pallet_utility/enum.Call.html" title="enum yet_another_parachain_runtime::pallet_utility::Call">Call</a>&lt;Runtime&gt;<div class="where">where
+    Runtime: <a class="trait" href="../../../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;GPI&gt; + <a class="trait" href="../../../pallet_bridge_parachains/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_parachains::Config">Config</a>&lt;PPI&gt; + <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;MPI, InboundPayload = <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt; + <a class="trait" href="../../../pallet_utility/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_utility::Config">Config</a>,
+    GPI: 'static,
+    PPI: 'static,
+    MPI: 'static,
+    &lt;<a class="struct" href="../../../polkadot_core_primitives/struct.BlakeTwo256.html" title="struct yet_another_parachain_runtime::polkadot_core_primitives::BlakeTwo256">BlakeTwo256</a> as <a class="trait" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher">Hasher</a>&gt;::<a class="associatedtype" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html#associatedtype.Out" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher::Out">Out</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;&lt;&lt;Runtime as <a class="trait" href="../../../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;GPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_grandpa/trait.Config.html#associatedtype.BridgedChain" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::Config::BridgedChain">BridgedChain</a> as <a class="trait" href="../../../bp_runtime/trait.Chain.html" title="trait yet_another_parachain_runtime::bp_runtime::Chain">Chain</a>&gt;::<a class="associatedtype" href="../../../bp_runtime/trait.Chain.html#associatedtype.Hash" title="type yet_another_parachain_runtime::bp_runtime::Chain::Hash">Hash</a>&gt;,
+    &lt;&lt;Runtime as <a class="trait" href="../../../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;GPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_grandpa/trait.Config.html#associatedtype.BridgedChain" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::Config::BridgedChain">BridgedChain</a> as <a class="trait" href="../../../bp_runtime/trait.Chain.html" title="trait yet_another_parachain_runtime::bp_runtime::Chain">Chain</a>&gt;::<a class="associatedtype" href="../../../bp_runtime/trait.Chain.html#associatedtype.Hash" title="type yet_another_parachain_runtime::bp_runtime::Chain::Hash">Hash</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;&lt;<a class="struct" href="../../../polkadot_core_primitives/struct.BlakeTwo256.html" title="struct yet_another_parachain_runtime::polkadot_core_primitives::BlakeTwo256">BlakeTwo256</a> as <a class="trait" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher">Hasher</a>&gt;::<a class="associatedtype" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html#associatedtype.Out" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher::Out">Out</a>&gt;,
+    &lt;Runtime as <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;MPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_messages/trait.Config.html#associatedtype.BridgedChain" title="type yet_another_parachain_runtime::pallet_bridge_messages::Config::BridgedChain">BridgedChain</a>: <a class="trait" href="../../../bp_runtime/trait.Chain.html" title="trait yet_another_parachain_runtime::bp_runtime::Chain">Chain</a>&lt;Hash = &lt;<a class="struct" href="../../../polkadot_core_primitives/struct.BlakeTwo256.html" title="struct yet_another_parachain_runtime::polkadot_core_primitives::BlakeTwo256">BlakeTwo256</a> as <a class="trait" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher">Hasher</a>&gt;::<a class="associatedtype" href="../../../frame_support/sp_runtime/app_crypto/sp_core/trait.Hasher.html#associatedtype.Out" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::Hasher::Out">Out</a>&gt; + <a class="trait" href="../../../bp_runtime/trait.Parachain.html" title="trait yet_another_parachain_runtime::bp_runtime::Parachain">Parachain</a>,
+    &lt;Runtime as <a class="trait" href="../../../pallet_utility/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_utility::Config">Config</a>&gt;::<a class="associatedtype" href="../../../pallet_utility/trait.Config.html#associatedtype.RuntimeCall" title="type yet_another_parachain_runtime::pallet_utility::Config::RuntimeCall">RuntimeCall</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="../../../pallet_bridge_grandpa/enum.Call.html" title="enum yet_another_parachain_runtime::pallet_bridge_grandpa::Call">Call</a>&lt;Runtime, GPI&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="../../../pallet_bridge_parachains/enum.Call.html" title="enum yet_another_parachain_runtime::pallet_bridge_parachains::Call">Call</a>&lt;Runtime, PPI&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="../../../pallet_bridge_messages/enum.Call.html" title="enum yet_another_parachain_runtime::pallet_bridge_messages::Call">Call</a>&lt;Runtime, MPI&gt;&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Prepare a batch call with relay finality proof, parachain head proof and message proof.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

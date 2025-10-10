@@ -1,0 +1,222 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contracts Pallet"><title>yet_another_parachain_runtime::pallet_contracts - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#contracts-pallet" title="Contracts Pallet">Contracts Pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#interface" title="Interface">Interface</a></li><li><a href="#usage" title="Usage">Usage</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_contracts</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_contracts/lib.rs.html#18-1989">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="contracts-pallet"><a class="doc-anchor" href="#contracts-pallet">§</a>Contracts Pallet</h2>
+<p>The Contracts module provides functionality for the runtime to deploy and execute WebAssembly
+smart-contracts.</p>
+<ul>
+<li><a href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_contracts::Config"><code>Config</code></a></li>
+<li><a href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_contracts::Call"><code>Call</code></a></li>
+</ul>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>This module extends accounts based on the <a href="../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>frame_support::traits::fungible</code></a> traits to have
+smart-contract functionality. It can be used with other modules that implement accounts based on
+the <a href="../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>frame_support::traits::fungible</code></a> traits. These “smart-contract accounts” have the ability
+to instantiate smart-contracts and make calls to other contract and non-contract accounts.</p>
+<p>The smart-contract code is stored once, and later retrievable via its hash.
+This means that multiple smart-contracts can be instantiated from the same hash, without
+replicating the code each time.</p>
+<p>When a smart-contract is called, its associated code is retrieved via the code hash and gets
+executed. This call can alter the storage entries of the smart-contract account, instantiate new
+smart-contracts, or call other smart-contracts.</p>
+<p>Finally, when an account is reaped, its associated code and storage of the smart-contract
+account will also be deleted.</p>
+<h4 id="weight"><a class="doc-anchor" href="#weight">§</a>Weight</h4>
+<p>Senders must specify a <a href="../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight"><code>Weight</code></a> limit with every call, as all instructions invoked by the
+smart-contract require weight. Unused weight is refunded after the call, regardless of the
+execution outcome.</p>
+<p>If the weight limit is reached, then all calls and state changes (including balance transfers)
+are only reverted at the current call’s contract level. For example, if contract A calls B and B
+runs out of gas mid-call, then all of B’s calls are reverted. Assuming correct error handling by
+contract A, A’s other calls and state changes still persist.</p>
+<h4 id="notable-scenarios"><a class="doc-anchor" href="#notable-scenarios">§</a>Notable Scenarios</h4>
+<p>Contract call failures are not always cascading. When failures occur in a sub-call, they do not
+“bubble up”, and the call will only revert at the specific contract level. For example, if
+contract A calls contract B, and B fails, A can decide how to handle that failure, either
+proceeding or reverting A’s changes.</p>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable functions</h4>
+<ul>
+<li><a href="struct.Pallet.html#method.instantiate_with_code" title="associated function yet_another_parachain_runtime::pallet_contracts::Pallet::instantiate_with_code"><code>Pallet::instantiate_with_code</code></a> - Deploys a new contract from the supplied Wasm binary,
+optionally transferring
+some balance. This instantiates a new smart contract account with the supplied code and
+calls its constructor to initialize the contract.</li>
+<li><a href="struct.Pallet.html#method.instantiate" title="associated function yet_another_parachain_runtime::pallet_contracts::Pallet::instantiate"><code>Pallet::instantiate</code></a> - The same as <code>instantiate_with_code</code> but instead of uploading new
+code an existing <code>code_hash</code> is supplied.</li>
+<li><a href="struct.Pallet.html#method.call" title="associated function yet_another_parachain_runtime::pallet_contracts::Pallet::call"><code>Pallet::call</code></a> - Makes a call to an account, optionally transferring some balance.</li>
+<li><a href="struct.Pallet.html#method.upload_code" title="associated function yet_another_parachain_runtime::pallet_contracts::Pallet::upload_code"><code>Pallet::upload_code</code></a> - Uploads new code without instantiating a contract from it.</li>
+<li><a href="struct.Pallet.html#method.remove_code" title="associated function yet_another_parachain_runtime::pallet_contracts::Pallet::remove_code"><code>Pallet::remove_code</code></a> - Removes the stored code and refunds the deposit to its owner. Only
+allowed to code owner.</li>
+<li><a href="struct.Pallet.html#method.set_code" title="associated function yet_another_parachain_runtime::pallet_contracts::Pallet::set_code"><code>Pallet::set_code</code></a> - Changes the code of an existing contract. Only allowed to <code>Root</code>
+origin.</li>
+<li><a href="struct.Pallet.html#method.migrate" title="associated function yet_another_parachain_runtime::pallet_contracts::Pallet::migrate"><code>Pallet::migrate</code></a> - Runs migration steps of current multi-block migration in priority,
+before <a href="../emulated_integration_tests_common/xcm_emulator/trait.Hooks.html#method.on_idle" title="associated function yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Hooks::on_idle"><code>Hooks::on_idle</code></a> activates.</li>
+</ul>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<ul>
+<li><a href="https://use.ink"><code>ink!</code></a> is language that enables writing Wasm-based smart contracts in plain
+Rust.</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="chain_extension/index.html" title="mod yet_another_parachain_runtime::pallet_contracts::chain_extension">chain_<wbr>extension</a></dt><dd>A mechanism for runtime authors to augment the functionality of contracts.</dd><dt><a class="mod" href="debug/index.html" title="mod yet_another_parachain_runtime::pallet_contracts::debug">debug</a></dt><dt><a class="mod" href="migration/index.html" title="mod yet_another_parachain_runtime::pallet_contracts::migration">migration</a></dt><dd>Multi-block Migration framework for pallet-contracts.</dd><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_contracts::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="test_utils/index.html" title="mod yet_another_parachain_runtime::pallet_contracts::test_utils">test_<wbr>utils</a></dt><dd>Shared utilities for testing contracts.
+This is not part of the tests module because it is made public for other crates to use.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::pallet_contracts::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_contracts</code></dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.build_runtime.html" title="macro yet_another_parachain_runtime::pallet_contracts::build_runtime">build_<wbr>runtime</a></dt><dt><a class="macro" href="macro.memory.html" title="macro yet_another_parachain_runtime::pallet_contracts::memory">memory</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ApiVersion.html" title="struct yet_another_parachain_runtime::pallet_contracts::ApiVersion">ApiVersion</a></dt><dd>Defines the current version of the HostFn APIs.
+This is used to communicate the available APIs in pallet-contracts.</dd><dt><a class="struct" href="struct.CodeUploadReturnValue.html" title="struct yet_another_parachain_runtime::pallet_contracts::CodeUploadReturnValue">Code<wbr>Upload<wbr>Return<wbr>Value</a></dt><dd>The result of successfully uploading a contract.</dd><dt><a class="struct" href="struct.ContractResult.html" title="struct yet_another_parachain_runtime::pallet_contracts::ContractResult">Contract<wbr>Result</a></dt><dd>Result type of a <code>bare_call</code> or <code>bare_instantiate</code> call as well as <code>ContractsApi::call</code> and
+<code>ContractsApi::instantiate</code>.</dd><dt><a class="struct" href="struct.DefaultAddressGenerator.html" title="struct yet_another_parachain_runtime::pallet_contracts::DefaultAddressGenerator">Default<wbr>Address<wbr>Generator</a></dt><dd>Default address generator.</dd><dt><a class="struct" href="struct.Environment.html" title="struct yet_another_parachain_runtime::pallet_contracts::Environment">Environment</a></dt><dd>List of all runtime configurable types that are used in the communication between
+<code>pallet-contracts</code> and any given contract.</dd><dt><a class="struct" href="struct.EnvironmentType.html" title="struct yet_another_parachain_runtime::pallet_contracts::EnvironmentType">Environment<wbr>Type</a></dt><dd>Wrapper around <code>PhantomData</code> to prevent it being filtered by <code>scale-info</code>.</dd><dt><a class="struct" href="struct.ExecReturnValue.html" title="struct yet_another_parachain_runtime::pallet_contracts::ExecReturnValue">Exec<wbr>Return<wbr>Value</a></dt><dd>Output of a contract call or instantiation which ran to completion.</dd><dt><a class="struct" href="struct.Frame.html" title="struct yet_another_parachain_runtime::pallet_contracts::Frame">Frame</a></dt><dd>Represents one entry in the call stack.</dd><dt><a class="struct" href="struct.InstantiateReturnValue.html" title="struct yet_another_parachain_runtime::pallet_contracts::InstantiateReturnValue">Instantiate<wbr>Return<wbr>Value</a></dt><dd>The result of a successful contract instantiation.</dd><dt><a class="struct" href="struct.InstructionWeights.html" title="struct yet_another_parachain_runtime::pallet_contracts::InstructionWeights">Instruction<wbr>Weights</a></dt><dd>Gas metering of Wasm executed instructions is being done on the engine side.
+This struct holds a reference value used to gas units scaling between host and engine.</dd><dt><a class="struct" href="struct.Limits.html" title="struct yet_another_parachain_runtime::pallet_contracts::Limits">Limits</a></dt><dd>Describes the upper limits on various metrics.</dd><dt><a class="struct" href="struct.Migration.html" title="struct yet_another_parachain_runtime::pallet_contracts::Migration">Migration</a></dt><dd>Performs all necessary migrations based on <code>StorageVersion</code>.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_contracts::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.Schedule.html" title="struct yet_another_parachain_runtime::pallet_contracts::Schedule">Schedule</a></dt><dd>Definition of the cost schedule and other parameterizations for the wasm vm.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_contracts::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Code.html" title="enum yet_another_parachain_runtime::pallet_contracts::Code">Code</a></dt><dd>Reference to an existing code hash or a new wasm module.</dd><dt><a class="enum" href="enum.CollectEvents.html" title="enum yet_another_parachain_runtime::pallet_contracts::CollectEvents">Collect<wbr>Events</a></dt><dd>Determines whether events should be collected during execution.</dd><dt><a class="enum" href="enum.ContractAccessError.html" title="enum yet_another_parachain_runtime::pallet_contracts::ContractAccessError">Contract<wbr>Access<wbr>Error</a></dt><dd>The possible errors that can happen querying the storage of a contract.</dd><dt><a class="enum" href="enum.DebugInfo.html" title="enum yet_another_parachain_runtime::pallet_contracts::DebugInfo">Debug<wbr>Info</a></dt><dd>Determines whether debug messages will be collected.</dd><dt><a class="enum" href="enum.Determinism.html" title="enum yet_another_parachain_runtime::pallet_contracts::Determinism">Determinism</a></dt><dd>Defines the required determinism level of a wasm blob when either running or uploading code.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_contracts::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_contracts::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.HoldReason.html" title="enum yet_another_parachain_runtime::pallet_contracts::HoldReason">Hold<wbr>Reason</a></dt><dd>A reason for the pallet contracts placing a hold on funds.</dd><dt><a class="enum" href="enum.Origin.html" title="enum yet_another_parachain_runtime::pallet_contracts::Origin">Origin</a></dt><dd>The type of origins supported by the contracts pallet.</dd><dt><a class="enum" href="enum.StorageDeposit.html" title="enum yet_another_parachain_runtime::pallet_contracts::StorageDeposit">Storage<wbr>Deposit</a></dt><dd>The amount of balance that was either charged or refunded in order to pay for storage.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AddressGenerator.html" title="trait yet_another_parachain_runtime::pallet_contracts::AddressGenerator">Address<wbr>Generator</a></dt><dd>Provides the contract address generation method.</dd><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_contracts::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.ContractsApi.html" title="trait yet_another_parachain_runtime::pallet_contracts::ContractsApi">Contracts<wbr>Api</a></dt><dd>The API used to dry-run contract interactions.</dd><dt><a class="trait" href="trait.DefaultConfig.html" title="trait yet_another_parachain_runtime::pallet_contracts::DefaultConfig">Default<wbr>Config</a></dt><dd>Based on <a href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_contracts::Config"><code>Config</code></a>. Auto-generated by
+<a href="../frame_support_procedural/attr.config.html" title="attr yet_another_parachain_runtime::frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a>.
+Can be used in tandem with
+<a href="%60frame_support::register_default_config%60"><code>#[register_default_config]</code></a> and
+<a href="../attr.derive_impl.html" title="attr yet_another_parachain_runtime::derive_impl"><code>#[derive_impl]</code></a> to derive test config traits
+based on existing pallet config traits in a safe and developer-friendly way.</dd><dt><a class="trait" href="trait.MigrateSequence.html" title="trait yet_another_parachain_runtime::pallet_contracts::MigrateSequence">Migrate<wbr>Sequence</a></dt><dd>Defines a sequence of migrations.</dd><dt><a class="trait" href="trait.Tracing.html" title="trait yet_another_parachain_runtime::pallet_contracts::Tracing">Tracing</a></dt><dd>Defines methods to capture contract calls, enabling external observers to
+measure, trace, and react to contract interactions.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_contracts::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for <code>pallet_contracts</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.CodeUploadResult.html" title="type yet_another_parachain_runtime::pallet_contracts::CodeUploadResult">Code<wbr>Upload<wbr>Result</a></dt><dd>Result type of a <code>bare_code_upload</code> call.</dd><dt><a class="type" href="type.ContractExecResult.html" title="type yet_another_parachain_runtime::pallet_contracts::ContractExecResult">Contract<wbr>Exec<wbr>Result</a></dt><dd>Result type of a <code>bare_call</code> call as well as <code>ContractsApi::call</code>.</dd><dt><a class="type" href="type.ContractInstantiateResult.html" title="type yet_another_parachain_runtime::pallet_contracts::ContractInstantiateResult">Contract<wbr>Instantiate<wbr>Result</a></dt><dd>Result type of a <code>bare_instantiate</code> call as well as <code>ContractsApi::instantiate</code>.</dd><dt><a class="type" href="type.GetStorageResult.html" title="type yet_another_parachain_runtime::pallet_contracts::GetStorageResult">GetStorage<wbr>Result</a></dt><dd>Result type of a <code>get_storage</code> call.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_contracts::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

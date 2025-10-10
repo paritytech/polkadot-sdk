@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AddTipError","MessageId","RewardPaymentError"],"struct":["PayAccountOnLocation"],"trait":["AddTip"]};

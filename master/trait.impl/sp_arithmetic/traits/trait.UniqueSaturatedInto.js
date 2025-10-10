@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["polkadot_sdk_frame",[]],["polkadot_service",[]],["relay_utils",[]],["sp_arithmetic",[]],["sp_runtime",[]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[25,24,19,21,18,37]}

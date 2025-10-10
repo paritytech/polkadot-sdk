@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_TRASH_DATA_ENTRIES","RESOURCE_HARD_LIMIT","VALUE_SIZE"],"enum":["Call","Error","Event"],"mod":["pallet","weights"],"struct":["GenesisConfig","Pallet"],"trait":["Config","WeightInfo"],"type":["Module"]};

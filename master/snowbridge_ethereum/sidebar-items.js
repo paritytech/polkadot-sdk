@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ReceiptEnvelope"],"mod":["mpt"],"struct":["Log","Receipt","ReceiptWithBloom"],"trait":["Decodable","Encodable","RlpDecodableReceipt"]};

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("parachain_template", 0, "")

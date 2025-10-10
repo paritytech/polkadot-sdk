@@ -1,0 +1,287 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/reference_docs/frame_runtime_upgrades_and_migrations.rs`."><title>frame_runtime_upgrades_and_migrations.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_sdk_docs/reference_docs/</div>frame_runtime_upgrades_and_migrations.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! # Runtime Upgrades
+<a href=#2 id=2 data-nosnippet>2</a>//!
+<a href=#3 id=3 data-nosnippet>3</a>//! At their core, blockchain logic consists of
+<a href=#4 id=4 data-nosnippet>4</a>//!
+<a href=#5 id=5 data-nosnippet>5</a>//! 1. on-chain state,
+<a href=#6 id=6 data-nosnippet>6</a>//! 2. a state transition function.
+<a href=#7 id=7 data-nosnippet>7</a>//!
+<a href=#8 id=8 data-nosnippet>8</a>//! In Substrate-based blockchains, state transition functions are referred to as
+<a href=#9 id=9 data-nosnippet>9</a>//! [runtimes](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/blockchain_state_machines/index.html).
+<a href=#10 id=10 data-nosnippet>10</a>//!
+<a href=#11 id=11 data-nosnippet>11</a>//! Traditionally, before Substrate, upgrading state transition functions required node
+<a href=#12 id=12 data-nosnippet>12</a>//! operators to download new software and restart their nodes in a process called
+<a href=#13 id=13 data-nosnippet>13</a>//! [forking](https://en.wikipedia.org/wiki/Fork_(blockchain)).
+<a href=#14 id=14 data-nosnippet>14</a>//!
+<a href=#15 id=15 data-nosnippet>15</a>//! Substrate-based blockchains do not require forking, and instead upgrade runtimes
+<a href=#16 id=16 data-nosnippet>16</a>//! in a process called "Runtime Upgrades".
+<a href=#17 id=17 data-nosnippet>17</a>//!
+<a href=#18 id=18 data-nosnippet>18</a>//! Forkless runtime upgrades are a defining feature of the Substrate framework. Updating the
+<a href=#19 id=19 data-nosnippet>19</a>//! runtime logic without forking the code base enables your blockchain to seamlessly evolve
+<a href=#20 id=20 data-nosnippet>20</a>//! over time in a deterministic, rules-based manner. It also removes ambiguity for node operators
+<a href=#21 id=21 data-nosnippet>21</a>//! and other participants in the network about what is the canonical runtime.
+<a href=#22 id=22 data-nosnippet>22</a>//!
+<a href=#23 id=23 data-nosnippet>23</a>//! This capability is possible due to the runtime of a blockchain existing in on-chain storage.
+<a href=#24 id=24 data-nosnippet>24</a>//!
+<a href=#25 id=25 data-nosnippet>25</a>//! ## Performing a Runtime Upgrade
+<a href=#26 id=26 data-nosnippet>26</a>//!
+<a href=#27 id=27 data-nosnippet>27</a>//! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necessary permissions
+<a href=#28 id=28 data-nosnippet>28</a>//! (usually via governance) changes the `:code` storage. Usually, this is performed via a call to
+<a href=#29 id=29 data-nosnippet>29</a>//! [`set_code`] (or [`set_code_without_checks`]) with the desired new runtime blob, scheduled
+<a href=#30 id=30 data-nosnippet>30</a>//! using [`pallet_scheduler`].
+<a href=#31 id=31 data-nosnippet>31</a>//!
+<a href=#32 id=32 data-nosnippet>32</a>//! Prior to building the new runtime, don't forget to update the
+<a href=#33 id=33 data-nosnippet>33</a>//! [`RuntimeVersion`](sp_version::RuntimeVersion).
+<a href=#34 id=34 data-nosnippet>34</a>//!
+<a href=#35 id=35 data-nosnippet>35</a>//! # Migrations
+<a href=#36 id=36 data-nosnippet>36</a>//!
+<a href=#37 id=37 data-nosnippet>37</a>//! It is often desirable to define logic to execute immediately after runtime upgrades (see
+<a href=#38 id=38 data-nosnippet>38</a>//! [this diagram](frame::traits::Hooks)).
+<a href=#39 id=39 data-nosnippet>39</a>//!
+<a href=#40 id=40 data-nosnippet>40</a>//! Self-contained pieces of logic that execute after a runtime upgrade are called "Migrations".
+<a href=#41 id=41 data-nosnippet>41</a>//!
+<a href=#42 id=42 data-nosnippet>42</a>//! The typical use case of a migration is to 'migrate' pallet storage from one layout to another,
+<a href=#43 id=43 data-nosnippet>43</a>//! for example when the encoding of a storage item is changed. However, they can also execute
+<a href=#44 id=44 data-nosnippet>44</a>//! arbitrary logic such as:
+<a href=#45 id=45 data-nosnippet>45</a>//!
+<a href=#46 id=46 data-nosnippet>46</a>//! - Calling arbitrary pallet methods.
+<a href=#47 id=47 data-nosnippet>47</a>//! - Mutating arbitrary on-chain state.
+<a href=#48 id=48 data-nosnippet>48</a>//! - Cleaning up some old storage items that are no longer needed.
+<a href=#49 id=49 data-nosnippet>49</a>//!
+<a href=#50 id=50 data-nosnippet>50</a>//! ## Single Block Migrations
+<a href=#51 id=51 data-nosnippet>51</a>//!
+<a href=#52 id=52 data-nosnippet>52</a>//! - Execute immediately and entirely at the beginning of the block following
+<a href=#53 id=53 data-nosnippet>53</a>//! a runtime upgrade.
+<a href=#54 id=54 data-nosnippet>54</a>//! - Are suitable for migrations which are guaranteed to not exceed the block weight.
+<a href=#55 id=55 data-nosnippet>55</a>//! - Are simply implementations of [`OnRuntimeUpgrade`].
+<a href=#56 id=56 data-nosnippet>56</a>//!
+<a href=#57 id=57 data-nosnippet>57</a>//! To learn best practices for writing single block pallet storage migrations, see the
+<a href=#58 id=58 data-nosnippet>58</a>//! [Single Block Migration Example Pallet](pallet_example_single_block_migrations).
+<a href=#59 id=59 data-nosnippet>59</a>//!
+<a href=#60 id=60 data-nosnippet>60</a>//! ### Scheduling the Single Block Migrations to Run Next Runtime Upgrade
+<a href=#61 id=61 data-nosnippet>61</a>//!
+<a href=#62 id=62 data-nosnippet>62</a>//! Schedule migrations to run next runtime upgrade passing them as a parameter to your
+<a href=#63 id=63 data-nosnippet>63</a>//! [`Config`](frame_system) pallet:
+<a href=#64 id=64 data-nosnippet>64</a>//!
+<a href=#65 id=65 data-nosnippet>65</a>//! ```ignore
+<a href=#66 id=66 data-nosnippet>66</a>//! /// Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
+<a href=#67 id=67 data-nosnippet>67</a>//! type Migrations = (
+<a href=#68 id=68 data-nosnippet>68</a>//! 	pallet_example_storage_migration::migrations::v1::versioned::MigrateV0ToV1,
+<a href=#69 id=69 data-nosnippet>69</a>//! 	MyCustomMigration,
+<a href=#70 id=70 data-nosnippet>70</a>//! 	// ...more migrations here
+<a href=#71 id=71 data-nosnippet>71</a>//! );
+<a href=#72 id=72 data-nosnippet>72</a>//! impl frame_system::Config for Runtime {
+<a href=#73 id=73 data-nosnippet>73</a>//! 	type SingleBlockMigrations = Migrations;
+<a href=#74 id=74 data-nosnippet>74</a>//! }
+<a href=#75 id=75 data-nosnippet>75</a>//! ```
+<a href=#76 id=76 data-nosnippet>76</a>//!
+<a href=#77 id=77 data-nosnippet>77</a>//! ### Ensuring Single Block Migration Safety
+<a href=#78 id=78 data-nosnippet>78</a>//!
+<a href=#79 id=79 data-nosnippet>79</a>//! "My migration unit tests pass, so it should be safe to deploy right?"
+<a href=#80 id=80 data-nosnippet>80</a>//!
+<a href=#81 id=81 data-nosnippet>81</a>//! No! Unit tests execute the migration in a very simple test environment, and cannot account
+<a href=#82 id=82 data-nosnippet>82</a>//! for the complexities of a real runtime or real on-chain state.
+<a href=#83 id=83 data-nosnippet>83</a>//!
+<a href=#84 id=84 data-nosnippet>84</a>//! Prior to deploying migrations, it is critical to perform additional checks to ensure that when
+<a href=#85 id=85 data-nosnippet>85</a>//! run in our real runtime they will not brick the chain due to:
+<a href=#86 id=86 data-nosnippet>86</a>//! - Panicking.
+<a href=#87 id=87 data-nosnippet>87</a>//! - Touching too many storage keys and resulting in an excessively large PoV.
+<a href=#88 id=88 data-nosnippet>88</a>//! - Taking too long to execute.
+<a href=#89 id=89 data-nosnippet>89</a>//!
+<a href=#90 id=90 data-nosnippet>90</a>//! [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) has a sub-command
+<a href=#91 id=91 data-nosnippet>91</a>//! [`on-runtime-upgrade`](https://paritytech.github.io/try-runtime-cli/try_runtime_core/commands/enum.Action.html#variant.OnRuntimeUpgrade)
+<a href=#92 id=92 data-nosnippet>92</a>//! which is designed to help with exactly this.
+<a href=#93 id=93 data-nosnippet>93</a>//!
+<a href=#94 id=94 data-nosnippet>94</a>//! Developers MUST run this command before deploying migrations to ensure they will not
+<a href=#95 id=95 data-nosnippet>95</a>//! inadvertently result in a bricked chain.
+<a href=#96 id=96 data-nosnippet>96</a>//!
+<a href=#97 id=97 data-nosnippet>97</a>//! It is recommended to run as part of your CI pipeline. See the
+<a href=#98 id=98 data-nosnippet>98</a>//! [polkadot-sdk check-runtime-migration job](https://github.com/paritytech/polkadot-sdk/blob/4a293bc5a25be637c06ce950a34490706597615b/.gitlab/pipeline/check.yml#L103-L124)
+<a href=#99 id=99 data-nosnippet>99</a>//! for an example of how to configure this.
+<a href=#100 id=100 data-nosnippet>100</a>//!
+<a href=#101 id=101 data-nosnippet>101</a>//! ### Note on the Manipulability of PoV Size and Execution Time
+<a href=#102 id=102 data-nosnippet>102</a>//!
+<a href=#103 id=103 data-nosnippet>103</a>//! While [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) can help ensure with
+<a href=#104 id=104 data-nosnippet>104</a>//! very high certainty that a migration will succeed given **existing** on-chain state, it cannot
+<a href=#105 id=105 data-nosnippet>105</a>//! prevent a malicious actor from manipulating state in a way that will cause the migration to take
+<a href=#106 id=106 data-nosnippet>106</a>//! longer or produce a PoV much larger than previously measured.
+<a href=#107 id=107 data-nosnippet>107</a>//!
+<a href=#108 id=108 data-nosnippet>108</a>//! Therefore, it is important to write migrations in such a way that the execution time or PoV size
+<a href=#109 id=109 data-nosnippet>109</a>//! it adds to the block cannot be easily manipulated. e.g., do not iterate over storage that can
+<a href=#110 id=110 data-nosnippet>110</a>//! quickly or cheaply be bloated.
+<a href=#111 id=111 data-nosnippet>111</a>//!
+<a href=#112 id=112 data-nosnippet>112</a>//! If writing your migration in such a way is not possible, a multi block migration should be used
+<a href=#113 id=113 data-nosnippet>113</a>//! instead.
+<a href=#114 id=114 data-nosnippet>114</a>//!
+<a href=#115 id=115 data-nosnippet>115</a>//! ### Other useful tools
+<a href=#116 id=116 data-nosnippet>116</a>//!
+<a href=#117 id=117 data-nosnippet>117</a>//! [`Chopsticks`](https://github.com/AcalaNetwork/chopsticks) is another tool in the Substrate
+<a href=#118 id=118 data-nosnippet>118</a>//! ecosystem which developers may find useful to use in addition to `try-runtime-cli` when testing
+<a href=#119 id=119 data-nosnippet>119</a>//! their single block migrations.
+<a href=#120 id=120 data-nosnippet>120</a>//!
+<a href=#121 id=121 data-nosnippet>121</a>//! ## Multi Block Migrations
+<a href=#122 id=122 data-nosnippet>122</a>//!
+<a href=#123 id=123 data-nosnippet>123</a>//! Safely and easily execute long-running migrations across multiple blocks.
+<a href=#124 id=124 data-nosnippet>124</a>//!
+<a href=#125 id=125 data-nosnippet>125</a>//! Suitable for migrations which could use arbitrary amounts of block weight.
+<a href=#126 id=126 data-nosnippet>126</a>//!
+<a href=#127 id=127 data-nosnippet>127</a>//! See the
+<a href=#128 id=128 data-nosnippet>128</a>//! [multi-block-migrations example](https://github.com/paritytech/polkadot-sdk/tree/0d7d2177807ec6b3094f4491a45b0bc0d74d3c8b/substrate/frame/examples/multi-block-migrations)
+<a href=#129 id=129 data-nosnippet>129</a>//! for reference.
+<a href=#130 id=130 data-nosnippet>130</a>//!
+<a href=#131 id=131 data-nosnippet>131</a>//! [`OnRuntimeUpgrade`]: frame_support::traits::OnRuntimeUpgrade
+<a href=#132 id=132 data-nosnippet>132</a>//! [`StorageVersion`]: frame_support::traits::StorageVersion
+<a href=#133 id=133 data-nosnippet>133</a>//! [`set_code`]: frame_system::Call::set_code
+<a href=#134 id=134 data-nosnippet>134</a>//! [`set_code_without_checks`]: frame_system::Call::set_code_without_checks</span></code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_state_trie_migration`."><title>WeightInfo in yet_another_parachain_runtime::pallet_state_trie_migration::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Weight<wbr>Info</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.continue_migrate" title="continue_migrate">continue_migrate</a></li><li><a href="#tymethod.continue_migrate_wrong_witness" title="continue_migrate_wrong_witness">continue_migrate_wrong_witness</a></li><li><a href="#tymethod.migrate_custom_child_fail" title="migrate_custom_child_fail">migrate_custom_child_fail</a></li><li><a href="#tymethod.migrate_custom_child_success" title="migrate_custom_child_success">migrate_custom_child_success</a></li><li><a href="#tymethod.migrate_custom_top_fail" title="migrate_custom_top_fail">migrate_custom_top_fail</a></li><li><a href="#tymethod.migrate_custom_top_success" title="migrate_custom_top_success">migrate_custom_top_success</a></li><li><a href="#tymethod.process_top_key" title="process_top_key">process_top_key</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()" title="()">()</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>state_<wbr>trie_<wbr>migration::<wbr>weights</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">pallet_state_trie_migration</a>::<wbr><a href="index.html">weights</a></div><h1>Trait <span class="trait">WeightInfo</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/pallet_state_trie_migration/weights.rs.html#74">Source</a> </span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+    // Required methods
+    fn <a href="#tymethod.continue_migrate" class="fn">continue_migrate</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.continue_migrate_wrong_witness" class="fn">continue_migrate_wrong_witness</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_custom_top_success" class="fn">migrate_custom_top_success</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_custom_top_fail" class="fn">migrate_custom_top_fail</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_custom_child_success" class="fn">migrate_custom_child_success</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_custom_child_fail" class="fn">migrate_custom_child_fail</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.process_top_key" class="fn">process_top_key</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_state_trie_migration</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.continue_migrate" class="method"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#75">Source</a><h4 class="code-header">fn <a href="#tymethod.continue_migrate" class="fn">continue_migrate</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.continue_migrate_wrong_witness" class="method"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#76">Source</a><h4 class="code-header">fn <a href="#tymethod.continue_migrate_wrong_witness" class="fn">continue_migrate_wrong_witness</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.migrate_custom_top_success" class="method"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#77">Source</a><h4 class="code-header">fn <a href="#tymethod.migrate_custom_top_success" class="fn">migrate_custom_top_success</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.migrate_custom_top_fail" class="method"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#78">Source</a><h4 class="code-header">fn <a href="#tymethod.migrate_custom_top_fail" class="fn">migrate_custom_top_fail</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.migrate_custom_child_success" class="method"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#79">Source</a><h4 class="code-header">fn <a href="#tymethod.migrate_custom_child_success" class="fn">migrate_custom_child_success</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.migrate_custom_child_fail" class="method"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#80">Source</a><h4 class="code-header">fn <a href="#tymethod.migrate_custom_child_fail" class="fn">migrate_custom_child_fail</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section><section id="tymethod.process_top_key" class="method"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#81">Source</a><h4 class="code-header">fn <a href="#tymethod.process_top_key" class="fn">process_top_key</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#176">Source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="../trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_state_trie_migration::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.continue_migrate" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#183">Source</a><a href="#method.continue_migrate" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.continue_migrate" class="fn">continue_migrate</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>StateTrieMigration::SignedMigrationMaxLimits</code> (r:1 w:0)
+Proof: <code>StateTrieMigration::SignedMigrationMaxLimits</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(8), added: 503, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Holds</code> (r:1 w:0)
+Proof: <code>Balances::Holds</code> (<code>max_values</code>: None, <code>max_size</code>: Some(427), added: 2902, mode: <code>MaxEncodedLen</code>)
+Storage: <code>StateTrieMigration::MigrationProcess</code> (r:1 w:1)
+Proof: <code>StateTrieMigration::MigrationProcess</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1042), added: 1537, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.continue_migrate_wrong_witness" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#194">Source</a><a href="#method.continue_migrate_wrong_witness" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.continue_migrate_wrong_witness" class="fn">continue_migrate_wrong_witness</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>StateTrieMigration::SignedMigrationMaxLimits</code> (r:1 w:0)
+Proof: <code>StateTrieMigration::SignedMigrationMaxLimits</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(8), added: 503, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migrate_custom_top_success" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#204">Source</a><a href="#method.migrate_custom_top_success" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migrate_custom_top_success" class="fn">migrate_custom_top_success</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Balances::Holds</code> (r:1 w:0)
+Proof: <code>Balances::Holds</code> (<code>max_values</code>: None, <code>max_size</code>: Some(427), added: 2902, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migrate_custom_top_fail" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#216">Source</a><a href="#method.migrate_custom_top_fail" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migrate_custom_top_fail" class="fn">migrate_custom_top_fail</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Balances::Holds</code> (r:1 w:1)
+Proof: <code>Balances::Holds</code> (<code>max_values</code>: None, <code>max_size</code>: Some(427), added: 2902, mode: <code>MaxEncodedLen</code>)
+Storage: UNKNOWN KEY <code>0x666f6f</code> (r:1 w:1)
+Proof: UNKNOWN KEY <code>0x666f6f</code> (r:1 w:1)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migrate_custom_child_success" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#227">Source</a><a href="#method.migrate_custom_child_success" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migrate_custom_child_success" class="fn">migrate_custom_child_success</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Balances::Holds</code> (r:1 w:0)
+Proof: <code>Balances::Holds</code> (<code>max_values</code>: None, <code>max_size</code>: Some(427), added: 2902, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migrate_custom_child_fail" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#239">Source</a><a href="#method.migrate_custom_child_fail" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migrate_custom_child_fail" class="fn">migrate_custom_child_fail</a>() -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>Balances::Holds</code> (r:1 w:1)
+Proof: <code>Balances::Holds</code> (<code>max_values</code>: None, <code>max_size</code>: Some(427), added: 2902, mode: <code>MaxEncodedLen</code>)
+Storage: UNKNOWN KEY <code>0x666f6f</code> (r:1 w:1)
+Proof: UNKNOWN KEY <code>0x666f6f</code> (r:1 w:1)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.process_top_key" class="method trait-impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#251">Source</a><a href="#method.process_top_key" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.process_top_key" class="fn">process_top_key</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../struct.Weight.html" title="struct yet_another_parachain_runtime::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: UNKNOWN KEY <code>0x6b6579</code> (r:1 w:1)
+Proof: UNKNOWN KEY <code>0x6b6579</code> (r:1 w:1)
+The range of component <code>v</code> is <code>[1, 4194304]</code>.</p>
+</div></details></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../../src/pallet_state_trie_migration/weights.rs.html#86">Source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_state_trie_migration::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct yet_another_parachain_runtime::pallet_state_trie_migration::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>,</div></h3></section></div><script src="../../../trait.impl/pallet_state_trie_migration/weights/trait.WeightInfo.js" data-ignore-extern-crates="pallet_state_trie_migration,std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

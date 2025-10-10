@@ -1,0 +1,215 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A set of election algorithms to be used with a substrate runtime, typically within the staking sub-system. Notable implementation include:"><title>yet_another_parachain_runtime::sp_npos_elections - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#terminology" title="Terminology">Terminology</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sp_npos_elections</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sp_npos_elections/lib.rs.html#16-640">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A set of election algorithms to be used with a substrate runtime, typically within the staking
+sub-system. Notable implementation include:</p>
+<ul>
+<li><a href="fn.seq_phragmen.html" title="fn yet_another_parachain_runtime::sp_npos_elections::seq_phragmen"><code>seq_phragmen</code></a>: Implements the Phragmén Sequential Method. An un-ranked, relatively fast
+election method that ensures PJR, but does not provide a constant factor approximation of the
+maximin problem.</li>
+<li><a href="fn.phragmms.html" title="fn yet_another_parachain_runtime::sp_npos_elections::phragmms"><code>ghragmms</code></a>: Implements a hybrid approach inspired by Phragmén which is
+executed faster but it can achieve a constant factor approximation of the maximin problem,
+similar to that of the MMS algorithm.</li>
+<li><a href="fn.balance.html" title="fn yet_another_parachain_runtime::sp_npos_elections::balance"><code>balance</code></a>: Implements the star balancing algorithm. This iterative process can push a
+solution toward being more “balanced”, which in turn can increase its score.</li>
+</ul>
+<h4 id="terminology"><a class="doc-anchor" href="#terminology">§</a>Terminology</h4>
+<p>This crate uses context-independent words, not to be confused with staking. This is because the
+election algorithms of this crate, while designed for staking, can be used in other contexts as
+well.</p>
+<p><code>Voter</code>: The entity casting some votes to a number of <code>Targets</code>. This is the same as <code>Nominator</code>
+in the context of staking. <code>Target</code>: The entities eligible to be voted upon. This is the same as
+<code>Validator</code> in the context of staking. <code>Edge</code>: A mapping from a <code>Voter</code> to a <code>Target</code>.</p>
+<p>The goal of an election algorithm is to provide an <code>ElectionResult</code>. A data composed of:</p>
+<ul>
+<li><code>winners</code>: A flat list of identifiers belonging to those who have won the election, usually
+ordered in some meaningful way. They are zipped with their total backing stake.</li>
+<li><code>assignment</code>: A mapping from each voter to their winner-only targets, zipped with a ration
+denoting the amount of support given to that particular target.</li>
+</ul>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// the winners.
+</span><span class="kw">let </span>winners = <span class="macro">vec!</span>[(<span class="number">1</span>, <span class="number">100</span>), (<span class="number">2</span>, <span class="number">50</span>)];
+<span class="kw">let </span>assignments = <span class="macro">vec!</span>[
+    <span class="comment">// A voter, giving equal backing to both 1 and 2.
+    </span>Assignment {
+		who: <span class="number">10</span>,
+		distribution: <span class="macro">vec!</span>[(<span class="number">1</span>, Perbill::from_percent(<span class="number">50</span>)), (<span class="number">2</span>, Perbill::from_percent(<span class="number">50</span>))],
+	},
+    <span class="comment">// A voter, Only backing 1.
+    </span>Assignment { who: <span class="number">20</span>, distribution: <span class="macro">vec!</span>[(<span class="number">1</span>, Perbill::from_percent(<span class="number">100</span>))] },
+];
+
+<span class="comment">// the combination of the two makes the election result.
+</span><span class="kw">let </span>election_result = ElectionResult { winners, assignments };</code></pre></div>
+<p>The <code>Assignment</code> field of the election result is voter-major, i.e. it is from the perspective of
+the voter. The struct that represents the opposite is called a <code>Support</code>. This struct is usually
+accessed in a map-like manner, i.e. keyed by voters, therefore it is stored as a mapping called
+<code>SupportMap</code>.</p>
+<p>Moreover, the support is built from absolute backing values, not ratios like the example above.
+A struct similar to <code>Assignment</code> that has stake value instead of ratios is called an
+<code>StakedAssignment</code>.</p>
+<p>More information can be found at: <a href="https://arxiv.org/abs/2004.12990">https://arxiv.org/abs/2004.12990</a></p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="balancing/index.html" title="mod yet_another_parachain_runtime::sp_npos_elections::balancing">balancing</a></dt><dd>Balancing algorithm implementation.</dd><dt><a class="mod" href="helpers/index.html" title="mod yet_another_parachain_runtime::sp_npos_elections::helpers">helpers</a></dt><dd>Helper methods for npos-elections.</dd><dt><a class="mod" href="node/index.html" title="mod yet_another_parachain_runtime::sp_npos_elections::node">node</a></dt><dd>(very) Basic implementation of a graph node used in the reduce algorithm.</dd><dt><a class="mod" href="phragmen/index.html" title="mod yet_another_parachain_runtime::sp_npos_elections::phragmen">phragmen</a></dt><dd>Implementation of the sequential-phragmen election method.</dd><dt><a class="mod" href="phragmms/index.html" title="mod yet_another_parachain_runtime::sp_npos_elections::phragmms">phragmms</a></dt><dd>Implementation of the PhragMMS method.</dd><dt><a class="mod" href="pjr/index.html" title="mod yet_another_parachain_runtime::sp_npos_elections::pjr">pjr</a></dt><dd>Implements functions and interfaces to check solutions for being t-PJR.</dd><dt><a class="mod" href="reduce/index.html" title="mod yet_another_parachain_runtime::sp_npos_elections::reduce">reduce</a></dt><dd>Rust implementation of the Phragmén reduce algorithm. This can be used by any off chain
+application to reduce cycles from the edge assignment, which will result in smaller size.</dd><dt><a class="mod" href="traits/index.html" title="mod yet_another_parachain_runtime::sp_npos_elections::traits">traits</a></dt><dd>Traits for the npos-election operations.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Assignment.html" title="struct yet_another_parachain_runtime::sp_npos_elections::Assignment">Assignment</a></dt><dd>A voter’s stake assignment among a set of targets, represented as ratios.</dd><dt><a class="struct" href="struct.BalancingConfig.html" title="struct yet_another_parachain_runtime::sp_npos_elections::BalancingConfig">Balancing<wbr>Config</a></dt><dd>Utility struct to group parameters for the balancing algorithm.</dd><dt><a class="struct" href="struct.Candidate.html" title="struct yet_another_parachain_runtime::sp_npos_elections::Candidate">Candidate</a></dt><dd>A candidate entity for the election.</dd><dt><a class="struct" href="struct.Edge.html" title="struct yet_another_parachain_runtime::sp_npos_elections::Edge">Edge</a></dt><dd>A vote being casted by a <a href="struct.Voter.html" title="struct yet_another_parachain_runtime::sp_npos_elections::Voter"><code>Voter</code></a> to a <a href="struct.Candidate.html" title="struct yet_another_parachain_runtime::sp_npos_elections::Candidate"><code>Candidate</code></a> is an <code>Edge</code>.</dd><dt><a class="struct" href="struct.ElectionResult.html" title="struct yet_another_parachain_runtime::sp_npos_elections::ElectionResult">Election<wbr>Result</a></dt><dd>Final result of the election.</dd><dt><a class="struct" href="struct.ElectionScore.html" title="struct yet_another_parachain_runtime::sp_npos_elections::ElectionScore">Election<wbr>Score</a></dt><dd>The score of an election. This is the main measure of an election’s quality.</dd><dt><a class="struct" href="struct.StakedAssignment.html" title="struct yet_another_parachain_runtime::sp_npos_elections::StakedAssignment">Staked<wbr>Assignment</a></dt><dd>A voter’s stake assignment among a set of targets, represented as absolute values in the scale
+of <a href="../frame_election_provider_support/type.ExtendedBalance.html" title="type yet_another_parachain_runtime::frame_election_provider_support::ExtendedBalance"><code>ExtendedBalance</code></a>.</dd><dt><a class="struct" href="struct.Support.html" title="struct yet_another_parachain_runtime::sp_npos_elections::Support">Support</a></dt><dd>A structure to demonstrate the election result from the perspective of the candidate, i.e. how
+much support each candidate is receiving.</dd><dt><a class="struct" href="struct.Voter.html" title="struct yet_another_parachain_runtime::sp_npos_elections::Voter">Voter</a></dt><dd>A voter entity.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::sp_npos_elections::Error">Error</a></dt><dd>The errors that might occur in this crate and <code>frame-election-provider-solution-type</code>.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Backings.html" title="trait yet_another_parachain_runtime::sp_npos_elections::Backings">Backings</a></dt><dd>Generic representation of a support.</dd><dt><a class="trait" href="trait.EvaluateSupport.html" title="trait yet_another_parachain_runtime::sp_npos_elections::EvaluateSupport">Evaluate<wbr>Support</a></dt><dd>Extension trait for evaluating a support map or vector.</dd><dt><a class="trait" href="trait.IdentifierT.html" title="trait yet_another_parachain_runtime::sp_npos_elections::IdentifierT">IdentifierT</a></dt><dd>an aggregator trait for a generic type of a voter/target identifier. This usually maps to
+substrate’s account id.</dd><dt><a class="trait" href="trait.PerThing128.html" title="trait yet_another_parachain_runtime::sp_npos_elections::PerThing128">PerThing128</a></dt><dd>Aggregator trait for a PerThing that can be multiplied by u128 (ExtendedBalance).</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.assignment_ratio_to_staked.html" title="fn yet_another_parachain_runtime::sp_npos_elections::assignment_ratio_to_staked">assignment_<wbr>ratio_<wbr>to_<wbr>staked</a></dt><dd>Converts a vector of ratio assignments into ones with absolute budget value.</dd><dt><a class="fn" href="fn.assignment_ratio_to_staked_normalized.html" title="fn yet_another_parachain_runtime::sp_npos_elections::assignment_ratio_to_staked_normalized">assignment_<wbr>ratio_<wbr>to_<wbr>staked_<wbr>normalized</a></dt><dd>Same as <a href="fn.assignment_ratio_to_staked.html" title="fn yet_another_parachain_runtime::sp_npos_elections::assignment_ratio_to_staked"><code>assignment_ratio_to_staked</code></a> and try and do normalization.</dd><dt><a class="fn" href="fn.assignment_staked_to_ratio.html" title="fn yet_another_parachain_runtime::sp_npos_elections::assignment_staked_to_ratio">assignment_<wbr>staked_<wbr>to_<wbr>ratio</a></dt><dd>Converts a vector of staked assignments into ones with ratio values.</dd><dt><a class="fn" href="fn.assignment_staked_to_ratio_normalized.html" title="fn yet_another_parachain_runtime::sp_npos_elections::assignment_staked_to_ratio_normalized">assignment_<wbr>staked_<wbr>to_<wbr>ratio_<wbr>normalized</a></dt><dd>Same as <a href="fn.assignment_staked_to_ratio.html" title="fn yet_another_parachain_runtime::sp_npos_elections::assignment_staked_to_ratio"><code>assignment_staked_to_ratio</code></a> and try and do normalization.</dd><dt><a class="fn" href="fn.balance.html" title="fn yet_another_parachain_runtime::sp_npos_elections::balance">balance</a></dt><dd>Balance the weight distribution of a given <code>voters</code> at most <code>iterations</code> times, or up until the
+point where the biggest difference created per iteration of all stakes is <code>tolerance</code>. If this
+is called with <code>tolerance = 0</code>, then exactly <code>iterations</code> rounds will be executed, except if no
+change has been made (<code>difference = 0</code>). <code>tolerance</code> and <code>iterations</code> are part of the
+<a href="../frame_election_provider_support/struct.BalancingConfig.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BalancingConfig"><code>BalancingConfig</code></a> struct.</dd><dt><a class="fn" href="fn.evaluate_support.html" title="fn yet_another_parachain_runtime::sp_npos_elections::evaluate_support">evaluate_<wbr>support</a></dt><dd>General evaluation of a list of backings that returns an election score.</dd><dt><a class="fn" href="fn.phragmms.html" title="fn yet_another_parachain_runtime::sp_npos_elections::phragmms">phragmms</a></dt><dd>Execute the phragmms method.</dd><dt><a class="fn" href="fn.pjr_check.html" title="fn yet_another_parachain_runtime::sp_npos_elections::pjr_check">pjr_<wbr>check</a></dt><dd>Check a solution to be PJR.</dd><dt><a class="fn" href="fn.pjr_check_core.html" title="fn yet_another_parachain_runtime::sp_npos_elections::pjr_check_core">pjr_<wbr>check_<wbr>core</a></dt><dd>The internal implementation of the PJR check after having the data converted.</dd><dt><a class="fn" href="fn.pretty_balance.html" title="fn yet_another_parachain_runtime::sp_npos_elections::pretty_balance">pretty_<wbr>balance</a></dt><dd>Format a single <a href="../frame_election_provider_support/type.ExtendedBalance.html" title="type yet_another_parachain_runtime::frame_election_provider_support::ExtendedBalance"><code>ExtendedBalance</code></a> into a pretty string with the given <code>token</code> symbol and
+<code>decimals</code>.</dd><dt><a class="fn" href="fn.reduce.html" title="fn yet_another_parachain_runtime::sp_npos_elections::reduce">reduce</a></dt><dd>Reduce the given <a href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec"><code>Vec&lt;StakedAssignment&lt;IdentifierT&gt;&gt;</code></a>. This removes redundant edges without
+changing the overall backing of any of the elected candidates.</dd><dt><a class="fn" href="fn.seq_phragmen.html" title="fn yet_another_parachain_runtime::sp_npos_elections::seq_phragmen">seq_<wbr>phragmen</a></dt><dd>Execute sequential phragmen with potentially some rounds of <code>balancing</code>. The return type is list
+of winners and a weight distribution vector of all voters who contribute to the winners.</dd><dt><a class="fn" href="fn.seq_phragmen_core.html" title="fn yet_another_parachain_runtime::sp_npos_elections::seq_phragmen_core">seq_<wbr>phragmen_<wbr>core</a></dt><dd>Core implementation of seq-phragmen.</dd><dt><a class="fn" href="fn.setup_inputs.html" title="fn yet_another_parachain_runtime::sp_npos_elections::setup_inputs">setup_<wbr>inputs</a></dt><dd>Converts raw inputs to types used in this crate.</dd><dt><a class="fn" href="fn.standard_threshold.html" title="fn yet_another_parachain_runtime::sp_npos_elections::standard_threshold">standard_<wbr>threshold</a></dt><dd>Compute the threshold corresponding to the standard PJR property</dd><dt><a class="fn" href="fn.supports_to_staked_assignment.html" title="fn yet_another_parachain_runtime::sp_npos_elections::supports_to_staked_assignment">supports_<wbr>to_<wbr>staked_<wbr>assignment</a></dt><dd>Convert some <a href="../frame_election_provider_support/type.Supports.html" title="type yet_another_parachain_runtime::frame_election_provider_support::Supports"><code>Supports</code></a>s into vector of <a href="struct.StakedAssignment.html" title="struct yet_another_parachain_runtime::sp_npos_elections::StakedAssignment"><code>StakedAssignment</code></a></dd><dt><a class="fn" href="fn.t_pjr_check.html" title="fn yet_another_parachain_runtime::sp_npos_elections::t_pjr_check">t_<wbr>pjr_<wbr>check</a></dt><dd>Check a solution to be t-PJR.</dd><dt><a class="fn" href="fn.to_support_map.html" title="fn yet_another_parachain_runtime::sp_npos_elections::to_support_map">to_<wbr>support_<wbr>map</a></dt><dd>Build the support map from the assignments.</dd><dt><a class="fn" href="fn.to_supports.html" title="fn yet_another_parachain_runtime::sp_npos_elections::to_supports">to_<wbr>supports</a></dt><dd>Same as <a href="fn.to_support_map.html" title="fn yet_another_parachain_runtime::sp_npos_elections::to_support_map"><code>to_support_map</code></a> except it returns a flat vector.</dd><dt><a class="fn" href="fn.validate_pjr_challenge.html" title="fn yet_another_parachain_runtime::sp_npos_elections::validate_pjr_challenge">validate_<wbr>pjr_<wbr>challenge</a></dt><dd>Validate a challenge to an election result.</dd><dt><a class="fn" href="fn.validate_t_pjr_challenge.html" title="fn yet_another_parachain_runtime::sp_npos_elections::validate_t_pjr_challenge">validate_<wbr>t_<wbr>pjr_<wbr>challenge</a></dt><dd>Validate a challenge to an election result.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.CandidatePtr.html" title="type yet_another_parachain_runtime::sp_npos_elections::CandidatePtr">Candidate<wbr>Ptr</a></dt><dd>A pointer to a candidate struct with interior mutability.</dd><dt><a class="type" href="type.ExtendedBalance.html" title="type yet_another_parachain_runtime::sp_npos_elections::ExtendedBalance">Extended<wbr>Balance</a></dt><dd>A type in which performing operations on vote weights are safe.</dd><dt><a class="type" href="type.SupportMap.html" title="type yet_another_parachain_runtime::sp_npos_elections::SupportMap">Support<wbr>Map</a></dt><dd>Linkage from a winner to their <a href="../frame_election_provider_support/struct.Support.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::Support"><code>Support</code></a>.</dd><dt><a class="type" href="type.Supports.html" title="type yet_another_parachain_runtime::sp_npos_elections::Supports">Supports</a></dt><dd>A target-major representation of the the election outcome.</dd><dt><a class="type" href="type.VoteWeight.html" title="type yet_another_parachain_runtime::sp_npos_elections::VoteWeight">Vote<wbr>Weight</a></dt><dd>A type which is used in the API of this crate as a numeric weight of a vote, most often the
+stake of the voter. It is always converted to <a href="../frame_election_provider_support/type.ExtendedBalance.html" title="type yet_another_parachain_runtime::frame_election_provider_support::ExtendedBalance"><code>ExtendedBalance</code></a> for computation.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

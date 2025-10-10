@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TransactionInfoCalls"],"struct":["blobhashCall","blobhashReturn","gaspriceCall","gaspriceReturn","originCall","originReturn"]};

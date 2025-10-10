@@ -1,0 +1,164 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contains the internal code behind the `macro_magic` macros in a re-usable form, in case you need to design new macros that utilize some of the internal functionality of `macro_magic`."><title>yet_another_parachain_runtime::frame_support::macro_magic::mm_core - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module mm_core</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>support::<wbr>macro_<wbr>magic</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">frame_support</a>::<wbr><a href="../index.html">macro_magic</a></div><h1>Module <span>mm_core</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Contains the internal code behind the <code>macro_magic</code> macros in a re-usable form, in case you
+need to design new macros that utilize some of the internal functionality of <code>macro_magic</code>.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AttrItemWithExtra.html" title="struct yet_another_parachain_runtime::frame_support::macro_magic::mm_core::AttrItemWithExtra">Attr<wbr>Item<wbr>With<wbr>Extra</a></dt><dd>Used to parse args passed to the inner pro macro auto-generated by
+<a href="fn.import_tokens_attr_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::import_tokens_attr_internal"><code>import_tokens_attr_internal</code></a>.</dd><dt><a class="struct" href="struct.ForwardTokensArgs.html" title="struct yet_another_parachain_runtime::frame_support::macro_magic::mm_core::ForwardTokensArgs">Forward<wbr>Tokens<wbr>Args</a></dt><dd>Used to parse args that were passed to <a href="fn.forward_tokens_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::forward_tokens_internal"><code>forward_tokens_internal</code></a>.</dd><dt><a class="struct" href="struct.ForwardTokensExtraArg.html" title="struct yet_another_parachain_runtime::frame_support::macro_magic::mm_core::ForwardTokensExtraArg">Forward<wbr>Tokens<wbr>Extra<wbr>Arg</a></dt><dd>Used to parse args that were passed to <a href="fn.forward_tokens_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::forward_tokens_internal"><code>forward_tokens_internal</code></a> and
+<a href="fn.forward_tokens_inner_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::forward_tokens_inner_internal"><code>forward_tokens_inner_internal</code></a>.</dd><dt><a class="struct" href="struct.ForwardedTokens.html" title="struct yet_another_parachain_runtime::frame_support::macro_magic::mm_core::ForwardedTokens">Forwarded<wbr>Tokens</a></dt><dd>Used to parse args that were passed to <a href="fn.forward_tokens_inner_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::forward_tokens_inner_internal"><code>forward_tokens_inner_internal</code></a>.</dd><dt><a class="struct" href="struct.ImportTokensArgs.html" title="struct yet_another_parachain_runtime::frame_support::macro_magic::mm_core::ImportTokensArgs">Import<wbr>Tokens<wbr>Args</a></dt><dd>Used to parse the args for the <a href="fn.import_tokens_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::import_tokens_internal"><code>import_tokens_internal</code></a> function.</dd><dt><a class="struct" href="struct.ImportedTokens.html" title="struct yet_another_parachain_runtime::frame_support::macro_magic::mm_core::ImportedTokens">Imported<wbr>Tokens</a></dt><dd>Used to parse the args for the <a href="fn.import_tokens_inner_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::import_tokens_inner_internal"><code>import_tokens_inner_internal</code></a> function.</dd><dt><a class="struct" href="struct.ProcMacro.html" title="struct yet_another_parachain_runtime::frame_support::macro_magic::mm_core::ProcMacro">Proc<wbr>Macro</a></dt><dd>Generically parses a proc macro definition with support for all variants.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ProcMacroType.html" title="enum yet_another_parachain_runtime::frame_support::macro_magic::mm_core::ProcMacroType">Proc<wbr>Macro<wbr>Type</a></dt><dd>Delineates the different types of proc macro</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.MACRO_MAGIC_ROOT.html" title="constant yet_another_parachain_runtime::frame_support::macro_magic::mm_core::MACRO_MAGIC_ROOT">MACRO_<wbr>MAGIC_<wbr>ROOT</a></dt><dd>Constant used to load the configured location for <code>macro_magic</code> that will be used in
+generated macro code.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.ForeignPath.html" title="trait yet_another_parachain_runtime::frame_support::macro_magic::mm_core::ForeignPath">Foreign<wbr>Path</a></dt><dd>Should be implemented by structs that will be passed to <code>#[with_custom_parsing(..)]</code>. Such
+structs should also implement <a href="https://docs.rs/syn/2.0.98/syn/parse/trait.Parse.html" title="trait syn::parse::Parse"><code>syn::parse::Parse</code></a>.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.export_tokens_alias_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::export_tokens_alias_internal">export_<wbr>tokens_<wbr>alias_<wbr>internal</a></dt><dd>Internal implementation of <code>export_tokens_alias!</code>. Allows creating a renamed/rebranded
+macro that does the same thing as <code>#[export_tokens]</code></dd><dt><a class="fn" href="fn.export_tokens_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::export_tokens_internal">export_<wbr>tokens_<wbr>internal</a></dt><dd>The internal code behind the <code>#[export_tokens]</code> attribute macro.</dd><dt><a class="fn" href="fn.export_tokens_macro_ident.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::export_tokens_macro_ident">export_<wbr>tokens_<wbr>macro_<wbr>ident</a></dt><dd>Produces the full path for the auto-generated callback-based decl macro that allows us to
+forward tokens across crate boundaries.</dd><dt><a class="fn" href="fn.export_tokens_macro_path.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::export_tokens_macro_path">export_<wbr>tokens_<wbr>macro_<wbr>path</a></dt><dd>Resolves to the path of the <code>#[export_tokens]</code> macro for the given item path.</dd><dt><a class="fn" href="fn.flatten_ident.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::flatten_ident">flatten_<wbr>ident</a></dt><dd>“Flattens” an <a href="https://docs.rs/proc-macro2/1.0.95/proc_macro2/struct.Ident.html" title="struct proc_macro2::Ident"><code>Ident</code></a> by converting it to snake case.</dd><dt><a class="fn" href="fn.forward_tokens_inner_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::forward_tokens_inner_internal">forward_<wbr>tokens_<wbr>inner_<wbr>internal</a></dt><dd>Used by <a href="fn.forward_tokens_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::forward_tokens_internal"><code>forward_tokens_internal</code></a>.</dd><dt><a class="fn" href="fn.forward_tokens_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::forward_tokens_internal">forward_<wbr>tokens_<wbr>internal</a></dt><dd>The internal implementation for the <code>forward_tokens</code> macro.</dd><dt><a class="fn" href="fn.import_tokens_attr_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::import_tokens_attr_internal">import_<wbr>tokens_<wbr>attr_<wbr>internal</a></dt><dd>Internal implementation for the <code>#[import_tokens_attr]</code> attribute.</dd><dt><a class="fn" href="fn.import_tokens_inner_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::import_tokens_inner_internal">import_<wbr>tokens_<wbr>inner_<wbr>internal</a></dt><dd>The internal implementation for the <code>import_tokens_inner</code> macro.</dd><dt><a class="fn" href="fn.import_tokens_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::import_tokens_internal">import_<wbr>tokens_<wbr>internal</a></dt><dd>The internal implementation for the <code>import_tokens</code> macro.</dd><dt><a class="fn" href="fn.import_tokens_proc_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::import_tokens_proc_internal">import_<wbr>tokens_<wbr>proc_<wbr>internal</a></dt><dd>Internal implementation for the <code>#[import_tokens_proc]</code> attribute.</dd><dt><a class="fn" href="fn.macro_magic_path.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::macro_magic_path">macro_<wbr>magic_<wbr>path</a></dt><dd>Safely access a subpath of <code>macro_magic</code></dd><dt><a class="fn" href="fn.macro_magic_root.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::macro_magic_root">macro_<wbr>magic_<wbr>root</a></dt><dd>Safely access the <code>macro_magic</code> root based on the <code>MACRO_MAGIC_ROOT</code> env var, which
+defaults to <code>::macro_magic</code>, but can be configured via the <code>[env]</code> section of
+<code>.cargo/config.toml</code></dd><dt><a class="fn" href="fn.parse_proc_macro_variant.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::parse_proc_macro_variant">parse_<wbr>proc_<wbr>macro_<wbr>variant</a></dt><dd>Parses a proc macro function from a <code>TokenStream2</code> expecting only the specified <code>macro_type</code></dd><dt><a class="fn" href="fn.private_path.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::private_path">private_<wbr>path</a></dt><dd>Safely access a subpath of <code>macro_magic::__private</code></dd><dt><a class="fn" href="fn.to_snake_case.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::to_snake_case">to_<wbr>snake_<wbr>case</a></dt><dd>Returns the specified string in snake_case</dd><dt><a class="fn" href="fn.with_custom_parsing_internal.html" title="fn yet_another_parachain_runtime::frame_support::macro_magic::mm_core::with_custom_parsing_internal">with_<wbr>custom_<wbr>parsing_<wbr>internal</a></dt><dd>The internal implementation for the <code>#[with_custom_parsing(..)</code> attribute macro.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

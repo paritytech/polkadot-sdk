@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"struct":["CheckPermissionsViewFunction","IsSupersetViewFunction","Pallet"],"trait":["Config"],"type":["Announcements","Module","Proxies"]};

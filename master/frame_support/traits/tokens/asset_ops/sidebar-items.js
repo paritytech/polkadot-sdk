@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["common_ops","common_strategies"],"trait":["AssetDefinition","Create","CreateStrategy","Destroy","DestroyStrategy","IdAssignment","Inspect","InspectStrategy","Restore","RestoreStrategy","Stash","StashStrategy","Update","UpdateStrategy"],"type":["AssetIdOf"]};

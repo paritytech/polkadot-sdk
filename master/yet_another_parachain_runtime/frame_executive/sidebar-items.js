@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ExecutiveError"],"struct":["Executive"],"trait":["OnInitializeWithWeightRegistration"],"type":["CallOf","CheckedOf","OriginOf"]};

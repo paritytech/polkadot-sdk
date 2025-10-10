@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"mod":["benchmarking","misc","pallet"],"struct":["InvalidAssetError","NoStoredMapping","SaveMappingTo","StoreMapping","TestWeightInfo"],"trait":["WeightInfo"]};

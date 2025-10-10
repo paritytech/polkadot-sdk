@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["ranks"],"struct":["SalaryForRank","SecretarySalaryInteriorLocation"],"type":["SecretaryCollectiveInstance","SecretarySalaryInstance","SecretarySalaryPaymaster"]};

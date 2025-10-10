@@ -1,0 +1,516 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/benchmarking/code.rs`."><title>code.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pallet_contracts/benchmarking/</div>code.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: Apache-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// Licensed under the Apache License, Version 2.0 (the "License");
+<a href=#7 id=7 data-nosnippet>7</a>// you may not use this file except in compliance with the License.
+<a href=#8 id=8 data-nosnippet>8</a>// You may obtain a copy of the License at
+<a href=#9 id=9 data-nosnippet>9</a>//
+<a href=#10 id=10 data-nosnippet>10</a>// 	http://www.apache.org/licenses/LICENSE-2.0
+<a href=#11 id=11 data-nosnippet>11</a>//
+<a href=#12 id=12 data-nosnippet>12</a>// Unless required by applicable law or agreed to in writing, software
+<a href=#13 id=13 data-nosnippet>13</a>// distributed under the License is distributed on an "AS IS" BASIS,
+<a href=#14 id=14 data-nosnippet>14</a>// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<a href=#15 id=15 data-nosnippet>15</a>// See the License for the specific language governing permissions and
+<a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
+<a href=#17 id=17 data-nosnippet>17</a>
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="doccomment">//! Functions to procedurally construct contract code used for benchmarking.
+<a href=#19 id=19 data-nosnippet>19</a>//!
+<a href=#20 id=20 data-nosnippet>20</a>//! In order to be able to benchmark events that are triggered by contract execution
+<a href=#21 id=21 data-nosnippet>21</a>//! (API calls into seal, individual instructions), we need to generate contracts that
+<a href=#22 id=22 data-nosnippet>22</a>//! perform those events. Because those contracts can get very big we cannot simply define
+<a href=#23 id=23 data-nosnippet>23</a>//! them as text (.wat) as this will be too slow and consume too much memory. Therefore
+<a href=#24 id=24 data-nosnippet>24</a>//! we define this simple definition of a contract that can be passed to `create_code` that
+<a href=#25 id=25 data-nosnippet>25</a>//! compiles it down into a `WasmModule` that can be used as a contract's code.
+<a href=#26 id=26 data-nosnippet>26</a>
+<a href=#27 id=27 data-nosnippet>27</a></span><span class="kw">use </span><span class="kw">crate</span>::Config;
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>alloc::{borrow::ToOwned, vec, vec::Vec};
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>frame_support::traits::Get;
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>sp_runtime::{traits::Hash, Saturating};
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>wasm_instrument::parity_wasm::{
+<a href=#32 id=32 data-nosnippet>32</a>	builder,
+<a href=#33 id=33 data-nosnippet>33</a>	elements::{
+<a href=#34 id=34 data-nosnippet>34</a>		<span class="self">self</span>, BlockType, CustomSection, FuncBody, Instruction, Instructions, Local, Section,
+<a href=#35 id=35 data-nosnippet>35</a>		ValueType,
+<a href=#36 id=36 data-nosnippet>36</a>	},
+<a href=#37 id=37 data-nosnippet>37</a>};
+<a href=#38 id=38 data-nosnippet>38</a>
+<a href=#39 id=39 data-nosnippet>39</a><span class="doccomment">/// The location where to put the generated code.
+<a href=#40 id=40 data-nosnippet>40</a></span><span class="kw">pub enum </span>Location {
+<a href=#41 id=41 data-nosnippet>41</a>	<span class="doccomment">/// Generate all code into the `call` exported function.
+<a href=#42 id=42 data-nosnippet>42</a>	</span>Call,
+<a href=#43 id=43 data-nosnippet>43</a>	<span class="doccomment">/// Generate all code into the `deploy` exported function.
+<a href=#44 id=44 data-nosnippet>44</a>	</span>Deploy,
+<a href=#45 id=45 data-nosnippet>45</a>}
+<a href=#46 id=46 data-nosnippet>46</a>
+<a href=#47 id=47 data-nosnippet>47</a><span class="doccomment">/// Pass to `create_code` in order to create a compiled `WasmModule`.
+<a href=#48 id=48 data-nosnippet>48</a>///
+<a href=#49 id=49 data-nosnippet>49</a>/// This exists to have a more declarative way to describe a wasm module than to use
+<a href=#50 id=50 data-nosnippet>50</a>/// parity-wasm directly. It is tailored to fit the structure of contracts that are
+<a href=#51 id=51 data-nosnippet>51</a>/// needed for benchmarking.
+<a href=#52 id=52 data-nosnippet>52</a></span><span class="attr">#[derive(Default)]
+<a href=#53 id=53 data-nosnippet>53</a></span><span class="kw">pub struct </span>ModuleDefinition {
+<a href=#54 id=54 data-nosnippet>54</a>	<span class="doccomment">/// Imported memory attached to the module. No memory is imported if `None`.
+<a href=#55 id=55 data-nosnippet>55</a>	</span><span class="kw">pub </span>memory: <span class="prelude-ty">Option</span>&lt;ImportedMemory&gt;,
+<a href=#56 id=56 data-nosnippet>56</a>	<span class="doccomment">/// Initializers for the imported memory.
+<a href=#57 id=57 data-nosnippet>57</a>	</span><span class="kw">pub </span>data_segments: Vec&lt;DataSegment&gt;,
+<a href=#58 id=58 data-nosnippet>58</a>	<span class="doccomment">/// Creates the supplied amount of i64 mutable globals initialized with random values.
+<a href=#59 id=59 data-nosnippet>59</a>	</span><span class="kw">pub </span>num_globals: u32,
+<a href=#60 id=60 data-nosnippet>60</a>	<span class="doccomment">/// List of functions that the module should import. They start with index 0.
+<a href=#61 id=61 data-nosnippet>61</a>	</span><span class="kw">pub </span>imported_functions: Vec&lt;ImportedFunction&gt;,
+<a href=#62 id=62 data-nosnippet>62</a>	<span class="doccomment">/// Function body of the exported `deploy` function. Body is empty if `None`.
+<a href=#63 id=63 data-nosnippet>63</a>	/// Its index is `imported_functions.len()`.
+<a href=#64 id=64 data-nosnippet>64</a>	</span><span class="kw">pub </span>deploy_body: <span class="prelude-ty">Option</span>&lt;FuncBody&gt;,
+<a href=#65 id=65 data-nosnippet>65</a>	<span class="doccomment">/// Function body of the exported `call` function. Body is empty if `None`.
+<a href=#66 id=66 data-nosnippet>66</a>	/// Its index is `imported_functions.len() + 1`.
+<a href=#67 id=67 data-nosnippet>67</a>	</span><span class="kw">pub </span>call_body: <span class="prelude-ty">Option</span>&lt;FuncBody&gt;,
+<a href=#68 id=68 data-nosnippet>68</a>	<span class="doccomment">/// Function body of a non-exported function with index `imported_functions.len() + 2`.
+<a href=#69 id=69 data-nosnippet>69</a>	</span><span class="kw">pub </span>aux_body: <span class="prelude-ty">Option</span>&lt;FuncBody&gt;,
+<a href=#70 id=70 data-nosnippet>70</a>	<span class="doccomment">/// The amount of I64 arguments the aux function should have.
+<a href=#71 id=71 data-nosnippet>71</a>	</span><span class="kw">pub </span>aux_arg_num: u32,
+<a href=#72 id=72 data-nosnippet>72</a>	<span class="doccomment">/// Create a table containing function pointers.
+<a href=#73 id=73 data-nosnippet>73</a>	</span><span class="kw">pub </span>table: <span class="prelude-ty">Option</span>&lt;TableSegment&gt;,
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="doccomment">/// Create a section named "dummy" of the specified size. This is useful in order to
+<a href=#75 id=75 data-nosnippet>75</a>	/// benchmark the overhead of loading and storing codes of specified sizes. The dummy
+<a href=#76 id=76 data-nosnippet>76</a>	/// section only contributes to the size of the contract but does not affect execution.
+<a href=#77 id=77 data-nosnippet>77</a>	</span><span class="kw">pub </span>dummy_section: u32,
+<a href=#78 id=78 data-nosnippet>78</a>}
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a><span class="kw">pub struct </span>TableSegment {
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="doccomment">/// How many elements should be created inside the table.
+<a href=#82 id=82 data-nosnippet>82</a>	</span><span class="kw">pub </span>num_elements: u32,
+<a href=#83 id=83 data-nosnippet>83</a>	<span class="doccomment">/// The function index with which all table elements should be initialized.
+<a href=#84 id=84 data-nosnippet>84</a>	</span><span class="kw">pub </span>function_index: u32,
+<a href=#85 id=85 data-nosnippet>85</a>}
+<a href=#86 id=86 data-nosnippet>86</a>
+<a href=#87 id=87 data-nosnippet>87</a><span class="kw">pub struct </span>DataSegment {
+<a href=#88 id=88 data-nosnippet>88</a>	<span class="kw">pub </span>offset: u32,
+<a href=#89 id=89 data-nosnippet>89</a>	<span class="kw">pub </span>value: Vec&lt;u8&gt;,
+<a href=#90 id=90 data-nosnippet>90</a>}
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a><span class="attr">#[derive(Clone)]
+<a href=#93 id=93 data-nosnippet>93</a></span><span class="kw">pub struct </span>ImportedMemory {
+<a href=#94 id=94 data-nosnippet>94</a>	<span class="kw">pub </span>min_pages: u32,
+<a href=#95 id=95 data-nosnippet>95</a>	<span class="kw">pub </span>max_pages: u32,
+<a href=#96 id=96 data-nosnippet>96</a>}
+<a href=#97 id=97 data-nosnippet>97</a>
+<a href=#98 id=98 data-nosnippet>98</a><span class="kw">impl </span>ImportedMemory {
+<a href=#99 id=99 data-nosnippet>99</a>	<span class="kw">pub fn </span>max&lt;T: Config&gt;() -&gt; <span class="self">Self </span>{
+<a href=#100 id=100 data-nosnippet>100</a>		<span class="kw">let </span>pages = max_pages::&lt;T&gt;();
+<a href=#101 id=101 data-nosnippet>101</a>		<span class="self">Self </span>{ min_pages: pages, max_pages: pages }
+<a href=#102 id=102 data-nosnippet>102</a>	}
+<a href=#103 id=103 data-nosnippet>103</a>}
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a><span class="kw">pub struct </span>ImportedFunction {
+<a href=#106 id=106 data-nosnippet>106</a>	<span class="kw">pub </span>module: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#107 id=107 data-nosnippet>107</a>	<span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#108 id=108 data-nosnippet>108</a>	<span class="kw">pub </span>params: Vec&lt;ValueType&gt;,
+<a href=#109 id=109 data-nosnippet>109</a>	<span class="kw">pub </span>return_type: <span class="prelude-ty">Option</span>&lt;ValueType&gt;,
+<a href=#110 id=110 data-nosnippet>110</a>}
+<a href=#111 id=111 data-nosnippet>111</a>
+<a href=#112 id=112 data-nosnippet>112</a><span class="doccomment">/// A wasm module ready to be put on chain.
+<a href=#113 id=113 data-nosnippet>113</a></span><span class="attr">#[derive(Clone)]
+<a href=#114 id=114 data-nosnippet>114</a></span><span class="kw">pub struct </span>WasmModule&lt;T: Config&gt; {
+<a href=#115 id=115 data-nosnippet>115</a>	<span class="kw">pub </span>code: Vec&lt;u8&gt;,
+<a href=#116 id=116 data-nosnippet>116</a>	<span class="kw">pub </span>hash: &lt;T::Hashing <span class="kw">as </span>Hash&gt;::Output,
+<a href=#117 id=117 data-nosnippet>117</a>}
+<a href=#118 id=118 data-nosnippet>118</a>
+<a href=#119 id=119 data-nosnippet>119</a><span class="kw">impl</span>&lt;T: Config&gt; From&lt;ModuleDefinition&gt; <span class="kw">for </span>WasmModule&lt;T&gt; {
+<a href=#120 id=120 data-nosnippet>120</a>	<span class="kw">fn </span>from(def: ModuleDefinition) -&gt; <span class="self">Self </span>{
+<a href=#121 id=121 data-nosnippet>121</a>		<span class="comment">// internal functions start at that offset.
+<a href=#122 id=122 data-nosnippet>122</a>		</span><span class="kw">let </span>func_offset = u32::try_from(def.imported_functions.len()).unwrap();
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>		<span class="comment">// Every contract must export "deploy" and "call" functions.
+<a href=#125 id=125 data-nosnippet>125</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>contract = builder::module()
+<a href=#126 id=126 data-nosnippet>126</a>			<span class="comment">// deploy function (first internal function)
+<a href=#127 id=127 data-nosnippet>127</a>			</span>.function()
+<a href=#128 id=128 data-nosnippet>128</a>			.signature()
+<a href=#129 id=129 data-nosnippet>129</a>			.build()
+<a href=#130 id=130 data-nosnippet>130</a>			.with_body(
+<a href=#131 id=131 data-nosnippet>131</a>				def.deploy_body
+<a href=#132 id=132 data-nosnippet>132</a>					.unwrap_or_else(|| FuncBody::new(Vec::new(), Instructions::empty())),
+<a href=#133 id=133 data-nosnippet>133</a>			)
+<a href=#134 id=134 data-nosnippet>134</a>			.build()
+<a href=#135 id=135 data-nosnippet>135</a>			<span class="comment">// call function (second internal function)
+<a href=#136 id=136 data-nosnippet>136</a>			</span>.function()
+<a href=#137 id=137 data-nosnippet>137</a>			.signature()
+<a href=#138 id=138 data-nosnippet>138</a>			.build()
+<a href=#139 id=139 data-nosnippet>139</a>			.with_body(
+<a href=#140 id=140 data-nosnippet>140</a>				def.call_body
+<a href=#141 id=141 data-nosnippet>141</a>					.unwrap_or_else(|| FuncBody::new(Vec::new(), Instructions::empty())),
+<a href=#142 id=142 data-nosnippet>142</a>			)
+<a href=#143 id=143 data-nosnippet>143</a>			.build()
+<a href=#144 id=144 data-nosnippet>144</a>			.export()
+<a href=#145 id=145 data-nosnippet>145</a>			.field(<span class="string">"deploy"</span>)
+<a href=#146 id=146 data-nosnippet>146</a>			.internal()
+<a href=#147 id=147 data-nosnippet>147</a>			.func(func_offset)
+<a href=#148 id=148 data-nosnippet>148</a>			.build()
+<a href=#149 id=149 data-nosnippet>149</a>			.export()
+<a href=#150 id=150 data-nosnippet>150</a>			.field(<span class="string">"call"</span>)
+<a href=#151 id=151 data-nosnippet>151</a>			.internal()
+<a href=#152 id=152 data-nosnippet>152</a>			.func(func_offset + <span class="number">1</span>)
+<a href=#153 id=153 data-nosnippet>153</a>			.build();
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a>		<span class="comment">// If specified we add an additional internal function
+<a href=#156 id=156 data-nosnippet>156</a>		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(body) = def.aux_body {
+<a href=#157 id=157 data-nosnippet>157</a>			<span class="kw">let </span><span class="kw-2">mut </span>signature = contract.function().signature();
+<a href=#158 id=158 data-nosnippet>158</a>			<span class="kw">for _ in </span><span class="number">0</span>..def.aux_arg_num {
+<a href=#159 id=159 data-nosnippet>159</a>				signature = signature.with_param(ValueType::I64);
+<a href=#160 id=160 data-nosnippet>160</a>			}
+<a href=#161 id=161 data-nosnippet>161</a>			contract = signature.build().with_body(body).build();
+<a href=#162 id=162 data-nosnippet>162</a>		}
+<a href=#163 id=163 data-nosnippet>163</a>
+<a href=#164 id=164 data-nosnippet>164</a>		<span class="comment">// Grant access to linear memory.
+<a href=#165 id=165 data-nosnippet>165</a>		// Every contract module is required to have an imported memory.
+<a href=#166 id=166 data-nosnippet>166</a>		// If no memory is specified in the passed ModuleDefinition, then
+<a href=#167 id=167 data-nosnippet>167</a>		// default to (1, 1).
+<a href=#168 id=168 data-nosnippet>168</a>		</span><span class="kw">let </span>(init, max) = <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = <span class="kw-2">&amp;</span>def.memory {
+<a href=#169 id=169 data-nosnippet>169</a>			(memory.min_pages, <span class="prelude-val">Some</span>(memory.max_pages))
+<a href=#170 id=170 data-nosnippet>170</a>		} <span class="kw">else </span>{
+<a href=#171 id=171 data-nosnippet>171</a>			(<span class="number">1</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>))
+<a href=#172 id=172 data-nosnippet>172</a>		};
+<a href=#173 id=173 data-nosnippet>173</a>
+<a href=#174 id=174 data-nosnippet>174</a>		contract = contract.import().path(<span class="string">"env"</span>, <span class="string">"memory"</span>).external().memory(init, max).build();
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a>		<span class="comment">// Import supervisor functions. They start with idx 0.
+<a href=#177 id=177 data-nosnippet>177</a>		</span><span class="kw">for </span>func <span class="kw">in </span>def.imported_functions {
+<a href=#178 id=178 data-nosnippet>178</a>			<span class="kw">let </span>sig = builder::signature()
+<a href=#179 id=179 data-nosnippet>179</a>				.with_params(func.params)
+<a href=#180 id=180 data-nosnippet>180</a>				.with_results(func.return_type)
+<a href=#181 id=181 data-nosnippet>181</a>				.build_sig();
+<a href=#182 id=182 data-nosnippet>182</a>			<span class="kw">let </span>sig = contract.push_signature(sig);
+<a href=#183 id=183 data-nosnippet>183</a>			contract = contract
+<a href=#184 id=184 data-nosnippet>184</a>				.import()
+<a href=#185 id=185 data-nosnippet>185</a>				.module(func.module)
+<a href=#186 id=186 data-nosnippet>186</a>				.field(func.name)
+<a href=#187 id=187 data-nosnippet>187</a>				.with_external(elements::External::Function(sig))
+<a href=#188 id=188 data-nosnippet>188</a>				.build();
+<a href=#189 id=189 data-nosnippet>189</a>		}
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a>		<span class="comment">// Initialize memory
+<a href=#192 id=192 data-nosnippet>192</a>		</span><span class="kw">for </span>data <span class="kw">in </span>def.data_segments {
+<a href=#193 id=193 data-nosnippet>193</a>			contract = contract
+<a href=#194 id=194 data-nosnippet>194</a>				.data()
+<a href=#195 id=195 data-nosnippet>195</a>				.offset(Instruction::I32Const(data.offset <span class="kw">as </span>i32))
+<a href=#196 id=196 data-nosnippet>196</a>				.value(data.value)
+<a href=#197 id=197 data-nosnippet>197</a>				.build()
+<a href=#198 id=198 data-nosnippet>198</a>		}
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a>		<span class="comment">// Add global variables
+<a href=#201 id=201 data-nosnippet>201</a>		</span><span class="kw">if </span>def.num_globals &gt; <span class="number">0 </span>{
+<a href=#202 id=202 data-nosnippet>202</a>			<span class="kw">use </span>rand::{distributions::Standard, prelude::<span class="kw-2">*</span>};
+<a href=#203 id=203 data-nosnippet>203</a>			<span class="kw">let </span>rng = rand_pcg::Pcg32::seed_from_u64(<span class="number">3112244599778833558</span>);
+<a href=#204 id=204 data-nosnippet>204</a>			<span class="kw">for </span>val <span class="kw">in </span>rng.sample_iter(Standard).take(def.num_globals <span class="kw">as </span>usize) {
+<a href=#205 id=205 data-nosnippet>205</a>				contract = contract
+<a href=#206 id=206 data-nosnippet>206</a>					.global()
+<a href=#207 id=207 data-nosnippet>207</a>					.value_type()
+<a href=#208 id=208 data-nosnippet>208</a>					.i64()
+<a href=#209 id=209 data-nosnippet>209</a>					.mutable()
+<a href=#210 id=210 data-nosnippet>210</a>					.init_expr(Instruction::I64Const(val))
+<a href=#211 id=211 data-nosnippet>211</a>					.build()
+<a href=#212 id=212 data-nosnippet>212</a>			}
+<a href=#213 id=213 data-nosnippet>213</a>		}
+<a href=#214 id=214 data-nosnippet>214</a>
+<a href=#215 id=215 data-nosnippet>215</a>		<span class="comment">// Add function pointer table
+<a href=#216 id=216 data-nosnippet>216</a>		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(table) = def.table {
+<a href=#217 id=217 data-nosnippet>217</a>			contract = contract
+<a href=#218 id=218 data-nosnippet>218</a>				.table()
+<a href=#219 id=219 data-nosnippet>219</a>				.with_min(table.num_elements)
+<a href=#220 id=220 data-nosnippet>220</a>				.with_max(<span class="prelude-val">Some</span>(table.num_elements))
+<a href=#221 id=221 data-nosnippet>221</a>				.with_element(<span class="number">0</span>, <span class="macro">vec!</span>[table.function_index; table.num_elements <span class="kw">as </span>usize])
+<a href=#222 id=222 data-nosnippet>222</a>				.build();
+<a href=#223 id=223 data-nosnippet>223</a>		}
+<a href=#224 id=224 data-nosnippet>224</a>
+<a href=#225 id=225 data-nosnippet>225</a>		<span class="comment">// Add the dummy section
+<a href=#226 id=226 data-nosnippet>226</a>		</span><span class="kw">if </span>def.dummy_section &gt; <span class="number">0 </span>{
+<a href=#227 id=227 data-nosnippet>227</a>			contract = contract.with_section(Section::Custom(CustomSection::new(
+<a href=#228 id=228 data-nosnippet>228</a>				<span class="string">"dummy"</span>.to_owned(),
+<a href=#229 id=229 data-nosnippet>229</a>				<span class="macro">vec!</span>[<span class="number">42</span>; def.dummy_section <span class="kw">as </span>usize],
+<a href=#230 id=230 data-nosnippet>230</a>			)));
+<a href=#231 id=231 data-nosnippet>231</a>		}
+<a href=#232 id=232 data-nosnippet>232</a>
+<a href=#233 id=233 data-nosnippet>233</a>		<span class="kw">let </span>code = contract.build().into_bytes().unwrap();
+<a href=#234 id=234 data-nosnippet>234</a>		<span class="kw">let </span>hash = T::Hashing::hash(<span class="kw-2">&amp;</span>code);
+<a href=#235 id=235 data-nosnippet>235</a>		<span class="self">Self </span>{ code: code.into(), hash }
+<a href=#236 id=236 data-nosnippet>236</a>	}
+<a href=#237 id=237 data-nosnippet>237</a>}
+<a href=#238 id=238 data-nosnippet>238</a>
+<a href=#239 id=239 data-nosnippet>239</a><span class="kw">impl</span>&lt;T: Config&gt; WasmModule&lt;T&gt; {
+<a href=#240 id=240 data-nosnippet>240</a>	<span class="doccomment">/// Creates a wasm module with an empty `call` and `deploy` function and nothing else.
+<a href=#241 id=241 data-nosnippet>241</a>	</span><span class="kw">pub fn </span>dummy() -&gt; <span class="self">Self </span>{
+<a href=#242 id=242 data-nosnippet>242</a>		ModuleDefinition::default().into()
+<a href=#243 id=243 data-nosnippet>243</a>	}
+<a href=#244 id=244 data-nosnippet>244</a>
+<a href=#245 id=245 data-nosnippet>245</a>	<span class="doccomment">/// Same as `dummy` but with maximum sized linear memory and a dummy section of specified size.
+<a href=#246 id=246 data-nosnippet>246</a>	</span><span class="kw">pub fn </span>dummy_with_bytes(dummy_bytes: u32) -&gt; <span class="self">Self </span>{
+<a href=#247 id=247 data-nosnippet>247</a>		<span class="comment">// We want the module to have the size `dummy_bytes`.
+<a href=#248 id=248 data-nosnippet>248</a>		// This is not completely correct as the overhead grows when the contract grows
+<a href=#249 id=249 data-nosnippet>249</a>		// because of variable length integer encoding. However, it is good enough to be that
+<a href=#250 id=250 data-nosnippet>250</a>		// close for benchmarking purposes.
+<a href=#251 id=251 data-nosnippet>251</a>		</span><span class="kw">let </span>module_overhead = <span class="number">65</span>;
+<a href=#252 id=252 data-nosnippet>252</a>		ModuleDefinition {
+<a href=#253 id=253 data-nosnippet>253</a>			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
+<a href=#254 id=254 data-nosnippet>254</a>			dummy_section: dummy_bytes.saturating_sub(module_overhead),
+<a href=#255 id=255 data-nosnippet>255</a>			..Default::default()
+<a href=#256 id=256 data-nosnippet>256</a>		}
+<a href=#257 id=257 data-nosnippet>257</a>		.into()
+<a href=#258 id=258 data-nosnippet>258</a>	}
+<a href=#259 id=259 data-nosnippet>259</a>
+<a href=#260 id=260 data-nosnippet>260</a>	<span class="doccomment">/// Creates a wasm module of `target_bytes` size. Used to benchmark the performance of
+<a href=#261 id=261 data-nosnippet>261</a>	/// `instantiate_with_code` for different sizes of wasm modules. The generated module maximizes
+<a href=#262 id=262 data-nosnippet>262</a>	/// instrumentation runtime by nesting blocks as deeply as possible given the byte budget.
+<a href=#263 id=263 data-nosnippet>263</a>	/// `code_location`: Whether to place the code into `deploy` or `call`.
+<a href=#264 id=264 data-nosnippet>264</a>	</span><span class="kw">pub fn </span>sized(target_bytes: u32, code_location: Location, use_float: bool) -&gt; <span class="self">Self </span>{
+<a href=#265 id=265 data-nosnippet>265</a>		<span class="kw">use </span><span class="self">self</span>::elements::Instruction::{End, GetLocal, If, Return};
+<a href=#266 id=266 data-nosnippet>266</a>		<span class="comment">// Base size of a contract is 63 bytes and each expansion adds 6 bytes.
+<a href=#267 id=267 data-nosnippet>267</a>		// We do one expansion less to account for the code section and function body
+<a href=#268 id=268 data-nosnippet>268</a>		// size fields inside the binary wasm module representation which are leb128 encoded
+<a href=#269 id=269 data-nosnippet>269</a>		// and therefore grow in size when the contract grows. We are not allowed to overshoot
+<a href=#270 id=270 data-nosnippet>270</a>		// because of the maximum code size that is enforced by `instantiate_with_code`.
+<a href=#271 id=271 data-nosnippet>271</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>expansions = (target_bytes.saturating_sub(<span class="number">63</span>) / <span class="number">6</span>).saturating_sub(<span class="number">1</span>);
+<a href=#272 id=272 data-nosnippet>272</a>		<span class="kw">const </span>EXPANSION: [Instruction; <span class="number">4</span>] = [GetLocal(<span class="number">0</span>), If(BlockType::NoResult), Return, End];
+<a href=#273 id=273 data-nosnippet>273</a>		<span class="kw">let </span><span class="kw-2">mut </span>locals = <span class="macro">vec!</span>[Local::new(<span class="number">1</span>, ValueType::I32)];
+<a href=#274 id=274 data-nosnippet>274</a>		<span class="kw">if </span>use_float {
+<a href=#275 id=275 data-nosnippet>275</a>			locals.push(Local::new(<span class="number">1</span>, ValueType::F32));
+<a href=#276 id=276 data-nosnippet>276</a>			locals.push(Local::new(<span class="number">2</span>, ValueType::F32));
+<a href=#277 id=277 data-nosnippet>277</a>			locals.push(Local::new(<span class="number">3</span>, ValueType::F32));
+<a href=#278 id=278 data-nosnippet>278</a>			expansions.saturating_dec();
+<a href=#279 id=279 data-nosnippet>279</a>		}
+<a href=#280 id=280 data-nosnippet>280</a>		<span class="kw">let </span><span class="kw-2">mut </span>module =
+<a href=#281 id=281 data-nosnippet>281</a>			ModuleDefinition { memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()), ..Default::default() };
+<a href=#282 id=282 data-nosnippet>282</a>		<span class="kw">let </span>body = <span class="prelude-val">Some</span>(body::repeated_with_locals(<span class="kw-2">&amp;</span>locals, expansions, <span class="kw-2">&amp;</span>EXPANSION));
+<a href=#283 id=283 data-nosnippet>283</a>		<span class="kw">match </span>code_location {
+<a href=#284 id=284 data-nosnippet>284</a>			Location::Call =&gt; module.call_body = body,
+<a href=#285 id=285 data-nosnippet>285</a>			Location::Deploy =&gt; module.deploy_body = body,
+<a href=#286 id=286 data-nosnippet>286</a>		}
+<a href=#287 id=287 data-nosnippet>287</a>		module.into()
+<a href=#288 id=288 data-nosnippet>288</a>	}
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a>	<span class="doccomment">/// Creates a wasm module that calls the imported function `noop` `repeat` times.
+<a href=#291 id=291 data-nosnippet>291</a>	</span><span class="kw">pub fn </span>noop(repeat: u32) -&gt; <span class="self">Self </span>{
+<a href=#292 id=292 data-nosnippet>292</a>		<span class="kw">let </span>pages = max_pages::&lt;T&gt;();
+<a href=#293 id=293 data-nosnippet>293</a>		ModuleDefinition {
+<a href=#294 id=294 data-nosnippet>294</a>			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
+<a href=#295 id=295 data-nosnippet>295</a>			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
+<a href=#296 id=296 data-nosnippet>296</a>				module: <span class="string">"seal0"</span>,
+<a href=#297 id=297 data-nosnippet>297</a>				name: <span class="string">"noop"</span>,
+<a href=#298 id=298 data-nosnippet>298</a>				params: <span class="macro">vec!</span>[],
+<a href=#299 id=299 data-nosnippet>299</a>				return_type: <span class="prelude-val">None</span>,
+<a href=#300 id=300 data-nosnippet>300</a>			}],
+<a href=#301 id=301 data-nosnippet>301</a>			<span class="comment">// Write the output buffer size. The output size will be overwritten by the
+<a href=#302 id=302 data-nosnippet>302</a>			// supervisor with the real size when calling the getter. Since this size does not
+<a href=#303 id=303 data-nosnippet>303</a>			// change between calls it suffices to start with an initial value and then just
+<a href=#304 id=304 data-nosnippet>304</a>			// leave as whatever value was written there.
+<a href=#305 id=305 data-nosnippet>305</a>			</span>data_segments: <span class="macro">vec!</span>[DataSegment {
+<a href=#306 id=306 data-nosnippet>306</a>				offset: <span class="number">0</span>,
+<a href=#307 id=307 data-nosnippet>307</a>				value: (pages * <span class="number">64 </span>* <span class="number">1024 </span>- <span class="number">4</span>).to_le_bytes().to_vec(),
+<a href=#308 id=308 data-nosnippet>308</a>			}],
+<a href=#309 id=309 data-nosnippet>309</a>			call_body: <span class="prelude-val">Some</span>(body::repeated(
+<a href=#310 id=310 data-nosnippet>310</a>				repeat,
+<a href=#311 id=311 data-nosnippet>311</a>				<span class="kw-2">&amp;</span>[
+<a href=#312 id=312 data-nosnippet>312</a>					Instruction::Call(<span class="number">0</span>), <span class="comment">// call the imported function
+<a href=#313 id=313 data-nosnippet>313</a>				</span>],
+<a href=#314 id=314 data-nosnippet>314</a>			)),
+<a href=#315 id=315 data-nosnippet>315</a>			..Default::default()
+<a href=#316 id=316 data-nosnippet>316</a>		}
+<a href=#317 id=317 data-nosnippet>317</a>		.into()
+<a href=#318 id=318 data-nosnippet>318</a>	}
+<a href=#319 id=319 data-nosnippet>319</a>}
+<a href=#320 id=320 data-nosnippet>320</a>
+<a href=#321 id=321 data-nosnippet>321</a><span class="doccomment">/// Mechanisms to generate a function body that can be used inside a `ModuleDefinition`.
+<a href=#322 id=322 data-nosnippet>322</a></span><span class="kw">pub mod </span>body {
+<a href=#323 id=323 data-nosnippet>323</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>	<span class="kw">pub fn </span>repeated(repetitions: u32, instructions: <span class="kw-2">&amp;</span>[Instruction]) -&gt; FuncBody {
+<a href=#326 id=326 data-nosnippet>326</a>		repeated_with_locals(<span class="kw-2">&amp;</span>[], repetitions, instructions)
+<a href=#327 id=327 data-nosnippet>327</a>	}
+<a href=#328 id=328 data-nosnippet>328</a>
+<a href=#329 id=329 data-nosnippet>329</a>	<span class="kw">pub fn </span>repeated_with_locals(
+<a href=#330 id=330 data-nosnippet>330</a>		locals: <span class="kw-2">&amp;</span>[Local],
+<a href=#331 id=331 data-nosnippet>331</a>		repetitions: u32,
+<a href=#332 id=332 data-nosnippet>332</a>		instructions: <span class="kw-2">&amp;</span>[Instruction],
+<a href=#333 id=333 data-nosnippet>333</a>	) -&gt; FuncBody {
+<a href=#334 id=334 data-nosnippet>334</a>		<span class="kw">let </span>instructions = Instructions::new(
+<a href=#335 id=335 data-nosnippet>335</a>			instructions
+<a href=#336 id=336 data-nosnippet>336</a>				.iter()
+<a href=#337 id=337 data-nosnippet>337</a>				.cycle()
+<a href=#338 id=338 data-nosnippet>338</a>				.take(instructions.len() * usize::try_from(repetitions).unwrap())
+<a href=#339 id=339 data-nosnippet>339</a>				.cloned()
+<a href=#340 id=340 data-nosnippet>340</a>				.chain(core::iter::once(Instruction::End))
+<a href=#341 id=341 data-nosnippet>341</a>				.collect(),
+<a href=#342 id=342 data-nosnippet>342</a>		);
+<a href=#343 id=343 data-nosnippet>343</a>		FuncBody::new(locals.to_vec(), instructions)
+<a href=#344 id=344 data-nosnippet>344</a>	}
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a>	<span class="kw">pub fn </span>repeated_with_locals_using&lt;<span class="kw">const </span>N: usize&gt;(
+<a href=#347 id=347 data-nosnippet>347</a>		locals: <span class="kw-2">&amp;</span>[Local],
+<a href=#348 id=348 data-nosnippet>348</a>		repetitions: u32,
+<a href=#349 id=349 data-nosnippet>349</a>		<span class="kw-2">mut </span>f: <span class="kw">impl </span>FnMut() -&gt; [Instruction; N],
+<a href=#350 id=350 data-nosnippet>350</a>	) -&gt; FuncBody {
+<a href=#351 id=351 data-nosnippet>351</a>		<span class="kw">let </span><span class="kw-2">mut </span>instructions = Vec::new();
+<a href=#352 id=352 data-nosnippet>352</a>		<span class="kw">for _ in </span><span class="number">0</span>..repetitions {
+<a href=#353 id=353 data-nosnippet>353</a>			instructions.extend(f());
+<a href=#354 id=354 data-nosnippet>354</a>		}
+<a href=#355 id=355 data-nosnippet>355</a>		instructions.push(Instruction::End);
+<a href=#356 id=356 data-nosnippet>356</a>		FuncBody::new(locals.to_vec(), Instructions::new(instructions))
+<a href=#357 id=357 data-nosnippet>357</a>	}
+<a href=#358 id=358 data-nosnippet>358</a>}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a><span class="doccomment">/// The maximum amount of pages any contract is allowed to have according to the current `Schedule`.
+<a href=#361 id=361 data-nosnippet>361</a></span><span class="kw">pub fn </span>max_pages&lt;T: Config&gt;() -&gt; u32 {
+<a href=#362 id=362 data-nosnippet>362</a>	T::Schedule::get().limits.memory_pages
+<a href=#363 id=363 data-nosnippet>363</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

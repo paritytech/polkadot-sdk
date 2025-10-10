@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["pallet_bounties",[]],["pallet_child_bounties",[["impl&lt;T: <a class=\"trait\" href=\"pallet_child_bounties/pallet/trait.Config.html\" title=\"trait pallet_child_bounties::pallet::Config\">Config</a>&gt; ChildBountyManager&lt;&lt;&lt;T as Config&gt;::Currency as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance&gt; for <a class=\"struct\" href=\"pallet_child_bounties/pallet/struct.Pallet.html\" title=\"struct pallet_child_bounties::pallet::Pallet\">Pallet</a>&lt;T&gt;"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[22,466,37]}

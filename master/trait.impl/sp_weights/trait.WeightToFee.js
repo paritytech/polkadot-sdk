@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["emulated_integration_tests_common",[]],["frame_support",[]],["pallet_revive",[["impl&lt;const P: <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u128.html\">u128</a>, const Q: <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u128.html\">u128</a>, T: <a class=\"trait\" href=\"pallet_revive/pallet/trait.Config.html\" title=\"trait pallet_revive::pallet::Config\">Config</a>&gt; WeightToFee for <a class=\"struct\" href=\"pallet_revive/evm/fees/struct.BlockRatioFee.html\" title=\"struct pallet_revive::evm::fees::BlockRatioFee\">BlockRatioFee</a>&lt;P, Q, T&gt;"]]],["penpal_runtime",[["impl <a class=\"trait\" href=\"sp_weights/trait.WeightToFee.html\" title=\"trait sp_weights::WeightToFee\">WeightToFee</a> for <a class=\"struct\" href=\"penpal_runtime/struct.WeightToFee.html\" title=\"struct penpal_runtime::WeightToFee\">WeightToFee</a>"]]],["polkadot_sdk_frame",[]],["sp_weights",[]],["testnet_parachains_constants",[["impl WeightToFee for <a class=\"struct\" href=\"testnet_parachains_constants/rococo/fee/struct.WeightToFee.html\" title=\"struct testnet_parachains_constants::rococo::fee::WeightToFee\">WeightToFee</a>"],["impl WeightToFee for <a class=\"struct\" href=\"testnet_parachains_constants/westend/fee/struct.WeightToFee.html\" title=\"struct testnet_parachains_constants::westend::fee::WeightToFee\">WeightToFee</a>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[40,21,563,281,26,18,449,37]}

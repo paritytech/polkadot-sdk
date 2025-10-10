@@ -1,0 +1,191 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The client for AssetHub, intended to be used in the relay chain."><title>yet_another_parachain_runtime::pallet_staking_async_ah_client - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#incoming-messages" title="Incoming Messages">Incoming Messages</a></li><li><a href="#outgoing-messages" title="Outgoing Messages">Outgoing Messages</a></li><li><a href="#local-interfaces" title="Local Interfaces:">Local Interfaces:</a></li><li><a href="#future-plans" title="Future Plans">Future Plans</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_staking_async_ah_client</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_staking_async_ah_client/lib.rs.html#18-1137">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The client for AssetHub, intended to be used in the relay chain.</p>
+<p>The counter-part for this pallet is <code>pallet-staking-async-rc-client</code> on AssetHub.</p>
+<p>This documentation is divided into the following sections:</p>
+<ol>
+<li>Incoming messages: the messages that we receive from the relay chian.</li>
+<li>Outgoing messages: the messaged that we sent to the relay chain.</li>
+<li>Local interfaces: the interfaces that we expose to other pallets in the runtime.</li>
+</ol>
+<h3 id="incoming-messages"><a class="doc-anchor" href="#incoming-messages">§</a>Incoming Messages</h3>
+<p>All incoming messages are handled via <a href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_staking_async_ah_client::Call"><code>Call</code></a>. They are all gated to be dispatched only by
+<a href="trait.Config.html#associatedtype.AssetHubOrigin" title="associated type yet_another_parachain_runtime::pallet_staking_async_ah_client::Config::AssetHubOrigin"><code>Config::AssetHubOrigin</code></a>. The only one is:</p>
+<ul>
+<li><a href="enum.Call.html#variant.validator_set" title="variant yet_another_parachain_runtime::pallet_staking_async_ah_client::Call::validator_set"><code>Call::validator_set</code></a>: A new validator set for a planning session index.</li>
+</ul>
+<h3 id="outgoing-messages"><a class="doc-anchor" href="#outgoing-messages">§</a>Outgoing Messages</h3>
+<p>All outgoing messages are handled by a single trait
+<a href="trait.SendToAssetHub.html" title="trait yet_another_parachain_runtime::pallet_staking_async_ah_client::SendToAssetHub"><code>pallet_staking_async_rc_client::SendToAssetHub</code></a>. They match the incoming messages of the
+<code>rc-client</code> pallet.</p>
+<h3 id="local-interfaces"><a class="doc-anchor" href="#local-interfaces">§</a>Local Interfaces:</h3>
+<p>Living on the relay chain, this pallet must:</p>
+<ul>
+<li>Implement <a href="../pallet_session/trait.SessionManager.html" title="trait yet_another_parachain_runtime::pallet_session::SessionManager"><code>pallet_session::SessionManager</code></a> (and historical variant thereof) to <em>give</em>
+information to the session pallet.</li>
+<li>Implements <a href="trait.SessionInterface.html" title="trait yet_another_parachain_runtime::pallet_staking_async_ah_client::SessionInterface"><code>SessionInterface</code></a> to <em>receive</em> information from the session pallet</li>
+<li>Implement <a href="../sp_staking/offence/trait.OnOffenceHandler.html" title="trait yet_another_parachain_runtime::sp_staking::offence::OnOffenceHandler"><code>sp_staking::offence::OnOffenceHandler</code></a>.</li>
+<li>Implement reward related APIs (<a href="../polkadot_sdk_frame/traits/trait.RewardsReporter.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::traits::RewardsReporter"><code>frame_support::traits::RewardsReporter</code></a>).</li>
+</ul>
+<h3 id="future-plans"><a class="doc-anchor" href="#future-plans">§</a>Future Plans</h3>
+<ul>
+<li>Governance functions to force set validators.</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_staking_async_ah_client::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.log.html" title="macro yet_another_parachain_runtime::pallet_staking_async_ah_client::log">log</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.DefaultExposureOf.html" title="struct yet_another_parachain_runtime::pallet_staking_async_ah_client::DefaultExposureOf">Default<wbr>Exposure<wbr>Of</a></dt><dd>See <code>pallet_staking::DefaultExposureOf</code>. This type is the same, except it is duplicated here so
+that an rc-runtime can use it after <code>pallet-staking</code> is fully removed as a dependency.</dd><dt><a class="struct" href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::pallet_staking_async_ah_client::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.OffenceSendQueue.html" title="struct yet_another_parachain_runtime::pallet_staking_async_ah_client::OffenceSendQueue">Offence<wbr>Send<wbr>Queue</a></dt><dd>Wrapper struct for storing offences, and getting them back page by page.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_staking_async_ah_client::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_staking_async_ah_client::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_staking_async_ah_client::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_staking_async_ah_client::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.OperatingMode.html" title="enum yet_another_parachain_runtime::pallet_staking_async_ah_client::OperatingMode">Operating<wbr>Mode</a></dt><dd>Represents the operating mode of the pallet.</dd><dt><a class="enum" href="enum.UnexpectedKind.html" title="enum yet_another_parachain_runtime::pallet_staking_async_ah_client::UnexpectedKind">Unexpected<wbr>Kind</a></dt><dd>Represents unexpected or invariant-breaking conditions encountered during execution.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_staking_async_ah_client::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.SendToAssetHub.html" title="trait yet_another_parachain_runtime::pallet_staking_async_ah_client::SendToAssetHub">Send<wbr>ToAsset<wbr>Hub</a></dt><dd>The interface to communicate to asset hub.</dd><dt><a class="trait" href="trait.SessionInterface.html" title="trait yet_another_parachain_runtime::pallet_staking_async_ah_client::SessionInterface">Session<wbr>Interface</a></dt><dd>Interface to talk to the local session pallet.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.BalanceOf.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::BalanceOf">Balance<wbr>Of</a></dt><dd>The balance type seen from this pallet’s PoV.</dd><dt><a class="type" href="type.IncompleteValidatorSetReport.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::IncompleteValidatorSetReport">Incomplete<wbr>Validator<wbr>SetReport</a></dt><dd>An incomplete validator set report.</dd><dt><a class="type" href="type.Mode.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::Mode">Mode</a></dt><dd>Indicates the current operating mode of the pallet.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.NextSessionChangesValidators.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::NextSessionChangesValidators">Next<wbr>Session<wbr>Changes<wbr>Validators</a></dt><dd>A storage value that is set when a <code>new_session</code> gives a new validator set to the session
+pallet, and is cleared on the next call.</dd><dt><a class="type" href="type.OffenceDetailsOf.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::OffenceDetailsOf">Offence<wbr>Details<wbr>Of</a></dt><dd>Type alias for offence details</dd><dt><a class="type" href="type.OutgoingSessionReport.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::OutgoingSessionReport">Outgoing<wbr>Session<wbr>Report</a></dt><dd>A session report that is outgoing, and should be sent.</dd><dt><a class="type" href="type.QueuedOffenceOf.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::QueuedOffenceOf">Queued<wbr>Offence<wbr>Of</a></dt><dd>A single buffered offence in <a href="struct.OffenceSendQueue.html" title="struct yet_another_parachain_runtime::pallet_staking_async_ah_client::OffenceSendQueue"><code>OffenceSendQueue</code></a>.</dd><dt><a class="type" href="type.QueuedOffencePageOf.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::QueuedOffencePageOf">Queued<wbr>Offence<wbr>Page<wbr>Of</a></dt><dd>A page of buffered offences in <a href="struct.OffenceSendQueue.html" title="struct yet_another_parachain_runtime::pallet_staking_async_ah_client::OffenceSendQueue"><code>OffenceSendQueue</code></a>.</dd><dt><a class="type" href="type.ValidatorPoints.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::ValidatorPoints">Validator<wbr>Points</a></dt><dd>All of the points of the validators.</dd><dt><a class="type" href="type.ValidatorSet.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::ValidatorSet">Validator<wbr>Set</a></dt><dd>The queued validator sets for a given planning session index.</dd><dt><a class="type" href="type.ValidatorSetAppliedAt.html" title="type yet_another_parachain_runtime::pallet_staking_async_ah_client::ValidatorSetAppliedAt">Validator<wbr>SetApplied<wbr>At</a></dt><dd>The session index at which the latest elected validator set was applied.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

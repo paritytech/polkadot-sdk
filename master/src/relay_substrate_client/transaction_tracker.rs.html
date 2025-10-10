@@ -1,0 +1,626 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/client-substrate/src/transaction_tracker.rs`."><title>transaction_tracker.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="relay_substrate_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">relay_substrate_client/</div>transaction_tracker.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+<a href=#2 id=2 data-nosnippet>2</a>// This file is part of Parity Bridges Common.
+<a href=#3 id=3 data-nosnippet>3</a>
+<a href=#4 id=4 data-nosnippet>4</a>// Parity Bridges Common is free software: you can redistribute it and/or modify
+<a href=#5 id=5 data-nosnippet>5</a>// it under the terms of the GNU General Public License as published by
+<a href=#6 id=6 data-nosnippet>6</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#7 id=7 data-nosnippet>7</a>// (at your option) any later version.
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a>// Parity Bridges Common is distributed in the hope that it will be useful,
+<a href=#10 id=10 data-nosnippet>10</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#11 id=11 data-nosnippet>11</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<a href=#12 id=12 data-nosnippet>12</a>// GNU General Public License for more details.
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a>// You should have received a copy of the GNU General Public License
+<a href=#15 id=15 data-nosnippet>15</a>// along with Parity Bridges Common.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="doccomment">//! Helper for tracking transaction invalidation events.
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">use crate</span>::{Chain, Error, HashOf, HeaderIdOf, Subscription, TransactionStatusOf};
+<a href=#20 id=20 data-nosnippet>20</a>
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>async_trait::async_trait;
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>futures::{future::Either, Future, FutureExt, Stream, StreamExt};
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>relay_utils::{HeaderId, TrackedTransactionStatus};
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>sp_runtime::traits::Header <span class="kw">as _</span>;
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>std::time::Duration;
+<a href=#26 id=26 data-nosnippet>26</a>
+<a href=#27 id=27 data-nosnippet>27</a><span class="doccomment">/// Transaction tracker environment.
+<a href=#28 id=28 data-nosnippet>28</a></span><span class="attr">#[async_trait]
+<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">pub trait </span>Environment&lt;C: Chain&gt;: Send + Sync {
+<a href=#30 id=30 data-nosnippet>30</a>	<span class="doccomment">/// Returns header id by its hash.
+<a href=#31 id=31 data-nosnippet>31</a>	</span><span class="kw">async fn </span>header_id_by_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: HashOf&lt;C&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;C&gt;, Error&gt;;
+<a href=#32 id=32 data-nosnippet>32</a>}
+<a href=#33 id=33 data-nosnippet>33</a>
+<a href=#34 id=34 data-nosnippet>34</a><span class="comment">// TODO (https://github.com/paritytech/parity-bridges-common/issues/2133): remove `Environment` trait
+<a href=#35 id=35 data-nosnippet>35</a>// after test client is implemented
+<a href=#36 id=36 data-nosnippet>36</a></span><span class="attr">#[async_trait]
+<a href=#37 id=37 data-nosnippet>37</a></span><span class="kw">impl</span>&lt;C: Chain, T: <span class="kw">crate</span>::client::Client&lt;C&gt;&gt; Environment&lt;C&gt; <span class="kw">for </span>T {
+<a href=#38 id=38 data-nosnippet>38</a>	<span class="kw">async fn </span>header_id_by_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: HashOf&lt;C&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;C&gt;, Error&gt; {
+<a href=#39 id=39 data-nosnippet>39</a>		<span class="self">self</span>.header_by_hash(hash).<span class="kw">await</span>.map(|h| HeaderId(<span class="kw-2">*</span>h.number(), hash))
+<a href=#40 id=40 data-nosnippet>40</a>	}
+<a href=#41 id=41 data-nosnippet>41</a>}
+<a href=#42 id=42 data-nosnippet>42</a>
+<a href=#43 id=43 data-nosnippet>43</a><span class="doccomment">/// Substrate transaction tracker implementation.
+<a href=#44 id=44 data-nosnippet>44</a>///
+<a href=#45 id=45 data-nosnippet>45</a>/// Substrate node provides RPC API to submit and watch for transaction events. This way
+<a href=#46 id=46 data-nosnippet>46</a>/// we may know when transaction is included into block, finalized or rejected. There are
+<a href=#47 id=47 data-nosnippet>47</a>/// some edge cases, when we can't fully trust this mechanism - e.g. transaction may broadcasted
+<a href=#48 id=48 data-nosnippet>48</a>/// and then dropped out of node transaction pool (some other cases are also possible - node
+<a href=#49 id=49 data-nosnippet>49</a>/// restarts, connection lost, ...). Then we can't know for sure - what is currently happening
+<a href=#50 id=50 data-nosnippet>50</a>/// with our transaction. Is the transaction really lost? Is it still alive on the chain network?
+<a href=#51 id=51 data-nosnippet>51</a>///
+<a href=#52 id=52 data-nosnippet>52</a>/// We have several options to handle such cases:
+<a href=#53 id=53 data-nosnippet>53</a>///
+<a href=#54 id=54 data-nosnippet>54</a>/// 1) hope that the transaction is still alive and wait for its mining until it is spoiled;
+<a href=#55 id=55 data-nosnippet>55</a>///
+<a href=#56 id=56 data-nosnippet>56</a>/// 2) assume that the transaction is lost and resubmit another transaction instantly;
+<a href=#57 id=57 data-nosnippet>57</a>///
+<a href=#58 id=58 data-nosnippet>58</a>/// 3) wait for some time (if transaction is mortal - then until block where it dies; if it is
+<a href=#59 id=59 data-nosnippet>59</a>///    immortal - then for some time that we assume is long enough to mine it) and assume that it is
+<a href=#60 id=60 data-nosnippet>60</a>///    lost.
+<a href=#61 id=61 data-nosnippet>61</a>///
+<a href=#62 id=62 data-nosnippet>62</a>/// This struct implements third option as it seems to be the most optimal.
+<a href=#63 id=63 data-nosnippet>63</a></span><span class="kw">pub struct </span>TransactionTracker&lt;C: Chain, E&gt; {
+<a href=#64 id=64 data-nosnippet>64</a>	environment: E,
+<a href=#65 id=65 data-nosnippet>65</a>	transaction_hash: HashOf&lt;C&gt;,
+<a href=#66 id=66 data-nosnippet>66</a>	stall_timeout: Duration,
+<a href=#67 id=67 data-nosnippet>67</a>	subscription: Subscription&lt;TransactionStatusOf&lt;C&gt;&gt;,
+<a href=#68 id=68 data-nosnippet>68</a>}
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a><span class="kw">impl</span>&lt;C: Chain, E: Environment&lt;C&gt;&gt; TransactionTracker&lt;C, E&gt; {
+<a href=#71 id=71 data-nosnippet>71</a>	<span class="doccomment">/// Create transaction tracker.
+<a href=#72 id=72 data-nosnippet>72</a>	</span><span class="kw">pub fn </span>new(
+<a href=#73 id=73 data-nosnippet>73</a>		environment: E,
+<a href=#74 id=74 data-nosnippet>74</a>		stall_timeout: Duration,
+<a href=#75 id=75 data-nosnippet>75</a>		transaction_hash: HashOf&lt;C&gt;,
+<a href=#76 id=76 data-nosnippet>76</a>		subscription: Subscription&lt;TransactionStatusOf&lt;C&gt;&gt;,
+<a href=#77 id=77 data-nosnippet>77</a>	) -&gt; <span class="self">Self </span>{
+<a href=#78 id=78 data-nosnippet>78</a>		<span class="self">Self </span>{ environment, stall_timeout, transaction_hash, subscription }
+<a href=#79 id=79 data-nosnippet>79</a>	}
+<a href=#80 id=80 data-nosnippet>80</a>
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="comment">// TODO (https://github.com/paritytech/parity-bridges-common/issues/2133): remove me after
+<a href=#82 id=82 data-nosnippet>82</a>	// test client is implemented
+<a href=#83 id=83 data-nosnippet>83</a>	</span><span class="doccomment">/// Converts self into tracker with different environment.
+<a href=#84 id=84 data-nosnippet>84</a>	</span><span class="kw">pub fn </span>switch_environment&lt;NewE: Environment&lt;C&gt;&gt;(
+<a href=#85 id=85 data-nosnippet>85</a>		<span class="self">self</span>,
+<a href=#86 id=86 data-nosnippet>86</a>		environment: NewE,
+<a href=#87 id=87 data-nosnippet>87</a>	) -&gt; TransactionTracker&lt;C, NewE&gt; {
+<a href=#88 id=88 data-nosnippet>88</a>		TransactionTracker {
+<a href=#89 id=89 data-nosnippet>89</a>			environment,
+<a href=#90 id=90 data-nosnippet>90</a>			stall_timeout: <span class="self">self</span>.stall_timeout,
+<a href=#91 id=91 data-nosnippet>91</a>			transaction_hash: <span class="self">self</span>.transaction_hash,
+<a href=#92 id=92 data-nosnippet>92</a>			subscription: <span class="self">self</span>.subscription,
+<a href=#93 id=93 data-nosnippet>93</a>		}
+<a href=#94 id=94 data-nosnippet>94</a>	}
+<a href=#95 id=95 data-nosnippet>95</a>
+<a href=#96 id=96 data-nosnippet>96</a>	<span class="doccomment">/// Wait for final transaction status and return it along with last known internal invalidation
+<a href=#97 id=97 data-nosnippet>97</a>	/// status.
+<a href=#98 id=98 data-nosnippet>98</a>	</span><span class="kw">async fn </span>do_wait(
+<a href=#99 id=99 data-nosnippet>99</a>		<span class="self">self</span>,
+<a href=#100 id=100 data-nosnippet>100</a>		wait_for_stall_timeout: <span class="kw">impl </span>Future&lt;Output = ()&gt;,
+<a href=#101 id=101 data-nosnippet>101</a>		wait_for_stall_timeout_rest: <span class="kw">impl </span>Future&lt;Output = ()&gt;,
+<a href=#102 id=102 data-nosnippet>102</a>	) -&gt; (TrackedTransactionStatus&lt;HeaderIdOf&lt;C&gt;&gt;, <span class="prelude-ty">Option</span>&lt;InvalidationStatus&lt;HeaderIdOf&lt;C&gt;&gt;&gt;) {
+<a href=#103 id=103 data-nosnippet>103</a>		<span class="comment">// sometimes we want to wait for the rest of the stall timeout even if
+<a href=#104 id=104 data-nosnippet>104</a>		// `wait_for_invalidation` has been "select"ed first =&gt; it is shared
+<a href=#105 id=105 data-nosnippet>105</a>		</span><span class="kw">let </span>wait_for_invalidation = watch_transaction_status::&lt;<span class="kw">_</span>, C, <span class="kw">_</span>&gt;(
+<a href=#106 id=106 data-nosnippet>106</a>			<span class="self">self</span>.environment,
+<a href=#107 id=107 data-nosnippet>107</a>			<span class="self">self</span>.transaction_hash,
+<a href=#108 id=108 data-nosnippet>108</a>			<span class="self">self</span>.subscription,
+<a href=#109 id=109 data-nosnippet>109</a>		);
+<a href=#110 id=110 data-nosnippet>110</a>		<span class="macro">futures::pin_mut!</span>(wait_for_stall_timeout, wait_for_invalidation);
+<a href=#111 id=111 data-nosnippet>111</a>
+<a href=#112 id=112 data-nosnippet>112</a>		<span class="kw">match </span>futures::future::select(wait_for_stall_timeout, wait_for_invalidation).<span class="kw">await </span>{
+<a href=#113 id=113 data-nosnippet>113</a>			Either::Left((<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {
+<a href=#114 id=114 data-nosnippet>114</a>				<span class="macro">log::trace!</span>(
+<a href=#115 id=115 data-nosnippet>115</a>					target: <span class="string">"bridge"</span>,
+<a href=#116 id=116 data-nosnippet>116</a>					<span class="string">"{} transaction {:?} is considered lost after timeout (no status response from the node)"</span>,
+<a href=#117 id=117 data-nosnippet>117</a>					C::NAME,
+<a href=#118 id=118 data-nosnippet>118</a>					<span class="self">self</span>.transaction_hash,
+<a href=#119 id=119 data-nosnippet>119</a>				);
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a>				(TrackedTransactionStatus::Lost, <span class="prelude-val">None</span>)
+<a href=#122 id=122 data-nosnippet>122</a>			},
+<a href=#123 id=123 data-nosnippet>123</a>			Either::Right((invalidation_status, <span class="kw">_</span>)) =&gt; <span class="kw">match </span>invalidation_status {
+<a href=#124 id=124 data-nosnippet>124</a>				InvalidationStatus::Finalized(at_block) =&gt;
+<a href=#125 id=125 data-nosnippet>125</a>					(TrackedTransactionStatus::Finalized(at_block), <span class="prelude-val">Some</span>(invalidation_status)),
+<a href=#126 id=126 data-nosnippet>126</a>				InvalidationStatus::Invalid =&gt;
+<a href=#127 id=127 data-nosnippet>127</a>					(TrackedTransactionStatus::Lost, <span class="prelude-val">Some</span>(invalidation_status)),
+<a href=#128 id=128 data-nosnippet>128</a>				InvalidationStatus::Lost =&gt; {
+<a href=#129 id=129 data-nosnippet>129</a>					<span class="comment">// wait for the rest of stall timeout - this way we'll be sure that the
+<a href=#130 id=130 data-nosnippet>130</a>					// transaction is actually dead if it has been crafted properly
+<a href=#131 id=131 data-nosnippet>131</a>					</span>wait_for_stall_timeout_rest.<span class="kw">await</span>;
+<a href=#132 id=132 data-nosnippet>132</a>					<span class="comment">// if someone is still watching for our transaction, then we're reporting
+<a href=#133 id=133 data-nosnippet>133</a>					// an error here (which is treated as "transaction lost")
+<a href=#134 id=134 data-nosnippet>134</a>					</span><span class="macro">log::trace!</span>(
+<a href=#135 id=135 data-nosnippet>135</a>						target: <span class="string">"bridge"</span>,
+<a href=#136 id=136 data-nosnippet>136</a>						<span class="string">"{} transaction {:?} is considered lost after timeout"</span>,
+<a href=#137 id=137 data-nosnippet>137</a>						C::NAME,
+<a href=#138 id=138 data-nosnippet>138</a>						<span class="self">self</span>.transaction_hash,
+<a href=#139 id=139 data-nosnippet>139</a>					);
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a>					(TrackedTransactionStatus::Lost, <span class="prelude-val">Some</span>(invalidation_status))
+<a href=#142 id=142 data-nosnippet>142</a>				},
+<a href=#143 id=143 data-nosnippet>143</a>			},
+<a href=#144 id=144 data-nosnippet>144</a>		}
+<a href=#145 id=145 data-nosnippet>145</a>	}
+<a href=#146 id=146 data-nosnippet>146</a>}
+<a href=#147 id=147 data-nosnippet>147</a>
+<a href=#148 id=148 data-nosnippet>148</a><span class="attr">#[async_trait]
+<a href=#149 id=149 data-nosnippet>149</a></span><span class="kw">impl</span>&lt;C: Chain, E: Environment&lt;C&gt;&gt; relay_utils::TransactionTracker <span class="kw">for </span>TransactionTracker&lt;C, E&gt; {
+<a href=#150 id=150 data-nosnippet>150</a>	<span class="kw">type </span>HeaderId = HeaderIdOf&lt;C&gt;;
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a>	<span class="kw">async fn </span>wait(<span class="self">self</span>) -&gt; TrackedTransactionStatus&lt;HeaderIdOf&lt;C&gt;&gt; {
+<a href=#153 id=153 data-nosnippet>153</a>		<span class="kw">let </span>wait_for_stall_timeout = async_std::task::sleep(<span class="self">self</span>.stall_timeout).shared();
+<a href=#154 id=154 data-nosnippet>154</a>		<span class="kw">let </span>wait_for_stall_timeout_rest = wait_for_stall_timeout.clone();
+<a href=#155 id=155 data-nosnippet>155</a>		<span class="self">self</span>.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest).<span class="kw">await</span>.<span class="number">0
+<a href=#156 id=156 data-nosnippet>156</a>	</span>}
+<a href=#157 id=157 data-nosnippet>157</a>}
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a><span class="doccomment">/// Transaction invalidation status.
+<a href=#160 id=160 data-nosnippet>160</a>///
+<a href=#161 id=161 data-nosnippet>161</a>/// Note that in places where the `TransactionTracker` is used, the finalization event will be
+<a href=#162 id=162 data-nosnippet>162</a>/// ignored - relay loops are detecting the mining/finalization using their own
+<a href=#163 id=163 data-nosnippet>163</a>/// techniques. That's why we're using `InvalidationStatus` here.
+<a href=#164 id=164 data-nosnippet>164</a></span><span class="attr">#[derive(Debug, PartialEq)]
+<a href=#165 id=165 data-nosnippet>165</a></span><span class="kw">enum </span>InvalidationStatus&lt;BlockId&gt; {
+<a href=#166 id=166 data-nosnippet>166</a>	<span class="doccomment">/// Transaction has been included into block and finalized at given block.
+<a href=#167 id=167 data-nosnippet>167</a>	</span>Finalized(BlockId),
+<a href=#168 id=168 data-nosnippet>168</a>	<span class="doccomment">/// Transaction has been invalidated.
+<a href=#169 id=169 data-nosnippet>169</a>	</span>Invalid,
+<a href=#170 id=170 data-nosnippet>170</a>	<span class="doccomment">/// We have lost track of transaction status.
+<a href=#171 id=171 data-nosnippet>171</a>	</span>Lost,
+<a href=#172 id=172 data-nosnippet>172</a>}
+<a href=#173 id=173 data-nosnippet>173</a>
+<a href=#174 id=174 data-nosnippet>174</a><span class="doccomment">/// Watch for transaction status until transaction is finalized or we lose track of its status.
+<a href=#175 id=175 data-nosnippet>175</a></span><span class="kw">async fn </span>watch_transaction_status&lt;
+<a href=#176 id=176 data-nosnippet>176</a>	E: Environment&lt;C&gt;,
+<a href=#177 id=177 data-nosnippet>177</a>	C: Chain,
+<a href=#178 id=178 data-nosnippet>178</a>	S: Stream&lt;Item = TransactionStatusOf&lt;C&gt;&gt;,
+<a href=#179 id=179 data-nosnippet>179</a>&gt;(
+<a href=#180 id=180 data-nosnippet>180</a>	environment: E,
+<a href=#181 id=181 data-nosnippet>181</a>	transaction_hash: HashOf&lt;C&gt;,
+<a href=#182 id=182 data-nosnippet>182</a>	subscription: S,
+<a href=#183 id=183 data-nosnippet>183</a>) -&gt; InvalidationStatus&lt;HeaderIdOf&lt;C&gt;&gt; {
+<a href=#184 id=184 data-nosnippet>184</a>	<span class="macro">futures::pin_mut!</span>(subscription);
+<a href=#185 id=185 data-nosnippet>185</a>
+<a href=#186 id=186 data-nosnippet>186</a>	<span class="kw">loop </span>{
+<a href=#187 id=187 data-nosnippet>187</a>		<span class="kw">match </span>subscription.next().<span class="kw">await </span>{
+<a href=#188 id=188 data-nosnippet>188</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Finalized((block_hash, <span class="kw">_</span>))) =&gt; {
+<a href=#189 id=189 data-nosnippet>189</a>				<span class="comment">// the only "successful" outcome of this method is when the block with transaction
+<a href=#190 id=190 data-nosnippet>190</a>				// has been finalized
+<a href=#191 id=191 data-nosnippet>191</a>				</span><span class="macro">log::trace!</span>(
+<a href=#192 id=192 data-nosnippet>192</a>					target: <span class="string">"bridge"</span>,
+<a href=#193 id=193 data-nosnippet>193</a>					<span class="string">"{} transaction {:?} has been finalized at block: {:?}"</span>,
+<a href=#194 id=194 data-nosnippet>194</a>					C::NAME,
+<a href=#195 id=195 data-nosnippet>195</a>					transaction_hash,
+<a href=#196 id=196 data-nosnippet>196</a>					block_hash,
+<a href=#197 id=197 data-nosnippet>197</a>				);
+<a href=#198 id=198 data-nosnippet>198</a>
+<a href=#199 id=199 data-nosnippet>199</a>				<span class="kw">let </span>header_id = <span class="kw">match </span>environment.header_id_by_hash(block_hash).<span class="kw">await </span>{
+<a href=#200 id=200 data-nosnippet>200</a>					<span class="prelude-val">Ok</span>(header_id) =&gt; header_id,
+<a href=#201 id=201 data-nosnippet>201</a>					<span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#202 id=202 data-nosnippet>202</a>						<span class="macro">log::error!</span>(
+<a href=#203 id=203 data-nosnippet>203</a>							target: <span class="string">"bridge"</span>,
+<a href=#204 id=204 data-nosnippet>204</a>							<span class="string">"Failed to read header {:?} when watching for {} transaction {:?}: {:?}"</span>,
+<a href=#205 id=205 data-nosnippet>205</a>							block_hash,
+<a href=#206 id=206 data-nosnippet>206</a>							C::NAME,
+<a href=#207 id=207 data-nosnippet>207</a>							transaction_hash,
+<a href=#208 id=208 data-nosnippet>208</a>							e,
+<a href=#209 id=209 data-nosnippet>209</a>						);
+<a href=#210 id=210 data-nosnippet>210</a>						<span class="comment">// that's the best option we have here
+<a href=#211 id=211 data-nosnippet>211</a>						</span><span class="kw">return </span>InvalidationStatus::Lost
+<a href=#212 id=212 data-nosnippet>212</a>					},
+<a href=#213 id=213 data-nosnippet>213</a>				};
+<a href=#214 id=214 data-nosnippet>214</a>				<span class="kw">return </span>InvalidationStatus::Finalized(header_id)
+<a href=#215 id=215 data-nosnippet>215</a>			},
+<a href=#216 id=216 data-nosnippet>216</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Invalid) =&gt; {
+<a href=#217 id=217 data-nosnippet>217</a>				<span class="comment">// if node says that the transaction is invalid, there are still chances that
+<a href=#218 id=218 data-nosnippet>218</a>				// it is not actually invalid - e.g. if the block where transaction has been
+<a href=#219 id=219 data-nosnippet>219</a>				// revalidated is retracted and transaction (at some other node pool) becomes
+<a href=#220 id=220 data-nosnippet>220</a>				// valid again on other fork. But let's assume that the chances of this event
+<a href=#221 id=221 data-nosnippet>221</a>				// are almost zero - there's a lot of things that must happen for this to be the
+<a href=#222 id=222 data-nosnippet>222</a>				// case.
+<a href=#223 id=223 data-nosnippet>223</a>				</span><span class="macro">log::trace!</span>(
+<a href=#224 id=224 data-nosnippet>224</a>					target: <span class="string">"bridge"</span>,
+<a href=#225 id=225 data-nosnippet>225</a>					<span class="string">"{} transaction {:?} has been invalidated"</span>,
+<a href=#226 id=226 data-nosnippet>226</a>					C::NAME,
+<a href=#227 id=227 data-nosnippet>227</a>					transaction_hash,
+<a href=#228 id=228 data-nosnippet>228</a>				);
+<a href=#229 id=229 data-nosnippet>229</a>				<span class="kw">return </span>InvalidationStatus::Invalid
+<a href=#230 id=230 data-nosnippet>230</a>			},
+<a href=#231 id=231 data-nosnippet>231</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Future) |
+<a href=#232 id=232 data-nosnippet>232</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Ready) |
+<a href=#233 id=233 data-nosnippet>233</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Broadcast(<span class="kw">_</span>)) =&gt; {
+<a href=#234 id=234 data-nosnippet>234</a>				<span class="comment">// nothing important (for us) has happened
+<a href=#235 id=235 data-nosnippet>235</a>			</span>},
+<a href=#236 id=236 data-nosnippet>236</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::InBlock(block_hash)) =&gt; {
+<a href=#237 id=237 data-nosnippet>237</a>				<span class="comment">// TODO: read matching system event (ExtrinsicSuccess or ExtrinsicFailed), log it
+<a href=#238 id=238 data-nosnippet>238</a>				// here and use it later (on finality) for reporting invalid transaction
+<a href=#239 id=239 data-nosnippet>239</a>				// https://github.com/paritytech/parity-bridges-common/issues/1464
+<a href=#240 id=240 data-nosnippet>240</a>				</span><span class="macro">log::trace!</span>(
+<a href=#241 id=241 data-nosnippet>241</a>					target: <span class="string">"bridge"</span>,
+<a href=#242 id=242 data-nosnippet>242</a>					<span class="string">"{} transaction {:?} has been included in block: {:?}"</span>,
+<a href=#243 id=243 data-nosnippet>243</a>					C::NAME,
+<a href=#244 id=244 data-nosnippet>244</a>					transaction_hash,
+<a href=#245 id=245 data-nosnippet>245</a>					block_hash,
+<a href=#246 id=246 data-nosnippet>246</a>				);
+<a href=#247 id=247 data-nosnippet>247</a>			},
+<a href=#248 id=248 data-nosnippet>248</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Retracted(block_hash)) =&gt; {
+<a href=#249 id=249 data-nosnippet>249</a>				<span class="macro">log::trace!</span>(
+<a href=#250 id=250 data-nosnippet>250</a>					target: <span class="string">"bridge"</span>,
+<a href=#251 id=251 data-nosnippet>251</a>					<span class="string">"{} transaction {:?} at block {:?} has been retracted"</span>,
+<a href=#252 id=252 data-nosnippet>252</a>					C::NAME,
+<a href=#253 id=253 data-nosnippet>253</a>					transaction_hash,
+<a href=#254 id=254 data-nosnippet>254</a>					block_hash,
+<a href=#255 id=255 data-nosnippet>255</a>				);
+<a href=#256 id=256 data-nosnippet>256</a>			},
+<a href=#257 id=257 data-nosnippet>257</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::FinalityTimeout(block_hash)) =&gt; {
+<a href=#258 id=258 data-nosnippet>258</a>				<span class="comment">// finality is lagging? let's wait a bit more and report a stall
+<a href=#259 id=259 data-nosnippet>259</a>				</span><span class="macro">log::trace!</span>(
+<a href=#260 id=260 data-nosnippet>260</a>					target: <span class="string">"bridge"</span>,
+<a href=#261 id=261 data-nosnippet>261</a>					<span class="string">"{} transaction {:?} block {:?} has not been finalized for too long"</span>,
+<a href=#262 id=262 data-nosnippet>262</a>					C::NAME,
+<a href=#263 id=263 data-nosnippet>263</a>					transaction_hash,
+<a href=#264 id=264 data-nosnippet>264</a>					block_hash,
+<a href=#265 id=265 data-nosnippet>265</a>				);
+<a href=#266 id=266 data-nosnippet>266</a>				<span class="kw">return </span>InvalidationStatus::Lost
+<a href=#267 id=267 data-nosnippet>267</a>			},
+<a href=#268 id=268 data-nosnippet>268</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Usurped(new_transaction_hash)) =&gt; {
+<a href=#269 id=269 data-nosnippet>269</a>				<span class="comment">// this may be result of our transaction resubmitter work or some manual
+<a href=#270 id=270 data-nosnippet>270</a>				// intervention. In both cases - let's start stall timeout, because the meaning
+<a href=#271 id=271 data-nosnippet>271</a>				// of transaction may have changed
+<a href=#272 id=272 data-nosnippet>272</a>				</span><span class="macro">log::trace!</span>(
+<a href=#273 id=273 data-nosnippet>273</a>					target: <span class="string">"bridge"</span>,
+<a href=#274 id=274 data-nosnippet>274</a>					<span class="string">"{} transaction {:?} has been usurped by new transaction: {:?}"</span>,
+<a href=#275 id=275 data-nosnippet>275</a>					C::NAME,
+<a href=#276 id=276 data-nosnippet>276</a>					transaction_hash,
+<a href=#277 id=277 data-nosnippet>277</a>					new_transaction_hash,
+<a href=#278 id=278 data-nosnippet>278</a>				);
+<a href=#279 id=279 data-nosnippet>279</a>				<span class="kw">return </span>InvalidationStatus::Lost
+<a href=#280 id=280 data-nosnippet>280</a>			},
+<a href=#281 id=281 data-nosnippet>281</a>			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Dropped) =&gt; {
+<a href=#282 id=282 data-nosnippet>282</a>				<span class="comment">// the transaction has been removed from the pool because of its limits. Let's wait
+<a href=#283 id=283 data-nosnippet>283</a>				// a bit and report a stall
+<a href=#284 id=284 data-nosnippet>284</a>				</span><span class="macro">log::trace!</span>(
+<a href=#285 id=285 data-nosnippet>285</a>					target: <span class="string">"bridge"</span>,
+<a href=#286 id=286 data-nosnippet>286</a>					<span class="string">"{} transaction {:?} has been dropped from the pool"</span>,
+<a href=#287 id=287 data-nosnippet>287</a>					C::NAME,
+<a href=#288 id=288 data-nosnippet>288</a>					transaction_hash,
+<a href=#289 id=289 data-nosnippet>289</a>				);
+<a href=#290 id=290 data-nosnippet>290</a>				<span class="kw">return </span>InvalidationStatus::Lost
+<a href=#291 id=291 data-nosnippet>291</a>			},
+<a href=#292 id=292 data-nosnippet>292</a>			<span class="prelude-val">None </span>=&gt; {
+<a href=#293 id=293 data-nosnippet>293</a>				<span class="comment">// the status of transaction is unknown to us (the subscription has been closed?).
+<a href=#294 id=294 data-nosnippet>294</a>				// Let's wait a bit and report a stall
+<a href=#295 id=295 data-nosnippet>295</a>				</span><span class="kw">return </span>InvalidationStatus::Lost
+<a href=#296 id=296 data-nosnippet>296</a>			},
+<a href=#297 id=297 data-nosnippet>297</a>		}
+<a href=#298 id=298 data-nosnippet>298</a>	}
+<a href=#299 id=299 data-nosnippet>299</a>}
+<a href=#300 id=300 data-nosnippet>300</a>
+<a href=#301 id=301 data-nosnippet>301</a><span class="attr">#[cfg(test)]
+<a href=#302 id=302 data-nosnippet>302</a></span><span class="kw">mod </span>tests {
+<a href=#303 id=303 data-nosnippet>303</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#304 id=304 data-nosnippet>304</a>	<span class="kw">use crate</span>::{test_chain::TestChain, StreamDescription};
+<a href=#305 id=305 data-nosnippet>305</a>	<span class="kw">use </span>futures::{FutureExt, SinkExt};
+<a href=#306 id=306 data-nosnippet>306</a>	<span class="kw">use </span>sc_transaction_pool_api::TransactionStatus;
+<a href=#307 id=307 data-nosnippet>307</a>
+<a href=#308 id=308 data-nosnippet>308</a>	<span class="kw">struct </span>TestEnvironment(<span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;TestChain&gt;, Error&gt;);
+<a href=#309 id=309 data-nosnippet>309</a>
+<a href=#310 id=310 data-nosnippet>310</a>	<span class="attr">#[async_trait]
+<a href=#311 id=311 data-nosnippet>311</a>	</span><span class="kw">impl </span>Environment&lt;TestChain&gt; <span class="kw">for </span>TestEnvironment {
+<a href=#312 id=312 data-nosnippet>312</a>		<span class="kw">async fn </span>header_id_by_hash(
+<a href=#313 id=313 data-nosnippet>313</a>			<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#314 id=314 data-nosnippet>314</a>			_hash: HashOf&lt;TestChain&gt;,
+<a href=#315 id=315 data-nosnippet>315</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;TestChain&gt;, Error&gt; {
+<a href=#316 id=316 data-nosnippet>316</a>			<span class="self">self</span>.<span class="number">0</span>.as_ref().map_err(|<span class="kw">_</span>| Error::BridgePalletIsNotInitialized).cloned()
+<a href=#317 id=317 data-nosnippet>317</a>		}
+<a href=#318 id=318 data-nosnippet>318</a>	}
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a>	<span class="kw">async fn </span>on_transaction_status(
+<a href=#321 id=321 data-nosnippet>321</a>		status: TransactionStatus&lt;HashOf&lt;TestChain&gt;, HashOf&lt;TestChain&gt;&gt;,
+<a href=#322 id=322 data-nosnippet>322</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;(
+<a href=#323 id=323 data-nosnippet>323</a>		TrackedTransactionStatus&lt;HeaderIdOf&lt;TestChain&gt;&gt;,
+<a href=#324 id=324 data-nosnippet>324</a>		InvalidationStatus&lt;HeaderIdOf&lt;TestChain&gt;&gt;,
+<a href=#325 id=325 data-nosnippet>325</a>	)&gt; {
+<a href=#326 id=326 data-nosnippet>326</a>		<span class="kw">let </span>(<span class="kw-2">mut </span>sender, receiver) = futures::channel::mpsc::channel(<span class="number">1</span>);
+<a href=#327 id=327 data-nosnippet>327</a>		<span class="kw">let </span>tx_tracker = TransactionTracker::&lt;TestChain, TestEnvironment&gt;::new(
+<a href=#328 id=328 data-nosnippet>328</a>			TestEnvironment(<span class="prelude-val">Ok</span>(HeaderId(<span class="number">0</span>, Default::default()))),
+<a href=#329 id=329 data-nosnippet>329</a>			Duration::from_secs(<span class="number">0</span>),
+<a href=#330 id=330 data-nosnippet>330</a>			Default::default(),
+<a href=#331 id=331 data-nosnippet>331</a>			Subscription::new_forwarded(
+<a href=#332 id=332 data-nosnippet>332</a>				StreamDescription::new(<span class="string">"test"</span>.into(), <span class="string">"test"</span>.into()),
+<a href=#333 id=333 data-nosnippet>333</a>				receiver,
+<a href=#334 id=334 data-nosnippet>334</a>			),
+<a href=#335 id=335 data-nosnippet>335</a>		);
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>		<span class="comment">// we can't do `.now_or_never()` on `do_wait()` call, because `Subscription` has its own
+<a href=#338 id=338 data-nosnippet>338</a>		// background thread, which may cause additional async task switches =&gt; let's leave some
+<a href=#339 id=339 data-nosnippet>339</a>		// relatively small timeout here
+<a href=#340 id=340 data-nosnippet>340</a>		</span><span class="kw">let </span>wait_for_stall_timeout = async_std::task::sleep(std::time::Duration::from_millis(<span class="number">100</span>));
+<a href=#341 id=341 data-nosnippet>341</a>		<span class="kw">let </span>wait_for_stall_timeout_rest = futures::future::ready(());
+<a href=#342 id=342 data-nosnippet>342</a>		sender.send(<span class="prelude-val">Ok</span>(status)).<span class="kw">await</span>.unwrap();
+<a href=#343 id=343 data-nosnippet>343</a>
+<a href=#344 id=344 data-nosnippet>344</a>		<span class="kw">let </span>(ts, is) =
+<a href=#345 id=345 data-nosnippet>345</a>			tx_tracker.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest).<span class="kw">await</span>;
+<a href=#346 id=346 data-nosnippet>346</a>		is.map(|is| (ts, is))
+<a href=#347 id=347 data-nosnippet>347</a>	}
+<a href=#348 id=348 data-nosnippet>348</a>
+<a href=#349 id=349 data-nosnippet>349</a>	<span class="attr">#[async_std::test]
+<a href=#350 id=350 data-nosnippet>350</a>	</span><span class="kw">async fn </span>returns_finalized_on_finalized() {
+<a href=#351 id=351 data-nosnippet>351</a>		<span class="macro">assert_eq!</span>(
+<a href=#352 id=352 data-nosnippet>352</a>			on_transaction_status(TransactionStatus::Finalized(Default::default())).<span class="kw">await</span>,
+<a href=#353 id=353 data-nosnippet>353</a>			<span class="prelude-val">Some</span>((
+<a href=#354 id=354 data-nosnippet>354</a>				TrackedTransactionStatus::Finalized(Default::default()),
+<a href=#355 id=355 data-nosnippet>355</a>				InvalidationStatus::Finalized(Default::default())
+<a href=#356 id=356 data-nosnippet>356</a>			)),
+<a href=#357 id=357 data-nosnippet>357</a>		);
+<a href=#358 id=358 data-nosnippet>358</a>	}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a>	<span class="attr">#[async_std::test]
+<a href=#361 id=361 data-nosnippet>361</a>	</span><span class="kw">async fn </span>returns_lost_on_finalized_and_environment_error() {
+<a href=#362 id=362 data-nosnippet>362</a>		<span class="macro">assert_eq!</span>(
+<a href=#363 id=363 data-nosnippet>363</a>			watch_transaction_status::&lt;<span class="kw">_</span>, TestChain, <span class="kw">_</span>&gt;(
+<a href=#364 id=364 data-nosnippet>364</a>				TestEnvironment(<span class="prelude-val">Err</span>(Error::BridgePalletIsNotInitialized)),
+<a href=#365 id=365 data-nosnippet>365</a>				Default::default(),
+<a href=#366 id=366 data-nosnippet>366</a>				futures::stream::iter([TransactionStatus::Finalized(Default::default())])
+<a href=#367 id=367 data-nosnippet>367</a>			)
+<a href=#368 id=368 data-nosnippet>368</a>			.now_or_never(),
+<a href=#369 id=369 data-nosnippet>369</a>			<span class="prelude-val">Some</span>(InvalidationStatus::Lost),
+<a href=#370 id=370 data-nosnippet>370</a>		);
+<a href=#371 id=371 data-nosnippet>371</a>	}
+<a href=#372 id=372 data-nosnippet>372</a>
+<a href=#373 id=373 data-nosnippet>373</a>	<span class="attr">#[async_std::test]
+<a href=#374 id=374 data-nosnippet>374</a>	</span><span class="kw">async fn </span>returns_invalid_on_invalid() {
+<a href=#375 id=375 data-nosnippet>375</a>		<span class="macro">assert_eq!</span>(
+<a href=#376 id=376 data-nosnippet>376</a>			on_transaction_status(TransactionStatus::Invalid).<span class="kw">await</span>,
+<a href=#377 id=377 data-nosnippet>377</a>			<span class="prelude-val">Some</span>((TrackedTransactionStatus::Lost, InvalidationStatus::Invalid)),
+<a href=#378 id=378 data-nosnippet>378</a>		);
+<a href=#379 id=379 data-nosnippet>379</a>	}
+<a href=#380 id=380 data-nosnippet>380</a>
+<a href=#381 id=381 data-nosnippet>381</a>	<span class="attr">#[async_std::test]
+<a href=#382 id=382 data-nosnippet>382</a>	</span><span class="kw">async fn </span>waits_on_future() {
+<a href=#383 id=383 data-nosnippet>383</a>		<span class="macro">assert_eq!</span>(on_transaction_status(TransactionStatus::Future).<span class="kw">await</span>, <span class="prelude-val">None</span>,);
+<a href=#384 id=384 data-nosnippet>384</a>	}
+<a href=#385 id=385 data-nosnippet>385</a>
+<a href=#386 id=386 data-nosnippet>386</a>	<span class="attr">#[async_std::test]
+<a href=#387 id=387 data-nosnippet>387</a>	</span><span class="kw">async fn </span>waits_on_ready() {
+<a href=#388 id=388 data-nosnippet>388</a>		<span class="macro">assert_eq!</span>(on_transaction_status(TransactionStatus::Ready).<span class="kw">await</span>, <span class="prelude-val">None</span>,);
+<a href=#389 id=389 data-nosnippet>389</a>	}
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a>	<span class="attr">#[async_std::test]
+<a href=#392 id=392 data-nosnippet>392</a>	</span><span class="kw">async fn </span>waits_on_broadcast() {
+<a href=#393 id=393 data-nosnippet>393</a>		<span class="macro">assert_eq!</span>(
+<a href=#394 id=394 data-nosnippet>394</a>			on_transaction_status(TransactionStatus::Broadcast(Default::default())).<span class="kw">await</span>,
+<a href=#395 id=395 data-nosnippet>395</a>			<span class="prelude-val">None</span>,
+<a href=#396 id=396 data-nosnippet>396</a>		);
+<a href=#397 id=397 data-nosnippet>397</a>	}
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a>	<span class="attr">#[async_std::test]
+<a href=#400 id=400 data-nosnippet>400</a>	</span><span class="kw">async fn </span>waits_on_in_block() {
+<a href=#401 id=401 data-nosnippet>401</a>		<span class="macro">assert_eq!</span>(
+<a href=#402 id=402 data-nosnippet>402</a>			on_transaction_status(TransactionStatus::InBlock(Default::default())).<span class="kw">await</span>,
+<a href=#403 id=403 data-nosnippet>403</a>			<span class="prelude-val">None</span>,
+<a href=#404 id=404 data-nosnippet>404</a>		);
+<a href=#405 id=405 data-nosnippet>405</a>	}
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a>	<span class="attr">#[async_std::test]
+<a href=#408 id=408 data-nosnippet>408</a>	</span><span class="kw">async fn </span>waits_on_retracted() {
+<a href=#409 id=409 data-nosnippet>409</a>		<span class="macro">assert_eq!</span>(
+<a href=#410 id=410 data-nosnippet>410</a>			on_transaction_status(TransactionStatus::Retracted(Default::default())).<span class="kw">await</span>,
+<a href=#411 id=411 data-nosnippet>411</a>			<span class="prelude-val">None</span>,
+<a href=#412 id=412 data-nosnippet>412</a>		);
+<a href=#413 id=413 data-nosnippet>413</a>	}
+<a href=#414 id=414 data-nosnippet>414</a>
+<a href=#415 id=415 data-nosnippet>415</a>	<span class="attr">#[async_std::test]
+<a href=#416 id=416 data-nosnippet>416</a>	</span><span class="kw">async fn </span>lost_on_finality_timeout() {
+<a href=#417 id=417 data-nosnippet>417</a>		<span class="macro">assert_eq!</span>(
+<a href=#418 id=418 data-nosnippet>418</a>			on_transaction_status(TransactionStatus::FinalityTimeout(Default::default())).<span class="kw">await</span>,
+<a href=#419 id=419 data-nosnippet>419</a>			<span class="prelude-val">Some</span>((TrackedTransactionStatus::Lost, InvalidationStatus::Lost)),
+<a href=#420 id=420 data-nosnippet>420</a>		);
+<a href=#421 id=421 data-nosnippet>421</a>	}
+<a href=#422 id=422 data-nosnippet>422</a>
+<a href=#423 id=423 data-nosnippet>423</a>	<span class="attr">#[async_std::test]
+<a href=#424 id=424 data-nosnippet>424</a>	</span><span class="kw">async fn </span>lost_on_usurped() {
+<a href=#425 id=425 data-nosnippet>425</a>		<span class="macro">assert_eq!</span>(
+<a href=#426 id=426 data-nosnippet>426</a>			on_transaction_status(TransactionStatus::Usurped(Default::default())).<span class="kw">await</span>,
+<a href=#427 id=427 data-nosnippet>427</a>			<span class="prelude-val">Some</span>((TrackedTransactionStatus::Lost, InvalidationStatus::Lost)),
+<a href=#428 id=428 data-nosnippet>428</a>		);
+<a href=#429 id=429 data-nosnippet>429</a>	}
+<a href=#430 id=430 data-nosnippet>430</a>
+<a href=#431 id=431 data-nosnippet>431</a>	<span class="attr">#[async_std::test]
+<a href=#432 id=432 data-nosnippet>432</a>	</span><span class="kw">async fn </span>lost_on_dropped() {
+<a href=#433 id=433 data-nosnippet>433</a>		<span class="macro">assert_eq!</span>(
+<a href=#434 id=434 data-nosnippet>434</a>			on_transaction_status(TransactionStatus::Dropped).<span class="kw">await</span>,
+<a href=#435 id=435 data-nosnippet>435</a>			<span class="prelude-val">Some</span>((TrackedTransactionStatus::Lost, InvalidationStatus::Lost)),
+<a href=#436 id=436 data-nosnippet>436</a>		);
+<a href=#437 id=437 data-nosnippet>437</a>	}
+<a href=#438 id=438 data-nosnippet>438</a>
+<a href=#439 id=439 data-nosnippet>439</a>	<span class="attr">#[async_std::test]
+<a href=#440 id=440 data-nosnippet>440</a>	</span><span class="kw">async fn </span>lost_on_subscription_error() {
+<a href=#441 id=441 data-nosnippet>441</a>		<span class="macro">assert_eq!</span>(
+<a href=#442 id=442 data-nosnippet>442</a>			watch_transaction_status::&lt;<span class="kw">_</span>, TestChain, <span class="kw">_</span>&gt;(
+<a href=#443 id=443 data-nosnippet>443</a>				TestEnvironment(<span class="prelude-val">Ok</span>(HeaderId(<span class="number">0</span>, Default::default()))),
+<a href=#444 id=444 data-nosnippet>444</a>				Default::default(),
+<a href=#445 id=445 data-nosnippet>445</a>				futures::stream::iter([])
+<a href=#446 id=446 data-nosnippet>446</a>			)
+<a href=#447 id=447 data-nosnippet>447</a>			.now_or_never(),
+<a href=#448 id=448 data-nosnippet>448</a>			<span class="prelude-val">Some</span>(InvalidationStatus::Lost),
+<a href=#449 id=449 data-nosnippet>449</a>		);
+<a href=#450 id=450 data-nosnippet>450</a>	}
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>	<span class="attr">#[async_std::test]
+<a href=#453 id=453 data-nosnippet>453</a>	</span><span class="kw">async fn </span>lost_on_timeout_when_waiting_for_invalidation_status() {
+<a href=#454 id=454 data-nosnippet>454</a>		<span class="kw">let </span>(_sender, receiver) = futures::channel::mpsc::channel(<span class="number">1</span>);
+<a href=#455 id=455 data-nosnippet>455</a>		<span class="kw">let </span>tx_tracker = TransactionTracker::&lt;TestChain, TestEnvironment&gt;::new(
+<a href=#456 id=456 data-nosnippet>456</a>			TestEnvironment(<span class="prelude-val">Ok</span>(HeaderId(<span class="number">0</span>, Default::default()))),
+<a href=#457 id=457 data-nosnippet>457</a>			Duration::from_secs(<span class="number">0</span>),
+<a href=#458 id=458 data-nosnippet>458</a>			Default::default(),
+<a href=#459 id=459 data-nosnippet>459</a>			Subscription::new_forwarded(
+<a href=#460 id=460 data-nosnippet>460</a>				StreamDescription::new(<span class="string">"test"</span>.into(), <span class="string">"test"</span>.into()),
+<a href=#461 id=461 data-nosnippet>461</a>				receiver,
+<a href=#462 id=462 data-nosnippet>462</a>			),
+<a href=#463 id=463 data-nosnippet>463</a>		);
+<a href=#464 id=464 data-nosnippet>464</a>
+<a href=#465 id=465 data-nosnippet>465</a>		<span class="kw">let </span>wait_for_stall_timeout = futures::future::ready(()).shared();
+<a href=#466 id=466 data-nosnippet>466</a>		<span class="kw">let </span>wait_for_stall_timeout_rest = wait_for_stall_timeout.clone();
+<a href=#467 id=467 data-nosnippet>467</a>		<span class="kw">let </span>wait_result = tx_tracker
+<a href=#468 id=468 data-nosnippet>468</a>			.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest)
+<a href=#469 id=469 data-nosnippet>469</a>			.now_or_never();
+<a href=#470 id=470 data-nosnippet>470</a>
+<a href=#471 id=471 data-nosnippet>471</a>		<span class="macro">assert_eq!</span>(wait_result, <span class="prelude-val">Some</span>((TrackedTransactionStatus::Lost, <span class="prelude-val">None</span>)));
+<a href=#472 id=472 data-nosnippet>472</a>	}
+<a href=#473 id=473 data-nosnippet>473</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

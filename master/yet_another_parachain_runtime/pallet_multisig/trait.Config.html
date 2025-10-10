@@ -1,0 +1,210 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in yet_another_parachain_runtime::pallet_multisig - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Config</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.BlockNumberProvider" title="BlockNumberProvider">BlockNumberProvider</a></li><li><a href="#associatedtype.Currency" title="Currency">Currency</a></li><li><a href="#associatedtype.DepositBase" title="DepositBase">DepositBase</a></li><li><a href="#associatedtype.DepositFactor" title="DepositFactor">DepositFactor</a></li><li><a href="#associatedtype.MaxSignatories" title="MaxSignatories">MaxSignatories</a></li><li><a href="#associatedtype.RuntimeCall" title="RuntimeCall">RuntimeCall</a></li><li><a href="#associatedtype.RuntimeEvent" title="RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.WeightInfo" title="WeightInfo">WeightInfo</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>multisig</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">pallet_multisig</a></div><h1>Trait <span class="trait">Config</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_multisig/lib.rs.html#146-205">Source</a> </span></div><pre class="rust item-decl"><code>pub trait Config: <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a> + <a class="trait" href="../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a><div class="where">where
+    Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeEvent" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeEvent">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_multisig::Event">Event</a>&lt;Self&gt;&gt;,</div>{
+    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_multisig::Event">Event</a>&lt;Self&gt;&gt; + <a class="trait" href="../frame_support/pallet_prelude/trait.IsType.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::IsType">IsType</a>&lt;Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeEvent" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeEvent">RuntimeEvent</a>&gt;;
+    type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a>: <a class="trait" href="../bp_polkadot_core/trait.Parameter.html" title="trait yet_another_parachain_runtime::bp_polkadot_core::Parameter">Parameter</a> + <a class="trait" href="../emulated_integration_tests_common/macros/trait.Dispatchable.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Dispatchable">Dispatchable</a>&lt;RuntimeOrigin = Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>, PostInfo = <a class="struct" href="../frame_support/dispatch/struct.PostDispatchInfo.html" title="struct yet_another_parachain_runtime::frame_support::dispatch::PostDispatchInfo">PostDispatchInfo</a>&gt; + <a class="trait" href="../emulated_integration_tests_common/macros/trait.GetDispatchInfo.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::GetDispatchInfo">GetDispatchInfo</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="../frame_system/enum.Call.html" title="enum yet_another_parachain_runtime::frame_system::Call">Call</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: <a class="trait" href="../polkadot_sdk_frame/traits/trait.ReservableCurrency.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::traits::ReservableCurrency">ReservableCurrency</a>&lt;Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;;
+    type <a href="#associatedtype.DepositBase" class="associatedtype">DepositBase</a>: <a class="trait" href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type yet_another_parachain_runtime::pallet_multisig::Config::Currency">Currency</a> as <a class="trait" href="../emulated_integration_tests_common/macros/trait.Currency.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency">Currency</a>&lt;Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../emulated_integration_tests_common/macros/trait.Currency.html#associatedtype.Balance" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency::Balance">Balance</a>&gt;;
+    type <a href="#associatedtype.DepositFactor" class="associatedtype">DepositFactor</a>: <a class="trait" href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type yet_another_parachain_runtime::pallet_multisig::Config::Currency">Currency</a> as <a class="trait" href="../emulated_integration_tests_common/macros/trait.Currency.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency">Currency</a>&lt;Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../emulated_integration_tests_common/macros/trait.Currency.html#associatedtype.Balance" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency::Balance">Balance</a>&gt;;
+    type <a href="#associatedtype.MaxSignatories" class="associatedtype">MaxSignatories</a>: <a class="trait" href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_multisig::WeightInfo">WeightInfo</a>;
+    type <a href="#associatedtype.BlockNumberProvider" class="associatedtype">BlockNumberProvider</a>: <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_multisig/lib.rs.html#149">Source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_multisig::Event">Event</a>&lt;Self&gt;&gt; + <a class="trait" href="../frame_support/pallet_prelude/trait.IsType.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::IsType">IsType</a>&lt;Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeEvent" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeEvent">RuntimeEvent</a>&gt;</h4></section></summary><div class="docblock"><p>The overarching event type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RuntimeCall" class="method"><a class="src rightside" href="../../src/pallet_multisig/lib.rs.html#152-155">Source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a>: <a class="trait" href="../bp_polkadot_core/trait.Parameter.html" title="trait yet_another_parachain_runtime::bp_polkadot_core::Parameter">Parameter</a> + <a class="trait" href="../emulated_integration_tests_common/macros/trait.Dispatchable.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Dispatchable">Dispatchable</a>&lt;RuntimeOrigin = Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>, PostInfo = <a class="struct" href="../frame_support/dispatch/struct.PostDispatchInfo.html" title="struct yet_another_parachain_runtime::frame_support::dispatch::PostDispatchInfo">PostDispatchInfo</a>&gt; + <a class="trait" href="../emulated_integration_tests_common/macros/trait.GetDispatchInfo.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::GetDispatchInfo">GetDispatchInfo</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="../frame_system/enum.Call.html" title="enum yet_another_parachain_runtime::frame_system::Call">Call</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>The overarching call type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../src/pallet_multisig/lib.rs.html#158">Source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: <a class="trait" href="../polkadot_sdk_frame/traits/trait.ReservableCurrency.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::traits::ReservableCurrency">ReservableCurrency</a>&lt;Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>The currency mechanism.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DepositBase" class="method"><a class="src rightside" href="../../src/pallet_multisig/lib.rs.html#167">Source</a><h4 class="code-header">type <a href="#associatedtype.DepositBase" class="associatedtype">DepositBase</a>: <a class="trait" href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type yet_another_parachain_runtime::pallet_multisig::Config::Currency">Currency</a> as <a class="trait" href="../emulated_integration_tests_common/macros/trait.Currency.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency">Currency</a>&lt;Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../emulated_integration_tests_common/macros/trait.Currency.html#associatedtype.Balance" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency::Balance">Balance</a>&gt;</h4></section></summary><div class="docblock"><p>The base amount of currency needed to reserve for creating a multisig execution or to
+store a dispatch call for later.</p>
+<p>This is held for an additional storage item whose value size is
+<code>4 + sizeof((BlockNumber, Balance, AccountId))</code> bytes and whose key size is
+<code>32 + sizeof(AccountId)</code> bytes.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DepositFactor" class="method"><a class="src rightside" href="../../src/pallet_multisig/lib.rs.html#173">Source</a><h4 class="code-header">type <a href="#associatedtype.DepositFactor" class="associatedtype">DepositFactor</a>: <a class="trait" href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type yet_another_parachain_runtime::pallet_multisig::Config::Currency">Currency</a> as <a class="trait" href="../emulated_integration_tests_common/macros/trait.Currency.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency">Currency</a>&lt;Self::<a class="associatedtype" href="../frame_system/trait.Config.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_system::Config::AccountId">AccountId</a>&gt;&gt;::<a class="associatedtype" href="../emulated_integration_tests_common/macros/trait.Currency.html#associatedtype.Balance" title="type yet_another_parachain_runtime::emulated_integration_tests_common::macros::Currency::Balance">Balance</a>&gt;</h4></section></summary><div class="docblock"><p>The amount of currency needed per unit threshold when creating a multisig execution.</p>
+<p>This is held for adding 32 bytes more into a pre-existing storage value.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxSignatories" class="method"><a class="src rightside" href="../../src/pallet_multisig/lib.rs.html#177">Source</a><h4 class="code-header">type <a href="#associatedtype.MaxSignatories" class="associatedtype">MaxSignatories</a>: <a class="trait" href="../frame_election_provider_support/trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum amount of signatories allowed in the multisig.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_multisig/lib.rs.html#180">Source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_multisig::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>Weight information for extrinsics in this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BlockNumberProvider" class="method"><a class="src rightside" href="../../src/pallet_multisig/lib.rs.html#204">Source</a><h4 class="code-header">type <a href="#associatedtype.BlockNumberProvider" class="associatedtype">BlockNumberProvider</a>: <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a></h4></section></summary><div class="docblock"><p>Query the current block number.</p>
+<p>Must return monotonically increasing values when called from consecutive blocks.
+Can be configured to return either:</p>
+<ul>
+<li>the local block number of the runtime via <code>frame_system::Pallet</code></li>
+<li>a remote block number, eg from the relay chain through <code>RelaychainDataProvider</code></li>
+<li>an arbitrary value through a custom implementation of the trait</li>
+</ul>
+<p>There is currently no migration provided to “hot-swap” block number providers and it may
+result in undefined behavior when doing so. Parachains are therefore best off setting
+this to their local block number provider if they have the pallet already deployed.</p>
+<p>Suggested values:</p>
+<ul>
+<li>Solo- and Relay-chains: <code>frame_system::Pallet</code></li>
+<li>Parachains that may produce blocks sparingly or only when needed (on-demand):
+<ul>
+<li>already have the pallet deployed: <code>frame_system::Pallet</code></li>
+<li>are freshly deploying this pallet: <code>RelaychainDataProvider</code></li>
+</ul>
+</li>
+<li>Parachains with a reliably block production rate (PLO or bulk-coretime):
+<ul>
+<li>already have the pallet deployed: <code>frame_system::Pallet</code></li>
+<li>are freshly deploying this pallet: no strong recommendation. Both local and remote
+providers can be used. Relay provider can be a bit better in cases where the
+parachain is lagging its block production to avoid clock skew.</li>
+</ul>
+</li>
+</ul>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Config-for-Runtime" class="impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#803">Source</a><a href="#impl-Config-for-Runtime" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_multisig::Config">Config</a> for yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::<a class="struct" href="../polkadot_cli/service/rococo_runtime/struct.Runtime.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::Runtime">Runtime</a></h3></section></summary><div class="impl-items"><section id="associatedtype.RuntimeEvent-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#804">Source</a><a href="#associatedtype.RuntimeEvent-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a> = <a class="enum" href="../polkadot_cli/service/rococo_runtime/enum.RuntimeEvent.html" title="enum yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::RuntimeEvent">RuntimeEvent</a></h4></section><section id="associatedtype.RuntimeCall-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#805">Source</a><a href="#associatedtype.RuntimeCall-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a> = <a class="enum" href="../polkadot_cli/service/rococo_runtime/enum.RuntimeCall.html" title="enum yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::RuntimeCall">RuntimeCall</a></h4></section><section id="associatedtype.Currency-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#806">Source</a><a href="#associatedtype.Currency-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a> = <a class="struct" href="../emulated_integration_tests_common/macros/pallet_balances/struct.Pallet.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Pallet">Pallet</a>&lt;<a class="struct" href="../polkadot_cli/service/rococo_runtime/struct.Runtime.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::Runtime">Runtime</a>&gt;</h4></section><section id="associatedtype.DepositBase-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#807">Source</a><a href="#associatedtype.DepositBase-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.DepositBase" class="associatedtype">DepositBase</a> = <a class="struct" href="../polkadot_cli/service/rococo_runtime/struct.DepositBase.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::DepositBase">DepositBase</a></h4></section><section id="associatedtype.DepositFactor-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#808">Source</a><a href="#associatedtype.DepositFactor-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.DepositFactor" class="associatedtype">DepositFactor</a> = <a class="struct" href="../polkadot_cli/service/rococo_runtime/struct.DepositFactor.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::DepositFactor">DepositFactor</a></h4></section><section id="associatedtype.MaxSignatories-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#809">Source</a><a href="#associatedtype.MaxSignatories-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MaxSignatories" class="associatedtype">MaxSignatories</a> = <a class="struct" href="../polkadot_cli/service/rococo_runtime/struct.MaxSignatories.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::MaxSignatories">MaxSignatories</a></h4></section><section id="associatedtype.WeightInfo-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#810">Source</a><a href="#associatedtype.WeightInfo-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a> = WeightInfo&lt;<a class="struct" href="../polkadot_cli/service/rococo_runtime/struct.Runtime.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::Runtime">Runtime</a>&gt;</h4></section><section id="associatedtype.BlockNumberProvider-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/rococo_runtime/lib.rs.html#811">Source</a><a href="#associatedtype.BlockNumberProvider-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.BlockNumberProvider" class="associatedtype">BlockNumberProvider</a> = <a class="struct" href="../frame_system/struct.Pallet.html" title="struct yet_another_parachain_runtime::frame_system::Pallet">Pallet</a>&lt;<a class="struct" href="../polkadot_cli/service/rococo_runtime/struct.Runtime.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::rococo_runtime::Runtime">Runtime</a>&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Config-for-Runtime-1" class="impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1175">Source</a><a href="#impl-Config-for-Runtime-1" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_multisig::Config">Config</a> for yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::<a class="struct" href="../polkadot_cli/service/westend_runtime/struct.Runtime.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::Runtime">Runtime</a></h3></section></summary><div class="impl-items"><section id="associatedtype.RuntimeEvent-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1176">Source</a><a href="#associatedtype.RuntimeEvent-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a> = <a class="enum" href="../polkadot_cli/service/westend_runtime/enum.RuntimeEvent.html" title="enum yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::RuntimeEvent">RuntimeEvent</a></h4></section><section id="associatedtype.RuntimeCall-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1177">Source</a><a href="#associatedtype.RuntimeCall-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a> = <a class="enum" href="../polkadot_cli/service/westend_runtime/enum.RuntimeCall.html" title="enum yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::RuntimeCall">RuntimeCall</a></h4></section><section id="associatedtype.Currency-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1178">Source</a><a href="#associatedtype.Currency-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a> = <a class="struct" href="../emulated_integration_tests_common/macros/pallet_balances/struct.Pallet.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::macros::pallet_balances::Pallet">Pallet</a>&lt;<a class="struct" href="../polkadot_cli/service/westend_runtime/struct.Runtime.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::Runtime">Runtime</a>&gt;</h4></section><section id="associatedtype.DepositBase-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1179">Source</a><a href="#associatedtype.DepositBase-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.DepositBase" class="associatedtype">DepositBase</a> = <a class="struct" href="../polkadot_cli/service/westend_runtime/struct.DepositBase.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::DepositBase">DepositBase</a></h4></section><section id="associatedtype.DepositFactor-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1180">Source</a><a href="#associatedtype.DepositFactor-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.DepositFactor" class="associatedtype">DepositFactor</a> = <a class="struct" href="../polkadot_cli/service/westend_runtime/struct.DepositFactor.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::DepositFactor">DepositFactor</a></h4></section><section id="associatedtype.MaxSignatories-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1181">Source</a><a href="#associatedtype.MaxSignatories-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MaxSignatories" class="associatedtype">MaxSignatories</a> = <a class="struct" href="../polkadot_cli/service/westend_runtime/struct.MaxSignatories.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::MaxSignatories">MaxSignatories</a></h4></section><section id="associatedtype.WeightInfo-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1182">Source</a><a href="#associatedtype.WeightInfo-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a> = WeightInfo&lt;<a class="struct" href="../polkadot_cli/service/westend_runtime/struct.Runtime.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::Runtime">Runtime</a>&gt;</h4></section><section id="associatedtype.BlockNumberProvider-2" class="associatedtype trait-impl"><a class="src rightside" href="../../src/westend_runtime/lib.rs.html#1183">Source</a><a href="#associatedtype.BlockNumberProvider-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.BlockNumberProvider" class="associatedtype">BlockNumberProvider</a> = <a class="struct" href="../frame_system/struct.Pallet.html" title="struct yet_another_parachain_runtime::frame_system::Pallet">Pallet</a>&lt;<a class="struct" href="../polkadot_cli/service/westend_runtime/struct.Runtime.html" title="struct yet_another_parachain_runtime::polkadot_cli::service::westend_runtime::Runtime">Runtime</a>&gt;</h4></section></div></details></div><script src="../../trait.impl/pallet_multisig/pallet/trait.Config.js" data-ignore-extern-crates="westend_runtime,rococo_runtime" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

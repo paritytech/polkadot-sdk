@@ -1,0 +1,229 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="System Pallet"><title>frame_system - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_system/index.html">frame_<wbr>system</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#system-pallet" title="System Pallet">System Pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#interface" title="Interface">Interface</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>frame_system</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/frame_system/lib.rs.html#18-2608">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="system-pallet"><a class="doc-anchor" href="#system-pallet">§</a>System Pallet</h2>
+<p>The System pallet provides low-level access to core types and cross-cutting utilities. It acts
+as the base layer for other pallets to interact with the Substrate framework components.</p>
+<ul>
+<li><a href="pallet/trait.Config.html" title="trait frame_system::pallet::Config"><code>Config</code></a></li>
+</ul>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The System pallet defines the core data types used in a Substrate runtime. It also provides
+several utility functions (see <a href="pallet/struct.Pallet.html" title="struct frame_system::pallet::Pallet"><code>Pallet</code></a>) for other FRAME pallets.</p>
+<p>In addition, it manages the storage items for extrinsic data, indices, event records, and digest
+items, among other things that support the execution of the current block.</p>
+<p>It also handles low-level tasks like depositing logs, basic set up and take down of temporary
+storage entries, and access to previous block hashes.</p>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable Functions</h4>
+<p>The System pallet provides dispatchable functions that, with the exception of <code>remark</code>, manage
+low-level or privileged functionality of a Substrate-based runtime.</p>
+<ul>
+<li><code>remark</code>: Make some on-chain remark.</li>
+<li><code>set_heap_pages</code>: Set the number of pages in the WebAssembly environment’s heap.</li>
+<li><code>set_code</code>: Set the new runtime code.</li>
+<li><code>set_code_without_checks</code>: Set the new runtime code without any checks.</li>
+<li><code>set_storage</code>: Set some items of storage.</li>
+<li><code>kill_storage</code>: Kill some items from storage.</li>
+<li><code>kill_prefix</code>: Kill all storage items with a key that starts with the given prefix.</li>
+<li><code>remark_with_event</code>: Make some on-chain remark and emit an event.</li>
+<li><code>do_task</code>: Do some specified task.</li>
+<li><code>authorize_upgrade</code>: Authorize new runtime code.</li>
+<li><code>authorize_upgrade_without_checks</code>: Authorize new runtime code and an upgrade sans
+verification.</li>
+<li><code>apply_authorized_upgrade</code>: Provide new, already-authorized runtime code.</li>
+</ul>
+<h5 id="a-note-on-upgrades"><a class="doc-anchor" href="#a-note-on-upgrades">§</a>A Note on Upgrades</h5>
+<p>The pallet provides two primary means of upgrading the runtime, a single-phase means using
+<code>set_code</code> and a two-phase means using <code>authorize_upgrade</code> followed by
+<code>apply_authorized_upgrade</code>. The first will directly attempt to apply the provided <code>code</code>
+(application may have to be scheduled, depending on the context and implementation of the
+<code>OnSetCode</code> trait).</p>
+<p>The <code>authorize_upgrade</code> route allows the authorization of a runtime’s code hash. Once
+authorized, anyone may upload the correct runtime to apply the code. This pattern is useful when
+providing the runtime ahead of time may be unwieldy, for example when a large preimage (the
+code) would need to be stored on-chain or sent over a message transport protocol such as a
+bridge.</p>
+<p>The <code>*_without_checks</code> variants do not perform any version checks, so using them runs the risk
+of applying a downgrade or entirely other chain specification. They will still validate that the
+<code>code</code> meets the authorized hash.</p>
+<h4 id="public-functions"><a class="doc-anchor" href="#public-functions">§</a>Public Functions</h4>
+<p>See the <a href="pallet/struct.Pallet.html" title="struct frame_system::pallet::Pallet"><code>Pallet</code></a> struct for details of publicly available functions.</p>
+<h4 id="signed-extensions"><a class="doc-anchor" href="#signed-extensions">§</a>Signed Extensions</h4>
+<p>The System pallet defines the following extensions:</p>
+<ul>
+<li><a href="struct.CheckWeight.html" title="struct frame_system::CheckWeight"><code>CheckWeight</code></a>: Checks the weight and length of the block and ensure that it does not
+exceed the limits.</li>
+<li><a href="struct.CheckNonce.html" title="struct frame_system::CheckNonce"><code>CheckNonce</code></a>: Checks the nonce of the transaction. Contains a single payload of type
+<code>T::Nonce</code>.</li>
+<li><a href="struct.CheckMortality.html" title="struct frame_system::CheckMortality"><code>CheckEra</code></a>: Checks the era of the transaction. Contains a single payload of type <code>Era</code>.</li>
+<li><a href="struct.CheckGenesis.html" title="struct frame_system::CheckGenesis"><code>CheckGenesis</code></a>: Checks the provided genesis hash of the transaction. Must be a part of the
+signed payload of the transaction.</li>
+<li><a href="struct.CheckSpecVersion.html" title="struct frame_system::CheckSpecVersion"><code>CheckSpecVersion</code></a>: Checks that the runtime version is the same as the one used to sign
+the transaction.</li>
+<li><a href="struct.CheckTxVersion.html" title="struct frame_system::CheckTxVersion"><code>CheckTxVersion</code></a>: Checks that the transaction version is the same as the one used to sign
+the transaction.</li>
+</ul>
+<p>Look up the runtime aggregator file (e.g. <code>node/runtime</code>) to see the full list of signed
+extensions included in a chain.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait frame_system::weights::WeightInfo">WeightInfo</a>;</code></dt><dt><code>pub use <a class="mod" href="pallet/index.html" title="mod frame_system::pallet">pallet</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="limits/index.html" title="mod frame_system::limits">limits</a></dt><dd>Block resource limits configuration structures.</dd><dt><a class="mod" href="migrations/index.html" title="mod frame_system::migrations">migrations</a></dt><dd>Migrate the reference counting state.</dd><dt><a class="mod" href="mocking/index.html" title="mod frame_system::mocking">mocking</a></dt><dd>Provide types to help defining a mock environment when testing pallets.</dd><dt><a class="mod" href="offchain/index.html" title="mod frame_system::offchain">offchain</a></dt><dd>Module helpers for off-chain calls.</dd><dt><a class="mod" href="pallet/index.html" title="mod frame_system::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="pallet_prelude/index.html" title="mod frame_system::pallet_prelude">pallet_<wbr>prelude</a></dt><dd>Prelude to be used alongside pallet macro, for ease of use.</dd><dt><a class="mod" href="weights/index.html" title="mod frame_system::weights">weights</a></dt><dd>Autogenerated weights for <code>frame_system</code></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AccountInfo.html" title="struct frame_system::AccountInfo">Account<wbr>Info</a></dt><dd>Information of an account.</dd><dt><a class="struct" href="struct.AuthorizeCall.html" title="struct frame_system::AuthorizeCall">Authorize<wbr>Call</a></dt><dd>A transaction extension that authorizes some calls (i.e. dispatchable functions) to be
+included in the block.</dd><dt><a class="struct" href="struct.ChainContext.html" title="struct frame_system::ChainContext">Chain<wbr>Context</a></dt><dt><a class="struct" href="struct.CheckEra.html" title="struct frame_system::CheckEra">Check<wbr>Era</a></dt><dd>Check for transaction mortality.</dd><dt><a class="struct" href="struct.CheckGenesis.html" title="struct frame_system::CheckGenesis">Check<wbr>Genesis</a></dt><dd>Genesis hash check to provide replay protection between different networks.</dd><dt><a class="struct" href="struct.CheckMortality.html" title="struct frame_system::CheckMortality">Check<wbr>Mortality</a></dt><dd>Check for transaction mortality.</dd><dt><a class="struct" href="struct.CheckNonZeroSender.html" title="struct frame_system::CheckNonZeroSender">Check<wbr>NonZero<wbr>Sender</a></dt><dd>Check to ensure that the sender is not the zero address.</dd><dt><a class="struct" href="struct.CheckNonce.html" title="struct frame_system::CheckNonce">Check<wbr>Nonce</a></dt><dd>Nonce check and increment to give replay protection for transactions.</dd><dt><a class="struct" href="struct.CheckSpecVersion.html" title="struct frame_system::CheckSpecVersion">Check<wbr>Spec<wbr>Version</a></dt><dd>Ensure the runtime version registered in the transaction is the same as at present.</dd><dt><a class="struct" href="struct.CheckTxVersion.html" title="struct frame_system::CheckTxVersion">Check<wbr>TxVersion</a></dt><dd>Ensure the transaction version registered in the transaction is the same as at present.</dd><dt><a class="struct" href="struct.CheckWeight.html" title="struct frame_system::CheckWeight">Check<wbr>Weight</a></dt><dd>Block resource (weight) limit check.</dd><dt><a class="struct" href="struct.CodeUpgradeAuthorization.html" title="struct frame_system::CodeUpgradeAuthorization">Code<wbr>Upgrade<wbr>Authorization</a></dt><dd>Information needed when a new runtime binary is submitted and needs to be authorized before
+replacing the current runtime.</dd><dt><a class="struct" href="struct.Consumer.html" title="struct frame_system::Consumer">Consumer</a></dt><dd>Event handler which registers a consumer when created.</dd><dt><a class="struct" href="struct.DispatchEventInfo.html" title="struct frame_system::DispatchEventInfo">Dispatch<wbr>Event<wbr>Info</a></dt><dd>Information about the dispatch of a call, to be displayed in the
+<a href="pallet/enum.Event.html#variant.ExtrinsicSuccess" title="variant frame_system::pallet::Event::ExtrinsicSuccess"><code>ExtrinsicSuccess</code></a> and <a href="pallet/enum.Event.html#variant.ExtrinsicFailed" title="variant frame_system::pallet::Event::ExtrinsicFailed"><code>ExtrinsicFailed</code></a>
+events.</dd><dt><a class="struct" href="struct.EnsureNever.html" title="struct frame_system::EnsureNever">Ensure<wbr>Never</a></dt><dd>Always fail.</dd><dt><a class="struct" href="struct.EnsureNone.html" title="struct frame_system::EnsureNone">Ensure<wbr>None</a></dt><dd>Ensure the origin is <code>None</code>. i.e. unsigned transaction.</dd><dt><a class="struct" href="struct.EnsureRoot.html" title="struct frame_system::EnsureRoot">Ensure<wbr>Root</a></dt><dd>Ensure the origin is Root.</dd><dt><a class="struct" href="struct.EnsureRootWithSuccess.html" title="struct frame_system::EnsureRootWithSuccess">Ensure<wbr>Root<wbr>With<wbr>Success</a></dt><dd>Ensure the origin is Root and return the provided <code>Success</code> value.</dd><dt><a class="struct" href="struct.EnsureSigned.html" title="struct frame_system::EnsureSigned">Ensure<wbr>Signed</a></dt><dd>Ensure the origin is any <code>Signed</code> origin.</dd><dt><a class="struct" href="struct.EnsureSignedBy.html" title="struct frame_system::EnsureSignedBy">Ensure<wbr>Signed<wbr>By</a></dt><dd>Ensure the origin is <code>Signed</code> origin from the given <code>AccountId</code>.</dd><dt><a class="struct" href="struct.EnsureWithSuccess.html" title="struct frame_system::EnsureWithSuccess">Ensure<wbr>With<wbr>Success</a></dt><dd>Ensure the origin is provided <code>Ensure</code> origin and return the provided <code>Success</code> value.</dd><dt><a class="struct" href="struct.EventRecord.html" title="struct frame_system::EventRecord">Event<wbr>Record</a></dt><dd>Record of an event happening.</dd><dt><a class="struct" href="struct.LastRuntimeUpgradeInfo.html" title="struct frame_system::LastRuntimeUpgradeInfo">Last<wbr>Runtime<wbr>Upgrade<wbr>Info</a></dt><dd>Stores the <code>spec_version</code> and <code>spec_name</code> of when the last runtime upgrade
+happened.</dd><dt><a class="struct" href="struct.Provider.html" title="struct frame_system::Provider">Provider</a></dt><dd>Event handler which registers a provider when created.</dd><dt><a class="struct" href="struct.RunToBlockHooks.html" title="struct frame_system::RunToBlockHooks">RunTo<wbr>Block<wbr>Hooks</a></dt><dd>Hooks for the <a href="pallet/struct.Pallet.html#method.run_to_block_with" title="associated function frame_system::pallet::Pallet::run_to_block_with"><code>Pallet::run_to_block_with</code></a> function.</dd><dt><a class="struct" href="struct.SelfSufficient.html" title="struct frame_system::SelfSufficient">Self<wbr>Sufficient</a></dt><dd>Event handler which registers a self-sufficient when created.</dd><dt><a class="struct" href="struct.SubstrateExtensionsWeight.html" title="struct frame_system::SubstrateExtensionsWeight">Substrate<wbr>Extensions<wbr>Weight</a></dt><dd>Weights for <code>frame_system_extensions</code> using the Substrate node and recommended hardware.</dd><dt><a class="struct" href="struct.ValidNonceInfo.html" title="struct frame_system::ValidNonceInfo">Valid<wbr>Nonce<wbr>Info</a></dt><dd>For a valid transaction the provides and requires information related to the nonce.</dd><dt><a class="struct" href="struct.WeightReclaim.html" title="struct frame_system::WeightReclaim">Weight<wbr>Reclaim</a></dt><dd>Reclaim the unused weight using the post dispatch information</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.CanSetCodeResult.html" title="enum frame_system::CanSetCodeResult">CanSet<wbr>Code<wbr>Result</a></dt><dd>Result of <a href="pallet/struct.Pallet.html#method.can_set_code" title="associated function frame_system::pallet::Pallet::can_set_code"><code>Pallet::can_set_code</code></a>.</dd><dt><a class="enum" href="enum.DecRefStatus.html" title="enum frame_system::DecRefStatus">DecRef<wbr>Status</a></dt><dd>Some resultant status relevant to decrementing a provider/self-sufficient reference.</dd><dt><a class="enum" href="enum.IncRefStatus.html" title="enum frame_system::IncRefStatus">IncRef<wbr>Status</a></dt><dd>Some resultant status relevant to incrementing a provider/self-sufficient reference.</dd><dt><a class="enum" href="enum.Phase.html" title="enum frame_system::Phase">Phase</a></dt><dd>A phase of a block’s execution.</dd><dt><a class="enum" href="enum.RawOrigin.html" title="enum frame_system::RawOrigin">RawOrigin</a></dt><dd>Origin for the System pallet.</dd><dt><a class="enum" href="enum.RefStatus.html" title="enum frame_system::RefStatus">RefStatus</a></dt><dd>Reference status; can be either referenced or unreferenced.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.ConsumerLimits.html" title="trait frame_system::ConsumerLimits">Consumer<wbr>Limits</a></dt><dd>Numeric limits over the ability to add a consumer ref using <code>inc_consumers</code>.</dd><dt><a class="trait" href="trait.ExtensionsWeightInfo.html" title="trait frame_system::ExtensionsWeightInfo">Extensions<wbr>Weight<wbr>Info</a></dt><dd>Weight functions needed for <code>frame_system_extensions</code>.</dd><dt><a class="trait" href="trait.SetCode.html" title="trait frame_system::SetCode">SetCode</a></dt><dd>Do something when we should be setting the code.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.ensure_authorized.html" title="fn frame_system::ensure_authorized">ensure_<wbr>authorized</a></dt><dd>Ensure that the origin <code>o</code> represents an extrinsic with authorized call. Returns <code>Ok</code> or an
+<code>Err</code> otherwise.</dd><dt><a class="fn" href="fn.ensure_none.html" title="fn frame_system::ensure_none">ensure_<wbr>none</a></dt><dd>Ensure that the origin <code>o</code> represents an unsigned extrinsic. Returns <code>Ok</code> or an <code>Err</code> otherwise.</dd><dt><a class="fn" href="fn.ensure_root.html" title="fn frame_system::ensure_root">ensure_<wbr>root</a></dt><dd>Ensure that the origin <code>o</code> represents the root. Returns <code>Ok</code> or an <code>Err</code> otherwise.</dd><dt><a class="fn" href="fn.ensure_signed.html" title="fn frame_system::ensure_signed">ensure_<wbr>signed</a></dt><dd>Ensure that the origin <code>o</code> represents a signed extrinsic (i.e. transaction).
+Returns <code>Ok</code> with the account that signed the extrinsic or an <code>Err</code> otherwise.</dd><dt><a class="fn" href="fn.ensure_signed_or_root.html" title="fn frame_system::ensure_signed_or_root">ensure_<wbr>signed_<wbr>or_<wbr>root</a></dt><dd>Ensure that the origin <code>o</code> represents either a signed extrinsic (i.e. transaction) or the root.
+Returns <code>Ok</code> with the account that signed the extrinsic, <code>None</code> if it was root,  or an <code>Err</code>
+otherwise.</dd><dt><a class="fn" href="fn.extrinsics_data_root.html" title="fn frame_system::extrinsics_data_root">extrinsics_<wbr>data_<wbr>root</a></dt><dd>Compute the trie root of a list of extrinsics.</dd><dt><a class="fn" href="fn.extrinsics_root.html" title="fn frame_system::extrinsics_root">extrinsics_<wbr>root</a></dt><dd>Compute the trie root of a list of extrinsics.</dd><dt><a class="fn" href="fn.split_inner.html" title="fn frame_system::split_inner">split_<wbr>inner</a></dt><dd>Split an <code>option</code> into two constituent options, as defined by a <code>splitter</code> function.</dd><dt><a class="fn" href="fn.unique.html" title="fn frame_system::unique">unique</a></dt><dd>Returns a 32 byte datum which is guaranteed to be universally unique. <code>entropy</code> is provided
+as a facility to reduce the potential for precalculating results.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ConsumedWeight.html" title="type frame_system::ConsumedWeight">Consumed<wbr>Weight</a></dt><dd>An object to track the currently used extrinsic weight in a block.</dd><dt><a class="type" href="type.Key.html" title="type frame_system::Key">Key</a></dt><dt><a class="type" href="type.KeyValue.html" title="type frame_system::KeyValue">KeyValue</a></dt><dt><a class="type" href="type.RefCount.html" title="type frame_system::RefCount">RefCount</a></dt><dd>Type used to encode the number of references an account has.</dd></dl><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&<Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&mut <Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T, A> as IntoIterator>::IntoIter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoDeserializer<'de, E>>::Deserializer":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoParallelIterator>::Iter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

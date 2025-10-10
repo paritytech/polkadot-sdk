@@ -1,0 +1,218 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Macro Magic 🪄"><title>yet_another_parachain_runtime::frame_support::macro_magic - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#macro-magic-" title="Macro Magic 🪄">Macro Magic 🪄</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#no_std" title="no_std">no_std</a></li><li><a href="#features" title="Features">Features</a></li><li><a href="#limitations" title="Limitations">Limitations</a></li><li><a href="#breaking-changes" title="Breaking Changes">Breaking Changes</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">frame_support</a></div><h1>Crate <span>macro_magic</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="macro-magic-"><a class="doc-anchor" href="#macro-magic-">§</a>Macro Magic 🪄</h2>
+<p><img src="https://img.shields.io/github/actions/workflow/status/sam0x17/macro_magic/ci.yaml" alt="Build Status" />
+<img src="https://img.shields.io/github/license/sam0x17/macro_magic" alt="GitHub" />
+<img src="https://img.shields.io/crates/d/macro_magic" alt="Crates.io" />
+<img src="https://img.shields.io/docsrs/macro_magic?label=docs" alt="docs.rs" /></p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>This crate provides an <a href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens"><code>#[export_tokens]</code></a> attribute macro, and a number
+of companion macros, most prominently <a href="attr.import_tokens_proc.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_proc"><code>#[import_tokens_proc]</code></a> and
+<a href="attr.import_tokens_attr.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_attr"><code>#[import_tokens_attr]</code></a>, which, when used in tandem with
+<a href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens"><code>#[export_tokens]</code></a>, allow you to create regular and attribute proc
+macros in which you can import and make use of the tokens of external/foreign items marked
+with <a href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens"><code>#[export_tokens]</code></a> in other modules, files, and even in other
+crates merely by referring to them by name/path.</p>
+<p>Among other things, the patterns introduced by <code>macro_magic</code> can be used to implement safe
+and efficient exportation and importation of item tokens within the same file, and even
+across file and crate boundaries.</p>
+<h3 id="no_std"><a class="doc-anchor" href="#no_std">§</a>no_std</h3>
+<p><code>macro_magic</code> is designed to work with stable Rust, and is fully <code>no_std</code> compatible (in
+fact, there is a unit test to ensure everything is <code>no_std</code> safe).</p>
+<h3 id="features"><a class="doc-anchor" href="#features">§</a>Features</h3><h4 id="proc_support"><a class="doc-anchor" href="#proc_support">§</a>proc_support</h4>
+<p>The <code>proc_support</code> feature <em>must</em> be enabled in proc macro crates that make use of any
+import tokens functionality, including <a href="attr.import_tokens_attr.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_attr"><code>#[import_tokens_attr]</code></a>,
+<a href="attr.import_tokens_proc.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_proc"><code>#[import_tokens_proc]</code></a> and <a href="macro.import_tokens.html" title="macro yet_another_parachain_runtime::frame_support::macro_magic::import_tokens"><code>import_tokens!</code></a>. Otherwise these
+macros will not function correctly and will issue compiler errors complaining about items
+not existing under <a href="mm_core/index.html" title="mod yet_another_parachain_runtime::frame_support::macro_magic::mm_core"><code>mm_core</code></a>. The <a href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens"><code>#[export_tokens]</code></a> macro does not
+require this feature to function correctly, so you can safely use it without enabling this
+feature.</p>
+<p>The reason for this feature gating is that things like <code>syn</code>, <code>quote</code>, <code>proc_macro2</code>, etc.,
+are not 100% <code>no_std</code> compatible and should only be enabled in proc macro crates.</p>
+<h3 id="limitations"><a class="doc-anchor" href="#limitations">§</a>Limitations</h3>
+<p>One thing that <code>macro_magic</code> <em>doesn’t</em> provide is the ability to build up state information
+across multiple macro invocations, however this problem can be tackled effectively using
+the <a href="https://www.youtube.com/watch?v=aEWbZxNCH0A">outer macro pattern</a> or in some cases
+using static atomics and mutexes in your proc macro crate (which we actually do in this
+crate to keep track of unique identifiers).</p>
+<h3 id="breaking-changes"><a class="doc-anchor" href="#breaking-changes">§</a>Breaking Changes</h3>
+<ul>
+<li><strong>0.4x</strong> removed <code>#[use_attr]</code> and <code>#[use_proc]</code> (they are no longer needed with the new
+self-calling macro style that has been adopted in 0.4x) and also removed the ability to
+access <code>#[export_tokens]</code> invocations in inaccessible locations like inside of functions
+and across module permission boundaries like in an inaccessible private module. This
+feature may be re-added in the future if there is interest, however removing it allowed
+us to consolidate naming of our <code>macro_rules!</code> declarations and remove the need for
+<code>#[use_attr]</code> / <code>#[use_proc]</code>.</li>
+<li><strong>0.2x</strong> removed and/or re-wrote a number of features that relied on a non-future-proof
+behavior of writing/reading files in the <code>OUT_DIR</code>. Versions &gt;= 0.2.0 are completely safe
+and no longer contain this behavior, however features that provided the ability to
+enumerate all the <code>#[export_tokens]</code> calls in a namespace have been removed. The proper
+way to do this is with the outer macro pattern or with global state mutexes/atomics in
+your proc macro crate, as mentioned above.</li>
+</ul>
+<p>More detailed historical change information can be found in
+<a href="https://github.com/sam0x17/docify/releases">releases</a>.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="mm_core/index.html" title="mod yet_another_parachain_runtime::frame_support::macro_magic::mm_core">mm_core</a></dt><dd>Contains the internal code behind the <code>macro_magic</code> macros in a re-usable form, in case you
+need to design new macros that utilize some of the internal functionality of <code>macro_magic</code>.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.export_tokens_alias.html" title="macro yet_another_parachain_runtime::frame_support::macro_magic::export_tokens_alias">export_<wbr>tokens_<wbr>alias</a></dt><dd>Creates an attribute proc macro that is an alias for
+<a href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens"><code>#[export_tokens]</code></a>.</dd><dt><a class="macro" href="macro.forward_tokens.html" title="macro yet_another_parachain_runtime::frame_support::macro_magic::forward_tokens">forward_<wbr>tokens</a></dt><dd>“Forwards” the tokens of the specified exported item (specified by path as the first arg)
+to the specified proc or <code>macro_rules!</code> macro (specified by path as the second arg).</dd><dt><a class="macro" href="macro.forward_tokens_verbatim.html" title="macro yet_another_parachain_runtime::frame_support::macro_magic::forward_tokens_verbatim">forward_<wbr>tokens_<wbr>verbatim</a></dt><dt><a class="macro" href="macro.import_tokens.html" title="macro yet_another_parachain_runtime::frame_support::macro_magic::import_tokens">import_<wbr>tokens</a></dt><dd>Allows you to import the tokens of an external item marked with
+<a href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens"><code>#[export_tokens]</code></a> whose path is already known at compile-time
+without having to do any additional parsing.</dd></dl><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><dl class="item-table"><dt><a class="attr" href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens">export_<wbr>tokens</a></dt><dd>Can be applied to any item. Doing so will make the tokens for this item available for
+import by the other macros in this crate.</dd><dt><a class="attr" href="attr.export_tokens_no_emit.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens_no_emit">export_<wbr>tokens_<wbr>no_<wbr>emit</a></dt><dd>Like <a href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens"><code>#[export_tokens]</code></a> but does not emit the tokens of the
+attached item locally.</dd><dt><a class="attr" href="attr.import_tokens_attr.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_attr">import_<wbr>tokens_<wbr>attr</a></dt><dd>Can be attached to an attribute proc macro function, causing it to receive the tokens for
+the external item referred to by the path provided as the <code>attr</code> / first argument to the
+attribute macro.</dd><dt><a class="attr" href="attr.import_tokens_attr_verbatim.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_attr_verbatim">import_<wbr>tokens_<wbr>attr_<wbr>verbatim</a></dt><dt><a class="attr" href="attr.import_tokens_proc.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_proc">import_<wbr>tokens_<wbr>proc</a></dt><dd>An attribute macro that can be attached to a proc macro function definition that will cause
+it to receive the tokens of the external item referred to by its argument as input to your
+proc macro.</dd><dt><a class="attr" href="attr.use_attr.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::use_attr">use_<wbr>attr</a></dt><dd>Deprecated: No-op</dd><dt><a class="attr" href="attr.use_proc.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::use_proc">use_<wbr>proc</a></dt><dd>Deprecated: No-op</dd><dt><a class="attr" href="attr.with_custom_parsing.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::with_custom_parsing">with_<wbr>custom_<wbr>parsing</a></dt><dd>To be used in tandem with <a href="attr.import_tokens_attr.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_attr"><code>#[import_tokens_attr]</code></a></dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

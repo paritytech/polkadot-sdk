@@ -1,0 +1,185 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`cumulus-pallet-parachain-system` is a base pallet for Cumulus-based parachains."><title>yet_another_parachain_runtime::cumulus_pallet_parachain_system - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>cumulus_pallet_parachain_system</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/cumulus_pallet_parachain_system/lib.rs.html#17-1861">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>cumulus-pallet-parachain-system</code> is a base pallet for Cumulus-based parachains.</p>
+<p>This pallet handles low-level details of being a parachain. Its responsibilities include:</p>
+<ul>
+<li>ingestion of the parachain validation data;</li>
+<li>ingestion and dispatch of incoming downward and lateral messages;</li>
+<li>coordinating upgrades with the Relay Chain; and</li>
+<li>communication of parachain outputs, such as sent messages, signaling an upgrade, etc.</li>
+</ul>
+<p>Users must ensure that they register this pallet as an inherent provider.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="consensus_hook/index.html" title="mod yet_another_parachain_runtime::cumulus_pallet_parachain_system::consensus_hook">consensus_<wbr>hook</a></dt><dd>The definition of a <a href="trait.ConsensusHook.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::ConsensusHook"><code>ConsensusHook</code></a> trait for consensus logic to manage the backlog
+of parachain blocks ready to submit to the relay chain, as well as some basic implementations.</dd><dt><a class="mod" href="migration/index.html" title="mod yet_another_parachain_runtime::cumulus_pallet_parachain_system::migration">migration</a></dt><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::cumulus_pallet_parachain_system::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="parachain_inherent/index.html" title="mod yet_another_parachain_runtime::cumulus_pallet_parachain_system::parachain_inherent">parachain_<wbr>inherent</a></dt><dd>Cumulus parachain inherent related structures.</dd><dt><a class="mod" href="relay_state_snapshot/index.html" title="mod yet_another_parachain_runtime::cumulus_pallet_parachain_system::relay_state_snapshot">relay_<wbr>state_<wbr>snapshot</a></dt><dd>Relay chain state proof provides means for accessing part of relay chain storage for reads.</dd><dt><a class="mod" href="ump_constants/index.html" title="mod yet_another_parachain_runtime::cumulus_pallet_parachain_system::ump_constants">ump_<wbr>constants</a></dt><dt><a class="mod" href="validate_block/index.html" title="mod yet_another_parachain_runtime::cumulus_pallet_parachain_system::validate_block">validate_<wbr>block</a></dt><dd>A module that enables a runtime to work as parachain.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::cumulus_pallet_parachain_system::weights">weights</a></dt><dd>Autogenerated weights for cumulus_pallet_parachain_system</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.register_validate_block.html" title="macro yet_another_parachain_runtime::cumulus_pallet_parachain_system::register_validate_block">register_<wbr>validate_<wbr>block</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Ancestor.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::Ancestor">Ancestor</a></dt><dd>Ancestor of the block being currently executed, not yet included
+into the relay chain.</dd><dt><a class="struct" href="struct.AnyRelayNumber.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::AnyRelayNumber">AnyRelay<wbr>Number</a></dt><dd>Provides an implementation of <a href="trait.CheckAssociatedRelayNumber.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::CheckAssociatedRelayNumber"><code>CheckAssociatedRelayNumber</code></a>.</dd><dt><a class="struct" href="struct.ExpectParentIncluded.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::ExpectParentIncluded">Expect<wbr>Parent<wbr>Included</a></dt><dd>A special consensus hook for handling the migration to asynchronous backing gracefully,
+even if collators haven’t been updated to provide the last included parent in the state
+proof yet.</dd><dt><a class="struct" href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.MessagingStateSnapshot.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::MessagingStateSnapshot">Messaging<wbr>State<wbr>Snapshot</a></dt><dd>A snapshot of some messaging related state of relay chain pertaining to the current parachain.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.ParachainSetCode.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::ParachainSetCode">Parachain<wbr>SetCode</a></dt><dd>Type that implements <code>SetCode</code>.</dd><dt><a class="struct" href="struct.RelayChainState.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelayChainState">Relay<wbr>Chain<wbr>State</a></dt><dd>Holds the most recent relay-parent state root and block number of the current parachain block.</dd><dt><a class="struct" href="struct.RelayChainStateProof.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelayChainStateProof">Relay<wbr>Chain<wbr>State<wbr>Proof</a></dt><dd>A state proof extracted from the relay chain.</dd><dt><a class="struct" href="struct.RelayNumberMonotonicallyIncreases.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases">Relay<wbr>Number<wbr>Monotonically<wbr>Increases</a></dt><dd>Provides an implementation of <a href="trait.CheckAssociatedRelayNumber.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::CheckAssociatedRelayNumber"><code>CheckAssociatedRelayNumber</code></a>.</dd><dt><a class="struct" href="struct.RelayNumberStrictlyIncreases.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases">Relay<wbr>Number<wbr>Strictly<wbr>Increases</a></dt><dd>Provides an implementation of <a href="trait.CheckAssociatedRelayNumber.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::CheckAssociatedRelayNumber"><code>CheckAssociatedRelayNumber</code></a>.</dd><dt><a class="struct" href="struct.RelaychainDataProvider.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelaychainDataProvider">Relaychain<wbr>Data<wbr>Provider</a></dt><dd>Implements <a href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider"><code>BlockNumberProvider</code></a> and <a href="trait.RelaychainStateProvider.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelaychainStateProvider"><code>RelaychainStateProvider</code></a> that returns relevant relay
+data fetched from validation data.</dd><dt><a class="struct" href="struct.UsedBandwidth.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::UsedBandwidth">Used<wbr>Bandwidth</a></dt><dd>Bandwidth used by a parachain block(s).</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::cumulus_pallet_parachain_system::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::cumulus_pallet_parachain_system::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::cumulus_pallet_parachain_system::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.CheckAssociatedRelayNumber.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::CheckAssociatedRelayNumber">Check<wbr>Associated<wbr>Relay<wbr>Number</a></dt><dd>Something that can check the associated relay block number.</dd><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.ConsensusHook.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::ConsensusHook">Consensus<wbr>Hook</a></dt><dd>The consensus hook for dealing with the unincluded segment.</dd><dt><a class="trait" href="trait.OnSystemEvent.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::OnSystemEvent">OnSystem<wbr>Event</a></dt><dd>Something that should be informed about system related events.</dd><dt><a class="trait" href="trait.RelaychainStateProvider.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelaychainStateProvider">Relaychain<wbr>State<wbr>Provider</a></dt><dd>This exposes the <a href="struct.RelayChainState.html" title="struct yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelayChainState"><code>RelayChainState</code></a> to other runtime modules.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::cumulus_pallet_parachain_system::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for cumulus_pallet_parachain_system.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AggregatedUnincludedSegment.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::AggregatedUnincludedSegment">Aggregated<wbr>Unincluded<wbr>Segment</a></dt><dd>Storage field that keeps track of bandwidth used by the unincluded segment along with the
+latest HRMP watermark. Used for limiting the acceptance of new blocks with
+respect to relay chain constraints.</dd><dt><a class="type" href="type.AnnouncedHrmpMessagesPerCandidate.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::AnnouncedHrmpMessagesPerCandidate">Announced<wbr>Hrmp<wbr>Messages<wbr>PerCandidate</a></dt><dd>The number of HRMP messages we observed in <code>on_initialize</code> and thus used that number for
+announcing the weight of <code>on_initialize</code> and <code>on_finalize</code>.</dd><dt><a class="type" href="type.CustomValidationHeadData.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::CustomValidationHeadData">Custom<wbr>Validation<wbr>Head<wbr>Data</a></dt><dd>A custom head data that should be returned as result of <code>validate_block</code>.</dd><dt><a class="type" href="type.DidSetValidationCode.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::DidSetValidationCode">DidSet<wbr>Validation<wbr>Code</a></dt><dd>Were the validation data set to notify the relay chain?</dd><dt><a class="type" href="type.HostConfiguration.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::HostConfiguration">Host<wbr>Configuration</a></dt><dd>The parachain host configuration that was obtained from the relay parent.</dd><dt><a class="type" href="type.HrmpOutboundMessages.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::HrmpOutboundMessages">Hrmp<wbr>Outbound<wbr>Messages</a></dt><dd>HRMP messages that were sent in a block.</dd><dt><a class="type" href="type.HrmpWatermark.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::HrmpWatermark">Hrmp<wbr>Watermark</a></dt><dd>HRMP watermark that was set in a block.</dd><dt><a class="type" href="type.LastDmqMqcHead.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::LastDmqMqcHead">Last<wbr>DmqMqc<wbr>Head</a></dt><dd>The last downward message queue chain head we have observed.</dd><dt><a class="type" href="type.LastHrmpMqcHeads.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::LastHrmpMqcHeads">Last<wbr>Hrmp<wbr>MqcHeads</a></dt><dd>The message queue chain heads we have observed per each channel incoming channel.</dd><dt><a class="type" href="type.LastProcessedDownwardMessage.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::LastProcessedDownwardMessage">Last<wbr>Processed<wbr>Downward<wbr>Message</a></dt><dd>The last processed downward message.</dd><dt><a class="type" href="type.LastProcessedHrmpMessage.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::LastProcessedHrmpMessage">Last<wbr>Processed<wbr>Hrmp<wbr>Message</a></dt><dd>The last processed HRMP message.</dd><dt><a class="type" href="type.LastRelayChainBlockNumber.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::LastRelayChainBlockNumber">Last<wbr>Relay<wbr>Chain<wbr>Block<wbr>Number</a></dt><dd>The relay chain block number associated with the last parachain block.</dd><dt><a class="type" href="type.MaxDmpMessageLenOf.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::MaxDmpMessageLenOf">MaxDmp<wbr>Message<wbr>LenOf</a></dt><dd>The max length of a DMP message.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.NewValidationCode.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::NewValidationCode">NewValidation<wbr>Code</a></dt><dd>Validation code that is set by the parachain and is to be communicated to collator and
+consequently the relay-chain.</dd><dt><a class="type" href="type.PendingUpwardMessages.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::PendingUpwardMessages">Pending<wbr>Upward<wbr>Messages</a></dt><dd>Upward messages that are still pending and not yet send to the relay chain.</dd><dt><a class="type" href="type.PendingValidationCode.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::PendingValidationCode">Pending<wbr>Validation<wbr>Code</a></dt><dd>In case of a scheduled upgrade, this storage field contains the validation code to be
+applied.</dd><dt><a class="type" href="type.ProcessedDownwardMessages.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::ProcessedDownwardMessages">Processed<wbr>Downward<wbr>Messages</a></dt><dd>Number of downward messages processed in a block.</dd><dt><a class="type" href="type.RelayStateProof.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelayStateProof">Relay<wbr>State<wbr>Proof</a></dt><dd>The state proof for the last relay parent block.</dd><dt><a class="type" href="type.RelaychainBlockNumberProvider.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelaychainBlockNumberProvider">Relaychain<wbr>Block<wbr>Number<wbr>Provider</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Implements <a href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider"><code>BlockNumberProvider</code></a> that returns relay chain block number fetched from validation
+data.</dd><dt><a class="type" href="type.RelevantMessagingState.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::RelevantMessagingState">Relevant<wbr>Messaging<wbr>State</a></dt><dd>The snapshot of some state related to messaging relevant to the current parachain as per
+the relay parent.</dd><dt><a class="type" href="type.ReservedDmpWeightOverride.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::ReservedDmpWeightOverride">Reserved<wbr>DmpWeight<wbr>Override</a></dt><dd>The weight we reserve at the beginning of the block for processing DMP messages. This
+overrides the amount set in the Config trait.</dd><dt><a class="type" href="type.ReservedXcmpWeightOverride.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::ReservedXcmpWeightOverride">Reserved<wbr>Xcmp<wbr>Weight<wbr>Override</a></dt><dd>The weight we reserve at the beginning of the block for processing XCMP messages. This
+overrides the amount set in the Config trait.</dd><dt><a class="type" href="type.UnincludedSegment.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::UnincludedSegment">Unincluded<wbr>Segment</a></dt><dd>Latest included block descendants the runtime accepted. In other words, these are
+ancestors of the currently executing block which have not been included in the observed
+relay-chain state.</dd><dt><a class="type" href="type.UpgradeGoAhead.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::UpgradeGoAhead">Upgrade<wbr>GoAhead</a></dt><dd>Optional upgrade go-ahead signal from the relay-chain.</dd><dt><a class="type" href="type.UpgradeRestrictionSignal.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::UpgradeRestrictionSignal">Upgrade<wbr>Restriction<wbr>Signal</a></dt><dd>An option which indicates if the relay-chain restricts signalling a validation code upgrade.
+In other words, if this is <code>Some</code> and <a href="type.NewValidationCode.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::NewValidationCode"><code>NewValidationCode</code></a> is <code>Some</code> then the produced
+candidate will be invalid.</dd><dt><a class="type" href="type.UpwardDeliveryFeeFactor.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::UpwardDeliveryFeeFactor">Upward<wbr>Delivery<wbr>FeeFactor</a></dt><dd>The factor to multiply the base delivery fee by for UMP.</dd><dt><a class="type" href="type.UpwardMessages.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::UpwardMessages">Upward<wbr>Messages</a></dt><dd>Upward messages that were sent in a block.</dd><dt><a class="type" href="type.ValidationData.html" title="type yet_another_parachain_runtime::cumulus_pallet_parachain_system::ValidationData">Validation<wbr>Data</a></dt><dd>The <a href="../cumulus_primitives_core/struct.PersistedValidationData.html" title="struct yet_another_parachain_runtime::cumulus_primitives_core::PersistedValidationData"><code>PersistedValidationData</code></a> set for this block.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

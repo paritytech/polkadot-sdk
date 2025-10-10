@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["cancel_id_reservation","end_mutation_session","recognize_personhood","renew_id_reservation","reserve_ids","resume_personhood","start_mutation_session","suspend_personhood"]};

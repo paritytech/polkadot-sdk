@@ -1,0 +1,193 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Merkle Mountain Range"><title>yet_another_parachain_runtime::pallet_mmr - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#merkle-mountain-range" title="Merkle Mountain Range">Merkle Mountain Range</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#what-for" title="What for?">What for?</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_mmr</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_mmr/lib.rs.html#18-465">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="merkle-mountain-range"><a class="doc-anchor" href="#merkle-mountain-range">§</a>Merkle Mountain Range</h2><h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>Details on Merkle Mountain Ranges (MMRs) can be found here:
+<a href="https://github.com/mimblewimble/grin/blob/master/doc/mmr.md">https://github.com/mimblewimble/grin/blob/master/doc/mmr.md</a></p>
+<p>The MMR pallet constructs an MMR from leaf data obtained on every block from
+<code>LeafDataProvider</code>. MMR nodes are stored both in:</p>
+<ul>
+<li>on-chain storage - hashes only; not full leaf content;</li>
+<li>off-chain storage - via Indexing API we push full leaf content (and all internal nodes as
+well) to the Off-chain DB, so that the data is available for Off-chain workers.
+Hashing used for MMR is configurable independently from the rest of the runtime (i.e. not using
+<code>frame_system::Hashing</code>) so something compatible with external chains can be used (like
+Keccak256 for Ethereum compatibility).</li>
+</ul>
+<p>Depending on the usage context (off-chain vs on-chain) the pallet is able to:</p>
+<ul>
+<li>verify MMR leaf proofs (on-chain)</li>
+<li>generate leaf proofs (off-chain)</li>
+</ul>
+<p>See <a href="primitives/struct.Compact.html" title="struct yet_another_parachain_runtime::pallet_mmr::primitives::Compact">primitives::Compact</a> documentation for how you can optimize proof size for leafs that are
+composed from multiple elements.</p>
+<h3 id="what-for"><a class="doc-anchor" href="#what-for">§</a>What for?</h3>
+<p>Primary use case for this pallet is to generate MMR root hashes, that can latter on be used by
+BEEFY protocol (see <a href="https://github.com/paritytech/grandpa-bridge-gadget">https://github.com/paritytech/grandpa-bridge-gadget</a>).
+MMR root hashes along with BEEFY will make it possible to build Super Light Clients (SLC) of
+Substrate-based chains. The SLC will be able to follow finality and can be shown proofs of more
+details that happened on the source chain.
+In that case the chain which contains the pallet generates the Root Hashes and Proofs, which
+are then presented to another chain acting as a light client which can verify them.</p>
+<p>Secondary use case is to archive historical data, but still be able to retrieve them on-demand
+if needed. For instance if parent block hashes are stored in the MMR it’s possible at any point
+in time to provide an MMR proof about some past block hash, while this data can be safely pruned
+from on-chain storage.</p>
+<p>NOTE This pallet is experimental and not proven to work in production.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_mmr::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="primitives/index.html" title="mod yet_another_parachain_runtime::pallet_mmr::primitives">primitives</a></dt><dd>Merkle Mountain Range primitive types.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AncestryProof.html" title="struct yet_another_parachain_runtime::pallet_mmr::AncestryProof">Ancestry<wbr>Proof</a></dt><dd>An MMR ancestry proof for a prior mmr root.</dd><dt><a class="struct" href="struct.DefaultBlockHashProvider.html" title="struct yet_another_parachain_runtime::pallet_mmr::DefaultBlockHashProvider">Default<wbr>Block<wbr>Hash<wbr>Provider</a></dt><dd>Default implementation of BlockHashProvider using frame_system.</dd><dt><a class="struct" href="struct.Instance1.html" title="struct yet_another_parachain_runtime::pallet_mmr::Instance1">Instance1</a></dt><dd><code>Instance1</code> to be used for instantiable pallets defined with the
+<a href="../frame_support/attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>#[pallet]</code></a> macro. Instances 2-16 are also available but are hidden
+from docs.</dd><dt><a class="struct" href="struct.LeafProof.html" title="struct yet_another_parachain_runtime::pallet_mmr::LeafProof">Leaf<wbr>Proof</a></dt><dd>An MMR proof data for a group of leaves.</dd><dt><a class="struct" href="struct.NodesUtils.html" title="struct yet_another_parachain_runtime::pallet_mmr::NodesUtils">Nodes<wbr>Utils</a></dt><dd>MMR nodes &amp; size -related utilities.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_mmr::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.ParentNumberAndHash.html" title="struct yet_another_parachain_runtime::pallet_mmr::ParentNumberAndHash">Parent<wbr>Number<wbr>AndHash</a></dt><dd>The most common use case for MMRs is to store historical block hashes,
+so that any point in time in the future we can receive a proof about some past
+blocks without using excessive on-chain storage.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_mmr::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_mmr::Error">Error</a></dt><dd>Merkle Mountain Range operation error.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.BenchmarkHelper.html" title="trait yet_another_parachain_runtime::pallet_mmr::BenchmarkHelper">Benchmark<wbr>Helper</a></dt><dd>This trait decoples dependencies on pallets needed for benchmarking.</dd><dt><a class="trait" href="trait.BlockHashProvider.html" title="trait yet_another_parachain_runtime::pallet_mmr::BlockHashProvider">Block<wbr>Hash<wbr>Provider</a></dt><dd>Block hash provider for a given block number.</dd><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_mmr::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.FullLeaf.html" title="trait yet_another_parachain_runtime::pallet_mmr::FullLeaf">Full<wbr>Leaf</a></dt><dd>A full leaf content stored in the offchain-db.</dd><dt><a class="trait" href="trait.LeafDataProvider.html" title="trait yet_another_parachain_runtime::pallet_mmr::LeafDataProvider">Leaf<wbr>Data<wbr>Provider</a></dt><dd>A provider of the MMR’s leaf data.</dd><dt><a class="trait" href="trait.OnNewRoot.html" title="trait yet_another_parachain_runtime::pallet_mmr::OnNewRoot">OnNew<wbr>Root</a></dt><dd>New MMR root notification hook.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_mmr::WeightInfo">Weight<wbr>Info</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.verify_ancestry_proof.html" title="fn yet_another_parachain_runtime::pallet_mmr::verify_ancestry_proof">verify_<wbr>ancestry_<wbr>proof</a></dt><dd>Stateless ancestry proof verification.</dd><dt><a class="fn" href="fn.verify_leaves_proof.html" title="fn yet_another_parachain_runtime::pallet_mmr::verify_leaves_proof">verify_<wbr>leaves_<wbr>proof</a></dt><dd>Stateless MMR proof verification for batch of leaves.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.LeafIndex.html" title="type yet_another_parachain_runtime::pallet_mmr::LeafIndex">Leaf<wbr>Index</a></dt><dd>A type to describe leaf position in the MMR.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_mmr::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.NodeIndex.html" title="type yet_another_parachain_runtime::pallet_mmr::NodeIndex">Node<wbr>Index</a></dt><dd>A type to describe node position in the MMR (node index).</dd><dt><a class="type" href="type.Nodes.html" title="type yet_another_parachain_runtime::pallet_mmr::Nodes">Nodes</a></dt><dd>Hashes of the nodes in the MMR.</dd><dt><a class="type" href="type.NumberOfLeaves.html" title="type yet_another_parachain_runtime::pallet_mmr::NumberOfLeaves">Number<wbr>OfLeaves</a></dt><dd>Current size of the MMR (number of leaves).</dd><dt><a class="type" href="type.RootHash.html" title="type yet_another_parachain_runtime::pallet_mmr::RootHash">Root<wbr>Hash</a></dt><dd>Latest MMR Root hash.</dd><dt><a class="type" href="type.UseLocalStorage.html" title="type yet_another_parachain_runtime::pallet_mmr::UseLocalStorage">UseLocal<wbr>Storage</a></dt><dd>Helper flag used in the runtime benchmarks for the initial setup.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

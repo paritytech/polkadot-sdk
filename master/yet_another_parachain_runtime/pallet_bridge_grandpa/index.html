@@ -1,0 +1,174 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate GRANDPA Pallet"><title>yet_another_parachain_runtime::pallet_bridge_grandpa - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_bridge_grandpa</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_bridge_grandpa/lib.rs.html#17-1848">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate GRANDPA Pallet</p>
+<p>This pallet is an on-chain GRANDPA light client for Substrate based chains.</p>
+<p>This pallet achieves this by trustlessly verifying GRANDPA finality proofs on-chain. Once
+verified, finalized headers are stored in the pallet, thereby creating a sparse header chain.
+This sparse header chain can be used as a source of truth for other higher-level applications.</p>
+<p>The pallet is responsible for tracking GRANDPA validator set hand-offs. We only import headers
+with justifications signed by the current validator set we know of. The header is inspected for
+a <code>ScheduledChanges</code> digest item, which is then used to update to next validator set.</p>
+<p>Since this pallet only tracks finalized headers it does not deal with forks. Forks can only
+occur if the GRANDPA validator set on the bridged chain is either colluding or there is a severe
+bug causing resulting in an equivocation. Such events are outside the scope of this pallet.
+Shall the fork occur on the bridged chain governance intervention will be required to
+re-initialize the bridge and track the right fork.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmarking/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_grandpa::benchmarking">benchmarking</a></dt><dd>Benchmarks for the GRANDPA Pallet.</dd><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_grandpa::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_grandpa::weights">weights</a></dt><dd>Module, containing weights for this pallet.
+Autogenerated weights for pallet_bridge_grandpa</dd><dt><a class="mod" href="weights_ext/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_grandpa::weights_ext">weights_<wbr>ext</a></dt><dd>Weight-related utilities.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::pallet_bridge_grandpa::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.Instance1.html" title="struct yet_another_parachain_runtime::pallet_bridge_grandpa::Instance1">Instance1</a></dt><dd><code>Instance1</code> to be used for instantiable pallets defined with the
+<a href="../frame_support/attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>#[pallet]</code></a> macro. Instances 2-16 are also available but are hidden
+from docs.</dd><dt><a class="struct" href="struct.MaybeHeadersToKeep.html" title="struct yet_another_parachain_runtime::pallet_bridge_grandpa::MaybeHeadersToKeep">Maybe<wbr>Headers<wbr>ToKeep</a></dt><dd>Adapter for using <code>Config::HeadersToKeep</code> as <code>MaxValues</code> bound in our storage maps.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_bridge_grandpa::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.StoredAuthoritySet.html" title="struct yet_another_parachain_runtime::pallet_bridge_grandpa::StoredAuthoritySet">Stored<wbr>Authority<wbr>Set</a></dt><dd>A bounded GRANDPA Authority List and ID.</dd><dt><a class="struct" href="struct.SubmitFinalityProofHelper.html" title="struct yet_another_parachain_runtime::pallet_bridge_grandpa::SubmitFinalityProofHelper">Submit<wbr>Finality<wbr>Proof<wbr>Helper</a></dt><dd>Helper struct that provides methods for working with the <code>SubmitFinalityProof</code> call.</dd><dt><a class="struct" href="struct.VerifiedSubmitFinalityProofInfo.html" title="struct yet_another_parachain_runtime::pallet_bridge_grandpa::VerifiedSubmitFinalityProofInfo">Verified<wbr>Submit<wbr>Finality<wbr>Proof<wbr>Info</a></dt><dd>Verified <code>SubmitFinalityProofInfo&lt;N&gt;</code>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_bridge_grandpa::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_bridge_grandpa::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_bridge_grandpa::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.LOG_TARGET.html" title="constant yet_another_parachain_runtime::pallet_bridge_grandpa::LOG_TARGET">LOG_<wbr>TARGET</a></dt><dd>The target that will be used when publishing logs related to this pallet.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.CallSubType.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::CallSubType">Call<wbr>SubType</a></dt><dd>Trait representing a call that is a sub type of this pallet’s call.</dd><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for pallet_bridge_grandpa.</dd><dt><a class="trait" href="trait.WeightInfoExt.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::WeightInfoExt">Weight<wbr>Info<wbr>Ext</a></dt><dd>Extended weight info.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.initialize_for_benchmarks.html" title="fn yet_another_parachain_runtime::pallet_bridge_grandpa::initialize_for_benchmarks">initialize_<wbr>for_<wbr>benchmarks</a></dt><dd>(Re)initialize bridge with given header for using it in <code>pallet-bridge-messages</code> benchmarks.</dd><dt><a class="fn" href="fn.on_free_header_imported.html" title="fn yet_another_parachain_runtime::pallet_bridge_grandpa::on_free_header_imported">on_<wbr>free_<wbr>header_<wbr>imported</a></dt><dd>Called when new free header is imported.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.BestFinalized.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::BestFinalized">Best<wbr>Finalized</a></dt><dd>Hash of the best finalized header.</dd><dt><a class="type" href="type.BridgedBlockHash.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::BridgedBlockHash">Bridged<wbr>Block<wbr>Hash</a></dt><dd>Block hash of the bridged chain.</dd><dt><a class="type" href="type.BridgedBlockHasher.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::BridgedBlockHasher">Bridged<wbr>Block<wbr>Hasher</a></dt><dd>Hasher of the bridged chain.</dd><dt><a class="type" href="type.BridgedBlockId.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::BridgedBlockId">Bridged<wbr>Block<wbr>Id</a></dt><dd>Block id of the bridged chain.</dd><dt><a class="type" href="type.BridgedBlockNumber.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::BridgedBlockNumber">Bridged<wbr>Block<wbr>Number</a></dt><dd>Block number of the bridged chain.</dd><dt><a class="type" href="type.BridgedChain.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::BridgedChain">Bridged<wbr>Chain</a></dt><dd>Bridged chain from the pallet configuration.</dd><dt><a class="type" href="type.BridgedHeader.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::BridgedHeader">Bridged<wbr>Header</a></dt><dd>Header of the bridged chain.</dd><dt><a class="type" href="type.BridgedStoredHeaderData.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::BridgedStoredHeaderData">Bridged<wbr>Stored<wbr>Header<wbr>Data</a></dt><dd>Header data of the bridged chain that is stored at this chain by this pallet.</dd><dt><a class="type" href="type.CurrentAuthoritySet.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::CurrentAuthoritySet">Current<wbr>Authority<wbr>Set</a></dt><dd>The current GRANDPA Authority set.</dd><dt><a class="type" href="type.FreeHeadersRemaining.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::FreeHeadersRemaining">Free<wbr>Headers<wbr>Remaining</a></dt><dd>Number of free header submissions that we may yet accept in the current block.</dd><dt><a class="type" href="type.GrandpaChainHeaders.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::GrandpaChainHeaders">Grandpa<wbr>Chain<wbr>Headers</a></dt><dd>Bridge GRANDPA pallet as header chain.</dd><dt><a class="type" href="type.ImportedHeaders.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::ImportedHeaders">Imported<wbr>Headers</a></dt><dd>Relevant fields of imported headers.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.PalletOperatingMode.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::PalletOperatingMode">Pallet<wbr>Operating<wbr>Mode</a></dt><dd>The current operating mode of the pallet.</dd><dt><a class="type" href="type.PalletOwner.html" title="type yet_another_parachain_runtime::pallet_bridge_grandpa::PalletOwner">Pallet<wbr>Owner</a></dt><dd>Optional pallet owner.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

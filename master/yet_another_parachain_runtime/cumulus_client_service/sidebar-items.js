@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CollatorSybilResistance","DARecoveryProfile"],"fn":["build_network","build_relay_chain_interface","prepare_node_config","start_relay_chain_tasks"],"mod":["storage_proof_size"],"struct":["BuildNetworkParams","ParachainTracingExecuteBlock","StartRelayChainTasksParams"],"type":["ParachainHostFunctions"]};

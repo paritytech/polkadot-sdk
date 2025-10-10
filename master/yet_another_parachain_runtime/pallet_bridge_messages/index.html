@@ -1,0 +1,180 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Runtime module that allows sending and receiving messages using lane concept:"><title>yet_another_parachain_runtime::pallet_bridge_messages - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_bridge_messages</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_bridge_messages/lib.rs.html#17-791">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Runtime module that allows sending and receiving messages using lane concept:</p>
+<ol>
+<li>the message is sent using <code>send_message()</code> call;</li>
+<li>every outbound message is assigned nonce;</li>
+<li>the messages are stored in the storage;</li>
+<li>external component (relay) delivers messages to bridged chain;</li>
+<li>messages are processed in order (ordered by assigned nonce);</li>
+<li>relay may send proof-of-delivery back to this chain.</li>
+</ol>
+<p>Once message is sent, its progress can be tracked by looking at module events.
+The assigned nonce is reported using <code>MessageAccepted</code> event. When message is
+delivered to the the bridged chain, it is reported using <code>MessagesDelivered</code> event.</p>
+<p><strong>IMPORTANT NOTE</strong>: after generating weights (custom <code>WeighInfo</code> implementation) for
+your runtime (where this module is plugged to), please add test for these weights.
+The test should call the <code>ensure_weights_are_correct</code> function from this module.
+If this test fails with your weights, then either weights are computed incorrectly,
+or some benchmarks assumptions are broken for your runtime.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmarking/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_messages::benchmarking">benchmarking</a></dt><dd>Messages pallet benchmarking.</dd><dt><a class="mod" href="messages_generation/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_messages::messages_generation">messages_<wbr>generation</a></dt><dd>Helpers for generating message storage proofs, that are used by tests and by benchmarks.</dd><dt><a class="mod" href="migration/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_messages::migration">migration</a></dt><dd>A module that is responsible for migration of storage.</dd><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_messages::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::pallet_bridge_messages::weights">weights</a></dt><dd>Autogenerated weights for pallet_bridge_messages</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CallHelper.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::CallHelper">Call<wbr>Helper</a></dt><dd>Helper struct that provides methods for working with a call supported by <code>MessagesCallInfo</code>.</dd><dt><a class="struct" href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.InboundLane.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::InboundLane">Inbound<wbr>Lane</a></dt><dd>Inbound messages lane.</dd><dt><a class="struct" href="struct.Instance1.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::Instance1">Instance1</a></dt><dd><code>Instance1</code> to be used for instantiable pallets defined with the
+<a href="../frame_support/attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>#[pallet]</code></a> macro. Instances 2-16 are also available but are hidden
+from docs.</dd><dt><a class="struct" href="struct.LanesManager.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::LanesManager">Lanes<wbr>Manager</a></dt><dd>Message lanes manager.</dd><dt><a class="struct" href="struct.OutboundLane.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::OutboundLane">Outbound<wbr>Lane</a></dt><dd>Outbound messages lane.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.RuntimeInboundLaneStorage.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::RuntimeInboundLaneStorage">Runtime<wbr>Inbound<wbr>Lane<wbr>Storage</a></dt><dd>Runtime inbound lane storage.</dd><dt><a class="struct" href="struct.RuntimeOutboundLaneStorage.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::RuntimeOutboundLaneStorage">Runtime<wbr>Outbound<wbr>Lane<wbr>Storage</a></dt><dd>Runtime outbound lane storage.</dd><dt><a class="struct" href="struct.SendMessageArgs.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::SendMessageArgs">Send<wbr>Message<wbr>Args</a></dt><dd>Structure, containing a validated message payload and all the info required
+to send it on the bridge.</dd><dt><a class="struct" href="struct.StoredInboundLaneData.html" title="struct yet_another_parachain_runtime::pallet_bridge_messages::StoredInboundLaneData">Stored<wbr>Inbound<wbr>Lane<wbr>Data</a></dt><dd>Inbound lane data wrapper that implements <code>MaxEncodedLen</code>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_bridge_messages::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_bridge_messages::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_bridge_messages::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.LanesManagerError.html" title="enum yet_another_parachain_runtime::pallet_bridge_messages::LanesManagerError">Lanes<wbr>Manager<wbr>Error</a></dt><dd>Lanes manager errors.</dd><dt><a class="enum" href="enum.ReceptionConfirmationError.html" title="enum yet_another_parachain_runtime::pallet_bridge_messages::ReceptionConfirmationError">Reception<wbr>Confirmation<wbr>Error</a></dt><dd>Result of messages receival confirmation.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.EXPECTED_DEFAULT_MESSAGE_LENGTH.html" title="constant yet_another_parachain_runtime::pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH">EXPECTED_<wbr>DEFAULT_<wbr>MESSAGE_<wbr>LENGTH</a></dt><dd>Size of the message being delivered in benchmarks.</dd><dt><a class="constant" href="constant.EXTRA_STORAGE_PROOF_SIZE.html" title="constant yet_another_parachain_runtime::pallet_bridge_messages::EXTRA_STORAGE_PROOF_SIZE">EXTRA_<wbr>STORAGE_<wbr>PROOF_<wbr>SIZE</a></dt><dd>Number of extra bytes (excluding size of storage value itself) of storage proof.
+This mostly depends on number of entries (and their density) in the storage trie.
+Some reserve is reserved to account future chain growth.</dd><dt><a class="constant" href="constant.LOG_TARGET.html" title="constant yet_another_parachain_runtime::pallet_bridge_messages::LOG_TARGET">LOG_<wbr>TARGET</a></dt><dd>The target that will be used when publishing logs related to this pallet.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.CallSubType.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::CallSubType">Call<wbr>SubType</a></dt><dd>Trait representing a call that is a sub type of <code>pallet_bridge_messages::Call</code>.</dd><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.InboundLaneStorage.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::InboundLaneStorage">Inbound<wbr>Lane<wbr>Storage</a></dt><dd>Inbound lane storage.</dd><dt><a class="trait" href="trait.OutboundLaneStorage.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::OutboundLaneStorage">Outbound<wbr>Lane<wbr>Storage</a></dt><dd>Outbound lane storage.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for pallet_bridge_messages.</dd><dt><a class="trait" href="trait.WeightInfoExt.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::WeightInfoExt">Weight<wbr>Info<wbr>Ext</a></dt><dd>Extended weight info.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.ensure_able_to_receive_confirmation.html" title="fn yet_another_parachain_runtime::pallet_bridge_messages::ensure_able_to_receive_confirmation">ensure_<wbr>able_<wbr>to_<wbr>receive_<wbr>confirmation</a></dt><dd>Ensure that we’re able to receive maximal confirmation from other chain.</dd><dt><a class="fn" href="fn.ensure_able_to_receive_message.html" title="fn yet_another_parachain_runtime::pallet_bridge_messages::ensure_able_to_receive_message">ensure_<wbr>able_<wbr>to_<wbr>receive_<wbr>message</a></dt><dd>Ensure that we’re able to receive maximal (by-size and by-weight) message from other chain.</dd><dt><a class="fn" href="fn.ensure_maximal_message_dispatch.html" title="fn yet_another_parachain_runtime::pallet_bridge_messages::ensure_maximal_message_dispatch">ensure_<wbr>maximal_<wbr>message_<wbr>dispatch</a></dt><dd>Ensure that we are able to dispatch maximal size messages.</dd><dt><a class="fn" href="fn.ensure_weights_are_correct.html" title="fn yet_another_parachain_runtime::pallet_bridge_messages::ensure_weights_are_correct">ensure_<wbr>weights_<wbr>are_<wbr>correct</a></dt><dd>Ensure that weights from <code>WeightInfoExt</code> implementation are looking correct.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.BridgedChainOf.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::BridgedChainOf">Bridged<wbr>Chain<wbr>Of</a></dt><dd>Shortcut to bridged chain type for Config.</dd><dt><a class="type" href="type.BridgedHeaderChainOf.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::BridgedHeaderChainOf">Bridged<wbr>Header<wbr>Chain<wbr>Of</a></dt><dd>Shortcut to bridged header chain type for Config.</dd><dt><a class="type" href="type.InboundLanes.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::InboundLanes">Inbound<wbr>Lanes</a></dt><dd>Map of lane id =&gt; inbound lane data.</dd><dt><a class="type" href="type.LaneIdOf.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::LaneIdOf">Lane<wbr>IdOf</a></dt><dd>Shortcut to lane identifier type for Config.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.OutboundLanes.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::OutboundLanes">Outbound<wbr>Lanes</a></dt><dd>Map of lane id =&gt; outbound lane data.</dd><dt><a class="type" href="type.OutboundMessages.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::OutboundMessages">Outbound<wbr>Messages</a></dt><dd>All queued outbound messages.</dd><dt><a class="type" href="type.PalletOperatingMode.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::PalletOperatingMode">Pallet<wbr>Operating<wbr>Mode</a></dt><dd>The current operating mode of the pallet.</dd><dt><a class="type" href="type.PalletOwner.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::PalletOwner">Pallet<wbr>Owner</a></dt><dd>Optional pallet owner.</dd><dt><a class="type" href="type.StoredMessagePayload.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::StoredMessagePayload">Stored<wbr>Message<wbr>Payload</a></dt><dd>Outbound message data wrapper that implements <code>MaxEncodedLen</code>.</dd><dt><a class="type" href="type.ThisChainOf.html" title="type yet_another_parachain_runtime::pallet_bridge_messages::ThisChainOf">This<wbr>Chain<wbr>Of</a></dt><dd>Shortcut to this chain type for Config.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

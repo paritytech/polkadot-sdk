@@ -1,0 +1,219 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Runtime interface for a public key."><title>RuntimePublic in yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Runtime<wbr>Public</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.ProofOfPossession" title="ProofOfPossession">ProofOfPossession</a></li><li><a href="#associatedtype.Signature" title="Signature">Signature</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.all" title="all">all</a></li><li><a href="#tymethod.generate_pair" title="generate_pair">generate_pair</a></li><li><a href="#tymethod.generate_proof_of_possession" title="generate_proof_of_possession">generate_proof_of_possession</a></li><li><a href="#tymethod.sign" title="sign">sign</a></li><li><a href="#tymethod.to_raw_vec" title="to_raw_vec">to_raw_vec</a></li><li><a href="#tymethod.verify" title="verify">verify</a></li><li><a href="#tymethod.verify_proof_of_possession" title="verify_proof_of_possession">verify_proof_of_possession</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>support::<wbr>sp_<wbr>runtime::<wbr>app_<wbr>crypto</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">frame_support</a>::<wbr><a href="../index.html">sp_runtime</a>::<wbr><a href="index.html">app_crypto</a></div><h1>Trait <span class="trait">RuntimePublic</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/sp_application_crypto/traits.rs.html#80">Source</a> </span></div><pre class="rust item-decl"><code>pub trait RuntimePublic: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+    type <a href="#associatedtype.Signature" class="associatedtype">Signature</a>: <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.Debug.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>;
+    type <a href="#associatedtype.ProofOfPossession" class="associatedtype">ProofOfPossession</a>: <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.Debug.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>;
+
+    // Required methods
+    fn <a href="#tymethod.all" class="fn">all</a>(key_type: <a class="struct" href="../../../sp_session/struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::sp_session::KeyTypeId">KeyTypeId</a>) -&gt; <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;Self&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.generate_pair" class="fn">generate_pair</a>(key_type: <a class="struct" href="../../../sp_session/struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::sp_session::KeyTypeId">KeyTypeId</a>, seed: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt;) -&gt; Self;
+<span class="item-spacer"></span>    fn <a href="#tymethod.sign" class="fn">sign</a>&lt;M&gt;(&amp;self, key_type: <a class="struct" href="../../../sp_session/struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::sp_session::KeyTypeId">KeyTypeId</a>, msg: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.reference.html">&amp;M</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.RuntimePublic.html#associatedtype.Signature" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic::Signature">Signature</a>&gt;
+       <span class="where">where M: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>]&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.verify" class="fn">verify</a>&lt;M&gt;(&amp;self, msg: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.reference.html">&amp;M</a>, signature: &amp;Self::<a class="associatedtype" href="trait.RuntimePublic.html#associatedtype.Signature" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic::Signature">Signature</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>
+       <span class="where">where M: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>]&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.generate_proof_of_possession" class="fn">generate_proof_of_possession</a>(
+        &amp;mut self,
+        key_type: <a class="struct" href="../../../sp_session/struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::sp_session::KeyTypeId">KeyTypeId</a>,
+        owner: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.RuntimePublic.html#associatedtype.ProofOfPossession" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic::ProofOfPossession">ProofOfPossession</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.verify_proof_of_possession" class="fn">verify_proof_of_possession</a>(
+        &amp;self,
+        owner: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>],
+        pop: &amp;Self::<a class="associatedtype" href="trait.RuntimePublic.html#associatedtype.ProofOfPossession" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic::ProofOfPossession">ProofOfPossession</a>,
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.to_raw_vec" class="fn">to_raw_vec</a>(&amp;self) -&gt; <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Runtime interface for a public key.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Signature" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#82">Source</a><h4 class="code-header">type <a href="#associatedtype.Signature" class="associatedtype">Signature</a>: <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.Debug.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a></h4></section></summary><div class="docblock"><p>The signature that will be generated when signing with the corresponding private key.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ProofOfPossession" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#85">Source</a><h4 class="code-header">type <a href="#associatedtype.ProofOfPossession" class="associatedtype">ProofOfPossession</a>: <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.Debug.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a></h4></section></summary><div class="docblock"><p>The Proof Of Possession the corresponding private key.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.all" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#88">Source</a><h4 class="code-header">fn <a href="#tymethod.all" class="fn">all</a>(key_type: <a class="struct" href="../../../sp_session/struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::sp_session::KeyTypeId">KeyTypeId</a>) -&gt; <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;Self&gt;</h4></section></summary><div class="docblock"><p>Returns all public keys for the given key type in the keystore.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.generate_pair" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#96">Source</a><h4 class="code-header">fn <a href="#tymethod.generate_pair" class="fn">generate_pair</a>(key_type: <a class="struct" href="../../../sp_session/struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::sp_session::KeyTypeId">KeyTypeId</a>, seed: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Generate a public/private pair for the given key type with an optional <code>seed</code> and
+store it in the keystore.</p>
+<p>The <code>seed</code> needs to be valid utf8.</p>
+<p>Returns the generated public key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.sign" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#104">Source</a><h4 class="code-header">fn <a href="#tymethod.sign" class="fn">sign</a>&lt;M&gt;(&amp;self, key_type: <a class="struct" href="../../../sp_session/struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::sp_session::KeyTypeId">KeyTypeId</a>, msg: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.reference.html">&amp;M</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.RuntimePublic.html#associatedtype.Signature" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic::Signature">Signature</a>&gt;<div class="where">where
+    M: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>]&gt;,</div></h4></section></summary><div class="docblock"><p>Sign the given message with the corresponding private key of this public key.</p>
+<p>The private key will be requested from the keystore using the given key type.</p>
+<p>Returns the signature or <code>None</code> if the private key could not be found or some other error
+occurred.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.verify" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#107">Source</a><h4 class="code-header">fn <a href="#tymethod.verify" class="fn">verify</a>&lt;M&gt;(&amp;self, msg: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.reference.html">&amp;M</a>, signature: &amp;Self::<a class="associatedtype" href="trait.RuntimePublic.html#associatedtype.Signature" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic::Signature">Signature</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a><div class="where">where
+    M: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>]&gt;,</div></h4></section></summary><div class="docblock"><p>Verify that the given signature matches the given message using this public key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.generate_proof_of_possession" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#124-128">Source</a><h4 class="code-header">fn <a href="#tymethod.generate_proof_of_possession" class="fn">generate_proof_of_possession</a>(
+    &amp;mut self,
+    key_type: <a class="struct" href="../../../sp_session/struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::sp_session::KeyTypeId">KeyTypeId</a>,
+    owner: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.RuntimePublic.html#associatedtype.ProofOfPossession" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic::ProofOfPossession">ProofOfPossession</a>&gt;</h4></section></summary><div class="docblock"><p>Generates the necessary proof(s) usually as a signature or list of signatures, for the
+corresponding public key to be accepted as legitimate by the network.</p>
+<p>This includes attestation of the owner of the public key in the form of signing the owner’s
+identity. It might also includes other signatures such as signature obtained by signing
+the corresponding public in different context than normal signatures in case of BLS
+key pair.</p>
+<p>The <code>owner</code> is an arbitrary byte array representing the identity of the owner of
+the key which has been signed by the private key in process of generating the proof.</p>
+<p>The private key will be requested from the keystore using the given key type.</p>
+<p>Returns the proof of possession or <code>None</code> if it failed or is not able to do
+so.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.verify_proof_of_possession" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#140">Source</a><h4 class="code-header">fn <a href="#tymethod.verify_proof_of_possession" class="fn">verify_proof_of_possession</a>(
+    &amp;self,
+    owner: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>],
+    pop: &amp;Self::<a class="associatedtype" href="trait.RuntimePublic.html#associatedtype.ProofOfPossession" title="type yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic::ProofOfPossession">ProofOfPossession</a>,
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Verifies that the given proof is valid for the corresponding public key.
+The proof is usually a signature or list of signatures, for the corresponding
+public key to be accepted by the network. It include attestation of the owner of
+the public key in the form signing the owner’s identity but might also includes
+other signatures.</p>
+<p>The <code>owner</code> is an arbitrary byte array representing the identity of the owner of
+the key which has been signed by the private key in process of generating the proof.</p>
+<p>Returns <code>true</code> if the proof is deemed correct by the cryto type.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.to_raw_vec" class="method"><a class="src rightside" href="../../../../src/sp_application_crypto/traits.rs.html#143">Source</a><h4 class="code-header">fn <a href="#tymethod.to_raw_vec" class="fn">to_raw_vec</a>(&amp;self) -&gt; <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a></h4></section></summary><div class="docblock"><p>Returns <code>Self</code> as raw vec.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-RuntimePublic-for-CryptoBytes%3Csp_core::::bandersnatch::Public::%7Bconstant%230%7D,+(PublicTag,+BandersnatchTag)%3E" class="impl"><a class="src rightside" href="../../../../src/sp_application_crypto/bandersnatch.rs.html#40">Source</a><a href="#impl-RuntimePublic-for-CryptoBytes%3Csp_core::::bandersnatch::Public::%7Bconstant%230%7D,+(PublicTag,+BandersnatchTag)%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.RuntimePublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic">RuntimePublic</a> for <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::bandersnatch::Public::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.PublicTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::PublicTag">PublicTag</a>, BandersnatchTag)&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Signature-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/bandersnatch.rs.html#41">Source</a><a href="#associatedtype.Signature-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Signature" class="associatedtype">Signature</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::bandersnatch::Signature::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, BandersnatchTag)&gt;</h4></section><section id="associatedtype.ProofOfPossession-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/bandersnatch.rs.html#42">Source</a><a href="#associatedtype.ProofOfPossession-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.ProofOfPossession" class="associatedtype">ProofOfPossession</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::bandersnatch::Signature::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, BandersnatchTag)&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-RuntimePublic-for-CryptoBytes%3Csp_core::::bls::Public::%7Bconstant%230%7D,+(PublicTag,+(BlsTag,+TinyBLS%3CBls12%3CConfig%3E,+Config%3E))%3E" class="impl"><a class="src rightside" href="../../../../src/sp_application_crypto/bls381.rs.html#39">Source</a><a href="#impl-RuntimePublic-for-CryptoBytes%3Csp_core::::bls::Public::%7Bconstant%230%7D,+(PublicTag,+(BlsTag,+TinyBLS%3CBls12%3CConfig%3E,+Config%3E))%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.RuntimePublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic">RuntimePublic</a> for <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::bls::Public::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.PublicTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::PublicTag">PublicTag</a>, (BlsTag, TinyBLS&lt;Bls12&lt;Config&gt;, Config&gt;))&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Signature-2" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/bls381.rs.html#40">Source</a><a href="#associatedtype.Signature-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Signature" class="associatedtype">Signature</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::bls::Signature::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, (BlsTag, TinyBLS&lt;Bls12&lt;Config&gt;, Config&gt;))&gt;</h4></section><section id="associatedtype.ProofOfPossession-2" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/bls381.rs.html#41">Source</a><a href="#associatedtype.ProofOfPossession-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.ProofOfPossession" class="associatedtype">ProofOfPossession</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::bls::ProofOfPossession::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, (BlsTag, TinyBLS&lt;Bls12&lt;Config&gt;, Config&gt;))&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-RuntimePublic-for-CryptoBytes%3Csp_core::::ecdsa::GenericPublic::%7Bconstant%230%7D,+(PublicTag,+EcdsaTag)%3E" class="impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ecdsa.rs.html#36">Source</a><a href="#impl-RuntimePublic-for-CryptoBytes%3Csp_core::::ecdsa::GenericPublic::%7Bconstant%230%7D,+(PublicTag,+EcdsaTag)%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.RuntimePublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic">RuntimePublic</a> for <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::ecdsa::GenericPublic::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.PublicTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::PublicTag">PublicTag</a>, EcdsaTag)&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Signature-3" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ecdsa.rs.html#37">Source</a><a href="#associatedtype.Signature-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Signature" class="associatedtype">Signature</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::ecdsa::GenericSignature::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::ecdsa::GenericPublic::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.PublicTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::PublicTag">PublicTag</a>, EcdsaTag)&gt;)&gt;</h4></section><section id="associatedtype.ProofOfPossession-3" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ecdsa.rs.html#38">Source</a><a href="#associatedtype.ProofOfPossession-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.ProofOfPossession" class="associatedtype">ProofOfPossession</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::ecdsa::GenericSignature::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::ecdsa::GenericPublic::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.PublicTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::PublicTag">PublicTag</a>, EcdsaTag)&gt;)&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-RuntimePublic-for-CryptoBytes%3Csp_core::::ed25519::Public::%7Bconstant%230%7D,+(PublicTag,+Ed25519Tag)%3E" class="impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ed25519.rs.html#39">Source</a><a href="#impl-RuntimePublic-for-CryptoBytes%3Csp_core::::ed25519::Public::%7Bconstant%230%7D,+(PublicTag,+Ed25519Tag)%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.RuntimePublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic">RuntimePublic</a> for <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::ed25519::Public::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.PublicTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::PublicTag">PublicTag</a>, Ed25519Tag)&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Signature-4" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ed25519.rs.html#40">Source</a><a href="#associatedtype.Signature-4" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Signature" class="associatedtype">Signature</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::ed25519::Signature::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, Ed25519Tag)&gt;</h4></section><section id="associatedtype.ProofOfPossession-4" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ed25519.rs.html#41">Source</a><a href="#associatedtype.ProofOfPossession-4" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.ProofOfPossession" class="associatedtype">ProofOfPossession</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::ed25519::Signature::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, Ed25519Tag)&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-RuntimePublic-for-CryptoBytes%3Csp_core::::paired_crypto::ecdsa_bls381::Public::%7Bconstant%230%7D,+(PublicTag,+(PairedCryptoTag,+EcdsaBls381Tag))%3E" class="impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ecdsa_bls381.rs.html#41">Source</a><a href="#impl-RuntimePublic-for-CryptoBytes%3Csp_core::::paired_crypto::ecdsa_bls381::Public::%7Bconstant%230%7D,+(PublicTag,+(PairedCryptoTag,+EcdsaBls381Tag))%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.RuntimePublic.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::RuntimePublic">RuntimePublic</a> for <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::paired_crypto::ecdsa_bls381::Public::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.PublicTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::PublicTag">PublicTag</a>, (PairedCryptoTag, EcdsaBls381Tag))&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Signature-5" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ecdsa_bls381.rs.html#42">Source</a><a href="#associatedtype.Signature-5" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Signature" class="associatedtype">Signature</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::paired_crypto::ecdsa_bls381::Signature::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, (PairedCryptoTag, EcdsaBls381Tag))&gt;</h4></section><section id="associatedtype.ProofOfPossession-5" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/sp_application_crypto/ecdsa_bls381.rs.html#43">Source</a><a href="#associatedtype.ProofOfPossession-5" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.ProofOfPossession" class="associatedtype">ProofOfPossession</a> = <a class="struct" href="ed25519/struct.CryptoBytes.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::ed25519::CryptoBytes">CryptoBytes</a>&lt;sp_core::::paired_crypto::ecdsa_bls381::ProofOfPossession::{constant#0}, (<a class="struct" href="sp_core/crypto_bytes/struct.SignatureTag.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, (PairedCryptoTag, EcdsaBls381Tag))&gt;</h4></section></div></details></div><script src="../../../../trait.impl/sp_application_crypto/traits/trait.RuntimePublic.js" data-ignore-extern-crates="sp_core" async></script><script type="text/json" id="notable-traits-data">{"Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"../../../pallet_referenda/struct.Vec.html\" title=\"struct yet_another_parachain_runtime::pallet_referenda::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"../../../pallet_referenda/struct.Vec.html\" title=\"struct yet_another_parachain_runtime::pallet_referenda::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"sp_core/bounded/alloc/alloc/trait.Allocator.html\" title=\"trait yet_another_parachain_runtime::frame_support::sp_runtime::app_crypto::sp_core::bounded::alloc::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

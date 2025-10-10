@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["sc_tracing",[["impl&lt;S&gt; Layer&lt;S&gt; for <a class=\"struct\" href=\"sc_tracing/logging/struct.PrefixLayer.html\" title=\"struct sc_tracing::logging::PrefixLayer\">PrefixLayer</a><div class=\"where\">where\n    S: Subscriber + for&lt;'a&gt; LookupSpan&lt;'a&gt;,</div>"],["impl&lt;S&gt; Layer&lt;S&gt; for <a class=\"struct\" href=\"sc_tracing/struct.ProfilingLayer.html\" title=\"struct sc_tracing::ProfilingLayer\">ProfilingLayer</a><div class=\"where\">where\n    S: Subscriber + for&lt;'span&gt; LookupSpan&lt;'span&gt;,</div>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[542,37]}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SLOTS_PER_EPOCH"],"mod":["benchmark_helpers"],"struct":["AssetHubFromEthereum","ChainForkVersions","CreateAssetCall","EthereumGatewayAddress","EthereumUniversalLocation","Parameters"],"type":["SnowbridgeExporter"]};

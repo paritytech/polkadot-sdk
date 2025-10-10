@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","HoldReason"],"mod":["pallet","weights"],"struct":["Bid","IssuanceInfo","NoCounterpart","OnEmptyQueueTotals","Pallet","ReceiptRecord","SummaryRecord","WithMaximumOf"],"trait":["BenchmarkSetup","Config","WeightInfo"],"type":["Module","QueueTotals","Queues","ReceiptIndex","Receipts","Summary"]};

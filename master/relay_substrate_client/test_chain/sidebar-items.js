@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ChainReward","TestRuntimeCall"],"struct":["TestChain","TestParachain","TestParachainBase"]};

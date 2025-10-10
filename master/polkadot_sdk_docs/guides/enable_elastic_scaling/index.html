@@ -1,0 +1,296 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="How to enable elastic scaling on a parachain."><title>polkadot_sdk_docs::guides::enable_elastic_scaling - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_<wbr>sdk_<wbr>docs</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module enable_<wbr>elastic_<wbr>scaling</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#enable-elastic-scaling-for-a-parachain" title="Enable elastic scaling for a parachain">Enable elastic scaling for a parachain</a><ul><li><a href="#quick-introduction-to-elastic-scaling" title="Quick introduction to Elastic Scaling">Quick introduction to Elastic Scaling</a></li><li><a href="#dependencies" title="Dependencies">Dependencies</a></li><li><a href="#current-limitations" title="Current limitations">Current limitations</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In polkadot_<wbr>sdk_<wbr>docs::<wbr>guides</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a></div><h1>Module <span>enable_elastic_scaling</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_sdk_docs/guides/enable_elastic_scaling.rs.html#1-182">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>How to enable elastic scaling on a parachain.</p>
+<h2 id="enable-elastic-scaling-for-a-parachain"><a class="doc-anchor" href="#enable-elastic-scaling-for-a-parachain">§</a>Enable elastic scaling for a parachain</h2><div class="warning">This guide assumes full familiarity with Asynchronous Backing and its
+terminology, as defined in <a href="https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/async_backing_guide/index.html">the Polkadot SDK Docs</a>.
+</div>
+<h3 id="quick-introduction-to-elastic-scaling"><a class="doc-anchor" href="#quick-introduction-to-elastic-scaling">§</a>Quick introduction to Elastic Scaling</h3>
+<p><a href="https://www.parity.io/blog/polkadot-web3-cloud">Elastic scaling</a> is a feature that enables parachains (rollups) to use multiple cores.
+Parachains can adjust their usage of core resources on the fly to increase TPS and decrease
+latency.</p>
+<h4 id="when-do-you-need-elastic-scaling"><a class="doc-anchor" href="#when-do-you-need-elastic-scaling">§</a>When do you need Elastic Scaling?</h4>
+<p>Depending on their use case, applications might have an increased need for the following:</p>
+<ul>
+<li>compute (CPU weight)</li>
+<li>bandwidth (proof size)</li>
+<li>lower latency (block time)</li>
+</ul>
+<h4 id="high-throughput-tps-and-lower-latency"><a class="doc-anchor" href="#high-throughput-tps-and-lower-latency">§</a>High throughput (TPS) and lower latency</h4>
+<p>If the main bottleneck is the CPU, then your parachain needs to maximize the compute usage of
+each core while also achieving a lower latency.
+3 cores provide the best balance between CPU, bandwidth and latency: up to 6s of execution,
+5MB/s of DA bandwidth and fast block time of just 2 seconds.</p>
+<h4 id="high-bandwidth"><a class="doc-anchor" href="#high-bandwidth">§</a>High bandwidth</h4>
+<p>Useful for applications that are bottlenecked by bandwidth.
+By using 6 cores, applications can make use of up to 6s of compute, 10MB/s of bandwidth
+while also achieving 1 second block times.</p>
+<h4 id="ultra-low-latency"><a class="doc-anchor" href="#ultra-low-latency">§</a>Ultra low latency</h4>
+<p>When latency is the primary requirement, Elastic scaling is currently the only solution. The
+caveat is the efficiency of core time usage decreases as more cores are used.</p>
+<p>For example, using 12 cores enables fast transaction confirmations with 500ms blocks and up to
+20 MB/s of DA bandwidth.</p>
+<h3 id="dependencies"><a class="doc-anchor" href="#dependencies">§</a>Dependencies</h3>
+<p>Prerequisites: Polkadot-SDK <code>2509</code> or newer.</p>
+<p>To ensure the security and reliability of your chain when using this feature you need the
+following:</p>
+<ul>
+<li>An omni-node based collator. This has already become the default choice for collators.</li>
+<li>UMP signal support.
+<a href="https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md">RFC103</a>.
+This is mandatory protection against PoV replay attacks.</li>
+<li>Enabling the relay parent offset feature. This is required to ensure the parachain block times
+and transaction in-block confidence are not negatively affected by relay chain forks. Read
+<a href="../handling_parachain_forks/index.html" title="mod polkadot_sdk_docs::guides::handling_parachain_forks"><code>crate::guides::handling_parachain_forks</code></a> for more information.</li>
+<li>Block production configuration adjustments.</li>
+</ul>
+<h4 id="upgrade-to-polkadot-omni-node"><a class="doc-anchor" href="#upgrade-to-polkadot-omni-node">§</a>Upgrade to Polkadot Omni node</h4>
+<p>Your collators need to run <code>polkadot-parachain</code> or <code>polkadot-omni-node</code> with the <code>--authoring slot-based</code> CLI argument.
+To avoid potential issues and get best performance it is recommeneded to always run the<br />
+latest release on all of the collators.</p>
+<p>Further information about omni-node and how to upgrade is available:</p>
+<ul>
+<li><a href="https://docs.polkadot.com/develop/toolkit/parachains/polkadot-omni-node/">high level docs</a></li>
+<li><a href="../../reference_docs/omni_node/index.html" title="mod polkadot_sdk_docs::reference_docs::omni_node"><code>crate::reference_docs::omni_node</code></a></li>
+</ul>
+<h4 id="ump-signals"><a class="doc-anchor" href="#ump-signals">§</a>UMP signals</h4>
+<p>UMP signals are now enabled by default in the <code>parachain-system</code> pallet and are used for
+elastic scaling. You can find more technical details about UMP signals and their usage for
+elastic scaling
+<a href="https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md">here</a>.</p>
+<h4 id="enable-the-relay-parent-offset-feature"><a class="doc-anchor" href="#enable-the-relay-parent-offset-feature">§</a>Enable the relay parent offset feature</h4>
+<p>It is recommended to use an offset of <code>1</code>, which is sufficient to eliminate any issues
+with relay chain forks.</p>
+<p>Configure the relay parent offset like this:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>    <span class="doccomment">/// Build with an offset of 1 behind the relay chain best block.
+    </span><span class="kw">const </span>RELAY_PARENT_OFFSET: u32 = <span class="number">1</span>;
+
+    <span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
+        <span class="comment">// ...
+        </span><span class="kw">type </span>RelayParentOffset = ConstU32&lt;RELAY_PARENT_OFFSET&gt;;
+    }</code></pre></div>
+<p>Implement the runtime API to retrieve the offset on the client side.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>    <span class="kw">impl </span>cumulus_primitives_core::RelayParentOffsetApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+        <span class="kw">fn </span>relay_parent_offset() -&gt; u32 {
+            RELAY_PARENT_OFFSET
+        }
+    }</code></pre></div>
+<h4 id="block-production-configuration"><a class="doc-anchor" href="#block-production-configuration">§</a>Block production configuration</h4>
+<p>This configuration directly controls the minimum block time and maximum number of cores
+the parachain can use.</p>
+<p>Example configuration for a 3 core parachain:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>   <span class="doccomment">/// The upper limit of how many parachain blocks are processed by the relay chain per
+   /// parent. Limits the number of blocks authored per slot. This determines the minimum
+   /// block time of the parachain:
+   /// `RELAY_CHAIN_SLOT_DURATION_MILLIS/BLOCK_PROCESSING_VELOCITY`
+   </span><span class="kw">const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">3</span>;
+
+   <span class="doccomment">/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+   /// into the relay chain.
+   </span><span class="kw">const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = (<span class="number">2 </span>+ RELAY_PARENT_OFFSET) *
+BLOCK_PROCESSING_VELOCITY + <span class="number">1</span>;
+
+   <span class="doccomment">/// Relay chain slot duration, in milliseconds.
+   </span><span class="kw">const </span>RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = <span class="number">6000</span>;
+
+   <span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
+       Runtime,
+       RELAY_CHAIN_SLOT_DURATION_MILLIS,
+       BLOCK_PROCESSING_VELOCITY,
+       UNINCLUDED_SEGMENT_CAPACITY,
+   &gt;;
+</code></pre></div>
+<h4 id="parachain-slot-duration"><a class="doc-anchor" href="#parachain-slot-duration">§</a>Parachain Slot Duration</h4>
+<p>A common source of confusion is the correct configuration of the <code>SlotDuration</code> that is passed
+to <code>pallet-aura</code>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>pallet_aura::Config <span class="kw">for </span>Runtime {
+    <span class="comment">// ...
+    </span><span class="kw">type </span>SlotDuration = ConstU64&lt;SLOT_DURATION&gt;;
+}</code></pre></div>
+<p>The slot duration determines the length of each author’s turn and is decoupled from the block
+production interval. During their slot, authors are allowed to produce multiple blocks. <strong>The
+slot duration is required to be at least 6s (same as on the relay chain).</strong></p>
+<p><strong>Configuration recommendations:</strong></p>
+<ul>
+<li>For new parachains starting from genesis: use a slot duration of 24 seconds</li>
+<li>For existing live parachains: leave the slot duration unchanged</li>
+</ul>
+<h3 id="current-limitations"><a class="doc-anchor" href="#current-limitations">§</a>Current limitations</h3><h4 id="maximum-execution-time-per-relay-chain-block"><a class="doc-anchor" href="#maximum-execution-time-per-relay-chain-block">§</a>Maximum execution time per relay chain block.</h4>
+<p>Since parachain block authoring is sequential, the next block can only be built after
+the previous one has been imported.
+At present, a core allows up to 2 seconds of execution per relay chain block.</p>
+<p>If we assume a 6s parachain slot, and each block takes the full 2 seconds to execute,
+the parachain will not be able to fully utilize the compute resources of all 3 cores.</p>
+<p>If the collator hardware is faster, it can author and import full blocks more quickly,
+making it possible to utilize even more than 3 cores efficiently.</p>
+<h5 id="why"><a class="doc-anchor" href="#why">§</a>Why?</h5>
+<p>Within a 6-second parachain slot, collators can author multiple parachain blocks.
+Before building the first block in a slot, the new block author must import the last
+block produced by the previous author.
+If the import of the last block is not completed before the next relay chain slot starts,
+the new author will build on its parent (assuming it was imported). This will create a fork
+which degrades the parachain block confidence and block times.</p>
+<p>This means that, on reference hardware, a parachain with a slot time of 6s can
+effectively utilize up to 4 seconds of execution per relay chain block, because it needs to
+ensure the next block author has enough time to import the last block.
+Hardware with higher single-core performance can enable a parachain to fully utilize more
+cores.</p>
+<h4 id="fixed-factor-scaling"><a class="doc-anchor" href="#fixed-factor-scaling">§</a>Fixed factor scaling.</h4>
+<p>For true elasticity, a parachain needs to acquire more cores when needed in an automated
+manner. This functionality is not yet available in the SDK, thus acquiring additional
+on-demand or bulk cores has to be managed externally.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

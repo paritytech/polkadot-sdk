@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Type that can be implemented in other crates to extend the list of pre-compiles."><title>Precompile in pallet_revive::precompiles - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_revive/index.html">pallet_<wbr>revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Precompile</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#warning" title="Warning">Warning</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.HAS_CONTRACT_INFO" title="HAS_CONTRACT_INFO">HAS_CONTRACT_INFO</a></li><li><a href="#associatedconstant.MATCHER" title="MATCHER">MATCHER</a></li></ul><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Interface" title="Interface">Interface</a></li><li><a href="#associatedtype.T" title="T">T</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.call" title="call">call</a></li><li><a href="#method.call_with_info" title="call_with_info">call_with_info</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive::<wbr>precompiles</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_revive</a>::<wbr><a href="index.html">precompiles</a></div><h1>Trait <span class="trait">Precompile</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_revive/precompiles.rs.html#150-223">Source</a> </span></div><pre class="rust item-decl"><code>pub trait Precompile {
+    type <a href="#associatedtype.T" class="associatedtype">T</a>: <a class="trait" href="../pallet/trait.Config.html" title="trait pallet_revive::pallet::Config">Config</a>;
+    type <a href="#associatedtype.Interface" class="associatedtype">Interface</a>: SolInterface;
+
+    const <a href="#associatedconstant.MATCHER" class="constant">MATCHER</a>: <a class="enum" href="enum.AddressMatcher.html" title="enum pallet_revive::precompiles::AddressMatcher">AddressMatcher</a>;
+    const <a href="#associatedconstant.HAS_CONTRACT_INFO" class="constant">HAS_CONTRACT_INFO</a>: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>;
+
+    // Provided methods
+    fn <a href="#method.call" class="fn">call</a>(
+        address: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">20</a>],
+        input: &amp;Self::<a class="associatedtype" href="trait.Precompile.html#associatedtype.Interface" title="type pallet_revive::precompiles::Precompile::Interface">Interface</a>,
+        env: &amp;mut impl <a class="trait" href="trait.Ext.html" title="trait pallet_revive::precompiles::Ext">Ext</a>&lt;T = Self::<a class="associatedtype" href="trait.Precompile.html#associatedtype.T" title="type pallet_revive::precompiles::Precompile::T">T</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="enum.Error.html" title="enum pallet_revive::precompiles::Error">Error</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.call_with_info" class="fn">call_with_info</a>(
+        address: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">20</a>],
+        input: &amp;Self::<a class="associatedtype" href="trait.Precompile.html#associatedtype.Interface" title="type pallet_revive::precompiles::Precompile::Interface">Interface</a>,
+        env: &amp;mut impl <a class="trait" href="trait.ExtWithInfo.html" title="trait pallet_revive::precompiles::ExtWithInfo">ExtWithInfo</a>&lt;T = Self::<a class="associatedtype" href="trait.Precompile.html#associatedtype.T" title="type pallet_revive::precompiles::Precompile::T">T</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="enum.Error.html" title="enum pallet_revive::precompiles::Error">Error</a>&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Type that can be implemented in other crates to extend the list of pre-compiles.</p>
+<p>Only implement exactly one function. Either <code>call</code> or <code>call_with_info</code>.</p>
+<h2 id="warning"><a class="doc-anchor" href="#warning">§</a>Warning</h2>
+<p>Pre-compiles are unmetered code. Hence they have to charge an appropriate amount of weight
+themselves. Generally, their first line of code should be a call to <code>env.charge(weight)</code>.</p>
+</div></details><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.MATCHER" class="method"><a class="src rightside" href="../../src/pallet_revive/precompiles.rs.html#163">Source</a><h4 class="code-header">const <a href="#associatedconstant.MATCHER" class="constant">MATCHER</a>: <a class="enum" href="enum.AddressMatcher.html" title="enum pallet_revive::precompiles::AddressMatcher">AddressMatcher</a></h4></section></summary><div class="docblock"><p>Defines at which addresses this pre-compile exists.</p>
+</div></details><details class="toggle" open><summary><section id="associatedconstant.HAS_CONTRACT_INFO" class="method"><a class="src rightside" href="../../src/pallet_revive/precompiles.rs.html#202">Source</a><h4 class="code-header">const <a href="#associatedconstant.HAS_CONTRACT_INFO" class="constant">HAS_CONTRACT_INFO</a>: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Defines whether this pre-compile needs a contract info data structure in storage.</p>
+<p>Enabling it unlocks more APIs for the pre-compile to use. Only pre-compiles with a
+fixed matcher can set this to true. This is enforced at compile time. Reason is that
+contract info is per address and not per pre-compile. Too many contract info structures
+and accounts would be created otherwise.</p>
+<h5 id="when-set-to-true"><a class="doc-anchor" href="#when-set-to-true">§</a>When set to <strong>true</strong></h5>
+<ul>
+<li>An account will be created at the pre-compiles address when it is called for the first
+time. The ed is minted.</li>
+<li>Contract info data structure will be created in storage on first call.</li>
+<li>Only <code>call_with_info</code> should be implemented. <code>call</code> is never called.</li>
+</ul>
+<h5 id="when-set-to-false"><a class="doc-anchor" href="#when-set-to-false">§</a>When set to <strong>false</strong></h5>
+<ul>
+<li>No account or any other state will be created for the address.</li>
+<li>Only <code>call</code> should be implemented. <code>call_with_info</code> is never called.</li>
+</ul>
+<h5 id="what-to-use"><a class="doc-anchor" href="#what-to-use">§</a>What to use</h5>
+<p>Should be set to false if the additional functionality is not needed. A pre-compile with
+contract info will incur both a storage read and write to its contract metadata when called.</p>
+<p>The contract info enables additional functionality:</p>
+<ul>
+<li>Storage deposits: Collect deposits from the origin rather than the caller. This makes it
+easier for contracts to interact with the pre-compile as deposits
+are paid by the transaction signer (just like gas). It also makes refunding easier.</li>
+<li>Contract storage: You can use the contracts key value child trie storage instead of
+providing your own state.
+The contract storage automatically takes care of deposits.
+Providing your own storage and using pallet_revive to collect deposits is also possible,
+though.</li>
+<li>Instantitation: Contract instantiation requires the instantiator to have an account. This
+is because its nonce is used to derive the new contracts account id and child trie id.</li>
+</ul>
+<p>Have a look at <a href="trait.ExtWithInfo.html" title="trait pallet_revive::precompiles::ExtWithInfo"><code>ExtWithInfo</code></a> to learn about the additional APIs that a contract info
+unlocks.</p>
+</div></details></div><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.T" class="method"><a class="src rightside" href="../../src/pallet_revive/precompiles.rs.html#152">Source</a><h4 class="code-header">type <a href="#associatedtype.T" class="associatedtype">T</a>: <a class="trait" href="../pallet/trait.Config.html" title="trait pallet_revive::pallet::Config">Config</a></h4></section></summary><div class="docblock"><p>Your runtime.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Interface" class="method"><a class="src rightside" href="../../src/pallet_revive/precompiles.rs.html#161">Source</a><h4 class="code-header">type <a href="#associatedtype.Interface" class="associatedtype">Interface</a>: SolInterface</h4></section></summary><div class="docblock"><p>The Solidity ABI definition of this pre-compile.</p>
+<p>Use the [<code>self::alloy::sol</code>] macro to define your interface using Solidity syntax.
+The input the caller passes to the pre-compile will be validated and parsed
+according to this interface.</p>
+<p>Please note that the return value is not validated and it is the pre-compiles
+duty to return the abi encoded bytes conformant with the interface here.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.call" class="method"><a class="src rightside" href="../../src/pallet_revive/precompiles.rs.html#206-212">Source</a><h4 class="code-header">fn <a href="#method.call" class="fn">call</a>(
+    address: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">20</a>],
+    input: &amp;Self::<a class="associatedtype" href="trait.Precompile.html#associatedtype.Interface" title="type pallet_revive::precompiles::Precompile::Interface">Interface</a>,
+    env: &amp;mut impl <a class="trait" href="trait.Ext.html" title="trait pallet_revive::precompiles::Ext">Ext</a>&lt;T = Self::<a class="associatedtype" href="trait.Precompile.html#associatedtype.T" title="type pallet_revive::precompiles::Precompile::T">T</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="enum.Error.html" title="enum pallet_revive::precompiles::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Entry point for your pre-compile when <code>HAS_CONTRACT_INFO = false</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call_with_info" class="method"><a class="src rightside" href="../../src/pallet_revive/precompiles.rs.html#216-222">Source</a><h4 class="code-header">fn <a href="#method.call_with_info" class="fn">call_with_info</a>(
+    address: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">20</a>],
+    input: &amp;Self::<a class="associatedtype" href="trait.Precompile.html#associatedtype.Interface" title="type pallet_revive::precompiles::Precompile::Interface">Interface</a>,
+    env: &amp;mut impl <a class="trait" href="trait.ExtWithInfo.html" title="trait pallet_revive::precompiles::ExtWithInfo">ExtWithInfo</a>&lt;T = Self::<a class="associatedtype" href="trait.Precompile.html#associatedtype.T" title="type pallet_revive::precompiles::Precompile::T">T</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="enum.Error.html" title="enum pallet_revive::precompiles::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Entry point for your pre-compile when <code>HAS_CONTRACT_INFO = true</code>.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_revive/precompiles/trait.Precompile.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

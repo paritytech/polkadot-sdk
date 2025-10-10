@@ -1,0 +1,224 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Type able to accept Coretime scheduling instructions and provide certain usage information. Generally implemented by the Relay-chain or some means of communicating with it."><title>CoretimeInterface in yet_another_parachain_runtime::pallet_broker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Coretime<wbr>Interface</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountId" title="AccountId">AccountId</a></li><li><a href="#associatedtype.Balance" title="Balance">Balance</a></li><li><a href="#associatedtype.RelayChainBlockNumberProvider" title="RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.assign_core" title="assign_core">assign_core</a></li><li><a href="#tymethod.credit_account" title="credit_account">credit_account</a></li><li><a href="#tymethod.request_core_count" title="request_core_count">request_core_count</a></li><li><a href="#tymethod.request_revenue_info_at" title="request_revenue_info_at">request_revenue_info_at</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.on_new_timeslice" title="on_new_timeslice">on_new_timeslice</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-CoretimeInterface-for-()" title="()">()</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>pallet_<wbr>broker</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">pallet_broker</a></div><h1>Trait <span class="trait">CoretimeInterface</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_broker/coretime_interface.rs.html#73">Source</a> </span></div><pre class="rust item-decl"><code>pub trait CoretimeInterface {
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: <a class="trait" href="../bp_polkadot_core/trait.Parameter.html" title="trait yet_another_parachain_runtime::bp_polkadot_core::Parameter">Parameter</a>;
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: <a class="trait" href="../polkadot_sdk_frame/prelude/trait.AtLeast32BitUnsigned.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::AtLeast32BitUnsigned">AtLeast32BitUnsigned</a> + <a class="trait" href="../frame_election_provider_support/trait.Encode.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Encode">Encode</a> + <a class="trait" href="../frame_election_provider_support/trait.Decode.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Decode">Decode</a> + <a class="trait" href="../frame_election_provider_support/trait.MaxEncodedLen.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::MaxEncodedLen">MaxEncodedLen</a> + <a class="trait" href="../frame_support/pallet_prelude/trait.TypeInfo.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::TypeInfo">TypeInfo</a> + <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.Debug.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Debug">Debug</a>;
+    type <a href="#associatedtype.RelayChainBlockNumberProvider" class="associatedtype">RelayChainBlockNumberProvider</a>: <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>;
+
+    // Required methods
+    fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>(
+        when: &lt;Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.credit_account" class="fn">credit_account</a>(who: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::AccountId">AccountId</a>, amount: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::Balance">Balance</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.assign_core" class="fn">assign_core</a>(
+        core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+        begin: &lt;Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>,
+        assignment: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;(<a class="enum" href="enum.CoreAssignment.html" title="enum yet_another_parachain_runtime::pallet_broker::CoreAssignment">CoreAssignment</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>)&gt;,
+        end_hint: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>&gt;,
+    );
+
+    // Provided method
+    fn <a href="#method.on_new_timeslice" class="fn">on_new_timeslice</a>(_timeslice: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Type able to accept Coretime scheduling instructions and provide certain usage information.
+Generally implemented by the Relay-chain or some means of communicating with it.</p>
+<p>The trait representation of RFC#5 <code>&lt;https://github.com/polkadot-fellows/RFCs/pull/5&gt;</code>.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.AccountId" class="method"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#75">Source</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: <a class="trait" href="../bp_polkadot_core/trait.Parameter.html" title="trait yet_another_parachain_runtime::bp_polkadot_core::Parameter">Parameter</a></h4></section></summary><div class="docblock"><p>A (Relay-chain-side) account ID.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#78">Source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: <a class="trait" href="../polkadot_sdk_frame/prelude/trait.AtLeast32BitUnsigned.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::AtLeast32BitUnsigned">AtLeast32BitUnsigned</a> + <a class="trait" href="../frame_election_provider_support/trait.Encode.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Encode">Encode</a> + <a class="trait" href="../frame_election_provider_support/trait.Decode.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Decode">Decode</a> + <a class="trait" href="../frame_election_provider_support/trait.MaxEncodedLen.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::MaxEncodedLen">MaxEncodedLen</a> + <a class="trait" href="../frame_support/pallet_prelude/trait.TypeInfo.html" title="trait yet_another_parachain_runtime::frame_support::pallet_prelude::TypeInfo">TypeInfo</a> + <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.Debug.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Debug">Debug</a></h4></section></summary><div class="docblock"><p>A (Relay-chain-side) balance.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RelayChainBlockNumberProvider" class="method"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#81">Source</a><h4 class="code-header">type <a href="#associatedtype.RelayChainBlockNumberProvider" class="associatedtype">RelayChainBlockNumberProvider</a>: <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a></h4></section></summary><div class="docblock"><p>A provider for the relay chain block number.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.request_core_count" class="method"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#85">Source</a><h4 class="code-header">fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>)</h4></section></summary><div class="docblock"><p>Requests the Relay-chain to alter the number of schedulable cores to <code>count</code>. Under normal
+operation, the Relay-chain SHOULD send a <code>notify_core_count(count)</code> message back.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.request_revenue_info_at" class="method"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#95">Source</a><h4 class="code-header">fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>(
+    when: &lt;Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>,
+)</h4></section></summary><div class="docblock"><p>Requests that the Relay-chain send a <code>notify_revenue</code> message back at or soon after
+Relay-chain block number <code>when</code> whose <code>until</code> parameter is equal to <code>when</code>.</p>
+<p><code>when</code> may never be greater than the result of <code>Self::latest()</code>.
+The period in to the past which <code>when</code> is allowed to be may be limited; if so the limit
+should be understood on a channel outside of this proposal. In the case that the request
+cannot be serviced because <code>when</code> is too old a block then a <code>notify_revenue</code> message must
+still be returned, but its <code>revenue</code> field may be <code>None</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.credit_account" class="method"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#103">Source</a><h4 class="code-header">fn <a href="#tymethod.credit_account" class="fn">credit_account</a>(who: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::AccountId">AccountId</a>, amount: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::Balance">Balance</a>)</h4></section></summary><div class="docblock"><p>Instructs the Relay-chain to add the <code>amount</code> of DOT to the Instantaneous Coretime Market
+Credit account of <code>who</code>.</p>
+<p>It is expected that Instantaneous Coretime Market Credit on the Relay-chain is NOT
+transferable and only redeemable when used to assign cores in the Instantaneous Coretime
+Pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.assign_core" class="method"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#116-121">Source</a><h4 class="code-header">fn <a href="#tymethod.assign_core" class="fn">assign_core</a>(
+    core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+    begin: &lt;Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>,
+    assignment: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;(<a class="enum" href="enum.CoreAssignment.html" title="enum yet_another_parachain_runtime::pallet_broker::CoreAssignment">CoreAssignment</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>)&gt;,
+    end_hint: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>&gt;,
+)</h4></section></summary><div class="docblock"><p>Instructs the Relay-chain to ensure that the core indexed as <code>core</code> is utilised for a number
+of assignments in specific ratios given by <code>assignment</code> starting as soon after <code>begin</code> as
+possible. Core assignments take the form of a <code>CoreAssignment</code> value which can either task
+the core to a <code>ParaId</code> value or indicate that the core should be used in the Instantaneous
+Pool. Each assignment comes with a ratio value, represented as the numerator of the fraction
+with a denominator of 57,600.</p>
+<p>If <code>end_hint</code> is <code>Some</code> and the inner is greater than the current block number, then the
+Relay-chain should optimize in the expectation of receiving a new <code>assign_core(core, ...)</code>
+message at or prior to the block number of the inner value. Specific functionality should
+remain unchanged regardless of the <code>end_hint</code> value.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.on_new_timeslice" class="method"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#126">Source</a><h4 class="code-header">fn <a href="#method.on_new_timeslice" class="fn">on_new_timeslice</a>(_timeslice: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>A hook supposed to be called right after a new timeslice has begun. Likely to be used for
+batching different matters happened during the timeslice that may benefit from batched
+processing.</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-CoretimeInterface-for-()" class="impl"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#129">Source</a><a href="#impl-CoretimeInterface-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface">CoretimeInterface</a> for <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="associatedtype.AccountId-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#130">Source</a><a href="#associatedtype.AccountId-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a> = <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.Balance-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#131">Source</a><a href="#associatedtype.Balance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u64.html">u64</a></h4></section><section id="associatedtype.RelayChainBlockNumberProvider-1" class="associatedtype trait-impl"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#132">Source</a><a href="#associatedtype.RelayChainBlockNumberProvider-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RelayChainBlockNumberProvider" class="associatedtype">RelayChainBlockNumberProvider</a> = <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a></h4></section><section id="method.request_core_count" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#134">Source</a><a href="#method.request_core_count" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>)</h4></section><section id="method.request_revenue_info_at" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#135">Source</a><a href="#method.request_revenue_info_at" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>(
+    _when: &lt;&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface">CoretimeInterface</a>&gt;::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>,
+)</h4></section><section id="method.credit_account" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#136">Source</a><a href="#method.credit_account" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.credit_account" class="fn">credit_account</a>(
+    _who: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface">CoretimeInterface</a>&gt;::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::AccountId">AccountId</a>,
+    _amount: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface">CoretimeInterface</a>&gt;::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.Balance" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::Balance">Balance</a>,
+)</h4></section><section id="method.assign_core" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/coretime_interface.rs.html#137-142">Source</a><a href="#method.assign_core" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.assign_core" class="fn">assign_core</a>(
+    _core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+    _begin: &lt;&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface">CoretimeInterface</a>&gt;::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>,
+    _assignment: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;(<a class="enum" href="enum.CoreAssignment.html" title="enum yet_another_parachain_runtime::pallet_broker::CoreAssignment">CoreAssignment</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>)&gt;,
+    _end_hint: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.CoretimeInterface.html" title="trait yet_another_parachain_runtime::pallet_broker::CoretimeInterface">CoretimeInterface</a>&gt;::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type yet_another_parachain_runtime::pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as <a class="trait" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider">BlockNumberProvider</a>&gt;::<a class="associatedtype" href="../polkadot_sdk_frame/prelude/trait.BlockNumberProvider.html#associatedtype.BlockNumber" title="type yet_another_parachain_runtime::polkadot_sdk_frame::prelude::BlockNumberProvider::BlockNumber">BlockNumber</a>&gt;,
+)</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_broker/coretime_interface/trait.CoretimeInterface.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

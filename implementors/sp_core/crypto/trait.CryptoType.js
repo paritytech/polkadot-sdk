@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"sp_runtime":[["impl <a class=\"trait\" href=\"sp_runtime/trait.CryptoType.html\" title=\"trait sp_runtime::CryptoType\">CryptoType</a> for <a class=\"struct\" href=\"sp_runtime/testing/struct.UintAuthorityId.html\" title=\"struct sp_runtime::testing::UintAuthorityId\">UintAuthorityId</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

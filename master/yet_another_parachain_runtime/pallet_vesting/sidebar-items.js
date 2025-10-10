@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","Releases"],"mod":["migrations","pallet","weights"],"struct":["GenesisConfig","MaxVestingSchedulesGet","Pallet","VestingInfo"],"trait":["Config","WeightInfo"],"type":["Module","StorageVersion","Vesting"]};

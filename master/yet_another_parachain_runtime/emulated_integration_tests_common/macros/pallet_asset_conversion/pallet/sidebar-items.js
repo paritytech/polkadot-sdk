@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"struct":["GetReservesViewFunction","Pallet","QuotePriceExactTokensForTokensViewFunction","QuotePriceTokensForExactTokensViewFunction"],"trait":["Config"],"type":["Module","NextPoolAssetId","Pools"]};

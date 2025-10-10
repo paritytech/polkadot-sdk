@@ -1,0 +1,9 @@
+(function() {
+    var type_impls = Object.fromEntries([["sp_core",[["<details class=\"toggle implementors-toggle\" open><summary><section id=\"impl-CryptoType-for-CryptoBytes%3CSIGNATURE_SERIALIZED_SIZE,+(SignatureTag,+BandersnatchTag)%3E\" class=\"impl\"><a class=\"src rightside\" href=\"src/sp_core/bandersnatch.rs.html#75-77\">Source</a><a href=\"#impl-CryptoType-for-CryptoBytes%3CSIGNATURE_SERIALIZED_SIZE,+(SignatureTag,+BandersnatchTag)%3E\" class=\"anchor\">§</a><h3 class=\"code-header\">impl <a class=\"trait\" href=\"sp_core/crypto/trait.CryptoType.html\" title=\"trait sp_core::crypto::CryptoType\">CryptoType</a> for <a class=\"type\" href=\"sp_core/bandersnatch/type.Signature.html\" title=\"type sp_core::bandersnatch::Signature\">Signature</a></h3></section></summary><div class=\"impl-items\"><details class=\"toggle\" open><summary><section id=\"associatedtype.Pair\" class=\"associatedtype trait-impl\"><a class=\"src rightside\" href=\"src/sp_core/bandersnatch.rs.html#76\">Source</a><a href=\"#associatedtype.Pair\" class=\"anchor\">§</a><h4 class=\"code-header\">type <a href=\"sp_core/crypto/trait.CryptoType.html#associatedtype.Pair\" class=\"associatedtype\">Pair</a> = <a class=\"struct\" href=\"sp_core/bandersnatch/struct.Pair.html\" title=\"struct sp_core::bandersnatch::Pair\">Pair</a></h4></section></summary><div class='docblock'>The pair key type of this crypto.</div></details></div></details>","CryptoType","sp_core::bandersnatch::ProofOfPossession"]]]]);
+    if (window.register_type_impls) {
+        window.register_type_impls(type_impls);
+    } else {
+        window.pending_type_impls = type_impls;
+    }
+})()
+//{"start":55,"fragment_lengths":[1435]}

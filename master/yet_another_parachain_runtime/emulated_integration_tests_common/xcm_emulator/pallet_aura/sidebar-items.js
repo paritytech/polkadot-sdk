@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call"],"mod":["migrations","pallet"],"struct":["GenesisConfig","MinimumPeriodTimesTwo","Pallet"],"trait":["Config"],"type":["AuraAuthorId","Authorities","CurrentSlot","Module"]};

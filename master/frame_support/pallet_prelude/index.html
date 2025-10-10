@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Prelude to be used alongside pallet macro, for ease of use."><title>frame_support::pallet_prelude - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_<wbr>support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module pallet_<wbr>prelude</a></h2><h3><a href="#reexports">Module Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate frame_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">frame_support</a></div><h1>Module <span>pallet_prelude</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/frame_support/lib.rs.html#417">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Prelude to be used alongside pallet macro, for ease of use.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.DispatchClass"><code>pub use crate::dispatch::<a class="enum" href="../dispatch/enum.DispatchClass.html" title="enum frame_support::dispatch::DispatchClass">DispatchClass</a>;</code></dt><dt id="reexport.DispatchResult"><code>pub use crate::dispatch::<a class="type" href="../dispatch/type.DispatchResult.html" title="type frame_support::dispatch::DispatchResult">DispatchResult</a>;</code></dt><dt id="reexport.DispatchResultWithPostInfo"><code>pub use crate::dispatch::<a class="type" href="../dispatch/type.DispatchResultWithPostInfo.html" title="type frame_support::dispatch::DispatchResultWithPostInfo">DispatchResultWithPostInfo</a>;</code></dt><dt id="reexport.Parameter"><code>pub use crate::dispatch::<a class="trait" href="../dispatch/trait.Parameter.html" title="trait frame_support::dispatch::Parameter">Parameter</a>;</code></dt><dt id="reexport.Pays"><code>pub use crate::dispatch::<a class="enum" href="../dispatch/enum.Pays.html" title="enum frame_support::dispatch::Pays">Pays</a>;</code></dt><dt id="reexport.ProvideInherent"><code>pub use crate::inherent::<a class="trait" href="../inherent/trait.ProvideInherent.html" title="trait frame_support::inherent::ProvideInherent">ProvideInherent</a>;</code></dt><dt id="reexport.storage"><code>pub use crate::<a class="mod" href="../storage/index.html" title="mod frame_support::storage">storage</a>;</code></dt><dt id="reexport.CountedStorageMap"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.CountedStorageMap.html" title="struct frame_support::storage::types::CountedStorageMap">CountedStorageMap</a>;</code></dt><dt id="reexport.CountedStorageNMap"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.CountedStorageNMap.html" title="struct frame_support::storage::types::CountedStorageNMap">CountedStorageNMap</a>;</code></dt><dt id="reexport.NMapKey"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.Key.html" title="struct frame_support::storage::types::Key">Key</a> as NMapKey;</code></dt><dt id="reexport.OptionQuery"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery">OptionQuery</a>;</code></dt><dt id="reexport.ResultQuery"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.ResultQuery.html" title="struct frame_support::storage::types::ResultQuery">ResultQuery</a>;</code></dt><dt id="reexport.StorageDoubleMap"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.StorageDoubleMap.html" title="struct frame_support::storage::types::StorageDoubleMap">StorageDoubleMap</a>;</code></dt><dt id="reexport.StorageMap"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.StorageMap.html" title="struct frame_support::storage::types::StorageMap">StorageMap</a>;</code></dt><dt id="reexport.StorageNMap"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.StorageNMap.html" title="struct frame_support::storage::types::StorageNMap">StorageNMap</a>;</code></dt><dt id="reexport.StorageValue"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue">StorageValue</a>;</code></dt><dt id="reexport.ValueQuery"><code>pub use crate::storage::types::<a class="struct" href="../storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery">ValueQuery</a>;</code></dt><dt id="reexport.StorageList"><code>pub use crate::storage::<a class="trait" href="../storage/trait.StorageList.html" title="trait frame_support::storage::StorageList">StorageList</a>;</code></dt><dt id="reexport.Authorize"><code>pub use crate::traits::<a class="trait" href="../traits/trait.Authorize.html" title="trait frame_support::traits::Authorize">Authorize</a>;</code></dt><dt id="reexport.BuildGenesisConfig"><code>pub use crate::traits::<a class="trait" href="../traits/trait.BuildGenesisConfig.html" title="trait frame_support::traits::BuildGenesisConfig">BuildGenesisConfig</a>;</code></dt><dt id="reexport.EnsureOrigin"><code>pub use crate::traits::<a class="trait" href="../traits/trait.EnsureOrigin.html" title="trait frame_support::traits::EnsureOrigin">EnsureOrigin</a>;</code></dt><dt id="reexport.GetStorageVersion"><code>pub use crate::traits::<a class="trait" href="../traits/trait.GetStorageVersion.html" title="trait frame_support::traits::GetStorageVersion">GetStorageVersion</a>;</code></dt><dt id="reexport.Hooks"><code>pub use crate::traits::<a class="trait" href="../traits/trait.Hooks.html" title="trait frame_support::traits::Hooks">Hooks</a>;</code></dt><dt id="reexport.IsType"><code>pub use crate::traits::<a class="trait" href="../traits/trait.IsType.html" title="trait frame_support::traits::IsType">IsType</a>;</code></dt><dt id="reexport.OriginTrait"><code>pub use crate::traits::<a class="trait" href="../traits/trait.OriginTrait.html" title="trait frame_support::traits::OriginTrait">OriginTrait</a>;</code></dt><dt id="reexport.PalletInfoAccess"><code>pub use crate::traits::<a class="trait" href="../traits/trait.PalletInfoAccess.html" title="trait frame_support::traits::PalletInfoAccess">PalletInfoAccess</a>;</code></dt><dt id="reexport.StorageInfoTrait"><code>pub use crate::traits::<a class="trait" href="../traits/trait.StorageInfoTrait.html" title="trait frame_support::traits::StorageInfoTrait">StorageInfoTrait</a>;</code></dt><dt id="reexport.StorageVersion"><code>pub use crate::traits::<a class="struct" href="../traits/struct.StorageVersion.html" title="struct frame_support::traits::StorageVersion">StorageVersion</a>;</code></dt><dt id="reexport.Task"><code>pub use crate::traits::<a class="trait" href="../traits/tasks/trait.Task.html" title="trait frame_support::traits::tasks::Task">Task</a>;</code></dt><dt id="reexport.Blake2_128"><code>pub use crate::<a class="struct" href="../struct.Blake2_128.html" title="struct frame_support::Blake2_128">Blake2_128</a>;</code></dt><dt id="reexport.Blake2_128Concat"><code>pub use crate::<a class="struct" href="../struct.Blake2_128Concat.html" title="struct frame_support::Blake2_128Concat">Blake2_128Concat</a>;</code></dt><dt id="reexport.Blake2_256"><code>pub use crate::<a class="struct" href="../struct.Blake2_256.html" title="struct frame_support::Blake2_256">Blake2_256</a>;</code></dt><dt id="reexport.Identity"><code>pub use crate::<a class="struct" href="../struct.Identity.html" title="struct frame_support::Identity">Identity</a>;</code></dt><dt id="reexport.Twox128"><code>pub use crate::<a class="struct" href="../struct.Twox128.html" title="struct frame_support::Twox128">Twox128</a>;</code></dt><dt id="reexport.Twox256"><code>pub use crate::<a class="struct" href="../struct.Twox256.html" title="struct frame_support::Twox256">Twox256</a>;</code></dt><dt id="reexport.Twox64Concat"><code>pub use crate::<a class="struct" href="../struct.Twox64Concat.html" title="struct frame_support::Twox64Concat">Twox64Concat</a>;</code></dt><dt><code>pub use frame_support::<a class="mod" href="../pallet_macros/index.html" title="mod frame_support::pallet_macros">pallet_macros</a>::*;</code></dt></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.defensive.html" title="macro frame_support::pallet_prelude::defensive">defensive</a></dt><dd>Generic function to mark an execution path as ONLY defensive.</dd><dt><a class="macro" href="macro.defensive_assert.html" title="macro frame_support::pallet_prelude::defensive_assert">defensive_<wbr>assert</a></dt><dd>Trigger a defensive failure if a condition is not met.</dd><dt><a class="macro" href="macro.ensure.html" title="macro frame_support::pallet_prelude::ensure">ensure</a></dt><dd>Evaluate <code>$x:expr</code> and if not true return <code>Err($y:expr)</code>.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BoundedBTreeMap.html" title="struct frame_support::pallet_prelude::BoundedBTreeMap">BoundedB<wbr>Tree<wbr>Map</a></dt><dd>A bounded map based on a B-Tree.</dd><dt><a class="struct" href="struct.BoundedBTreeSet.html" title="struct frame_support::pallet_prelude::BoundedBTreeSet">BoundedB<wbr>Tree<wbr>Set</a></dt><dd>A bounded set based on a B-Tree.</dd><dt><a class="struct" href="struct.BoundedVec.html" title="struct frame_support::pallet_prelude::BoundedVec">Bounded<wbr>Vec</a></dt><dd>A bounded vector.</dd><dt><a class="struct" href="struct.ConstU32.html" title="struct frame_support::pallet_prelude::ConstU32">Const<wbr>U32</a></dt><dd>Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstUint.html" title="struct frame_support::pallet_prelude::ConstUint">Const<wbr>Uint</a></dt><dd>Const getter for unsigned integers.</dd><dt><a class="struct" href="struct.GetDefault.html" title="struct frame_support::pallet_prelude::GetDefault">GetDefault</a></dt><dd>Implement Get by returning Default for any type that implements Default.</dd><dt><a class="struct" href="struct.InherentData.html" title="struct frame_support::pallet_prelude::InherentData">Inherent<wbr>Data</a></dt><dd>Inherent data to include in a block.</dd><dt><a class="struct" href="struct.MakeFatalError.html" title="struct frame_support::pallet_prelude::MakeFatalError">Make<wbr>Fatal<wbr>Error</a></dt><dd>Auxiliary to make any given error resolve to <code>is_fatal_error() == true</code> for <a href="../inherent/trait.IsFatalError.html" title="trait frame_support::inherent::IsFatalError"><code>IsFatalError</code></a>.</dd><dt><a class="struct" href="struct.PhantomData.html" title="struct frame_support::pallet_prelude::PhantomData">Phantom<wbr>Data</a></dt><dd>Zero-sized type used to mark things that “act like” they own a <code>T</code>.</dd><dt><a class="struct" href="struct.ValidTransaction.html" title="struct frame_support::pallet_prelude::ValidTransaction">Valid<wbr>Transaction</a></dt><dd>Information concerning a valid transaction.</dd><dt><a class="struct" href="struct.WeakBoundedVec.html" title="struct frame_support::pallet_prelude::WeakBoundedVec">Weak<wbr>Bounded<wbr>Vec</a></dt><dd>A weakly bounded vector.</dd><dt><a class="struct" href="struct.Weight.html" title="struct frame_support::pallet_prelude::Weight">Weight</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.DispatchError.html" title="enum frame_support::pallet_prelude::DispatchError">Dispatch<wbr>Error</a></dt><dd>Reason why a dispatch call failed.</dd><dt><a class="enum" href="enum.InvalidTransaction.html" title="enum frame_support::pallet_prelude::InvalidTransaction">Invalid<wbr>Transaction</a></dt><dd>An invalid transaction validity.</dd><dt><a class="enum" href="enum.TransactionSource.html" title="enum frame_support::pallet_prelude::TransactionSource">Transaction<wbr>Source</a></dt><dd>The source of the transaction.</dd><dt><a class="enum" href="enum.TransactionValidityError.html" title="enum frame_support::pallet_prelude::TransactionValidityError">Transaction<wbr>Validity<wbr>Error</a></dt><dd>Errors that can occur while checking the validity of a transaction.</dd><dt><a class="enum" href="enum.UnknownTransaction.html" title="enum frame_support::pallet_prelude::UnknownTransaction">Unknown<wbr>Transaction</a></dt><dd>An unknown transaction validity.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.MAX_MODULE_ERROR_ENCODED_SIZE.html" title="constant frame_support::pallet_prelude::MAX_MODULE_ERROR_ENCODED_SIZE">MAX_<wbr>MODULE_<wbr>ERROR_<wbr>ENCODED_<wbr>SIZE</a></dt><dd>The number of bytes of the module-specific <code>error</code> field defined in <a href="../../sp_runtime/struct.ModuleError.html" title="struct sp_runtime::ModuleError"><code>ModuleError</code></a>.
+In FRAME, this is the maximum encoded size of a pallet error type.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.CheckedAdd.html" title="trait frame_support::pallet_prelude::CheckedAdd">Checked<wbr>Add</a></dt><dd>Performs addition that returns <code>None</code> instead of wrapping around on
+overflow.</dd><dt><a class="trait" href="trait.CheckedConversion.html" title="trait frame_support::pallet_prelude::CheckedConversion">Checked<wbr>Conversion</a></dt><dd>Convenience type to work around the highly unergonomic syntax needed
+to invoke the functions of overloaded generic traits, in this case
+<code>TryFrom</code> and <code>TryInto</code>.</dd><dt><a class="trait" href="trait.CheckedDiv.html" title="trait frame_support::pallet_prelude::CheckedDiv">Checked<wbr>Div</a></dt><dd>Performs division that returns <code>None</code> instead of panicking on division by zero and instead of
+wrapping around on underflow and overflow.</dd><dt><a class="trait" href="trait.CheckedMul.html" title="trait frame_support::pallet_prelude::CheckedMul">Checked<wbr>Mul</a></dt><dd>Performs multiplication that returns <code>None</code> instead of wrapping around on underflow or
+overflow.</dd><dt><a class="trait" href="trait.CheckedShl.html" title="trait frame_support::pallet_prelude::CheckedShl">Checked<wbr>Shl</a></dt><dd>Performs a left shift that returns <code>None</code> on shifts larger than
+or equal to the type width.</dd><dt><a class="trait" href="trait.CheckedShr.html" title="trait frame_support::pallet_prelude::CheckedShr">Checked<wbr>Shr</a></dt><dd>Performs a right shift that returns <code>None</code> on shifts larger than
+or equal to the type width.</dd><dt><a class="trait" href="trait.CheckedSub.html" title="trait frame_support::pallet_prelude::CheckedSub">Checked<wbr>Sub</a></dt><dd>Performs subtraction that returns <code>None</code> instead of wrapping around on underflow.</dd><dt><a class="trait" href="trait.Decode.html" title="trait frame_support::pallet_prelude::Decode">Decode</a></dt><dd>Trait that allows zero-copy read of value-references from slices in LE format.</dd><dt><a class="trait" href="trait.DecodeWithMemTracking.html" title="trait frame_support::pallet_prelude::DecodeWithMemTracking">Decode<wbr>With<wbr>MemTracking</a></dt><dd>Marker trait used for identifying types that call the [<code>Input::on_before_alloc_mem</code>] hook
+while decoding.</dd><dt><a class="trait" href="trait.Encode.html" title="trait frame_support::pallet_prelude::Encode">Encode</a></dt><dd>Trait that allows zero-copy write of value-references to slices in LE format.</dd><dt><a class="trait" href="trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a></dt><dd>A trait for querying a single value from a type.</dd><dt><a class="trait" href="trait.MaxEncodedLen.html" title="trait frame_support::pallet_prelude::MaxEncodedLen">MaxEncoded<wbr>Len</a></dt><dd>Items implementing <code>MaxEncodedLen</code> have a statically known maximum encoded size.</dd><dt><a class="trait" href="trait.MaybeSerializeDeserialize.html" title="trait frame_support::pallet_prelude::MaybeSerializeDeserialize">Maybe<wbr>Serialize<wbr>Deserialize</a></dt><dd>A type that implements Serialize, DeserializeOwned and Debug when in std environment or serde feature is activated.</dd><dt><a class="trait" href="trait.Member.html" title="trait frame_support::pallet_prelude::Member">Member</a></dt><dd>A type that can be used in runtime structures.</dd><dt><a class="trait" href="trait.One.html" title="trait frame_support::pallet_prelude::One">One</a></dt><dd>Defines a multiplicative identity element for <code>Self</code>.</dd><dt><a class="trait" href="trait.TypeInfo.html" title="trait frame_support::pallet_prelude::TypeInfo">Type<wbr>Info</a></dt><dd>Implementors return their meta type information.</dd><dt><a class="trait" href="trait.TypedGet.html" title="trait frame_support::pallet_prelude::TypedGet">Typed<wbr>Get</a></dt><dd>A trait for querying a single value from a type defined in the trait.</dd><dt><a class="trait" href="trait.ValidateUnsigned.html" title="trait frame_support::pallet_prelude::ValidateUnsigned">Validate<wbr>Unsigned</a></dt><dd>Provide validation for unsigned extrinsics.</dd><dt><a class="trait" href="trait.Zero.html" title="trait frame_support::pallet_prelude::Zero">Zero</a></dt><dd>Defines an additive identity element for <code>Self</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.InherentIdentifier.html" title="type frame_support::pallet_prelude::InherentIdentifier">Inherent<wbr>Identifier</a></dt><dd>An identifier for an inherent.</dd><dt><a class="type" href="type.TransactionLongevity.html" title="type frame_support::pallet_prelude::TransactionLongevity">Transaction<wbr>Longevity</a></dt><dd>Minimum number of blocks a transaction will remain valid for.
+<code>TransactionLongevity::max_value()</code> means “forever”.</dd><dt><a class="type" href="type.TransactionPriority.html" title="type frame_support::pallet_prelude::TransactionPriority">Transaction<wbr>Priority</a></dt><dd>Priority for a transaction. Additive. Higher is better.</dd><dt><a class="type" href="type.TransactionTag.html" title="type frame_support::pallet_prelude::TransactionTag">Transaction<wbr>Tag</a></dt><dd>Tag for a transaction. No two transactions with the same tag should be placed on-chain.</dd><dt><a class="type" href="type.TransactionValidity.html" title="type frame_support::pallet_prelude::TransactionValidity">Transaction<wbr>Validity</a></dt><dd>Information on a transaction’s validity and, if valid, on how it relates to other transactions.</dd><dt><a class="type" href="type.TransactionValidityWithRefund.html" title="type frame_support::pallet_prelude::TransactionValidityWithRefund">Transaction<wbr>Validity<wbr>With<wbr>Refund</a></dt><dd>Information on a transaction’s validity and, if valid, on how it relates to other transactions
+and some refund for the operation.</dd><dt><a class="type" href="type.ValidateResult.html" title="type frame_support::pallet_prelude::ValidateResult">Validate<wbr>Result</a></dt><dd>Shortcut for the result value of the <code>validate</code> function.</dd></dl><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><dl class="item-table"><dt><a class="attr" href="attr.inject_runtime_type.html" title="attr frame_support::pallet_prelude::inject_runtime_type">inject_<wbr>runtime_<wbr>type</a></dt><dd>The optional attribute <code>#[inject_runtime_type]</code> can be attached to <code>RuntimeCall</code>,
+<code>RuntimeEvent</code>, <code>RuntimeOrigin</code> or <code>PalletInfo</code> in an impl statement that has
+<code>#[register_default_impl]</code> attached to indicate that this item is generated by
+<code>construct_runtime</code>.</dd><dt><a class="attr" href="attr.register_default_impl.html" title="attr frame_support::pallet_prelude::register_default_impl">register_<wbr>default_<wbr>impl</a></dt><dd>Attach this attribute to an impl statement that you want to use with
+<a href="../attr.derive_impl.html" title="attr frame_support::derive_impl"><code>#[derive_impl(..)]</code></a>.</dd></dl><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><dl class="item-table"><dt><a class="derive" href="derive.CloneNoBound.html" title="derive frame_support::pallet_prelude::CloneNoBound">Clone<wbr>NoBound</a></dt><dd>Derive <a href="https://doc.rust-lang.org/1.88.0/core/clone/trait.Clone.html" title="trait core::clone::Clone"><code>Clone</code></a> but do not bound any generic.</dd><dt><a class="derive" href="derive.DebugNoBound.html" title="derive frame_support::pallet_prelude::DebugNoBound">Debug<wbr>NoBound</a></dt><dd>Derive <a href="https://doc.rust-lang.org/1.88.0/core/fmt/macros/derive.Debug.html" title="derive core::fmt::macros::Debug"><code>Debug</code></a> but do not bound any generic.</dd><dt><a class="derive" href="derive.Decode.html" title="derive frame_support::pallet_prelude::Decode">Decode</a></dt><dd>Derive <code>parity_scale_codec::Decode</code> for struct and enum.</dd><dt><a class="derive" href="derive.DecodeWithMemTracking.html" title="derive frame_support::pallet_prelude::DecodeWithMemTracking">Decode<wbr>With<wbr>MemTracking</a></dt><dd>Derive <code>parity_scale_codec::DecodeWithMemTracking</code> for struct and enum.</dd><dt><a class="derive" href="derive.Encode.html" title="derive frame_support::pallet_prelude::Encode">Encode</a></dt><dd>Derive <code>parity_scale_codec::Encode</code> and <code>parity_scale_codec::EncodeLike</code> for struct and enum.</dd><dt><a class="derive" href="derive.EqNoBound.html" title="derive frame_support::pallet_prelude::EqNoBound">EqNo<wbr>Bound</a></dt><dd>Derive <a href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq"><code>Eq</code></a> but do not bound any generic.</dd><dt><a class="derive" href="derive.MaxEncodedLen.html" title="derive frame_support::pallet_prelude::MaxEncodedLen">MaxEncoded<wbr>Len</a></dt><dd>Derive <code>parity_scale_codec::MaxEncodedLen</code> for struct and enum.</dd><dt><a class="derive" href="derive.PartialEqNoBound.html" title="derive frame_support::pallet_prelude::PartialEqNoBound">Partial<wbr>EqNo<wbr>Bound</a></dt><dd>Derive <a href="https://doc.rust-lang.org/1.88.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq"><code>PartialEq</code></a> but do not bound any generic.</dd><dt><a class="derive" href="derive.RuntimeDebug.html" title="derive frame_support::pallet_prelude::RuntimeDebug">Runtime<wbr>Debug</a></dt><dt><a class="derive" href="derive.RuntimeDebugNoBound.html" title="derive frame_support::pallet_prelude::RuntimeDebugNoBound">Runtime<wbr>Debug<wbr>NoBound</a></dt><dd>Derive [<code>Debug</code>], if <code>std</code> is enabled it uses <code>frame_support::DebugNoBound</code>, if <code>std</code> is not
+enabled it just returns <code>"&lt;wasm:stripped&gt;"</code>.
+This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.</dd><dt><a class="derive" href="derive.TypeInfo.html" title="derive frame_support::pallet_prelude::TypeInfo">Type<wbr>Info</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

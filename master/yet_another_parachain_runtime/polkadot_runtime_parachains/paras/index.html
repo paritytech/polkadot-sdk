@@ -1,0 +1,244 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The paras pallet acts as the main registry of paras."><title>yet_another_parachain_runtime::polkadot_runtime_parachains::paras - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module paras</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#tracking-state-of-paras" title="Tracking State of Paras">Tracking State of Paras</a></li><li><a href="#validation-code-upgrades" title="Validation Code Upgrades">Validation Code Upgrades</a></li><li><a href="#validation-code-management" title="Validation Code Management">Validation Code Management</a></li><li><a href="#para-lifecycle-management" title="Para Lifecycle Management">Para Lifecycle Management</a></li><li><a href="#pvf-pre-checking" title="PVF Pre-checking">PVF Pre-checking</a></li></ul><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>polkadot_<wbr>runtime_<wbr>parachains</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">polkadot_runtime_parachains</a></div><h1>Module <span>paras</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_runtime_parachains/lib.rs.html#37">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The paras pallet acts as the main registry of paras.</p>
+<h2 id="tracking-state-of-paras"><a class="doc-anchor" href="#tracking-state-of-paras">§</a>Tracking State of Paras</h2>
+<p>The most important responsibility of this module is to track which parachains
+are active and what their current state is. The current state of a para consists of the current
+head data and the current validation code (AKA Parachain Validation Function (PVF)).</p>
+<p>A para is not considered live until it is registered and activated in this pallet.</p>
+<p>The set of parachains cannot change except at session boundaries. This is primarily to ensure
+that the number and meaning of bits required for the availability bitfields does not change
+except at session boundaries.</p>
+<h2 id="validation-code-upgrades"><a class="doc-anchor" href="#validation-code-upgrades">§</a>Validation Code Upgrades</h2>
+<p>When a para signals the validation code upgrade it will be processed by this module. This can
+be in turn split into more fine grained items:</p>
+<ul>
+<li>
+<p>Part of the acceptance criteria checks if the para can indeed signal an upgrade,</p>
+</li>
+<li>
+<p>When the candidate is enacted, this module schedules code upgrade, storing the prospective
+validation code.</p>
+</li>
+<li>
+<p>Actually assign the prospective validation code to be the current one after all conditions are
+fulfilled.</p>
+</li>
+</ul>
+<p>The conditions that must be met before the para can use the new validation code are:</p>
+<ol>
+<li>
+<p>The validation code should have been “soaked” in the storage for a given number of blocks.
+That    is, the validation code should have been stored in on-chain storage for some time, so
+that in    case of a revert with a non-extreme height difference, that validation code can still
+be    found on-chain.</p>
+</li>
+<li>
+<p>The validation code was vetted by the validators and declared as non-malicious in a processes
+known as PVF pre-checking.</p>
+</li>
+</ol>
+<h2 id="validation-code-management"><a class="doc-anchor" href="#validation-code-management">§</a>Validation Code Management</h2>
+<p>Potentially, one validation code can be used by several different paras. For example, during
+initial stages of deployment several paras can use the same “shell” validation code, or
+there can be shards of the same para that use the same validation code.</p>
+<p>In case a validation code ceases to have any users it must be pruned from the on-chain storage.</p>
+<h2 id="para-lifecycle-management"><a class="doc-anchor" href="#para-lifecycle-management">§</a>Para Lifecycle Management</h2>
+<p>A para can be in one of the two stable states: it is either a lease holding parachain or an
+on-demand parachain.</p>
+<p>However, in order to get into one of those two states, it must first be onboarded. Onboarding
+can be only enacted at session boundaries. Onboarding must take at least one full session.
+Moreover, a brand new validation code should go through the PVF pre-checking process.</p>
+<p>Once the para is in one of the two stable states, it can switch to the other stable state or to
+initiate offboarding process. The result of offboarding is removal of all data related to that
+para.</p>
+<h2 id="pvf-pre-checking"><a class="doc-anchor" href="#pvf-pre-checking">§</a>PVF Pre-checking</h2>
+<p>As was mentioned above, a brand new validation code should go through a process of approval. As
+part of this process, validators from the active set will take the validation code and check if
+it is malicious. Once they did that and have their judgement, either accept or reject, they
+issue a statement in a form of an unsigned extrinsic. This extrinsic is processed by this
+pallet. Once supermajority is gained for accept, then the process that initiated the check is
+resumed (as mentioned before this can be either upgrading of validation code or onboarding). If
+getting a supermajority becomes impossible (&gt;1/3 of validators have already voted against), then
+we reject.</p>
+<p>Below is a state diagram that depicts states of a single PVF pre-checking vote.</p>
+<div class="example-wrap"><pre class="language-text"><code>                                           ┌──────────┐
+                       supermajority       │          │
+                   ┌────────for───────────▶│ accepted │
+       vote────┐   │                       │          │
+        │      │   │                       └──────────┘
+        │      │   │
+        │  ┌───────┐
+        │  │       │
+        └─▶│ init  │──── &gt;1/3 against      ┌──────────┐
+           │       │           │           │          │
+           └───────┘           └──────────▶│ rejected │
+            ▲  │                           │          │
+            │  │ session                   └──────────┘
+            │  └──change
+            │     │
+            │     ▼
+            ┌─────┐
+start──────▶│reset│
+            └─────┘</code></pre></div></div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmarking/index.html" title="mod yet_another_parachain_runtime::polkadot_runtime_parachains::paras::benchmarking">benchmarking</a></dt><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::polkadot_runtime_parachains::paras::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AuthorizedCodeHashAndExpiry.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::paras::AuthorizedCodeHashAndExpiry">Authorized<wbr>Code<wbr>Hash<wbr>AndExpiry</a></dt><dd>Holds an authorized validation code hash along with its expiry timestamp.</dd><dt><a class="struct" href="struct.GenesisConfig.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::paras::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::paras::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.ParaGenesisArgs.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::paras::ParaGenesisArgs">Para<wbr>Genesis<wbr>Args</a></dt><dd>Arguments for initializing a para.</dd><dt><a class="struct" href="struct.ParaPastCodeMeta.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::paras::ParaPastCodeMeta">Para<wbr>Past<wbr>Code<wbr>Meta</a></dt><dd>Metadata used to track previous parachain validation code that we keep in
+the state.</dd><dt><a class="struct" href="struct.RemoveUpgradeCooldownCostViewFunction.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::paras::RemoveUpgradeCooldownCostViewFunction">Remove<wbr>Upgrade<wbr>Cooldown<wbr>Cost<wbr>View<wbr>Function</a></dt><dd>Returns the cost for removing an upgrade cooldown for the given <code>para</code>.</dd><dt><a class="struct" href="struct.ReplacementTimes.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::paras::ReplacementTimes">Replacement<wbr>Times</a></dt><dt><a class="struct" href="struct.TestWeightInfo.html" title="struct yet_another_parachain_runtime::polkadot_runtime_parachains::paras::TestWeightInfo">Test<wbr>Weight<wbr>Info</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::polkadot_runtime_parachains::paras::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::polkadot_runtime_parachains::paras::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::polkadot_runtime_parachains::paras::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.ParaKind.html" title="enum yet_another_parachain_runtime::polkadot_runtime_parachains::paras::ParaKind">Para<wbr>Kind</a></dt><dd>Distinguishes between lease holding Parachain and Parathread (on-demand parachain)</dd><dt><a class="enum" href="enum.ParaLifecycle.html" title="enum yet_another_parachain_runtime::polkadot_runtime_parachains::paras::ParaLifecycle">Para<wbr>Lifecycle</a></dt><dd>The possible states of a para, to take into account delayed lifecycle changes.</dd><dt><a class="enum" href="enum.ParachainOrigin.html" title="enum yet_another_parachain_runtime::polkadot_runtime_parachains::paras::ParachainOrigin">Parachain<wbr>Origin</a></dt><dd>Origin for the parachains.</dd><dt><a class="enum" href="enum.UpgradeStrategy.html" title="enum yet_another_parachain_runtime::polkadot_runtime_parachains::paras::UpgradeStrategy">Upgrade<wbr>Strategy</a></dt><dd>The strategy on how to handle a validation code upgrade.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.MAX_PARA_HEADS.html" title="constant yet_another_parachain_runtime::polkadot_runtime_parachains::paras::MAX_PARA_HEADS">MAX_<wbr>PARA_<wbr>HEADS</a></dt><dd>This is intermediate “fix” for this issue:
+<a href="https://github.com/paritytech/polkadot-sdk/issues/4737">https://github.com/paritytech/polkadot-sdk/issues/4737</a></dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AssignCoretime.html" title="trait yet_another_parachain_runtime::polkadot_runtime_parachains::paras::AssignCoretime">Assign<wbr>Coretime</a></dt><dd>Assign coretime to some parachain.</dd><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::polkadot_runtime_parachains::paras::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.OnNewHead.html" title="trait yet_another_parachain_runtime::polkadot_runtime_parachains::paras::OnNewHead">OnNew<wbr>Head</a></dt><dd>Runtime hook for when a parachain head is updated.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::polkadot_runtime_parachains::paras::WeightInfo">Weight<wbr>Info</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ActionsQueue.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::ActionsQueue">Actions<wbr>Queue</a></dt><dd>The actions to perform during the start of a specific session index.</dd><dt><a class="type" href="type.AuthorizedCodeHash.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::AuthorizedCodeHash">Authorized<wbr>Code<wbr>Hash</a></dt><dd>The code hash authorizations for a para which will expire <code>expire_at</code> <code>BlockNumberFor&lt;T&gt;</code>.</dd><dt><a class="type" href="type.CodeByHash.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::CodeByHash">Code<wbr>ByHash</a></dt><dd>Validation code stored by its hash.</dd><dt><a class="type" href="type.CurrentCodeHash.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::CurrentCodeHash">Current<wbr>Code<wbr>Hash</a></dt><dd>The validation code hash of every live para.</dd><dt><a class="type" href="type.FutureCodeHash.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::FutureCodeHash">Future<wbr>Code<wbr>Hash</a></dt><dd>The actual future code hash of a para.</dd><dt><a class="type" href="type.FutureCodeUpgrades.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::FutureCodeUpgrades">Future<wbr>Code<wbr>Upgrades</a></dt><dd>The block number at which the planned code change is expected for a parachain.</dd><dt><a class="type" href="type.Heads.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::Heads">Heads</a></dt><dd>The head-data of every registered para.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.MostRecentContext.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::MostRecentContext">Most<wbr>Recent<wbr>Context</a></dt><dd>The context (relay-chain block number) of the most recent parachain head.</dd><dt><a class="type" href="type.Parachains.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::Parachains">Parachains</a></dt><dd>All lease holding parachains. Ordered ascending by <code>ParaId</code>. On demand parachains are not
+included.</dd><dt><a class="type" href="type.PastCodeMeta.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::PastCodeMeta">Past<wbr>Code<wbr>Meta</a></dt><dd>Past code of parachains. The parachains themselves may not be registered anymore,
+but we also keep their code on-chain for the same amount of time as outdated code
+to keep it available for approval checkers.</dd><dt><a class="type" href="type.UpgradeRestrictionSignal.html" title="type yet_another_parachain_runtime::polkadot_runtime_parachains::paras::UpgradeRestrictionSignal">Upgrade<wbr>Restriction<wbr>Signal</a></dt><dd>This is used by the relay-chain to communicate that there are restrictions for performing
+an upgrade for this parachain.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

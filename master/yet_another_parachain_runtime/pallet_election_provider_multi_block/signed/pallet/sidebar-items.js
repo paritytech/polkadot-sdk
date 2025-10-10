@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","HoldReason"],"struct":["DepositForViewFunction","Pallet"],"trait":["Config"],"type":["Invulnerables","Module","SortedScores"]};

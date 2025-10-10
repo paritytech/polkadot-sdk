@@ -1,0 +1,178 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A (almost) marker trait that signifies an election provider as working synchronously. i.e. being instant."><title>InstantElectionProvider in yet_another_parachain_runtime::frame_election_provider_support - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Instant<wbr>Election<wbr>Provider</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.bother" title="bother">bother</a></li><li><a href="#tymethod.instant_elect" title="instant_elect">instant_elect</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>election_<wbr>provider_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">frame_election_provider_support</a></div><h1>Trait <span class="trait">InstantElectionProvider</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/frame_election_provider_support/lib.rs.html#543">Source</a> </span></div><pre class="rust item-decl"><code>pub trait InstantElectionProvider: <a class="trait" href="trait.ElectionProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider">ElectionProvider</a> {
+    // Required methods
+    fn <a href="#tymethod.instant_elect" class="fn">instant_elect</a>(
+        voters: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;(&lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.DataProvider" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::DataProvider">DataProvider</a> as <a class="trait" href="trait.ElectionDataProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider">ElectionDataProvider</a>&gt;::<a class="associatedtype" href="trait.ElectionDataProvider.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider::AccountId">AccountId</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u64.html">u64</a>, <a class="struct" href="struct.BoundedVec.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BoundedVec">BoundedVec</a>&lt;&lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.DataProvider" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::DataProvider">DataProvider</a> as <a class="trait" href="trait.ElectionDataProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider">ElectionDataProvider</a>&gt;::<a class="associatedtype" href="trait.ElectionDataProvider.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider::AccountId">AccountId</a>, &lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.DataProvider" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::DataProvider">DataProvider</a> as <a class="trait" href="trait.ElectionDataProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider">ElectionDataProvider</a>&gt;::<a class="associatedtype" href="trait.ElectionDataProvider.html#associatedtype.MaxVotesPerVoter" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider::MaxVotesPerVoter">MaxVotesPerVoter</a>&gt;)&gt;,
+        targets: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::AccountId">AccountId</a>&gt;,
+        desired_targets: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    ) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="struct.BoundedSupports.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BoundedSupports">BoundedSupports</a>&lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::AccountId">AccountId</a>, Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.MaxWinnersPerPage" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::MaxWinnersPerPage">MaxWinnersPerPage</a>, Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.MaxBackersPerWinner" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::MaxBackersPerWinner">MaxBackersPerWinner</a>&gt;, Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.Error" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.bother" class="fn">bother</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A (almost) marker trait that signifies an election provider as working synchronously. i.e. being
+<em>instant</em>.</p>
+<p>This must still use the same data provider as with <a href="trait.ElectionProvider.html#associatedtype.DataProvider" title="associated type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::DataProvider"><code>ElectionProvider::DataProvider</code></a>.
+However, it can optionally overwrite the amount of voters and targets that are fetched from the
+data provider at runtime via <code>forced_input_voters_bound</code> and <code>forced_input_target_bound</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.instant_elect" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/lib.rs.html#544-548">Source</a><h4 class="code-header">fn <a href="#tymethod.instant_elect" class="fn">instant_elect</a>(
+    voters: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;(&lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.DataProvider" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::DataProvider">DataProvider</a> as <a class="trait" href="trait.ElectionDataProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider">ElectionDataProvider</a>&gt;::<a class="associatedtype" href="trait.ElectionDataProvider.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider::AccountId">AccountId</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u64.html">u64</a>, <a class="struct" href="struct.BoundedVec.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BoundedVec">BoundedVec</a>&lt;&lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.DataProvider" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::DataProvider">DataProvider</a> as <a class="trait" href="trait.ElectionDataProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider">ElectionDataProvider</a>&gt;::<a class="associatedtype" href="trait.ElectionDataProvider.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider::AccountId">AccountId</a>, &lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.DataProvider" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::DataProvider">DataProvider</a> as <a class="trait" href="trait.ElectionDataProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider">ElectionDataProvider</a>&gt;::<a class="associatedtype" href="trait.ElectionDataProvider.html#associatedtype.MaxVotesPerVoter" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider::MaxVotesPerVoter">MaxVotesPerVoter</a>&gt;)&gt;,
+    targets: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::AccountId">AccountId</a>&gt;,
+    desired_targets: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+) -&gt; <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="struct.BoundedSupports.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::BoundedSupports">BoundedSupports</a>&lt;Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.AccountId" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::AccountId">AccountId</a>, Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.MaxWinnersPerPage" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::MaxWinnersPerPage">MaxWinnersPerPage</a>, Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.MaxBackersPerWinner" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::MaxBackersPerWinner">MaxBackersPerWinner</a>&gt;, Self::<a class="associatedtype" href="trait.ElectionProvider.html#associatedtype.Error" title="type yet_another_parachain_runtime::frame_election_provider_support::ElectionProvider::Error">Error</a>&gt;</h4></section><section id="tymethod.bother" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/lib.rs.html#553">Source</a><h4 class="code-header">fn <a href="#tymethod.bother" class="fn">bother</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></h4></section></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-InstantElectionProvider-for-NoElection%3C(AccountId,+BlockNumber,+DataProvider,+MaxWinnersPerPage,+MaxBackersPerWinner)%3E" class="impl"><a class="src rightside" href="../../src/frame_election_provider_support/lib.rs.html#593-600">Source</a><a href="#impl-InstantElectionProvider-for-NoElection%3C(AccountId,+BlockNumber,+DataProvider,+MaxWinnersPerPage,+MaxBackersPerWinner)%3E" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner&gt; <a class="trait" href="trait.InstantElectionProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::InstantElectionProvider">InstantElectionProvider</a> for <a class="struct" href="struct.NoElection.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::NoElection">NoElection</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.tuple.html">(AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner)</a>&gt;<div class="where">where
+    DataProvider: <a class="trait" href="trait.ElectionDataProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::ElectionDataProvider">ElectionDataProvider</a>&lt;AccountId = AccountId, BlockNumber = BlockNumber&gt;,
+    MaxWinnersPerPage: <a class="trait" href="trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    MaxBackersPerWinner: <a class="trait" href="trait.Get.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    BlockNumber: <a class="trait" href="../emulated_integration_tests_common/xcm_emulator/trait.Zero.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::Zero">Zero</a>,</div></h3></section><section id="impl-InstantElectionProvider-for-Continue%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_election_provider_multi_block/lib.rs.html#331">Source</a><a href="#impl-InstantElectionProvider-for-Continue%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.InstantElectionProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::InstantElectionProvider">InstantElectionProvider</a> for <a class="struct" href="../pallet_election_provider_multi_block/struct.Continue.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::Continue">Continue</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../pallet_election_provider_multi_block/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::Config">Config</a>,</div></h3></section><section id="impl-InstantElectionProvider-for-InitiateEmergencyPhase%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_election_provider_multi_block/lib.rs.html#286">Source</a><a href="#impl-InstantElectionProvider-for-InitiateEmergencyPhase%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.InstantElectionProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::InstantElectionProvider">InstantElectionProvider</a> for <a class="struct" href="../pallet_election_provider_multi_block/struct.InitiateEmergencyPhase.html" title="struct yet_another_parachain_runtime::pallet_election_provider_multi_block::InitiateEmergencyPhase">InitiateEmergencyPhase</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="../pallet_election_provider_multi_block/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_election_provider_multi_block::Config">Config</a>,</div></h3></section><section id="impl-InstantElectionProvider-for-OnChainExecution%3CT%3E" class="impl"><a class="src rightside" href="../../src/frame_election_provider_support/onchain.rs.html#169">Source</a><a href="#impl-InstantElectionProvider-for-OnChainExecution%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.InstantElectionProvider.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::InstantElectionProvider">InstantElectionProvider</a> for <a class="struct" href="onchain/struct.OnChainExecution.html" title="struct yet_another_parachain_runtime::frame_election_provider_support::onchain::OnChainExecution">OnChainExecution</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="onchain/trait.Config.html" title="trait yet_another_parachain_runtime::frame_election_provider_support::onchain::Config">Config</a>,</div></h3></section></div><script src="../../trait.impl/frame_election_provider_support/trait.InstantElectionProvider.js" data-ignore-extern-crates="frame_election_provider_support,pallet_election_provider_multi_block" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

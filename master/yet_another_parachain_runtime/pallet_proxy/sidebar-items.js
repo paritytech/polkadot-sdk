@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","DepositKind","Error","Event"],"mod":["pallet","weights"],"struct":["Announcement","CheckPermissionsViewFunction","IsSupersetViewFunction","Pallet","ProxyDefinition"],"trait":["Config","WeightInfo"],"type":["Announcements","BlockNumberFor","Module","Proxies"]};

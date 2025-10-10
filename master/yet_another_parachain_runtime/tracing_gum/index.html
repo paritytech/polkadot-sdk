@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A wrapper around `tracing` macros, to provide semi automatic `traceID` annotation without codebase turnover."><title>yet_another_parachain_runtime::tracing_gum - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#usage" title="Usage">Usage</a><ul><li><a href="#log-levels" title="Log levels">Log levels</a></li><li><a href="#target" title="`target`"><code>target</code></a></li><li><a href="#fields-1" title="Fields">Fields</a></li><li><a href="#viewing-traces" title="Viewing traces">Viewing traces</a></li></ul></li></ul><h3><a href="#macros">Crate Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>tracing_gum</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/tracing_gum/lib.rs.html#17-209">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A wrapper around <code>tracing</code> macros, to provide semi automatic
+<code>traceID</code> annotation without codebase turnover.</p>
+<h2 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h2>
+<p>The API follows the <a href="https://docs.rs/tracing/latest/tracing/index.html"><code>tracing</code>
+API</a>, but the docs contain
+more detail than you probably need to know, so here’s the quick version.</p>
+<p>Most common usage is of the form:</p>
+<div class="example-wrap"><pre class="language-rs"><code>gum::warn!(
+    target: LOG_TARGET,
+    worker_pid = %idle_worker.pid,
+    ?error,
+    &quot;failed to send a handshake to the spawned worker&quot;,
+);</code></pre></div><h4 id="log-levels"><a class="doc-anchor" href="#log-levels">§</a>Log levels</h4>
+<p>All of the <a href="https://docs.rs/tracing/latest/tracing/index.html#macros"><code>tracing</code> macros</a> are available.
+In decreasing order of priority they are:</p>
+<ul>
+<li><code>error!</code></li>
+<li><code>warn!</code></li>
+<li><code>info!</code></li>
+<li><code>debug!</code></li>
+<li><code>trace!</code></li>
+</ul>
+<h4 id="target"><a class="doc-anchor" href="#target">§</a><code>target</code></h4>
+<p>The <code>LOG_TARGET</code> should be defined once per crate, e.g.:</p>
+<div class="example-wrap"><pre class="language-rs"><code>const LOG_TARGET: &amp;str = &quot;parachain::pvf&quot;;</code></pre></div>
+<p>This should be of the form <code>&lt;target&gt;::&lt;subtarget&gt;</code>, where the <code>::&lt;subtarget&gt;</code> is optional.</p>
+<p>The target and subtarget are used when debugging by specializing the Grafana Loki query to
+filter specific subsystem logs. The more specific the query is the better when approaching the
+query response limit.</p>
+<h4 id="fields-1"><a class="doc-anchor" href="#fields-1">§</a>Fields</h4>
+<p>Here’s the rundown on how fields work:</p>
+<ul>
+<li>Fields on spans and events are specified using the <code>syntax field_name = field_value</code>.</li>
+<li>Local variables may be used as field values without an assignment, similar to struct
+initializers.</li>
+<li>The <code>?</code> sigil is shorthand that specifies a field should be recorded using its <code>fmt::Debug</code>
+implementation.</li>
+<li>The <code>%</code> sigil operates similarly, but indicates that the value should be recorded using its
+<code>fmt::Display</code> implementation.</li>
+</ul>
+<p>For full details, again see <a href="https://docs.rs/tracing/latest/tracing/index.html#recording-fields">the tracing
+docs</a>.</p>
+<h4 id="viewing-traces"><a class="doc-anchor" href="#viewing-traces">§</a>Viewing traces</h4>
+<p>When testing,</p>
+<div class="example-wrap"><pre class="language-rs"><code>sp_tracing::init_for_tests();</code></pre></div>
+<p>should enable all trace logs.</p>
+<p>Alternatively, you can do:</p>
+<div class="example-wrap"><pre class="language-rs"><code>sp_tracing::try_init_simple();</code></pre></div>
+<p>On the command line you specify <code>RUST_LOG</code> with the desired target and trace level:</p>
+<div class="example-wrap"><pre class="language-sh"><code>RUST_LOG=parachain::pvf=trace cargo test</code></pre></div>
+<p>On the other hand if you want all <code>parachain</code> logs, specify <code>parachain=trace</code>, which will also
+include logs from <code>parachain::pvf</code> and other subtargets.</p>
+</div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.debug.html" title="macro yet_another_parachain_runtime::tracing_gum::debug">debug</a></dt><dd>Print a debug level message.</dd><dt><a class="macro" href="macro.enabled.html" title="macro yet_another_parachain_runtime::tracing_gum::enabled">enabled</a></dt><dd>Checks whether a span or event is <a href="../emulated_integration_tests_common/xcm_emulator/tracing/trait.Subscriber.html#tymethod.enabled" title="method yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Subscriber::enabled">enabled</a> based on the provided <a href="../emulated_integration_tests_common/xcm_emulator/tracing/struct.Metadata.html" title="struct yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::tracing::Metadata">metadata</a>.</dd><dt><a class="macro" href="macro.error.html" title="macro yet_another_parachain_runtime::tracing_gum::error">error</a></dt><dd>Print an error message.</dd><dt><a class="macro" href="macro.event.html" title="macro yet_another_parachain_runtime::tracing_gum::event">event</a></dt><dd>Constructs a new <code>Event</code>.</dd><dt><a class="macro" href="macro.info.html" title="macro yet_another_parachain_runtime::tracing_gum::info">info</a></dt><dd>Print a info level message.</dd><dt><a class="macro" href="macro.trace.html" title="macro yet_another_parachain_runtime::tracing_gum::trace">trace</a></dt><dd>Print a trace level message.</dd><dt><a class="macro" href="macro.warn.html" title="macro yet_another_parachain_runtime::tracing_gum::warn">warn</a></dt><dd>Print a warning level message.</dd><dt><a class="macro" href="macro.warn_if_frequent.html" title="macro yet_another_parachain_runtime::tracing_gum::warn_if_frequent">warn_<wbr>if_<wbr>frequent</a></dt><dd>Print a warning or debug level message depending on their frequency</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CandidateHash.html" title="struct yet_another_parachain_runtime::tracing_gum::CandidateHash">Candidate<wbr>Hash</a></dt><dd>Unit type wrapper around <a href="../cumulus_relay_chain_interface/type.PHash.html" title="type yet_another_parachain_runtime::cumulus_relay_chain_interface::PHash"><code>Hash</code></a> that represents a candidate hash.</dd><dt><a class="struct" href="struct.Freq.html" title="struct yet_another_parachain_runtime::tracing_gum::Freq">Freq</a></dt><dd>Utility struct to compare the rate of its own calls.</dd><dt><a class="struct" href="struct.Level.html" title="struct yet_another_parachain_runtime::tracing_gum::Level">Level</a></dt><dd>Describes the level of verbosity of a span or event.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Times.html" title="enum yet_another_parachain_runtime::tracing_gum::Times">Times</a></dt><dd>Represents frequency per second, minute, hour and day</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.hash_to_trace_identifier.html" title="fn yet_another_parachain_runtime::tracing_gum::hash_to_trace_identifier">hash_<wbr>to_<wbr>trace_<wbr>identifier</a></dt><dd>A helper to convert the hash to the fixed size representation
+needed for jaeger.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Hash.html" title="type yet_another_parachain_runtime::tracing_gum::Hash">Hash</a></dt><dd>A hash of some data used by the relay chain.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

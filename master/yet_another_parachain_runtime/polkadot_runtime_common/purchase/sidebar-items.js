@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AccountValidity","Call","Error","Event"],"fn":["remove_pallet"],"mod":["pallet"],"struct":["AccountStatus","Pallet"],"trait":["Config"],"type":["Module"]};

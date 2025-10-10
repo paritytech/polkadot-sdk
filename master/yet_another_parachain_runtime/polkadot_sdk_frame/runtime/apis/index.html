@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Types and traits for runtimes that implement runtime APIs."><title>yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module apis</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>polkadot_<wbr>sdk_<wbr>frame::<wbr>runtime</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">runtime</a></div><h1>Module <span>apis</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/polkadot_sdk_frame/lib.rs.html#436">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Types and traits for runtimes that implement runtime APIs.</p>
+<p>A testing runtime should not need this.</p>
+<p>A non-testing runtime should have this enabled, as such:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>polkadot_sdk_frame::runtime::{prelude::<span class="kw-2">*</span>, apis::{<span class="kw-2">*</span>,}};</code></pre></div>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="digests/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::digests">digests</a></dt><dd>Aura (Authority-Round) digests</dd><dt><a class="mod" href="ed25519/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ed25519">ed25519</a></dt><dt><a class="mod" href="inherents/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::inherents">inherents</a></dt><dt><a class="mod" href="sp_api/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::sp_api">sp_api</a></dt><dd>Substrate runtime api</dd><dt><a class="mod" href="sr25519/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::sr25519">sr25519</a></dt></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro._frame_metadata_enabled.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::_frame_metadata_enabled">_frame_<wbr>metadata_<wbr>enabled</a></dt><dt><a class="macro" href="macro._std_disabled.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::_std_disabled">_std_<wbr>disabled</a></dt><dt><a class="macro" href="macro._std_enabled.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::_std_enabled">_std_<wbr>enabled</a></dt><dt><a class="macro" href="macro.decl_runtime_apis.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::decl_runtime_apis">decl_<wbr>runtime_<wbr>apis</a></dt><dt><a class="macro" href="macro.frame_metadata_enabled.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::frame_metadata_enabled">frame_<wbr>metadata_<wbr>enabled</a></dt><dt><a class="macro" href="macro.impl_runtime_apis.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::impl_runtime_apis">impl_<wbr>runtime_<wbr>apis</a></dt><dt><a class="macro" href="macro.mock_impl_runtime_apis.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::mock_impl_runtime_apis">mock_<wbr>impl_<wbr>runtime_<wbr>apis</a></dt><dt><a class="macro" href="macro.std_disabled.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::std_disabled">std_<wbr>disabled</a></dt><dt><a class="macro" href="macro.std_enabled.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::std_enabled">std_<wbr>enabled</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ApiRef.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ApiRef">ApiRef</a></dt><dd>Auxiliary wrapper that holds an api instance and binds it to the given lifetime.</dd><dt><a class="struct" href="struct.CallApiAtParams.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CallApiAtParams">Call<wbr>ApiAt<wbr>Params</a></dt><dd>Parameters for <a href="trait.CallApiAt.html#tymethod.call_api_at" title="method yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CallApiAt::call_api_at"><code>CallApiAt::call_api_at</code></a>.</dd><dt><a class="struct" href="struct.EquivocationProof.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::EquivocationProof">Equivocation<wbr>Proof</a></dt><dd>Proof of voter misbehavior on a given set id. Misbehavior/equivocation in
+GRANDPA happens when a voter votes on the same round (either at prevote or
+precommit stage) for different blocks. Proving is achieved by collecting the
+signed messages of conflicting votes.</dd><dt><a class="struct" href="struct.GrandpaJustification.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::GrandpaJustification">Grandpa<wbr>Justification</a></dt><dd>A GRANDPA justification for block finality, it includes a commit message and
+an ancestry proof including all headers routing all precommit target blocks
+to the commit target block. Due to the current voting strategy the precommit
+targets should be the same as the commit target, since honest voters don’t
+vote past authority set change blocks.</dd><dt><a class="struct" href="struct.KeyTypeId.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::KeyTypeId">KeyType<wbr>Id</a></dt><dd>An identifier for a type of cryptographic key.</dd><dt><a class="struct" href="struct.ScheduledChange.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ScheduledChange">Scheduled<wbr>Change</a></dt><dd>A scheduled change of authority set.</dd><dt><a class="struct" href="struct.Slot.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Slot">Slot</a></dt><dd>Unit type wrapper that represents a slot.</dd><dt><a class="struct" href="struct.SlotDuration.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::SlotDuration">Slot<wbr>Duration</a></dt><dd>A slot duration defined in milliseconds.</dd><dt><a class="struct" href="struct.StorageProof.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::StorageProof">Storage<wbr>Proof</a></dt><dd>A proof that some set of key-value pairs are included in the storage trie. The proof contains
+the storage values so that the partial storage backend can be reconstructed by a verifier that
+does not already have access to the key-value pairs.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ApiError.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ApiError">ApiError</a></dt><dd>An error describing which API call failed.</dd><dt><a class="enum" href="enum.CallContext.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CallContext">Call<wbr>Context</a></dt><dd>The context in which a call is done.</dd><dt><a class="enum" href="enum.CheckInherentsError.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CheckInherentsError">Check<wbr>Inherents<wbr>Error</a></dt><dd>Errors that occur when creating and checking on the client side.</dd><dt><a class="enum" href="enum.Equivocation.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Equivocation">Equivocation</a></dt><dd>Wrapper object for GRANDPA equivocation proofs, useful for unifying prevote
+and precommit equivocations under a common type.</dd><dt><a class="enum" href="enum.SignatureResult.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::SignatureResult">Signature<wbr>Result</a></dt><dd>Result of checking a message signature.</dd><dt><a class="enum" href="enum.TransactionOutcome.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::TransactionOutcome">Transaction<wbr>Outcome</a></dt><dd>Describes on what should happen with a storage transaction.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.AURA_ENGINE_ID.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::AURA_ENGINE_ID">AURA_<wbr>ENGINE_<wbr>ID</a></dt><dd>The <code>ConsensusEngineId</code> of AuRa.</dd><dt><a class="constant" href="constant.CLIENT_LOG_TARGET.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CLIENT_LOG_TARGET">CLIENT_<wbr>LOG_<wbr>TARGET</a></dt><dd>The log target to be used by client code.</dd><dt><a class="constant" href="constant.DEV_RUNTIME_PRESET.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::DEV_RUNTIME_PRESET">DEV_<wbr>RUNTIME_<wbr>PRESET</a></dt><dd>The default <code>development</code> preset used to communicate with the runtime via
+<a href="trait.GenesisBuilder.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::GenesisBuilder"><code>GenesisBuilder</code></a> interface.</dd><dt><a class="constant" href="constant.GRANDPA_ENGINE_ID.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::GRANDPA_ENGINE_ID">GRANDPA_<wbr>ENGINE_<wbr>ID</a></dt><dd>The <code>ConsensusEngineId</code> of GRANDPA.</dd><dt><a class="constant" href="constant.KEY_TYPE.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::KEY_TYPE">KEY_<wbr>TYPE</a></dt><dd>Key type for GRANDPA module.</dd><dt><a class="constant" href="constant.LOCAL_TESTNET_RUNTIME_PRESET.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::LOCAL_TESTNET_RUNTIME_PRESET">LOCAL_<wbr>TESTNET_<wbr>RUNTIME_<wbr>PRESET</a></dt><dd>The default <code>local_testnet</code> preset used to communicate with the runtime via
+<a href="trait.GenesisBuilder.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::GenesisBuilder"><code>GenesisBuilder</code></a> interface.</dd><dt><a class="constant" href="constant.RUNTIME_API_INFO_SIZE.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::RUNTIME_API_INFO_SIZE">RUNTIME_<wbr>API_<wbr>INFO_<wbr>SIZE</a></dt><dd>The number of bytes required to encode a <a href="trait.RuntimeApiInfo.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::RuntimeApiInfo"><code>RuntimeApiInfo</code></a>.</dd><dt><a class="constant" href="constant.RUNTIME_LOG_TARGET.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::RUNTIME_LOG_TARGET">RUNTIME_<wbr>LOG_<wbr>TARGET</a></dt><dd>The log target to be used by runtime code.</dd><dt><a class="constant" href="constant.STORAGE_PREFIX.html" title="constant yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::STORAGE_PREFIX">STORAGE_<wbr>PREFIX</a></dt><dd>Persistent storage prefix used by the Offchain Worker API when creating a DB key.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AccountNonceApi.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::AccountNonceApi">Account<wbr>Nonce<wbr>Api</a></dt><dd>The API to query account nonce.</dd><dt><a class="trait" href="trait.ApiExt.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ApiExt">ApiExt</a></dt><dd>Extends the runtime api implementation with some common functionality.</dd><dt><a class="trait" href="trait.AuraApi.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::AuraApi">AuraApi</a></dt><dd>API necessary for block authorship with aura.</dd><dt><a class="trait" href="trait.BlockBuilder.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::BlockBuilder">Block<wbr>Builder</a></dt><dd>The <code>BlockBuilder</code> api trait that provides the required functionality for building a block.</dd><dt><a class="trait" href="trait.CallApiAt.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CallApiAt">Call<wbr>ApiAt</a></dt><dd>Something that can call into an api at a given block.</dd><dt><a class="trait" href="trait.ConstructRuntimeApi.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ConstructRuntimeApi">Construct<wbr>Runtime<wbr>Api</a></dt><dd>Something that can be constructed to a runtime api.</dd><dt><a class="trait" href="trait.Core.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Core">Core</a></dt><dd>The <code>Core</code> runtime api that every Substrate runtime needs to implement.</dd><dt><a class="trait" href="trait.GenesisBuilder.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::GenesisBuilder">Genesis<wbr>Builder</a></dt><dd>API to interact with <code>RuntimeGenesisConfig</code> for the runtime</dd><dt><a class="trait" href="trait.GrandpaApi.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::GrandpaApi">Grandpa<wbr>Api</a></dt><dd>APIs for integrating the GRANDPA finality gadget into runtimes.
+This should be implemented on the runtime side.</dd><dt><a class="trait" href="trait.Metadata.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Metadata">Metadata</a></dt><dd>The <code>Metadata</code> api trait that returns metadata for the runtime.</dd><dt><a class="trait" href="trait.OffchainWorkerApi.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::OffchainWorkerApi">Offchain<wbr>Worker<wbr>Api</a></dt><dd>The offchain worker api.</dd><dt><a class="trait" href="trait.ProvideRuntimeApi.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ProvideRuntimeApi">Provide<wbr>Runtime<wbr>Api</a></dt><dd>Something that provides a runtime api.</dd><dt><a class="trait" href="trait.RuntimeApiInfo.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::RuntimeApiInfo">Runtime<wbr>ApiInfo</a></dt><dd>Something that provides information about a runtime api.</dd><dt><a class="trait" href="trait.SessionKeys.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::SessionKeys">Session<wbr>Keys</a></dt><dd>Session keys runtime api.</dd><dt><a class="trait" href="trait.TaggedTransactionQueue.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::TaggedTransactionQueue">Tagged<wbr>Transaction<wbr>Queue</a></dt><dd>The <code>TaggedTransactionQueue</code> api trait for interfering with the transaction queue.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.check_equivocation_proof.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::check_equivocation_proof">check_<wbr>equivocation_<wbr>proof</a></dt><dd>Verifies the equivocation proof by making sure that both votes target
+different blocks and that its signatures are valid.</dd><dt><a class="fn" href="fn.check_inherents.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::check_inherents">check_<wbr>inherents</a></dt><dd>Create inherent data and check that the inherents are valid.</dd><dt><a class="fn" href="fn.check_inherents_with_data.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::check_inherents_with_data">check_<wbr>inherents_<wbr>with_<wbr>data</a></dt><dd>Check that the inherents are valid.</dd><dt><a class="fn" href="fn.check_message_signature.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::check_message_signature">check_<wbr>message_<wbr>signature</a></dt><dd>Check a message signature by encoding the message as a localized payload and
+verifying the provided signature using the expected authority id.</dd><dt><a class="fn" href="fn.check_message_signature_with_buffer.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::check_message_signature_with_buffer">check_<wbr>message_<wbr>signature_<wbr>with_<wbr>buffer</a></dt><dd>Check a message signature by encoding the message as a localized payload and
+verifying the provided signature using the expected authority id.
+The encoding necessary to verify the signature will be done using the given
+buffer, the original content of the buffer will be cleared.</dd><dt><a class="fn" href="fn.deserialize_runtime_api_info.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::deserialize_runtime_api_info">deserialize_<wbr>runtime_<wbr>api_<wbr>info</a></dt><dd>Deserialize the runtime API info serialized by <a href="fn.serialize_runtime_api_info.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::serialize_runtime_api_info"><code>serialize_runtime_api_info</code></a>.</dd><dt><a class="fn" href="fn.init_runtime_logger.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::init_runtime_logger">init_<wbr>runtime_<wbr>logger</a></dt><dd>Init the <a href="../../../frame_support/sp_runtime/runtime_logger/struct.RuntimeLogger.html" title="struct yet_another_parachain_runtime::frame_support::sp_runtime::runtime_logger::RuntimeLogger"><code>RuntimeLogger</code></a>.</dd><dt><a class="fn" href="fn.localized_payload.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::localized_payload">localized_<wbr>payload</a></dt><dd>Encode round message localized to a given round and set id.</dd><dt><a class="fn" href="fn.localized_payload_with_buffer.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::localized_payload_with_buffer">localized_<wbr>payload_<wbr>with_<wbr>buffer</a></dt><dd>Encode round message localized to a given round and set id using the given
+buffer. The given buffer will be cleared and the resulting encoded payload
+will always be written to the start of the buffer.</dd><dt><a class="fn" href="fn.serialize_runtime_api_info.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::serialize_runtime_api_info">serialize_<wbr>runtime_<wbr>api_<wbr>info</a></dt><dd>Crude and simple way to serialize the <code>RuntimeApiInfo</code> into a bunch of bytes.</dd><dt><a class="fn" href="fn.sign_message.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::sign_message">sign_<wbr>message</a></dt><dd>Localizes the message to the given set and round and signs the payload.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AuthorityId.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::AuthorityId">Authority<wbr>Id</a></dt><dd>Identity of a Grandpa authority.</dd><dt><a class="type" href="type.AuthorityList.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::AuthorityList">Authority<wbr>List</a></dt><dd>A list of Grandpa authorities with associated weights.</dd><dt><a class="type" href="type.AuthorityPair.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::AuthorityPair">Authority<wbr>Pair</a></dt><dd>The grandpa crypto scheme defined via the keypair type.</dd><dt><a class="type" href="type.AuthoritySignature.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::AuthoritySignature">Authority<wbr>Signature</a></dt><dd>Signature for a Grandpa authority.</dd><dt><a class="type" href="type.AuthorityWeight.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::AuthorityWeight">Authority<wbr>Weight</a></dt><dd>The weight of an authority.</dd><dt><a class="type" href="type.CatchUp.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CatchUp">CatchUp</a></dt><dd>A catch up message for this chain’s block type.</dd><dt><a class="type" href="type.Commit.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Commit">Commit</a></dt><dd>A commit message for this chain’s block type.</dd><dt><a class="type" href="type.CompactCommit.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CompactCommit">Compact<wbr>Commit</a></dt><dd>A compact commit message for this chain’s block type.</dd><dt><a class="type" href="type.Message.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Message">Message</a></dt><dd>A GRANDPA message for a substrate chain.</dd><dt><a class="type" href="type.OpaqueKeyOwnershipProof.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::OpaqueKeyOwnershipProof">Opaque<wbr>KeyOwnership<wbr>Proof</a></dt><dd>An opaque type used to represent the key ownership proof at the runtime API
+boundary. The inner value is an encoded representation of the actual key
+ownership proof which will be parameterized when defining the runtime. At
+the runtime API boundary this type is unknown and as such we keep this
+opaque representation, implementors of the runtime API will have to make
+sure that all usages of <code>OpaqueKeyOwnershipProof</code> refer to the same type.</dd><dt><a class="type" href="type.Precommit.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Precommit">Precommit</a></dt><dd>A precommit message for this chain’s block type.</dd><dt><a class="type" href="type.PresetId.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::PresetId">Preset<wbr>Id</a></dt><dd>The type representing preset ID.</dd><dt><a class="type" href="type.Prevote.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Prevote">Prevote</a></dt><dd>A prevote message for this chain’s block type.</dd><dt><a class="type" href="type.PrimaryPropose.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::PrimaryPropose">Primary<wbr>Propose</a></dt><dd>A primary propose message for this chain’s block type.</dd><dt><a class="type" href="type.ProofRecorder.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ProofRecorder">Proof<wbr>Recorder</a></dt><dd>A type that records all accessed trie nodes and generates a proof out of it.</dd><dt><a class="type" href="type.ProofRecorderIgnoredNodes.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ProofRecorderIgnoredNodes">Proof<wbr>Recorder<wbr>Ignored<wbr>Nodes</a></dt><dt><a class="type" href="type.Result.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::Result">Result</a></dt><dd>The result type alias, used in build methods. <code>Err</code> contains formatted error message.</dd><dt><a class="type" href="type.RoundNumber.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::RoundNumber">Round<wbr>Number</a></dt><dd>The round indicator.</dd><dt><a class="type" href="type.SetId.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::SetId">SetId</a></dt><dd>The monotonic identifier of a GRANDPA set of authorities.</dd><dt><a class="type" href="type.SignedMessage.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::SignedMessage">Signed<wbr>Message</a></dt><dd>A signed message.</dd><dt><a class="type" href="type.StorageChanges.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::StorageChanges">Storage<wbr>Changes</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

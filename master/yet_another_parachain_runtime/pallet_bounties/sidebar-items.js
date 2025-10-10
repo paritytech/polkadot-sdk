@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BountyStatus","Call","Error","Event"],"mod":["migrations","pallet","weights"],"struct":["Bounty","Instance1","Pallet"],"trait":["ChildBountyManager","Config","WeightInfo"],"type":["Bounties","BountyApprovals","BountyCount","BountyDescriptions","BountyIndex","Module"]};

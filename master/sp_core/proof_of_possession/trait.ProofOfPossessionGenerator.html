@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Pair which is able to generate proof of possession."><title>ProofOfPossessionGenerator in sp_core::proof_of_possession - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_core/index.html">sp_core</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Proof<wbr>OfPossession<wbr>Generator</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.generate_proof_of_possession" title="generate_proof_of_possession">generate_proof_of_possession</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In sp_<wbr>core::<wbr>proof_<wbr>of_<wbr>possession</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">sp_core</a>::<wbr><a href="index.html">proof_of_possession</a></div><h1>Trait <span class="trait">ProofOfPossessionGenerator</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sp_core/proof_of_possession.rs.html#23-47">Source</a> </span></div><pre class="rust item-decl"><code>pub trait ProofOfPossessionGenerator: <a class="trait" href="../crypto/trait.Pair.html" title="trait sp_core::crypto::Pair">Pair</a><div class="where">where
+    Self::<a class="associatedtype" href="../crypto/trait.Pair.html#associatedtype.Public" title="type sp_core::crypto::Pair::Public">Public</a>: <a class="trait" href="../crypto/trait.CryptoType.html" title="trait sp_core::crypto::CryptoType">CryptoType</a>,
+    Self::<a class="associatedtype" href="../crypto/trait.Pair.html#associatedtype.ProofOfPossession" title="type sp_core::crypto::Pair::ProofOfPossession">ProofOfPossession</a>: <a class="trait" href="../crypto/trait.Signature.html" title="trait sp_core::crypto::Signature">Signature</a>,</div>{
+    // Required method
+    fn <a href="#tymethod.generate_proof_of_possession" class="fn">generate_proof_of_possession</a>(
+        &amp;mut self,
+        owner: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; Self::<a class="associatedtype" href="../crypto/trait.Pair.html#associatedtype.ProofOfPossession" title="type sp_core::crypto::Pair::ProofOfPossession">ProofOfPossession</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Pair which is able to generate proof of possession.</p>
+<p>This is implemented in different trait to provide default behavior.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.generate_proof_of_possession" class="method"><a class="src rightside" href="../../src/sp_core/proof_of_possession.rs.html#46">Source</a><h4 class="code-header">fn <a href="#tymethod.generate_proof_of_possession" class="fn">generate_proof_of_possession</a>(
+    &amp;mut self,
+    owner: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>],
+) -&gt; Self::<a class="associatedtype" href="../crypto/trait.Pair.html#associatedtype.ProofOfPossession" title="type sp_core::crypto::Pair::ProofOfPossession">ProofOfPossession</a></h4></section></summary><div class="docblock"><p>Generate proof of possession.</p>
+<p>This is usually done by signing the owner’s identifier, this is prevent front runner to
+claim ownership of public keys of other entities.</p>
+<p>However, for aggregatable signature the proof of possession generator is supposed to
+produce a “signature” with unique hash context that should never be used in other
+signatures. While this proves that the secret key is known to the prover, it prevents
+malicious actors to trick an honest party to sign an unpossessed public key resulting in
+a rogue key attack (See: Section 4.3 of - Ristenpart, T., &amp; Yilek, S. (2007). The power
+of proofs-of-possession: Securing multiparty signatures against rogue-key attacks. In ,
+Annual {{International Conference}} on the {{Theory}} and {{Applications}} of
+{{Cryptographic Techniques} (pp. 228–245). : Springer).</p>
+<p>As such, for aggregatable signatures, proof of possession consists of two signatures one
+regular signature signing the owner identity and the second one with unique context
+which signs the correspoding public key (and nothing else).</p>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ProofOfPossessionGenerator-for-Pair%3CLeftPair,+RightPair,+PUBLIC_KEY_LEN,+SIGNATURE_LEN,+POP_LEN,+SubTag%3E" class="impl"><a class="src rightside" href="../../src/sp_core/paired_crypto.rs.html#441-472">Source</a><a href="#impl-ProofOfPossessionGenerator-for-Pair%3CLeftPair,+RightPair,+PUBLIC_KEY_LEN,+SIGNATURE_LEN,+POP_LEN,+SubTag%3E" class="anchor">§</a><h3 class="code-header">impl&lt;LeftPair: <a class="trait" href="../crypto/trait.Pair.html" title="trait sp_core::crypto::Pair">PairT</a> + <a class="trait" href="trait.ProofOfPossessionGenerator.html" title="trait sp_core::proof_of_possession::ProofOfPossessionGenerator">ProofOfPossessionGenerator</a>, RightPair: <a class="trait" href="../crypto/trait.Pair.html" title="trait sp_core::crypto::Pair">PairT</a> + <a class="trait" href="trait.ProofOfPossessionGenerator.html" title="trait sp_core::proof_of_possession::ProofOfPossessionGenerator">ProofOfPossessionGenerator</a>, const PUBLIC_KEY_LEN: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>, const SIGNATURE_LEN: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>, const POP_LEN: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>, SubTag: PairedCryptoSubTagBound&gt; <a class="trait" href="trait.ProofOfPossessionGenerator.html" title="trait sp_core::proof_of_possession::ProofOfPossessionGenerator">ProofOfPossessionGenerator</a> for sp_core::paired_crypto::<a class="struct" href="../paired_crypto/struct.Pair.html" title="struct sp_core::paired_crypto::Pair">Pair</a>&lt;LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag&gt;<div class="where">where
+    <a class="struct" href="../paired_crypto/struct.Pair.html" title="struct sp_core::paired_crypto::Pair">Pair</a>&lt;LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag&gt;: <a class="trait" href="../crypto/trait.CryptoType.html" title="trait sp_core::crypto::CryptoType">CryptoType</a>,
+    <a class="type" href="../paired_crypto/type.Public.html" title="type sp_core::paired_crypto::Public">Public</a>&lt;PUBLIC_KEY_LEN, SubTag&gt;: <a class="trait" href="../crypto/trait.Public.html" title="trait sp_core::crypto::Public">PublicT</a>,
+    <a class="type" href="../paired_crypto/type.Signature.html" title="type sp_core::paired_crypto::Signature">Signature</a>&lt;SIGNATURE_LEN, SubTag&gt;: <a class="trait" href="../crypto/trait.Signature.html" title="trait sp_core::crypto::Signature">SignatureT</a>,
+    <a class="type" href="../paired_crypto/type.ProofOfPossession.html" title="type sp_core::paired_crypto::ProofOfPossession">ProofOfPossession</a>&lt;POP_LEN, SubTag&gt;: <a class="trait" href="../crypto/trait.Signature.html" title="trait sp_core::crypto::Signature">SignatureT</a>,
+    LeftPair::<a class="associatedtype" href="../crypto/trait.Pair.html#associatedtype.Seed" title="type sp_core::crypto::Pair::Seed">Seed</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]&gt; + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]&gt;,
+    RightPair::<a class="associatedtype" href="../crypto/trait.Pair.html#associatedtype.Seed" title="type sp_core::crypto::Pair::Seed">Seed</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]&gt; + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]&gt;,</div></h3></section><section id="impl-ProofOfPossessionGenerator-for-T" class="impl"><a class="src rightside" href="../../src/sp_core/proof_of_possession.rs.html#125-139">Source</a><a href="#impl-ProofOfPossessionGenerator-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.ProofOfPossessionGenerator.html" title="trait sp_core::proof_of_possession::ProofOfPossessionGenerator">ProofOfPossessionGenerator</a> for T<div class="where">where
+    T: <a class="trait" href="trait.NonAggregatable.html" title="trait sp_core::proof_of_possession::NonAggregatable">NonAggregatable</a>&lt;ProofOfPossession = Self::<a class="associatedtype" href="../crypto/trait.Pair.html#associatedtype.Signature" title="type sp_core::crypto::Pair::Signature">Signature</a>&gt;,</div></h3></section><section id="impl-ProofOfPossessionGenerator-for-Pair%3CT%3E" class="impl"><a class="src rightside" href="../../src/sp_core/bls.rs.html#264-291">Source</a><a href="#impl-ProofOfPossessionGenerator-for-Pair%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: BlsBound&gt; <a class="trait" href="trait.ProofOfPossessionGenerator.html" title="trait sp_core::proof_of_possession::ProofOfPossessionGenerator">ProofOfPossessionGenerator</a> for sp_core::bls::<a class="struct" href="../bls/struct.Pair.html" title="struct sp_core::bls::Pair">Pair</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/sp_core/proof_of_possession/trait.ProofOfPossessionGenerator.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

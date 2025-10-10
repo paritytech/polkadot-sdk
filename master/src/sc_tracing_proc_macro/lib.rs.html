@@ -1,0 +1,307 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/proc-macro/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_tracing_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_tracing_proc_macro/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: Apache-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// Licensed under the Apache License, Version 2.0 (the "License");
+<a href=#7 id=7 data-nosnippet>7</a>// you may not use this file except in compliance with the License.
+<a href=#8 id=8 data-nosnippet>8</a>// You may obtain a copy of the License at
+<a href=#9 id=9 data-nosnippet>9</a>//
+<a href=#10 id=10 data-nosnippet>10</a>// 	http://www.apache.org/licenses/LICENSE-2.0
+<a href=#11 id=11 data-nosnippet>11</a>//
+<a href=#12 id=12 data-nosnippet>12</a>// Unless required by applicable law or agreed to in writing, software
+<a href=#13 id=13 data-nosnippet>13</a>// distributed under the License is distributed on an "AS IS" BASIS,
+<a href=#14 id=14 data-nosnippet>14</a>// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<a href=#15 id=15 data-nosnippet>15</a>// See the License for the specific language governing permissions and
+<a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
+<a href=#17 id=17 data-nosnippet>17</a>
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="kw">use </span>proc_macro::TokenStream;
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>proc_macro2::Span;
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>proc_macro_crate::{crate_name, FoundCrate};
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>quote::quote;
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>syn::{Error, Expr, ItemFn, Path, <span class="prelude-ty">Result</span>};
+<a href=#23 id=23 data-nosnippet>23</a>
+<a href=#24 id=24 data-nosnippet>24</a><span class="doccomment">/// This prefixes all the log lines with `[&lt;name&gt;]` (after the timestamp). It works by making a
+<a href=#25 id=25 data-nosnippet>25</a>/// tracing's span that is propagated to all the child calls and child tasks (futures) if they are
+<a href=#26 id=26 data-nosnippet>26</a>/// spawned properly with the `SpawnHandle` (see `TaskManager` in sc-cli) or if the futures use
+<a href=#27 id=27 data-nosnippet>27</a>/// `.in_current_span()` (see tracing-futures).
+<a href=#28 id=28 data-nosnippet>28</a>///
+<a href=#29 id=29 data-nosnippet>29</a>/// See Tokio's [tracing documentation](https://docs.rs/tracing-core/) and
+<a href=#30 id=30 data-nosnippet>30</a>/// [tracing-futures documentation](https://docs.rs/tracing-futures/) for more details.
+<a href=#31 id=31 data-nosnippet>31</a>///
+<a href=#32 id=32 data-nosnippet>32</a>/// # Implementation notes
+<a href=#33 id=33 data-nosnippet>33</a>///
+<a href=#34 id=34 data-nosnippet>34</a>/// If there are multiple spans with a log prefix, only the latest will be shown.
+<a href=#35 id=35 data-nosnippet>35</a>///
+<a href=#36 id=36 data-nosnippet>36</a>/// # Example with a literal
+<a href=#37 id=37 data-nosnippet>37</a>///
+<a href=#38 id=38 data-nosnippet>38</a>/// ```ignore
+<a href=#39 id=39 data-nosnippet>39</a>/// Builds a new service for a light client.
+<a href=#40 id=40 data-nosnippet>40</a>/// #[sc_cli::prefix_logs_with("light")]
+<a href=#41 id=41 data-nosnippet>41</a>/// pub fn new_light(config: Configuration) -&gt; Result&lt;TaskManager, ServiceError&gt; {
+<a href=#42 id=42 data-nosnippet>42</a>///     let (client, backend, keystore, mut task_manager, on_demand) =
+<a href=#43 id=43 data-nosnippet>43</a>///         sc_service::new_light_parts::&lt;Block, RuntimeApi, Executor&gt;(&amp;config)?;
+<a href=#44 id=44 data-nosnippet>44</a>///
+<a href=#45 id=45 data-nosnippet>45</a>///        ...
+<a href=#46 id=46 data-nosnippet>46</a>/// }
+<a href=#47 id=47 data-nosnippet>47</a>/// ```
+<a href=#48 id=48 data-nosnippet>48</a>///
+<a href=#49 id=49 data-nosnippet>49</a>/// Will produce logs that look like this:
+<a href=#50 id=50 data-nosnippet>50</a>///
+<a href=#51 id=51 data-nosnippet>51</a>/// ```text
+<a href=#52 id=52 data-nosnippet>52</a>/// 2020-10-16 08:03:14  Substrate Node
+<a href=#53 id=53 data-nosnippet>53</a>/// 2020-10-16 08:03:14  ✌️  version 2.0.0-47f7d3f2e-x86_64-linux-gnu
+<a href=#54 id=54 data-nosnippet>54</a>/// 2020-10-16 08:03:14  ❤️  by Anonymous, 2017-2020
+<a href=#55 id=55 data-nosnippet>55</a>/// 2020-10-16 08:03:14  📋 Chain specification: Local Testnet
+<a href=#56 id=56 data-nosnippet>56</a>/// 2020-10-16 08:03:14  🏷  Node name: nice-glove-1401
+<a href=#57 id=57 data-nosnippet>57</a>/// 2020-10-16 08:03:14  👤 Role: LIGHT
+<a href=#58 id=58 data-nosnippet>58</a>/// 2020-10-16 08:03:14  💾 Database: RocksDb at /tmp/substrate95w2Dk/chains/local_testnet/db
+<a href=#59 id=59 data-nosnippet>59</a>/// 2020-10-16 08:03:14  ⛓  Native runtime: node-template-1 (node-template-1.tx1.au1)
+<a href=#60 id=60 data-nosnippet>60</a>/// 2020-10-16 08:03:14  [light] 🔨 Initializing Genesis block/state (state: 0x121d…8e36, header-hash: 0x24ef…8ff6)
+<a href=#61 id=61 data-nosnippet>61</a>/// 2020-10-16 08:03:14  [light] Loading GRANDPA authorities from genesis on what appears to be first startup.
+<a href=#62 id=62 data-nosnippet>62</a>/// 2020-10-16 08:03:15  [light] ⏱  Loaded block-time = 6000 milliseconds from genesis on first-launch
+<a href=#63 id=63 data-nosnippet>63</a>/// 2020-10-16 08:03:15  [light] Using default protocol ID "sup" because none is configured in the chain specs
+<a href=#64 id=64 data-nosnippet>64</a>/// 2020-10-16 08:03:15  [light] 🏷  Local node identity is: 12D3KooWHX4rkWT6a6N55Km7ZnvenGdShSKPkzJ3yj9DU5nqDtWR
+<a href=#65 id=65 data-nosnippet>65</a>/// 2020-10-16 08:03:15  [light] 📦 Highest known block at #0
+<a href=#66 id=66 data-nosnippet>66</a>/// 2020-10-16 08:03:15  [light] 〽️ Prometheus server started at 127.0.0.1:9615
+<a href=#67 id=67 data-nosnippet>67</a>/// 2020-10-16 08:03:15  [light] Listening for new connections on 127.0.0.1:9944.
+<a href=#68 id=68 data-nosnippet>68</a>/// ```
+<a href=#69 id=69 data-nosnippet>69</a>///
+<a href=#70 id=70 data-nosnippet>70</a>/// # Example using the actual node name
+<a href=#71 id=71 data-nosnippet>71</a>///
+<a href=#72 id=72 data-nosnippet>72</a>/// ```ignore
+<a href=#73 id=73 data-nosnippet>73</a>/// Builds a new service for a light client.
+<a href=#74 id=74 data-nosnippet>74</a>/// #[sc_cli::prefix_logs_with(config.network.node_name.as_str())]
+<a href=#75 id=75 data-nosnippet>75</a>/// pub fn new_light(config: Configuration) -&gt; Result&lt;TaskManager, ServiceError&gt; {
+<a href=#76 id=76 data-nosnippet>76</a>///     let (client, backend, keystore, mut task_manager, on_demand) =
+<a href=#77 id=77 data-nosnippet>77</a>///         sc_service::new_light_parts::&lt;Block, RuntimeApi, Executor&gt;(&amp;config)?;
+<a href=#78 id=78 data-nosnippet>78</a>///
+<a href=#79 id=79 data-nosnippet>79</a>///        ...
+<a href=#80 id=80 data-nosnippet>80</a>/// }
+<a href=#81 id=81 data-nosnippet>81</a>/// ```
+<a href=#82 id=82 data-nosnippet>82</a>///
+<a href=#83 id=83 data-nosnippet>83</a>/// Will produce logs that look like this:
+<a href=#84 id=84 data-nosnippet>84</a>///
+<a href=#85 id=85 data-nosnippet>85</a>/// ```text
+<a href=#86 id=86 data-nosnippet>86</a>/// 2020-10-16 08:12:57  Substrate Node
+<a href=#87 id=87 data-nosnippet>87</a>/// 2020-10-16 08:12:57  ✌️  version 2.0.0-efb9b822a-x86_64-linux-gnu
+<a href=#88 id=88 data-nosnippet>88</a>/// 2020-10-16 08:12:57  ❤️  by Anonymous, 2017-2020
+<a href=#89 id=89 data-nosnippet>89</a>/// 2020-10-16 08:12:57  📋 Chain specification: Local Testnet
+<a href=#90 id=90 data-nosnippet>90</a>/// 2020-10-16 08:12:57  🏷  Node name: open-harbor-1619
+<a href=#91 id=91 data-nosnippet>91</a>/// 2020-10-16 08:12:57  👤 Role: LIGHT
+<a href=#92 id=92 data-nosnippet>92</a>/// 2020-10-16 08:12:57  💾 Database: RocksDb at /tmp/substrate9T9Mtb/chains/local_testnet/db
+<a href=#93 id=93 data-nosnippet>93</a>/// 2020-10-16 08:12:57  ⛓  Native runtime: node-template-1 (node-template-1.tx1.au1)
+<a href=#94 id=94 data-nosnippet>94</a>/// 2020-10-16 08:12:58  [open-harbor-1619] 🔨 Initializing Genesis block/state (state: 0x121d…8e36, header-hash: 0x24ef…8ff6)
+<a href=#95 id=95 data-nosnippet>95</a>/// 2020-10-16 08:12:58  [open-harbor-1619] Loading GRANDPA authorities from genesis on what appears to be first startup.
+<a href=#96 id=96 data-nosnippet>96</a>/// 2020-10-16 08:12:58  [open-harbor-1619] ⏱  Loaded block-time = 6000 milliseconds from genesis on first-launch
+<a href=#97 id=97 data-nosnippet>97</a>/// 2020-10-16 08:12:58  [open-harbor-1619] Using default protocol ID "sup" because none is configured in the chain specs
+<a href=#98 id=98 data-nosnippet>98</a>/// 2020-10-16 08:12:58  [open-harbor-1619] 🏷  Local node identity is: 12D3KooWRzmYC8QTK1Pm8Cfvid3skTS4Hn54jc4AUtje8Rqbfgtp
+<a href=#99 id=99 data-nosnippet>99</a>/// 2020-10-16 08:12:58  [open-harbor-1619] 📦 Highest known block at #0
+<a href=#100 id=100 data-nosnippet>100</a>/// 2020-10-16 08:12:58  [open-harbor-1619] 〽️ Prometheus server started at 127.0.0.1:9615
+<a href=#101 id=101 data-nosnippet>101</a>/// 2020-10-16 08:12:58  [open-harbor-1619] Listening for new connections on 127.0.0.1:9944.
+<a href=#102 id=102 data-nosnippet>102</a>/// ```
+<a href=#103 id=103 data-nosnippet>103</a></span><span class="attr">#[proc_macro_attribute]
+<a href=#104 id=104 data-nosnippet>104</a></span><span class="kw">pub fn </span>prefix_logs_with(arg: TokenStream, item: TokenStream) -&gt; TokenStream {
+<a href=#105 id=105 data-nosnippet>105</a>	<span class="comment">// Ensure an argument was provided.
+<a href=#106 id=106 data-nosnippet>106</a>	</span><span class="kw">if </span>arg.is_empty() {
+<a href=#107 id=107 data-nosnippet>107</a>		<span class="kw">return </span>Error::new(
+<a href=#108 id=108 data-nosnippet>108</a>			proc_macro2::Span::call_site(),
+<a href=#109 id=109 data-nosnippet>109</a>			<span class="string">"missing argument: prefix. Example: prefix_logs_with(\"Relaychain\")"</span>,
+<a href=#110 id=110 data-nosnippet>110</a>		)
+<a href=#111 id=111 data-nosnippet>111</a>		.to_compile_error()
+<a href=#112 id=112 data-nosnippet>112</a>		.into();
+<a href=#113 id=113 data-nosnippet>113</a>	}
+<a href=#114 id=114 data-nosnippet>114</a>
+<a href=#115 id=115 data-nosnippet>115</a>	<span class="kw">let </span>prefix_expr = <span class="macro">syn::parse_macro_input!</span>(arg <span class="kw">as </span>Expr);
+<a href=#116 id=116 data-nosnippet>116</a>	<span class="kw">let </span>item_fn = <span class="macro">syn::parse_macro_input!</span>(item <span class="kw">as </span>ItemFn);
+<a href=#117 id=117 data-nosnippet>117</a>
+<a href=#118 id=118 data-nosnippet>118</a>	<span class="comment">// Resolve the proper sc_tracing path.
+<a href=#119 id=119 data-nosnippet>119</a>	</span><span class="kw">let </span>crate_name = <span class="kw">match </span>resolve_sc_tracing() {
+<a href=#120 id=120 data-nosnippet>120</a>		<span class="prelude-val">Ok</span>(path) =&gt; path,
+<a href=#121 id=121 data-nosnippet>121</a>		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>err.to_compile_error().into(),
+<a href=#122 id=122 data-nosnippet>122</a>	};
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>	<span class="kw">let </span>syn::ItemFn { attrs, vis, sig, block } = item_fn;
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>	(<span class="macro">quote!</span> {
+<a href=#127 id=127 data-nosnippet>127</a>		#(#attrs)*
+<a href=#128 id=128 data-nosnippet>128</a>		#vis #sig {
+<a href=#129 id=129 data-nosnippet>129</a>			<span class="kw">let </span>span = #<span class="macro">crate_name::tracing::info_span!</span>(
+<a href=#130 id=130 data-nosnippet>130</a>				#crate_name::logging::PREFIX_LOG_SPAN,
+<a href=#131 id=131 data-nosnippet>131</a>				name = #prefix_expr,
+<a href=#132 id=132 data-nosnippet>132</a>			);
+<a href=#133 id=133 data-nosnippet>133</a>			<span class="kw">let </span>_enter = span.enter();
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a>			#block
+<a href=#136 id=136 data-nosnippet>136</a>		}
+<a href=#137 id=137 data-nosnippet>137</a>	})
+<a href=#138 id=138 data-nosnippet>138</a>	.into()
+<a href=#139 id=139 data-nosnippet>139</a>}
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a><span class="doccomment">/// Resolve the correct path for sc_tracing:
+<a href=#142 id=142 data-nosnippet>142</a>/// - If `polkadot-sdk` is in scope, returns a Path corresponding to `polkadot_sdk::sc_tracing`
+<a href=#143 id=143 data-nosnippet>143</a>/// - Otherwise, falls back to `sc_tracing`
+<a href=#144 id=144 data-nosnippet>144</a></span><span class="kw">fn </span>resolve_sc_tracing() -&gt; <span class="prelude-ty">Result</span>&lt;Path&gt; {
+<a href=#145 id=145 data-nosnippet>145</a>	<span class="kw">match </span>crate_name(<span class="string">"polkadot-sdk"</span>) {
+<a href=#146 id=146 data-nosnippet>146</a>		<span class="prelude-val">Ok</span>(FoundCrate::Itself) =&gt; syn::parse_str(<span class="string">"polkadot_sdk::sc_tracing"</span>),
+<a href=#147 id=147 data-nosnippet>147</a>		<span class="prelude-val">Ok</span>(FoundCrate::Name(sdk_name)) =&gt; syn::parse_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}::sc_tracing"</span>, sdk_name)),
+<a href=#148 id=148 data-nosnippet>148</a>		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">match </span>crate_name(<span class="string">"sc-tracing"</span>) {
+<a href=#149 id=149 data-nosnippet>149</a>			<span class="prelude-val">Ok</span>(FoundCrate::Itself) =&gt; syn::parse_str(<span class="string">"sc_tracing"</span>),
+<a href=#150 id=150 data-nosnippet>150</a>			<span class="prelude-val">Ok</span>(FoundCrate::Name(name)) =&gt; syn::parse_str(<span class="kw-2">&amp;</span>name),
+<a href=#151 id=151 data-nosnippet>151</a>			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(syn::Error::new(Span::call_site(), e)),
+<a href=#152 id=152 data-nosnippet>152</a>		},
+<a href=#153 id=153 data-nosnippet>153</a>	}
+<a href=#154 id=154 data-nosnippet>154</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GRANDPA_JUSTIFICATION_PERIOD"],"fn":["new_full","new_partial"],"type":["FullBackend","FullClient","FullSelectChain","Service"]};

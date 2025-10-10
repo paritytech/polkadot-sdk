@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["kitchensink_runtime",[["impl <a class=\"trait\" href=\"frame_election_provider_support/onchain/trait.Config.html\" title=\"trait frame_election_provider_support::onchain::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.OnChainSeqPhragmen.html\" title=\"struct kitchensink_runtime::OnChainSeqPhragmen\">OnChainSeqPhragmen</a>"]]],["pallet_staking_async_rc_runtime",[["impl <a class=\"trait\" href=\"frame_election_provider_support/onchain/trait.Config.html\" title=\"trait frame_election_provider_support::onchain::Config\">Config</a> for <a class=\"struct\" href=\"pallet_staking_async_rc_runtime/struct.OnChainSeqPhragmen.html\" title=\"struct pallet_staking_async_rc_runtime::OnChainSeqPhragmen\">OnChainSeqPhragmen</a>"]]],["polkadot_test_runtime",[["impl <a class=\"trait\" href=\"frame_election_provider_support/onchain/trait.Config.html\" title=\"trait frame_election_provider_support::onchain::Config\">Config</a> for <a class=\"struct\" href=\"polkadot_test_runtime/struct.OnChainSeqPhragmen.html\" title=\"struct polkadot_test_runtime::OnChainSeqPhragmen\">OnChainSeqPhragmen</a>"]]],["westend_runtime",[["impl <a class=\"trait\" href=\"frame_election_provider_support/onchain/trait.Config.html\" title=\"trait frame_election_provider_support::onchain::Config\">Config</a> for <a class=\"struct\" href=\"westend_runtime/struct.OnChainSeqPhragmen.html\" title=\"struct westend_runtime::OnChainSeqPhragmen\">OnChainSeqPhragmen</a>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[360,397,367,349,37]}

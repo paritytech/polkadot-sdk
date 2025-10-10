@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ViewFunctionDispatchError"],"mod":["runtime_api"],"struct":["ViewFunctionId"],"trait":["DispatchViewFunction","ViewFunction","ViewFunctionIdPrefix","ViewFunctionIdSuffix"]};

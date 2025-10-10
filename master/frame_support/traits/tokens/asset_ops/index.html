@@ -1,0 +1,258 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Abstract asset operations traits."><title>frame_support::traits::tokens::asset_ops - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../frame_support/index.html">frame_<wbr>support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module asset_<wbr>ops</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#usage-example" title="Usage Example">Usage Example</a></li></ul><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In frame_<wbr>support::<wbr>traits::<wbr>tokens</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">frame_support</a>::<wbr><a href="../../index.html">traits</a>::<wbr><a href="../index.html">tokens</a></div><h1>Module <span>asset_ops</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/frame_support/traits/tokens/asset_ops.rs.html#18-322">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Abstract asset operations traits.</p>
+<p>The following operations are defined:</p>
+<ul>
+<li><a href="trait.Inspect.html" title="trait frame_support::traits::tokens::asset_ops::Inspect"><code>Inspect</code></a></li>
+<li><a href="trait.Update.html" title="trait frame_support::traits::tokens::asset_ops::Update"><code>Update</code></a></li>
+<li><a href="trait.Create.html" title="trait frame_support::traits::tokens::asset_ops::Create"><code>Create</code></a></li>
+<li><a href="trait.Destroy.html" title="trait frame_support::traits::tokens::asset_ops::Destroy"><code>Destroy</code></a></li>
+<li><a href="trait.Stash.html" title="trait frame_support::traits::tokens::asset_ops::Stash"><code>Stash</code></a></li>
+<li><a href="trait.Restore.html" title="trait frame_support::traits::tokens::asset_ops::Restore"><code>Restore</code></a></li>
+</ul>
+<p>Also, all the operations above (except the <code>Create</code> operation) use
+the <a href="trait.AssetDefinition.html" title="trait frame_support::traits::tokens::asset_ops::AssetDefinition"><code>AssetDefinition</code></a> to retrieve the <code>Id</code> type of the asset.</p>
+<p>An asset operation can be implemented multiple times
+using different strategies associated with this operation.</p>
+<p>A strategy defines the operation behavior,
+may supply additional parameters,
+and may define a return value type of the operation.</p>
+<h4 id="usage-example"><a class="doc-anchor" href="#usage-example">§</a>Usage Example</h4>
+<p>This example shows how to interact with pallet-uniques (assuming the pallet called Uniques in
+the chain’s Runtime) via the asset ops.</p>
+<p>If you are interested in the implementation example, you can look at the pallet-uniques
+implementation. You can check out the pallet-uniques tests if you want more examples of usage.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">type </span>Collection = pallet_uniques::asset_ops::Collection&lt;Uniques&gt;;
+<span class="kw">type </span>Item = pallet_uniques::asset_ops::Item&lt;Uniques&gt;;
+
+<span class="comment">// Collection creation
+//
+// Note the `Owner` and `Admin` are inspect strategies.
+//
+// **Any** inspect strategy can be used to produce a config value
+// using the `WithConfig` creation strategy.
+</span>Collection::create(WithConfig::new(
+    (
+        Owner::with_config_value(collection_owner),
+        Admin::with_config_value(collection_admin)
+    ),
+    PredefinedId::from(collection_id),
+)).unwrap();
+
+<span class="comment">// Get the collection owner
+</span><span class="kw">let </span>owner = Collection::inspect(<span class="kw-2">&amp;</span>collection_id, Owner::default()).unwrap();
+
+<span class="comment">// Get the collection admin
+</span><span class="kw">let </span>admin = Collection::inspect(<span class="kw-2">&amp;</span>collection_id, Admin::default()).unwrap();
+
+<span class="comment">// Get collection metadata
+</span><span class="kw">let </span>metadata = Collection::inspect(<span class="kw-2">&amp;</span>collection_id, Bytes::default()).unwrap();
+
+<span class="comment">// Get collection attribute
+</span><span class="kw">use </span>pallet_uniques::asset_strategies::Attribute;
+<span class="kw">let </span>attr_key = <span class="string">"example-key"</span>;
+<span class="kw">let </span>attr_value = Collection::inspect(
+   <span class="kw-2">&amp;</span>collection_id,
+   Bytes(Attribute(attr_key.as_slice())),
+).unwrap();
+
+<span class="comment">// Item creation (note the usage of the same strategy -- WithConfig)
+</span>Item::create(WithConfig::new(
+    Owner::with_config_value(item_owner),
+    PredefinedId::from(item_id),
+)).unwrap();
+
+<span class="comment">// Get the item owner
+</span><span class="kw">let </span>item_owner = Item::inspect(<span class="kw-2">&amp;</span>(collection_id, item_id), Owner::default()).unwrap();
+
+<span class="comment">// Get item attribute
+</span><span class="kw">let </span>attr_key = <span class="string">"example-key"</span>;
+<span class="kw">let </span>attr_value = Item::inspect(
+    <span class="kw-2">&amp;</span>(collection_id, item_id),
+    Bytes(Attribute(attr_key.as_slice())),
+).unwrap();
+
+<span class="comment">// Unconditionally update the item's owner (unchecked transfer)
+</span>Item::update(<span class="kw-2">&amp;</span>(collection_id, item_id), Owner::default(), <span class="kw-2">&amp;</span>bob).unwrap();
+
+<span class="comment">// CheckOrigin then transfer
+</span>Item::update(
+    <span class="kw-2">&amp;</span>(collection_id, item_id),
+    CheckOrigin(RuntimeOrigin::root(), Owner::default()),
+    <span class="kw-2">&amp;</span>bob,
+).unwrap();
+
+<span class="comment">// From-To transfer
+</span>Item::update(
+    <span class="kw-2">&amp;</span>(collection_id, item_id),
+    ChangeOwnerFrom::check(alice),
+    <span class="kw-2">&amp;</span>bob,
+).unwrap();
+
+<span class="comment">// Lock item (forbid changing its Owner)
+//
+// Note that Owner strategy is turned into the `CanUpdate&lt;Owner&gt;` strategy
+// via the `as_can_update` function.
+//
+// **Any** update strategy can be turned into the `CanUpdate` this way.
+</span>Item::update(
+    <span class="kw-2">&amp;</span>(collection_id, item_id),
+    Owner::default().as_can_update(),
+    <span class="bool-val">false</span>,
+);</code></pre></div>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="common_ops/index.html" title="mod frame_support::traits::tokens::asset_ops::common_ops">common_<wbr>ops</a></dt><dt><a class="mod" href="common_strategies/index.html" title="mod frame_support::traits::tokens::asset_ops::common_strategies">common_<wbr>strategies</a></dt><dd>This module contains the common asset ops strategies.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AssetDefinition.html" title="trait frame_support::traits::tokens::asset_ops::AssetDefinition">Asset<wbr>Definition</a></dt><dd>Trait for defining an asset.
+The definition must provide the <code>Id</code> type to identify the asset.</dd><dt><a class="trait" href="trait.Create.html" title="trait frame_support::traits::tokens::asset_ops::Create">Create</a></dt><dd>A trait representing the ability of a certain asset to be created.</dd><dt><a class="trait" href="trait.CreateStrategy.html" title="trait frame_support::traits::tokens::asset_ops::CreateStrategy">Create<wbr>Strategy</a></dt><dd>A strategy for use in the <a href="trait.Create.html" title="trait frame_support::traits::tokens::asset_ops::Create"><code>Create</code></a> implementations.</dd><dt><a class="trait" href="trait.Destroy.html" title="trait frame_support::traits::tokens::asset_ops::Destroy">Destroy</a></dt><dd>A trait representing the ability of a certain asset to be destroyed.</dd><dt><a class="trait" href="trait.DestroyStrategy.html" title="trait frame_support::traits::tokens::asset_ops::DestroyStrategy">Destroy<wbr>Strategy</a></dt><dd>A strategy for use in the <a href="trait.Destroy.html" title="trait frame_support::traits::tokens::asset_ops::Destroy"><code>Destroy</code></a> implementations.</dd><dt><a class="trait" href="trait.IdAssignment.html" title="trait frame_support::traits::tokens::asset_ops::IdAssignment">IdAssignment</a></dt><dd>An ID assignment approach to use in the “create” strategies.</dd><dt><a class="trait" href="trait.Inspect.html" title="trait frame_support::traits::tokens::asset_ops::Inspect">Inspect</a></dt><dd>A trait representing the ability of a certain asset to <strong>provide</strong> its state
+information.</dd><dt><a class="trait" href="trait.InspectStrategy.html" title="trait frame_support::traits::tokens::asset_ops::InspectStrategy">Inspect<wbr>Strategy</a></dt><dd>A strategy for use in the <a href="trait.Inspect.html" title="trait frame_support::traits::tokens::asset_ops::Inspect"><code>Inspect</code></a> implementations.</dd><dt><a class="trait" href="trait.Restore.html" title="trait frame_support::traits::tokens::asset_ops::Restore">Restore</a></dt><dd>A trait representing the ability of a certain asset to be restored.</dd><dt><a class="trait" href="trait.RestoreStrategy.html" title="trait frame_support::traits::tokens::asset_ops::RestoreStrategy">Restore<wbr>Strategy</a></dt><dd>A strategy for use in the <a href="trait.Restore.html" title="trait frame_support::traits::tokens::asset_ops::Restore"><code>Restore</code></a> implementations.
+The common restore strategies are:</dd><dt><a class="trait" href="trait.Stash.html" title="trait frame_support::traits::tokens::asset_ops::Stash">Stash</a></dt><dd>A trait representing the ability of a certain asset to be stashed.</dd><dt><a class="trait" href="trait.StashStrategy.html" title="trait frame_support::traits::tokens::asset_ops::StashStrategy">Stash<wbr>Strategy</a></dt><dd>A strategy for use in the <a href="trait.Stash.html" title="trait frame_support::traits::tokens::asset_ops::Stash"><code>Stash</code></a> implementations.</dd><dt><a class="trait" href="trait.Update.html" title="trait frame_support::traits::tokens::asset_ops::Update">Update</a></dt><dd>A trait representing the ability of a certain asset to <strong>update</strong> its state information.</dd><dt><a class="trait" href="trait.UpdateStrategy.html" title="trait frame_support::traits::tokens::asset_ops::UpdateStrategy">Update<wbr>Strategy</a></dt><dd>A strategy for use in the <a href="trait.Update.html" title="trait frame_support::traits::tokens::asset_ops::Update"><code>Update</code></a> implementations.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AssetIdOf.html" title="type frame_support::traits::tokens::asset_ops::AssetIdOf">Asset<wbr>IdOf</a></dt><dd>Get the <code>Id</code> type of the asset definition.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","StatementKind"],"mod":["pallet"],"struct":["EcdsaSignature","EthereumAddress","GenesisConfig","Pallet","PrevalidateAttests","TestWeightInfo"],"trait":["Config","WeightInfo"],"type":["Claims","Module","Preclaims","Signing","Total","Vesting"]};

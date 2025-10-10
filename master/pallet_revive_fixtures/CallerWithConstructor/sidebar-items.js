@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CallerWithConstructorCalls"],"struct":["callBarCall","callBarReturn","constructorCall"]};

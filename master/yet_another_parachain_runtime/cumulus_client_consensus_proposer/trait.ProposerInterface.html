@@ -1,0 +1,197 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An interface for proposers."><title>ProposerInterface in yet_another_parachain_runtime::cumulus_client_consensus_proposer - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Proposer<wbr>Interface</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.propose" title="propose">propose</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>cumulus_<wbr>client_<wbr>consensus_<wbr>proposer</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a>::<wbr><a href="index.html">cumulus_client_consensus_proposer</a></div><h1>Trait <span class="trait">ProposerInterface</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/cumulus_client_consensus_proposer/lib.rs.html#61">Source</a> </span></div><pre class="rust item-decl"><code>pub trait ProposerInterface&lt;Block&gt;<div class="where">where
+    Block: <a class="trait" href="../cumulus_primitives_core/trait.BlockT.html" title="trait yet_another_parachain_runtime::cumulus_primitives_core::BlockT">Block</a>,</div>{
+    // Required method
+    fn <a href="#tymethod.propose" class="fn">propose</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
+        &amp;'life0 mut self,
+        parent_header: &amp;'life1 &lt;Block as <a class="trait" href="../cumulus_primitives_core/trait.BlockT.html" title="trait yet_another_parachain_runtime::cumulus_primitives_core::BlockT">Block</a>&gt;::<a class="associatedtype" href="../cumulus_primitives_core/trait.BlockT.html#associatedtype.Header" title="type yet_another_parachain_runtime::cumulus_primitives_core::BlockT::Header">Header</a>,
+        paras_inherent_data: &amp;'life2 <a class="struct" href="../cumulus_client_parachain_inherent/struct.ParachainInherentData.html" title="struct yet_another_parachain_runtime::cumulus_client_parachain_inherent::ParachainInherentData">ParachainInherentData</a>,
+        other_inherent_data: <a class="struct" href="../sp_consensus/struct.InherentData.html" title="struct yet_another_parachain_runtime::sp_consensus::InherentData">InherentData</a>,
+        inherent_digests: <a class="struct" href="../cumulus_primitives_core/struct.Digest.html" title="struct yet_another_parachain_runtime::cumulus_primitives_core::Digest">Digest</a>,
+        max_duration: <a class="struct" href="../polkadot_node_subsystem/overseer/gen/struct.Duration.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Duration">Duration</a>,
+        block_size_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>&gt;,
+    ) -&gt; <a class="struct" href="../polkadot_node_subsystem/overseer/gen/struct.Pin.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="../polkadot_node_subsystem/overseer/gen/trait.Future.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Future">Future</a>&lt;Output = <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sp_consensus/struct.Proposal.html" title="struct yet_another_parachain_runtime::sp_consensus::Proposal">Proposal</a>&lt;Block, <a class="struct" href="../sc_client_api/struct.StorageProof.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageProof">StorageProof</a>&gt;&gt;, <a class="struct" href="struct.Error.html" title="struct yet_another_parachain_runtime::cumulus_client_consensus_proposer::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where 'life0: 'async_trait,
+             'life1: 'async_trait,
+             'life2: 'async_trait,
+             Self: 'async_trait</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An interface for proposers.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.propose" class="method"><a class="src rightside" href="../../src/cumulus_client_consensus_proposer/lib.rs.html#75-83">Source</a><h4 class="code-header">fn <a href="#tymethod.propose" class="fn">propose</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
+    &amp;'life0 mut self,
+    parent_header: &amp;'life1 &lt;Block as <a class="trait" href="../cumulus_primitives_core/trait.BlockT.html" title="trait yet_another_parachain_runtime::cumulus_primitives_core::BlockT">Block</a>&gt;::<a class="associatedtype" href="../cumulus_primitives_core/trait.BlockT.html#associatedtype.Header" title="type yet_another_parachain_runtime::cumulus_primitives_core::BlockT::Header">Header</a>,
+    paras_inherent_data: &amp;'life2 <a class="struct" href="../cumulus_client_parachain_inherent/struct.ParachainInherentData.html" title="struct yet_another_parachain_runtime::cumulus_client_parachain_inherent::ParachainInherentData">ParachainInherentData</a>,
+    other_inherent_data: <a class="struct" href="../sp_consensus/struct.InherentData.html" title="struct yet_another_parachain_runtime::sp_consensus::InherentData">InherentData</a>,
+    inherent_digests: <a class="struct" href="../cumulus_primitives_core/struct.Digest.html" title="struct yet_another_parachain_runtime::cumulus_primitives_core::Digest">Digest</a>,
+    max_duration: <a class="struct" href="../polkadot_node_subsystem/overseer/gen/struct.Duration.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Duration">Duration</a>,
+    block_size_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.usize.html">usize</a>&gt;,
+) -&gt; <a class="struct" href="../polkadot_node_subsystem/overseer/gen/struct.Pin.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="../polkadot_node_subsystem/overseer/gen/trait.Future.html" title="trait yet_another_parachain_runtime::polkadot_node_subsystem::overseer::gen::Future">Future</a>&lt;Output = <a class="enum" href="../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sp_consensus/struct.Proposal.html" title="struct yet_another_parachain_runtime::sp_consensus::Proposal">Proposal</a>&lt;Block, <a class="struct" href="../sc_client_api/struct.StorageProof.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageProof">StorageProof</a>&gt;&gt;, <a class="struct" href="struct.Error.html" title="struct yet_another_parachain_runtime::cumulus_client_consensus_proposer::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    'life1: 'async_trait,
+    'life2: 'async_trait,
+    Self: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Propose a collation using the supplied <code>InherentData</code> and the provided
+<code>ParachainInherentData</code>.</p>
+<p>Also specify any required inherent digests, the maximum proposal duration,
+and the block size limit in bytes. See the documentation on
+<a href="../sp_consensus/trait.Proposer.html#tymethod.propose" title="method yet_another_parachain_runtime::sp_consensus::Proposer::propose"><code>sp_consensus::Proposer::propose</code></a> for more details on how to interpret these parameters.</p>
+<p>The <code>InherentData</code> and <code>Digest</code> are left deliberately general in order to accommodate
+all possible collator selection algorithms or inherent creation mechanisms,
+while the <code>ParachainInherentData</code> is made explicit so it will be constructed appropriately.</p>
+<p>If the <code>InherentData</code> passed into this function already has a <code>ParachainInherentData</code>,
+this should throw an error.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ProposerInterface%3CBlock%3E-for-ProposerFactory%3CA,+C,+EnableProofRecording%3E" class="impl"><a class="src rightside" href="../../src/cumulus_client_consensus_proposer/lib.rs.html#87-92">Source</a><a href="#impl-ProposerInterface%3CBlock%3E-for-ProposerFactory%3CA,+C,+EnableProofRecording%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Block, A, C&gt; <a class="trait" href="trait.ProposerInterface.html" title="trait yet_another_parachain_runtime::cumulus_client_consensus_proposer::ProposerInterface">ProposerInterface</a>&lt;Block&gt; for <a class="struct" href="../sc_basic_authorship/struct.ProposerFactory.html" title="struct yet_another_parachain_runtime::sc_basic_authorship::ProposerFactory">ProposerFactory</a>&lt;A, C, <a class="struct" href="../sp_consensus/struct.EnableProofRecording.html" title="struct yet_another_parachain_runtime::sp_consensus::EnableProofRecording">EnableProofRecording</a>&gt;<div class="where">where
+    A: <a class="trait" href="../sc_service/trait.TransactionPool.html" title="trait yet_another_parachain_runtime::sc_service::TransactionPool">TransactionPool</a>&lt;Block = Block&gt; + 'static,
+    C: <a class="trait" href="../sc_client_api/trait.HeaderBackend.html" title="trait yet_another_parachain_runtime::sc_client_api::HeaderBackend">HeaderBackend</a>&lt;Block&gt; + <a class="trait" href="../polkadot_cli/trait.ProvideRuntimeApi.html" title="trait yet_another_parachain_runtime::polkadot_cli::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;Block&gt; + <a class="trait" href="../polkadot_sdk_frame/runtime/apis/trait.CallApiAt.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::CallApiAt">CallApiAt</a>&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
+    &lt;C as <a class="trait" href="../polkadot_cli/trait.ProvideRuntimeApi.html" title="trait yet_another_parachain_runtime::polkadot_cli::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;Block&gt;&gt;::<a class="associatedtype" href="../polkadot_cli/trait.ProvideRuntimeApi.html#associatedtype.Api" title="type yet_another_parachain_runtime::polkadot_cli::ProvideRuntimeApi::Api">Api</a>: <a class="trait" href="../polkadot_sdk_frame/runtime/apis/trait.ApiExt.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::runtime::apis::ApiExt">ApiExt</a>&lt;Block&gt; + <a class="trait" href="../sc_block_builder/trait.BlockBuilderApi.html" title="trait yet_another_parachain_runtime::sc_block_builder::BlockBuilderApi">BlockBuilder</a>&lt;Block&gt;,
+    Block: <a class="trait" href="../cumulus_primitives_core/trait.BlockT.html" title="trait yet_another_parachain_runtime::cumulus_primitives_core::BlockT">Block</a>,</div></h3></section></div><script src="../../trait.impl/cumulus_client_consensus_proposer/trait.ProposerInterface.js" data-ignore-extern-crates="sc_basic_authorship" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Additional logic for the Core Fellowship. This determines salary, registers activity/passivity and handles promotion and demotion periods."><title>yet_another_parachain_runtime::pallet_core_fellowship - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#process-flow" title="Process Flow">Process Flow</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_core_fellowship</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_core_fellowship/lib.rs.html#18-831">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Additional logic for the Core Fellowship. This determines salary, registers activity/passivity
+and handles promotion and demotion periods.</p>
+<p>This only handles members of non-zero rank.</p>
+<h2 id="process-flow"><a class="doc-anchor" href="#process-flow">§</a>Process Flow</h2>
+<ul>
+<li>Begin with a call to <code>induct</code>, where some privileged origin (perhaps a pre-existing member of
+<code>rank &gt; 1</code>) is able to make a candidate from an account and introduce it to be tracked in this
+pallet in order to allow evidence to be submitted and promotion voted on.</li>
+<li>The candidate then calls <code>submit_evidence</code> to apply for their promotion to rank 1.</li>
+<li>A <code>PromoteOrigin</code> of at least rank 1 calls <code>promote</code> on the candidate to elevate it to rank 1.</li>
+<li>Some time later but before rank 1’s <code>demotion_period</code> elapses, candidate calls
+<code>submit_evidence</code> with evidence of their efforts to apply for approval to stay at rank 1.</li>
+<li>An <code>ApproveOrigin</code> of at least rank 1 calls <code>approve</code> on the candidate to avoid imminent
+demotion and keep it at rank 1.</li>
+<li>These last two steps continue until the candidate is ready to apply for a promotion, at which
+point the previous two steps are repeated with a higher rank.</li>
+<li>If the member fails to get an approval within the <code>demotion_period</code> then anyone may call
+<code>bump</code> to demote the candidate by one rank.</li>
+<li>If a candidate fails to be promoted to a member within the <code>offboard_timeout</code> period, then
+anyone may call <code>bump</code> to remove the account’s candidacy.</li>
+<li>Pre-existing members may call <code>import_member</code> on themselves (formerly <code>import</code>) to have their
+rank recognised and be inducted into this pallet (to gain a salary and allow for eventual
+promotion).</li>
+<li>If, externally to this pallet, a member or candidate has their rank removed completely, then
+<code>offboard</code> may be called to remove them entirely from this pallet.</li>
+</ul>
+<p>Note there is a difference between having a rank of 0 (whereby the account is a <em>candidate</em>) and
+having no rank at all (whereby we consider it <em>unranked</em>). An account can be demoted from rank
+0 to become unranked. This process is called being offboarded and there is an extrinsic to do
+this explicitly when external factors to this pallet have caused the tracked account to become
+unranked. At rank 0, there is not a “demotion” period after which the account may be bumped to
+become offboarded but rather an “offboard timeout”.</p>
+<p>Candidates may be introduced (i.e. an account to go from unranked to rank of 0) by an origin
+of a different privilege to that for promotion. This allows the possibility for even a single
+existing member to introduce a new candidate without payment.</p>
+<p>Only tracked/ranked accounts may submit evidence for their proof and promotion. Candidates
+cannot be approved - they must proceed only to promotion prior to the offboard timeout elapsing.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="migration/index.html" title="mod yet_another_parachain_runtime::pallet_core_fellowship::migration">migration</a></dt><dd>Storage migrations for the core-fellowship pallet.</dd><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_core_fellowship::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::pallet_core_fellowship::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_core_fellowship</code></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ConvertU16ToU32.html" title="struct yet_another_parachain_runtime::pallet_core_fellowship::ConvertU16ToU32">Convert<wbr>U16To<wbr>U32</a></dt><dt><a class="struct" href="struct.EnsureInducted.html" title="struct yet_another_parachain_runtime::pallet_core_fellowship::EnsureInducted">Ensure<wbr>Inducted</a></dt><dd>Guard to ensure that the given origin is inducted into this pallet with a given minimum rank.
+The account ID of the member is the <code>Success</code> value.</dd><dt><a class="struct" href="struct.Instance1.html" title="struct yet_another_parachain_runtime::pallet_core_fellowship::Instance1">Instance1</a></dt><dd><code>Instance1</code> to be used for instantiable pallets defined with the
+<a href="../frame_support/attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>#[pallet]</code></a> macro. Instances 2-16 are also available but are hidden
+from docs.</dd><dt><a class="struct" href="struct.MemberStatus.html" title="struct yet_another_parachain_runtime::pallet_core_fellowship::MemberStatus">Member<wbr>Status</a></dt><dd>The status of a single member.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_core_fellowship::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.ParamsType.html" title="struct yet_another_parachain_runtime::pallet_core_fellowship::ParamsType">Params<wbr>Type</a></dt><dd>The status of the pallet instance.</dd><dt><a class="struct" href="struct.SubstrateWeight.html" title="struct yet_another_parachain_runtime::pallet_core_fellowship::SubstrateWeight">Substrate<wbr>Weight</a></dt><dd>Weights for <code>pallet_core_fellowship</code> using the Substrate node and recommended hardware.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_core_fellowship::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_core_fellowship::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_core_fellowship::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.Wish.html" title="enum yet_another_parachain_runtime::pallet_core_fellowship::Wish">Wish</a></dt><dd>The desired outcome for which evidence is presented.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_core_fellowship::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_core_fellowship::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for <code>pallet_core_fellowship</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Evidence.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::Evidence">Evidence</a></dt><dd>A piece of evidence to underpin a <a href="enum.Wish.html" title="enum yet_another_parachain_runtime::pallet_core_fellowship::Wish">Wish</a>.</dd><dt><a class="type" href="type.Member.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::Member">Member</a></dt><dd>The status of a claimant.</dd><dt><a class="type" href="type.MemberEvidence.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::MemberEvidence">Member<wbr>Evidence</a></dt><dd>Some evidence together with the desired outcome for which it was presented.</dd><dt><a class="type" href="type.MemberStatusOf.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::MemberStatusOf">Member<wbr>Status<wbr>Of</a></dt><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.Params.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::Params">Params</a></dt><dd>The overall status of the system.</dd><dt><a class="type" href="type.ParamsOf.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::ParamsOf">Params<wbr>Of</a></dt><dt><a class="type" href="type.PartialParamsOf.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::PartialParamsOf">Partial<wbr>Params<wbr>Of</a></dt><dt><a class="type" href="type.RankOf.html" title="type yet_another_parachain_runtime::pallet_core_fellowship::RankOf">RankOf</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

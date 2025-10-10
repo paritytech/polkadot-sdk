@@ -1,0 +1,246 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="FRAME"><title>yet_another_parachain_runtime::polkadot_sdk_frame - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#frame" title="FRAME">FRAME</a><ul><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#naming" title="Naming">Naming</a></li><li><a href="#documentation" title="Documentation">Documentation</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>polkadot_sdk_frame</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/polkadot_sdk_frame/lib.rs.html#18-665">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="frame"><a class="doc-anchor" href="#frame">§</a>FRAME</h2><div class="example-wrap"><pre class="language-no_compile"><code>  ______   ______    ________   ___ __ __   ______
+ /_____/\ /_____/\  /_______/\ /__//_//_/\ /_____/\
+ \::::_\/_\:::_ \ \ \::: _  \ \\::\| \| \ \\::::_\/_
+  \:\/___/\\:(_) ) )_\::(_)  \ \\:.      \ \\:\/___/\
+   \:::._\/ \: __ `\ \\:: __  \ \\:.\-/\  \ \\::___\/_
+    \:\ \    \ \ `\ \ \\:.\ \  \ \\. \  \  \ \\:\____/\
+     \_\/     \_\/ \_\/ \__\/\__\/ \__\/ \__\/ \_____\/</code></pre></div>
+<blockquote>
+<p><strong>F</strong>ramework for <strong>R</strong>untime <strong>A</strong>ggregation of <strong>M</strong>odularized <strong>E</strong>ntities: Substrate’s
+State Transition Function (Runtime) Framework.</p>
+</blockquote>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<p>This crate is organized into 3 stages:</p>
+<ol>
+<li>preludes: <code>prelude</code>, <code>testing_prelude</code>, <code>runtime::prelude</code>, <code>benchmarking::prelude</code>, and
+<code>weights_prelude</code>.</li>
+<li>domain-specific modules, like <code>traits</code>, <code>hashing</code>, <code>arithmetic</code> and <code>derive</code>.</li>
+<li>Accessing frame/substrate dependencies directly: <code>deps</code>.</li>
+</ol>
+<p>The main intended use of this crate is through preludes, which re-export most of the components
+needed for pallet development. Domain-specific modules serve as a backup for organization, and
+<code>deps</code> provides direct access to all dependencies if needed.</p>
+<h4 id="example-usage"><a class="doc-anchor" href="#example-usage">§</a>Example Usage</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>polkadot_sdk_frame <span class="kw">as </span>frame;
+
+<span class="attr">#[frame::pallet]
+</span><span class="kw">pub mod </span>pallet {
+	<span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+	<span class="comment">// ^^ using the prelude!
+
+	</span><span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">pub mod </span>tests {
+	<span class="kw">use </span>frame::testing_prelude::<span class="kw-2">*</span>;
+}
+
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+</span><span class="kw">pub mod </span>benchmarking {
+	<span class="kw">use </span>frame::benchmarking::prelude::<span class="kw-2">*</span>;
+}
+
+<span class="kw">pub mod </span>runtime {
+	<span class="kw">use </span>frame::runtime::prelude::<span class="kw-2">*</span>;
+}</code></pre></div>
+<h4 id="features"><a class="doc-anchor" href="#features">§</a>Features</h4>
+<p>This crate uses a <code>runtime</code> feature to include all types and tools needed to build FRAME-based
+runtimes. For runtime development, import it as:</p>
+<div class="example-wrap"><pre class="language-text"><code>polkadot-sdk-frame = { version = &quot;foo&quot;, features = [&quot;runtime&quot;] }</code></pre></div>
+<p>If you just want to build a pallet instead, import it as</p>
+<div class="example-wrap"><pre class="language-text"><code>polkadot-sdk-frame = { version = &quot;foo&quot; }</code></pre></div><h4 id="prelude-relationships"><a class="doc-anchor" href="#prelude-relationships">§</a>Prelude Relationships</h4>
+<p>The preludes have overlapping imports for convenience:</p>
+<ul>
+<li><code>testing_prelude</code> includes <code>prelude</code> and <code>runtime::prelude</code></li>
+<li><code>runtime::prelude</code> includes <code>prelude</code></li>
+<li><code>benchmarking::prelude</code> includes <code>prelude</code></li>
+</ul>
+<h3 id="naming"><a class="doc-anchor" href="#naming">§</a>Naming</h3>
+<p>Please note that this crate can only be imported as <code>polkadot-sdk-frame</code> or <code>frame</code>. This is due
+to compatibility matters with <code>frame-support</code>.</p>
+<p>A typical pallet’s <code>Cargo.toml</code> using this crate looks like:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>[dependencies]
+codec = { features = [<span class="string">"max-encoded-len"</span>], workspace = <span class="bool-val">true </span>}
+scale-info = { features = [<span class="string">"derive"</span>], workspace = <span class="bool-val">true </span>}
+frame = { workspace = <span class="bool-val">true</span>, features = [<span class="string">"runtime"</span>] }
+
+[features]
+default = [<span class="string">"std"</span>]
+std = [
+	<span class="string">"codec/std"</span>,
+	<span class="string">"scale-info/std"</span>,
+	<span class="string">"frame/std"</span>,
+]
+runtime-benchmarks = [
+	<span class="string">"frame/runtime-benchmarks"</span>,
+]
+<span class="kw">try</span>-runtime = [
+	<span class="string">"frame/try-runtime"</span>,
+]</code></pre></div>
+<h3 id="documentation"><a class="doc-anchor" href="#documentation">§</a>Documentation</h3>
+<p>For more detailed documentation and examples, see <a href="https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_frame/index.html"><code>polkadot_sdk_frame</code></a>.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="account/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::account">account</a></dt><dd>All account management related traits.</dd><dt><a class="mod" href="arithmetic/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic">arithmetic</a></dt><dd>The arithmetic types used for safe math.</dd><dt><a class="mod" href="benchmarking/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::benchmarking">benchmarking</a></dt><dd>Prelude to be included in the <code>benchmarking.rs</code> of a pallet.</dd><dt><a class="mod" href="deps/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::deps">deps</a></dt><dd>Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
+this module can be used.</dd><dt><a class="mod" href="derive/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::derive">derive</a></dt><dd>All derive macros used in frame.</dd><dt><a class="mod" href="hashing/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::hashing">hashing</a></dt><dd>All hashing related components.</dd><dt><a class="mod" href="pallet_macros/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::pallet_macros">pallet_<wbr>macros</a></dt><dd>Macros used within the main <a href="../frame_support/attr.pallet.html" title="attr yet_another_parachain_runtime::frame_support::pallet"><code>pallet</code></a> macro.</dd><dt><a class="mod" href="prelude/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::prelude">prelude</a></dt><dd>The main prelude of FRAME.</dd><dt><a class="mod" href="runtime/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::runtime">runtime</a></dt><dd>All of the types and tools needed to build FRAME-based runtimes.</dd><dt><a class="mod" href="testing_prelude/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::testing_prelude">testing_<wbr>prelude</a></dt><dd>The main testing prelude of FRAME.</dd><dt><a class="mod" href="token/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::token">token</a></dt><dd>All token related types and traits.</dd><dt><a class="mod" href="traits/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::traits">traits</a></dt><dd>All traits often used in FRAME pallets.</dd><dt><a class="mod" href="transaction/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::transaction">transaction</a></dt><dd>This is already part of the <a href="prelude/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::prelude"><code>prelude</code></a>.</dd><dt><a class="mod" href="try_runtime/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::try_runtime">try_<wbr>runtime</a></dt><dt><a class="mod" href="weights_prelude/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::weights_prelude">weights_<wbr>prelude</a></dt><dd>Prelude to be included in the <code>weight.rs</code> of each pallet.</dd></dl><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><dl class="item-table"><dt><a class="attr" href="attr.import_section.html" title="attr yet_another_parachain_runtime::polkadot_sdk_frame::import_section">import_<wbr>section</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.pallet.html" title="attr yet_another_parachain_runtime::polkadot_sdk_frame::pallet">pallet</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.pallet_section.html" title="attr yet_another_parachain_runtime::polkadot_sdk_frame::pallet_section">pallet_<wbr>section</a></dt><dd><hr />
+</dd><dt><a class="attr" href="attr.storage_alias.html" title="attr yet_another_parachain_runtime::polkadot_sdk_frame::storage_alias">storage_<wbr>alias</a></dt><dd><hr />
+</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

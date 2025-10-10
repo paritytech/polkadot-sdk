@@ -1,0 +1,264 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Can be attached to an attribute proc macro function, causing it to receive the tokens for the external item referred to by the path provided as the `attr` / first argument to the attribute macro."><title>import_tokens_attr in yet_another_parachain_runtime::frame_support::macro_magic - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">import_<wbr>tokens_<wbr>attr</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#overriding-macro_magic_root" title="Overriding [`MACRO_MAGIC_ROOT`]">Overriding [<code>MACRO_MAGIC_ROOT</code>]</a></li><li><a href="#optional-feature-with_custom_parsing" title="Optional Feature: `#[with_custom_parsing(..)]`">Optional Feature: <code>#[with_custom_parsing(..)]</code></a></li><li><a href="#notes" title="Notes">Notes</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>frame_<wbr>support::<wbr>macro_<wbr>magic</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">frame_support</a>::<wbr><a href="index.html">macro_magic</a></div><h1>Attribute Macro <span class="attr">import_tokens_attr</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><pre class="rust item-decl"><code>#[import_tokens_attr]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Can be attached to an attribute proc macro function, causing it to receive the tokens for
+the external item referred to by the path provided as the <code>attr</code> / first argument to the
+attribute macro.</p>
+<p>The item whose path is provided as the <code>attr</code> / first argument <em>must</em> have the
+<a href="attr.export_tokens.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::export_tokens"><code>#[export_tokens]</code></a> attribute attached to it, or this will not
+work.</p>
+<p>For example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[import_tokens_attr]
+#[proc_macro_attribute]
+</span><span class="kw">pub fn </span>my_attribute(attr: TokenStream, tokens: TokenStream) -&gt; TokenStream {
+    <span class="kw">let </span>external_item = <span class="macro">parse_macro_input!</span>(attr <span class="kw">as </span>Item);
+    <span class="kw">let </span>attached_item = <span class="macro">parse_macro_input!</span>(tokens <span class="kw">as </span>Item);
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Which could then be used like:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[my_attribute(path::to::AnItem)]
+</span><span class="kw">mod </span>my_mod {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>This would result in the <code>external_item</code> variable having the parsed tokens of the external
+<code>path::to::AnItem</code> item, and the <code>attached_item</code> variable having the parsed tokens of the
+item the attribute is attached to (<code>my_mod</code>) as usual.</p>
+<p>This allows for the creation of extremely powerful attribute macros that take in an export
+tokens path as their <code>attr</code> and internally receive the tokens for that external item. For
+example you could write an attribute macro that combines two modules or two structs
+together, among many other things. Custom parsing, covered below, makes these capabilities
+even more powerful.</p>
+<h3 id="overriding-macro_magic_root"><a class="doc-anchor" href="#overriding-macro_magic_root">§</a>Overriding [<code>MACRO_MAGIC_ROOT</code>]</h3>
+<p>You can also provide a module path as an optional argument to this attribute macro and that
+path will be used as the override for [<code>MACRO_MAGIC_ROOT</code>] within the context of code
+generated by this attribute. Instead of a <code>Path</code>, you are also free to provide any <code>Expr</code>
+that evaluates to something compatible with [<code>Into&lt;String&gt;</code>] so you can dynamically
+generate this path based on <code>format!</code> and other string manipulation machinery, if
+necessary.</p>
+<p>Here is an example of providing a <code>Path</code> as the override for [<code>MACRO_MAGIC_ROOT</code>]:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[import_tokens_attr(my_crate::__private::macro_magic)]
+</span><span class="kw">pub fn </span>my_macro(attr: TokenStream, tokens: TokenStream) -&gt; TokenStream {
+    <span class="comment">// ..
+</span>}</code></pre></div>
+<p>and here is an example of providing an [<code>Into&lt;String&gt;</code>]-compatible <code>Expr</code> as the override
+for [<code>MACRO_MAGIC_ROOT</code>]:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[import_tokens_proc(<span class="macro">format!</span>(<span class="string">"{}::__private::macro_magic"</span>, generate_crate_access_2018(<span class="string">"my_crate"</span>)))]
+</span><span class="kw">pub fn </span>my_macro(attr: TokenStream, tokens: TokenStream) -&gt; TokenStream {
+    <span class="comment">// ..
+</span>}</code></pre></div>
+<h3 id="optional-feature-with_custom_parsing"><a class="doc-anchor" href="#optional-feature-with_custom_parsing">§</a>Optional Feature: <code>#[with_custom_parsing(..)]</code></h3>
+<p>By default, <a href="attr.import_tokens_attr.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::import_tokens_attr"><code>#[import_tokens_attr]</code></a>-based attribute macros
+expect the foreign item path to be passed directly as the only argument to the resulting
+macro. Sometimes, however, it is desirable to support multiple arguments, or otherwise
+implement some kind of custom parsing that determines how the foreign path is obtained. You
+can do this by attaching the optional attribute
+<a href="attr.with_custom_parsing.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::with_custom_parsing"><code>#[with_custom_parsing(..)]</code></a> to the same proc macro
+attribute definition that you attached <code>#[import_tokens_attr]</code> to.</p>
+<p>This optional attribute takes one argument, which should be the path to a struct that
+implements <code>syn::parse::Parse</code>, <code>quote::ToTokens</code>, and [<code>ForeignPath</code>]. To access the
+tokens for your custom parsed input, you can use the magic variable <code>__custom_tokens: TokenStream</code> anywhere in your attribute proc macro.</p>
+<p>Here is a full example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Parse)]
+</span><span class="kw">struct </span>MyCustomParsing {
+    foreign_path: syn::Path,
+    _comma: syn::token::Comma,
+    custom_path: syn::Path,
+}
+
+<span class="kw">impl </span>ToTokens <span class="kw">for </span>MyCustomParsing {
+    <span class="kw">fn </span>to_tokens(<span class="kw-2">&amp;</span><span class="self">self</span>, tokens: <span class="kw-2">&amp;mut </span>proc_macro2::TokenStream) {
+        tokens.extend(<span class="self">self</span>.foreign_path.to_token_stream());
+        tokens.extend(<span class="self">self</span>._comma.to_token_stream());
+        tokens.extend(<span class="self">self</span>.custom_path.to_token_stream());
+    }
+}
+
+<span class="kw">impl </span>ForeignPath <span class="kw">for </span>MyCustomParsing {
+    <span class="kw">fn </span>foreign_path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>syn::Path {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.foreign_path
+    }
+}
+<span class="attr">#[import_tokens_attr]
+#[with_custom_parsing(MyCustomParsing)]
+#[proc_macro_attribute]
+</span><span class="kw">pub fn </span>my_attribute(attr: TokenStream, tokens: TokenStream) -&gt; TokenStream {
+    <span class="kw">let </span>external_item = <span class="macro">parse_macro_input!</span>(attr <span class="kw">as </span>Item);
+    <span class="kw">let </span>attached_item = <span class="macro">parse_macro_input!</span>(tokens <span class="kw">as </span>Item);
+    <span class="kw">let </span>custom_parsed_item = <span class="macro">parse_macro_input!</span>(__custom_tokens <span class="kw">as </span>MyCustomParsing);
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<p>Usage would look like:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[my_attribute(foreign::path, some_other::path)]
+</span><span class="kw">struct </span>SomeItem {}</code></pre></div>
+<p>This is just an example, you could implement the parsing any way you want, maybe even using
+something that isn’t initially a <code>syn::Path</code> but is transformed into one. The possibilities
+are endless.</p>
+<h3 id="notes"><a class="doc-anchor" href="#notes">§</a>Notes</h3>
+<ul>
+<li>See <code>tests.rs</code> for more examples.</li>
+<li>Can only be used within a proc macro crate.</li>
+<li>A handy <code>__source_path: TokenStream</code> variable is also injected into your proc macro
+function definition which provides access to the original <code>syn::Path</code> that was provided
+as the path for the foreign item before its tokens were imported. You can access this
+directly simply by referring to <code>__source_path</code>. This should parse to a <code>syn::Path</code>.</li>
+<li>When using the custom parsing feature, you can also access the original tokens for the
+input attribute within your proc macro body using the magic variable <code>__custom_tokens</code>.
+For more information and an example see <a href="attr.with_custom_parsing.html" title="attr yet_another_parachain_runtime::frame_support::macro_magic::with_custom_parsing"><code>with_custom_parsing</code></a>.</li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Runtime modules for parachains code."><title>polkadot_runtime_parachains - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_runtime_parachains/index.html">polkadot_<wbr>runtime_<wbr>parachains</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>polkadot_runtime_parachains</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/polkadot_runtime_parachains/lib.rs.html#17-181">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Runtime modules for parachains code.</p>
+<p>It is crucial to include all the modules from this crate in the runtime, in
+particular the <code>Initializer</code> module, as it is responsible for initializing the state
+of the other modules.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.ensure_parachain"><code>pub use origin::<a class="fn" href="origin/fn.ensure_parachain.html" title="fn polkadot_runtime_parachains::origin::ensure_parachain">ensure_parachain</a>;</code></dt><dt id="reexport.Origin"><code>pub use origin::<a class="enum" href="origin/pallet/enum.Origin.html" title="enum polkadot_runtime_parachains::origin::pallet::Origin">Origin</a>;</code></dt><dt id="reexport.ParaLifecycle"><code>pub use paras::<a class="enum" href="paras/enum.ParaLifecycle.html" title="enum polkadot_runtime_parachains::paras::ParaLifecycle">ParaLifecycle</a>;</code></dt><dt id="reexport.UpgradeStrategy"><code>pub use paras::<a class="enum" href="paras/enum.UpgradeStrategy.html" title="enum polkadot_runtime_parachains::paras::UpgradeStrategy">UpgradeStrategy</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="assigner_coretime/index.html" title="mod polkadot_runtime_parachains::assigner_coretime">assigner_<wbr>coretime</a></dt><dd>The parachain coretime assignment module.</dd><dt><a class="mod" href="configuration/index.html" title="mod polkadot_runtime_parachains::configuration">configuration</a></dt><dd>Configuration manager for the Polkadot runtime parachains logic.</dd><dt><a class="mod" href="coretime/index.html" title="mod polkadot_runtime_parachains::coretime">coretime</a></dt><dd>Extrinsics implementing the relay chain side of the Coretime interface.</dd><dt><a class="mod" href="disputes/index.html" title="mod polkadot_runtime_parachains::disputes">disputes</a></dt><dd>Runtime component for handling disputes of parachain candidates.</dd><dt><a class="mod" href="dmp/index.html" title="mod polkadot_runtime_parachains::dmp">dmp</a></dt><dd>To prevent Out of Memory errors on the <code>DownwardMessageQueue</code>, an
+exponential fee factor (<code>DeliveryFeeFactor</code>) is set. The fee factor
+increments exponentially after the number of messages in the
+<code>DownwardMessageQueue</code> passes a threshold. This threshold is set as:</dd><dt><a class="mod" href="hrmp/index.html" title="mod polkadot_runtime_parachains::hrmp">hrmp</a></dt><dt><a class="mod" href="inclusion/index.html" title="mod polkadot_runtime_parachains::inclusion">inclusion</a></dt><dd>The inclusion pallet is responsible for inclusion and availability of scheduled parachains.</dd><dt><a class="mod" href="initializer/index.html" title="mod polkadot_runtime_parachains::initializer">initializer</a></dt><dd>This module is responsible for maintaining a consistent initialization order for all other
+parachains modules. It’s also responsible for finalization and session change notifications.</dd><dt><a class="mod" href="metrics/index.html" title="mod polkadot_runtime_parachains::metrics">metrics</a></dt><dd>Runtime declaration of the parachain metrics.</dd><dt><a class="mod" href="on_demand/index.html" title="mod polkadot_runtime_parachains::on_demand">on_<wbr>demand</a></dt><dd>The parachain on demand assignment module.</dd><dt><a class="mod" href="origin/index.html" title="mod polkadot_runtime_parachains::origin">origin</a></dt><dd>Declaration of the parachain specific origin and a pallet that hosts it.</dd><dt><a class="mod" href="paras/index.html" title="mod polkadot_runtime_parachains::paras">paras</a></dt><dd>The paras pallet acts as the main registry of paras.</dd><dt><a class="mod" href="paras_inherent/index.html" title="mod polkadot_runtime_parachains::paras_inherent">paras_<wbr>inherent</a></dt><dd>Provides glue code over the scheduler and inclusion modules, and accepting
+one inherent per block that can include new para candidates and bitfields.</dd><dt><a class="mod" href="reward_points/index.html" title="mod polkadot_runtime_parachains::reward_points">reward_<wbr>points</a></dt><dd>An implementation of the <code>RewardValidators</code> trait used by <code>inclusion</code> that employs
+<code>pallet-staking</code> to compute the rewards.</dd><dt><a class="mod" href="runtime_api_impl/index.html" title="mod polkadot_runtime_parachains::runtime_api_impl">runtime_<wbr>api_<wbr>impl</a></dt><dd>Runtime API implementations for Parachains.</dd><dt><a class="mod" href="scheduler/index.html" title="mod polkadot_runtime_parachains::scheduler">scheduler</a></dt><dd>The scheduler module for parachains and parathreads.</dd><dt><a class="mod" href="session_info/index.html" title="mod polkadot_runtime_parachains::session_info">session_<wbr>info</a></dt><dd>The session info pallet provides information about validator sets
+from prior sessions needed for approvals and disputes.</dd><dt><a class="mod" href="shared/index.html" title="mod polkadot_runtime_parachains::shared">shared</a></dt><dd>A pallet for any shared state that other pallets may want access to.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.GetMinFeeFactor.html" title="struct polkadot_runtime_parachains::GetMinFeeFactor">GetMin<wbr>FeeFactor</a></dt><dd>Helper struct used for accessing <code>FeeTracker::MIN_FEE_FACTOR</code></dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.EnsureForParachain.html" title="trait polkadot_runtime_parachains::EnsureForParachain">Ensure<wbr>ForParachain</a></dt><dd>Ensure more initialization for <code>ParaId</code> when benchmarking. (e.g. open HRMP channels, …)</dd><dt><a class="trait" href="trait.FeeTracker.html" title="trait polkadot_runtime_parachains::FeeTracker">FeeTracker</a></dt><dd>Trait for tracking message delivery fees on a transport protocol.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.schedule_code_upgrade.html" title="fn polkadot_runtime_parachains::schedule_code_upgrade">schedule_<wbr>code_<wbr>upgrade</a></dt><dd>Schedules a validation code upgrade to a parachain with the given id.</dd><dt><a class="fn" href="fn.schedule_para_cleanup.html" title="fn polkadot_runtime_parachains::schedule_para_cleanup">schedule_<wbr>para_<wbr>cleanup</a></dt><dd>Schedule a para to be cleaned up at the start of the next session.</dd><dt><a class="fn" href="fn.schedule_para_initialize.html" title="fn polkadot_runtime_parachains::schedule_para_initialize">schedule_<wbr>para_<wbr>initialize</a></dt><dd>Schedule a para to be initialized at the start of the next session with the given genesis data.</dd><dt><a class="fn" href="fn.schedule_parachain_downgrade.html" title="fn polkadot_runtime_parachains::schedule_parachain_downgrade">schedule_<wbr>parachain_<wbr>downgrade</a></dt><dd>Schedule a lease holding parachain to be downgraded to an on-demand parachain.</dd><dt><a class="fn" href="fn.schedule_parathread_upgrade.html" title="fn polkadot_runtime_parachains::schedule_parathread_upgrade">schedule_<wbr>parathread_<wbr>upgrade</a></dt><dd>Schedule a parathread (on-demand parachain) to be upgraded to a lease holding parachain.</dd><dt><a class="fn" href="fn.set_current_head.html" title="fn polkadot_runtime_parachains::set_current_head">set_<wbr>current_<wbr>head</a></dt><dd>Sets the current parachain head with the given id.</dd></dl><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

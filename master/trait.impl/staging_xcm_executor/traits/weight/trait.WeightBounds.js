@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["staging_xcm_builder",[["impl&lt;T: Get&lt;<a class=\"struct\" href=\"staging_xcm_builder/test_utils/struct.Weight.html\" title=\"struct staging_xcm_builder::test_utils::Weight\">Weight</a>&gt;, C: Decode + GetDispatchInfo, M: Get&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u32.html\">u32</a>&gt;&gt; WeightBounds&lt;C&gt; for <a class=\"struct\" href=\"staging_xcm_builder/struct.FixedWeightBounds.html\" title=\"struct staging_xcm_builder::FixedWeightBounds\">FixedWeightBounds</a>&lt;T, C, M&gt;"],["impl&lt;W, C, M&gt; WeightBounds&lt;C&gt; for <a class=\"struct\" href=\"staging_xcm_builder/struct.WeightInfoBounds.html\" title=\"struct staging_xcm_builder::WeightInfoBounds\">WeightInfoBounds</a>&lt;W, C, M&gt;<div class=\"where\">where\n    W: <a class=\"trait\" href=\"staging_xcm_builder/test_utils/trait.XcmWeightInfo.html\" title=\"trait staging_xcm_builder::test_utils::XcmWeightInfo\">XcmWeightInfo</a>&lt;C&gt;,\n    C: Decode + GetDispatchInfo,\n    M: Get&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u32.html\">u32</a>&gt;,\n    <a class=\"enum\" href=\"staging_xcm_builder/test_utils/enum.Instruction.html\" title=\"enum staging_xcm_builder::test_utils::Instruction\">Instruction</a>&lt;C&gt;: GetWeight&lt;W&gt;,</div>"]]],["yet_another_parachain_runtime",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1315,37]}

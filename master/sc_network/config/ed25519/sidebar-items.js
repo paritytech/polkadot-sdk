@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DecodingError"],"struct":["Keypair","PublicKey","SecretKey"]};

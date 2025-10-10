@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_oracle_runtime_api", 0, "Runtime API definition for the oracle pallet.\nRuntime API for querying oracle data from the blockchain.\nRetrieves all oracle values for a specific provider.\nRetrieves a specific oracle value for a given provider and …")

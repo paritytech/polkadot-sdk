@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `cumulus_test_runtime` crate."><title>cumulus_test_runtime - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="cumulus_test_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../cumulus_test_runtime/index.html">cumulus_<wbr>test_<wbr>runtime</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>cumulus_test_runtime</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/cumulus_test_runtime/lib.rs.html#17-643">Source</a> </span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="api/index.html" title="mod cumulus_test_runtime::api">api</a></dt><dt><a class="mod" href="async_backing/index.html" title="mod cumulus_test_runtime::async_backing">async_<wbr>backing</a></dt><dt><a class="mod" href="elastic_scaling/index.html" title="mod cumulus_test_runtime::elastic_scaling">elastic_<wbr>scaling</a></dt><dt><a class="mod" href="elastic_scaling_500ms/index.html" title="mod cumulus_test_runtime::elastic_scaling_500ms">elastic_<wbr>scaling_<wbr>500ms</a></dt><dt><a class="mod" href="elastic_scaling_multi_block_slot/index.html" title="mod cumulus_test_runtime::elastic_scaling_multi_block_slot">elastic_<wbr>scaling_<wbr>multi_<wbr>block_<wbr>slot</a></dt><dt><a class="mod" href="elastic_scaling_mvp/index.html" title="mod cumulus_test_runtime::elastic_scaling_mvp">elastic_<wbr>scaling_<wbr>mvp</a></dt><dt><a class="mod" href="relay_parent_offset/index.html" title="mod cumulus_test_runtime::relay_parent_offset">relay_<wbr>parent_<wbr>offset</a></dt><dt><a class="mod" href="sync_backing/index.html" title="mod cumulus_test_runtime::sync_backing">sync_<wbr>backing</a></dt><dt><a class="mod" href="wasm_spec_version_incremented/index.html" title="mod cumulus_test_runtime::wasm_spec_version_incremented">wasm_<wbr>spec_<wbr>version_<wbr>incremented</a></dt></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.construct_runtime.html" title="macro cumulus_test_runtime::construct_runtime">construct_<wbr>runtime</a></dt><dd>Construct a runtime, with the given name and the given pallets.</dd><dt><a class="macro" href="macro.parameter_types.html" title="macro cumulus_test_runtime::parameter_types">parameter_<wbr>types</a></dt><dd>Create new implementations of the <a href="crate::traits::Get"><code>Get</code></a> trait.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BlockExecutionWeight.html" title="struct cumulus_test_runtime::BlockExecutionWeight">Block<wbr>Execution<wbr>Weight</a></dt><dd>Weight of executing an empty block.
+Calculated by multiplying the <em>Average</em> with <code>1.0</code> and adding <code>0</code>.</dd><dt><a class="struct" href="struct.BlockHashCount.html" title="struct cumulus_test_runtime::BlockHashCount">Block<wbr>Hash<wbr>Count</a></dt><dt><a class="struct" href="struct.ConstU8.html" title="struct cumulus_test_runtime::ConstU8">ConstU8</a></dt><dd>Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstantMultiplier.html" title="struct cumulus_test_runtime::ConstantMultiplier">Constant<wbr>Multiplier</a></dt><dd>Implementor of <a href="../sp_weights/trait.WeightToFee.html" title="trait sp_weights::WeightToFee"><code>WeightToFee</code></a> that uses a constant multiplier.</dd><dt><a class="struct" href="struct.CreationFee.html" title="struct cumulus_test_runtime::CreationFee">Creation<wbr>Fee</a></dt><dt><a class="struct" href="struct.ExistentialDeposit.html" title="struct cumulus_test_runtime::ExistentialDeposit">Existential<wbr>Deposit</a></dt><dt><a class="struct" href="struct.ExtrinsicBaseWeight.html" title="struct cumulus_test_runtime::ExtrinsicBaseWeight">Extrinsic<wbr>Base<wbr>Weight</a></dt><dd>Weight of executing a NO-OP extrinsic, for example <code>System::remark</code>.
+Calculated by multiplying the <em>Average</em> with <code>1.0</code> and adding <code>0</code>.</dd><dt><a class="struct" href="struct.IdentityFee.html" title="struct cumulus_test_runtime::IdentityFee">Identity<wbr>Fee</a></dt><dd>Implementor of <code>WeightToFee</code> that maps one unit of weight to one unit of fee.</dd><dt><a class="struct" href="struct.MaxReserves.html" title="struct cumulus_test_runtime::MaxReserves">MaxReserves</a></dt><dt><a class="struct" href="struct.MinimumPeriod.html" title="struct cumulus_test_runtime::MinimumPeriod">Minimum<wbr>Period</a></dt><dt><a class="struct" href="struct.NumberOfBlocksPerRelaySlot.html" title="struct cumulus_test_runtime::NumberOfBlocksPerRelaySlot">Number<wbr>OfBlocks<wbr>PerRelay<wbr>Slot</a></dt><dd>Target number of blocks per relay chain slot.</dd><dt><a class="struct" href="struct.Offset.html" title="struct cumulus_test_runtime::Offset">Offset</a></dt><dt><a class="struct" href="struct.PalletInfo.html" title="struct cumulus_test_runtime::PalletInfo">Pallet<wbr>Info</a></dt><dd>Provides an implementation of <code>PalletInfo</code> to provide information
+about the pallet setup in the runtime.</dd><dt><a class="struct" href="struct.Perbill.html" title="struct cumulus_test_runtime::Perbill">Perbill</a></dt><dd>A fixed point representation of a number in the range [0, 1].</dd><dt><a class="struct" href="struct.Permill.html" title="struct cumulus_test_runtime::Permill">Permill</a></dt><dd>A fixed point representation of a number in the range [0, 1].</dd><dt><a class="struct" href="struct.PotId.html" title="struct cumulus_test_runtime::PotId">PotId</a></dt><dt><a class="struct" href="struct.RocksDbWeight.html" title="struct cumulus_test_runtime::RocksDbWeight">Rocks<wbr>DbWeight</a></dt><dd>By default, Substrate uses RocksDB, so this will be the weight used throughout
+the runtime.</dd><dt><a class="struct" href="struct.Runtime.html" title="struct cumulus_test_runtime::Runtime">Runtime</a></dt><dt><a class="struct" href="struct.RuntimeApi.html" title="struct cumulus_test_runtime::RuntimeApi">Runtime<wbr>Api</a></dt><dt><a class="struct" href="struct.RuntimeApiImpl.html" title="struct cumulus_test_runtime::RuntimeApiImpl">Runtime<wbr>ApiImpl</a></dt><dd>Implements all runtime apis for the client side.</dd><dt><a class="struct" href="struct.RuntimeBlockLength.html" title="struct cumulus_test_runtime::RuntimeBlockLength">Runtime<wbr>Block<wbr>Length</a></dt><dt><a class="struct" href="struct.RuntimeBlockWeights.html" title="struct cumulus_test_runtime::RuntimeBlockWeights">Runtime<wbr>Block<wbr>Weights</a></dt><dt><a class="struct" href="struct.RuntimeGenesisConfig.html" title="struct cumulus_test_runtime::RuntimeGenesisConfig">Runtime<wbr>Genesis<wbr>Config</a></dt><dt><a class="struct" href="struct.RuntimeOrigin.html" title="struct cumulus_test_runtime::RuntimeOrigin">Runtime<wbr>Origin</a></dt><dd>The runtime origin type representing the origin of a call.</dd><dt><a class="struct" href="struct.SS58Prefix.html" title="struct cumulus_test_runtime::SS58Prefix">SS58<wbr>Prefix</a></dt><dt><a class="struct" href="struct.SessionKeys.html" title="struct cumulus_test_runtime::SessionKeys">Session<wbr>Keys</a></dt><dt><a class="struct" href="struct.SessionLength.html" title="struct cumulus_test_runtime::SessionLength">Session<wbr>Length</a></dt><dt><a class="struct" href="struct.SingleBlockMigrations.html" title="struct cumulus_test_runtime::SingleBlockMigrations">Single<wbr>Block<wbr>Migrations</a></dt><dt><a class="struct" href="struct.TransactionByteFee.html" title="struct cumulus_test_runtime::TransactionByteFee">Transaction<wbr>Byte<wbr>Fee</a></dt><dt><a class="struct" href="struct.TransferFee.html" title="struct cumulus_test_runtime::TransferFee">Transfer<wbr>Fee</a></dt><dt><a class="struct" href="struct.Version.html" title="struct cumulus_test_runtime::Version">Version</a></dt><dt><a class="struct" href="struct.Weight.html" title="struct cumulus_test_runtime::Weight">Weight</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BalancesCall.html" title="enum cumulus_test_runtime::BalancesCall">Balances<wbr>Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.DispatchClass.html" title="enum cumulus_test_runtime::DispatchClass">Dispatch<wbr>Class</a></dt><dd>A generalized group of dispatch types.</dd><dt><a class="enum" href="enum.GluttonCall.html" title="enum cumulus_test_runtime::GluttonCall">Glutton<wbr>Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.OriginCaller.html" title="enum cumulus_test_runtime::OriginCaller">Origin<wbr>Caller</a></dt><dt><a class="enum" href="enum.RuntimeCall.html" title="enum cumulus_test_runtime::RuntimeCall">Runtime<wbr>Call</a></dt><dd>The aggregated runtime call type.</dd><dt><a class="enum" href="enum.RuntimeError.html" title="enum cumulus_test_runtime::RuntimeError">Runtime<wbr>Error</a></dt><dt><a class="enum" href="enum.RuntimeEvent.html" title="enum cumulus_test_runtime::RuntimeEvent">Runtime<wbr>Event</a></dt><dt><a class="enum" href="enum.RuntimeFreezeReason.html" title="enum cumulus_test_runtime::RuntimeFreezeReason">Runtime<wbr>Freeze<wbr>Reason</a></dt><dd>A reason for placing a freeze on funds.</dd><dt><a class="enum" href="enum.RuntimeHoldReason.html" title="enum cumulus_test_runtime::RuntimeHoldReason">Runtime<wbr>Hold<wbr>Reason</a></dt><dd>A reason for placing a hold on funds.</dd><dt><a class="enum" href="enum.RuntimeLockId.html" title="enum cumulus_test_runtime::RuntimeLockId">Runtime<wbr>Lock<wbr>Id</a></dt><dd>An identifier for each lock placed on funds.</dd><dt><a class="enum" href="enum.RuntimeSlashReason.html" title="enum cumulus_test_runtime::RuntimeSlashReason">Runtime<wbr>Slash<wbr>Reason</a></dt><dd>A reason for slashing funds.</dd><dt><a class="enum" href="enum.RuntimeTask.html" title="enum cumulus_test_runtime::RuntimeTask">Runtime<wbr>Task</a></dt><dd>An aggregation of all <code>Task</code> enums across all pallets included in the current runtime.</dd><dt><a class="enum" href="enum.RuntimeViewFunction.html" title="enum cumulus_test_runtime::RuntimeViewFunction">Runtime<wbr>View<wbr>Function</a></dt><dd>Runtime query type.</dd><dt><a class="enum" href="enum.SudoCall.html" title="enum cumulus_test_runtime::SudoCall">Sudo<wbr>Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.TestPalletCall.html" title="enum cumulus_test_runtime::TestPalletCall">Test<wbr>Pallet<wbr>Call</a></dt><dd>A special pallet that exposes dispatchables that are only useful for testing.
+Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.TimestampCall.html" title="enum cumulus_test_runtime::TimestampCall">Timestamp<wbr>Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.BLOCK_PROCESSING_VELOCITY.html" title="constant cumulus_test_runtime::BLOCK_PROCESSING_VELOCITY">BLOCK_<wbr>PROCESSING_<wbr>VELOCITY</a></dt><dt><a class="constant" href="constant.DAYS.html" title="constant cumulus_test_runtime::DAYS">DAYS</a></dt><dt><a class="constant" href="constant.EPOCH_DURATION_IN_BLOCKS.html" title="constant cumulus_test_runtime::EPOCH_DURATION_IN_BLOCKS">EPOCH_<wbr>DURATION_<wbr>IN_<wbr>BLOCKS</a></dt><dt><a class="constant" href="constant.HOURS.html" title="constant cumulus_test_runtime::HOURS">HOURS</a></dt><dt><a class="constant" href="constant.MINUTES.html" title="constant cumulus_test_runtime::MINUTES">MINUTES</a></dt><dt><a class="constant" href="constant.PARACHAIN_ID.html" title="constant cumulus_test_runtime::PARACHAIN_ID">PARACHAIN_<wbr>ID</a></dt><dd>The para-id used in this runtime.</dd><dt><a class="constant" href="constant.PRIMARY_PROBABILITY.html" title="constant cumulus_test_runtime::PRIMARY_PROBABILITY">PRIMARY_<wbr>PROBABILITY</a></dt><dt><a class="constant" href="constant.RUNTIME_API_VERSIONS.html" title="constant cumulus_test_runtime::RUNTIME_API_VERSIONS">RUNTIME_<wbr>API_<wbr>VERSIONS</a></dt><dt><a class="constant" href="constant.SLOT_DURATION.html" title="constant cumulus_test_runtime::SLOT_DURATION">SLOT_<wbr>DURATION</a></dt><dt><a class="constant" href="constant.VERSION.html" title="constant cumulus_test_runtime::VERSION">VERSION</a></dt><dt><a class="constant" href="constant.WASM_BINARY.html" title="constant cumulus_test_runtime::WASM_BINARY">WASM_<wbr>BINARY</a></dt><dt><a class="constant" href="constant.WASM_BINARY_BLOATY.html" title="constant cumulus_test_runtime::WASM_BINARY_BLOATY">WASM_<wbr>BINARY_<wbr>BLOATY</a></dt><dt><a class="constant" href="constant.WASM_BINARY_PATH.html" title="constant cumulus_test_runtime::WASM_BINARY_PATH">WASM_<wbr>BINARY_<wbr>PATH</a></dt><dt><a class="constant" href="constant.WEIGHT_REF_TIME_PER_SECOND.html" title="constant cumulus_test_runtime::WEIGHT_REF_TIME_PER_SECOND">WEIGHT_<wbr>REF_<wbr>TIME_<wbr>PER_<wbr>SECOND</a></dt></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.BuildStorage.html" title="trait cumulus_test_runtime::BuildStorage">Build<wbr>Storage</a></dt><dd>Complex storage builder stuff.</dd><dt><a class="trait" href="trait.GetLastTimestamp.html" title="trait cumulus_test_runtime::GetLastTimestamp">GetLast<wbr>Timestamp</a></dt><dt><a class="trait" href="trait.Randomness.html" title="trait cumulus_test_runtime::Randomness">Randomness</a></dt><dd>A trait that is able to provide randomness.</dd><dt><a class="trait" href="trait.StorageValue.html" title="trait cumulus_test_runtime::StorageValue">Storage<wbr>Value</a></dt><dd>A trait for working with macro-generated storage values under the substrate storage API.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.build_state.html" title="fn cumulus_test_runtime::build_state">build_<wbr>state</a></dt><dd>Build <code>GenesisConfig</code> from a JSON blob not using any defaults and store it in the storage. For
+more info refer to <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state" title="method sp_genesis_builder::GenesisBuilder::build_state"><code>sp_genesis_builder::GenesisBuilder::build_state</code></a>.</dd><dt><a class="fn" href="fn.get_preset.html" title="fn cumulus_test_runtime::get_preset">get_<wbr>preset</a></dt><dd>Get the default <code>GenesisConfig</code> as a JSON blob if <code>name</code> is None.</dd><dt><a class="fn" href="fn.native_version.html" title="fn cumulus_test_runtime::native_version">native_<wbr>version</a></dt><dd>The version information used to identify this runtime when compiled natively.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AccountId.html" title="type cumulus_test_runtime::AccountId">Account<wbr>Id</a></dt><dd>Some way of identifying an account on the chain. We intentionally make it equivalent
+to the public key of our transaction signing scheme.</dd><dt><a class="type" href="type.Address.html" title="type cumulus_test_runtime::Address">Address</a></dt><dd>The address format for describing accounts.</dd><dt><a class="type" href="type.AllPalletsWithSystem.html" title="type cumulus_test_runtime::AllPalletsWithSystem">AllPallets<wbr>With<wbr>System</a></dt><dd>All pallets included in the runtime as a nested tuple of types.</dd><dt><a class="type" href="type.AllPalletsWithoutSystem.html" title="type cumulus_test_runtime::AllPalletsWithoutSystem">AllPallets<wbr>Without<wbr>System</a></dt><dd>All pallets included in the runtime as a nested tuple of types.
+Excludes the System pallet.</dd><dt><a class="type" href="type.Aura.html" title="type cumulus_test_runtime::Aura">Aura</a></dt><dt><a class="type" href="type.AuraConfig.html" title="type cumulus_test_runtime::AuraConfig">Aura<wbr>Config</a></dt><dt><a class="type" href="type.AuraExt.html" title="type cumulus_test_runtime::AuraExt">AuraExt</a></dt><dt><a class="type" href="type.AuraExtConfig.html" title="type cumulus_test_runtime::AuraExtConfig">Aura<wbr>ExtConfig</a></dt><dt><a class="type" href="type.AuraId.html" title="type cumulus_test_runtime::AuraId">AuraId</a></dt><dd>An Aura authority identifier using S/R 25519 as its crypto.</dd><dt><a class="type" href="type.Balance.html" title="type cumulus_test_runtime::Balance">Balance</a></dt><dd>Balance of an account.</dd><dt><a class="type" href="type.Balances.html" title="type cumulus_test_runtime::Balances">Balances</a></dt><dt><a class="type" href="type.BalancesConfig.html" title="type cumulus_test_runtime::BalancesConfig">Balances<wbr>Config</a></dt><dt><a class="type" href="type.Block.html" title="type cumulus_test_runtime::Block">Block</a></dt><dd>Block type as expected by this runtime.</dd><dt><a class="type" href="type.BlockId.html" title="type cumulus_test_runtime::BlockId">BlockId</a></dt><dd>BlockId type as expected by this runtime.</dd><dt><a class="type" href="type.BlockNumber.html" title="type cumulus_test_runtime::BlockNumber">Block<wbr>Number</a></dt><dd>An index to a block.</dd><dt><a class="type" href="type.Executive.html" title="type cumulus_test_runtime::Executive">Executive</a></dt><dd>Executive: handles dispatch to the various modules.</dd><dt><a class="type" href="type.Glutton.html" title="type cumulus_test_runtime::Glutton">Glutton</a></dt><dt><a class="type" href="type.GluttonConfig.html" title="type cumulus_test_runtime::GluttonConfig">Glutton<wbr>Config</a></dt><dt><a class="type" href="type.Hash.html" title="type cumulus_test_runtime::Hash">Hash</a></dt><dd>A hash of some data used by the chain.</dd><dt><a class="type" href="type.Header.html" title="type cumulus_test_runtime::Header">Header</a></dt><dd>Block header type as expected by this runtime.</dd><dt><a class="type" href="type.NodeBlock.html" title="type cumulus_test_runtime::NodeBlock">Node<wbr>Block</a></dt><dd>Opaque block type.</dd><dt><a class="type" href="type.Nonce.html" title="type cumulus_test_runtime::Nonce">Nonce</a></dt><dd>Index of a transaction in the chain.</dd><dt><a class="type" href="type.Now.html" title="type cumulus_test_runtime::Now">Now</a></dt><dd>The current time for the current block.</dd><dt><a class="type" href="type.ParachainInfo.html" title="type cumulus_test_runtime::ParachainInfo">Parachain<wbr>Info</a></dt><dt><a class="type" href="type.ParachainInfoConfig.html" title="type cumulus_test_runtime::ParachainInfoConfig">Parachain<wbr>Info<wbr>Config</a></dt><dt><a class="type" href="type.ParachainSystem.html" title="type cumulus_test_runtime::ParachainSystem">Parachain<wbr>System</a></dt><dt><a class="type" href="type.ParachainSystemConfig.html" title="type cumulus_test_runtime::ParachainSystemConfig">Parachain<wbr>System<wbr>Config</a></dt><dt><a class="type" href="type.SessionHandlers.html" title="type cumulus_test_runtime::SessionHandlers">Session<wbr>Handlers</a></dt><dt><a class="type" href="type.Signature.html" title="type cumulus_test_runtime::Signature">Signature</a></dt><dd>Alias to 512-bit hash when used in the context of a transaction signature on the chain.</dd><dt><a class="type" href="type.SignedBlock.html" title="type cumulus_test_runtime::SignedBlock">Signed<wbr>Block</a></dt><dd>A Block signed with a Justification</dd><dt><a class="type" href="type.SignedPayload.html" title="type cumulus_test_runtime::SignedPayload">Signed<wbr>Payload</a></dt><dd>The payload being signed in transactions.</dd><dt><a class="type" href="type.Sudo.html" title="type cumulus_test_runtime::Sudo">Sudo</a></dt><dt><a class="type" href="type.SudoConfig.html" title="type cumulus_test_runtime::SudoConfig">Sudo<wbr>Config</a></dt><dt><a class="type" href="type.System.html" title="type cumulus_test_runtime::System">System</a></dt><dt><a class="type" href="type.SystemConfig.html" title="type cumulus_test_runtime::SystemConfig">System<wbr>Config</a></dt><dt><a class="type" href="type.TestPallet.html" title="type cumulus_test_runtime::TestPallet">Test<wbr>Pallet</a></dt><dt><a class="type" href="type.TestPalletConfig.html" title="type cumulus_test_runtime::TestPalletConfig">Test<wbr>Pallet<wbr>Config</a></dt><dt><a class="type" href="type.Timestamp.html" title="type cumulus_test_runtime::Timestamp">Timestamp</a></dt><dt><a class="type" href="type.TransactionPayment.html" title="type cumulus_test_runtime::TransactionPayment">Transaction<wbr>Payment</a></dt><dt><a class="type" href="type.TransactionPaymentConfig.html" title="type cumulus_test_runtime::TransactionPaymentConfig">Transaction<wbr>Payment<wbr>Config</a></dt><dt><a class="type" href="type.TxExtension.html" title="type cumulus_test_runtime::TxExtension">TxExtension</a></dt><dd>The extension to the basic transaction logic.</dd><dt><a class="type" href="type.UncheckedExtrinsic.html" title="type cumulus_test_runtime::UncheckedExtrinsic">Unchecked<wbr>Extrinsic</a></dt><dd>Unchecked extrinsic type as expected by this runtime.</dd><dt><a class="type" href="type.WeightReclaim.html" title="type cumulus_test_runtime::WeightReclaim">Weight<wbr>Reclaim</a></dt></dl><script type="text/json" id="notable-traits-data">{"&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&mut [u8]":"<h3>Notable traits for <code>&amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for &amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

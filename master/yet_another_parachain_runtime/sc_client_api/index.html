@@ -1,0 +1,169 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate client interfaces."><title>yet_another_parachain_runtime::sc_client_api - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sc_client_api</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sc_client_api/lib.rs.html#19-90">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate client interfaces.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="backend/index.html" title="mod yet_another_parachain_runtime::sc_client_api::backend">backend</a></dt><dd>Substrate Client data backend</dd><dt><a class="mod" href="blockchain/index.html" title="mod yet_another_parachain_runtime::sc_client_api::blockchain">blockchain</a></dt><dd>Substrate blockchain traits and primitives.</dd><dt><a class="mod" href="call_executor/index.html" title="mod yet_another_parachain_runtime::sc_client_api::call_executor">call_<wbr>executor</a></dt><dd>A method call executor interface.</dd><dt><a class="mod" href="client/index.html" title="mod yet_another_parachain_runtime::sc_client_api::client">client</a></dt><dd>A set of APIs supported by the client along with their primitives.</dd><dt><a class="mod" href="execution_extensions/index.html" title="mod yet_another_parachain_runtime::sc_client_api::execution_extensions">execution_<wbr>extensions</a></dt><dd>Execution extensions for runtime calls.</dd><dt><a class="mod" href="in_mem/index.html" title="mod yet_another_parachain_runtime::sc_client_api::in_mem">in_mem</a></dt><dd>In memory client backend</dd><dt><a class="mod" href="leaves/index.html" title="mod yet_another_parachain_runtime::sc_client_api::leaves">leaves</a></dt><dd>Helper for managing the set of available leaves in the chain for DB implementations.</dd><dt><a class="mod" href="notifications/index.html" title="mod yet_another_parachain_runtime::sc_client_api::notifications">notifications</a></dt><dd>Storage notifications</dd><dt><a class="mod" href="proof_provider/index.html" title="mod yet_another_parachain_runtime::sc_client_api::proof_provider">proof_<wbr>provider</a></dt><dd>Proof utilities</dd><dt><a class="mod" href="utils/index.html" title="mod yet_another_parachain_runtime::sc_client_api::utils">utils</a></dt><dd>Utility methods for the client.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BlockImportNotification.html" title="struct yet_another_parachain_runtime::sc_client_api::BlockImportNotification">Block<wbr>Import<wbr>Notification</a></dt><dd>Summary of an imported block</dd><dt><a class="struct" href="struct.ClientImportOperation.html" title="struct yet_another_parachain_runtime::sc_client_api::ClientImportOperation">Client<wbr>Import<wbr>Operation</a></dt><dd>Import operation wrapper.</dd><dt><a class="struct" href="struct.ClientInfo.html" title="struct yet_another_parachain_runtime::sc_client_api::ClientInfo">Client<wbr>Info</a></dt><dd>Client info</dd><dt><a class="struct" href="struct.CompactProof.html" title="struct yet_another_parachain_runtime::sc_client_api::CompactProof">Compact<wbr>Proof</a></dt><dd>Storage proof in compact form.</dd><dt><a class="struct" href="struct.FinalityNotification.html" title="struct yet_another_parachain_runtime::sc_client_api::FinalityNotification">Finality<wbr>Notification</a></dt><dd>Summary of a finalized block.</dd><dt><a class="struct" href="struct.FinalizeSummary.html" title="struct yet_another_parachain_runtime::sc_client_api::FinalizeSummary">Finalize<wbr>Summary</a></dt><dd>Finalization operation summary.</dd><dt><a class="struct" href="struct.ImportSummary.html" title="struct yet_another_parachain_runtime::sc_client_api::ImportSummary">Import<wbr>Summary</a></dt><dd>Import operation summary.</dd><dt><a class="struct" href="struct.IoInfo.html" title="struct yet_another_parachain_runtime::sc_client_api::IoInfo">IoInfo</a></dt><dd>I/O statistics for client instance.</dd><dt><a class="struct" href="struct.KeyValueStates.html" title="struct yet_another_parachain_runtime::sc_client_api::KeyValueStates">KeyValue<wbr>States</a></dt><dd>Multiple key value state.
+States are ordered by root storage key.</dd><dt><a class="struct" href="struct.KeysIter.html" title="struct yet_another_parachain_runtime::sc_client_api::KeysIter">Keys<wbr>Iter</a></dt><dd>An <code>Iterator</code> that iterates keys in a given block under a prefix.</dd><dt><a class="struct" href="struct.MemoryInfo.html" title="struct yet_another_parachain_runtime::sc_client_api::MemoryInfo">Memory<wbr>Info</a></dt><dd>Memory statistics for client instance.</dd><dt><a class="struct" href="struct.MemorySize.html" title="struct yet_another_parachain_runtime::sc_client_api::MemorySize">Memory<wbr>Size</a></dt><dd>A wrapper to store the size of some memory.</dd><dt><a class="struct" href="struct.PairsIter.html" title="struct yet_another_parachain_runtime::sc_client_api::PairsIter">Pairs<wbr>Iter</a></dt><dd>An <code>Iterator</code> that iterates keys and values in a given block under a prefix.</dd><dt><a class="struct" href="struct.PrefixedStorageKey.html" title="struct yet_another_parachain_runtime::sc_client_api::PrefixedStorageKey">Prefixed<wbr>Storage<wbr>Key</a></dt><dd>Storage key of a child trie, it contains the prefix to the key.</dd><dt><a class="struct" href="struct.StaleBlock.html" title="struct yet_another_parachain_runtime::sc_client_api::StaleBlock">Stale<wbr>Block</a></dt><dd>A stale block.</dd><dt><a class="struct" href="struct.StorageChangeSet.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageChangeSet">Storage<wbr>Change<wbr>Set</a></dt><dd>Storage change set</dd><dt><a class="struct" href="struct.StorageData.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageData">Storage<wbr>Data</a></dt><dd>Storage data associated to a <a href="struct.StorageKey.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageKey"><code>StorageKey</code></a>.</dd><dt><a class="struct" href="struct.StorageEventStream.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageEventStream">Storage<wbr>Event<wbr>Stream</a></dt><dd>Type that implements <code>futures::Stream</code> of storage change events.</dd><dt><a class="struct" href="struct.StorageKey.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageKey">Storage<wbr>Key</a></dt><dd>Storage key.</dd><dt><a class="struct" href="struct.StorageNotification.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageNotification">Storage<wbr>Notification</a></dt><dd>A type of a message delivered to the subscribers</dd><dt><a class="struct" href="struct.StorageNotifications.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageNotifications">Storage<wbr>Notifications</a></dt><dd>Manages storage listeners.</dd><dt><a class="struct" href="struct.StorageProof.html" title="struct yet_another_parachain_runtime::sc_client_api::StorageProof">Storage<wbr>Proof</a></dt><dd>A proof that some set of key-value pairs are included in the storage trie. The proof contains
+the storage values so that the partial storage backend can be reconstructed by a verifier that
+does not already have access to the key-value pairs.</dd><dt><a class="struct" href="struct.UnpinHandle.html" title="struct yet_another_parachain_runtime::sc_client_api::UnpinHandle">Unpin<wbr>Handle</a></dt><dd>Keeps a specific block pinned while the handle is alive.
+Once the last handle instance for a given block is dropped, the
+block is unpinned in the <a href="trait.Backend.html#tymethod.unpin_block" title="method yet_another_parachain_runtime::sc_client_api::Backend::unpin_block"><code>Backend</code></a>.</dd><dt><a class="struct" href="struct.UnpinHandleInner.html" title="struct yet_another_parachain_runtime::sc_client_api::UnpinHandleInner">Unpin<wbr>Handle<wbr>Inner</a></dt><dd>Sends a message to the pinning-worker once dropped to unpin a block in the backend.</dd><dt><a class="struct" href="struct.UsageInfo.html" title="struct yet_another_parachain_runtime::sc_client_api::UsageInfo">Usage<wbr>Info</a></dt><dd>Usage statistics for running client instance.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ChildInfo.html" title="enum yet_another_parachain_runtime::sc_client_api::ChildInfo">Child<wbr>Info</a></dt><dd>Information related to a child state.</dd><dt><a class="enum" href="enum.ImportNotificationAction.html" title="enum yet_another_parachain_runtime::sc_client_api::ImportNotificationAction">Import<wbr>Notification<wbr>Action</a></dt><dd>Describes which block import notification stream should be notified.</dd><dt><a class="enum" href="enum.MerkleValue.html" title="enum yet_another_parachain_runtime::sc_client_api::MerkleValue">Merkle<wbr>Value</a></dt><dd>Either the <code>hash</code> or <code>value</code> of a node depending on its size.</dd><dt><a class="enum" href="enum.NewBlockState.html" title="enum yet_another_parachain_runtime::sc_client_api::NewBlockState">NewBlock<wbr>State</a></dt><dd>State of a new block.</dd><dt><a class="enum" href="enum.TrieCacheContext.html" title="enum yet_another_parachain_runtime::sc_client_api::TrieCacheContext">Trie<wbr>Cache<wbr>Context</a></dt><dd>Specify the desired trie cache context when calling <a href="trait.Backend.html#tymethod.state_at" title="method yet_another_parachain_runtime::sc_client_api::Backend::state_at"><code>Backend::state_at</code></a>.</dd><dt><a class="enum" href="enum.UnpinWorkerMessage.html" title="enum yet_another_parachain_runtime::sc_client_api::UnpinWorkerMessage">Unpin<wbr>Worker<wbr>Message</a></dt><dd>Message that signals notification-based pinning actions to the pinning-worker.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AuxStore.html" title="trait yet_another_parachain_runtime::sc_client_api::AuxStore">AuxStore</a></dt><dd>Provides access to an auxiliary database.</dd><dt><a class="trait" href="trait.Backend.html" title="trait yet_another_parachain_runtime::sc_client_api::Backend">Backend</a></dt><dd>Client backend.</dd><dt><a class="trait" href="trait.BlockBackend.html" title="trait yet_another_parachain_runtime::sc_client_api::BlockBackend">Block<wbr>Backend</a></dt><dd>Interface for fetching block data.</dd><dt><a class="trait" href="trait.BlockImportOperation.html" title="trait yet_another_parachain_runtime::sc_client_api::BlockImportOperation">Block<wbr>Import<wbr>Operation</a></dt><dd>Block insertion operation.</dd><dt><a class="trait" href="trait.BlockOf.html" title="trait yet_another_parachain_runtime::sc_client_api::BlockOf">BlockOf</a></dt><dd>Figure out the block type for a given type (for now, just a <code>Client</code>).</dd><dt><a class="trait" href="trait.BlockchainEvents.html" title="trait yet_another_parachain_runtime::sc_client_api::BlockchainEvents">Blockchain<wbr>Events</a></dt><dd>A source of blockchain events.</dd><dt><a class="trait" href="trait.CallExecutor.html" title="trait yet_another_parachain_runtime::sc_client_api::CallExecutor">Call<wbr>Executor</a></dt><dd>Method call executor.</dd><dt><a class="trait" href="trait.ExecutorProvider.html" title="trait yet_another_parachain_runtime::sc_client_api::ExecutorProvider">Executor<wbr>Provider</a></dt><dd>Executor Provider</dd><dt><a class="trait" href="trait.Finalizer.html" title="trait yet_another_parachain_runtime::sc_client_api::Finalizer">Finalizer</a></dt><dd>Finalize Facilities</dd><dt><a class="trait" href="trait.HeaderBackend.html" title="trait yet_another_parachain_runtime::sc_client_api::HeaderBackend">Header<wbr>Backend</a></dt><dd>Blockchain database header backend. Does not perform any validation.</dd><dt><a class="trait" href="trait.LocalBackend.html" title="trait yet_another_parachain_runtime::sc_client_api::LocalBackend">Local<wbr>Backend</a></dt><dd>Mark for all Backend implementations, that are making use of state data, stored locally.</dd><dt><a class="trait" href="trait.LockImportRun.html" title="trait yet_another_parachain_runtime::sc_client_api::LockImportRun">Lock<wbr>Import<wbr>Run</a></dt><dd>Interface for performing operations on the backend.</dd><dt><a class="trait" href="trait.PreCommitActions.html" title="trait yet_another_parachain_runtime::sc_client_api::PreCommitActions">PreCommit<wbr>Actions</a></dt><dd>Interface to perform auxiliary actions before committing a block import or
+finality operation.</dd><dt><a class="trait" href="trait.ProofProvider.html" title="trait yet_another_parachain_runtime::sc_client_api::ProofProvider">Proof<wbr>Provider</a></dt><dd>Interface for providing block proving utilities.</dd><dt><a class="trait" href="trait.ProvideUncles.html" title="trait yet_another_parachain_runtime::sc_client_api::ProvideUncles">Provide<wbr>Uncles</a></dt><dd>Provide a list of potential uncle headers for a given block.</dd><dt><a class="trait" href="trait.StateBackend.html" title="trait yet_another_parachain_runtime::sc_client_api::StateBackend">State<wbr>Backend</a></dt><dd>A state backend is used to read state data and can have changes committed
+to it.</dd><dt><a class="trait" href="trait.StorageProvider.html" title="trait yet_another_parachain_runtime::sc_client_api::StorageProvider">Storage<wbr>Provider</a></dt><dd>Provides access to storage primitives</dd><dt><a class="trait" href="trait.UsageProvider.html" title="trait yet_another_parachain_runtime::sc_client_api::UsageProvider">Usage<wbr>Provider</a></dt><dd>Usage Information Provider interface</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.apply_aux.html" title="fn yet_another_parachain_runtime::sc_client_api::apply_aux">apply_<wbr>aux</a></dt><dd>Helper function to apply auxiliary data insertion into an operation.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AuxDataOperations.html" title="type yet_another_parachain_runtime::sc_client_api::AuxDataOperations">AuxData<wbr>Operations</a></dt><dd>List of operations to be performed on storage aux data.
+First tuple element is the encoded data key.
+Second tuple element is the encoded optional data to write.
+If <code>None</code>, the key and the associated data are deleted from storage.</dd><dt><a class="type" href="type.BackendTransaction.html" title="type yet_another_parachain_runtime::sc_client_api::BackendTransaction">Backend<wbr>Transaction</a></dt><dd>The transaction type used by <a href="trait.StateBackend.html" title="trait yet_another_parachain_runtime::sc_client_api::StateBackend"><code>Backend</code></a>.</dd><dt><a class="type" href="type.BadBlocks.html" title="type yet_another_parachain_runtime::sc_client_api::BadBlocks">BadBlocks</a></dt><dd>Known bad block hashes.</dd><dt><a class="type" href="type.FinalityNotifications.html" title="type yet_another_parachain_runtime::sc_client_api::FinalityNotifications">Finality<wbr>Notifications</a></dt><dd>A stream of block finality notifications.</dd><dt><a class="type" href="type.ForkBlocks.html" title="type yet_another_parachain_runtime::sc_client_api::ForkBlocks">Fork<wbr>Blocks</a></dt><dd>Expected hashes of blocks at given heights.</dd><dt><a class="type" href="type.ImportNotifications.html" title="type yet_another_parachain_runtime::sc_client_api::ImportNotifications">Import<wbr>Notifications</a></dt><dd>Type that implements <code>futures::Stream</code> of block import events.</dd><dt><a class="type" href="type.OnFinalityAction.html" title="type yet_another_parachain_runtime::sc_client_api::OnFinalityAction">OnFinality<wbr>Action</a></dt><dd>Callback invoked before committing the operations created during block finalization.
+This gives the opportunity to perform auxiliary pre-commit actions and optionally
+enqueue further storage write operations to be atomically performed on commit.</dd><dt><a class="type" href="type.OnImportAction.html" title="type yet_another_parachain_runtime::sc_client_api::OnImportAction">OnImport<wbr>Action</a></dt><dd>Callback invoked before committing the operations created during block import.
+This gives the opportunity to perform auxiliary pre-commit actions and optionally
+enqueue further storage write operations to be atomically performed on commit.</dd><dt><a class="type" href="type.StateBackendFor.html" title="type yet_another_parachain_runtime::sc_client_api::StateBackendFor">State<wbr>Backend<wbr>For</a></dt><dd>Extracts the state backend type for the given backend.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

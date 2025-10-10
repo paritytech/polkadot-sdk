@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RECURSION_LIMIT"],"mod":["traits"],"struct":["AssetsInHolding","ExecutorError","FeesMode","WeighedMessage","XcmExecutor"],"trait":["Config","RecordXcm"]};

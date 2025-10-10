@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["REGISTERED_REWARDS_COUNT","REGISTERED_REWARD_AMOUNT"],"enum":["BridgeReward"],"struct":["MockPaymentProcedure","MockRewardLedger","RegisteredRewardAmount","RegisteredRewardsCount"]};

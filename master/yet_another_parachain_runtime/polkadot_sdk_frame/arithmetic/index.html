@@ -1,0 +1,178 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The arithmetic types used for safe math."><title>yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module arithmetic</a></h2><h3><a href="#macros">Module Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>polkadot_<wbr>sdk_<wbr>frame</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">polkadot_sdk_frame</a></div><h1>Module <span>arithmetic</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_sdk_frame/lib.rs.html#540">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The arithmetic types used for safe math.</p>
+<p>This is already part of the main <a href="../prelude/index.html" title="mod yet_another_parachain_runtime::polkadot_sdk_frame::prelude"><code>prelude</code></a>.</p>
+</div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.assert_eq_error_rate.html" title="macro yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::assert_eq_error_rate">assert_<wbr>eq_<wbr>error_<wbr>rate</a></dt><dd>Copied from <code>sp-runtime</code> and documented there.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.FixedI64.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::FixedI64">Fixed<wbr>I64</a></dt><dd>A fixed point number representation in the range.
+<em>Fixed Point 64 bits signed, range = [-9223372036.854775808, 9223372036.854775807]</em></dd><dt><a class="struct" href="struct.FixedI128.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::FixedI128">Fixed<wbr>I128</a></dt><dd>A fixed point number representation in the range.
+<em>Fixed Point 128 bits signed, range = [-170141183460469231731.687303715884105728, 170141183460469231731.687303715884105727]</em></dd><dt><a class="struct" href="struct.FixedU64.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::FixedU64">Fixed<wbr>U64</a></dt><dd>A fixed point number representation in the range.
+<em>Fixed Point 64 bits unsigned, range = [0.000000000, 18446744073.709551615]</em></dd><dt><a class="struct" href="struct.FixedU128.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::FixedU128">Fixed<wbr>U128</a></dt><dd>A fixed point number representation in the range.
+<em>Fixed Point 128 bits unsigned, range = [0.000000000000000000, 340282366920938463463.374607431768211455]</em></dd><dt><a class="struct" href="struct.PerU16.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::PerU16">PerU16</a></dt><dd>A fixed point representation of a number in the range [0, 1].</dd><dt><a class="struct" href="struct.Perbill.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Perbill">Perbill</a></dt><dd>A fixed point representation of a number in the range [0, 1].</dd><dt><a class="struct" href="struct.Percent.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Percent">Percent</a></dt><dd>A fixed point representation of a number in the range [0, 1].</dd><dt><a class="struct" href="struct.Permill.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Permill">Permill</a></dt><dd>A fixed point representation of a number in the range [0, 1].</dd><dt><a class="struct" href="struct.Perquintill.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Perquintill">Perquintill</a></dt><dd>A fixed point representation of a number in the range [0, 1].</dd><dt><a class="struct" href="struct.Rational128.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Rational128">Rational128</a></dt><dd>A wrapper for any rational number with a 128 bit numerator and denominator.</dd><dt><a class="struct" href="struct.RationalInfinite.html" title="struct yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::RationalInfinite">Rational<wbr>Infinite</a></dt><dd>A wrapper for any rational number with infinitely large numerator and denominator.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::ArithmeticError">Arithmetic<wbr>Error</a></dt><dd>Arithmetic errors.</dd><dt><a class="enum" href="enum.Rounding.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Rounding">Rounding</a></dt><dd>The rounding method to use for unsigned quantities.</dd><dt><a class="enum" href="enum.SignedRounding.html" title="enum yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::SignedRounding">Signed<wbr>Rounding</a></dt><dd>The rounding method to use.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AtLeast8Bit.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::AtLeast8Bit">AtLeast8<wbr>Bit</a></dt><dd>A meta trait for arithmetic.</dd><dt><a class="trait" href="trait.AtLeast8BitUnsigned.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::AtLeast8BitUnsigned">AtLeast8<wbr>BitUnsigned</a></dt><dd>A meta trait for arithmetic.  Same as <a href="../prelude/trait.AtLeast8Bit.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::AtLeast8Bit"><code>AtLeast8Bit</code></a>, but also bounded to be unsigned.</dd><dt><a class="trait" href="trait.AtLeast16Bit.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::AtLeast16Bit">AtLeast16<wbr>Bit</a></dt><dd>A meta trait for arithmetic.</dd><dt><a class="trait" href="trait.AtLeast16BitUnsigned.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::AtLeast16BitUnsigned">AtLeast16<wbr>BitUnsigned</a></dt><dd>A meta trait for arithmetic.  Same as <a href="../prelude/trait.AtLeast16Bit.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::AtLeast16Bit"><code>AtLeast16Bit</code></a>, but also bounded to be unsigned.</dd><dt><a class="trait" href="trait.AtLeast32Bit.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::AtLeast32Bit">AtLeast32<wbr>Bit</a></dt><dd>A meta trait for arithmetic.</dd><dt><a class="trait" href="trait.AtLeast32BitUnsigned.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::AtLeast32BitUnsigned">AtLeast32<wbr>BitUnsigned</a></dt><dd>A meta trait for arithmetic.  Same as <a href="../prelude/trait.AtLeast32Bit.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::prelude::AtLeast32Bit"><code>AtLeast32Bit</code></a>, but also bounded to be unsigned.</dd><dt><a class="trait" href="trait.BaseArithmetic.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::BaseArithmetic">Base<wbr>Arithmetic</a></dt><dd>A meta trait for arithmetic type operations, regardless of any limitation on size.</dd><dt><a class="trait" href="trait.Bounded.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Bounded">Bounded</a></dt><dd>Numbers which have upper and lower bounds</dd><dt><a class="trait" href="trait.CheckedAdd.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::CheckedAdd">Checked<wbr>Add</a></dt><dd>Performs addition that returns <code>None</code> instead of wrapping around on
+overflow.</dd><dt><a class="trait" href="trait.CheckedDiv.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::CheckedDiv">Checked<wbr>Div</a></dt><dd>Performs division that returns <code>None</code> instead of panicking on division by zero and instead of
+wrapping around on underflow and overflow.</dd><dt><a class="trait" href="trait.CheckedMul.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::CheckedMul">Checked<wbr>Mul</a></dt><dd>Performs multiplication that returns <code>None</code> instead of wrapping around on underflow or
+overflow.</dd><dt><a class="trait" href="trait.CheckedNeg.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::CheckedNeg">Checked<wbr>Neg</a></dt><dd>Performs negation that returns <code>None</code> if the result can’t be represented.</dd><dt><a class="trait" href="trait.CheckedRem.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::CheckedRem">Checked<wbr>Rem</a></dt><dd>Performs an integral remainder that returns <code>None</code> instead of panicking on division by zero and
+instead of wrapping around on underflow and overflow.</dd><dt><a class="trait" href="trait.CheckedShl.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::CheckedShl">Checked<wbr>Shl</a></dt><dd>Performs a left shift that returns <code>None</code> on shifts larger than
+or equal to the type width.</dd><dt><a class="trait" href="trait.CheckedShr.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::CheckedShr">Checked<wbr>Shr</a></dt><dd>Performs a right shift that returns <code>None</code> on shifts larger than
+or equal to the type width.</dd><dt><a class="trait" href="trait.CheckedSub.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::CheckedSub">Checked<wbr>Sub</a></dt><dd>Performs subtraction that returns <code>None</code> instead of wrapping around on underflow.</dd><dt><a class="trait" href="trait.Ensure.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Ensure">Ensure</a></dt><dt><a class="trait" href="trait.EnsureAdd.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureAdd">Ensure<wbr>Add</a></dt><dd>Performs addition that returns <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> instead of wrapping around on overflow.</dd><dt><a class="trait" href="trait.EnsureAddAssign.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureAddAssign">Ensure<wbr>AddAssign</a></dt><dd>Performs self addition that returns <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> instead of wrapping around on
+overflow.</dd><dt><a class="trait" href="trait.EnsureDiv.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureDiv">Ensure<wbr>Div</a></dt><dd>Performs division that returns <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> instead of wrapping around on overflow.</dd><dt><a class="trait" href="trait.EnsureDivAssign.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureDivAssign">Ensure<wbr>DivAssign</a></dt><dd>Performs self division that returns <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> instead of wrapping around on
+overflow.</dd><dt><a class="trait" href="trait.EnsureFixedPointNumber.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureFixedPointNumber">Ensure<wbr>Fixed<wbr>Point<wbr>Number</a></dt><dd>Extends <a href="../../frame_support/sp_runtime/trait.FixedPointNumber.html" title="trait yet_another_parachain_runtime::frame_support::sp_runtime::FixedPointNumber"><code>FixedPointNumber</code></a> with the Ensure family functions.</dd><dt><a class="trait" href="trait.EnsureFrom.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureFrom">Ensure<wbr>From</a></dt><dd>Similar to <a href="https://doc.rust-lang.org/1.88.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom"><code>TryFrom</code></a> but returning an <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> error.</dd><dt><a class="trait" href="trait.EnsureInto.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureInto">Ensure<wbr>Into</a></dt><dd>Similar to <a href="https://doc.rust-lang.org/1.88.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto"><code>TryInto</code></a> but returning an <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> error.</dd><dt><a class="trait" href="trait.EnsureMul.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureMul">Ensure<wbr>Mul</a></dt><dd>Performs multiplication that returns <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> instead of wrapping around on
+overflow.</dd><dt><a class="trait" href="trait.EnsureMulAssign.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureMulAssign">Ensure<wbr>MulAssign</a></dt><dd>Performs self multiplication that returns <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> instead of wrapping around on
+overflow.</dd><dt><a class="trait" href="trait.EnsureOp.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureOp">Ensure<wbr>Op</a></dt><dd>Meta trait that supports all immutable arithmetic <code>Ensure*</code> operations</dd><dt><a class="trait" href="trait.EnsureOpAssign.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureOpAssign">Ensure<wbr>OpAssign</a></dt><dd>Meta trait that supports all assigned arithmetic <code>Ensure*</code> operations</dd><dt><a class="trait" href="trait.EnsureSub.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureSub">Ensure<wbr>Sub</a></dt><dd>Performs subtraction that returns <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> instead of wrapping around on
+underflow.</dd><dt><a class="trait" href="trait.EnsureSubAssign.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::EnsureSubAssign">Ensure<wbr>SubAssign</a></dt><dd>Performs self subtraction that returns <a href="../../frame_support/sp_runtime/enum.ArithmeticError.html" title="enum yet_another_parachain_runtime::frame_support::sp_runtime::ArithmeticError"><code>ArithmeticError</code></a> instead of wrapping around on
+underflow.</dd><dt><a class="trait" href="trait.FixedPointNumber.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::FixedPointNumber">Fixed<wbr>Point<wbr>Number</a></dt><dd>Something that implements a decimal fixed point number.</dd><dt><a class="trait" href="trait.FixedPointOperand.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::FixedPointOperand">Fixed<wbr>Point<wbr>Operand</a></dt><dd>Integer types that can be used to interact with <code>FixedPointNumber</code> implementations.</dd><dt><a class="trait" href="trait.IntegerSquareRoot.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::IntegerSquareRoot">Integer<wbr>Square<wbr>Root</a></dt><dd>A trait implementing integer square root.</dd><dt><a class="trait" href="trait.MultiplyArg.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::MultiplyArg">Multiply<wbr>Arg</a></dt><dt><a class="trait" href="trait.MultiplyRational.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::MultiplyRational">Multiply<wbr>Rational</a></dt><dt><a class="trait" href="trait.Normalizable.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Normalizable">Normalizable</a></dt><dd>A collection-like object that is made of values of type <code>T</code> and can normalize its individual
+values around a centric point.</dd><dt><a class="trait" href="trait.One.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::One">One</a></dt><dd>Defines a multiplicative identity element for <code>Self</code>.</dd><dt><a class="trait" href="trait.PerThing.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::PerThing">PerThing</a></dt><dd>Something that implements a fixed point ration with an arbitrary granularity <code>X</code>, as <em>parts per
+<code>X</code></em>.</dd><dt><a class="trait" href="trait.RationalArg.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::RationalArg">Rational<wbr>Arg</a></dt><dt><a class="trait" href="trait.ReciprocalArg.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::ReciprocalArg">Reciprocal<wbr>Arg</a></dt><dt><a class="trait" href="trait.SaturatedConversion.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::SaturatedConversion">Saturated<wbr>Conversion</a></dt><dd>Convenience type to work around the highly unergonomic syntax needed
+to invoke the functions of overloaded generic traits, in this case
+<code>SaturatedFrom</code> and <code>SaturatedInto</code>.</dd><dt><a class="trait" href="trait.Saturating.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Saturating">Saturating</a></dt><dd>Saturating arithmetic operations, returning maximum or minimum values instead of overflowing.</dd><dt><a class="trait" href="trait.Signed.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Signed">Signed</a></dt><dd>Useful functions for signed numbers (i.e. numbers that can be negative).</dd><dt><a class="trait" href="trait.ThresholdOrd.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::ThresholdOrd">Threshold<wbr>Ord</a></dt><dd>Trait for comparing two numbers with an threshold.</dd><dt><a class="trait" href="trait.UniqueSaturatedFrom.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::UniqueSaturatedFrom">Unique<wbr>Saturated<wbr>From</a></dt><dd>Just like <code>From</code> except that if the source value is too big to fit into the destination type
+then it’ll saturate the destination.</dd><dt><a class="trait" href="trait.UniqueSaturatedInto.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::UniqueSaturatedInto">Unique<wbr>Saturated<wbr>Into</a></dt><dd>Just like <code>Into</code> except that if the source value is too big to fit into the destination type
+then it’ll saturate the destination.</dd><dt><a class="trait" href="trait.Unsigned.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Unsigned">Unsigned</a></dt><dd>A trait for values which cannot be negative</dd><dt><a class="trait" href="trait.Zero.html" title="trait yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::Zero">Zero</a></dt><dd>Defines an additive identity element for <code>Self</code>.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.checked_pow.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::checked_pow">checked_<wbr>pow</a></dt><dd>Raises a value to the power of exp, returning <code>None</code> if an overflow occurred.</dd><dt><a class="fn" href="fn.ensure_pow.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::ensure_pow">ensure_<wbr>pow</a></dt><dd>Raises a value to the power of exp, returning <code>ArithmeticError</code> if an overflow occurred.</dd><dt><a class="fn" href="fn.normalize.html" title="fn yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::normalize">normalize</a></dt><dd>Normalize <code>input</code> so that the sum of all elements reaches <code>targeted_sum</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.InnerOf.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::InnerOf">InnerOf</a></dt><dd>Get the inner type of a <code>PerThing</code>.</dd><dt><a class="type" href="type.UpperOf.html" title="type yet_another_parachain_runtime::polkadot_sdk_frame::arithmetic::UpperOf">UpperOf</a></dt><dd>Get the upper type of a <code>PerThing</code>.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

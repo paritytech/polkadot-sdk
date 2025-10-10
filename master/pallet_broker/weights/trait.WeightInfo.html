@@ -1,0 +1,369 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_broker`."><title>WeightInfo in pallet_broker::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_broker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_broker/index.html">pallet_<wbr>broker</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Weight<wbr>Info</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.assign" title="assign">assign</a></li><li><a href="#tymethod.claim_revenue" title="claim_revenue">claim_revenue</a></li><li><a href="#tymethod.configure" title="configure">configure</a></li><li><a href="#tymethod.disable_auto_renew" title="disable_auto_renew">disable_auto_renew</a></li><li><a href="#tymethod.do_tick_base" title="do_tick_base">do_tick_base</a></li><li><a href="#tymethod.drop_contribution" title="drop_contribution">drop_contribution</a></li><li><a href="#tymethod.drop_history" title="drop_history">drop_history</a></li><li><a href="#tymethod.drop_region" title="drop_region">drop_region</a></li><li><a href="#tymethod.drop_renewal" title="drop_renewal">drop_renewal</a></li><li><a href="#tymethod.enable_auto_renew" title="enable_auto_renew">enable_auto_renew</a></li><li><a href="#tymethod.force_reserve" title="force_reserve">force_reserve</a></li><li><a href="#tymethod.interlace" title="interlace">interlace</a></li><li><a href="#tymethod.notify_core_count" title="notify_core_count">notify_core_count</a></li><li><a href="#tymethod.notify_revenue" title="notify_revenue">notify_revenue</a></li><li><a href="#tymethod.on_new_timeslice" title="on_new_timeslice">on_new_timeslice</a></li><li><a href="#tymethod.partition" title="partition">partition</a></li><li><a href="#tymethod.pool" title="pool">pool</a></li><li><a href="#tymethod.process_core_count" title="process_core_count">process_core_count</a></li><li><a href="#tymethod.process_core_schedule" title="process_core_schedule">process_core_schedule</a></li><li><a href="#tymethod.process_pool" title="process_pool">process_pool</a></li><li><a href="#tymethod.process_revenue" title="process_revenue">process_revenue</a></li><li><a href="#tymethod.purchase" title="purchase">purchase</a></li><li><a href="#tymethod.purchase_credit" title="purchase_credit">purchase_credit</a></li><li><a href="#tymethod.remove_assignment" title="remove_assignment">remove_assignment</a></li><li><a href="#tymethod.remove_lease" title="remove_lease">remove_lease</a></li><li><a href="#tymethod.renew" title="renew">renew</a></li><li><a href="#tymethod.request_core_count" title="request_core_count">request_core_count</a></li><li><a href="#tymethod.request_revenue_info_at" title="request_revenue_info_at">request_revenue_info_at</a></li><li><a href="#tymethod.reserve" title="reserve">reserve</a></li><li><a href="#tymethod.rotate_sale" title="rotate_sale">rotate_sale</a></li><li><a href="#tymethod.set_lease" title="set_lease">set_lease</a></li><li><a href="#tymethod.start_sales" title="start_sales">start_sales</a></li><li><a href="#tymethod.swap_leases" title="swap_leases">swap_leases</a></li><li><a href="#tymethod.transfer" title="transfer">transfer</a></li><li><a href="#tymethod.unreserve" title="unreserve">unreserve</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()" title="()">()</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>broker::<wbr>weights</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_broker</a>::<wbr><a href="index.html">weights</a></div><h1>Trait <span class="trait">WeightInfo</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_broker/weights.rs.html#74-110">Source</a> </span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 35 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.configure" class="fn">configure</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.reserve" class="fn">reserve</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unreserve" class="fn">unreserve</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_lease" class="fn">set_lease</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_lease" class="fn">remove_lease</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.start_sales" class="fn">start_sales</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.purchase" class="fn">purchase</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.renew" class="fn">renew</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.partition" class="fn">partition</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.interlace" class="fn">interlace</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.assign" class="fn">assign</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.pool" class="fn">pool</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.claim_revenue" class="fn">claim_revenue</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.purchase_credit" class="fn">purchase_credit</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.drop_region" class="fn">drop_region</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.drop_contribution" class="fn">drop_contribution</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.drop_history" class="fn">drop_history</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.drop_renewal" class="fn">drop_renewal</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.process_core_count" class="fn">process_core_count</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.process_revenue" class="fn">process_revenue</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.rotate_sale" class="fn">rotate_sale</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.process_pool" class="fn">process_pool</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.process_core_schedule" class="fn">process_core_schedule</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.notify_core_count" class="fn">notify_core_count</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.notify_revenue" class="fn">notify_revenue</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.do_tick_base" class="fn">do_tick_base</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_reserve" class="fn">force_reserve</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.swap_leases" class="fn">swap_leases</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.enable_auto_renew" class="fn">enable_auto_renew</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.disable_auto_renew" class="fn">disable_auto_renew</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_new_timeslice" class="fn">on_new_timeslice</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_assignment" class="fn">remove_assignment</a>() -&gt; Weight;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_broker</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.configure" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#75">Source</a><h4 class="code-header">fn <a href="#tymethod.configure" class="fn">configure</a>() -&gt; Weight</h4></section><section id="tymethod.reserve" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#76">Source</a><h4 class="code-header">fn <a href="#tymethod.reserve" class="fn">reserve</a>() -&gt; Weight</h4></section><section id="tymethod.unreserve" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#77">Source</a><h4 class="code-header">fn <a href="#tymethod.unreserve" class="fn">unreserve</a>() -&gt; Weight</h4></section><section id="tymethod.set_lease" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#78">Source</a><h4 class="code-header">fn <a href="#tymethod.set_lease" class="fn">set_lease</a>() -&gt; Weight</h4></section><section id="tymethod.remove_lease" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#79">Source</a><h4 class="code-header">fn <a href="#tymethod.remove_lease" class="fn">remove_lease</a>() -&gt; Weight</h4></section><section id="tymethod.start_sales" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#80">Source</a><h4 class="code-header">fn <a href="#tymethod.start_sales" class="fn">start_sales</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.purchase" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#81">Source</a><h4 class="code-header">fn <a href="#tymethod.purchase" class="fn">purchase</a>() -&gt; Weight</h4></section><section id="tymethod.renew" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#82">Source</a><h4 class="code-header">fn <a href="#tymethod.renew" class="fn">renew</a>() -&gt; Weight</h4></section><section id="tymethod.transfer" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#83">Source</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight</h4></section><section id="tymethod.partition" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#84">Source</a><h4 class="code-header">fn <a href="#tymethod.partition" class="fn">partition</a>() -&gt; Weight</h4></section><section id="tymethod.interlace" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#85">Source</a><h4 class="code-header">fn <a href="#tymethod.interlace" class="fn">interlace</a>() -&gt; Weight</h4></section><section id="tymethod.assign" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#86">Source</a><h4 class="code-header">fn <a href="#tymethod.assign" class="fn">assign</a>() -&gt; Weight</h4></section><section id="tymethod.pool" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#87">Source</a><h4 class="code-header">fn <a href="#tymethod.pool" class="fn">pool</a>() -&gt; Weight</h4></section><section id="tymethod.claim_revenue" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#88">Source</a><h4 class="code-header">fn <a href="#tymethod.claim_revenue" class="fn">claim_revenue</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.purchase_credit" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#89">Source</a><h4 class="code-header">fn <a href="#tymethod.purchase_credit" class="fn">purchase_credit</a>() -&gt; Weight</h4></section><section id="tymethod.drop_region" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#90">Source</a><h4 class="code-header">fn <a href="#tymethod.drop_region" class="fn">drop_region</a>() -&gt; Weight</h4></section><section id="tymethod.drop_contribution" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#91">Source</a><h4 class="code-header">fn <a href="#tymethod.drop_contribution" class="fn">drop_contribution</a>() -&gt; Weight</h4></section><section id="tymethod.drop_history" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#92">Source</a><h4 class="code-header">fn <a href="#tymethod.drop_history" class="fn">drop_history</a>() -&gt; Weight</h4></section><section id="tymethod.drop_renewal" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#93">Source</a><h4 class="code-header">fn <a href="#tymethod.drop_renewal" class="fn">drop_renewal</a>() -&gt; Weight</h4></section><section id="tymethod.request_core_count" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#94">Source</a><h4 class="code-header">fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.process_core_count" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#95">Source</a><h4 class="code-header">fn <a href="#tymethod.process_core_count" class="fn">process_core_count</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.process_revenue" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#96">Source</a><h4 class="code-header">fn <a href="#tymethod.process_revenue" class="fn">process_revenue</a>() -&gt; Weight</h4></section><section id="tymethod.rotate_sale" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#97">Source</a><h4 class="code-header">fn <a href="#tymethod.rotate_sale" class="fn">rotate_sale</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.process_pool" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#98">Source</a><h4 class="code-header">fn <a href="#tymethod.process_pool" class="fn">process_pool</a>() -&gt; Weight</h4></section><section id="tymethod.process_core_schedule" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#99">Source</a><h4 class="code-header">fn <a href="#tymethod.process_core_schedule" class="fn">process_core_schedule</a>() -&gt; Weight</h4></section><section id="tymethod.request_revenue_info_at" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#100">Source</a><h4 class="code-header">fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>() -&gt; Weight</h4></section><section id="tymethod.notify_core_count" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#101">Source</a><h4 class="code-header">fn <a href="#tymethod.notify_core_count" class="fn">notify_core_count</a>() -&gt; Weight</h4></section><section id="tymethod.notify_revenue" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#102">Source</a><h4 class="code-header">fn <a href="#tymethod.notify_revenue" class="fn">notify_revenue</a>() -&gt; Weight</h4></section><section id="tymethod.do_tick_base" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#103">Source</a><h4 class="code-header">fn <a href="#tymethod.do_tick_base" class="fn">do_tick_base</a>() -&gt; Weight</h4></section><section id="tymethod.force_reserve" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#104">Source</a><h4 class="code-header">fn <a href="#tymethod.force_reserve" class="fn">force_reserve</a>() -&gt; Weight</h4></section><section id="tymethod.swap_leases" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#105">Source</a><h4 class="code-header">fn <a href="#tymethod.swap_leases" class="fn">swap_leases</a>() -&gt; Weight</h4></section><section id="tymethod.enable_auto_renew" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#106">Source</a><h4 class="code-header">fn <a href="#tymethod.enable_auto_renew" class="fn">enable_auto_renew</a>() -&gt; Weight</h4></section><section id="tymethod.disable_auto_renew" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#107">Source</a><h4 class="code-header">fn <a href="#tymethod.disable_auto_renew" class="fn">disable_auto_renew</a>() -&gt; Weight</h4></section><section id="tymethod.on_new_timeslice" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#108">Source</a><h4 class="code-header">fn <a href="#tymethod.on_new_timeslice" class="fn">on_new_timeslice</a>() -&gt; Weight</h4></section><section id="tymethod.remove_assignment" class="method"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#109">Source</a><h4 class="code-header">fn <a href="#tymethod.remove_assignment" class="fn">remove_assignment</a>() -&gt; Weight</h4></section></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.88.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#612-1107">Source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_broker::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.configure" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#615-622">Source</a><a href="#method.configure" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.configure" class="fn">configure</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Configuration</code> (r:0 w:1)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.reserve" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#625-633">Source</a><a href="#method.reserve" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.reserve" class="fn">reserve</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Reservations</code> (r:1 w:1)
+Proof: <code>Broker::Reservations</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(6011), added: 6506, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unreserve" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#636-644">Source</a><a href="#method.unreserve" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.unreserve" class="fn">unreserve</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Reservations</code> (r:1 w:1)
+Proof: <code>Broker::Reservations</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(6011), added: 6506, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_lease" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#647-655">Source</a><a href="#method.set_lease" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_lease" class="fn">set_lease</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Leases</code> (r:1 w:1)
+Proof: <code>Broker::Leases</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(41), added: 536, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_lease" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#658-666">Source</a><a href="#method.remove_lease" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_lease" class="fn">remove_lease</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Leases</code> (r:1 w:1)
+Proof: <code>Broker::Leases</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(41), added: 536, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.start_sales" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#684-694">Source</a><a href="#method.start_sales" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.start_sales" class="fn">start_sales</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Configuration</code> (r:1 w:0)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Leases</code> (r:1 w:1)
+Proof: <code>Broker::Leases</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(41), added: 536, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Reservations</code> (r:1 w:0)
+Proof: <code>Broker::Reservations</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(6011), added: 6506, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::InstaPoolIo</code> (r:3 w:3)
+Proof: <code>Broker::InstaPoolIo</code> (<code>max_values</code>: None, <code>max_size</code>: Some(28), added: 2503, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::AutoRenewals</code> (r:1 w:1)
+Proof: <code>Broker::AutoRenewals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(101), added: 596, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::SaleInfo</code> (r:0 w:1)
+Proof: <code>Broker::SaleInfo</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(57), added: 552, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Status</code> (r:0 w:1)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Workplan</code> (r:0 w:10)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.purchase" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#701-709">Source</a><a href="#method.purchase" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.purchase" class="fn">purchase</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::SaleInfo</code> (r:1 w:1)
+Proof: <code>Broker::SaleInfo</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(57), added: 552, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Regions</code> (r:0 w:1)
+Proof: <code>Broker::Regions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(86), added: 2561, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.renew" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#720-728">Source</a><a href="#method.renew" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.renew" class="fn">renew</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Configuration</code> (r:1 w:0)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::SaleInfo</code> (r:1 w:1)
+Proof: <code>Broker::SaleInfo</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(57), added: 552, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::PotentialRenewals</code> (r:1 w:2)
+Proof: <code>Broker::PotentialRenewals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1233), added: 3708, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Workplan</code> (r:0 w:1)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#731-739">Source</a><a href="#method.transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Regions</code> (r:1 w:1)
+Proof: <code>Broker::Regions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(86), added: 2561, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.partition" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#742-750">Source</a><a href="#method.partition" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.partition" class="fn">partition</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Regions</code> (r:1 w:2)
+Proof: <code>Broker::Regions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(86), added: 2561, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.interlace" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#753-761">Source</a><a href="#method.interlace" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.interlace" class="fn">interlace</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Regions</code> (r:1 w:3)
+Proof: <code>Broker::Regions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(86), added: 2561, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.assign" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#770-778">Source</a><a href="#method.assign" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.assign" class="fn">assign</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Configuration</code> (r:1 w:0)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Regions</code> (r:1 w:1)
+Proof: <code>Broker::Regions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(86), added: 2561, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Workplan</code> (r:1 w:1)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pool" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#789-797">Source</a><a href="#method.pool" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.pool" class="fn">pool</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Regions</code> (r:1 w:1)
+Proof: <code>Broker::Regions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(86), added: 2561, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Workplan</code> (r:1 w:1)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::InstaPoolIo</code> (r:2 w:2)
+Proof: <code>Broker::InstaPoolIo</code> (<code>max_values</code>: None, <code>max_size</code>: Some(28), added: 2503, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::InstaPoolContribution</code> (r:0 w:1)
+Proof: <code>Broker::InstaPoolContribution</code> (<code>max_values</code>: None, <code>max_size</code>: Some(68), added: 2543, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.claim_revenue" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#805-817">Source</a><a href="#method.claim_revenue" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.claim_revenue" class="fn">claim_revenue</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::InstaPoolContribution</code> (r:1 w:1)
+Proof: <code>Broker::InstaPoolContribution</code> (<code>max_values</code>: None, <code>max_size</code>: Some(68), added: 2543, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::InstaPoolHistory</code> (r:3 w:1)
+Proof: <code>Broker::InstaPoolHistory</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:2 w:2)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>m</code> is <code>[1, 3]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.purchase_credit" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#820-828">Source</a><a href="#method.purchase_credit" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.purchase_credit" class="fn">purchase_credit</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.drop_region" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#833-841">Source</a><a href="#method.drop_region" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.drop_region" class="fn">drop_region</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Regions</code> (r:1 w:1)
+Proof: <code>Broker::Regions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(86), added: 2561, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.drop_contribution" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#848-856">Source</a><a href="#method.drop_contribution" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.drop_contribution" class="fn">drop_contribution</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Configuration</code> (r:1 w:0)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::InstaPoolContribution</code> (r:1 w:1)
+Proof: <code>Broker::InstaPoolContribution</code> (<code>max_values</code>: None, <code>max_size</code>: Some(68), added: 2543, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.drop_history" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#865-873">Source</a><a href="#method.drop_history" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.drop_history" class="fn">drop_history</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Configuration</code> (r:1 w:0)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::InstaPoolHistory</code> (r:1 w:1)
+Proof: <code>Broker::InstaPoolHistory</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:0)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.drop_renewal" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#878-886">Source</a><a href="#method.drop_renewal" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.drop_renewal" class="fn">drop_renewal</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::PotentialRenewals</code> (r:1 w:1)
+Proof: <code>Broker::PotentialRenewals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1233), added: 3708, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.request_core_count" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#888-894">Source</a><a href="#method.request_core_count" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(_n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>The range of component <code>n</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.process_core_count" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#898-908">Source</a><a href="#method.process_core_count" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.process_core_count" class="fn">process_core_count</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::CoreCountInbox</code> (r:1 w:1)
+Proof: <code>Broker::CoreCountInbox</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(2), added: 497, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.process_revenue" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#915-923">Source</a><a href="#method.process_revenue" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.process_revenue" class="fn">process_revenue</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::RevenueInbox</code> (r:1 w:1)
+Proof: <code>Broker::RevenueInbox</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(20), added: 515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::InstaPoolHistory</code> (r:1 w:1)
+Proof: <code>Broker::InstaPoolHistory</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.rotate_sale" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#945-956">Source</a><a href="#method.rotate_sale" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.rotate_sale" class="fn">rotate_sale</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::InstaPoolIo</code> (r:3 w:3)
+Proof: <code>Broker::InstaPoolIo</code> (<code>max_values</code>: None, <code>max_size</code>: Some(28), added: 2503, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Reservations</code> (r:1 w:0)
+Proof: <code>Broker::Reservations</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(6011), added: 6506, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Leases</code> (r:1 w:1)
+Proof: <code>Broker::Leases</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(41), added: 536, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::AutoRenewals</code> (r:1 w:1)
+Proof: <code>Broker::AutoRenewals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(101), added: 596, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Configuration</code> (r:1 w:0)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::PotentialRenewals</code> (r:10 w:20)
+Proof: <code>Broker::PotentialRenewals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1233), added: 3708, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:10 w:10)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::SaleInfo</code> (r:0 w:1)
+Proof: <code>Broker::SaleInfo</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(57), added: 552, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Workplan</code> (r:0 w:1000)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.process_pool" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#961-969">Source</a><a href="#method.process_pool" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.process_pool" class="fn">process_pool</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::InstaPoolIo</code> (r:1 w:0)
+Proof: <code>Broker::InstaPoolIo</code> (<code>max_values</code>: None, <code>max_size</code>: Some(28), added: 2503, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::InstaPoolHistory</code> (r:0 w:1)
+Proof: <code>Broker::InstaPoolHistory</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.process_core_schedule" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#974-982">Source</a><a href="#method.process_core_schedule" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.process_core_schedule" class="fn">process_core_schedule</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Workplan</code> (r:1 w:1)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Workload</code> (r:1 w:1)
+Proof: <code>Broker::Workload</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1212), added: 3687, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.notify_core_count" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#992-999">Source</a><a href="#method.notify_core_count" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.notify_core_count" class="fn">notify_core_count</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::CoreCountInbox</code> (r:0 w:1)
+Proof: <code>Broker::CoreCountInbox</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(2), added: 497, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.notify_revenue" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#1002-1009">Source</a><a href="#method.notify_revenue" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.notify_revenue" class="fn">notify_revenue</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::RevenueInbox</code> (r:0 w:1)
+Proof: <code>Broker::RevenueInbox</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(20), added: 515, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.do_tick_base" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#1018-1026">Source</a><a href="#method.do_tick_base" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.do_tick_base" class="fn">do_tick_base</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Status</code> (r:1 w:1)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Configuration</code> (r:1 w:0)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::CoreCountInbox</code> (r:1 w:0)
+Proof: <code>Broker::CoreCountInbox</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(2), added: 497, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::RevenueInbox</code> (r:1 w:0)
+Proof: <code>Broker::RevenueInbox</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(20), added: 515, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_reserve" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#1035-1043">Source</a><a href="#method.force_reserve" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_reserve" class="fn">force_reserve</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::SaleInfo</code> (r:1 w:0)
+Proof: <code>Broker::SaleInfo</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(57), added: 552, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Reservations</code> (r:1 w:1)
+Proof: <code>Broker::Reservations</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(6011), added: 6506, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Workplan</code> (r:0 w:2)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.swap_leases" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#1046-1054">Source</a><a href="#method.swap_leases" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.swap_leases" class="fn">swap_leases</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Leases</code> (r:1 w:1)
+Proof: <code>Broker::Leases</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(41), added: 536, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.enable_auto_renew" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#1069-1077">Source</a><a href="#method.enable_auto_renew" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.enable_auto_renew" class="fn">enable_auto_renew</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::SaleInfo</code> (r:1 w:1)
+Proof: <code>Broker::SaleInfo</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(57), added: 552, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::PotentialRenewals</code> (r:1 w:2)
+Proof: <code>Broker::PotentialRenewals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1233), added: 3708, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Configuration</code> (r:1 w:0)
+Proof: <code>Broker::Configuration</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(31), added: 526, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Status</code> (r:1 w:0)
+Proof: <code>Broker::Status</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(18), added: 513, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::AutoRenewals</code> (r:1 w:1)
+Proof: <code>Broker::AutoRenewals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(101), added: 596, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Broker::Workplan</code> (r:0 w:1)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.disable_auto_renew" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#1080-1088">Source</a><a href="#method.disable_auto_renew" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.disable_auto_renew" class="fn">disable_auto_renew</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::AutoRenewals</code> (r:1 w:1)
+Proof: <code>Broker::AutoRenewals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(101), added: 596, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_assignment" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#1098-1106">Source</a><a href="#method.remove_assignment" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_assignment" class="fn">remove_assignment</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Broker::Workplan</code> (r:1 w:1)
+Proof: <code>Broker::Workplan</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1216), added: 3691, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><section id="method.request_revenue_info_at" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#983-989">Source</a><a href="#method.request_revenue_info_at" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>() -&gt; Weight</h4></section><section id="method.on_new_timeslice" class="method trait-impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#1089-1095">Source</a><a href="#method.on_new_timeslice" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.on_new_timeslice" class="fn">on_new_timeslice</a>() -&gt; Weight</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_broker/weights.rs.html#114-609">Source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait pallet_broker::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct pallet_broker::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/pallet_broker/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

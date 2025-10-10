@@ -1,0 +1,174 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Proof of work consensus for Substrate."><title>yet_another_parachain_runtime::sc_consensus_pow - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#statics" title="Statics">Statics</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sc_consensus_pow</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sc_consensus_pow/lib.rs.html#19-672">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Proof of work consensus for Substrate.</p>
+<p>To use this engine, you can need to have a struct that implements
+<a href="trait.PowAlgorithm.html" title="trait yet_another_parachain_runtime::sc_consensus_pow::PowAlgorithm"><code>PowAlgorithm</code></a>. After that, pass an instance of the struct, along
+with other necessary client references to <a href="fn.import_queue.html" title="fn yet_another_parachain_runtime::sc_consensus_pow::import_queue"><code>import_queue</code></a> to setup
+the queue.</p>
+<p>This library also comes with an async mining worker, which can be
+started via the <a href="fn.start_mining_worker.html" title="fn yet_another_parachain_runtime::sc_consensus_pow::start_mining_worker"><code>start_mining_worker</code></a> function. It returns a worker
+handle together with a future. The future must be pulled. Through
+the worker handle, you can pull the metadata needed to start the
+mining process via <a href="struct.MiningHandle.html#method.metadata" title="method yet_another_parachain_runtime::sc_consensus_pow::MiningHandle::metadata"><code>MiningHandle::metadata</code></a>, and then do the actual
+mining on a standalone thread. Finally, when a seal is found, call
+<a href="struct.MiningHandle.html#method.submit" title="method yet_another_parachain_runtime::sc_consensus_pow::MiningHandle::submit"><code>MiningHandle::submit</code></a> to build the block.</p>
+<p>The auxiliary storage for PoW engine only stores the total difficulty.
+For other storage requirements for particular PoW algorithm (such as
+the actual difficulty for each particular blocks), you can take a client
+reference in your <a href="trait.PowAlgorithm.html" title="trait yet_another_parachain_runtime::sc_consensus_pow::PowAlgorithm"><code>PowAlgorithm</code></a> implementation, and use a separate prefix
+for the auxiliary storage. It is also possible to just use the runtime
+as the storage, but it is not recommended as it won’t work well with light
+clients.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.MiningBuild.html" title="struct yet_another_parachain_runtime::sc_consensus_pow::MiningBuild">Mining<wbr>Build</a></dt><dd>A build of mining, containing the metadata and the block proposal.</dd><dt><a class="struct" href="struct.MiningHandle.html" title="struct yet_another_parachain_runtime::sc_consensus_pow::MiningHandle">Mining<wbr>Handle</a></dt><dd>Mining worker that exposes structs to query the current mining build and submit mined blocks.</dd><dt><a class="struct" href="struct.MiningMetadata.html" title="struct yet_another_parachain_runtime::sc_consensus_pow::MiningMetadata">Mining<wbr>Metadata</a></dt><dd>Mining metadata. This is the information needed to start an actual mining loop.</dd><dt><a class="struct" href="struct.PowAux.html" title="struct yet_another_parachain_runtime::sc_consensus_pow::PowAux">PowAux</a></dt><dd>Auxiliary storage data for PoW.</dd><dt><a class="struct" href="struct.PowBlockImport.html" title="struct yet_another_parachain_runtime::sc_consensus_pow::PowBlockImport">PowBlock<wbr>Import</a></dt><dd>A block importer for PoW.</dd><dt><a class="struct" href="struct.PowIntermediate.html" title="struct yet_another_parachain_runtime::sc_consensus_pow::PowIntermediate">PowIntermediate</a></dt><dd>Intermediate value passed to block importer.</dd><dt><a class="struct" href="struct.PowVerifier.html" title="struct yet_another_parachain_runtime::sc_consensus_pow::PowVerifier">PowVerifier</a></dt><dd>A verifier for PoW blocks.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::sc_consensus_pow::Error">Error</a></dt></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.POW_AUX_PREFIX.html" title="constant yet_another_parachain_runtime::sc_consensus_pow::POW_AUX_PREFIX">POW_<wbr>AUX_<wbr>PREFIX</a></dt><dd>Auxiliary storage prefix for PoW engine.</dd></dl><h2 id="statics" class="section-header">Statics<a href="#statics" class="anchor">§</a></h2><dl class="item-table"><dt><a class="static" href="static.INTERMEDIATE_KEY.html" title="static yet_another_parachain_runtime::sc_consensus_pow::INTERMEDIATE_KEY">INTERMEDIATE_<wbr>KEY</a></dt><dd>Intermediate key for PoW engine.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.PowAlgorithm.html" title="trait yet_another_parachain_runtime::sc_consensus_pow::PowAlgorithm">PowAlgorithm</a></dt><dd>Algorithm used for proof of work.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.import_queue.html" title="fn yet_another_parachain_runtime::sc_consensus_pow::import_queue">import_<wbr>queue</a></dt><dd>Import queue for PoW engine.</dd><dt><a class="fn" href="fn.start_mining_worker.html" title="fn yet_another_parachain_runtime::sc_consensus_pow::start_mining_worker">start_<wbr>mining_<wbr>worker</a></dt><dd>Start the mining worker for PoW. This function provides the necessary helper functions that can
+be used to implement a miner. However, it does not do the CPU-intensive mining itself.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.PowImportQueue.html" title="type yet_another_parachain_runtime::sc_consensus_pow::PowImportQueue">PowImport<wbr>Queue</a></dt><dd>The PoW import queue type.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

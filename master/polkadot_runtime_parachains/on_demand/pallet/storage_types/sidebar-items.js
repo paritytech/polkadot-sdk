@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AffinityEntries","Credits","FreeEntries","ParaIdAffinity","QueueStatus","Revenue"]};

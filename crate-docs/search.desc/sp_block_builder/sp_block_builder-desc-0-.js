@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sp_block_builder", 0, "The block builder runtime api.\nThe <code>BlockBuilder</code> api trait that provides the required …\nApply the given extrinsic.\nCheck that the inherents are valid. The inherent data will …\nFinish the current block.\nGenerate inherent extrinsics. The inherent data will vary …")

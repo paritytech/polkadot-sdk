@@ -1,0 +1,179 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Helper trait to test bridges with remote parachain."><title>WithRemoteParachainHelper in yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">With<wbr>Remote<wbr>Parachain<wbr>Helper</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AllPalletsWithoutSystem" title="AllPalletsWithoutSystem">AllPalletsWithoutSystem</a></li><li><a href="#associatedtype.GPI" title="GPI">GPI</a></li><li><a href="#associatedtype.MPI" title="MPI">MPI</a></li><li><a href="#associatedtype.PPI" title="PPI">PPI</a></li><li><a href="#associatedtype.RPI" title="RPI">RPI</a></li><li><a href="#associatedtype.RelayerReward" title="RelayerReward">RelayerReward</a></li><li><a href="#associatedtype.Runtime" title="Runtime">Runtime</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>bridge_<wbr>hub_<wbr>test_<wbr>utils::<wbr>test_<wbr>cases::<wbr>from_<wbr>parachain</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../../index.html">bridge_hub_test_utils</a>::<wbr><a href="../index.html">test_cases</a>::<wbr><a href="index.html">from_parachain</a></div><h1>Trait <span class="trait">WithRemoteParachainHelper</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#46">Source</a> </span></div><pre class="rust item-decl"><code>pub trait WithRemoteParachainHelper {
+    type <a href="#associatedtype.Runtime" class="associatedtype">Runtime</a>: <a class="trait" href="../../../asset_test_utils/trait.BasicParachainRuntime.html" title="trait yet_another_parachain_runtime::asset_test_utils::BasicParachainRuntime">BasicParachainRuntime</a> + <a class="trait" href="../../../cumulus_pallet_xcmp_queue/trait.Config.html" title="trait yet_another_parachain_runtime::cumulus_pallet_xcmp_queue::Config">Config</a> + <a class="trait" href="../../../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.GPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::GPI">GPI</a>&gt; + <a class="trait" href="../../../pallet_bridge_parachains/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_parachains::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.PPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::PPI">PPI</a>&gt; + <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.MPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::MPI">MPI</a>, InboundPayload = <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, OutboundPayload = <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt; + <a class="trait" href="../../../pallet_bridge_relayers/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_relayers::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.RPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::RPI">RPI</a>, Reward = Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.RelayerReward" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::RelayerReward">RelayerReward</a>&gt;;
+    type <a href="#associatedtype.AllPalletsWithoutSystem" class="associatedtype">AllPalletsWithoutSystem</a>: <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.OnInitialize.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::OnInitialize">OnInitialize</a>&lt;&lt;&lt;&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.Runtime" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::Runtime">Runtime</a> as <a class="trait" href="../../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../../../frame_system/trait.Config.html#associatedtype.Block" title="type yet_another_parachain_runtime::frame_system::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT as <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT">Header</a>&gt;::<a class="associatedtype" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html#associatedtype.Number" title="type yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT::Number">Number</a>&gt; + <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.OnFinalize.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::OnFinalize">OnFinalize</a>&lt;&lt;&lt;&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.Runtime" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::Runtime">Runtime</a> as <a class="trait" href="../../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../../../frame_system/trait.Config.html#associatedtype.Block" title="type yet_another_parachain_runtime::frame_system::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT as <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT">Header</a>&gt;::<a class="associatedtype" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html#associatedtype.Number" title="type yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT::Number">Number</a>&gt;;
+    type <a href="#associatedtype.GPI" class="associatedtype">GPI</a>: 'static;
+    type <a href="#associatedtype.PPI" class="associatedtype">PPI</a>: 'static;
+    type <a href="#associatedtype.MPI" class="associatedtype">MPI</a>: 'static;
+    type <a href="#associatedtype.RPI" class="associatedtype">RPI</a>: 'static;
+    type <a href="#associatedtype.RelayerReward" class="associatedtype">RelayerReward</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="struct" href="../../../bp_relayers/struct.RewardsAccountParams.html" title="struct yet_another_parachain_runtime::bp_relayers::RewardsAccountParams">RewardsAccountParams</a>&lt;&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.Runtime" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::Runtime">Runtime</a> as <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.MPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::MPI">MPI</a>&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_messages/trait.Config.html#associatedtype.LaneId" title="type yet_another_parachain_runtime::pallet_bridge_messages::Config::LaneId">LaneId</a>&gt;&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Helper trait to test bridges with remote parachain.</p>
+<p>This is only used to decrease amount of lines, dedicated to bounds.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Runtime" class="method"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#48-56">Source</a><h4 class="code-header">type <a href="#associatedtype.Runtime" class="associatedtype">Runtime</a>: <a class="trait" href="../../../asset_test_utils/trait.BasicParachainRuntime.html" title="trait yet_another_parachain_runtime::asset_test_utils::BasicParachainRuntime">BasicParachainRuntime</a> + <a class="trait" href="../../../cumulus_pallet_xcmp_queue/trait.Config.html" title="trait yet_another_parachain_runtime::cumulus_pallet_xcmp_queue::Config">Config</a> + <a class="trait" href="../../../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.GPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::GPI">GPI</a>&gt; + <a class="trait" href="../../../pallet_bridge_parachains/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_parachains::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.PPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::PPI">PPI</a>&gt; + <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.MPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::MPI">MPI</a>, InboundPayload = <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, OutboundPayload = <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt; + <a class="trait" href="../../../pallet_bridge_relayers/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_relayers::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.RPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::RPI">RPI</a>, Reward = Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.RelayerReward" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::RelayerReward">RelayerReward</a>&gt;</h4></section></summary><div class="docblock"><p>This chain runtime.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AllPalletsWithoutSystem" class="method"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#58-59">Source</a><h4 class="code-header">type <a href="#associatedtype.AllPalletsWithoutSystem" class="associatedtype">AllPalletsWithoutSystem</a>: <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.OnInitialize.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::OnInitialize">OnInitialize</a>&lt;&lt;&lt;&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.Runtime" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::Runtime">Runtime</a> as <a class="trait" href="../../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../../../frame_system/trait.Config.html#associatedtype.Block" title="type yet_another_parachain_runtime::frame_system::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT as <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT">Header</a>&gt;::<a class="associatedtype" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html#associatedtype.Number" title="type yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT::Number">Number</a>&gt; + <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.OnFinalize.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::OnFinalize">OnFinalize</a>&lt;&lt;&lt;&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.Runtime" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::Runtime">Runtime</a> as <a class="trait" href="../../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../../../frame_system/trait.Config.html#associatedtype.Block" title="type yet_another_parachain_runtime::frame_system::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT as <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT">Header</a>&gt;::<a class="associatedtype" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html#associatedtype.Number" title="type yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT::Number">Number</a>&gt;</h4></section></summary><div class="docblock"><p>All pallets of this chain, excluding system pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.GPI" class="method"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#61">Source</a><h4 class="code-header">type <a href="#associatedtype.GPI" class="associatedtype">GPI</a>: 'static</h4></section></summary><div class="docblock"><p>Instance of the <code>pallet-bridge-grandpa</code>, used to bridge with remote relay chain.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PPI" class="method"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#63">Source</a><h4 class="code-header">type <a href="#associatedtype.PPI" class="associatedtype">PPI</a>: 'static</h4></section></summary><div class="docblock"><p>Instance of the <code>pallet-bridge-parachains</code>, used to bridge with remote parachain.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MPI" class="method"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#65">Source</a><h4 class="code-header">type <a href="#associatedtype.MPI" class="associatedtype">MPI</a>: 'static</h4></section></summary><div class="docblock"><p>Instance of the <code>pallet-bridge-messages</code>, used to bridge with remote parachain.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RPI" class="method"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#68">Source</a><h4 class="code-header">type <a href="#associatedtype.RPI" class="associatedtype">RPI</a>: 'static</h4></section></summary><div class="docblock"><p>Instance of the <code>pallet-bridge-relayers</code>, used to collect rewards from messages <code>MPI</code>
+instance.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RelayerReward" class="method"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#70">Source</a><h4 class="code-header">type <a href="#associatedtype.RelayerReward" class="associatedtype">RelayerReward</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="struct" href="../../../bp_relayers/struct.RewardsAccountParams.html" title="struct yet_another_parachain_runtime::bp_relayers::RewardsAccountParams">RewardsAccountParams</a>&lt;&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.Runtime" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::Runtime">Runtime</a> as <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;Self::<a class="associatedtype" href="trait.WithRemoteParachainHelper.html#associatedtype.MPI" title="type yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper::MPI">MPI</a>&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_messages/trait.Config.html#associatedtype.LaneId" title="type yet_another_parachain_runtime::pallet_bridge_messages::Config::LaneId">LaneId</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Relayer reward type.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-WithRemoteParachainHelper-for-WithRemoteParachainHelperAdapter%3CRuntime,+AllPalletsWithoutSystem,+GPI,+PPI,+MPI,+RPI%3E" class="impl"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#78-97">Source</a><a href="#impl-WithRemoteParachainHelper-for-WithRemoteParachainHelperAdapter%3CRuntime,+AllPalletsWithoutSystem,+GPI,+PPI,+MPI,+RPI%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, RPI&gt; <a class="trait" href="trait.WithRemoteParachainHelper.html" title="trait yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelper">WithRemoteParachainHelper</a> for <a class="struct" href="struct.WithRemoteParachainHelperAdapter.html" title="struct yet_another_parachain_runtime::bridge_hub_test_utils::test_cases::from_parachain::WithRemoteParachainHelperAdapter">WithRemoteParachainHelperAdapter</a>&lt;Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, RPI&gt;<div class="where">where
+    Runtime: <a class="trait" href="../../../asset_test_utils/trait.BasicParachainRuntime.html" title="trait yet_another_parachain_runtime::asset_test_utils::BasicParachainRuntime">BasicParachainRuntime</a> + <a class="trait" href="../../../cumulus_pallet_xcmp_queue/trait.Config.html" title="trait yet_another_parachain_runtime::cumulus_pallet_xcmp_queue::Config">Config</a> + <a class="trait" href="../../../pallet_bridge_grandpa/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_grandpa::Config">Config</a>&lt;GPI&gt; + <a class="trait" href="../../../pallet_bridge_parachains/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_parachains::Config">Config</a>&lt;PPI&gt; + <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;MPI, InboundPayload = <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, OutboundPayload = <a class="struct" href="../../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt; + <a class="trait" href="../../../pallet_bridge_relayers/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_relayers::Config">Config</a>&lt;RPI&gt;,
+    AllPalletsWithoutSystem: <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.OnInitialize.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::OnInitialize">OnInitialize</a>&lt;&lt;&lt;&lt;Runtime as <a class="trait" href="../../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../../../frame_system/trait.Config.html#associatedtype.Block" title="type yet_another_parachain_runtime::frame_system::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT as <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT">Header</a>&gt;::<a class="associatedtype" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html#associatedtype.Number" title="type yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT::Number">Number</a>&gt; + <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.OnFinalize.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::OnFinalize">OnFinalize</a>&lt;&lt;&lt;&lt;Runtime as <a class="trait" href="../../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../../../frame_system/trait.Config.html#associatedtype.Block" title="type yet_another_parachain_runtime::frame_system::Config::Block">Block</a> as HeaderProvider&gt;::HeaderT as <a class="trait" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html" title="trait yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT">Header</a>&gt;::<a class="associatedtype" href="../../../emulated_integration_tests_common/xcm_emulator/trait.HeaderT.html#associatedtype.Number" title="type yet_another_parachain_runtime::emulated_integration_tests_common::xcm_emulator::HeaderT::Number">Number</a>&gt;,
+    &lt;Runtime as <a class="trait" href="../../../pallet_bridge_relayers/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_relayers::Config">Config</a>&lt;RPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_relayers/trait.Config.html#associatedtype.Reward" title="type yet_another_parachain_runtime::pallet_bridge_relayers::Config::Reward">Reward</a>: <a class="trait" href="https://doc.rust-lang.org/1.88.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="struct" href="../../../bp_relayers/struct.RewardsAccountParams.html" title="struct yet_another_parachain_runtime::bp_relayers::RewardsAccountParams">RewardsAccountParams</a>&lt;&lt;Runtime as <a class="trait" href="../../../pallet_bridge_messages/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_messages::Config">Config</a>&lt;MPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_messages/trait.Config.html#associatedtype.LaneId" title="type yet_another_parachain_runtime::pallet_bridge_messages::Config::LaneId">LaneId</a>&gt;&gt;,
+    GPI: 'static,
+    PPI: 'static,
+    MPI: 'static,
+    RPI: 'static,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Runtime-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#99">Source</a><a href="#associatedtype.Runtime-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Runtime" class="associatedtype">Runtime</a> = Runtime</h4></section><section id="associatedtype.AllPalletsWithoutSystem-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#100">Source</a><a href="#associatedtype.AllPalletsWithoutSystem-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AllPalletsWithoutSystem" class="associatedtype">AllPalletsWithoutSystem</a> = AllPalletsWithoutSystem</h4></section><section id="associatedtype.GPI-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#101">Source</a><a href="#associatedtype.GPI-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.GPI" class="associatedtype">GPI</a> = GPI</h4></section><section id="associatedtype.PPI-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#102">Source</a><a href="#associatedtype.PPI-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PPI" class="associatedtype">PPI</a> = PPI</h4></section><section id="associatedtype.MPI-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#103">Source</a><a href="#associatedtype.MPI-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MPI" class="associatedtype">MPI</a> = MPI</h4></section><section id="associatedtype.RPI-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#104">Source</a><a href="#associatedtype.RPI-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RPI" class="associatedtype">RPI</a> = RPI</h4></section><section id="associatedtype.RelayerReward-1" class="associatedtype trait-impl"><a class="src rightside" href="../../../../src/bridge_hub_test_utils/test_cases/from_parachain.rs.html#105">Source</a><a href="#associatedtype.RelayerReward-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RelayerReward" class="associatedtype">RelayerReward</a> = &lt;Runtime as <a class="trait" href="../../../pallet_bridge_relayers/trait.Config.html" title="trait yet_another_parachain_runtime::pallet_bridge_relayers::Config">Config</a>&lt;RPI&gt;&gt;::<a class="associatedtype" href="../../../pallet_bridge_relayers/trait.Config.html#associatedtype.Reward" title="type yet_another_parachain_runtime::pallet_bridge_relayers::Config::Reward">Reward</a></h4></section></div></details></div><script src="../../../../trait.impl/bridge_hub_test_utils/test_cases/from_parachain/trait.WithRemoteParachainHelper.js" data-ignore-extern-crates="bridge_hub_test_utils" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

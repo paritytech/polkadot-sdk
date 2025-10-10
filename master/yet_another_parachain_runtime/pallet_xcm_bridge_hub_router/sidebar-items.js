@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["HARD_MESSAGE_SIZE_LIMIT","LOG_TARGET"],"enum":["Call","Event"],"mod":["benchmarking","pallet","weights"],"struct":["BridgeState","Instance1","Pallet"],"trait":["Config","WeightInfo","XcmChannelStatusProvider"],"type":["Bridge","Module"]};

@@ -1,0 +1,284 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`pallet-migrations`"><title>yet_another_parachain_runtime::pallet_migrations - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#pallet-migrations" title="`pallet-migrations`"><code>pallet-migrations</code></a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#pallet-api" title="Pallet API">Pallet API</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>pallet_migrations</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_migrations/lib.rs.html#18-869">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="pallet-migrations"><a class="doc-anchor" href="#pallet-migrations">§</a><code>pallet-migrations</code></h2>
+<p>Provides multi block migrations for FRAME runtimes.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The pallet takes care of executing a batch of multi-step migrations over multiple blocks. The
+process starts on each runtime upgrade. Normal and operational transactions are paused while
+migrations are on-going.</p>
+<h4 id="example"><a class="doc-anchor" href="#example">§</a>Example</h4>
+<p>This example demonstrates a simple mocked walk through of a basic success scenario. The pallet
+is configured with two migrations: one succeeding after just one step, and the second one
+succeeding after two steps. A runtime upgrade is then enacted and the block number is advanced
+until all migrations finish executing. Afterwards, the recorded historic migrations are
+checked and events are asserted.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>simple_works() {
+	<span class="kw">use </span>Event::<span class="kw-2">*</span>;
+	test_closure(|| {
+		<span class="comment">// Add three migrations, each taking one block longer than the previous.
+		</span>MockedMigrations::set(<span class="macro">vec!</span>[(SucceedAfter, <span class="number">2</span>)]);
+
+		System::set_block_number(<span class="number">1</span>);
+		Migrations::on_runtime_upgrade();
+		run_to_block(<span class="number">10</span>);
+
+		<span class="comment">// Check that the executed migrations are recorded in `Historical`.
+		</span><span class="macro">assert_eq!</span>(historic(), <span class="macro">vec!</span>[mocked_id(SucceedAfter, <span class="number">2</span>),]);
+
+		<span class="comment">// Check that we got all events.
+		</span>assert_events(<span class="macro">vec!</span>[
+			UpgradeStarted { migrations: <span class="number">1 </span>},
+			MigrationAdvanced { index: <span class="number">0</span>, took: <span class="number">1 </span>},
+			MigrationAdvanced { index: <span class="number">0</span>, took: <span class="number">2 </span>},
+			MigrationCompleted { index: <span class="number">0</span>, took: <span class="number">3 </span>},
+			UpgradeCompleted,
+		]);
+	});
+}</code></pre></div>
+<h3 id="pallet-api"><a class="doc-anchor" href="#pallet-api">§</a>Pallet API</h3>
+<p>See the <a href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_migrations::pallet"><code>pallet</code></a> module for more information about the interfaces this pallet exposes,
+including its configuration trait, dispatchables, storage items, events and errors.</p>
+<p>Otherwise noteworthy API of this pallet include its implementation of the
+<a href="../frame_support/migrations/trait.MultiStepMigrator.html" title="trait yet_another_parachain_runtime::frame_support::migrations::MultiStepMigrator"><code>MultiStepMigrator</code></a> trait. This must be plugged into
+<a href="../frame_system/trait.Config.html#associatedtype.MultiBlockMigrator" title="associated type yet_another_parachain_runtime::frame_system::Config::MultiBlockMigrator"><code>frame_system::Config::MultiBlockMigrator</code></a> for proper function.</p>
+<p>The API contains some calls for emergency management. They are all prefixed with <code>force_</code> and
+should normally not be needed. Pay special attention prior to using them.</p>
+<h4 id="design-goals"><a class="doc-anchor" href="#design-goals">§</a>Design Goals</h4>
+<ol>
+<li>Must automatically execute migrations over multiple blocks.</li>
+<li>Must expose information about whether migrations are ongoing.</li>
+<li>Must respect pessimistic weight bounds of migrations.</li>
+<li>Must execute migrations in order. Skipping is not allowed; migrations are run on a
+all-or-nothing basis.</li>
+<li>Must prevent re-execution of past migrations.</li>
+<li>Must provide transactional storage semantics for migrations.</li>
+<li>Must guarantee progress.</li>
+</ol>
+<h4 id="design"><a class="doc-anchor" href="#design">§</a>Design</h4>
+<p>Migrations are provided to the pallet through the associated type <a href="trait.Config.html#associatedtype.Migrations" title="associated type yet_another_parachain_runtime::pallet_migrations::Config::Migrations"><code>Config::Migrations</code></a> of type
+<a href="../frame_support/migrations/trait.SteppedMigrations.html" title="trait yet_another_parachain_runtime::frame_support::migrations::SteppedMigrations"><code>SteppedMigrations</code></a>. This allows multiple migrations to be aggregated through a tuple. It
+simplifies the trait bounds since all associated types of the trait must be provided by the
+pallet. The actual progress of the pallet is stored in the <a href="type.Cursor.html" title="type yet_another_parachain_runtime::pallet_migrations::Cursor"><code>Cursor</code></a> storage item. This can
+either be <a href="enum.MigrationCursor.html#variant.Active" title="variant yet_another_parachain_runtime::pallet_migrations::MigrationCursor::Active"><code>MigrationCursor::Active</code></a> or <a href="enum.MigrationCursor.html#variant.Stuck" title="variant yet_another_parachain_runtime::pallet_migrations::MigrationCursor::Stuck"><code>MigrationCursor::Stuck</code></a>. In the active case it
+points to the currently active migration and stores its inner cursor. The inner cursor can then
+be used by the migration to store its inner state and advance. Each time when the migration
+returns <code>Some(cursor)</code>, it signals the pallet that it is not done yet.</p>
+<p>The cursor is reset on each runtime upgrade. This ensures that it starts to execute at the
+first migration in the vector. The pallets cursor is only ever incremented or set to <code>Stuck</code>
+once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
+it is fixed through manual governance intervention.</p>
+<p>As soon as the cursor of the pallet becomes <code>Some(_)</code>; <a href="../frame_support/migrations/trait.MultiStepMigrator.html#tymethod.ongoing" title="associated function yet_another_parachain_runtime::frame_support::migrations::MultiStepMigrator::ongoing"><code>MultiStepMigrator::ongoing</code></a> returns
+<code>true</code> (Goal 2). This can be used by upstream code to possibly pause transactions.
+In <code>on_initialize</code> the pallet will load the current migration and check whether it was already
+executed in the past by checking for membership of its ID in the <a href="type.Historic.html" title="type yet_another_parachain_runtime::pallet_migrations::Historic"><code>Historic</code></a> set. Historic
+migrations are skipped without causing an error. Each successfully executed migration is added
+to this set (Goal 5).</p>
+<p>This proceeds until no more migrations remain. At that point, the event <code>UpgradeCompleted</code> is
+emitted (Goal 1).</p>
+<p>The execution of each migration happens by calling <a href="../frame_support/migrations/trait.SteppedMigration.html#method.transactional_step" title="associated function yet_another_parachain_runtime::frame_support::migrations::SteppedMigration::transactional_step"><code>SteppedMigration::transactional_step</code></a>.
+This function wraps the inner <code>step</code> function into a transactional layer to allow rollback in
+the error case (Goal 6).</p>
+<p>Weight limits must be checked by the migration itself. The pallet provides a <a href="../sp_weights/struct.WeightMeter.html" title="struct yet_another_parachain_runtime::sp_weights::WeightMeter"><code>WeightMeter</code></a> for
+that purpose. The pallet may return <a href="../frame_support/migrations/enum.SteppedMigrationError.html#variant.InsufficientWeight" title="variant yet_another_parachain_runtime::frame_support::migrations::SteppedMigrationError::InsufficientWeight"><code>SteppedMigrationError::InsufficientWeight</code></a> at any point.
+In that scenario, one of two things will happen: if that migration was exclusively executed
+in this block, and therefore required more than the maximum amount of weight possible, the
+process becomes <code>Stuck</code>. Otherwise, one re-attempt is executed with the same logic in the next
+block (Goal 3). Progress through the migrations is guaranteed by providing a timeout for each
+migration via <a href="../frame_support/migrations/trait.SteppedMigration.html#method.max_steps" title="associated function yet_another_parachain_runtime::frame_support::migrations::SteppedMigration::max_steps"><code>SteppedMigration::max_steps</code></a>. The pallet <strong>ONLY</strong> guarantees progress if this
+is set to sensible limits (Goal 7).</p>
+<h4 id="scenario-governance-cleanup"><a class="doc-anchor" href="#scenario-governance-cleanup">§</a>Scenario: Governance cleanup</h4>
+<p>Every now and then, governance can make use of the <a href="struct.Pallet.html#method.clear_historic" title="associated function yet_another_parachain_runtime::pallet_migrations::Pallet::clear_historic"><code>clear_historic</code></a>
+call. This ensures that no old migrations pile up in the <a href="type.Historic.html" title="type yet_another_parachain_runtime::pallet_migrations::Historic"><code>Historic</code></a> set. This can be done very
+rarely, since the storage should not grow quickly and the lookup weight does not suffer much.
+Another possibility would be to have a synchronous single-block migration perpetually deployed
+that cleans them up before the MBMs start.</p>
+<h4 id="scenario-successful-upgrade"><a class="doc-anchor" href="#scenario-successful-upgrade">§</a>Scenario: Successful upgrade</h4>
+<p>The standard procedure for a successful runtime upgrade can look like this:</p>
+<ol>
+<li>Migrations are configured in the <code>Migrations</code> config item. All migrations expose
+<a href="../frame_support/migrations/trait.SteppedMigration.html#method.max_steps" title="associated function yet_another_parachain_runtime::frame_support::migrations::SteppedMigration::max_steps"><code>max_steps</code></a>, are error tolerant, check their weight bounds and
+have a unique identifier.</li>
+<li>The runtime upgrade is enacted. An <code>UpgradeStarted</code> event is
+followed by lots of <code>MigrationAdvanced</code> and <code>MigrationCompleted</code> events. Finally
+<code>UpgradeCompleted</code> is emitted.</li>
+<li>Cleanup as described in the governance scenario be executed at any time after the migrations
+completed.</li>
+</ol>
+<h4 id="advice-failed-upgrades"><a class="doc-anchor" href="#advice-failed-upgrades">§</a>Advice: Failed upgrades</h4>
+<p>Failed upgrades cannot be recovered from automatically and require governance intervention. Set
+up monitoring for <code>UpgradeFailed</code> events to be made aware of any failures. The hook
+<a href="../frame_support/migrations/trait.FailedMigrationHandler.html#tymethod.failed" title="associated function yet_another_parachain_runtime::frame_support::migrations::FailedMigrationHandler::failed"><code>FailedMigrationHandler::failed</code></a> should be setup in a way that it allows governance to act,
+but still prevent other transactions from interacting with the inconsistent storage state. Note
+that this is paramount, since the inconsistent state might contain a faulty balance amount or
+similar that could cause great harm if user transactions don’t remain suspended. One way to
+implement this would be to use the <code>SafeMode</code> or <code>TxPause</code> pallets that can prevent most user
+interactions but still allow a whitelisted set of governance calls.</p>
+<h4 id="remark-failed-migrations"><a class="doc-anchor" href="#remark-failed-migrations">§</a>Remark: Failed migrations</h4>
+<p>Failed migrations are not added to the <code>Historic</code> set. This means that an erroneous
+migration must be removed and fixed manually. This already applies, even before considering the
+historic set.</p>
+<h4 id="remark-transactional-processing"><a class="doc-anchor" href="#remark-transactional-processing">§</a>Remark: Transactional processing</h4>
+<p>You can see the transactional semantics for migration steps as mostly useless, since in the
+stuck case the state is already messed up. This just prevents it from becoming even more messed
+up, but doesn’t prevent it in the first place.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="migrations/index.html" title="mod yet_another_parachain_runtime::pallet_migrations::migrations">migrations</a></dt><dd>Generic multi block migrations not specific to any pallet.</dd><dt><a class="mod" href="mock_helpers/index.html" title="mod yet_another_parachain_runtime::pallet_migrations::mock_helpers">mock_<wbr>helpers</a></dt><dd>Test helpers for internal and external usage.</dd><dt><a class="mod" href="pallet/index.html" title="mod yet_another_parachain_runtime::pallet_migrations::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod yet_another_parachain_runtime::pallet_migrations::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_migrations</code></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ActiveCursor.html" title="struct yet_another_parachain_runtime::pallet_migrations::ActiveCursor">Active<wbr>Cursor</a></dt><dd>Points to the currently active migration and its inner cursor.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_migrations::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum yet_another_parachain_runtime::pallet_migrations::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.Error.html" title="enum yet_another_parachain_runtime::pallet_migrations::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum yet_another_parachain_runtime::pallet_migrations::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.HistoricCleanupSelector.html" title="enum yet_another_parachain_runtime::pallet_migrations::HistoricCleanupSelector">Historic<wbr>Cleanup<wbr>Selector</a></dt><dd>How to clear the records of historic migrations.</dd><dt><a class="enum" href="enum.MigrationCursor.html" title="enum yet_another_parachain_runtime::pallet_migrations::MigrationCursor">Migration<wbr>Cursor</a></dt><dd>Points to the next migration to execute.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_migrations::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.DefaultConfig.html" title="trait yet_another_parachain_runtime::pallet_migrations::DefaultConfig">Default<wbr>Config</a></dt><dd>Based on <a href="trait.Config.html" title="trait yet_another_parachain_runtime::pallet_migrations::Config"><code>Config</code></a>. Auto-generated by
+<a href="../frame_support_procedural/attr.config.html" title="attr yet_another_parachain_runtime::frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a>.
+Can be used in tandem with
+<a href="%60frame_support::register_default_config%60"><code>#[register_default_config]</code></a> and
+<a href="../attr.derive_impl.html" title="attr yet_another_parachain_runtime::derive_impl"><code>#[derive_impl]</code></a> to derive test config traits
+based on existing pallet config traits in a safe and developer-friendly way.</dd><dt><a class="trait" href="trait.MockedMigrations.html" title="trait yet_another_parachain_runtime::pallet_migrations::MockedMigrations">Mocked<wbr>Migrations</a></dt><dd>Trait for a tuple of No-OP migrations with one element.</dd><dt><a class="trait" href="trait.WeightInfo.html" title="trait yet_another_parachain_runtime::pallet_migrations::WeightInfo">Weight<wbr>Info</a></dt><dd>Weight functions needed for <code>pallet_migrations</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ActiveCursorOf.html" title="type yet_another_parachain_runtime::pallet_migrations::ActiveCursorOf">Active<wbr>Cursor<wbr>Of</a></dt><dd>Convenience alias for <a href="struct.ActiveCursor.html" title="struct yet_another_parachain_runtime::pallet_migrations::ActiveCursor"><code>ActiveCursor</code></a>.</dd><dt><a class="type" href="type.Cursor.html" title="type yet_another_parachain_runtime::pallet_migrations::Cursor">Cursor</a></dt><dd>The currently active migration to run and its cursor.</dd><dt><a class="type" href="type.CursorOf.html" title="type yet_another_parachain_runtime::pallet_migrations::CursorOf">Cursor<wbr>Of</a></dt><dd>Convenience alias for <a href="enum.MigrationCursor.html" title="enum yet_another_parachain_runtime::pallet_migrations::MigrationCursor"><code>MigrationCursor</code></a>.</dd><dt><a class="type" href="type.Historic.html" title="type yet_another_parachain_runtime::pallet_migrations::Historic">Historic</a></dt><dd>Set of all successfully executed migrations.</dd><dt><a class="type" href="type.IdentifierOf.html" title="type yet_another_parachain_runtime::pallet_migrations::IdentifierOf">Identifier<wbr>Of</a></dt><dd>Convenience alias for the identifier of a migration.</dd><dt><a class="type" href="type.Module.html" title="type yet_another_parachain_runtime::pallet_migrations::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.RawCursorOf.html" title="type yet_another_parachain_runtime::pallet_migrations::RawCursorOf">RawCursor<wbr>Of</a></dt><dd>Convenience alias for the raw inner cursor of a migration.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

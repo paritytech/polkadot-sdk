@@ -1,0 +1,267 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Command Line Argument Parser for Rust"><title>yet_another_parachain_runtime::sc_cli::clap - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#aspirations" title="Aspirations">Aspirations</a></li><li><a href="#example" title="Example">Example</a><ul><li><a href="#related-projects" title="Related Projects">Related Projects</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#derives" title="Derive Macros">Derive Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In yet_<wbr>another_<wbr>parachain_<wbr>runtime::<wbr>sc_<wbr>cli</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">yet_another_parachain_runtime</a>::<wbr><a href="../index.html">sc_cli</a></div><h1>Crate <span>clap</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><blockquote>
+<p><strong>Command Line Argument Parser for Rust</strong></p>
+</blockquote>
+<p>Quick Links:</p>
+<ul>
+<li>Derive [tutorial][_derive::_tutorial::chapter_0] and [reference][_derive]</li>
+<li>Builder [tutorial][_tutorial::chapter_0] and <a href="index.html">reference</a></li>
+<li>[Cookbook][_cookbook]</li>
+<li>[FAQ][_faq]</li>
+<li><a href="https://github.com/clap-rs/clap/discussions">Discussions</a></li>
+<li><a href="https://github.com/clap-rs/clap/blob/v4.5.13/CHANGELOG.md">CHANGELOG</a> (includes major version migration
+guides)</li>
+</ul>
+<h3 id="aspirations"><a class="doc-anchor" href="#aspirations">§</a>Aspirations</h3>
+<ul>
+<li>Out of the box, users get a polished CLI experience
+<ul>
+<li>Including common argument behavior, help generation, suggested fixes for users, colored output, <a href="https://github.com/clap-rs/clap/tree/master/clap_complete">shell completions</a>, etc</li>
+</ul>
+</li>
+<li>Flexible enough to port your existing CLI interface
+<ul>
+<li>However, we won’t necessarily streamline support for each use case</li>
+</ul>
+</li>
+<li>Reasonable parse performance</li>
+<li>Resilient maintainership, including
+<ul>
+<li>Willing to break compatibility rather than batching up breaking changes in large releases</li>
+<li>Leverage feature flags to keep to one active branch</li>
+<li>Being under <a href="https://github.com/rust-cli/team/">WG-CLI</a> to increase the bus factor</li>
+</ul>
+</li>
+<li>We follow semver and will wait about 6-9 months between major breaking changes</li>
+<li>We will support the last two minor Rust releases (MSRV, currently 1.74)</li>
+</ul>
+<p>While these aspirations can be at odds with fast build times and low binary
+size, we will still strive to keep these reasonable for the flexibility you
+get.  Check out the
+<a href="https://github.com/rust-cli/argparse-benchmarks-rs">argparse-benchmarks</a> for
+CLI parsers optimized for other use cases.</p>
+<h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3>
+<p>Run</p>
+<div class="example-wrap"><pre class="language-console"><code>$ cargo add clap --features derive</code></pre></div>
+<p><em>(See also [feature flag reference][_features])</em></p>
+<p>Then define your CLI in <code>main.rs</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>clap::Parser;
+
+<span class="doccomment">/// Simple program to greet a person
+</span><span class="attr">#[derive(Parser, Debug)]
+#[command(version, about, long_about = <span class="prelude-val">None</span>)]
+</span><span class="kw">struct </span>Args {
+    <span class="doccomment">/// Name of the person to greet
+    </span><span class="attr">#[arg(short, long)]
+    </span>name: String,
+
+    <span class="doccomment">/// Number of times to greet
+    </span><span class="attr">#[arg(short, long, default_value_t = <span class="number">1</span>)]
+    </span>count: u8,
+}
+
+<span class="kw">fn </span>main() {
+    <span class="kw">let </span>args = Args::parse();
+
+    <span class="kw">for _ in </span><span class="number">0</span>..args.count {
+        <span class="macro">println!</span>(<span class="string">"Hello {}!"</span>, args.name);
+    }
+}</code></pre></div>
+<p>And try it out:</p>
+<div class="example-wrap"><pre class="language-console"><code>$ demo --help
+A simple to use, efficient, and full-featured Command Line Argument Parser
+
+Usage: demo[EXE] [OPTIONS] --name &lt;NAME&gt;
+
+Options:
+  -n, --name &lt;NAME&gt;    Name of the person to greet
+  -c, --count &lt;COUNT&gt;  Number of times to greet [default: 1]
+  -h, --help           Print help
+  -V, --version        Print version
+
+$ demo --name Me
+Hello Me!
+</code></pre></div>
+<p><em>(version number and <code>.exe</code> extension on windows replaced by placeholders)</em></p>
+<p>See also the derive [tutorial][_derive::_tutorial] and [reference][_derive]</p>
+<h4 id="related-projects"><a class="doc-anchor" href="#related-projects">§</a>Related Projects</h4>
+<p>Augment clap:</p>
+<ul>
+<li><a href="https://crates.io/crates/wild">wild</a> for supporting wildcards (<code>*</code>) on Windows like you do Linux</li>
+<li><a href="https://crates.io/crates/argfile">argfile</a> for loading additional arguments from a file (aka response files)</li>
+<li><a href="https://crates.io/crates/shadow-rs">shadow-rs</a> for generating <code>Command::long_version</code></li>
+<li><a href="https://crates.io/crates/clap_mangen">clap_mangen</a> for generating man page source (roff)</li>
+<li><a href="https://crates.io/crates/clap_complete">clap_complete</a> for shell completion support</li>
+</ul>
+<p>CLI Helpers</p>
+<ul>
+<li><a href="https://crates.io/crates/clio">clio</a> for reading/writing to files specified as arguments</li>
+<li><a href="https://crates.io/crates/clap-verbosity-flag">clap-verbosity-flag</a></li>
+<li><a href="https://crates.io/crates/clap-cargo">clap-cargo</a></li>
+<li><a href="https://crates.io/crates/concolor-clap">concolor-clap</a></li>
+</ul>
+<p>Testing</p>
+<ul>
+<li><a href="https://crates.io/crates/trycmd"><code>trycmd</code></a>:  Bulk snapshot testing</li>
+<li><a href="https://crates.io/crates/snapbox"><code>snapbox</code></a>:  Specialized snapshot testing</li>
+<li><a href="https://crates.io/crates/assert_cmd"><code>assert_cmd</code></a> and <a href="https://crates.io/crates/assert_fs"><code>assert_fs</code></a>: Customized testing</li>
+</ul>
+<p>Documentation:</p>
+<ul>
+<li><a href="https://rust-cli.github.io/book/index.html">Command-line Apps for Rust</a> book</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="builder/index.html" title="mod yet_another_parachain_runtime::sc_cli::clap::builder">builder</a></dt><dd>Define <a href="struct.Command.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Command"><code>Command</code></a> line <a href="struct.Arg.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Arg">arguments</a></dd><dt><a class="mod" href="clap_derive/index.html" title="mod yet_another_parachain_runtime::sc_cli::clap::clap_derive">clap_<wbr>derive</a></dt><dd><code>clap_derive</code></dd><dt><a class="mod" href="error/index.html" title="mod yet_another_parachain_runtime::sc_cli::clap::error">error</a></dt><dd>Error reporting</dd><dt><a class="mod" href="parser/index.html" title="mod yet_another_parachain_runtime::sc_cli::clap::parser">parser</a></dt><dd><a href="struct.Command.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Command"><code>Command</code></a> line argument parser</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.arg.html" title="macro yet_another_parachain_runtime::sc_cli::clap::arg">arg</a></dt><dd>Create an <a href="struct.Arg.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Arg"><code>Arg</code></a> from a usage string.</dd><dt><a class="macro" href="macro.command.html" title="macro yet_another_parachain_runtime::sc_cli::clap::command">command</a></dt><dd>Requires <code>cargo</code> feature flag to be enabled.</dd><dt><a class="macro" href="macro.value_parser.html" title="macro yet_another_parachain_runtime::sc_cli::clap::value_parser">value_<wbr>parser</a></dt><dd>Select a <a href="builder/struct.ValueParser.html" title="struct yet_another_parachain_runtime::sc_cli::clap::builder::ValueParser"><code>ValueParser</code></a> implementation from the intended type</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Arg.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Arg">Arg</a></dt><dd>The abstract representation of a command line argument. Used to set all the options and
+relationships that define a valid argument for the program.</dd><dt><a class="struct" href="struct.ArgGroup.html" title="struct yet_another_parachain_runtime::sc_cli::clap::ArgGroup">ArgGroup</a></dt><dd>Family of related <a href="struct.Arg.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Arg">arguments</a>.</dd><dt><a class="struct" href="struct.ArgMatches.html" title="struct yet_another_parachain_runtime::sc_cli::clap::ArgMatches">ArgMatches</a></dt><dd>Container for parse results.</dd><dt><a class="struct" href="struct.Command.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Command">Command</a></dt><dd>Build a command-line interface.</dd><dt><a class="struct" href="struct.Id.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Id">Id</a></dt><dd><a href="struct.Arg.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Arg"><code>Arg</code></a> or <a href="struct.ArgGroup.html" title="struct yet_another_parachain_runtime::sc_cli::clap::ArgGroup"><code>ArgGroup</code></a> identifier</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ArgAction.html" title="enum yet_another_parachain_runtime::sc_cli::clap::ArgAction">ArgAction</a></dt><dd>Behavior of arguments when they are encountered while parsing</dd><dt><a class="enum" href="enum.ColorChoice.html" title="enum yet_another_parachain_runtime::sc_cli::clap::ColorChoice">Color<wbr>Choice</a></dt><dd>Represents the color preferences for program output</dd><dt><a class="enum" href="enum.ValueHint.html" title="enum yet_another_parachain_runtime::sc_cli::clap::ValueHint">Value<wbr>Hint</a></dt><dd>Provide shell with hint on how to complete an argument.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Args.html" title="trait yet_another_parachain_runtime::sc_cli::clap::Args">Args</a></dt><dd>Parse a set of arguments into a user-defined container.</dd><dt><a class="trait" href="trait.CommandFactory.html" title="trait yet_another_parachain_runtime::sc_cli::clap::CommandFactory">Command<wbr>Factory</a></dt><dd>Create a <a href="struct.Command.html" title="struct yet_another_parachain_runtime::sc_cli::clap::Command"><code>Command</code></a> relevant for a user-defined container.</dd><dt><a class="trait" href="trait.FromArgMatches.html" title="trait yet_another_parachain_runtime::sc_cli::clap::FromArgMatches">From<wbr>ArgMatches</a></dt><dd>Converts an instance of <a href="struct.ArgMatches.html" title="struct yet_another_parachain_runtime::sc_cli::clap::ArgMatches"><code>ArgMatches</code></a> to a user-defined container.</dd><dt><a class="trait" href="trait.Parser.html" title="trait yet_another_parachain_runtime::sc_cli::clap::Parser">Parser</a></dt><dd>Parse command-line arguments into <code>Self</code>.</dd><dt><a class="trait" href="trait.Subcommand.html" title="trait yet_another_parachain_runtime::sc_cli::clap::Subcommand">Subcommand</a></dt><dd>Parse a sub-command into a user-defined enum.</dd><dt><a class="trait" href="trait.ValueEnum.html" title="trait yet_another_parachain_runtime::sc_cli::clap::ValueEnum">Value<wbr>Enum</a></dt><dd>Parse arguments into enums.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Error.html" title="type yet_another_parachain_runtime::sc_cli::clap::Error">Error</a></dt><dd>Command Line Argument Parser Error</dd></dl><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><dl class="item-table"><dt><a class="derive" href="derive.Args.html" title="derive yet_another_parachain_runtime::sc_cli::clap::Args">Args</a></dt><dd>Generates the <code>Args</code> impl.</dd><dt><a class="derive" href="derive.Parser.html" title="derive yet_another_parachain_runtime::sc_cli::clap::Parser">Parser</a></dt><dd>Generates the <code>Parser</code> implementation.</dd><dt><a class="derive" href="derive.Subcommand.html" title="derive yet_another_parachain_runtime::sc_cli::clap::Subcommand">Subcommand</a></dt><dd>Generates the <code>Subcommand</code> impl.</dd><dt><a class="derive" href="derive.ValueEnum.html" title="derive yet_another_parachain_runtime::sc_cli::clap::ValueEnum">Value<wbr>Enum</a></dt><dd>Generates the <code>ValueEnum</code> impl.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
