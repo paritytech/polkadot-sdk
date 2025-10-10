@@ -72,7 +72,7 @@ fn decompress_zstd(blob: &[u8], bomb_limit: usize) -> Result<Vec<u8>, Error> {
 
 /// Decode a blob, if it indicates that it is compressed. Provide a `bomb_limit`, which
 /// is the limit of bytes which should be decompressed from the blob.
-pub fn decompress(blob: &[u8], bomb_limit: usize) -> Result<Cow<[u8]>, Error> {
+pub fn decompress(blob: &[u8], bomb_limit: usize) -> Result<Cow<'_, [u8]>, Error> {
 	if blob.starts_with(&ZSTD_PREFIX) {
 		decompress_zstd(&blob[ZSTD_PREFIX.len()..], bomb_limit).map(Into::into)
 	} else {
