@@ -840,6 +840,18 @@ pub mod env {
 		Ok(self.ext.gas_left())
 	}
 
+	/// Reverts the execution without data and cedes all remaining gas.
+	///
+	/// See [`pallet_revive_uapi::HostFn::consume_all_gas`].
+	#[stable]
+	fn consume_all_gas(&mut self, memory: &mut M) -> Result<(), TrapReason> {
+		self.ext.gas_meter_mut().consume_all();
+		Err(TrapReason::Return(ReturnData {
+			flags: ReturnFlags::REVERT.bits(),
+			data: Default::default(),
+		}))
+	}
+
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// See [`pallet_revive_uapi::HostFn::ecdsa_to_eth_address`].
 	fn ecdsa_to_eth_address(
