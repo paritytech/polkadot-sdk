@@ -241,6 +241,7 @@ members = [
 	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
+	"polkadot/xcm/pallet-xcm/precompiles",
 	"polkadot/xcm/procedural",
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
@@ -1093,6 +1094,7 @@ pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
+pallet-xcm-precompiles = { path = "polkadot/xcm/pallet-xcm/precompiles", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }

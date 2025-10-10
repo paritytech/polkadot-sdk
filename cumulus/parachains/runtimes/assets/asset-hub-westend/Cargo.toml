@@ -99,6 +99,7 @@ primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace 
 # Polkadot
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm-precompiles = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 westend-runtime-constants = { workspace = true }
@@ -202,6 +203,7 @@ runtime-benchmarks = [
 	"pallet-whitelist/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
+	"pallet-xcm-precompiles/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -272,6 +274,7 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"pallet-xcm-bridge-hub-router/try-runtime",
+	"pallet-xcm-precompiles/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
@@ -356,6 +359,7 @@ std = [
 	"pallet-whitelist/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm-bridge-hub-router/std",
+	"pallet-xcm-precompiles/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",

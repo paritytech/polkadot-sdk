@@ -71,7 +71,8 @@ use pallet_assets_precompiles::{InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
-use pallet_xcm::{precompiles::XcmPrecompile, EnsureXcm};
+use pallet_xcm::EnsureXcm;
+use pallet_xcm_precompiles::XcmPrecompile;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,

@@ -168,6 +168,7 @@ std = [
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm-bridge-hub-router?/std",
 	"pallet-xcm-bridge-hub?/std",
+	"pallet-xcm-precompiles?/std",
 	"pallet-xcm?/std",
 	"parachains-common?/std",
 	"parachains-runtimes-test-utils?/std",
@@ -347,6 +348,7 @@ runtime-benchmarks = [
 	"pallet-xcm-benchmarks?/runtime-benchmarks",
 	"pallet-xcm-bridge-hub-router?/runtime-benchmarks",
 	"pallet-xcm-bridge-hub?/runtime-benchmarks",
+	"pallet-xcm-precompiles?/runtime-benchmarks",
 	"pallet-xcm?/runtime-benchmarks",
 	"parachains-common?/runtime-benchmarks",
 	"polkadot-cli?/runtime-benchmarks",
@@ -487,6 +489,7 @@ try-runtime = [
 	"pallet-whitelist?/try-runtime",
 	"pallet-xcm-bridge-hub-router?/try-runtime",
 	"pallet-xcm-bridge-hub?/try-runtime",
+	"pallet-xcm-precompiles?/try-runtime",
 	"pallet-xcm?/try-runtime",
 	"parachains-common?/try-runtime",
 	"polkadot-cli?/try-runtime",
@@ -715,6 +718,7 @@ runtime-full = [
 	"pallet-xcm-benchmarks",
 	"pallet-xcm-bridge-hub",
 	"pallet-xcm-bridge-hub-router",
+	"pallet-xcm-precompiles",
 	"parachains-common",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
@@ -1841,6 +1845,11 @@ path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
 path = "../bridges/modules/xcm-bridge-hub-router"
+
+[dependencies.pallet-xcm-precompiles]
+default-features = false
+optional = true
+path = "../polkadot/xcm/pallet-xcm/precompiles"
 
 [dependencies.parachains-common]
 default-features = false

@@ -803,6 +803,10 @@ pub use pallet_xcm_bridge_hub;
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]
 pub use pallet_xcm_bridge_hub_router;
 
+/// Provides precompiles for `pallet-xcm`.
+#[cfg(feature = "pallet-xcm-precompiles")]
+pub use pallet_xcm_precompiles;
+
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]
 pub use parachains_common;
