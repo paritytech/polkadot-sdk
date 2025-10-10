@@ -31,7 +31,8 @@ use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
+	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
+	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
@@ -455,6 +456,9 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				system_rpc_tx,
 				tx_handler_controller,
 				telemetry: telemetry.as_mut(),
+				tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(
+					client.clone(),
+				))),
 			})?;
 
 			if let Some(hwbench) = hwbench {
