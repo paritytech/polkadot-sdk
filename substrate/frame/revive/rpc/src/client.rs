@@ -20,9 +20,6 @@
 mod runtime_api;
 mod storage_api;
 
-use runtime_api::RuntimeApi;
-use storage_api::StorageApi;
-
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
@@ -37,9 +34,11 @@ use pallet_revive::{
 	},
 	EthTransactError,
 };
+use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{ops::Range, sync::Arc, time::Duration};
+use storage_api::StorageApi;
 use subxt::{
 	backend::{
 		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
@@ -70,7 +69,7 @@ pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 pub type Balance = u128;
 
 /// The subscription type used to listen to new blocks.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SubscriptionType {
 	/// Subscribe to best blocks.
 	BestBlocks,
@@ -160,6 +159,11 @@ pub struct Client {
 	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
+	/// Whether the node has automine enabled.
+	automine: bool,
+	/// A notifier, that informs subscribers of new transaction hashes that are included in a
+	/// block, when automine is enabled.
+	tx_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -174,6 +178,17 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 	let weights = api.constants().at(&query)?;
 	let max_block = weights.per_class.normal.max_extrinsic.unwrap_or(weights.max_block);
 	Ok(max_block.0)
+}
+
+/// Get the automine status from the node.
+async fn get_automine(rpc_client: &RpcClient) -> bool {
+	match rpc_client.request::<bool>("getAutomine", rpc_params![]).await {
+		Ok(val) => val,
+		Err(err) => {
+			log::info!(target: LOG_TARGET, "Node does not have getAutomine RPC. Defaulting to automine=false. error: {err:?}");
+			false
+		},
+	}
 }
 
 /// Extract the block timestamp.
@@ -214,10 +229,12 @@ impl Client {
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
 	) -> Result<Self, ClientError> {
-		let (chain_id, max_block_weight) =
-			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
+		let (chain_id, max_block_weight, automine) =
+			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
+				Ok(get_automine(&rpc_client).await)
+			},)?;
 
-		Ok(Self {
+		let client = Self {
 			api,
 			rpc_client,
 			rpc,
@@ -226,7 +243,11 @@ impl Client {
 			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
-		})
+			automine,
+			tx_notifier: automine.then(|| tokio::sync::broadcast::channel::<H256>(10).0),
+		};
+
+		Ok(client)
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -329,6 +350,15 @@ impl Client {
 			self.block_provider.update_latest(block, subscription_type).await;
 
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
+
+			// Only broadcast for best blocks to avoid duplicate notifications.
+			match (subscription_type, &self.tx_notifier) {
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 =>
+					for receipt in &receipts {
+						let _ = sender.send(receipt.transaction_hash);
+					},
+				_ => {},
+			}
 			Ok(())
 		})
 		.await
@@ -682,6 +712,11 @@ impl Client {
 		self.max_block_weight
 	}
 
+	/// Get the block notifier, if automine is enabled.
+	pub fn tx_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
+		self.tx_notifier.clone()
+	}
+
 	/// Get the logs matching the given filter.
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
 		let logs =
@@ -702,5 +737,15 @@ impl Client {
 		self.fee_history_provider
 			.fee_history(block_count, latest_block.number(), reward_percentiles)
 			.await
+	}
+
+	/// Check if automine is enabled.
+	pub fn is_automine(&self) -> bool {
+		self.automine
+	}
+
+	/// Get the automine status from the node.
+	pub async fn get_automine(&self) -> bool {
+		get_automine(&self.rpc_client).await
 	}
 }
