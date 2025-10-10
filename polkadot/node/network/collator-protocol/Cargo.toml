@@ -51,7 +51,6 @@ itertools = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 
-
 [features]
 default = []
 experimental-collator-protocol = ["async-trait", "tokio"]
