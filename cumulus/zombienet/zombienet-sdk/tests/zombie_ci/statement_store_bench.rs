@@ -8,12 +8,8 @@ use codec::{Decode, Encode};
 use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
-use sp_statement_store::{Statement, Topic};
-use std::{
-	collections::HashMap,
-	sync::atomic::{AtomicBool, AtomicU64, Ordering},
-	time::Duration,
-};
+use sp_statement_store::{Channel, Statement, Topic};
+use std::{cell::Cell, collections::HashMap, time::Duration};
 use tokio::time::timeout;
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
@@ -23,10 +19,10 @@ use zombienet_sdk::{
 const GROUP_SIZE: u32 = 6;
 const PARTICIPANT_SIZE: u32 = GROUP_SIZE * 8333; // Target ~50,000 total
 const MESSAGE_SIZE: usize = 5 * 1024; // 5KiB
-const MESSAGE_COUNT: usize = 0;
+const MESSAGE_COUNT: usize = 1;
 const MAX_RETRIES: u32 = 100;
 const RETRY_DELAY_MS: u64 = 500;
-const RECEIVE_DELAY_MS: u64 = 1000;
+const PROPOGATION_DELAY_MS: u64 = 1000;
 const TIMEOUT_MS: u64 = 3000;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -46,7 +42,7 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		participants.push(Participant::new(i as u32, rpc_client.clone()));
+		participants.push(Participant::new(i as u32, rpc_client.clone(), false));
 	}
 
 	let handles: Vec<_> = participants
@@ -88,7 +84,7 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
 		let client_idx = i % collator_names.len();
-		participants.push(Participant::new(i as u32, rpc_clients[client_idx].clone()));
+		participants.push(Participant::new(i as u32, rpc_clients[client_idx].clone(), true));
 	}
 	info!(
 		"{} participants were distributed across {} nodes: {} participants per node",
@@ -293,7 +289,7 @@ async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				.with_chain_spec_path("tests/zombie_ci/people-rococo-spec.json")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lstatement-store=info".into(),
+					"-lstatement-store=info,statement-gossip=info,error".into(),
 					"--enable-statement-store".into(),
 					"--rpc-max-connections=50000".into(),
 				])
@@ -322,22 +318,9 @@ async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 }
 
 #[derive(Encode, Decode, Debug, Clone)]
-struct StatementRequest {
-	request_id: u32,
+struct StatementMessage {
+	message_id: u32,
 	data: Vec<u8>,
-}
-
-#[derive(Encode, Decode, Debug, Clone)]
-struct StatementResponse {
-	request_id: u32,
-	response_code: u8,
-}
-
-#[derive(Encode, Decode, Debug, Clone)]
-enum StatementAcknowledge {
-	SymmetricKeyReceived { sender_idx: u32 },
-	RequestReceived { sender_idx: u32, request_id: u32 },
-	ResponseReceived { sender_idx: u32, request_id: u32 },
 }
 
 #[derive(Debug, Clone)]
@@ -350,16 +333,12 @@ struct ParticipantStats {
 
 #[derive(Debug)]
 struct AggregatedStats {
-	total_participants: u32,
+	participants: u32,
+	sent: u32,
+	received: u32,
 	min_time: Duration,
 	max_time: Duration,
 	avg_time: Duration,
-	min_sent: u32,
-	max_sent: u32,
-	avg_sent: u32,
-	min_received: u32,
-	max_received: u32,
-	avg_received: u32,
 	min_retries: u32,
 	max_retries: u32,
 	avg_retries: u32,
@@ -367,41 +346,27 @@ struct AggregatedStats {
 
 impl ParticipantStats {
 	fn aggregate(all_stats: Vec<ParticipantStats>) -> AggregatedStats {
-		let total_participants = all_stats.len() as u32;
-		let total_sent: u32 = all_stats.iter().map(|s| s.sent_count).sum();
-		let total_received: u32 = all_stats.iter().map(|s| s.received_count).sum();
-		let total_retries: u32 = all_stats.iter().map(|s| s.retry_count).sum();
+		let participants = all_stats.len() as u32;
+		let sent = all_stats.iter().map(|s| s.sent_count).sum::<u32>() / participants;
+		let received = all_stats.iter().map(|s| s.received_count).sum::<u32>() / participants;
 
 		let min_time = all_stats.iter().map(|s| s.total_time).min().unwrap_or(Duration::ZERO);
 		let max_time = all_stats.iter().map(|s| s.total_time).max().unwrap_or(Duration::ZERO);
 		let avg_time = Duration::from_secs_f64(
-			all_stats.iter().map(|s| s.total_time.as_secs_f64()).sum::<f64>() /
-				total_participants as f64,
+			all_stats.iter().map(|s| s.total_time.as_secs_f64()).sum::<f64>() / participants as f64,
 		);
-
-		let min_sent = all_stats.iter().map(|s| s.sent_count).min().unwrap_or(0);
-		let max_sent = all_stats.iter().map(|s| s.sent_count).max().unwrap_or(0);
-		let avg_sent = total_sent / total_participants;
-
-		let min_received = all_stats.iter().map(|s| s.received_count).min().unwrap_or(0);
-		let max_received = all_stats.iter().map(|s| s.received_count).max().unwrap_or(0);
-		let avg_received = total_received / total_participants;
 
 		let min_retries = all_stats.iter().map(|s| s.retry_count).min().unwrap_or(0);
 		let max_retries = all_stats.iter().map(|s| s.retry_count).max().unwrap_or(0);
-		let avg_retries = total_retries / total_participants;
+		let avg_retries = all_stats.iter().map(|s| s.retry_count).sum::<u32>() / participants;
 
 		AggregatedStats {
-			total_participants,
+			participants,
+			sent,
+			received,
 			min_time,
 			max_time,
 			avg_time,
-			min_sent,
-			max_sent,
-			avg_sent,
-			min_received,
-			max_received,
-			avg_received,
 			min_retries,
 			max_retries,
 			avg_retries,
@@ -411,25 +376,22 @@ impl ParticipantStats {
 
 impl AggregatedStats {
 	fn log_summary(&self) {
-		info!("Statement store benchmark completed successfully");
-		info!("Participants: {}", self.total_participants);
+		info!("Statement store benchmark completed with {} participants", self.participants);
 		info!(
-			"Messages sent - Min: {}, Max: {}, Avg: {}",
-			self.min_sent, self.max_sent, self.avg_sent
+			"Participants: {}, each sent: {}, received: {}",
+			self.participants, self.sent, self.received
+		);
+		info!("Summary         min        avg        max");
+		info!(
+			" {:<8} {:>8}s  {:>8}s  {:>8}s",
+			"time",
+			self.min_time.as_secs(),
+			self.avg_time.as_secs(),
+			self.max_time.as_secs(),
 		);
 		info!(
-			"Messages received - Min: {}, Max: {}, Avg: {}",
-			self.min_received, self.max_received, self.avg_received
-		);
-		info!(
-			"Retries - Min: {}, Max: {}, Avg: {}",
-			self.min_retries, self.max_retries, self.avg_retries
-		);
-		info!(
-			"Time - Min: {:.2}s, Max: {:.2}s, Avg: {:.2}s",
-			self.min_time.as_secs_f64(),
-			self.max_time.as_secs_f64(),
-			self.avg_time.as_secs_f64()
+			" {:<8} {:>8}s  {:>8}s  {:>8}s",
+			"retries", self.min_retries, self.avg_retries, self.max_retries
 		);
 	}
 }
@@ -440,18 +402,14 @@ struct Participant {
 	session_key: sr25519::Pair,
 	group_members: Vec<u32>,
 	session_keys: HashMap<u32, sr25519::Public>,
-	symmetric_keys: HashMap<u32, sr25519::Public>,
-	sent_symmetric_key: HashMap<u32, bool>,
-	received_symmetric_key: HashMap<u32, bool>,
-	sent_req: HashMap<(u32, u32), bool>,
-	received_req: HashMap<(u32, u32), bool>,
-	sent_res: HashMap<(u32, u32), bool>,
-	received_res: HashMap<(u32, u32), bool>,
+	sent_messages: HashMap<(u32, u32), bool>,
+	received_messages: HashMap<(u32, u32), bool>,
 	sent_count: u32,
 	received_count: u32,
-	pending_res: HashMap<u32, Option<u32>>,
+	pending_messages: HashMap<u32, Option<u32>>,
 	retry_count: u32,
 	rpc_client: RpcClient,
+	with_propagation_delay: bool,
 }
 
 impl Participant {
@@ -459,7 +417,7 @@ impl Participant {
 		format!("participant_{}", self.idx)
 	}
 
-	fn new(idx: u32, rpc_client: RpcClient) -> Self {
+	fn new(idx: u32, rpc_client: RpcClient, with_propagation_delay: bool) -> Self {
 		debug!(target: &format!("participant_{}", idx), "Initializing participant {}", idx);
 		let (keyring, _) = sr25519::Pair::generate();
 		let (session_key, _) = sr25519::Pair::generate();
@@ -468,256 +426,41 @@ impl Participant {
 		let group_end = group_start + GROUP_SIZE;
 		let group_members: Vec<u32> = (group_start..group_end).filter(|&i| i != idx).collect();
 
-		let mut symmetric_keys = HashMap::new();
-		for &other_idx in &group_members {
-			if other_idx > idx {
-				let (pair, _) = sr25519::Pair::generate();
-				symmetric_keys.insert(other_idx, pair.public());
-			}
-		}
-
 		Self {
 			keyring,
 			session_key,
 			idx,
 			group_members,
 			session_keys: HashMap::new(),
-			symmetric_keys,
-			sent_symmetric_key: HashMap::new(),
-			received_symmetric_key: HashMap::new(),
-			sent_req: HashMap::new(),
-			received_req: HashMap::new(),
-			sent_res: HashMap::new(),
-			received_res: HashMap::new(),
-			pending_res: HashMap::new(),
+			sent_messages: HashMap::new(),
+			received_messages: HashMap::new(),
+			pending_messages: HashMap::new(),
 			sent_count: 0,
 			received_count: 0,
 			retry_count: 0,
 			rpc_client,
+			with_propagation_delay,
 		}
 	}
 
-	async fn retry_sleep(&mut self) -> Result<(), anyhow::Error> {
+	async fn wait_for_retry(&mut self) -> Result<(), anyhow::Error> {
 		if self.retry_count >= MAX_RETRIES {
-			return Err(anyhow!("[{}] No more retry attempts", self.idx))
+			return Err(anyhow!("No more retry attempts for participant {}", self.idx))
 		}
 
 		self.retry_count += 1;
 		if self.retry_count % 10 == 0 {
-			debug!(target: &self.log_target(), "[{}] Retry attempt {}", self.idx, self.retry_count);
+			debug!(target: &self.log_target(), "Retry attempt {}", self.retry_count);
 		}
-		let delay_ms = std::cmp::min(
-			RETRY_DELAY_MS * (1 << std::cmp::min(self.retry_count / 5, 4)),
-			TIMEOUT_MS,
-		);
-		tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+		tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
 
 		Ok(())
 	}
 
-	async fn receive_sleep(&mut self) {
-		tokio::time::sleep(tokio::time::Duration::from_millis(RECEIVE_DELAY_MS)).await;
-	}
-
-	async fn receive_statements_with_retry<T, F, R>(
-		&mut self,
-		mut pending: Vec<T>,
-		topic_generator: F,
-		result_processor: R,
-	) -> Result<(), anyhow::Error>
-	where
-		T: Clone + PartialEq + std::fmt::Debug,
-		F: Fn(&T) -> Vec<Topic>,
-		R: Fn(&mut Self, &T, &Statement) -> Result<bool, anyhow::Error>,
-	{
-		while !pending.is_empty() {
-			let mut completed_this_round = Vec::new();
-
-			for item in &pending {
-				match timeout(
-					Duration::from_millis(TIMEOUT_MS),
-					self.statement_broadcasts_statement(topic_generator(item)),
-				)
-				.await
-				{
-					Ok(Ok(statements)) if !statements.is_empty() => {
-						if let Some(statement) = statements.first() {
-							match result_processor(self, item, statement) {
-								Ok(true) => completed_this_round.push(item.clone()),
-								Ok(false) => {}, // Continue waiting for this item
-								Err(e) => return Err(e),
-							}
-						}
-					},
-					Ok(Ok(statements)) if statements.is_empty() => {
-						debug!(target: &self.log_target(), "[{}] No statements received for item {:?}", self.idx, item);
-					},
-					err => {
-						debug!(target: &self.log_target(), "[{}] Cannot receive statements for item {:?}, err: {:?}", self.idx, item, err);
-					},
-				}
-			}
-
-			for completed_item in completed_this_round {
-				pending.retain(|x| x != &completed_item);
-			}
-
-			if !pending.is_empty() {
-				self.retry_sleep().await?;
-			}
+	async fn wait_for_propagation(&mut self) {
+		if self.with_propagation_delay {
+			tokio::time::sleep(tokio::time::Duration::from_millis(PROPOGATION_DELAY_MS)).await;
 		}
-
-		Ok(())
-	}
-
-	async fn send_session_key(&mut self) -> Result<(), anyhow::Error> {
-		let statement = self.public_key_statement();
-		self.statement_submit(statement).await
-	}
-
-	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
-		let group_members = self.group_members.clone();
-
-		self.receive_statements_with_retry(
-			group_members,
-			|&idx| topics_session_key(idx),
-			|participant, &idx, statement| {
-				let data = statement.data().expect("Must contain session_key");
-				let session_key = sr25519::Public::from_raw(data[..].try_into()?);
-				participant.session_keys.insert(idx, session_key);
-				Ok(true)
-			},
-		)
-		.await?;
-
-		assert_eq!(
-			self.session_keys.len(),
-			self.group_members.len(),
-			"Not every session key received"
-		);
-
-		Ok(())
-	}
-
-	async fn send_symmetric_keys(&mut self) -> Result<(), anyhow::Error> {
-		let group_members = self.group_members.clone();
-		for receiver_idx in group_members {
-			let Some(statement) = self.symmetric_key_statement(receiver_idx) else { continue };
-			self.statement_submit(statement).await?;
-			self.sent_symmetric_key.insert(receiver_idx, false);
-		}
-
-		assert_eq!(
-			self.sent_symmetric_key.len(),
-			self.group_members.iter().filter(|&i| *i > self.idx).count(),
-			"Not every symmetric key sent"
-		);
-
-		Ok(())
-	}
-
-	async fn receive_symmetric_keys(&mut self) -> Result<(), anyhow::Error> {
-		let session_keys = self.session_keys.clone();
-		let pending: Vec<(u32, sr25519::Public)> = session_keys
-			.into_iter()
-			.filter(|(sender_idx, _)| *sender_idx < self.idx)
-			.collect();
-
-		let own_session_key = self.session_key.public();
-		self.receive_statements_with_retry(
-			pending,
-			|&(_, sender_session_key)| topics_symmetric_key(&sender_session_key, &own_session_key),
-			|participant, &(sender_idx, _), statement| {
-				let data = statement.data().expect("Must contain symmetric key");
-				let symmetric_key = sr25519::Public::from_raw(
-					data.as_slice()
-						.try_into()
-						.map_err(|e| anyhow!("Failed to parse symmetric key: {}", e))?,
-				);
-				participant.symmetric_keys.insert(sender_idx, symmetric_key);
-				participant.received_symmetric_key.insert(sender_idx, false);
-				Ok(true)
-			},
-		)
-		.await?;
-
-		assert_eq!(
-			self.symmetric_keys.len(),
-			self.group_members.len(),
-			"Not every symmetric key received"
-		);
-		assert_eq!(
-			self.received_symmetric_key.len(),
-			self.group_members.iter().filter(|&i| *i < self.idx).count(),
-			"Not every symmetric key received"
-		);
-
-		Ok(())
-	}
-
-	async fn send_symmetric_key_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let received_keys: Vec<u32> = self
-			.received_symmetric_key
-			.iter()
-			.filter(|(_, &sent)| !sent)
-			.map(|(&idx, _)| idx)
-			.collect();
-
-		for sender_idx in received_keys {
-			if let Some(statement) = self.create_symmetric_key_ack_statement(sender_idx) {
-				self.statement_submit(statement).await?;
-				self.received_symmetric_key.insert(sender_idx, true);
-			}
-		}
-
-		assert!(
-			self.received_symmetric_key.values().all(|ack| *ack),
-			"Not every symmetric key ack sent"
-		);
-
-		Ok(())
-	}
-
-	async fn receive_symmetric_key_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let pending: Vec<(u32, sr25519::Public)> = self
-			.sent_symmetric_key
-			.iter()
-			.filter(|(_, &received)| !received)
-			.map(|(&receiver_idx, _)| {
-				let receiver_session_key =
-					*self.session_keys.get(&receiver_idx).expect("Receiver already exists");
-				(receiver_idx, receiver_session_key)
-			})
-			.collect();
-
-		let own_session_key = self.session_key.public();
-		self.receive_statements_with_retry(
-			pending,
-			|&(_, receiver_session_key)| topics_ack(&receiver_session_key, &own_session_key),
-			|participant, &(receiver_idx, _), statement| {
-				let data = statement.data().expect("Must contain acknowledgment");
-				let ack = StatementAcknowledge::decode(&mut &data[..])?;
-
-				match ack {
-					StatementAcknowledge::SymmetricKeyReceived { sender_idx: ack_sender_idx } =>
-						if ack_sender_idx == receiver_idx {
-							participant.sent_symmetric_key.insert(receiver_idx, true);
-							Ok(true)
-						} else {
-							Ok(false)
-						},
-					_ => Ok(false),
-				}
-			},
-		)
-		.await?;
-
-		assert!(
-			self.sent_symmetric_key.values().all(|ack| *ack),
-			"Not every symmetric key ack received"
-		);
-
-		Ok(())
 	}
 
 	async fn statement_submit(&mut self, statement: Statement) -> Result<(), anyhow::Error> {
@@ -728,7 +471,7 @@ impl Participant {
 			.await?;
 
 		self.sent_count += 1;
-		trace!(target: &self.log_target(), "[{}] Submitted statement (counter: {})", self.idx, self.sent_count);
+		trace!(target: &self.log_target(), "Submitted statement (counter: {})", self.sent_count);
 
 		Ok(())
 	}
@@ -749,14 +492,14 @@ impl Participant {
 		}
 
 		self.received_count += decoded_statements.len() as u32;
-		trace!(target: &self.log_target(), "[{}] Received {} statements (counter: {})", self.idx, decoded_statements.len(), self.received_count);
+		trace!(target: &self.log_target(), "Received {} statements (counter: {})", decoded_statements.len(), self.received_count);
 
 		Ok(decoded_statements)
 	}
 
-	fn public_key_statement(&self) -> Statement {
+	fn create_session_key_statement(&self) -> Statement {
 		let mut statement = Statement::new();
-		statement.set_channel([0u8; 32]);
+		statement.set_channel(channel_public_key());
 		statement.set_priority(self.sent_count);
 		statement.set_topic(0, topic_public_key());
 		statement.set_topic(1, topic_idx(self.idx));
@@ -766,49 +509,22 @@ impl Participant {
 		statement
 	}
 
-	fn symmetric_key_statement(&self, receiver_idx: u32) -> Option<Statement> {
-		let (Some(symmetric_key), Some(receiver_session_key)) =
-			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
-		else {
-			return None
-		};
+	fn create_message_statement(&mut self, receiver_idx: u32) -> Option<(Statement, u32)> {
+		let Some(receiver_session_key) = self.session_keys.get(&receiver_idx) else { return None };
 
-		let mut statement = Statement::new();
-
-		let topic = topic_pair(&self.session_key.public(), receiver_session_key);
-		let channel = channel_pair(&self.session_key.public(), receiver_session_key);
-
-		statement.set_channel(channel);
-		statement.set_priority(self.sent_count);
-		statement.set_topic(0, topic);
-		statement.set_plain_data(symmetric_key.to_vec());
-		statement.sign_sr25519_private(&self.keyring);
-
-		Some(statement)
-	}
-
-	fn create_request_statement(&mut self, receiver_idx: u32) -> Option<(Statement, u32)> {
-		let (Some(_symmetric_key), Some(receiver_session_key)) =
-			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
-		else {
-			return None
-		};
-
-		let request_id = self.sent_count;
-
-		// Create 5KiB payload
+		let message_id = self.sent_count;
 		let mut data = vec![0u8; MESSAGE_SIZE];
 		for (i, byte) in data.iter_mut().enumerate() {
 			*byte = (i % 256) as u8; // Simple pattern for testing
 		}
 
-		let request = StatementRequest { request_id, data };
+		let request = StatementMessage { message_id, data };
 		let request_data = request.encode();
 		let mut statement = Statement::new();
 
-		let topic0 = blake2_256(b"request");
+		let topic0 = topic_message();
 		let topic1 = topic_pair(&self.session_key.public(), receiver_session_key);
-		let channel = channel_request(&self.session_key.public(), receiver_session_key);
+		let channel = channel_message(&self.session_key.public(), receiver_session_key);
 
 		statement.set_topic(0, topic0);
 		statement.set_topic(1, topic1);
@@ -817,116 +533,67 @@ impl Participant {
 		statement.set_plain_data(request_data);
 		statement.sign_sr25519_private(&self.keyring);
 
-		Some((statement, request_id))
+		Some((statement, message_id))
 	}
 
-	fn create_response_statement(
-		&mut self,
-		request_id: u32,
-		receiver_idx: u32,
-	) -> Option<Statement> {
-		let (Some(_symmetric_key), Some(receiver_session_key)) =
-			(self.symmetric_keys.get(&receiver_idx), self.session_keys.get(&receiver_idx))
-		else {
-			return None
-		};
-
-		let response = StatementResponse { request_id, response_code: 0 };
-		let response_data = response.encode();
-
-		let mut statement = Statement::new();
-
-		let topic0 = blake2_256(b"response");
-		let topic1 = topic_pair(&self.session_key.public(), receiver_session_key);
-		let channel = channel_response(&self.session_key.public(), receiver_session_key);
-
-		statement.set_topic(0, topic0);
-		statement.set_topic(1, topic1);
-		statement.set_channel(channel);
-		statement.set_priority(self.sent_count);
-		statement.set_plain_data(response_data);
-		statement.sign_sr25519_private(&self.keyring);
-
-		Some(statement)
+	async fn send_session_key(&mut self) -> Result<(), anyhow::Error> {
+		let statement = self.create_session_key_statement();
+		self.statement_submit(statement).await
 	}
 
-	fn create_symmetric_key_ack_statement(&self, sender_idx: u32) -> Option<Statement> {
-		let sender_session_key = self.session_keys.get(&sender_idx)?;
+	async fn receive_session_keys(&mut self) -> Result<(), anyhow::Error> {
+		let mut pending = self.group_members.clone();
 
-		let ack = StatementAcknowledge::SymmetricKeyReceived { sender_idx: self.idx };
-		let ack_data = ack.encode();
+		loop {
+			let mut completed_this_round = Vec::new();
+			for &idx in &pending {
+				match timeout(
+					Duration::from_millis(TIMEOUT_MS),
+					self.statement_broadcasts_statement(vec![topic_public_key(), topic_idx(idx)]),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain session_key");
+							let session_key = sr25519::Public::from_raw(data[..].try_into()?);
+							self.session_keys.insert(idx, session_key);
+							completed_this_round.push(idx);
+						}
+					},
+					res => {
+						debug!(target: &self.log_target(), "No statements received for idx {:?}: {:?}", idx, res);
+					},
+				}
+			}
 
-		let mut statement = Statement::new();
-
-		let topic0 = topic_ack();
-		let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
-		let channel = channel_pair(&self.session_key.public(), sender_session_key);
-
-		statement.set_topic(0, topic0);
-		statement.set_topic(1, topic1);
-		statement.set_channel(channel);
-		statement.set_priority(self.sent_count);
-		statement.set_plain_data(ack_data);
-		statement.sign_sr25519_private(&self.keyring);
-
-		Some(statement)
-	}
-
-	fn create_request_ack_statement(&self, sender_idx: u32, request_id: u32) -> Option<Statement> {
-		let sender_session_key = self.session_keys.get(&sender_idx)?;
-
-		let ack = StatementAcknowledge::RequestReceived { sender_idx: self.idx, request_id };
-		let ack_data = ack.encode();
-
-		let mut statement = Statement::new();
-
-		let topic0 = topic_ack();
-		let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
-		let channel = channel_pair(&self.session_key.public(), sender_session_key);
-
-		statement.set_topic(0, topic0);
-		statement.set_topic(1, topic1);
-		statement.set_channel(channel);
-		statement.set_priority(self.sent_count);
-		statement.set_plain_data(ack_data);
-		statement.sign_sr25519_private(&self.keyring);
-
-		Some(statement)
-	}
-
-	fn create_response_ack_statement(&self, sender_idx: u32, request_id: u32) -> Option<Statement> {
-		let sender_session_key = self.session_keys.get(&sender_idx)?;
-
-		let ack = StatementAcknowledge::ResponseReceived { sender_idx: self.idx, request_id };
-		let ack_data = ack.encode();
-
-		let mut statement = Statement::new();
-
-		let topic0 = topic_ack();
-		let topic1 = topic_pair(&self.session_key.public(), sender_session_key);
-		let channel = channel_pair(&self.session_key.public(), sender_session_key);
-
-		statement.set_topic(0, topic0);
-		statement.set_topic(1, topic1);
-		statement.set_channel(channel);
-		statement.set_priority(self.sent_count);
-		statement.set_plain_data(ack_data);
-		statement.sign_sr25519_private(&self.keyring);
-
-		Some(statement)
-	}
-
-	async fn send_requests(&mut self, round: usize) -> Result<(), anyhow::Error> {
-		let group_members = self.group_members.clone();
-		for receiver_idx in group_members {
-			let (statement, request_id) =
-				self.create_request_statement(receiver_idx).expect("Receiver must present");
-			self.statement_submit(statement).await?;
-			self.sent_req.insert((receiver_idx, request_id), false);
+			pending.retain(|x| !completed_this_round.contains(&x));
+			if pending.is_empty() {
+				break;
+			}
+			self.wait_for_retry().await?;
 		}
 
 		assert_eq!(
-			self.sent_req.len(),
+			self.session_keys.len(),
+			self.group_members.len(),
+			"Not every session key received"
+		);
+
+		Ok(())
+	}
+
+	async fn send_messages(&mut self, round: usize) -> Result<(), anyhow::Error> {
+		let group_members = self.group_members.clone();
+		for receiver_idx in group_members {
+			let (statement, request_id) =
+				self.create_message_statement(receiver_idx).expect("Receiver must present");
+			self.statement_submit(statement).await?;
+			self.sent_messages.insert((receiver_idx, request_id), false);
+		}
+
+		assert_eq!(
+			self.sent_messages.len(),
 			self.group_members.len() * (round + 1),
 			"Not every request sent"
 		);
@@ -934,37 +601,55 @@ impl Participant {
 		Ok(())
 	}
 
-	async fn receive_requests(&mut self, round: usize) -> Result<(), anyhow::Error> {
-		let session_keys = self.session_keys.clone();
-		let pending: Vec<(u32, sr25519::Public)> =
-			session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
-
+	async fn receive_messages(&mut self, round: usize) -> Result<(), anyhow::Error> {
+		let mut pending: Vec<(u32, sr25519::Public)> =
+			self.session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
 		let own_session_key = self.session_key.public();
-		self.receive_statements_with_retry(
-			pending,
-			|&(_, sender_session_key)| topics_request(&sender_session_key, &own_session_key),
-			|participant, &(sender_idx, _), statement| {
-				let data = statement.data().expect("Must contain request");
-				let req = StatementRequest::decode(&mut &data[..])?;
 
-				if !participant.received_req.contains_key(&(sender_idx, req.request_id)) {
-					participant.received_req.insert((sender_idx, req.request_id), false);
-					participant.pending_res.insert(sender_idx, Some(req.request_id));
-					Ok(true)
-				} else {
-					Ok(false)
+		loop {
+			let mut completed_this_round = Vec::new();
+			for &(sender_idx, sender_session_key) in &pending {
+				match timeout(
+					Duration::from_millis(TIMEOUT_MS),
+					self.statement_broadcasts_statement(vec![
+						topic_message(),
+						topic_pair(&sender_session_key, &own_session_key),
+					]),
+				)
+				.await
+				{
+					Ok(Ok(statements)) if !statements.is_empty() => {
+						if let Some(statement) = statements.first() {
+							let data = statement.data().expect("Must contain request");
+							let req = StatementMessage::decode(&mut &data[..])?;
+
+							if !self.received_messages.contains_key(&(sender_idx, req.message_id)) {
+								self.received_messages.insert((sender_idx, req.message_id), false);
+								self.pending_messages.insert(sender_idx, Some(req.message_id));
+								completed_this_round.push((sender_idx, sender_session_key));
+							}
+						}
+					},
+					res => {
+						debug!(target: &self.log_target(), "No statements received for sender {:?}: {:?}", sender_idx, res);
+					},
 				}
-			},
-		)
-		.await?;
+			}
+
+			pending.retain(|x| !completed_this_round.contains(&x));
+			if pending.is_empty() {
+				break;
+			}
+			self.wait_for_retry().await?;
+		}
 
 		assert_eq!(
-			self.received_req.len(),
+			self.received_messages.len(),
 			self.group_members.len() * (round + 1),
 			"Not every request received"
 		);
 		assert_eq!(
-			self.pending_res.values().filter(|i| i.is_some()).count(),
+			self.pending_messages.values().filter(|i| i.is_some()).count(),
 			self.group_members.len(),
 			"Not every request received"
 		);
@@ -972,220 +657,19 @@ impl Participant {
 		Ok(())
 	}
 
-	async fn send_responses(&mut self, round: usize) -> Result<(), anyhow::Error> {
-		let group_members = self.group_members.clone();
-		for receiver_idx in group_members {
-			if let Some(req_id) = self.pending_res.get_mut(&receiver_idx).and_then(|r| r.take()) {
-				let statement = self
-					.create_response_statement(req_id, receiver_idx)
-					.expect("Receiver must present");
-				self.statement_submit(statement).await?;
-				self.sent_res.insert((receiver_idx, req_id), false);
-			}
-		}
-
-		assert_eq!(
-			self.sent_res.len(),
-			self.group_members.len() * (round + 1),
-			"Not every response sent"
-		);
-		assert!(self.pending_res.values().all(|i| i.is_none()), "Not every response sent");
-
-		Ok(())
-	}
-
-	async fn send_request_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let received_req: Vec<(u32, u32)> = self
-			.received_req
-			.iter()
-			.filter(|(_, &sent)| !sent)
-			.map(|(&(sender_idx, request_id), _)| (sender_idx, request_id))
-			.collect();
-
-		for (sender_idx, request_id) in received_req {
-			if let Some(statement) = self.create_request_ack_statement(sender_idx, request_id) {
-				self.statement_submit(statement).await?;
-				self.received_req.insert((sender_idx, request_id), true);
-			}
-		}
-
-		assert!(self.received_req.values().all(|ack| *ack), "Not every request ack sent");
-
-		Ok(())
-	}
-
-	async fn receive_request_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let pending: Vec<(u32, u32, sr25519::Public)> = self
-			.sent_req
-			.iter()
-			.filter(|(_, &received)| !received)
-			.map(|(&(receiver_idx, request_id), _)| {
-				let receiver_session_key =
-					*self.session_keys.get(&receiver_idx).expect("Receiver already exists");
-				(receiver_idx, request_id, receiver_session_key)
-			})
-			.collect();
-
-		let own_session_key = self.session_key.public();
-		self.receive_statements_with_retry(
-			pending,
-			|&(_, _, receiver_session_key)| topics_ack(&receiver_session_key, &own_session_key),
-			|participant, &(receiver_idx, request_id, _), statement| {
-				let data = statement.data().expect("Must contain acknowledgment");
-				let ack = StatementAcknowledge::decode(&mut &data[..])?;
-				match ack {
-					StatementAcknowledge::RequestReceived {
-						sender_idx: ack_sender_idx,
-						request_id: ack_request_id,
-					} =>
-						if ack_sender_idx == receiver_idx && ack_request_id == request_id {
-							participant.sent_req.insert((receiver_idx, request_id), true);
-							Ok(true)
-						} else {
-							Ok(false)
-						},
-					_ => Ok(false),
-				}
-			},
-		)
-		.await?;
-
-		assert!(self.sent_req.values().all(|ack| *ack), "Not every request ack received");
-
-		Ok(())
-	}
-
-	async fn receive_responses(&mut self, round: usize) -> Result<(), anyhow::Error> {
-		let session_keys = self.session_keys.clone();
-		let pending: Vec<(u32, sr25519::Public)> =
-			session_keys.iter().map(|(&idx, &key)| (idx, key)).collect();
-
-		let own_session_key = self.session_key.public();
-		self.receive_statements_with_retry(
-			pending,
-			|&(_, sender_session_key)| topics_response(&sender_session_key, &own_session_key),
-			|participant, &(sender_idx, _), statement| {
-				let data = statement.data().expect("Must contain response");
-				let res = StatementResponse::decode(&mut &data[..])?;
-				if !participant.received_res.contains_key(&(sender_idx, res.request_id)) {
-					participant.received_res.insert((sender_idx, res.request_id), false);
-					Ok(true)
-				} else {
-					Ok(false)
-				}
-			},
-		)
-		.await?;
-
-		assert_eq!(
-			self.received_res.len(),
-			self.group_members.len() * (round + 1),
-			"Not every response received"
-		);
-
-		Ok(())
-	}
-
-	async fn send_response_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let received_res: Vec<(u32, u32)> = self
-			.received_res
-			.iter()
-			.filter(|(_, &sent)| !sent)
-			.map(|(&(sender_idx, request_id), _)| (sender_idx, request_id))
-			.collect();
-
-		for (sender_idx, request_id) in received_res {
-			if let Some(statement) = self.create_response_ack_statement(sender_idx, request_id) {
-				self.statement_submit(statement).await?;
-				self.received_res.insert((sender_idx, request_id), true);
-			}
-		}
-
-		assert!(self.received_res.values().all(|ack| *ack), "Not every response ack sent");
-
-		Ok(())
-	}
-
-	async fn receive_response_acknowledgments(&mut self) -> Result<(), anyhow::Error> {
-		let pending: Vec<(u32, u32, sr25519::Public)> = self
-			.sent_res
-			.iter()
-			.filter(|(_, &received)| !received)
-			.map(|(&(receiver_idx, request_id), _)| {
-				let receiver_session_key =
-					*self.session_keys.get(&receiver_idx).expect("Receiver already exists");
-				(receiver_idx, request_id, receiver_session_key)
-			})
-			.collect();
-
-		let own_session_key = self.session_key.public();
-		self.receive_statements_with_retry(
-			pending,
-			|&(_, _, receiver_session_key)| topics_ack(&receiver_session_key, &own_session_key),
-			|participant, &(receiver_idx, request_id, _), statement| {
-				let data = statement.data().expect("Must contain acknowledgment");
-				let ack = StatementAcknowledge::decode(&mut &data[..])?;
-				match ack {
-					StatementAcknowledge::ResponseReceived {
-						sender_idx: ack_sender_idx,
-						request_id: ack_request_id,
-					} =>
-						if ack_sender_idx == receiver_idx && ack_request_id == request_id {
-							participant.sent_res.insert((receiver_idx, request_id), true);
-							Ok(true)
-						} else {
-							Ok(false)
-						},
-					_ => Ok(false),
-				}
-			},
-		)
-		.await?;
-
-		assert!(self.sent_res.values().all(|ack| *ack), "Not every response ack received");
-
-		Ok(())
-	}
-
 	async fn run(&mut self) -> Result<ParticipantStats, anyhow::Error> {
 		let start_time = std::time::Instant::now();
-		debug!(target: &self.log_target(), "[{}] Session keys exchange", self.idx);
+
+		debug!(target: &self.log_target(), "Session keys exchange");
 		self.send_session_key().await?;
-		self.receive_sleep().await;
+		self.wait_for_propagation().await;
 		self.receive_session_keys().await?;
 
-		debug!(target: &self.log_target(), "[{}] Symmetric keys exchange", self.idx);
-		self.send_symmetric_keys().await?;
-		self.receive_sleep().await;
-		self.receive_symmetric_keys().await?;
-
-		debug!(target: &self.log_target(), "[{}] Symmetric key acknowledgments exchange", self.idx);
-		self.send_symmetric_key_acknowledgments().await?;
-		self.receive_sleep().await;
-		self.receive_symmetric_key_acknowledgments().await?;
-
-		debug!(target: &self.log_target(), "[{}] Preparation finished", self.idx);
-
 		for round in 0..MESSAGE_COUNT {
-			debug!(target: &self.log_target(), "[{}] Requests exchange, round {}", self.idx, round + 1);
-			self.send_requests(round).await?;
-			self.receive_sleep().await;
-			self.receive_requests(round).await?;
-
-			debug!(target: &self.log_target(), "[{}] Request acknowledgments exchange, round {}", self.idx, round + 1);
-			self.send_request_acknowledgments().await?;
-			self.receive_sleep().await;
-			self.receive_request_acknowledgments().await?;
-
-			debug!(target: &self.log_target(), "[{}] Responses exchange, round {}", self.idx, round + 1);
-			self.send_responses(round).await?;
-			self.receive_sleep().await;
-			self.receive_responses(round).await?;
-
-			debug!(target: &self.log_target(), "[{}] Response acknowledgments exchange, round {}", self.idx, round + 1);
-			self.send_response_acknowledgments().await?;
-			self.receive_sleep().await;
-			self.receive_response_acknowledgments().await?;
+			debug!(target: &self.log_target(), "Messages exchange, round {}", round + 1);
+			self.send_messages(round).await?;
+			self.wait_for_propagation().await;
+			self.receive_messages(round).await?;
 		}
 
 		let elapsed = start_time.elapsed();
@@ -1200,21 +684,11 @@ impl Participant {
 }
 
 fn topic_public_key() -> Topic {
-	let mut topic = [0u8; 32];
-	let source = b"public key";
-	let len = source.len().min(32);
-	topic[..len].copy_from_slice(&source[..len]);
-	topic
-}
-
-fn topic_ack() -> Topic {
-	blake2_256(b"ack")
+	blake2_256(b"public key")
 }
 
 fn topic_idx(idx: u32) -> Topic {
-	let mut topic = [0u8; 32];
-	topic[..4].copy_from_slice(&idx.to_le_bytes());
-	topic
+	blake2_256(&idx.to_le_bytes())
 }
 
 fn topic_pair(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
@@ -1224,47 +698,17 @@ fn topic_pair(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
 	blake2_256(&data)
 }
 
-fn topics_session_key(idx: u32) -> Vec<Topic> {
-	vec![topic_public_key(), topic_idx(idx)]
+fn topic_message() -> Topic {
+	blake2_256(b"message")
 }
 
-fn topics_symmetric_key(
-	sender_key: &sr25519::Public,
-	receiver_key: &sr25519::Public,
-) -> Vec<Topic> {
-	vec![topic_pair(sender_key, receiver_key)]
+fn channel_public_key() -> Channel {
+	[0u8; 32]
 }
 
-fn topics_request(sender_key: &sr25519::Public, receiver_key: &sr25519::Public) -> Vec<Topic> {
-	vec![blake2_256(b"request"), topic_pair(sender_key, receiver_key)]
-}
-
-fn topics_response(sender_key: &sr25519::Public, receiver_key: &sr25519::Public) -> Vec<Topic> {
-	vec![blake2_256(b"response"), topic_pair(sender_key, receiver_key)]
-}
-
-fn topics_ack(sender_key: &sr25519::Public, receiver_key: &sr25519::Public) -> Vec<Topic> {
-	vec![topic_ack(), topic_pair(sender_key, receiver_key)]
-}
-
-fn channel_pair(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
+fn channel_message(sender: &sr25519::Public, receiver: &sr25519::Public) -> Channel {
 	let mut data = Vec::new();
-	data.extend_from_slice(sender.as_ref());
-	data.extend_from_slice(receiver.as_ref());
-	blake2_256(&data)
-}
-
-fn channel_request(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
-	let mut data = Vec::new();
-	data.extend_from_slice(b"request");
-	data.extend_from_slice(sender.as_ref());
-	data.extend_from_slice(receiver.as_ref());
-	blake2_256(&data)
-}
-
-fn channel_response(sender: &sr25519::Public, receiver: &sr25519::Public) -> Topic {
-	let mut data = Vec::new();
-	data.extend_from_slice(b"response");
+	data.extend_from_slice(b"message");
 	data.extend_from_slice(sender.as_ref());
 	data.extend_from_slice(receiver.as_ref());
 	blake2_256(&data)
