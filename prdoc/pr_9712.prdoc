@@ -17,6 +17,6 @@ crates:
 - name: cumulus-pallet-aura-ext
   bump: patch
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
 - name: xcm-emulator
-  bump: major
+  bump: minor
