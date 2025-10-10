@@ -1,0 +1,11 @@
+title: Rate limit `DisputeRequest` sending in `dispute-distribution` to avoid overloading slow receivers
+doc:
+- audience: Node Dev
+  description: |-
+    Add a backoff when a peer rejects `DisputeRequest request.
+
+crates:
+- name: polkadot-dispute-distribution
+  bump: patch
+- name: polkadot-node-network-protocol
+  bump: minor
