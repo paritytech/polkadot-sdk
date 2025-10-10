@@ -957,7 +957,7 @@ fn find_potential_parents_in_allowed_ancestry() {
 
 	let potential_parents = block_on(find_potential_parents(
 		ParentSearchParams {
-			relay_parent,
+			relay_best_block: relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 0,
 			max_depth: 0,
@@ -992,7 +992,7 @@ fn find_potential_parents_in_allowed_ancestry() {
 	);
 	let potential_parents = block_on(find_potential_parents(
 		ParentSearchParams {
-			relay_parent: search_relay_parent,
+			relay_best_block: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 2,
 			max_depth: 1,
@@ -1013,7 +1013,7 @@ fn find_potential_parents_in_allowed_ancestry() {
 	// Reduce allowed ancestry.
 	let potential_parents = block_on(find_potential_parents(
 		ParentSearchParams {
-			relay_parent: search_relay_parent,
+			relay_best_block: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 1,
 			max_depth: 1,
@@ -1071,7 +1071,7 @@ fn find_potential_pending_parent() {
 
 	let potential_parents = block_on(find_potential_parents(
 		ParentSearchParams {
-			relay_parent: search_relay_parent,
+			relay_best_block: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 0,
 			max_depth: 1,
@@ -1141,7 +1141,7 @@ fn find_potential_parents_with_max_depth() {
 	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
 		let potential_parents = block_on(find_potential_parents(
 			ParentSearchParams {
-				relay_parent,
+				relay_best_block: relay_parent,
 				para_id: ParaId::from(100),
 				ancestry_lookback: 0,
 				max_depth,
@@ -1192,7 +1192,7 @@ fn find_potential_parents_unknown_included() {
 	// Ignore alternative branch:
 	let potential_parents = block_on(find_potential_parents(
 		ParentSearchParams {
-			relay_parent: search_relay_parent,
+			relay_best_block: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 1, // aligned chain is in ancestry.
 			max_depth: NON_INCLUDED_CHAIN_LEN,
@@ -1252,7 +1252,7 @@ fn find_potential_parents_unknown_pending() {
 	// Ignore alternative branch:
 	let potential_parents = block_on(find_potential_parents(
 		ParentSearchParams {
-			relay_parent: search_relay_parent,
+			relay_best_block: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 1, // aligned chain is in ancestry.
 			max_depth: NON_INCLUDED_CHAIN_LEN,
@@ -1362,7 +1362,7 @@ fn find_potential_parents_aligned_with_late_pending() {
 	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
 		let potential_parents = block_on(find_potential_parents(
 			ParentSearchParams {
-				relay_parent: search_relay_parent,
+				relay_best_block: search_relay_parent,
 				para_id: ParaId::from(100),
 				ancestry_lookback: 1, // aligned chain is in ancestry.
 				max_depth,
@@ -1471,7 +1471,7 @@ fn find_potential_parents_aligned_with_pending() {
 	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
 		let potential_parents = block_on(find_potential_parents(
 			ParentSearchParams {
-				relay_parent: search_relay_parent,
+				relay_best_block: search_relay_parent,
 				para_id: ParaId::from(100),
 				ancestry_lookback: 1, // aligned chain is in ancestry.
 				max_depth,
@@ -1562,7 +1562,7 @@ fn find_potential_parents_aligned_no_pending() {
 	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
 		let potential_parents_aligned = block_on(find_potential_parents(
 			ParentSearchParams {
-				relay_parent: search_relay_parent,
+				relay_best_block: search_relay_parent,
 				para_id: ParaId::from(100),
 				ancestry_lookback: 1, // aligned chain is in ancestry.
 				max_depth,
@@ -1573,7 +1573,7 @@ fn find_potential_parents_aligned_no_pending() {
 		.unwrap();
 		let potential_parents = block_on(find_potential_parents(
 			ParentSearchParams {
-				relay_parent: search_relay_parent,
+				relay_best_block: search_relay_parent,
 				para_id: ParaId::from(100),
 				ancestry_lookback: 1,
 				max_depth,

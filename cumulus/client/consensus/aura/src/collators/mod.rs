@@ -226,7 +226,7 @@ where
 	Block: BlockT,
 {
 	let parent_search_params = ParentSearchParams {
-		relay_parent,
+		relay_best_block: relay_parent,
 		para_id,
 		ancestry_lookback: scheduling_lookahead(relay_parent, relay_client)
 			.await
