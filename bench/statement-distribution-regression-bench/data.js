@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1760116883297,
+  "lastUpdate": 1760120083744,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "32168055+antkve@users.noreply.github.com",
-            "name": "Anthony Kveder",
-            "username": "antkve"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "187cddde3799b5761c8036aaf137b93ba09fa526",
-          "message": "Moved Rococo and Westend primitives (#8177)\n\n# Description\n\nMoved the Rococo and Westend bridge- and asset- hub bridge primitives\ninto cumulus/parachains/runtimes/rococo(westend)/bridge-primitives, as\nwell as chain-rococo and chain-westend into polkadot/runtime as per the\nthird task of [this\nissue](https://github.com/paritytech/parity-bridges-common/issues/2950)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-04-10T02:19:57Z",
-          "tree_id": "405b7824fcac509cd5e593f4346dbf707bc0db08",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/187cddde3799b5761c8036aaf137b93ba09fa526"
-        },
-        "date": 1744256840850,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96599999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03421286673799999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04531407034599995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04482160289199992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d65db6ef34c0e7b99655576fe2861105557afb97",
+          "message": "[pallet-revive] Implement the consume_all_gas syscall (#9997)\n\nThis PR implements a new API `consume_all_gas` which is required for\n100% EVM `INVALID` opcode compatibility.\n\nSince ceding of all remaining gas is handled in the EVM interpreter, I\ndecided to not add a return flag but make this a dedicated syscall for\nconsistency instead.\n\nDidn't implement a benchmark since the first (and only) thing this does\nis consuming all remaining gas anyways.\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-10-10T16:59:39Z",
+          "tree_id": "8301f54c9ebb8ba81aad943ffffe9f1980d42d88",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d65db6ef34c0e7b99655576fe2861105557afb97"
+        },
+        "date": 1760120058451,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.96599999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.034092255718,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045077970043999924,
             "unit": "seconds"
           }
         ]
