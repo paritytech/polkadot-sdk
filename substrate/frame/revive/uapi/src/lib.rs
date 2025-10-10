@@ -25,7 +25,9 @@ mod host;
 mod macros;
 
 pub mod precompiles;
-pub use precompiles::{system::SYSTEM_PRECOMPILE_ADDR, utils::solidity_selector};
+pub use precompiles::{
+	storage::STORAGE_PRECOMPILE_ADDR, system::SYSTEM_PRECOMPILE_ADDR, utils::solidity_selector,
+};
 
 pub use host::{HostFn, HostFnImpl};
 

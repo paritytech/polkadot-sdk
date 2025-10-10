@@ -874,7 +874,6 @@ node = [
 	"mmr-gadget",
 	"mmr-rpc",
 	"pallet-contracts-mock-network",
-	"pallet-revive-eth-rpc",
 	"pallet-transaction-payment-rpc",
 	"parachains-runtimes-test-utils",
 	"polkadot-approval-distribution",
@@ -2312,11 +2311,6 @@ path = "../substrate/client/merkle-mountain-range/rpc"
 default-features = false
 optional = true
 path = "../substrate/frame/contracts/mock-network"
-
-[dependencies.pallet-revive-eth-rpc]
-default-features = false
-optional = true
-path = "../substrate/frame/revive/rpc"
 
 [dependencies.pallet-transaction-payment-rpc]
 default-features = false
