@@ -27,9 +27,9 @@ use sc_network::{request_responses::IncomingRequest, service::traits::NetworkSer
 use sc_service::TaskManager;
 use sc_utils::mpsc::tracing_unbounded;
 
-use cumulus_relay_chain_interface::RelayChainError;
-
 use crate::BlockChainRpcClient;
+use cumulus_relay_chain_interface::RelayChainError;
+use sc_client_api::NotificationLabel;
 
 fn build_overseer(
 	connector: OverseerConnector,
@@ -105,7 +105,8 @@ async fn forward_collator_events(
 	let mut imports = client.import_notification_stream().await?.fuse();
 	// Collators do no need to pin any specific blocks
 	let (dummy_sink, _) = tracing_unbounded("does-not-matter", 42);
-	let dummy_unpin_handle = UnpinHandle::new(Default::default(), dummy_sink);
+	let dummy_unpin_handle =
+		UnpinHandle::new(Default::default(), NotificationLabel::Finality, dummy_sink);
 
 	loop {
 		select! {

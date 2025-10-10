@@ -40,8 +40,9 @@ use sc_client_api::{
 	},
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
-	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
+	CallExecutor, ExecutorProvider, KeysIter, NotificationLabel, OnFinalityAction,
+	OnImportAction, PairsIter, ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage,
+	UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -298,7 +299,10 @@ where
 				} else {
 					let _ = self
 						.unpin_worker_sender
-						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
+						.unbounded_send(UnpinWorkerMessage::AnnouncePin {
+							hash: notification.hash,
+							label: NotificationLabel::Finality,
+						})
 						.map_err(|e| {
 							log::error!(
 								"Unable to send AnnouncePin worker message for finality: {e}"
@@ -316,7 +320,10 @@ where
 				} else {
 					let _ = self
 						.unpin_worker_sender
-						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
+						.unbounded_send(UnpinWorkerMessage::AnnouncePin {
+							hash: notification.hash,
+							label: NotificationLabel::Import,
+						})
 						.map_err(|e| {
 							log::error!("Unable to send AnnouncePin worker message for import: {e}")
 						});

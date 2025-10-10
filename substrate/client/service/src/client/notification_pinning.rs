@@ -26,10 +26,11 @@
 use std::{
 	marker::PhantomData,
 	sync::{Arc, Weak},
+	time::Instant,
 };
 
 use futures::StreamExt;
-use sc_client_api::{Backend, UnpinWorkerMessage};
+use sc_client_api::{Backend, NotificationLabel, UnpinWorkerMessage};
 
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use schnellru::Limiter;
@@ -37,6 +38,7 @@ use sp_runtime::traits::Block as BlockT;
 
 const LOG_TARGET: &str = "db::notification_pinning";
 const NOTIFICATION_PINNING_LIMIT: usize = 1024;
+const STATS_LOG_INTERVAL_SECS: u64 = 60;
 
 /// A limiter which automatically unpins blocks that leave the data structure.
 #[derive(Clone, Debug)]
@@ -125,6 +127,9 @@ pub struct NotificationPinningWorker<Block: BlockT, Back: Backend<Block>> {
 	unpin_message_rx: TracingUnboundedReceiver<UnpinWorkerMessage<Block>>,
 	task_backend: Weak<Back>,
 	pinned_blocks: schnellru::LruMap<Block::Hash, u32, UnpinningByLengthLimiter<Block, Back>>,
+	active_import_count: usize,
+	active_finality_count: usize,
+	last_stats_log: Instant,
 }
 
 impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back> {
@@ -140,16 +145,27 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 					Arc::downgrade(&task_backend),
 				),
 			);
-		Self { unpin_message_rx, task_backend: Arc::downgrade(&task_backend), pinned_blocks }
-	}
-
-	fn handle_announce_message(&mut self, hash: Block::Hash) {
-		if let Some(entry) = self.pinned_blocks.get_or_insert(hash, Default::default) {
-			*entry = *entry + 1;
+		Self {
+			unpin_message_rx,
+			task_backend: Arc::downgrade(&task_backend),
+			pinned_blocks,
+			active_import_count: 0,
+			active_finality_count: 0,
+			last_stats_log: Instant::now(),
 		}
 	}
 
-	fn handle_unpin_message(&mut self, hash: Block::Hash) -> Result<(), ()> {
+	fn handle_announce_message(&mut self, hash: Block::Hash, label: NotificationLabel) {
+		if let Some(entry) = self.pinned_blocks.get_or_insert(hash, Default::default) {
+			*entry = *entry + 1;
+		}
+		match label {
+			NotificationLabel::Import => self.active_import_count += 1,
+			NotificationLabel::Finality => self.active_finality_count += 1,
+		}
+	}
+
+	fn handle_unpin_message(&mut self, hash: Block::Hash, label: NotificationLabel) -> Result<(), ()> {
 		if let Some(refcount) = self.pinned_blocks.peek_mut(&hash) {
 			*refcount = *refcount - 1;
 			if *refcount == 0 {
@@ -165,7 +181,25 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 		} else {
 			log::debug!(target: LOG_TARGET, "Received unpin message for already unpinned block. hash = {hash:?}");
 		}
+		match label {
+			NotificationLabel::Import => self.active_import_count = self.active_import_count.saturating_sub(1),
+			NotificationLabel::Finality => self.active_finality_count = self.active_finality_count.saturating_sub(1),
+		}
 		Ok(())
+	}
+
+	fn log_stats(&mut self) {
+		let total = self.active_import_count + self.active_finality_count;
+		if total > 0 {
+			log::info!(
+				target: LOG_TARGET,
+				"Notification pinning stats - Import: {}, Finality: {}, Total: {}",
+				self.active_import_count,
+				self.active_finality_count,
+				total
+			);
+		}
+		self.last_stats_log = Instant::now();
 	}
 
 	/// Start working on the received messages.
@@ -175,11 +209,17 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 	pub async fn run(mut self) {
 		while let Some(message) = self.unpin_message_rx.next().await {
 			match message {
-				UnpinWorkerMessage::AnnouncePin(hash) => self.handle_announce_message(hash),
-				UnpinWorkerMessage::Unpin(hash) =>
-					if self.handle_unpin_message(hash).is_err() {
+				UnpinWorkerMessage::AnnouncePin { hash, label } =>
+					self.handle_announce_message(hash, label),
+				UnpinWorkerMessage::Unpin { hash, label } =>
+					if self.handle_unpin_message(hash, label).is_err() {
 						return
 					},
+			}
+
+			// Log statistics every 60 seconds
+			if self.last_stats_log.elapsed().as_secs() >= STATS_LOG_INTERVAL_SECS {
+				self.log_stats();
 			}
 		}
 		log::debug!(target: LOG_TARGET, "Terminating unpin-worker, stream terminated.")
@@ -190,7 +230,7 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 mod tests {
 	use std::sync::Arc;
 
-	use sc_client_api::{Backend, UnpinWorkerMessage};
+	use sc_client_api::{Backend, NotificationLabel, UnpinWorkerMessage};
 	use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 	use sp_core::H256;
 	use sp_runtime::traits::Block as BlockT;
@@ -209,7 +249,14 @@ mod tests {
 				schnellru::LruMap::<Block::Hash, u32, UnpinningByLengthLimiter<Block, Back>>::new(
 					UnpinningByLengthLimiter::new(limit, Arc::downgrade(&task_backend)),
 				);
-			Self { unpin_message_rx, task_backend: Arc::downgrade(&task_backend), pinned_blocks }
+			Self {
+				unpin_message_rx,
+				task_backend: Arc::downgrade(&task_backend),
+				pinned_blocks,
+				active_import_count: 0,
+				active_finality_count: 0,
+				last_stats_log: Instant::now(),
+			}
 		}
 
 		fn lru(
@@ -233,10 +280,10 @@ mod tests {
 		let _ = backend.pin_block(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(1));
 
-		worker.handle_announce_message(hash);
+		worker.handle_announce_message(hash, NotificationLabel::Import);
 		assert_eq!(worker.lru().len(), 1);
 
-		let _ = worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash, NotificationLabel::Import);
 
 		assert_eq!(backend.pin_refs(&hash), Some(0));
 		assert!(worker.lru().is_empty());
@@ -257,20 +304,20 @@ mod tests {
 		let _ = backend.pin_block(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(3));
 
-		worker.handle_announce_message(hash);
-		worker.handle_announce_message(hash);
-		worker.handle_announce_message(hash);
+		worker.handle_announce_message(hash, NotificationLabel::Import);
+		worker.handle_announce_message(hash, NotificationLabel::Import);
+		worker.handle_announce_message(hash, NotificationLabel::Import);
 		assert_eq!(worker.lru().len(), 1);
 
-		let _ = worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash, NotificationLabel::Import);
 		assert_eq!(backend.pin_refs(&hash), Some(2));
-		let _ = worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash, NotificationLabel::Import);
 		assert_eq!(backend.pin_refs(&hash), Some(1));
-		let _ = worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash, NotificationLabel::Import);
 		assert_eq!(backend.pin_refs(&hash), Some(0));
 		assert!(worker.lru().is_empty());
 
-		let _ = worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash, NotificationLabel::Import);
 		assert_eq!(backend.pin_refs(&hash), Some(0));
 	}
 
@@ -291,16 +338,16 @@ mod tests {
 		let _ = backend.pin_block(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(3));
 
-		worker.handle_announce_message(hash);
+		worker.handle_announce_message(hash, NotificationLabel::Import);
 		assert_eq!(worker.lru().len(), 1);
 
-		let _ = worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash, NotificationLabel::Import);
 		assert_eq!(backend.pin_refs(&hash), Some(2));
-		let _ = worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash, NotificationLabel::Import);
 		assert_eq!(backend.pin_refs(&hash), Some(2));
 		assert!(worker.lru().is_empty());
 
-		let _ = worker.handle_unpin_message(hash2);
+		let _ = worker.handle_unpin_message(hash2, NotificationLabel::Import);
 		assert!(worker.lru().is_empty());
 		assert_eq!(backend.pin_refs(&hash2), None);
 	}
@@ -328,11 +375,11 @@ mod tests {
 		assert_eq!(backend.pin_refs(&hash2), Some(1));
 		assert_eq!(backend.pin_refs(&hash3), Some(1));
 
-		worker.handle_announce_message(hash1);
+		worker.handle_announce_message(hash1, NotificationLabel::Import);
 		assert!(worker.lru().peek(&hash1).is_some());
-		worker.handle_announce_message(hash2);
+		worker.handle_announce_message(hash2, NotificationLabel::Import);
 		assert!(worker.lru().peek(&hash2).is_some());
-		worker.handle_announce_message(hash3);
+		worker.handle_announce_message(hash3, NotificationLabel::Import);
 		assert!(worker.lru().peek(&hash3).is_some());
 		assert!(worker.lru().peek(&hash2).is_some());
 		assert_eq!(worker.lru().len(), 2);
@@ -343,11 +390,11 @@ mod tests {
 		assert_eq!(backend.pin_refs(&hash3), Some(1));
 
 		// Hash 2 is getting bumped.
-		worker.handle_announce_message(hash2);
+		worker.handle_announce_message(hash2, NotificationLabel::Import);
 		assert_eq!(worker.lru().peek(&hash2), Some(&2));
 
 		// Since hash 2 was accessed, evict hash 3.
-		worker.handle_announce_message(hash4);
+		worker.handle_announce_message(hash4, NotificationLabel::Import);
 		assert_eq!(worker.lru().peek(&hash3), None);
 	}
 }

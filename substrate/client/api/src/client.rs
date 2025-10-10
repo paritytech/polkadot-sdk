@@ -287,6 +287,8 @@ impl fmt::Display for UsageInfo {
 pub struct UnpinHandleInner<Block: BlockT> {
 	/// Hash of the block pinned by this handle
 	hash: Block::Hash,
+	/// Label indicating the notification type
+	label: NotificationLabel,
 	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 }
 
@@ -300,20 +302,31 @@ impl<Block: BlockT> UnpinHandleInner<Block> {
 	/// Create a new [`UnpinHandleInner`]
 	pub fn new(
 		hash: Block::Hash,
+		label: NotificationLabel,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> Self {
-		Self { hash, unpin_worker_sender }
+		Self { hash, label, unpin_worker_sender }
 	}
 }
 
 impl<Block: BlockT> Drop for UnpinHandleInner<Block> {
 	fn drop(&mut self) {
-		if let Err(err) =
-			self.unpin_worker_sender.unbounded_send(UnpinWorkerMessage::Unpin(self.hash))
-		{
+		if let Err(err) = self.unpin_worker_sender.unbounded_send(UnpinWorkerMessage::Unpin {
+			hash: self.hash,
+			label: self.label,
+		}) {
 			log::debug!(target: "db", "Unable to unpin block with hash: {}, error: {:?}", self.hash, err);
 		};
 	}
+}
+
+/// Label to distinguish between different notification types for tracking purposes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotificationLabel {
+	/// Import notification (block import)
+	Import,
+	/// Finality notification (block finalization)
+	Finality,
 }
 
 /// Message that signals notification-based pinning actions to the pinning-worker.
@@ -322,9 +335,9 @@ impl<Block: BlockT> Drop for UnpinHandleInner<Block> {
 #[derive(Debug)]
 pub enum UnpinWorkerMessage<Block: BlockT> {
 	/// Should be sent when a import or finality notification is created.
-	AnnouncePin(Block::Hash),
+	AnnouncePin { hash: Block::Hash, label: NotificationLabel },
 	/// Should be sent when a import or finality notification is dropped.
-	Unpin(Block::Hash),
+	Unpin { hash: Block::Hash, label: NotificationLabel },
 }
 
 /// Keeps a specific block pinned while the handle is alive.
@@ -337,9 +350,10 @@ impl<Block: BlockT> UnpinHandle<Block> {
 	/// Create a new [`UnpinHandle`]
 	pub fn new(
 		hash: Block::Hash,
+		label: NotificationLabel,
 		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	) -> UnpinHandle<Block> {
-		UnpinHandle(Arc::new(UnpinHandleInner::new(hash, unpin_worker_sender)))
+		UnpinHandle(Arc::new(UnpinHandleInner::new(hash, label, unpin_worker_sender)))
 	}
 
 	/// Hash of the block this handle is unpinning on drop
@@ -383,7 +397,7 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 			header,
 			is_new_best,
 			tree_route,
-			unpin_handle: UnpinHandle::new(hash, unpin_worker_sender),
+			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Import, unpin_worker_sender),
 		}
 	}
 
@@ -444,7 +458,7 @@ impl<Block: BlockT> FinalityNotification<Block> {
 			stale_blocks: Arc::from(
 				summary.stale_blocks.into_iter().map(Arc::from).collect::<Vec<_>>(),
 			),
-			unpin_handle: UnpinHandle::new(hash, unpin_worker_sender),
+			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Finality, unpin_worker_sender),
 		}
 	}
 
@@ -469,7 +483,7 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 			header: summary.header,
 			is_new_best: summary.is_new_best,
 			tree_route: summary.tree_route.map(Arc::new),
-			unpin_handle: UnpinHandle::new(hash, unpin_worker_sender),
+			unpin_handle: UnpinHandle::new(hash, NotificationLabel::Import, unpin_worker_sender),
 		}
 	}
 }
