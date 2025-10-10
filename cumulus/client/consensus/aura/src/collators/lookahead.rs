@@ -100,7 +100,7 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
-	/// Spawner for spawning tasks.
+	/// Required for pre-connecting to backing groups task.
 	pub spawner: Spawner,
 }
 

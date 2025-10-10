@@ -108,7 +108,7 @@ pub struct BuilderTaskParams<
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
 	pub max_pov_percentage: Option<u32>,
-	/// Spawner for spawning tasks.
+	/// Required for pre-connecting to backing groups task.
 	pub spawn_handle: Spawner,
 	/// Handle to the overseer for sending messages.
 	pub overseer_handle: cumulus_relay_chain_interface::OverseerHandle,
