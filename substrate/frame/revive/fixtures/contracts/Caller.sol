@@ -9,6 +9,8 @@ contract ChildRevert {
 }
 
 contract Caller {
+	uint256 public data;
+
     function normal(address _callee, uint64 _value, bytes memory _data, uint64 _gas)
         external
         returns (bool success, bytes memory output)
@@ -64,5 +66,23 @@ contract Caller {
                 revert(0, returnDataSize)
             }
         }
+    }
+
+    function callPartialGas(address _callee, bytes memory _data, uint64 _gasDivisor, uint8 _callType)
+        external
+        returns (bool success)
+    {
+    	uint256 gas = gasleft() / _gasDivisor;
+     	bytes memory output;
+     	if (_callType == 0) {
+      		(success, output) = _callee.call{gas: gas }(_data);
+      	} else if (_callType == 1) {
+       		(success, output) = _callee.staticcall{gas: gas }(_data);
+        } else if (_callType == 2) {
+    		(success, output) = _callee.delegatecall{gas: gas }(_data);
+        } else {
+        	revert("unknown call type");
+        }
+        data = 42;
     }
 }

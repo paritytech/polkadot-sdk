@@ -54,7 +54,7 @@ pub trait Tracing {
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_gas: Weight,
+		_gas: U256,
 	) {
 	}
 

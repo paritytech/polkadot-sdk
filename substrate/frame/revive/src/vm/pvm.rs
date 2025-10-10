@@ -23,7 +23,7 @@ pub mod env;
 pub use env::SyscallDoc;
 
 use crate::{
-	exec::{ExecError, ExecResult, Ext, Key},
+	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	gas::ChargedAmount,
 	limits,
 	precompiles::{All as AllPrecompiles, Precompiles},
@@ -687,8 +687,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					})?;
 				}
 				self.ext.call(
-					weight,
-					deposit_limit,
+					&CallResources::Precise { weight, deposit_limit },
 					&callee,
 					value,
 					input_data,
@@ -700,7 +699,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-				self.ext.delegate_call(weight, deposit_limit, callee, input_data)
+				self.ext.delegate_call(
+					&CallResources::Precise { weight, deposit_limit },
+					callee,
+					input_data,
+				)
 			},
 		};
 

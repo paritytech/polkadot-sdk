@@ -21,7 +21,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound,
 };
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::DispatchError;
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -142,10 +142,11 @@ pub struct ErasedToken {
 #[derive(DefaultNoBound)]
 pub struct GasMeter<T: Config> {
 	gas_limit: Weight,
-	/// Amount of gas left from initial gas limit. Can reach zero.
-	gas_left: Weight,
-	/// Due to `adjust_gas` and `nested` the `gas_left` can temporarily dip below its final value.
-	gas_left_lowest: Weight,
+	/// Amount of gas already consumed. Must be < `gas_limit`.
+	gas_consumed: Weight,
+	/// Due to `adjust_gas` and `nested` the `gas_consumed` can temporarily peak above its final
+	/// value.
+	gas_consumed_highest: Weight,
 	/// The amount of resources that was consumed by the execution engine.
 	/// We have to track it separately in order to avoid the loss of precision that happens when
 	/// converting from ref_time to the execution engine unit.
@@ -159,8 +160,8 @@ impl<T: Config> GasMeter<T> {
 	pub fn new(gas_limit: Weight) -> Self {
 		GasMeter {
 			gas_limit,
-			gas_left: gas_limit,
-			gas_left_lowest: gas_limit,
+			gas_consumed: Default::default(),
+			gas_consumed_highest: Default::default(),
 			engine_meter: EngineMeter::new(gas_limit),
 			_phantom: PhantomData,
 			#[cfg(test)]
@@ -173,24 +174,21 @@ impl<T: Config> GasMeter<T> {
 	/// This should only be used by the primordial frame in a sequence of calls - every subsequent
 	/// frame should use [`nested`](Self::nested).
 	pub fn nested_take_all(&mut self) -> Self {
-		let gas_left = self.gas_left;
-		self.gas_left -= gas_left;
-		GasMeter::new(gas_left)
+		GasMeter::new(self.gas_left())
 	}
 
 	/// Create a new gas meter for a nested call by removing gas from the current meter.
 	pub fn nested(&mut self, amount: Weight) -> Self {
-		let amount = amount.min(self.gas_left);
-		self.gas_left -= amount;
-		GasMeter::new(amount)
+		GasMeter::new(self.gas_left().min(amount))
 	}
 
 	/// Absorb the remaining gas of a nested meter after we are done using it.
 	pub fn absorb_nested(&mut self, nested: Self) {
-		self.gas_left_lowest = (self.gas_left + nested.gas_limit)
-			.saturating_sub(nested.gas_required())
-			.min(self.gas_left_lowest);
-		self.gas_left += nested.gas_left;
+		self.gas_consumed_highest = self
+			.gas_consumed
+			.saturating_add(nested.gas_required())
+			.max(self.gas_consumed_highest);
+		self.gas_consumed += nested.gas_consumed;
 	}
 
 	/// Account for used gas.
@@ -214,7 +212,14 @@ impl<T: Config> GasMeter<T> {
 		let amount = token.weight();
 		// It is OK to not charge anything on failure because we always charge _before_ we perform
 		// any action
-		self.gas_left = self.gas_left.checked_sub(&amount).ok_or_else(|| Error::<T>::OutOfGas)?;
+		let consumed = {
+			let consumed = self.gas_consumed.saturating_add(amount);
+			if consumed.any_gt(self.gas_limit) {
+				Err(<Error<T>>::OutOfGas)?;
+			}
+			consumed
+		};
+		self.gas_consumed = consumed;
 		Ok(ChargedAmount(amount))
 	}
 
@@ -233,10 +238,10 @@ impl<T: Config> GasMeter<T> {
 	/// refunded to match the actual amount.
 	pub fn adjust_gas<Tok: Token<T>>(&mut self, charged_amount: ChargedAmount, token: Tok) {
 		if token.influence_lowest_gas_limit() {
-			self.gas_left_lowest = self.gas_left_lowest();
+			self.gas_consumed_highest = self.gas_required();
 		}
 		let adjustment = charged_amount.0.saturating_sub(token.weight());
-		self.gas_left = self.gas_left.saturating_add(adjustment).min(self.gas_limit);
+		self.gas_consumed = self.gas_consumed.saturating_sub(adjustment);
 	}
 
 	/// Hand over the gas metering responsibility from the executor to this meter.
@@ -251,10 +256,12 @@ impl<T: Config> GasMeter<T> {
 		let weight_consumed = self
 			.engine_meter
 			.set_fuel(engine_fuel.try_into().map_err(|_| Error::<T>::OutOfGas)?);
-		self.gas_left
-			.checked_reduce(weight_consumed)
-			.ok_or_else(|| Error::<T>::OutOfGas)?;
-		Ok(RefTimeLeft(self.gas_left.ref_time()))
+		self.gas_consumed.saturating_accrue(weight_consumed);
+		if self.gas_consumed.any_gt(self.gas_limit) {
+			self.gas_consumed = self.gas_limit;
+			Err(<Error<T>>::OutOfGas)?;
+		}
+		Ok(RefTimeLeft(self.gas_left().ref_time()))
 	}
 
 	/// Hand over the gas metering responsibility from this meter to the executor.
@@ -275,17 +282,17 @@ impl<T: Config> GasMeter<T> {
 	/// This can be different from `gas_spent` because due to `adjust_gas` the amount of
 	/// spent gas can temporarily drop and be refunded later.
 	pub fn gas_required(&self) -> Weight {
-		self.gas_limit.saturating_sub(self.gas_left_lowest())
+		self.gas_consumed_highest.max(self.gas_consumed)
 	}
 
 	/// Returns how much gas was spent
 	pub fn gas_consumed(&self) -> Weight {
-		self.gas_limit.saturating_sub(self.gas_left)
+		self.gas_consumed
 	}
 
 	/// Returns how much gas left from the initial budget.
 	pub fn gas_left(&self) -> Weight {
-		self.gas_left
+		self.gas_limit.saturating_sub(self.gas_consumed)
 	}
 
 	/// The amount of gas in terms of engine gas.
@@ -312,17 +319,13 @@ impl<T: Config> GasMeter<T> {
 			.map_err(|e| DispatchErrorWithPostInfo { post_info, error: e.into().error })
 	}
 
-	fn gas_left_lowest(&self) -> Weight {
-		self.gas_left_lowest.min(self.gas_left)
-	}
-
 	#[cfg(test)]
 	pub fn tokens(&self) -> &[ErasedToken] {
 		&self.tokens
 	}
 
 	pub fn consume_all(&mut self) {
-		self.gas_left = Zero::zero();
+		self.gas_consumed = self.gas_limit;
 	}
 }
 
@@ -419,7 +422,7 @@ mod tests {
 		let mut gas_meter = GasMeter::<Test>::new(test_weight);
 		let gas_for_nested_call = gas_meter.nested(10000.into());
 
-		assert_eq!(gas_meter.gas_left(), 40000.into());
+		assert_eq!(gas_meter.gas_consumed(), 0.into());
 		assert_eq!(gas_for_nested_call.gas_left(), 10000.into())
 	}
 
@@ -429,7 +432,7 @@ mod tests {
 		let mut gas_meter = GasMeter::<Test>::new(test_weight);
 		let gas_for_nested_call = gas_meter.nested(test_weight);
 
-		assert_eq!(gas_meter.gas_left(), Weight::from_parts(0, 0));
+		assert_eq!(gas_meter.gas_consumed(), Weight::from_parts(0, 0));
 		assert_eq!(gas_for_nested_call.gas_left(), 50_000.into())
 	}
 
@@ -439,7 +442,7 @@ mod tests {
 		let mut gas_meter = GasMeter::<Test>::new(test_weight);
 		let gas_for_nested_call = gas_meter.nested(test_weight + 10000.into());
 
-		assert_eq!(gas_meter.gas_left(), Weight::from_parts(0, 0));
+		assert_eq!(gas_meter.gas_consumed(), Weight::from_parts(0, 0));
 		assert_eq!(gas_for_nested_call.gas_left(), 50_000.into())
 	}
 

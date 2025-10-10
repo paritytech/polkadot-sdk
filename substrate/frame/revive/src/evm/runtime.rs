@@ -313,9 +313,8 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
-		let call_info =
-			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())), true)?;
+		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+		let call_info = create_call::<Self::Config>(tx, Some(encoded_len as u32))?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
 					call_info.storage_deposit,

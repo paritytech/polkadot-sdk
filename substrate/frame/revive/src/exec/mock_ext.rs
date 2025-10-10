@@ -17,7 +17,10 @@
 
 #![cfg(test)]
 use crate::{
-	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
+	exec::{
+		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
+		PrecompileWithInfoExt,
+	},
 	gas::GasMeter,
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
@@ -47,8 +50,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn call(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources,
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
@@ -258,8 +260,7 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 impl<T: Config> Ext for MockExt<T> {
 	fn delegate_call(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources,
 		_address: H160,
 		_input_data: Vec<u8>,
 	) -> Result<(), ExecError> {

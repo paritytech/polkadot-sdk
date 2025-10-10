@@ -19,6 +19,7 @@ mod call_helpers;
 
 use super::utility::IntoAddress;
 use crate::{
+	exec::CallResources,
 	vm::{
 		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext, RuntimeCosts,
@@ -26,7 +27,7 @@ use crate::{
 	Code, Error, Pallet, Weight, H160, LOG_TARGET, U256,
 };
 use alloc::{vec, vec::Vec};
-pub use call_helpers::{calc_call_gas, get_memory_in_and_out_ranges};
+pub use call_helpers::{charge_call_gas, get_memory_in_and_out_ranges};
 use core::{
 	cmp::min,
 	ops::{ControlFlow, Range},
@@ -46,9 +47,6 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	let [value, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 
-	// TODO: We do not charge for the new code in storage. When implementing the new gas:
-	// Introduce EthInstantiateWithCode, which shall charge gas based on the code length.
-	// See #9577 for more context.
 	interpreter.ext.charge_or_halt(RuntimeCosts::Instantiate {
 		input_data_len: len as u32, // We charge for initcode execution
 		balance_transfer: Pallet::<E::T>::has_balance(value),
@@ -75,7 +73,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	};
 
 	let call_result = interpreter.ext.instantiate(
-		Weight::from_parts(u64::MAX, u64::MAX), // TODO: set the right limit
+		Weight::from_parts(u64::MAX, u64::MAX),
 		U256::MAX,
 		Code::Upload(code),
 		value,
@@ -107,26 +105,22 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 ///
 /// Message call with value transfer to another account.
 pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let [_local_gas_limit, to, value] = interpreter.stack.popn()?;
+	let [gas_limit, to, value] = interpreter.stack.popn()?;
 	let to = to.into_address();
-	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
-	// addressed in #9577.
-
 	let has_transfer = !value.is_zero();
 	if interpreter.ext.is_read_only() && has_transfer {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
-
 	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::Call;
-	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
+	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
 
 	run_call(
 		interpreter,
 		to,
+		gas_limit,
 		interpreter.memory.slice(input).to_vec(),
 		scheme,
-		Weight::from_parts(gas_limit, u64::MAX),
 		value,
 		return_memory_range,
 	)
@@ -146,22 +140,19 @@ pub fn call_code<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt>
 ///
 /// Message call with alternative account's code but same sender and value.
 pub fn delegate_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let [_local_gas_limit, to] = interpreter.stack.popn()?;
+	let [gas_limit, to] = interpreter.stack.popn()?;
 	let to = to.into_address();
-	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
-	// addressed in #9577.
-
 	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::DelegateCall;
 	let value = U256::zero();
-	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
+	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
 
 	run_call(
 		interpreter,
 		to,
+		gas_limit,
 		interpreter.memory.slice(input).to_vec(),
 		scheme,
-		Weight::from_parts(gas_limit, u64::MAX),
 		value,
 		return_memory_range,
 	)
@@ -171,21 +162,19 @@ pub fn delegate_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Ha
 ///
 /// Static message call (cannot modify state).
 pub fn static_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let [_local_gas_limit, to] = interpreter.stack.popn()?;
+	let [gas_limit, to] = interpreter.stack.popn()?;
 	let to = to.into_address();
-	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
-	// addressed in #9577.
 	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::StaticCall;
 	let value = U256::zero();
-	let gas_limit = calc_call_gas(interpreter, to, scheme, input.len(), value)?;
+	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
 
 	run_call(
 		interpreter,
 		to,
+		gas_limit,
 		interpreter.memory.slice(input).to_vec(),
 		scheme,
-		Weight::from_parts(gas_limit, u64::MAX),
 		value,
 		return_memory_range,
 	)
@@ -194,16 +183,15 @@ pub fn static_call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 fn run_call<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 	callee: H160,
+	gas_limit: U256,
 	input: Vec<u8>,
 	scheme: CallScheme,
-	gas_limit: Weight,
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			gas_limit,
-			U256::MAX,
+			&CallResources::Ethereum(gas_limit),
 			&callee,
 			value,
 			input,
@@ -211,7 +199,9 @@ fn run_call<'a, E: Ext>(
 			scheme.is_static_call(),
 		),
 		CallScheme::DelegateCall =>
-			interpreter.ext.delegate_call(gas_limit, U256::MAX, callee, input),
+			interpreter
+				.ext
+				.delegate_call(&CallResources::Ethereum(gas_limit), callee, input),
 		CallScheme::CallCode => {
 			unreachable!()
 		},

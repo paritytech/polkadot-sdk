@@ -40,9 +40,8 @@ use crate::{
 	},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Combinator, Config, ContractInfo,
-	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode,
-	StorageDeposit, H160,
+	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueueCounter,
+	Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode, StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -1595,13 +1594,12 @@ fn gas_left_api_works() {
 		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
 		let gas_left = U256::from_little_endian(received.data.as_ref());
-		let gas_left_max =
-			<Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Min) + 1_000_000;
+		let gas_left_max = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT) + 1_000_000;
 		assert!(gas_left > 0u32.into());
 		assert!(gas_left < gas_left_max.into());
 
 		// Call the contract using the hold
-		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Max);
+		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
 		let mut exec_config = ExecConfig::new_substrate_tx();
 		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));

@@ -18,7 +18,7 @@
 //! Precompiles added to the test runtime.
 
 use crate::{
-	exec::{ErrorOrigin, ExecError},
+	exec::{CallResources, ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
 	Config, DispatchError, ExecOrigin as Origin, Weight, U256,
 };
@@ -109,8 +109,7 @@ impl<T: Config> Precompile for NoInfo<T> {
 			},
 			INoInfoCalls::passData(INoInfo::passDataCall { inputLen }) => {
 				env.call(
-					Weight::MAX,
-					U256::MAX,
+					&CallResources::Precise { weight: Weight::MAX, deposit_limit: U256::MAX },
 					&env.address(),
 					0.into(),
 					vec![42; *inputLen as usize],

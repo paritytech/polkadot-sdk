@@ -86,7 +86,10 @@ use frame_system::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedInto, Zero},
+	traits::{
+		BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedFrom,
+		UniqueSaturatedInto, Zero,
+	},
 	AccountId32, DispatchError, FixedPointNumber, FixedU128,
 };
 
@@ -156,7 +159,13 @@ pub mod pallet {
 		///
 		/// Just added here to add additional trait bounds.
 		#[pallet::no_default]
-		type Balance: Balance + TryFrom<U256> + Into<U256> + Bounded + UniqueSaturatedInto<u64>;
+		type Balance: Balance
+			+ TryFrom<U256>
+			+ Into<U256>
+			+ Bounded
+			+ UniqueSaturatedInto<u64>
+			+ UniqueSaturatedFrom<u64>
+			+ UniqueSaturatedInto<u128>;
 
 		/// The fungible in which fees are paid and contract balances are held.
 		#[pallet::no_default]

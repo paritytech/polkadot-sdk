@@ -13288,7 +13288,7 @@ dependencies = [
  "hex-literal",
  "humantime-serde",
  "impl-trait-for-tuples",
- "k256",
+ "itertools 0.11.0",
  "log",
  "num-bigint",
  "num-integer",

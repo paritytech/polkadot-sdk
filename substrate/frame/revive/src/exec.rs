@@ -62,7 +62,7 @@ use sp_core::{
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
 	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput, Zero},
-	DispatchError, SaturatedConversion,
+	DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 };
 
 #[cfg(test)]
@@ -192,6 +192,22 @@ impl<T: Config> Origin<T> {
 		}
 	}
 }
+
+/// Argument passed by a contact to describe the amount of resources allocated to a cross contact
+/// call.
+pub enum CallResources {
+	/// Resources encoded using their actual values.
+	Precise { weight: Weight, deposit_limit: U256 },
+	/// Resources encoded as unified ethereum gas.
+	Ethereum(U256),
+}
+
+impl Default for CallResources {
+	fn default() -> Self {
+		Self::Precise { weight: Default::default(), deposit_limit: Default::default() }
+	}
+}
+
 /// Environment functions only available to host functions.
 pub trait Ext: PrecompileWithInfoExt {
 	/// Execute code in the current frame.
@@ -199,8 +215,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// Returns the code size of the called contract.
 	fn delegate_call(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources,
 		address: H160,
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError>;
@@ -283,8 +298,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	fn call(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources,
 		to: &H160,
 		value: U256,
 		input_data: Vec<u8>,
@@ -447,6 +461,7 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// The amount of gas left in eth gas units.
 	fn gas_left(&self) -> u64;
+
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
@@ -819,7 +834,7 @@ where
 					false,
 					value,
 					&input_data,
-					Weight::zero(),
+					Default::default(),
 				);
 			});
 
@@ -1745,6 +1760,45 @@ where
 		}
 		true
 	}
+
+	/// Calc the limits for a cross contract call.
+	fn calc_limits(&self, call_resources: &CallResources) -> (Weight, BalanceOf<T>) {
+		match call_resources {
+			CallResources::Precise { weight, deposit_limit } =>
+				(*weight, (*deposit_limit).saturated_into()),
+			CallResources::Ethereum(gas_limit) => {
+				// the resources of the subcall are relative to the available resources
+				let available: BalanceOf<T> = self.gas_left().saturated_into();
+				let gas_limit = (*gas_limit).saturated_into::<BalanceOf<T>>().min(available);
+				let ratio = FixedU128::from_rational(
+					gas_limit.saturated_into(),
+					available.max(1u32.into()).saturated_into(),
+				);
+
+				// weight limit is expected to be set to we can just multiply directly
+				let weight_limit = {
+					let weight_left = self.top_frame().nested_gas.gas_left();
+					Weight::from_parts(
+						ratio.saturating_mul_int(weight_left.ref_time()),
+						ratio.saturating_mul_int(weight_left.proof_size()),
+					)
+				};
+
+				// the gas_limit is in unadjusted fee
+				let deposit_limit = {
+					let weight_fee = T::FeeInfo::weight_to_fee(&weight_limit);
+					gas_limit.saturating_sub(weight_fee).min(
+						ratio.saturating_mul_int(
+							T::FeeInfo::next_fee_multiplier_reciprocal()
+								.saturating_mul_int(self.top_frame().nested_storage.available()),
+						),
+					)
+				};
+
+				(weight_limit, T::FeeInfo::next_fee_multiplier().saturating_mul_int(deposit_limit))
+			},
+		}
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1754,14 +1808,15 @@ where
 {
 	fn delegate_call(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources,
 		address: H160,
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for unknown code hashes or creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
+
+		let (weight, deposit_limit) = self.calc_limits(call_resources);
 
 		let top_frame = self.top_frame_mut();
 		let contract_info = top_frame.contract_info().clone();
@@ -1777,8 +1832,8 @@ where
 				}),
 			},
 			value,
-			gas_limit,
-			deposit_limit.saturated_into::<BalanceOf<T>>(),
+			weight,
+			deposit_limit,
 			self.is_read_only(),
 			&input_data,
 		)? {
@@ -1945,8 +2000,7 @@ where
 
 	fn call(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources,
 		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
@@ -1961,6 +2015,8 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
+
+		let (weight, deposit_limit) = self.calc_limits(call_resources);
 
 		let try_call = || {
 			// Enable read-only access if requested; cannot disable it if already set.
@@ -1991,8 +2047,8 @@ where
 			if let Some(executable) = self.push_frame(
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
-				gas_limit,
-				deposit_limit.saturated_into::<BalanceOf<T>>(),
+				weight,
+				deposit_limit,
 				is_read_only,
 				&input_data,
 			)? {
@@ -2304,40 +2360,56 @@ where
 
 	fn gas_left(&self) -> u64 {
 		let frame = self.top_frame();
-		if let Some((encoded_len, base_weight)) = self.exec_config.collect_deposit_from_hold {
-			// when using the txhold we know the overall available fee by looking at the tx credit
+
+		// when using the txhold we know the overall available fee by looking at the tx credit
+		// we need to use that to limit gas_left because in that case no storage deposit limit is
+		// set
+		let max_by_credit_hold = if let Some((encoded_len, base_weight)) =
+			self.exec_config.collect_deposit_from_hold
+		{
 			// we work backwards: the gas_left is the overall fee minus what was already consumed
+			let (deposit_consumed, weight_consumed) =
+				self.frames.iter().chain(core::iter::once(&self.first_frame)).fold(
+					(StorageDeposit::default(), Weight::default()),
+					|(deposit, weight), frame| {
+						(
+							deposit.saturating_add(&frame.nested_storage.consumed()),
+							weight.saturating_add(frame.nested_gas.gas_consumed()),
+						)
+					},
+				);
 			let weight_fee_consumed = T::FeeInfo::tx_fee_from_weight(
 				encoded_len,
-				&frame.nested_gas.gas_consumed().saturating_add(base_weight),
+				&weight_consumed.saturating_add(base_weight),
 			);
 			let available = T::FeeInfo::remaining_txfee().saturating_sub(weight_fee_consumed);
-			let deposit_consumed = self
-				.frames
-				.iter()
-				.chain(core::iter::once(&self.first_frame))
-				.fold(StorageDeposit::default(), |acc, frame| {
-					acc.saturating_add(&frame.nested_storage.consumed())
-				});
 			deposit_consumed.available(&available)
 		} else {
-			// when not using the hold we expect the transaction to contain a limit for the storage
-			// deposit we work forwards: add up what is left from both meters
-			// in case no storage limit is set we limit by all the free balance of the signer
+			BalanceOf::<T>::max_value()
+		};
+
+		// this is the actual limit derived from what is set in the meter
+		let max_by_meter = {
 			use frame_support::traits::tokens::{Fortitude, Preservation};
-			let weight_fee_available =
-				T::FeeInfo::weight_to_fee(&frame.nested_gas.gas_left(), Combinator::Min);
-			let available_balance = self
+			let weight_fee_available = T::FeeInfo::weight_to_fee(&frame.nested_gas.gas_left());
+
+			// in the dry run no deposit limit is set.
+			// this means its only limited by the origins free balance
+			let deposit_available = self
 				.origin
 				.account_id()
 				.map(|acc| {
 					T::Currency::reducible_balance(acc, Preservation::Preserve, Fortitude::Polite)
 				})
-				.unwrap_or(BalanceOf::<T>::max_value());
-			let deposit_available = frame.nested_storage.available().min(available_balance);
+				.unwrap_or(BalanceOf::<T>::max_value())
+				.min(frame.nested_storage.available());
+
 			weight_fee_available.saturating_add(deposit_available)
-		}
-		.saturated_into()
+		};
+
+		T::FeeInfo::next_fee_multiplier_reciprocal()
+			.saturating_mul_int(max_by_credit_hold.min(max_by_meter))
+			.saturated_into()
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
