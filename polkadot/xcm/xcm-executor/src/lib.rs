@@ -666,7 +666,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// charged for swapping to `asset_needed_for_fees`.
 	///
 	/// The calculation is done by `Config::AssetExchanger`.
-	/// If neither `PayFees` or `BuyExecution` were not used, or no swap is required,
+	/// If neither `PayFees` or `BuyExecution` were used, or no swap is required,
 	/// it will just return `asset_needed_for_fees`.
 	fn calculate_asset_for_delivery_fees(&self, asset_needed_for_fees: Asset) -> Asset {
 		let Some(asset_wanted_for_fees) =
