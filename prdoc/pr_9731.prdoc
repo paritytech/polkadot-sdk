@@ -1,0 +1,14 @@
+title: simulate `rank_to_votes` conversion in vote benchmark
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Fixes benchmarking failures for the vote extrinsic in pallet-ranked-collective by properly
+    simulating the `rank_to_votes` conversion process. Previously used hardcoded vote values
+    which caused assertion failures when using custom VoteWeight converters (e.g., in
+    [Ambassador Collective configuration](https://github.com/polkadot-fellows/runtimes/pull/736)). The fix calculates vote weight based on member's
+    actual rank and minimum required rank for the class.
+
+crates:
+- name: pallet-ranked-collective
+  bump: patch
