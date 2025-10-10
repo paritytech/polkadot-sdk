@@ -31,16 +31,30 @@ runs:
         TEST_FILTER: ${{ inputs.test-filter }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-        echo "Vars"
-        echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-        echo "ZOMBIE_PROVIDER": $ZOMBIE_PROVIDER
-        echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
-        echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
-        echo "COL_IMAGE: $COL_IMAGE"
-        echo "MALUS_IMAGE: $MALUS_IMAGE"
-        echo "Inputs"
-        echo "test: $TEST_FILTER"
-        echo "prefix: $PREFIX"
+        echo "::group::Test Configuration (SDK)"
+        echo "Environment Variables:"
+        echo "  ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+        echo "  ZOMBIE_PROVIDER: $ZOMBIE_PROVIDER"
+        echo "  POLKADOT_IMAGE: $POLKADOT_IMAGE"
+        echo "  CUMULUS_IMAGE: $CUMULUS_IMAGE"
+        echo "  COL_IMAGE: $COL_IMAGE"
+        echo "  MALUS_IMAGE: $MALUS_IMAGE"
+        echo ""
+        echo "Test Parameters:"
+        echo "  Test Filter: $TEST_FILTER"
+        echo "  Prefix: $PREFIX"
+        echo "  Job Name: ${{ inputs.job-name }}"
+        echo ""
+        # Show flaky tests information if any are disabled
+        if [[ -f .github/zombienet-flaky-tests ]]; then
+          FLAKY_COUNT=$(grep -v '^#' .github/zombienet-flaky-tests | grep -v '^$' | wc -l | tr -d ' ')
+          if [[ $FLAKY_COUNT -gt 0 ]]; then
+            echo "⚠️ Flaky/Disabled Tests: $FLAKY_COUNT test(s) currently disabled"
+            echo "📄 See: https://github.com/paritytech/polkadot-sdk/blob/${{ github.sha }}/.github/zombienet-flaky-tests"
+            echo "📖 Docs: https://github.com/paritytech/polkadot-sdk/blob/${{ github.sha }}/.github/ZOMBIENET_FLAKY_TESTS.md"
+          fi
+        fi
+        echo "::endgroup::"
 
     - name: Download binaries for zombienet native tests
       if: env.ZOMBIE_PROVIDER == 'native'

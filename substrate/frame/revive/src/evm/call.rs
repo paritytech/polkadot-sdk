@@ -25,11 +25,8 @@ use crate::{
 use alloc::vec::Vec;
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
-use num_traits::Bounded;
 use sp_core::Get;
-use sp_runtime::{
-	transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion, Saturating,
-};
+use sp_runtime::{transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion};
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
@@ -121,7 +118,6 @@ where
 				dest,
 				value,
 				gas_limit: Zero::zero(),
-				storage_deposit_limit: BalanceOf::<T>::max_value(),
 				data,
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
@@ -144,7 +140,6 @@ where
 		let call = crate::Call::eth_instantiate_with_code::<T> {
 			value,
 			gas_limit: Zero::zero(),
-			storage_deposit_limit: BalanceOf::<T>::max_value(),
 			code,
 			data,
 			transaction_encoded,
@@ -160,11 +155,8 @@ where
 	let eth_fee = effective_gas_price.saturating_mul(gas) / <T as Config>::NativeToEthRatio::get();
 
 	let weight_limit = {
+		let fixed_fee = <T as Config>::FeeInfo::fixed_fee(encoded_len as u32);
 		let info = <T as Config>::FeeInfo::dispatch_info(&call);
-		let fixed_fee = <T as Config>::FeeInfo::weight_to_fee(
-			<T as frame_system::Config>::BlockWeights::get().get(info.class).base_extrinsic,
-		)
-		.saturating_add(<T as Config>::FeeInfo::length_to_fee(encoded_len as u32));
 
 		let remaining_fee = {
 			let adjusted = eth_fee.checked_sub(fixed_fee.into()).ok_or_else(|| {
