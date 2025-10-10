@@ -166,6 +166,8 @@ impl pallet_assets::Config for Test {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = XcmBenchmarkHelper;
 }
 
 // This child parachain is not configured as trusted reserve or teleport location for any assets.
