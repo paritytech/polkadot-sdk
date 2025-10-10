@@ -229,6 +229,7 @@ impl crate::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type Pages = Pages;
 	type AreWeDone = AreWeDone;
+	type Signed = SignedPallet;
 	type OnRoundRotation = CleanRound<Self>;
 }
 
@@ -270,8 +271,8 @@ impl ElectionProvider for MockFallback {
 		Ok(())
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 }
 
@@ -328,14 +329,7 @@ impl ExtBuilder {
 		Self {}
 	}
 
-	pub fn verifier() -> Self {
-		SignedPhase::set(0);
-		SignedValidationPhase::set(0);
-		signed::SignedPhaseSwitch::set(signed::SignedSwitch::Mock);
-		Self {}
-	}
-
-	pub fn unsigned() -> Self {
+	pub fn mock_signed() -> Self {
 		SignedPhase::set(0);
 		SignedValidationPhase::set(0);
 		signed::SignedPhaseSwitch::set(signed::SignedSwitch::Mock);
@@ -651,11 +645,7 @@ pub fn verifier_events_since_last_call() -> Vec<crate::verifier::Event<Runtime>>
 
 /// proceed block number to `n`.
 pub fn roll_to(n: BlockNumber) {
-	crate::Pallet::<Runtime>::roll_to(
-		n,
-		matches!(SignedPhaseSwitch::get(), SignedSwitch::Real),
-		true,
-	);
+	crate::Pallet::<Runtime>::roll_to(n, true);
 }
 
 /// proceed block number to whenever the snapshot is fully created (`Phase::Snapshot(0)`).
@@ -740,19 +730,9 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 
 		System::set_block_number(i);
 
-		MultiBlock::on_initialize(i);
-		VerifierPallet::on_initialize(i);
-		UnsignedPallet::on_initialize(i);
-		if matches!(SignedPhaseSwitch::get(), SignedSwitch::Real) {
-			SignedPallet::on_initialize(i);
-		}
+		MultiBlock::on_poll(i, &mut WeightMeter::new());
 
-		MultiBlock::offchain_worker(i);
-		VerifierPallet::offchain_worker(i);
 		UnsignedPallet::offchain_worker(i);
-		if matches!(SignedPhaseSwitch::get(), SignedSwitch::Real) {
-			SignedPallet::offchain_worker(i);
-		}
 
 		// invariants must hold at the end of each block.
 		all_pallets_sanity_checks()

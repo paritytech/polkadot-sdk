@@ -94,23 +94,23 @@ pub mod traits {
 
 		/// Weight functions needed for `pallet_election_provider_multi_block_verifier`.
 		pub trait WeightInfo {
-			fn on_initialize_valid_non_terminal() -> Weight;
-			fn on_initialize_valid_terminal() -> Weight;
-			fn on_initialize_invalid_terminal() -> Weight;
-			fn on_initialize_invalid_non_terminal(v: u32) -> Weight;
+			fn verification_valid_non_terminal() -> Weight;
+			fn verification_valid_terminal() -> Weight;
+			fn verification_invalid_terminal() -> Weight;
+			fn verification_invalid_non_terminal(v: u32) -> Weight;
 		}
 
 		impl WeightInfo for () {
-			fn on_initialize_valid_non_terminal() -> Weight {
+			fn verification_valid_non_terminal() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_valid_terminal() -> Weight {
+			fn verification_valid_terminal() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_invalid_terminal() -> Weight {
+			fn verification_invalid_terminal() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_invalid_non_terminal(_v: u32) -> Weight {
+			fn verification_invalid_non_terminal(_v: u32) -> Weight {
 				Default::default()
 			}
 		}
@@ -121,34 +121,26 @@ pub mod traits {
 
 		/// Weight functions needed for `pallet_election_provider_multi_block`.
 		pub trait WeightInfo {
-			fn on_initialize_nothing() -> Weight;
-			fn on_initialize_into_snapshot_msp() -> Weight;
-			fn on_initialize_into_snapshot_rest() -> Weight;
-			fn on_initialize_into_signed() -> Weight;
-			fn on_initialize_into_signed_validation() -> Weight;
-			fn on_initialize_into_unsigned() -> Weight;
+			fn per_block_nothing() -> Weight;
+			fn per_block_snapshot_msp() -> Weight;
+			fn per_block_snapshot_rest() -> Weight;
+			fn per_block_start_signed_validation() -> Weight;
 			fn export_non_terminal() -> Weight;
 			fn export_terminal() -> Weight;
 			fn manage() -> Weight;
 		}
 
 		impl WeightInfo for () {
-			fn on_initialize_nothing() -> Weight {
+			fn per_block_nothing() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_into_snapshot_msp() -> Weight {
+			fn per_block_snapshot_msp() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_into_snapshot_rest() -> Weight {
+			fn per_block_snapshot_rest() -> Weight {
 				Default::default()
 			}
-			fn on_initialize_into_signed() -> Weight {
-				Default::default()
-			}
-			fn on_initialize_into_signed_validation() -> Weight {
-				Default::default()
-			}
-			fn on_initialize_into_unsigned() -> Weight {
+			fn per_block_start_signed_validation() -> Weight {
 				Default::default()
 			}
 			fn export_non_terminal() -> Weight {
@@ -180,7 +172,4 @@ pub mod polkadot {
 		pallet_election_provider_multi_block_unsigned_dot_size::WeightInfo as MultiBlockUnsignedWeightInfo,
 		pallet_election_provider_multi_block_verifier_dot_size::WeightInfo as MultiBlockVerifierWeightInfo,
 	};
-}
-pub mod westend {
-	pub use super::polkadot::*;
 }

@@ -65,6 +65,7 @@ pub(crate) fn enable_ksm_preset(fast: bool) {
 //
 // The default values here are related to `dev`. The above helper functions are used at launch (see
 // `build_state` runtime-api) to enable dot/ksm presets.
+
 parameter_types! {
 	/// Number of election pages that we operate upon.
 	///
@@ -293,6 +294,7 @@ impl multi_block::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
+	type Signed = MultiBlockElectionSigned;
 	type Verifier = MultiBlockElectionVerifier;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockWeightInfo<Self>;
@@ -684,6 +686,36 @@ mod tests {
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_polkadot() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_kusama() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
 	}
 
 	#[test]
