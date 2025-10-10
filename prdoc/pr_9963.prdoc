@@ -9,11 +9,6 @@ doc:
     Fixes https://github.com/paritytech/polkadot-sdk/issues/7061
 
     Continuation of https://github.com/paritytech/polkadot-sdk/pull/8297
-
-    ## TODO
-    - [x] Add parameter to runtime API
-    - [x] Add parameter to pallet-xcm helper
-    - [x] Test querying delivery fee in an asset other than native
 crates:
 - name: asset-hub-rococo-runtime
   bump: major
