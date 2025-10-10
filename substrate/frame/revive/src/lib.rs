@@ -783,6 +783,14 @@ pub mod pallet {
 				});
 			}
 
+			// Build genesis block
+			block_storage::on_finalize_build_eth_block::<T>(
+				H160::zero(),
+				U256::zero(),
+				Pallet::<T>::evm_block_gas_limit(),
+				U256::zero(),
+			);
+
 			// Set debug settings.
 			if let Some(settings) = self.debug_settings.as_ref() {
 				settings.write_to_storage::<T>()
