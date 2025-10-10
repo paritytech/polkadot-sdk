@@ -177,29 +177,38 @@ async fn should_skip_building_block_due_to_relay_parent_in_old_session<Client>(
 where
 	Client: RelayChainInterface,
 {
-	let Some(session_of_current_rp) = relay_client.session_index_for_child(relay_parent).await.ok()
+	let Some(session_index_of_relay_parent) =
+		relay_client.session_index_for_child(relay_parent).await.ok()
 	else {
 		// Failed to fetch session index, do not skip building
 		return false;
 	};
 
-	let Some(session_of_last_rp) =
+	let Some(session_index_of_relay_grand_parent) =
 		relay_client.session_index_for_child(relay_grand_parent).await.ok()
 	else {
 		// Failed to fetch session index, do not skip building
 		return false;
 	};
 
-	if session_of_current_rp > session_of_last_rp {
+	if session_index_of_relay_parent > session_index_of_relay_grand_parent {
 		// This is a new session, so we should NOT skip building
 		false
-	} else if session_of_current_rp < session_of_last_rp {
+	} else if session_index_of_relay_parent < session_index_of_relay_grand_parent {
 		// Is this even possible? probably a programmer error, wrong relay_parent /
 		// relay_grand_parent passed in? feels most prudent to not skip building in this case
 		false
 	} else {
-		// `session_of_current_rp == session_of_last_rp` => relay_parent is in old session
-		// => we SHOULD skip
+		// `session_index_of_relay_parent == session_index_of_relay_grand_parent`
+		// => relay_parent is in old session => we SHOULD skip
+		tracing::trace!(
+			target: crate::LOG_TARGET,
+			?relay_grand_parent,
+			?session_index_of_relay_grand_parent,
+			?relay_parent,
+			?session_index_of_relay_parent,
+			"Relay parent is in old session, we should skip building block on it."
+		);
 		true
 	}
 }
