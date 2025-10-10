@@ -138,6 +138,9 @@ pub use tasks::Task;
 mod proving;
 pub use proving::*;
 
+mod rewards;
+pub use rewards::RewardsPool;
+
 #[cfg(feature = "try-runtime")]
 mod try_runtime;
 #[cfg(feature = "try-runtime")]
