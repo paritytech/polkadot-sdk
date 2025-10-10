@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1760116782098,
+  "lastUpdate": 1760119980927,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "017cd2a0687438cfd802af9e3703d9f69bcc03c6",
-          "message": "impl ApprovedPeer UMP signal (#7955)\n\nhttps://github.com/paritytech/polkadot-sdk/issues/7731\n\nTODO:\n- [x] Merge [this](https://github.com/paritytech/polkadot-sdk/pull/7986)\nbeforehand. It'll add some simplifications in the runtime (especially\nfor tests)\n- [x] add more runtime tests\n- [x] PRDoc",
-          "timestamp": "2025-04-10T13:30:12Z",
-          "tree_id": "9da27b31e57bdc525ee67de2b56031414a305446",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/017cd2a0687438cfd802af9e3703d9f69bcc03c6"
-        },
-        "date": 1744297180588,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.317855138333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19402532793333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.350203245033335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d65db6ef34c0e7b99655576fe2861105557afb97",
+          "message": "[pallet-revive] Implement the consume_all_gas syscall (#9997)\n\nThis PR implements a new API `consume_all_gas` which is required for\n100% EVM `INVALID` opcode compatibility.\n\nSince ceding of all remaining gas is handled in the EVM interpreter, I\ndecided to not add a return flag but make this a dedicated syscall for\nconsistency instead.\n\nDidn't implement a benchmark since the first (and only) thing this does\nis consuming all remaining gas anyways.\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-10-10T16:59:39Z",
+          "tree_id": "8301f54c9ebb8ba81aad943ffffe9f1980d42d88",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d65db6ef34c0e7b99655576fe2861105557afb97"
+        },
+        "date": 1760119955521,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19966963493333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.398742006133332,
             "unit": "seconds"
           }
         ]
