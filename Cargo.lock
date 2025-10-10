@@ -4643,6 +4643,7 @@ dependencies = [
  "sc-service",
  "sc-sysinfo",
  "sc-telemetry",
+ "sc-tracing",
  "sc-transaction-pool",
  "sc-utils",
  "sp-api",
@@ -4652,6 +4653,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-transaction-pool",
+ "sp-trie",
 ]
 
 [[package]]
@@ -28083,6 +28085,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
+ "pallet-aura",
  "pallet-balances",
  "pallet-message-queue",
  "pallet-timestamp",
@@ -28093,6 +28096,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "sp-arithmetic",
+ "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-io",
