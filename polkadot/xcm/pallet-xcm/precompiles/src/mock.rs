@@ -148,6 +148,16 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
+pub struct XcmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> Location {
+		Location::new(1, [Parachain(id)])
+	}
+}
+
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for Test {
 	type Balance = Balance;
