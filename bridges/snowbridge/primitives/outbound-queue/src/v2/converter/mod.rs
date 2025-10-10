@@ -15,7 +15,7 @@ use frame_support::{
 	traits::{Contains, Get, ProcessMessageError},
 };
 use snowbridge_core::{ParaId, TokenId};
-use sp_runtime::traits::MaybeConvert;
+use sp_runtime::traits::{MaybeConvert, MaybeEquivalence};
 use sp_std::{marker::PhantomData, ops::ControlFlow, prelude::*};
 use xcm::prelude::*;
 use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
@@ -53,7 +53,7 @@ where
 	UniversalLocation: Get<InteriorLocation>,
 	EthereumNetwork: Get<NetworkId>,
 	OutboundQueue: SendMessage,
-	ConvertAssetId: MaybeConvert<TokenId, Location>,
+	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	AssetHubParaId: Get<ParaId>,
 {
 	type Ticket = (Vec<u8>, XcmHash);
