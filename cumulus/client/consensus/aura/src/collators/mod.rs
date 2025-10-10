@@ -87,7 +87,7 @@ where
 	P::Public: Codec,
 	Spawner: sp_core::traits::SpawnNamed + Clone,
 {
-	let authorities = client.runtime_api().authorities(best_block).unwrap_or_default();
+	let authorities = client.runtime_api().authorities(best_block).ok()?;
 
 	// Check if our slot has passed and we are not expected to author again in next slot.
 	match (
