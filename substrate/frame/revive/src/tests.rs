@@ -573,8 +573,9 @@ fn ext_builder_with_genesis_config_works() {
 				);
 			}
 
-			// check that we can call these contracts
-			let _ = builder::bare_call(contract.address).build_and_unwrap_result();
+			// Check that we can call contract created at genesis
+			let result = builder::bare_call(contract.address).build_and_unwrap_result();
+			assert!(!result.did_revert());
 		}
 	});
 }
