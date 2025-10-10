@@ -41,7 +41,7 @@ pub use sp_core::{H160, H256, U256};
 
 use crate::{
 	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError, LOG_TARGET,
+	Error as CrateError,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
@@ -51,8 +51,8 @@ use sp_runtime::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) use builtin::{
-	IBenchmarking, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
-	WithInfo as BenchmarkWithInfo,
+	IBenchmarking, NoInfo as BenchmarkNoInfo, Storage as BenchmarkStorage,
+	System as BenchmarkSystem, WithInfo as BenchmarkWithInfo,
 };
 
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";
@@ -110,7 +110,7 @@ pub(crate) enum BuiltinAddressMatcher {
 }
 
 /// A pre-compile can error in the same way that a real contract can.
-#[derive(derive_more::From, Debug)]
+#[derive(derive_more::From, Debug, Eq, PartialEq)]
 pub enum Error {
 	/// This is the same as a contract writing `revert("I reverted")`.
 	///
@@ -370,12 +370,12 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let call =
-			<Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input).map_err(|err| {
-				log::debug!(target: LOG_TARGET, "`abi_decode_validate` for pre-compile failed: {err:?}");
-				Error::Panic(PanicKind::ResourceError)
-			})?;
-		<Self as BuiltinPrecompile>::call(address, &call, env)
+		log::trace!(target: crate::LOG_TARGET, "pre-compile call at {:?} with {:x?}", address, input);
+		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
+			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+		let res = <Self as BuiltinPrecompile>::call(address, &call, env);
+		log::trace!(target: crate::LOG_TARGET, "pre-compile call at {:?} result: {:x?}", address, res);
+		res
 	}
 
 	fn call_with_info(
@@ -383,12 +383,12 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		log::trace!(target: crate::LOG_TARGET, "pre-compile call_with_info at {:?} with {:x?}", address, input);
 		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
-			.map_err(|err| {
-				log::debug!(target: LOG_TARGET, "`abi_decode_validate` for pre-compile (with info) failed: {err:?}");
-				Error::Panic(PanicKind::ResourceError)
-			})?;
-		<Self as BuiltinPrecompile>::call_with_info(address, &call, env)
+			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+		let res = <Self as BuiltinPrecompile>::call_with_info(address, &call, env);
+		log::trace!(target: crate::LOG_TARGET, "pre-compile call_with_info at {:?} result: {:x?}", address, res);
+		res
 	}
 }
 
