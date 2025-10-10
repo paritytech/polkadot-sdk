@@ -31,11 +31,12 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network().await?;
+	let collator_namess = ["alice", "bob"];
+	let network = spawn_network(&collator_namess).await?;
 
 	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
 
-	let target_node = "alice";
+	let target_node = collator_namess[0];
 	let node = network.get_node(target_node)?;
 	let rpc_client = node.rpc().await?;
 	info!("Created single RPC client for target node: {}", target_node);
@@ -68,11 +69,11 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network().await?;
+	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+	let network = spawn_network(&collator_names).await?;
 
 	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
 
-	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
 	let mut rpc_clients = Vec::new();
 	for &name in &collator_names {
 		let node = network.get_node(name)?;
@@ -116,9 +117,10 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network().await?;
+	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+	let network = spawn_network(&collator_names).await?;
 
-	let target_node = "alice";
+	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
 	let rpc_client = node.rpc().await?;
 	info!("Created single RPC client for target node: {}", target_node);
@@ -128,7 +130,6 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	let submit_capacity =
 		DEFAULT_MAX_TOTAL_STATEMENTS.min(DEFAULT_MAX_TOTAL_SIZE / payload_size) as u64;
 	let statements_per_task = submit_capacity / total_tasks as u64;
-	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
 	let num_collators = collator_names.len() as u64;
 	let propogation_capacity = submit_capacity * (num_collators - 1); // 5x per node
 	let start_time = std::time::Instant::now();
@@ -271,7 +272,8 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
+async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	assert!(collators.len() >= 2);
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -283,7 +285,8 @@ async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				.with_node(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
-			p.with_id(2400)
+			let p = p
+				.with_id(2400)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain_spec_path("tests/zombie_ci/people-rococo-spec.json")
@@ -293,12 +296,12 @@ async fn spawn_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 					"--enable-statement-store".into(),
 					"--rpc-max-connections=50000".into(),
 				])
-				.with_collator(|n| n.with_name("alice"))
-				.with_collator(|n| n.with_name("bob"))
-				.with_collator(|n| n.with_name("charlie"))
-				.with_collator(|n| n.with_name("dave"))
-				.with_collator(|n| n.with_name("eve"))
-				.with_collator(|n| n.with_name("ferdie"))
+				// Have to set outside of the loop below, so that `p` has the right type.
+				.with_collator(|n| n.with_name(collators[0]));
+
+			collators[1..]
+				.iter()
+				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
