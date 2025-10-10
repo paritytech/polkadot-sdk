@@ -279,7 +279,8 @@ where
 				continue;
 			};
 
-			slot_timer.update_scheduling(core.total_cores().into());
+			// Temp hack to ensure we use only 1 core per RCB.
+			slot_timer.update_scheduling(1);
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
@@ -541,10 +542,10 @@ impl Core {
 		self.core_index
 	}
 
-	/// Returns the total number of cores.
-	pub(crate) fn total_cores(&self) -> u16 {
-		self.number_of_cores
-	}
+	// Returns the total number of cores.
+	// pub(crate) fn total_cores(&self) -> u16 {
+	// 	self.number_of_cores
+	// }
 }
 
 /// Determine the core for the given `para_id`.
