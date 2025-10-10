@@ -1,0 +1,8 @@
+title: enabled half of test call_invalid_opcode
+doc:
+- audience: Runtime Dev
+  description: Enables the PVM backend part of this test `call_invalid_opcode` in
+    `polkadot-sdk/substrate/frame/revive/src/tests/sol/contract.rs`
+crates:
+- name: pallet-revive
+  bump: patch
