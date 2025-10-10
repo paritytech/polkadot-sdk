@@ -505,7 +505,7 @@ impl Default for Origin<Test> {
 #[test]
 fn ext_builder_with_genesis_config_works() {
 	let pvm_contract = Account {
-		address: BOB_ADDR,
+		address: crate::H160::repeat_byte(0x42),
 		balance: U256::from(100_000_100),
 		nonce: 42,
 		contract_data: Some(ContractData {
@@ -515,11 +515,17 @@ fn ext_builder_with_genesis_config_works() {
 	};
 
 	let evm_contract = Account {
-		address: CHARLIE_ADDR,
+		address: crate::H160::repeat_byte(0x43),
 		balance: U256::from(1_000_00_100),
 		nonce: 43,
 		contract_data: Some(ContractData {
-			code: vec![revm::bytecode::opcode::RETURN],
+			code: vec![
+				revm::bytecode::opcode::PUSH1,
+				0x00,
+				revm::bytecode::opcode::PUSH1,
+				0x00,
+				revm::bytecode::opcode::RETURN,
+			],
 			storage: [([3u8; 32].into(), [4u8; 32].into())].into_iter().collect(),
 		}),
 	};
@@ -548,6 +554,11 @@ fn ext_builder_with_genesis_config_works() {
 		for contract in [pvm_contract, evm_contract] {
 			let contract_data = contract.contract_data.unwrap();
 			let contract_info = test_utils::get_contract(&contract.address);
+
+			assert!(System::account_exists(&<Test as Config>::AddressMapper::to_account_id(
+				&contract.address
+			)));
+
 			assert_eq!(
 				PristineCode::<Test>::get(&contract_info.code_hash).unwrap(),
 				contract_data.code
@@ -561,6 +572,9 @@ fn ext_builder_with_genesis_config_works() {
 					Ok(Some(value.0.to_vec()))
 				);
 			}
+
+			// check that we can call these contracts
+			let _ = builder::bare_call(contract.address).build_and_unwrap_result();
 		}
 	});
 }
