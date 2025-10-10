@@ -31,7 +31,9 @@ use std::{
 	sync::Arc,
 };
 
-use crate::{blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary};
+use crate::{
+	blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary, StaleBlock,
+};
 
 use sc_transaction_pool_api::ChainEvent;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
@@ -404,8 +406,8 @@ pub struct FinalityNotification<Block: BlockT> {
 	///
 	/// This maps to the range `(old_finalized, new_finalized)`.
 	pub tree_route: Arc<[Block::Hash]>,
-	/// Stale branches heads.
-	pub stale_heads: Arc<[Block::Hash]>,
+	/// Stale blocks.
+	pub stale_blocks: Arc<[Arc<StaleBlock<Block>>]>,
 	/// Handle to unpin the block this notification is for
 	unpin_handle: UnpinHandle<Block>,
 }
@@ -439,7 +441,9 @@ impl<Block: BlockT> FinalityNotification<Block> {
 			hash,
 			header: summary.header,
 			tree_route: Arc::from(summary.finalized),
-			stale_heads: Arc::from(summary.stale_heads),
+			stale_blocks: Arc::from(
+				summary.stale_blocks.into_iter().map(Arc::from).collect::<Vec<_>>(),
+			),
 			unpin_handle: UnpinHandle::new(hash, unpin_worker_sender),
 		}
 	}
