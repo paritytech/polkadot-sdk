@@ -462,7 +462,7 @@ fn logs_work(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -471,6 +471,7 @@ fn logs_work(fixture_type: FixtureType) {
 		initialize_block(2);
 
 		let result = builder::bare_call(addr)
+			.gas_limit(crate::Weight::from_parts(100_000_000_000_000, 50 * 1024 * 1024))
 			.data(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "test reverted");

@@ -45,7 +45,7 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError};
 use super::{address::AddressMapper, pallet, Config, ContractResult, ExecConfig, Pallet, Weight};
 use ethereum_standards::IERC20;
 
-const GAS_LIMIT: Weight = Weight::from_parts(1_000_000_000, 100_000);
+const GAS_LIMIT: Weight = Weight::from_parts(500_000_000_000, 10 * 1024 * 1024);
 
 impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.

@@ -17,8 +17,9 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, Code, Config, ContractResult, ExecConfig,
-	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
+	address::AddressMapper, evm::TransactionSigned, AccountIdOf, BalanceOf, Code, Config,
+	ContractResult, ExecConfig, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
+	U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -246,6 +247,7 @@ builder!(
 		value: U256,
 		gas_limit: Weight,
 		data: Vec<u8>,
+		transaction_encoded: Vec<u8>,
 		effective_gas_price: U256,
 		encoded_len: u32,
 	) -> DispatchResultWithPostInfo;
@@ -258,6 +260,34 @@ builder!(
 			value: 0u32.into(),
 			gas_limit: GAS_LIMIT,
 			data: vec![],
+			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
+			effective_gas_price: 0u32.into(),
+			encoded_len: 0,
+		}
+	}
+);
+
+builder!(
+	eth_instantiate_with_code(
+			origin: OriginFor<T>,
+			value: U256,
+			gas_limit: Weight,
+			code: Vec<u8>,
+			data: Vec<u8>,
+			transaction_encoded: Vec<u8>,
+			effective_gas_price: U256,
+			encoded_len: u32,
+	) -> DispatchResultWithPostInfo;
+
+	/// Create a [`EthInstantiateWithCodeBuilder`] with default values.
+	pub fn eth_instantiate_with_code(origin: OriginFor<T>, code: Vec<u8>) -> Self {
+		Self {
+			origin,
+			value: 0u32.into(),
+			gas_limit: GAS_LIMIT,
+			code,
+			data: vec![],
+			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 			effective_gas_price: 0u32.into(),
 			encoded_len: 0,
 		}

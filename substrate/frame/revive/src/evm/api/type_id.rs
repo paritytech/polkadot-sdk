@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Ethereum Typed Transaction types
 use super::Byte;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use paste::paste;
 use rlp::Decodable;
 use scale_info::TypeInfo;
@@ -27,7 +27,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 macro_rules! transaction_type {
 	($name:ident, $value:literal) => {
 		#[doc = concat!("Transaction type identifier: ", $value)]
-		#[derive(Clone, Default, Debug, Eq, PartialEq)]
+		#[derive(Clone, Default, Debug, Eq, PartialEq, DecodeWithMemTracking)]
 		pub struct $name;
 
 		// upper case const name

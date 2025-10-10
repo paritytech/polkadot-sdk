@@ -428,20 +428,23 @@ fn deposit_event_max_value_limit() {
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		// Create
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
 			.native_value(30_000)
 			.build_and_unwrap_contract();
 
 		// Call contract with allowed storage value.
 		assert_ok!(builder::call(addr)
-			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
+			.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
 			.data(limits::PAYLOAD_BYTES.encode())
 			.build());
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
-			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
+			builder::call(addr)
+				.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
+				.data((limits::PAYLOAD_BYTES + 1).encode())
+				.build(),
 			Error::<Test>::ValueTooLarge,
 		);
 	});
@@ -4017,7 +4020,7 @@ fn call_tracing_works() {
 	let (code, _code_hash) = compile_module("tracing").unwrap();
 	let (binary_callee, _) = compile_module("tracing_callee").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(binary_callee)).build_and_unwrap_contract();
@@ -4146,6 +4149,7 @@ fn call_tracing_works() {
 					]
 			};
 
+			// gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			let mut tracer = CallTracer::new(config, |_| U256::zero());
 			trace(&mut tracer, || {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()

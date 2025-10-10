@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{gas::Token, weights::WeightInfo, Config};
+use crate::{
+	gas::Token, limits, weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo, Config,
+};
 use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 
 /// Current approximation of the gas/s consumption considering
@@ -258,7 +260,11 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			Terminate { code_removed } => T::WeightInfo::seal_terminate(code_removed.into()),
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
+			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
+				.saturating_add(Weight::from_all(
+					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
+				)),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},

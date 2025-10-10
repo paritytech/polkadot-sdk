@@ -19,7 +19,7 @@
 
 use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
@@ -74,7 +74,9 @@ fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrDat
 }
 
 /// Block object
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
 	/// Base fee per gas
@@ -384,7 +386,9 @@ impl Default for SyncingStatus {
 }
 
 /// Transaction information
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionInfo {
 	/// block hash
@@ -461,7 +465,9 @@ pub enum BlockTag {
 /// Filter Topics
 pub type FilterTopics = Vec<FilterTopic>;
 
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(
+	Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(untagged)]
 pub enum HashesOrTransactionInfos {
 	/// Transaction hashes
@@ -472,6 +478,25 @@ pub enum HashesOrTransactionInfos {
 impl Default for HashesOrTransactionInfos {
 	fn default() -> Self {
 		HashesOrTransactionInfos::Hashes(Default::default())
+	}
+}
+impl HashesOrTransactionInfos {
+	pub fn push_hash(&mut self, hash: H256) {
+		match self {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes.push(hash),
+			_ => {},
+		}
+	}
+
+	pub fn len(&self) -> usize {
+		match self {
+			HashesOrTransactionInfos::Hashes(v) => v.len(),
+			HashesOrTransactionInfos::TransactionInfos(v) => v.len(),
+		}
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
 	}
 }
 
@@ -518,7 +543,19 @@ pub struct SyncingProgress {
 }
 
 /// EIP-1559 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction1559Unsigned {
 	/// accessList
@@ -554,7 +591,19 @@ pub struct Transaction1559Unsigned {
 }
 
 /// EIP-2930 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction2930Unsigned {
 	/// accessList
@@ -581,7 +630,19 @@ pub struct Transaction2930Unsigned {
 }
 
 /// EIP-4844 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction4844Unsigned {
 	/// accessList
@@ -618,7 +679,19 @@ pub struct Transaction4844Unsigned {
 }
 
 /// Legacy transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionLegacyUnsigned {
 	/// chainId
@@ -644,7 +717,18 @@ pub struct TransactionLegacyUnsigned {
 
 /// EIP-7702 transaction.
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	Default,
+	From,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction7702Unsigned {
@@ -676,7 +760,11 @@ pub struct Transaction7702Unsigned {
 	/// nonce
 	pub nonce: U256,
 	/// to address
-	pub to: Option<Address>,
+	///
+	/// # Note
+	///
+	/// Extracted from eip-7702: `Note, this implies a null destination is not valid.`
+	pub to: Address,
 	/// type
 	pub r#type: TypeEip7702,
 	/// value
@@ -685,7 +773,17 @@ pub struct Transaction7702Unsigned {
 
 /// Authorization list entry for EIP-7702
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorizationListEntry {
@@ -703,7 +801,20 @@ pub struct AuthorizationListEntry {
 	pub s: U256,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	From,
+	TryInto,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(untagged)]
 pub enum TransactionSigned {
 	Transaction7702Signed(Transaction7702Signed),
@@ -712,6 +823,7 @@ pub enum TransactionSigned {
 	Transaction2930Signed(Transaction2930Signed),
 	TransactionLegacySigned(TransactionLegacySigned),
 }
+
 impl Default for TransactionSigned {
 	fn default() -> Self {
 		TransactionSigned::TransactionLegacySigned(Default::default())
@@ -719,7 +831,9 @@ impl Default for TransactionSigned {
 }
 
 /// Validator withdrawal
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
 	/// recipient address for withdrawal value
@@ -734,7 +848,17 @@ pub struct Withdrawal {
 
 /// Access list entry
 #[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+	Debug,
+	Default,
+	Clone,
+	Encode,
+	Decode,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AccessListEntry {
@@ -759,7 +883,16 @@ impl Default for FilterTopic {
 
 /// Signed 7702 Transaction
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction7702Signed {
@@ -780,7 +913,19 @@ pub struct Transaction7702Signed {
 }
 
 /// Signed 1559 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction1559Signed {
 	#[serde(flatten)]
@@ -800,7 +945,19 @@ pub struct Transaction1559Signed {
 }
 
 /// Signed 2930 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction2930Signed {
 	#[serde(flatten)]
@@ -820,7 +977,19 @@ pub struct Transaction2930Signed {
 }
 
 /// Signed 4844 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction4844Signed {
 	#[serde(flatten)]
@@ -835,7 +1004,19 @@ pub struct Transaction4844Signed {
 }
 
 /// Signed Legacy Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 pub struct TransactionLegacySigned {
 	#[serde(flatten)]
 	pub transaction_legacy_unsigned: TransactionLegacyUnsigned,
@@ -920,5 +1101,136 @@ mod tests {
 
 		// Verify that deserializing and serializing leads to the same result
 		assert_eq!(block, block_roundtrip);
+	}
+
+	#[test]
+	fn test_transaction_hashes_deserialization() {
+		let json = r#"["0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"]"#;
+		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
+		assert!(matches!(result, HashesOrTransactionInfos::Hashes(_)));
+
+		let json = r#"[]"#;
+		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
+		assert!(matches!(result, HashesOrTransactionInfos::Hashes(_)));
+
+		let json = r#"[{"invalid": "data"}]"#;
+		let result: Result<HashesOrTransactionInfos, _> = serde_json::from_str(json);
+		assert!(result.is_err());
+	}
+
+	#[test]
+	fn test_transaction_infos_deserialization() {
+		let json = r#"[{
+			"accessList": [{
+				"address": "0x9008d19f58aabd9ed0d60971565aa8510560ab41",
+				"storageKeys": [
+					"0x0000000000000000000000000000000000000000000000000000000000000001"
+				]
+			}],
+			"blockHash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
+			"blockNumber": "0x161bd0f",
+			"chainId": "0x1",
+			"from": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+			"gas": "0x565f",
+			"gasPrice": "0x23cf3fd4",
+			"hash": "0x2c522d01183e9ed70caaf75c940ba9908d573cfc9996b3e7adc90313798279c8",
+			"input": "0x",
+			"maxFeePerGas": "0x23cf3fd4",
+			"maxPriorityFeePerGas": "0x0",
+			"nonce": "0x2c5ce1",
+			"r": "0x4a5703e4d8daf045f021cb32897a25b17d61b9ab629a59f0731ef4cce63f93d6",
+			"s": "0x711812237c1fed6aaf08e9f47fc47e547fdaceba9ab7507e62af29a945354fb6",
+			"to": "0x388c818ca8b9251b393131c08a736a67ccb19297",
+			"transactionIndex": "0x7a",
+			"type": "0x2",
+			"v": "0x0",
+			"value": "0x12bf92aae0c2e70",
+			"yParity": "0x0"
+			}]
+		"#;
+		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
+		assert!(matches!(result, HashesOrTransactionInfos::TransactionInfos(_)));
+	}
+
+	#[test]
+	fn test_block_decode() {
+		let json = r#"{
+			"baseFeePerGas": "0x23cf3fd4",
+			"blobGasUsed": "0x0",
+			"difficulty": "0x0",
+			"excessBlobGas": "0x80000",
+			"extraData": "0x546974616e2028746974616e6275696c6465722e78797a29",
+			"gasLimit": "0x2aea4ea",
+			"gasUsed": "0xe36e2f",
+			"hash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
+			"logsBloom": "0xb56c514421c05ba024436428e2487b83134983e9c650686421bd10588512e0a9a55d51e8e84c868446517ed5e90609dd43aad1edcc1462b8e8f15763b3ff6e62a506d3d910d0aae829786fac994a6de34860263be47eb8300e91dd2cc3110a22ba0d60008e6a0362c5a3ffd5aa18acc8c22b6fe02c54273b12a841bc958c9ae12378bc0e5881c2d840ff677f8038243216e5c105e58819bc0cbb8c56abb7e490cf919ceb85702e5d54dece9332a00c9e6ade9cb47d42440201ecd7704088236b39037c9ff189286e3e5d6657aa389c2d482e337af5cfc45b0d25ad0e300c2b6bf599bc2007008830226612a4e7e7cae4e57c740205a809dc280825165b98559c",
+			"miner": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+			"mixHash": "0x11b02e97eaa48bc83cbb6f9478f32eaf7e8b67fead4edeef945822612f1854f6",
+			"nonce": "0x0000000000000000",
+			"number": "0x161bd0f",
+			"parentBeaconBlockRoot": "0xd8266eb7bb40e4e5e3beb9caed7ccaa448ce55203a03705c87860deedcf7236d",
+			"parentHash": "0x7c9625cc198af5cf677a15cdc38da3cf64d57b9729de5bd1c96b3c556a84aa7d",
+			"receiptsRoot": "0x758614638725ede86a2f4c8339eb79b84ae346915319dc286643c9324e34f28a",
+			"requestsHash": "0xd9267a5ab4782c4e0bdc5fcd2fefb53c91f92f91b6059c8f13343a0691ba77d1",
+			"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+			"size": "0x14068",
+			"stateRoot": "0x7ed9726e3172886af5301968c2ddb7c38f8adf99c99ec10fdfaab66c610854bb",
+			"timestamp": "0x68a5ce5b",
+			"transactions": [
+				{
+				"blockHash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
+				"blockNumber": "0x161bd0f",
+				"from": "0x693ca5c6852a7d212dabc98b28e15257465c11f3",
+				"gas": "0x70bdb",
+				"gasPrice": "0x23cf3fd4",
+				"maxPriorityFeePerGas": "0x0",
+				"maxFeePerGas": "0x47ca802f",
+				"hash": "0xf6d8b07ddcf9a9d44c99c3665fd8c78f0ccd32506350ea5a9be1a68ba08bfd1f",
+				"input": "0x09c5eabe000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000002a90000cca0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000020000000000000000000000035c9618f600000000000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000002374fed200000000000000000001528fd550bc9a0000000000000000351e55bea6d51900dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000000000000000005c0c965e0000000000000000000000000000000000004c00000001000000000000000000000000000000000000002e24cd1d61a63f43658ed73b6ddeba00010002000100000000000000000000000000000000000000000000000039d622818daae62900006602000000000000000000002ff9e9686fa6ac00000000000000000000000000007f88ca000000000000000004caaa5ba8029c920300010000000000000000052319c661ddb06600000000000000000001528fd550bc9a0000000000000000005049606b67676100011c0c00000000000000002ff9e9686fa6ac000000000000000000000000035c16902c0000000000000000000000000000000200000000000000000000000000000002000073d53553ee552c1f2a9722e6407d43e41e19593f1cbc3d63300bfc6e48709f5b5ed98f228c70104e8c5d570b5608b47dca95ce6e371636965b6fdcab3613b6b65f061a44b7132011bb97a768bd238eacb62d7109920b000000000000000005246c56372e6d000000000000000000000000005c0c965e0000000000000000000000002374fed20000000000000000000000002374fed200011cc19621f6edbb9c02b95055b9f52eba0e2cb954c259f42aeca488551ea82b72f2504bbd310eb7145435e258751ab6854ab08b1630b89d6621dc1398c5d0c43b480000000000000000000000000000000000000000000000000000",
+				"nonce": "0x40c6",
+				"to": "0x0000000aa232009084bd71a5797d089aa4edfad4",
+				"transactionIndex": "0x0",
+				"value": "0x0",
+				"type": "0x2",
+				"accessList": [],
+				"chainId": "0x1",
+				"v": "0x1",
+				"yParity": "0x1",
+				"r": "0xb3e71bd95d73e965495b17647f5faaf058e13af7dd21f2af24eac16f7e9d06a1",
+				"s": "0x58775b0c15075fb7f007b88e88605ae5daec1ffbac2771076e081c8c2b005c20"
+				},
+				{
+				"blockHash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
+				"blockNumber": "0x161bd0f",
+				"from": "0x4791eb2224d272655e8d5da171bb07dd5a805ff6",
+				"hash": "0xda8bc5dc5617758c6af0681d71642f68ce679bb92df4d8cf48493f0cfad14e20",
+				"transactionIndex": "0x19",
+				"gas": "0x186a0",
+				"gasPrice": "0x6a5efc76",
+				"maxPriorityFeePerGas": "0x6a5efc76",
+				"maxFeePerGas": "0x6a5efc76",
+				"input": "0x2c7bddf4",
+				"nonce": "0x6233",
+				"to": "0x62b53c45305d29bbe4b1bfa49dd78766b2f1e624",
+				"value": "0x0",
+				"type": "0x4",
+				"accessList": [],
+				"chainId": "0x1",
+				"authorizationList": [
+				],
+				"v": "0x1",
+				"yParity": "0x1",
+				"r": "0x3b863c04d39f70e499ffb176376128a57481727116027a92a364b6e1668d13a7",
+				"s": "0x39b13f0597c509de8260c7808057e64126e7d0715044dda908d1f513e1ed79ad"
+				}
+			],
+			"transactionsRoot": "0xca2e7e6ebe1b08030fe5b9efabee82b95e62f07cff5a4298354002c46b41a216",
+			"uncles": [],
+			"withdrawals": [
+			],
+			"withdrawalsRoot": "0x7a3ad42fdb774c0e662597141f52a81210ffec9ce0db9dfcd841f747b0909010"
+		}"#;
+
+		let _result: Block = serde_json::from_str(json).unwrap();
 	}
 }
