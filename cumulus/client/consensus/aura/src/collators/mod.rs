@@ -65,11 +65,11 @@ pub const COLLATOR_PROTOCOL_HELPER_TASK_GROUP: &str = "collator-protocol-helper"
 /// Helper for triggering backing group connections early.
 ///
 /// Returns the updated `our_slot` value.
-pub async fn collator_protocol_helper<Block, Client, P, Spawner>(
-	client: std::sync::Arc<Client>,
-	keystore: sp_keystore::KeystorePtr,
-	mut overseer_handle: cumulus_relay_chain_interface::OverseerHandle,
-	spawn_handle: Spawner,
+pub async fn update_backing_group_connections<Block, Client, P, Spawner>(
+	client: &std::sync::Arc<Client>,
+	keystore: &sp_keystore::KeystorePtr,
+	overseer_handle: &mut cumulus_relay_chain_interface::OverseerHandle,
+	spawn_handle: &Spawner,
 	best_block: Block::Hash,
 	slot_duration: SlotDuration,
 	current_slot: Slot,
@@ -81,7 +81,7 @@ where
 	Client::Api: AuraApi<Block, P::Public>,
 	P: sp_core::Pair + Send + Sync,
 	P::Public: Codec,
-	Spawner: sp_core::traits::SpawnNamed,
+	Spawner: sp_core::traits::SpawnNamed + Clone,
 {
 	let authorities = client.runtime_api().authorities(best_block).unwrap_or_default();
 

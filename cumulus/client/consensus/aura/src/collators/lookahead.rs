@@ -47,7 +47,7 @@ use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
 use crate::{
 	collator as collator_util,
-	collators::{claim_queue_at, collator_protocol_helper},
+	collators::{claim_queue_at, update_backing_group_connections},
 	export_pov_to_path,
 };
 use futures::prelude::*;
@@ -336,11 +336,11 @@ where
 				let slot_claim = match can_build_upon(parent_hash) {
 					Some((current_slot, slot_duration, fut)) => match fut.await {
 						None => {
-							our_slot = collator_protocol_helper::<_, _, P, _>(
-								params.para_client.clone(),
-								params.keystore.clone(),
-								params.overseer_handle.clone(),
-								params.spawner.clone(),
+							our_slot = update_backing_group_connections::<_, _, P, _>(
+								&params.para_client,
+								&params.keystore,
+								&mut params.overseer_handle.clone(),
+								&params.spawner,
 								parent_hash,
 								slot_duration,
 								current_slot,

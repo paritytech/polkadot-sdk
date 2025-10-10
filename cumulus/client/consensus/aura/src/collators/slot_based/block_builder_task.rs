@@ -21,12 +21,12 @@ use super::CollatorMessage;
 use crate::{
 	collator as collator_util,
 	collators::{
-		check_validation_code_or_log, collator_protocol_helper,
+		check_validation_code_or_log,
 		slot_based::{
 			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
-		RelayParentData,
+		update_backing_group_connections, RelayParentData,
 	},
 	LOG_TARGET,
 };
@@ -340,21 +340,21 @@ where
 				Some(slot) => slot,
 				None => {
 					tracing::debug!(
-						target: crate::LOG_TARGET,
-						unincluded_segment_len = parent.depth,
-						relay_parent = ?relay_parent,
-						relay_parent_num = %relay_parent_header.number(),
-						included_hash = ?included_header_hash,
-						included_num = %included_header.number(),
-						parent = ?parent_hash,
-						slot = ?para_slot.slot,
+								target: crate::LOG_TARGET,
+								unincluded_segment_len = parent.depth,
+								relay_parent = ?relay_parent,
+								relay_parent_num = %relay_parent_header.number(),
+								included_hash = ?included_header_hash,
+								included_num = %included_header.number(),
+								parent = ?parent_hash,
+								slot = ?para_slot.slot,
 						"Not building block."
 					);
-					our_slot = collator_protocol_helper::<_, _, P, _>(
-						para_client.clone(),
-						keystore.clone(),
-						overseer_handle.clone(),
-						spawn_handle.clone(),
+					our_slot = update_backing_group_connections::<_, _, P, _>(
+						&para_client,
+						&keystore,
+						&mut overseer_handle.clone(),
+						&spawn_handle,
 						best_hash,
 						para_slot_duration,
 						para_slot.slot,
