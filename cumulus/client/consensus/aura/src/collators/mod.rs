@@ -169,48 +169,58 @@ async fn claim_queue_at(
 	}
 }
 
+/// Check if we should skip building a block because the relay parent would put us
+/// in an older session.
+///
+/// We fetch the best block and the child session indices for both the best block and
+/// the relay parent. If the relay parent's child session index is less than the best
+/// block's child session index, we skip building.
 async fn should_skip_building_block_due_to_relay_parent_in_old_session<Client>(
 	relay_client: &Client,
-	relay_parent: sp_core::H256,
-	relay_grand_parent: sp_core::H256,
+	relay_parent: RelayHash,
 ) -> bool
 where
 	Client: RelayChainInterface,
 {
-	let Some(session_index_of_relay_parent) =
+	let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
+		// Failed to fetch best hash, do not skip building
+		return false;
+	};
+
+	let Some(relay_parent_child_session_index) =
 		relay_client.session_index_for_child(relay_parent).await.ok()
 	else {
-		// Failed to fetch session index, do not skip building
+		// Failed to fetch session index for child of relay parent, do not skip building
 		return false;
 	};
 
-	let Some(session_index_of_relay_grand_parent) =
-		relay_client.session_index_for_child(relay_grand_parent).await.ok()
+	let Some(best_child_session_index) =
+		relay_client.session_index_for_child(relay_best_hash).await.ok()
 	else {
-		// Failed to fetch session index, do not skip building
+		// Failed to fetch session index for child of best block, do not skip building
 		return false;
 	};
 
-	if session_index_of_relay_parent > session_index_of_relay_grand_parent {
-		// This is a new session, so we should NOT skip building
-		false
-	} else if session_index_of_relay_parent < session_index_of_relay_grand_parent {
-		// Is this even possible? probably a programmer error, wrong relay_parent /
-		// relay_grand_parent passed in? feels most prudent to not skip building in this case
-		false
+	let should_skip = if relay_parent_child_session_index < best_child_session_index {
+		// Relay parent would put us in an older session → skip.
+		true
 	} else {
-		// `session_index_of_relay_parent == session_index_of_relay_grand_parent`
-		// => relay_parent is in old session => we SHOULD skip
+		// Equal (current session) or greater (unexpected) → don't skip.
+		false
+	};
+
+	if should_skip {
 		tracing::trace!(
 			target: crate::LOG_TARGET,
-			?relay_grand_parent,
-			?session_index_of_relay_grand_parent,
+			?relay_best_hash,
+			?best_child_session_index,
 			?relay_parent,
-			?session_index_of_relay_parent,
-			"Relay parent is in old session, we should skip building block on it."
+			?relay_parent_child_session_index,
+			"Relay parent would build into an older session; skipping."
 		);
-		true
 	}
+
+	should_skip
 }
 
 // Checks if we own the slot at the given block and whether there
