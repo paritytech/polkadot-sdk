@@ -30,6 +30,11 @@ pub trait WeightBounds<RuntimeCall> {
 	/// Return the maximum amount of weight that an attempted execution of this instruction could
 	/// consume.
 	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError>;
+
+	/// Return the weight consumed by a barrier check for an XCM, or None if not applicable.
+	fn barrier_check_weight() -> Option<Weight> {
+		None
+	}
 }
 
 /// Charge for weight in order to execute XCM.

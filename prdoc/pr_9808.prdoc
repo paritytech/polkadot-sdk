@@ -1,0 +1,35 @@
+title: Benchmark Barrier for Accurate Weighting on Early Rejection
+doc:
+- audience: Runtime Dev
+  description: This PR improves the weight accounting for XCMs that are rejected early by `Barrier`.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: none
+- name: pallet-staking-async-rc-runtime
+  bump: none
+- name: pallet-xcm-benchmarks
+  bump: major
+- name: staging-xcm-executor
+  bump: major
+- name: westend-runtime
+  bump: patch

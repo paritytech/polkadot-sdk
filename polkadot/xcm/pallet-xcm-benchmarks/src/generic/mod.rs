@@ -27,7 +27,8 @@ pub mod pallet {
 	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	use sp_runtime::traits::Dispatchable;
 	use xcm::latest::{
-		Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response, WeightLimit,
+		Asset, Assets, Instruction, InteriorLocation, Junction, Location, NetworkId, Response,
+		WeightLimit, Xcm,
 	};
 
 	#[pallet::config]
@@ -96,6 +97,14 @@ pub mod pallet {
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(Location, Location), BenchmarkError>;
+
+		/// An XCM used to exercise the barrier logic in benchmarks.
+		///
+		/// This represents a call used to benchmark the cost of barrier evaluation in rejection
+		/// cases.
+		///
+		/// If set to `Err`, benchmarks which rely on a barrier check will be skipped.
+		fn worst_case_for_not_passing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError>;
 
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///
