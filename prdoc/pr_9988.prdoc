@@ -2,7 +2,6 @@ title: '[pallet-revive] improve revive genesis config'
 doc:
 - audience: Runtime Dev
   description: |-
-    - Update test to make sure contracts created at genesis are callable
     - make sure that contracts are brought to existence by minting e.d first
 crates:
 - name: pallet-revive
