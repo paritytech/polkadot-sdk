@@ -66,14 +66,12 @@ mod error;
 mod metrics;
 #[cfg(test)]
 mod tests;
-mod validators_buffer;
 
 use collation::{
 	ActiveCollationFetches, Collation, CollationSendResult, CollationStatus,
 	VersionedCollationRequest, WaitingCollationFetches,
 };
 use error::{log_error, Error, FatalError, Result};
-use validators_buffer::{ResetInterestTimeout, RESET_INTEREST_TIMEOUT};
 
 pub use metrics::Metrics;
 
@@ -89,6 +87,9 @@ const COST_APPARENT_FLOOD: Rep =
 ///
 /// For considerations on this value, see: https://github.com/paritytech/polkadot/issues/4386
 const MAX_UNSHARED_UPLOAD_TIME: Duration = Duration::from_millis(150);
+
+/// A timeout for resetting validators' interests in collations.
+const RESET_INTEREST_TIMEOUT: Duration = Duration::from_secs(6);
 
 /// Ensure that collator updates its connection requests to validators
 /// this long after the most recent leaf.
@@ -112,6 +113,36 @@ const MAX_PARALLEL_CHAIN_API_REQUESTS: usize = 10;
 /// `Pending` variant never finishes and should be used when there're no peers
 /// connected.
 type ReconnectTimeout = Fuse<futures_timer::Delay>;
+
+/// A future that returns a candidate hash along with validator discovery
+/// keys once a timeout hit.
+///
+/// If a validator doesn't manage to fetch a collation within this timeout
+/// we should reset its interest in this advertisement in a buffer. For example,
+/// when the PoV was already requested from another peer.
+struct ResetInterestTimeout {
+	fut: futures_timer::Delay,
+	candidate_hash: CandidateHash,
+	peer_id: PeerId,
+}
+
+impl ResetInterestTimeout {
+	/// Returns new `ResetInterestTimeout` that resolves after given timeout.
+	fn new(candidate_hash: CandidateHash, peer_id: PeerId, delay: Duration) -> Self {
+		Self { fut: futures_timer::Delay::new(delay), candidate_hash, peer_id }
+	}
+}
+
+impl std::future::Future for ResetInterestTimeout {
+	type Output = (CandidateHash, PeerId);
+
+	fn poll(
+		mut self: std::pin::Pin<&mut Self>,
+		cx: &mut std::task::Context<'_>,
+	) -> std::task::Poll<Self::Output> {
+		self.fut.poll_unpin(cx).map(|_| (self.candidate_hash, self.peer_id))
+	}
+}
 
 #[derive(Debug)]
 enum ShouldAdvertiseTo {
