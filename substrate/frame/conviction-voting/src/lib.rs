@@ -759,7 +759,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Increase the amount delegated to `who` and update tallies accordingly.
 	///
-	/// Return the number of votes accessed.
+	/// Return the number of votes accessed in the process.
 	fn increase_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
@@ -820,7 +820,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Reduce the amount delegated to `who` and update tallies accordingly.
 	///
-	/// Return the number of votes accessed.
+	/// Return the number of votes accessed in the process.
 	fn reduce_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
@@ -888,7 +888,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Attempt to delegate `balance` times `conviction` of voting power from `who` to `target`.
 	///
-	/// Return the number of upstream vote accesses.
+	/// Return the number of votes accessed in the process.
 	fn try_delegate(
 		who: T::AccountId,
 		class: ClassOf<T, I>,
@@ -901,7 +901,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 
-		let vote_accesses =
+		let votes_accessed =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				// Ensure not already delegating.
 				if voting.maybe_delegate.is_some() {
@@ -912,7 +912,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				voting.set_delegate_info(Some(target.clone()), balance, Some(conviction));
 
 				// Collect all of the delegator's votes that are for ongoing polls.
-				let ongoing_votes: Vec<_> = voting
+				let delegators_ongoing_votes: Vec<_> = voting
 					.votes
 					.iter()
 					.filter(|v| {
@@ -922,27 +922,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.collect();
 
 				// Update voting data of the chosen delegate.
-				let vote_accesses = Self::increase_upstream_delegation(
+				let votes_accessed = Self::increase_upstream_delegation(
 					&target,
 					&class,
 					conviction.votes(balance),
-					ongoing_votes,
+					delegators_ongoing_votes,
 				);
 
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
-				vote_accesses
+				votes_accessed
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target, class));
-		Ok(vote_accesses)
+		Ok(votes_accessed)
 	}
 
 	/// Attempt to end the current delegation.
 	///
-	/// Return the number of vote accesses upstream.
+	/// Return the number of votes accessed in the process.
 	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<u32, DispatchError> {
-		let vote_accesses =
+		let votes_accessed =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				// If they're currently delegating.
 				let (delegate, conviction) =
@@ -961,7 +961,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.collect();
 
 				// Update their delegate's voting data.
-				let vote_accesses = Self::reduce_upstream_delegation(
+				let votes_accessed = Self::reduce_upstream_delegation(
 					&delegate,
 					&class,
 					conviction.votes(voting.delegated_balance),
@@ -978,10 +978,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				// Set the delegator's delegate info.
 				voting.set_delegate_info(None, Default::default(), None);
-				Ok(vote_accesses)
+				Ok(votes_accessed)
 			})?;
 		Self::deposit_event(Event::<T, I>::Undelegated(who, class));
-		Ok(vote_accesses)
+		Ok(votes_accessed)
 	}
 
 	// Update the lock for this class to be max(old, amount).
