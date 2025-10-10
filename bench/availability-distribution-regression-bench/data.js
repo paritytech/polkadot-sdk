@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1760116816006,
+  "lastUpdate": 1760120015291,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "017cd2a0687438cfd802af9e3703d9f69bcc03c6",
-          "message": "impl ApprovedPeer UMP signal (#7955)\n\nhttps://github.com/paritytech/polkadot-sdk/issues/7731\n\nTODO:\n- [x] Merge [this](https://github.com/paritytech/polkadot-sdk/pull/7986)\nbeforehand. It'll add some simplifications in the runtime (especially\nfor tests)\n- [x] add more runtime tests\n- [x] PRDoc",
-          "timestamp": "2025-04-10T13:30:12Z",
-          "tree_id": "9da27b31e57bdc525ee67de2b56031414a305446",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/017cd2a0687438cfd802af9e3703d9f69bcc03c6"
-        },
-        "date": 1744297204896,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022463707253333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008746914546666746,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15808422707333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012991140786666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.007594405646666639,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d65db6ef34c0e7b99655576fe2861105557afb97",
+          "message": "[pallet-revive] Implement the consume_all_gas syscall (#9997)\n\nThis PR implements a new API `consume_all_gas` which is required for\n100% EVM `INVALID` opcode compatibility.\n\nSince ceding of all remaining gas is handled in the EVM interpreter, I\ndecided to not add a return flag but make this a dedicated syscall for\nconsistency instead.\n\nDidn't implement a benchmark since the first (and only) thing this does\nis consuming all remaining gas anyways.\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-10-10T16:59:39Z",
+          "tree_id": "8301f54c9ebb8ba81aad943ffffe9f1980d42d88",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d65db6ef34c0e7b99655576fe2861105557afb97"
+        },
+        "date": 1760119989775,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15874560677333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007425599433333321,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02281253258000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013216401333333332,
             "unit": "seconds"
           }
         ]
