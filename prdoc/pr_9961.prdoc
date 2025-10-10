@@ -2,7 +2,7 @@ title: Introduce `SlotSchedule` runtime api
 doc:
 - audience: Runtime Dev
   description: |-
-    This pull requests introduces the `SlotSchedule` runtime api. This runtime api will be used in the future to determine the number of parachains blocks to produce per relay chain slot. Right now the pull request only introcues the runtime api and implements it for the parachain runtimes.
+    This pull requests introduces the `SlotSchedule` runtime api. This runtime api will be used in the future to determine the number of parachains blocks to produce per relay chain slot. Right now the pull request only introduces the runtime api and implements it for the parachain runtimes.
 
     Closes: https://github.com/paritytech/polkadot-sdk/issues/8905
 crates:
