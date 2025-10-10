@@ -110,6 +110,7 @@ pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
 			metadata: vec![],
 			accounts: vec![(1, 1, 100)],
 			next_asset_id: None,
+			reserves: vec![],
 		},
 		system: Default::default(),
 		balances: Default::default(),

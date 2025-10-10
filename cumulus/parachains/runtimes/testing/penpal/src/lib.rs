@@ -470,6 +470,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type AssetIdParameter = codec::Compact<AssetId>;
+	type ReserveId = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -506,6 +507,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = ForeignAssetsAssetId;
 	type AssetIdParameter = ForeignAssetsAssetId;
+	type ReserveId = xcm::latest::Location;
 	type Currency = Balances;
 	// This is to allow any other remote location to create foreign assets. Used in tests, not
 	// recommended on real chains.
@@ -525,7 +527,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
 }
 
 parameter_types! {
@@ -547,6 +549,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
+	type ReserveId = ();
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;

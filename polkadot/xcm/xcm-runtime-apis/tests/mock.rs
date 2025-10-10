@@ -415,6 +415,7 @@ pub fn new_test_ext_with_balances_and_assets(
 		],
 		accounts: assets,
 		next_asset_id: None,
+		reserves: vec![],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

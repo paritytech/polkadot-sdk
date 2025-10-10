@@ -1385,8 +1385,9 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	let (wnd_at_westend_parachains, wnd_at_rococo_parachains) =
 		set_up_wnds_for_penpal_westend_through_ahw_to_ahr(&sender, amount);
 
-	let pens_location_on_penpal =
-		Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap();
+	let pens_location_on_penpal = PenpalB::execute_with(|| {
+		Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap()
+	});
 	let pens_id_on_penpal = match pens_location_on_penpal.last() {
 		Some(Junction::GeneralIndex(id)) => *id as u32,
 		_ => unreachable!(),

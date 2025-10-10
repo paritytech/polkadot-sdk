@@ -1102,4 +1102,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Asset::<T, I>::insert(&id, d);
 		Ok(())
 	}
+
+	/// Helper function for setting reserves to be used in benchmarking and migrations.
+	/// Does not check validity of parameters, always call it from a trusted environment.
+	pub fn unchecked_update_reserves(
+		id: T::AssetId,
+		reserves: Vec<T::ReserveId>,
+	) -> Result<(), Error<T, I>> {
+		if reserves.is_empty() {
+			ReserveLocations::<T, I>::remove(&id);
+			Self::deposit_event(Event::ReservesRemoved { asset_id: id });
+		} else {
+			let bounded_reserves =
+				reserves.clone().try_into().map_err(|_| Error::<T, I>::TooManyReserves)?;
+			ReserveLocations::<T, I>::set(&id, bounded_reserves);
+			Self::deposit_event(Event::ReservesUpdated { asset_id: id, reserves });
+		}
+		Ok(())
+	}
 }

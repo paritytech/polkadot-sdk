@@ -114,6 +114,10 @@ use xcm::{
 		XcmVersion,
 	},
 };
+use xcm_runtime_apis::{
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::PalletInfoAccess;
@@ -122,11 +126,6 @@ use frame_support::traits::PalletInfoAccess;
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
 	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION,
-};
-
-use xcm_runtime_apis::{
-	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
-	fees::Error as XcmPaymentApiError,
 };
 
 impl_opaque_keys! {
@@ -294,6 +293,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = AssetIdForTrustBackedAssets;
 	type AssetIdParameter = codec::Compact<AssetIdForTrustBackedAssets>;
+	type ReserveId = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;
@@ -337,6 +337,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
+	type ReserveId = ();
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
@@ -573,6 +574,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = xcm::v5::Location;
 	type AssetIdParameter = xcm::v5::Location;
+	type ReserveId = xcm::v5::Location;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(
@@ -598,7 +600,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
 }
 
 // Allow Freezes for the `ForeignAssets` pallet
@@ -1218,10 +1220,12 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = (
-		pallet_revive::migrations::v1::Migration<Runtime>,
-		pallet_revive::migrations::v2::Migration<Runtime>,
-	);
+	type Migrations =
+		assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesMigration<
+			Runtime,
+			ForeignAssetsInstance,
+			FromSiblingParachain<westend_runtime_constants::system_parachain::AssetHubParaId>,
+		>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
