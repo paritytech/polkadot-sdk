@@ -1,0 +1,19 @@
+title: Introduce `ReplayProofSizeProvider`, `RecordingProofProvider` & transactional
+  extensions
+doc:
+- audience: Node Dev
+  description: |-
+    The `ProofSizeExt` extension is used to serve the proof size to the runtime. It uses the proof recorder to request the current proof size. The `RecordingProofProvider` extension can record the calls to the proof size function. Later the `ReplayProofSizeProvider` can be used to replay these recorded proof sizes. So, the proof recorder is not required anymore.
+
+    Extensions are now also hooked into the transactional system. This means they are called when a new transaction is created and informed when a transaction is committed or reverted.
+crates:
+- name: sp-api-proc-macro
+  bump: major
+- name: sp-api
+  bump: major
+- name: sp-externalities
+  bump: major
+- name: sp-state-machine
+  bump: major
+- name: sp-trie
+  bump: major
