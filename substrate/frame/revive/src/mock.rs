@@ -22,20 +22,18 @@
 use frame_system::pallet_prelude::OriginFor;
 use sp_core::{H160, U256};
 
-use alloc::vec::Vec;
-
 use crate::{pallet, DelegateInfo, ExecReturnValue};
 
 /// A trait that provides hooks for mocking EVM contract calls and callers.
 /// This is useful for testing and simulating contract interactions within foundry forge tests.
-pub trait MockHandler<T: frame_system::Config + pallet::Config> {
+pub trait MockHandler<T: pallet::Config> {
 	/// Mock an EVM contract call.
 	///
 	/// Returns `Some(ExecReturnValue)` if the call is mocked, otherwise `None`.
 	fn mock_call(
 		&self,
 		_callee: H160,
-		_call_data: Vec<u8>,
+		_call_data: &[u8],
 		_value_transferred: U256,
 	) -> Option<ExecReturnValue> {
 		None
@@ -51,7 +49,7 @@ pub trait MockHandler<T: frame_system::Config + pallet::Config> {
 	/// Mock a delegated caller for a contract call.
 	///
 	/// Returns `Some(DelegateInfo<T>)` if the delegated caller is mocked, otherwise `None`.
-	fn mock_delegated_caller(&self, _dest: H160, _input_data: Vec<u8>) -> Option<DelegateInfo<T>> {
+	fn mock_delegated_caller(&self, _dest: H160, _input_data: &[u8]) -> Option<DelegateInfo<T>> {
 		None
 	}
 }

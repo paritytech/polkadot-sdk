@@ -320,7 +320,7 @@ where
 }
 
 /// `Stack` wide configuration options.
-pub struct ExecConfig<T: frame_system::Config> {
+pub struct ExecConfig<T: Config> {
 	/// Indicates whether the account nonce should be incremented after instantiating a new
 	/// contract.
 	///
@@ -345,10 +345,13 @@ pub struct ExecConfig<T: frame_system::Config> {
 	///
 	/// It is determined when transforming `eth_transact` into a proper extrinsic.
 	pub effective_gas_price: Option<U256>,
+	/// An optional mock handler that can be used to override certain behaviors.
+	/// This is primarily used for testing purposes and should be `None` in production
+	/// environments.
 	pub mock_handler: Option<Box<dyn MockHandler<T>>>,
 }
 
-impl<T: frame_system::Config> ExecConfig<T> {
+impl<T: Config> ExecConfig<T> {
 	/// Create a default config appropriate when the call originated from a subtrate tx.
 	pub fn new_substrate_tx() -> Self {
 		Self {

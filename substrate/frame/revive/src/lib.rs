@@ -1341,7 +1341,6 @@ impl<T: Config> Pallet<T> {
 		if let Err(contract_result) = Self::ensure_non_contract_if_signed(&origin) {
 			return contract_result;
 		}
-
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let try_instantiate = || {

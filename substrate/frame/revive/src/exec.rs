@@ -822,11 +822,7 @@ where
 
 			let result = if let Some(mock_answer) =
 				exec_config.mock_handler.as_ref().and_then(|handler| {
-					handler.mock_call(
-						T::AddressMapper::to_address(&dest),
-						input_data.clone(),
-						value,
-					)
+					handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
 				}) {
 				Ok(mock_answer)
 			} else {
@@ -981,7 +977,7 @@ where
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
 		origin_is_caller: bool,
-		input_data: &Vec<u8>,
+		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
@@ -1012,7 +1008,7 @@ where
 
 				let delegated_call = delegated_call.or_else(|| {
 					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
-						mock_handler.mock_delegated_caller(address, input_data.clone())
+						mock_handler.mock_delegated_caller(address, input_data)
 					})
 				});
 				// in case of delegate the executable is not the one at `address`
@@ -1285,16 +1281,16 @@ where
 						.as_ref()
 						.map(|delegate| delegate.callee)
 						.unwrap_or(T::AddressMapper::to_address(&frame.account_id)),
-					input_data.clone(),
+					&input_data,
 					frame.value_transferred,
 				)
 			});
-			let mut output = match executable {
-				ExecutableOrPrecompile::Executable(executable) if mock_answer.is_none() =>
+			let mut output = match (executable, mock_answer) {
+				(ExecutableOrPrecompile::Executable(executable), None) =>
 					executable.execute(self, entry_point, input_data),
-				ExecutableOrPrecompile::Precompile { instance, .. } if mock_answer.is_none() =>
+				(ExecutableOrPrecompile::Precompile { instance, .. }, None) =>
 					instance.call(input_data, self),
-				_ => Ok(mock_answer.expect("Checked above; qed")),
+				(_, Some(mock_answer)) => Ok(mock_answer),
 			}
 			.and_then(|output| {
 				if u32::try_from(output.data.len())
