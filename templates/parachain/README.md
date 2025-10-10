@@ -28,6 +28,7 @@
   - [Takeaways](#takeaways)
 
 - [Runtime development](#runtime-development)
+- [Deploy to Paseo TestNet And See Your First Block](#deploy-to-paseo-testnet-and-see-your-first-block)
 - [Contributing](#contributing)
 - [Getting Help](#getting-help)
 
@@ -246,6 +247,129 @@ npx @acala-network/chopsticks@latest --chain-spec <path/to/chain_spec.json>
 `OmniNode` can be still used for runtime development if using the `--dev` flag, while `parachain-template-node` doesn't
 support it at this moment. It can still be used to test a runtime in a full setup where it is started alongside a
 relay chain network (see [Parachain Template node](#parachain-template-node) setup).
+
+## Deploy to Paseo TestNet And See Your First Block
+
+After setting up your parachain locally, you can deploy it to the Paseo public testnet to observe it producing blocks in a realistic environment.
+
+### Steps to Deploy
+
+Note: The following instructions are also available at the [Zero to Hero Tutorial](https://docs.polkadot.com/tutorials/polkadot-sdk/parachains/zero-to-hero/deploy-to-testnet/) where this is available in a more detailed manner, we recommend you to try that out as well if something here is unclear.
+
+### Obtain PAS Tokens
+
+Visit the [Polkadot Faucet](https://faucet.polkadot.network/) and request PAS tokens for your account. Ensure you're connected to the Paseo network on [Polkadot.js Apps](https://polkadot.js.org/apps/#/explorer).
+
+### Reserve & Register a ParaID
+
+Note: We recommend Google Chrome for the following steps. 
+
+1. Open [Polkadot.js Apps](https://polkadot.js.org/apps/#/explorer) and switch the network selector to Paseo.
+
+2. Go to Network → Parachains → Parathreads, click `+ ParaId`, then Submit. You’ll be assigned the next free ID (e.g. 4508).
+
+3. In Explorer, confirm you see a `registrar.Reserved` event.
+
+### Register Your Parachain
+
+1. Ensure your parachain's genesis state and runtime .wasm file are ready.
+
+2. In Polkadot.js Apps, navigate to Network > Parachains, then to the Parathreads tab.
+
+3. Click on `+ Register` and provide:
+1. Your reserved ParaID
+2. The compiled .wasm runtime file
+3. The genesis state file
+
+4. Submit the transaction to register your parachain.
+
+
+### Acquire Coretime
+
+To enable your parachain to produce and finalize blocks, you need to obtain coretime.
+
+1. In Polkadot.js Apps, go to Developer > Extrinsics.
+
+2. Select your account and choose the onDemand.placeOrderAllowDeath extrinsic.
+
+3. Provide the following parameters:
+
+1. paraId: Your reserved ParaID
+2. maxAmount: An appropriate amount of PAS tokens (e.g., 1000000000000)
+
+4. Submit the extrinsic.
+
+Upon success, your parachain will start producing blocks.
+
+### Generate Customs Keys for Collator Node
+
+1. To perform this step, you can use subkey, a command-line tool for generating and managing keys:
+```
+docker run -it parity/subkey:latest generate --scheme sr25519
+```
+
+### Build the Chain Specification
+Generate the plain chain specification:
+```
+polkadot-omni-node chain-spec-builder \
+  --chain-spec-path ./plain_chain_spec.json \
+  create \
+  --relay-chain paseo \
+  --para-id <YOUR_PARA_ID> \
+  --runtime target/release/wbuild/parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm \
+  named-preset local_testnet 
+```
+Edit plain_chain_spec.json to update fields like name, id, protocolId, para_id, and parachainInfo.parachainId with your ParaID. Also, configure balances, collatorSelection.invulnerables, session.keys, and sudo fields accordingly.
+Then, generate the raw chain specification:
+
+``` 
+polkadot-omni-node chain-spec-builder \
+  --chain-spec-path ./raw_chain_spec.json \
+  build \
+  --chain plain_chain_spec.json
+```
+
+### Start the Collator Node
+
+1. Before starting a collator, you need to generate a node key. This key is responsible for communicating with peers as in a p2p network:
+
+```
+polkadot-omni-node key generate-node-key \
+--base-path data \
+--chain raw_chain_spec.json
+
+```
+2. You can start the collator with a command similar to the following:
+
+``` 
+polkadot-omni-node --collator \
+--chain raw_chain_spec.json \
+--base-path data \
+--port 40333 \
+--rpc-port 8845 \
+--force-authoring \
+--node-key-file ./data/chains/custom/network/secret_ed25519 \
+-- \
+--sync warp \
+--chain paseo \
+--port 50343 \
+--rpc-port 9988
+```
+
+Ensure that the paths and ports are correctly set according to your environment.
+
+
+### Obtain Coretime
+
+To produce blocks, your parachain needs coretime. You can acquire it in two ways:
+
+1. On-Demand Coretime: Use the onDemand.placeOrderAllowDeath extrinsic on the Paseo relay chain. In Polkadot.js Apps, select the extrinsic, input your ParaID and desired amount, and submit the transaction.
+2. Bulk Coretime: Purchase via the Broker pallet on the coretime system parachain. Assign the purchased core to your registered ParaID.
+
+Once coretime is assigned, your collator should start producing blocks. Monitor the logs to confirm block production.
+
+For a more streamlined deployment experience, consider using the [Polkadot Deployment Portal (PDP)](https://polkadot.polkassembly.io/forum/t/polkadot-deployment-portal-the-1-click-solution-for-polkadot/12176), which simplifies the process of deploying parachains and managing coretime.
+For more detailed guidance, refer to the [Zero to Hero: Deploy on Paseo TestNet](https://docs.polkadot.com/tutorials/polkadot-sdk/parachains/zero-to-hero/deploy-to-testnet/) and [Obtain Coretime](https://docs.polkadot.com/tutorials/polkadot-sdk/parachains/zero-to-hero/obtain-coretime/) tutorials.
 
 ## Contributing
 
