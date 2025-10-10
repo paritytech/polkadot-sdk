@@ -233,7 +233,6 @@ where
 			.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
 			.saturating_sub(1) as usize,
 		max_depth: PARENT_SEARCH_DEPTH,
-		ignore_alternative_branches: true,
 	};
 
 	let potential_parents = cumulus_client_consensus_common::find_potential_parents::<Block>(

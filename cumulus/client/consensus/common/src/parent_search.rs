@@ -45,9 +45,6 @@ pub struct ParentSearchParams {
 	/// How "deep" parents can be relative to the included parachain block at the relay-parent.
 	/// The included block has depth 0.
 	pub max_depth: usize,
-	/// Whether to only ignore "alternative" branches, i.e. branches of the chain
-	/// which do not contain the block pending availability.
-	pub ignore_alternative_branches: bool,
 }
 
 /// A potential parent block returned from [`find_potential_parents`]
@@ -134,9 +131,9 @@ pub async fn find_potential_parents<B: BlockT>(
 		if let Some(header) = pending_header {
 			let pending_hash = header.hash();
 			match backend.blockchain().header(pending_hash) {
-				// We are supposed to ignore branches that don't contain the pending block, but we
+				// We only respect branches that contain the pending block, but we
 				// do not know the pending block locally.
-				Ok(None) | Err(_) if params.ignore_alternative_branches => {
+				Ok(None) | Err(_) => {
 					tracing::warn!(
 						target: PARENT_SEARCH_LOG_TARGET,
 						%pending_hash,
@@ -145,7 +142,6 @@ pub async fn find_potential_parents<B: BlockT>(
 					return Ok(Default::default())
 				},
 				Ok(Some(_)) => Some((header, pending_hash)),
-				_ => None,
 			}
 		} else {
 			None
@@ -159,54 +155,53 @@ pub async fn find_potential_parents<B: BlockT>(
 		})
 		.transpose()?;
 
-	// If we want to ignore alternative branches there is no reason to start
-	// the parent search at the included block. We can add the included block and
-	// the path to the pending block to the potential parents directly (limited by max_depth).
-	let (frontier, potential_parents) = match (
-		&maybe_pending,
-		params.ignore_alternative_branches,
-		&maybe_route_to_last_pending,
-	) {
-		(Some((pending_header, pending_hash)), true, Some(ref route_to_pending)) => {
-			let mut potential_parents = only_included;
+	// Since we only respect branches that contain the pending block, there is no reason to start
+	// the parent search at the included block when a pending block exists. We can add the included
+	// block and the path to the pending block to the potential parents directly (limited by max_depth).
+	let (frontier, potential_parents) =
+		match (&maybe_pending, &maybe_route_to_last_pending) {
+			(Some((pending_header, pending_hash)), Some(ref route_to_pending)) => {
+				let mut potential_parents = only_included;
 
-			// This is a defensive check, should never happen.
-			if !route_to_pending.retracted().is_empty() {
-				tracing::warn!(target: PARENT_SEARCH_LOG_TARGET, "Included block not an ancestor of pending block. This should not happen.");
-				return Ok(Default::default())
-			}
+				// This is a defensive check, should never happen.
+				if !route_to_pending.retracted().is_empty() {
+					tracing::warn!(target: PARENT_SEARCH_LOG_TARGET, "Included block not an ancestor of pending block. This should not happen.");
+					return Ok(Default::default())
+				}
 
-			// Add all items on the path included -> pending - 1 to the potential parents, but
-			// not more than `max_depth`.
-			let num_parents_on_path =
-				route_to_pending.enacted().len().saturating_sub(1).min(params.max_depth);
-			for (num, block) in
-				route_to_pending.enacted().iter().take(num_parents_on_path).enumerate()
-			{
-				let Ok(Some(header)) = backend.blockchain().header(block.hash) else { continue };
+				// Add all items on the path included -> pending - 1 to the potential parents, but
+				// not more than `max_depth`.
+				let num_parents_on_path =
+					route_to_pending.enacted().len().saturating_sub(1).min(params.max_depth);
+				for (num, block) in
+					route_to_pending.enacted().iter().take(num_parents_on_path).enumerate()
+				{
+					let Ok(Some(header)) = backend.blockchain().header(block.hash) else {
+						continue
+					};
 
-				potential_parents.push(PotentialParent {
-					hash: block.hash,
-					header,
-					depth: 1 + num,
-					aligned_with_pending: true,
-				});
-			}
+					potential_parents.push(PotentialParent {
+						hash: block.hash,
+						header,
+						depth: 1 + num,
+						aligned_with_pending: true,
+					});
+				}
 
-			// The search for additional potential parents should now start at the children of
-			// the pending block.
-			(
-				vec![PotentialParent {
-					hash: *pending_hash,
-					header: pending_header.clone(),
-					depth: route_to_pending.enacted().len(),
-					aligned_with_pending: true,
-				}],
-				potential_parents,
-			)
-		},
-		_ => (only_included, Default::default()),
-	};
+				// The search for additional potential parents should now start at the children of
+				// the pending block.
+				(
+					vec![PotentialParent {
+						hash: *pending_hash,
+						header: pending_header.clone(),
+						depth: route_to_pending.enacted().len(),
+						aligned_with_pending: true,
+					}],
+					potential_parents,
+				)
+			},
+			_ => (only_included, Default::default()),
+		};
 
 	if potential_parents.len() > params.max_depth {
 		return Ok(potential_parents);
@@ -224,7 +219,6 @@ pub async fn find_potential_parents<B: BlockT>(
 		maybe_pending.map(|(_, hash)| hash),
 		backend,
 		params.max_depth,
-		params.ignore_alternative_branches,
 		rp_ancestry,
 		potential_parents,
 	))
@@ -317,6 +311,8 @@ async fn build_relay_parent_ancestry(
 }
 
 /// Start search for child blocks that can be used as parents.
+///
+/// This function only respects branches that contain the pending block.
 pub fn search_child_branches_for_parents<Block: BlockT>(
 	mut frontier: Vec<PotentialParent<Block>>,
 	maybe_route_to_last_pending: Option<TreeRoute<Block>>,
@@ -324,7 +320,6 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 	pending_hash: Option<Block::Hash>,
 	backend: &impl Backend<Block>,
 	max_depth: usize,
-	ignore_alternative_branches: bool,
 	rp_ancestry: Vec<(RelayHash, RelayHash)>,
 	mut potential_parents: Vec<PotentialParent<Block>>,
 ) -> Vec<PotentialParent<Block>> {
@@ -399,7 +394,8 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 				(pending_distance.map_or(true, |dist| child_depth > dist) ||
 					is_child_pending(child));
 
-			if ignore_alternative_branches && !aligned_with_pending {
+			// We only respect branches that contain the pending block.
+			if !aligned_with_pending {
 				tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?child, "Child is not aligned with pending block.");
 				continue
 			}
