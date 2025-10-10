@@ -177,16 +177,12 @@ async fn claim_queue_at(
 /// block's child session index, we skip building.
 async fn should_skip_building_block_due_to_relay_parent_in_old_session<Client>(
 	relay_client: &Client,
+	relay_best_hash: RelayHash,
 	relay_parent: RelayHash,
 ) -> bool
 where
 	Client: RelayChainInterface,
 {
-	let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
-		// Failed to fetch best hash, do not skip building
-		return false;
-	};
-
 	let Some(relay_parent_child_session_index) =
 		relay_client.session_index_for_child(relay_parent).await.ok()
 	else {

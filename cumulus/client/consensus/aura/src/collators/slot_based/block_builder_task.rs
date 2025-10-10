@@ -325,12 +325,11 @@ where
 
 			// Checking that we _can_ build is not enough, we also should check if
 			// we _should_ build, determined by whether there is any point in doing so.
-			let relay_grand_parent = relay_parent_header.parent_hash();
 			let should_skip =
 				crate::collators::should_skip_building_block_due_to_relay_parent_in_old_session(
 					&relay_client,
+					relay_best_hash,
 					relay_parent,
-					*relay_grand_parent,
 				)
 				.await;
 
