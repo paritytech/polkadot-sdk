@@ -344,6 +344,10 @@ pub use pallet_assets_holder;
 #[cfg(feature = "pallet-assets-precompiles")]
 pub use pallet_assets_precompiles;
 
+/// Manages reserves for `pallet-assets`.
+#[cfg(feature = "pallet-assets-reserves")]
+pub use pallet_assets_reserves;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;

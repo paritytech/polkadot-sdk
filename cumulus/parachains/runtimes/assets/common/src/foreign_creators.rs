@@ -13,11 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::Decode;
 use core::fmt::Debug;
 use frame_support::traits::{
-	ContainsPair, EnsureOrigin, EnsureOriginWithArg, Everything, OriginTrait,
+	fungibles, ContainsPair, EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, Everything,
+	OriginTrait,
 };
+use frame_system::EnsureSigned;
 use pallet_xcm::{EnsureXcm, Origin as XcmOrigin};
+use sp_runtime::Either;
 use xcm::latest::Location;
 use xcm_executor::traits::ConvertLocation;
 
@@ -41,7 +45,7 @@ where
 	fn try_origin(
 		origin: RuntimeOrigin,
 		asset_location: &L,
-	) -> core::result::Result<Self::Success, RuntimeOrigin> {
+	) -> Result<Self::Success, RuntimeOrigin> {
 		tracing::trace!(target: "xcm::try_origin", ?origin, ?asset_location, "ForeignCreators");
 		let origin_location = EnsureXcm::<Everything, L>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
@@ -51,6 +55,57 @@ where
 		let latest_location: Location =
 			origin_location.clone().try_into().map_err(|_| origin.clone())?;
 		AccountOf::convert_location(&latest_location).ok_or(origin)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(a: &L) -> Result<RuntimeOrigin, ()> {
+		let latest_location: Location = (*a).clone().try_into().map_err(|_| ())?;
+		Ok(pallet_xcm::Origin::Xcm(latest_location).into())
+	}
+}
+
+/// `EnsureOriginWithArg` impl for `ManagerOrigin` that allows only asset _owner_ or _admin_
+/// accounts to manage asset.
+pub struct AssetOwnerOrAdmin<AssetManager, AccountOf, AccountId, L = Location>(
+	core::marker::PhantomData<(AssetManager, AccountOf, AccountId, L)>,
+);
+impl<
+		AssetManager: fungibles::roles::Inspect<AccountId, AssetId = L>,
+		AccountOf: ConvertLocation<AccountId>,
+		AccountId: Decode + Clone + PartialEq + Debug,
+		RuntimeOrigin: From<XcmOrigin> + OriginTrait<AccountId = AccountId> + Clone + Debug,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
+	> EnsureOriginWithArg<RuntimeOrigin, L>
+	for AssetOwnerOrAdmin<AssetManager, AccountOf, AccountId, L>
+where
+	for<'a> &'a RuntimeOrigin::PalletsOrigin: TryInto<&'a XcmOrigin>,
+{
+	type Success = AccountId;
+
+	fn try_origin(
+		origin: RuntimeOrigin,
+		asset_location: &L,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		tracing::trace!(target: "xcm::try_origin", ?origin, ?asset_location, "AssetOwnerOrAdmin");
+
+		let origin_account =
+			match EitherOfDiverse::<EnsureSigned<AccountId>, EnsureXcm<Everything, L>>::try_origin(
+				origin.clone(),
+			)? {
+				Either::Left(signed) => signed,
+				Either::Right(origin_location) => {
+					let latest_location: Location =
+						origin_location.clone().try_into().map_err(|_| origin.clone())?;
+					AccountOf::convert_location(&latest_location).ok_or_else(|| origin.clone())?
+				},
+			};
+
+		AssetManager::owner(asset_location.clone())
+			.filter(|owner| owner.eq(&origin_account))
+			.ok_or_else(|| {
+				tracing::trace!(target: "xcm::try_origin", ?asset_location, ?origin_account, "AssetOwnerOrAdmin: no match");
+				origin
+			})
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
