@@ -456,7 +456,7 @@ mod e2e {
 			// a valid, strong solution.
 			let strong_score = {
 				let paged = mine_full_solution().unwrap();
-				load_signed_for_verification(999, paged.clone());
+				load_signed_for_verification(999, paged.clone(), None);
 				assert_eq!(balances(999), (92, 8));
 				paged.score
 			};
