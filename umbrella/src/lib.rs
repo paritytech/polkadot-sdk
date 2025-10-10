@@ -711,6 +711,10 @@ pub use pallet_staking_async_reward_fn;
 #[cfg(feature = "pallet-staking-async-runtime-api")]
 pub use pallet_staking_async_runtime_api;
 
+/// Testing utilities for pallet-staking-async.
+#[cfg(feature = "pallet-staking-async-testing-utils")]
+pub use pallet_staking_async_testing_utils;
+
 /// Reward Curve for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-reward-curve")]
 pub use pallet_staking_reward_curve;

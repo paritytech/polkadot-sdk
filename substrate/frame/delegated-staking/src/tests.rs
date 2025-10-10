@@ -21,7 +21,7 @@ use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_nomination_pools::{Error as PoolsError, Event as PoolsEvent};
-use pallet_staking::{Error as StakingError, RewardDestination};
+use pallet_staking_async::{Error as StakingError, RewardDestination};
 use sp_staking::{Agent, DelegationInterface, Delegator, StakerStatus};
 
 #[test]
@@ -224,7 +224,7 @@ fn apply_pending_slash() {
 
 		start_era(4);
 		// slash half of the stake
-		pallet_staking::slashing::do_slash::<T>(
+		pallet_staking_async::slashing::do_slash::<T>(
 			&agent,
 			total_staked / 2,
 			&mut Default::default(),
@@ -339,7 +339,7 @@ fn allow_full_amount_to_be_delegated() {
 	});
 }
 
-/// Integration tests with pallet-staking.
+/// Integration tests with pallet-staking-async.
 mod staking_integration {
 	use super::*;
 	use sp_staking::Stake;
@@ -641,7 +641,7 @@ mod staking_integration {
 			// in equal parts. lets try to migrate this nominator into delegate based stake.
 
 			// all balance currently is in 200
-			assert_eq!(pallet_staking::asset::total_balance::<T>(&agent), agent_amount);
+			assert_eq!(pallet_staking_async::asset::total_balance::<T>(&agent), agent_amount);
 
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded
@@ -1213,7 +1213,7 @@ mod pool_integration {
 			assert_eq!(Pools::api_pool_pending_slash(pool_id), 0);
 
 			// slash the pool partially
-			pallet_staking::slashing::do_slash::<T>(
+			pallet_staking_async::slashing::do_slash::<T>(
 				&pool_acc,
 				500,
 				&mut Default::default(),
@@ -1321,6 +1321,17 @@ mod pool_integration {
 			// for creator, 50% of stake should be slashed (250), 10% of which should go to reporter
 			// (25).
 			assert_eq!(Balances::free_balance(slash_reporter), 115 + 25);
+
+			// Ensure era state is consistent for try-runtime checks
+			let bonding_duration = BondingDuration::get();
+			let latest_era = 10;
+			for era in (latest_era.saturating_sub(bonding_duration))..=latest_era {
+				pallet_staking_async_testing_utils::setup_staking_era_state::<T>(
+					era,
+					bonding_duration,
+					Some(vec![GENESIS_VALIDATOR, 18u128, 19u128, 20u128, 21u128, 22u128]),
+				);
+			}
 		});
 	}
 

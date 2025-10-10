@@ -18,16 +18,15 @@
 use crate::VoterBagsListInstance;
 use frame_election_provider_support::VoteWeight;
 use frame_support::{
-	derive_impl,
-	pallet_prelude::*,
-	parameter_types,
-	traits::{ConstU64, Nothing, VariantCountOf},
+	derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
 use sp_runtime::{
-	traits::{Convert, IdentityLookup},
+	traits::{BlockNumberProvider, Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
 };
+use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 
 type AccountId = u128;
 type BlockNumber = u64;
@@ -73,22 +72,24 @@ pallet_staking_reward_curve::build! {
 		test_precision: 0_005_000,
 	);
 }
+
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
+	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
+
+#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
+impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type CurrencyBalance = Balance;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
-	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
+	type CurrencyToVote = SaturatingCurrencyToVote;
+	type EraPayout = pallet_staking_async_testing_utils::TestEraPayout<Balance, EraPayout>;
+	type RcClientInterface = ();
 	type EventListeners = (Pools, DelegatedStaking);
 }
 
@@ -119,6 +120,16 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	}
 }
 
+pub struct BenchmarkBlockNumberProvider;
+impl BlockNumberProvider for BenchmarkBlockNumberProvider {
+	type BlockNumber = BlockNumber;
+
+	fn current_block_number() -> Self::BlockNumber {
+		// Always return 0 for benchmarks to ensure throttle_from is 0
+		0u64
+	}
+}
+
 parameter_types! {
 	pub static PostUnbondingPoolsWindow: u32 = 10;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
@@ -141,7 +152,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type BlockNumberProvider = System;
+	type BlockNumberProvider = BenchmarkBlockNumberProvider;
 	type Filter = Nothing;
 }
 
@@ -168,7 +179,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking,
+		Staking: pallet_staking_async,
 		VoterList: pallet_bags_list::<Instance1>,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: pallet_delegated_staking,
