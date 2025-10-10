@@ -1688,7 +1688,7 @@ fn withdraw_and_deposit_erc20s() {
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
@@ -1801,7 +1801,7 @@ fn smart_contract_not_erc20_will_error() {
 		let (code, _) = compile_module("dummy").unwrap();
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			.storage_deposit_limit(Balance::MAX)
 			.build_and_unwrap_contract();
 
@@ -1859,7 +1859,7 @@ fn smart_contract_does_not_return_bool_fails() {
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
