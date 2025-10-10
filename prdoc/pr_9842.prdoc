@@ -1,0 +1,8 @@
+title: 'xcm: Do not require `Asset` to be sorted on `decode`'
+doc:
+- audience: Runtime User
+  description: |-
+    `Asset` was requiring that all the assets are sorted at decoding. This is quite confusing for people writingg frontends, because this is not really documented anywhere. There are also only at max 20 assets available, we can just make everyones life easier and always sort the assets after decoding.
+crates:
+- name: staging-xcm
+  bump: patch

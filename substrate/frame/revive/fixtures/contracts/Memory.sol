@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 contract Memory {
     /// @notice Expands memory to the specified size by writing a byte at that offset
     /// @param memorySize The memory size in bytes to expand to
-    function expandMemory(uint256 memorySize) public pure returns (bool success) {
+    function expandMemory(uint64 memorySize) public pure returns (bool success) {
         // Allocate memory by accessing a byte at the specified offset
         // This will trigger memory expansion up to at least memorySize + 1
         assembly {
@@ -35,11 +35,7 @@ contract Memory {
         assembly {
             result := mload(0)
         }
-        require(
-            result ==
-                0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe,
-            "Memory test failed"
-        );
+        require(result == 0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe, "Memory test failed");
 
         assembly {
             result := msize()
@@ -47,7 +43,7 @@ contract Memory {
         require(result == 96, "Memory size test failed");
     }
 
-    function testMsize(uint256 offset) public returns (uint256) {
+    function testMsize(uint64 offset) public returns (uint64) {
         assembly {
             mstore(offset, 123)
         }
@@ -55,15 +51,10 @@ contract Memory {
         assembly {
             value := msize()
         }
-        return value;
+        return uint64(value);
     }
 
-    function testMcopy(
-        uint256 dstOffset,
-        uint256 offset,
-        uint256 size,
-        uint256 value
-    ) public returns (uint256) {
+    function testMcopy(uint64 dstOffset, uint64 offset, uint64 size, uint64 value) public returns (uint64) {
         assembly {
             mstore(dstOffset, 0)
         }
@@ -79,6 +70,6 @@ contract Memory {
         assembly {
             result := mload(dstOffset)
         }
-        return result;
+        return uint64(result);
     }
 }
