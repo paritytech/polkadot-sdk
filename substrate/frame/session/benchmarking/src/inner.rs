@@ -18,7 +18,7 @@
 //! Benchmarks for the Session Pallet.
 // This is separated into its own crate due to cyclic dependency issues.
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 use codec::Decode;
@@ -37,9 +37,16 @@ use pallet_staking::{
 const MAX_VALIDATORS: u32 = 1000;
 
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
+/// Configuration trait for the benchmarking of `pallet-session`.
 pub trait Config:
 	pallet_session::Config + pallet_session::historical::Config + pallet_staking::Config
 {
+	/// Generate a session key and a proof of ownership.
+	///
+	/// The given `owner` is the account that will call `set_keys` using the returned session keys
+	/// and proof. This means that the proof should prove the ownership of `owner` over the private
+	/// keys associated to the session keys.
+	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>);
 }
 
 impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
@@ -64,8 +71,7 @@ mod benchmarks {
 		)?;
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 
-		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-		let proof: Vec<u8> = vec![0, 1, 2, 3];
+		let (keys, proof) = T::generate_session_keys_and_proof(v_controller.clone());
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
@@ -88,8 +94,7 @@ mod benchmarks {
 			RewardDestination::Staked,
 		)?;
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
-		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-		let proof: Vec<u8> = vec![0, 1, 2, 3];
+		let (keys, proof) = T::generate_session_keys_and_proof(v_controller.clone());
 		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 		Session::<T>::set_keys(RawOrigin::Signed(v_controller.clone()).into(), keys, proof)?;
 		// Whitelist controller account from further DB operations.
@@ -170,8 +175,7 @@ fn check_membership_proof_setup<T: Config>(
 
 		// TODO: this benchmark is broken, session keys cannot be decoded into 128 bytes anymore,
 		// but not an issue for CI since it is `extra`.
-		let keys: T::Keys = Decode::decode(&mut &keys[..]).unwrap();
-		let proof: Vec<u8> = vec![];
+		let (keys, proof) = T::generate_session_keys_and_proof(controller.clone());
 
 		Session::<T>::set_keys(RawOrigin::Signed(controller).into(), keys, proof).unwrap();
 	}

@@ -45,6 +45,7 @@ tuplex = { workspace = true, default-features = false }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
