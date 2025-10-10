@@ -21,15 +21,17 @@ use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	BlockNumber, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
+	BackedCandidate, BlockNumber, ChunkIndex, CommittedCandidateReceiptV2, CoreIndex, CoreState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, MutateDescriptorV2,
 	ScheduledCore, SessionIndex, SessionInfo,
 };
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, AvailabilityDistributionMessage, AvailabilityStoreMessage, ChainApiMessage,
-		NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
+		AllMessages, AvailabilityDistributionMessage, AvailabilityStoreMessage,
+		CandidateBackingMessage, ChainApiMessage, NetworkBridgeTxMessage,
+		ProspectiveParachainsMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
 	ActiveLeavesUpdate, SpawnGlue,
 };
@@ -45,6 +47,7 @@ use crate::tests::{
 };
 
 use super::Requester;
+use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
 
 fn get_erasure_chunk() -> ErasureChunk {
 	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
@@ -53,6 +56,11 @@ fn get_erasure_chunk() -> ErasureChunk {
 
 #[derive(Clone)]
 struct TestState {
+	// Store prepared backed candidates by their hash to serve CandidateBacking requests
+	pub backed_map: std::collections::HashMap<
+		polkadot_primitives::CandidateHash,
+		polkadot_primitives::BackedCandidate,
+	>,
 	/// Simulated relay chain heads. For each block except genesis
 	/// there exists a single corresponding candidate, handled in [`spawn_virtual_overseer`].
 	pub relay_chain: Vec<Hash>,
@@ -67,13 +75,13 @@ impl TestState {
 		let relay_chain: Vec<_> = (0u8..10).map(Hash::repeat_byte).collect();
 		let session_info = make_session_info();
 		let session_index_for_block = |_| 1;
-		Self { relay_chain, session_info, session_index_for_block }
+		Self { relay_chain, session_info, session_index_for_block, backed_map: Default::default() }
 	}
 }
 
 fn spawn_virtual_overseer(
 	pool: TaskExecutor,
-	test_state: TestState,
+	mut test_state: TestState,
 	mut ctx_handle: TestSubsystemContextHandle<AvailabilityDistributionMessage>,
 ) {
 	pool.spawn(
@@ -83,7 +91,7 @@ fn spawn_virtual_overseer(
 			loop {
 				let msg = ctx_handle.try_recv().await;
 				if msg.is_none() {
-					break
+					break;
 				}
 				match msg.unwrap() {
 					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(..)) => {},
@@ -157,6 +165,16 @@ fn spawn_virtual_overseer(
 								};
 								tx.send(Ok(cores)).expect("Receiver should be alive.")
 							},
+							RuntimeApiRequest::ValidatorGroups(tx) => {
+								let groups = test_state.session_info.validator_groups.to_vec();
+								let group_rotation_info = GroupRotationInfo {
+									session_start_block: 1,
+									group_rotation_frequency: 12,
+									now: 1,
+								};
+								tx.send(Ok((groups, group_rotation_info)))
+									.expect("Receiver should be alive.");
+							},
 							_ => {
 								panic!("Unexpected runtime request: {:?}", req);
 							},
@@ -175,6 +193,50 @@ fn spawn_virtual_overseer(
 						response_channel
 							.send(Ok(ancestors))
 							.expect("Receiver is expected to be alive");
+					},
+					AllMessages::CandidateBacking(
+						CandidateBackingMessage::GetBackableCandidates(hashes, tx),
+					) => {
+						let mut resp: std::collections::HashMap<ParaId, Vec<BackedCandidate>> =
+							Default::default();
+						for (para, list) in hashes.into_iter() {
+							let mut v = Vec::new();
+							for (cand_hash, _relay_parent) in list {
+								if let Some(bc) = test_state.backed_map.get(&cand_hash) {
+									v.push(bc.clone());
+								}
+							}
+							resp.insert(para, v);
+						}
+						tx.send(resp).expect("Receiver should be alive");
+					},
+					AllMessages::ProspectiveParachains(
+						ProspectiveParachainsMessage::GetBackableCandidates(
+							relay_parent,
+							para,
+							count,
+							_ancestors,
+							tx,
+						),
+					) => {
+						// Create `count` dummy candidates for this para and store them for backing
+						let mut list = Vec::new();
+						for _ in 0..count {
+							let mut receipt: CommittedCandidateReceiptV2<Hash> =
+								dummy_committed_candidate_receipt_v2(relay_parent);
+							receipt.descriptor.set_para_id(para);
+							receipt.descriptor.set_core_index(CoreIndex(0));
+							let backed = BackedCandidate::new(
+								receipt.clone(),
+								Vec::new(),
+								Default::default(),
+								CoreIndex(0),
+							);
+							let cand_hash = backed.candidate().hash();
+							list.push((cand_hash, relay_parent));
+							test_state.backed_map.insert(cand_hash, backed);
+						}
+						tx.send(list).expect("Receiver should be alive");
 					},
 					msg => panic!("Unexpected overseer message: {:?}", msg),
 				}
@@ -318,5 +380,31 @@ fn check_ancestry_lookup_in_different_sessions() {
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
 		assert_eq!(fetch_tasks.len(), 2.min(Requester::LEAF_ANCESTRY_LEN_WITHIN_SESSION + 1));
+	});
+}
+
+#[test]
+fn schedule_chunk_prefetch_creates_fetch_task() {
+	let test_state = TestState::new();
+	let mut requester =
+		Requester::new(ReqProtocolNames::new(&Hash::repeat_byte(0xfe), None), Default::default());
+	let keystore = make_ferdie_keystore();
+	let mut runtime = RuntimeInfo::new(Some(keystore));
+
+	test_harness(test_state.clone(), |mut ctx| async move {
+		let chain = &test_state.relay_chain;
+		let block_number = 0; // ensures AvailabilityCores returns Scheduled core at index 0
+		let update = ActiveLeavesUpdate {
+			activated: Some(new_leaf(chain[block_number], block_number as u32)),
+			deactivated: Vec::new().into(),
+		};
+
+		requester
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
+			.await
+			.expect("Leaf processing failed");
+
+		let fetch_tasks = &requester.fetches;
+		assert_eq!(fetch_tasks.len(), 1, "expected exactly one prefetch fetch task");
 	});
 }

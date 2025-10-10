@@ -56,6 +56,17 @@ struct MetricsInner {
 	/// Number of times our first set of validators did not provide the needed chunk and we had to
 	/// query further validators.
 	retries: Counter<U64>,
+
+	/// Number of candidates for which we initiated early chunk fetching.
+	early_candidates_fetched: Counter<U64>,
+	/// Number of candidates for which we initiated on-time (slow path) chunk fetching.
+	slow_candidates_fetched: Counter<U64>,
+	/// Number of early-fetched candidates that never made it on-chain.
+	early_candidates_never_onchain: Counter<U64>,
+
+	/// Number of candidates fetched early that later appeared on slow path, implying we skipped a
+	/// duplicate fetch when they became occupied.
+	early_candidates_skipped_on_slow: Counter<U64>,
 }
 
 impl Metrics {
@@ -98,6 +109,34 @@ impl Metrics {
 			metrics.retries.inc()
 		}
 	}
+
+	/// Increment early candidates fetched counter.
+	pub fn on_early_candidate_fetched(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.early_candidates_fetched.inc()
+		}
+	}
+
+	/// Increment slow candidates fetched counter.
+	pub fn on_slow_candidate_fetched(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.slow_candidates_fetched.inc()
+		}
+	}
+
+	/// Increment early candidates that never made it on-chain counter.
+	pub fn on_early_candidate_never_onchain(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.early_candidates_never_onchain.inc()
+		}
+	}
+
+	/// Increment early candidates that later appeared on slow path (duplicate fetch skipped).
+	pub fn on_early_candidate_skipped_on_slow(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.early_candidates_skipped_on_slow.inc()
+		}
+	}
 }
 
 impl metrics::Metrics for Metrics {
@@ -109,7 +148,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_fetched_chunks_total",
 						"Total number of fetched chunks.",
 					),
-					&["success"]
+					&["success"],
 				)?,
 				registry,
 			)?,
@@ -119,7 +158,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_served_chunks_total",
 						"Total number of chunks served by this backer.",
 					),
-					&["success"]
+					&["success"],
 				)?,
 				registry,
 			)?,
@@ -129,7 +168,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_fetched_povs_total",
 						"Total number of povs fetches by this backer.",
 					),
-					&["success"]
+					&["success"],
 				)?,
 				registry,
 			)?,
@@ -139,7 +178,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_served_povs_total",
 						"Total number of povs served by this backer.",
 					),
-					&["success"]
+					&["success"],
 				)?,
 				registry,
 			)?,
@@ -147,6 +186,34 @@ impl metrics::Metrics for Metrics {
 				Counter::new(
 					"polkadot_parachain_fetch_retries_total",
 					"Number of times we did not succeed in fetching a chunk and needed to try more backers.",
+				)?,
+				registry,
+			)?,
+			early_candidates_fetched: prometheus::register(
+				Counter::new(
+					"polkadot_parachain_early_candidates_fetched_total",
+					"Number of candidates for which we initiated early chunk fetching.",
+				)?,
+				registry,
+			)?,
+			slow_candidates_fetched: prometheus::register(
+				Counter::new(
+					"polkadot_parachain_slow_candidates_fetched_total",
+					"Number of candidates for which we initiated on-time (slow path) chunk fetching.",
+				)?,
+				registry,
+			)?,
+			early_candidates_never_onchain: prometheus::register(
+				Counter::new(
+					"polkadot_parachain_early_candidates_never_onchain_total",
+					"Number of early-fetched candidates that never made it on-chain.",
+				)?,
+				registry,
+			)?,
+			early_candidates_skipped_on_slow: prometheus::register(
+				Counter::new(
+					"polkadot_parachain_early_candidates_skipped_on_slow_total",
+					"Number of early-fetched candidates that later appeared on the slow path (duplicate fetch skipped).",
 				)?,
 				registry,
 			)?,

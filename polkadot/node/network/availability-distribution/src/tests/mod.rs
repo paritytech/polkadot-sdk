@@ -77,7 +77,7 @@ fn test_harness<T: Future<Output = ()>>(
 pub fn node_features_with_mapping_enabled() -> NodeFeatures {
 	let mut node_features = NodeFeatures::new();
 	node_features.resize(node_features::FeatureIndex::AvailabilityChunkMapping as usize + 1, false);
-	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
+	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as usize, true);
 	node_features
 }
 
