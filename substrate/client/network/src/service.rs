@@ -261,12 +261,12 @@ where
 	/// `worker.service()`. The `NetworkService` can be shared through the codebase.
 	pub fn new(params: Params<B, H, Self>) -> Result<Self, Error> {
 		let peer_store_handle = params.network_config.peer_store_handle();
-		let FullNetworkConfiguration {
-			notification_protocols,
-			request_response_protocols,
-			mut network_config,
-			..
-		} = params.network_config;
+        let FullNetworkConfiguration {
+            notification_protocols,
+            mut request_response_protocols,
+            mut network_config,
+            ..
+        } = params.network_config;
 
 		// Private and public keys configuration.
 		let local_identity = network_config.node_key.clone().into_keypair()?;
@@ -456,7 +456,12 @@ where
 		let num_connected = Arc::new(AtomicUsize::new(0));
 		let external_addresses = Arc::new(Mutex::new(HashSet::new()));
 
-		let (protocol, notif_protocol_handles) = Protocol::new(
+        // If Bitswap is enabled, register its request-response protocol for libp2p backend.
+        if let Some(bitswap_cfg) = params.bitswap_config {
+            request_response_protocols.push(bitswap_cfg);
+        }
+
+        let (protocol, notif_protocol_handles) = Protocol::new(
 			From::from(&params.role),
 			params.notification_metrics,
 			notification_protocols,
