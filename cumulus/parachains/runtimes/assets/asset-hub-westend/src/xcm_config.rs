@@ -230,6 +230,30 @@ pub type ERC20Transactor = assets_common::ERC20Transactor<
 	ERC20TransfersCheckingAccount,
 >;
 
+
+parameter_types! {
+	pub const ERC721TransferGasLimit: Weight = Weight::from_parts(1_000_000_000, 200_000);
+	pub const ERC721TransferStorageDepositLimit: Balance = 25_000_000_000;
+	pub ERC721TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
+}
+
+/// Transactor for ERC721 tokens.
+pub type ERC721Transactor = assets_common::ERC721Transactor<
+	// We need this for accessing pallet-revive.
+	Runtime,
+	// The matcher for smart contracts.
+	assets_common::ERC721Matcher,
+	// How to convert from a location to an account id.
+	LocationToAccountId,
+	// The maximum gas that can be used by a standard ERC721 transfer.
+	ERC721TransferGasLimit,
+	// The maximum storage deposit that can be used by a standard ERC721 transfer.
+	ERC721TransferStorageDepositLimit,
+	// We're generic over this so we can't escape specifying it.
+	AccountId,
+	// Checking account for ERC721 transfers.
+	ERC721TransfersCheckingAccount,
+>;
 /// Means for transacting assets on this chain.
 pub type AssetTransactors = (
 	FungibleTransactor,
@@ -238,6 +262,7 @@ pub type AssetTransactors = (
 	PoolFungiblesTransactor,
 	UniquesTransactor,
 	ERC20Transactor,
+	ERC721Transactor,
 );
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,

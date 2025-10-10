@@ -29,6 +29,7 @@ mod debug;
 mod exec;
 mod gas;
 mod impl_fungibles;
+mod impl_nonfungibles;
 mod limits;
 mod primitives;
 mod storage;
