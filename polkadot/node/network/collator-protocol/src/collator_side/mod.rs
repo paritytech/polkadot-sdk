@@ -774,7 +774,12 @@ async fn update_validator_connections<Context>(
 			"Disconnecting from validators: {:?}",
 			connected_validator_peer_ids,
 		);
-
+		// Disconnect from all connected validators on the `Collation` protocol.
+		NetworkBridgeTxMessage::ConnectToValidators {
+			validator_ids: vec![],
+			peer_set: PeerSet::Collation,
+			failed,
+		}
 		NetworkBridgeTxMessage::ConnectToValidators {
 			validator_ids: vec![],
 			peer_set: PeerSet::Collation,
