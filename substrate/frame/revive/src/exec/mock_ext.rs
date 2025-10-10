@@ -209,7 +209,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::copy_code_slice")
 	}
 
-	fn terminate_caller(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+	fn terminate_caller(&mut self, _beneficiary: &H160) -> Result<(), DispatchError> {
 		panic!("MockExt::terminate_caller")
 	}
 

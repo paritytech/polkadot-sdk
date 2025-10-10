@@ -92,11 +92,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let charged =
 					env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
-				let code_removed = env.terminate_caller(&h160)?;
-				if matches!(code_removed, crate::CodeRemoved::No) {
-					env.gas_meter_mut()
-						.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
-				}
+				env.terminate_caller(&h160)?;
 				Ok(Vec::new())
 			},
 		}

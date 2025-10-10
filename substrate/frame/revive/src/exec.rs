@@ -439,7 +439,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Contract is deleted at the end of the call stack.
 	///
 	/// This function will fail if called from constructor.
-	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
+	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError>;
 
 	/// Returns the effective gas price of this transaction.
 	fn effective_gas_price(&self) -> U256;
@@ -2211,7 +2211,7 @@ where
 		buf[len..].fill(0);
 	}
 
-	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
 		if matches!(self.caller(), Origin::<T>::Root) {
 			return Err(DispatchError::RootNotAllowed);
 		}
@@ -2230,7 +2230,7 @@ where
 
 		// Pretend the contract was created in the current tx so that its storage can be destroyed.
 		self.contracts_created.insert(account_id);
-		Ok(CodeRemoved::Yes)
+		Ok(())
 	}
 
 	fn effective_gas_price(&self) -> U256 {
