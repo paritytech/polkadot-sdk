@@ -219,10 +219,12 @@ fn start_consensus(
 		authoring_duration: Duration::from_millis(2000),
 		reinitialize: false,
 		max_pov_percentage: None,
+		spawner: task_manager.spawn_handle(),
 	};
-	let fut = aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _>(
-		params,
-	);
+	let fut =
+		aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _, _>(
+			params,
+		);
 	task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 	Ok(())
