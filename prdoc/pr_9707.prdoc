@@ -31,3 +31,5 @@ crates:
   bump: minor
 - name: mmr-gadget
   bump: patch
+- name: sp-consensus-aura
+  bump: patch
