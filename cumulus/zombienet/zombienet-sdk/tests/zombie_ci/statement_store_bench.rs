@@ -6,6 +6,7 @@
 use anyhow::anyhow;
 use codec::{Decode, Encode};
 use log::{debug, info, trace};
+use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, sr25519, Bytes, Pair};
 use sp_statement_store::{Statement, Topic};
 use std::{
@@ -126,35 +127,26 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	let rpc_client = node.rpc().await?;
 	info!("Created single RPC client for target node: {}", target_node);
 
-	const TOTAL_TASKS: u64 = 100_000;
-	const PAYLOAD_SIZE: usize = 512;
-	const SEND_INTERVAL_SECS: u64 = 1;
-
-	let total_sent = std::sync::Arc::new(AtomicU64::new(0));
-	let total_ignored = std::sync::Arc::new(AtomicU64::new(0));
-	let store_full = std::sync::Arc::new(AtomicBool::new(false));
+	let total_tasks = 64 * 1024;
+	let payload_size = 1024;
+	let submit_capacity =
+		DEFAULT_MAX_TOTAL_STATEMENTS.min(DEFAULT_MAX_TOTAL_SIZE / payload_size) as u64;
+	let statements_per_task = submit_capacity / total_tasks as u64;
+	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+	let num_collators = collator_names.len() as u64;
+	let propogation_capacity = submit_capacity * (num_collators - 1); // 5x per node
 	let start_time = std::time::Instant::now();
 
-	info!("Starting memory stress benchmark: spawning {} tasks immediately", TOTAL_TASKS);
-	info!("Each task sends {}B statement every {} second", PAYLOAD_SIZE, SEND_INTERVAL_SECS);
-	info!("Expected load: ~{}K statements/sec", TOTAL_TASKS / 1000);
+	info!("Starting memory stress benchmark with {} tasks, each submitting {} statements of {}B payload, total submit capacity per node: {}, total propagation capacity: {}",
+		total_tasks, statements_per_task, payload_size, submit_capacity, propogation_capacity);
 
-	for task_idx in 0..TOTAL_TASKS {
+	for _ in 0..total_tasks {
 		let rpc_client = rpc_client.clone();
-		let total_sent = total_sent.clone();
-		let total_ignored = total_ignored.clone();
-		let store_full = store_full.clone();
-
 		tokio::spawn(async move {
 			let (keyring, _) = sr25519::Pair::generate();
 			let public = keyring.public().0;
-			let mut statement_count = 0u64;
 
-			loop {
-				if store_full.load(Ordering::Relaxed) {
-					break;
-				}
-
+			for statement_count in 0..statements_per_task {
 				let mut statement = Statement::new();
 				let topic = |idx: usize| {
 					blake2_256(format!("{}{}{:?}", idx, statement_count, public).as_bytes())
@@ -163,113 +155,121 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 				statement.set_topic(1, topic(1));
 				statement.set_topic(2, topic(2));
 				statement.set_topic(3, topic(3));
-				statement.set_plain_data(vec![0u8; PAYLOAD_SIZE]);
+				statement.set_plain_data(vec![0u8; payload_size]);
 				statement.sign_sr25519_private(&keyring);
 
-				let statement_bytes: Bytes = statement.encode().into();
-				match rpc_client
-					.request::<()>("statement_submit", rpc_params![statement_bytes])
-					.await
-				{
-					Ok(_) => {
-						total_sent.fetch_add(1, Ordering::Relaxed);
-						statement_count += 1;
-					},
-					Err(e) => {
-						total_ignored.fetch_add(1, Ordering::Relaxed);
-						let error_msg = e.to_string();
+				loop {
+					let statement_bytes: Bytes = statement.encode().into();
+					let Err(err) = rpc_client
+						.request::<()>("statement_submit", rpc_params![statement_bytes])
+						.await
+					else {
+						break; // Successfully submitted
+					};
 
-						if error_msg.to_lowercase().contains("full") {
-							if !store_full.swap(true, Ordering::Relaxed) {
-								info!("Statement store FULL detected at task {}: {}", task_idx, e);
-							}
-							break;
-						}
+					if err.to_string().contains("Statement store error: Store is full") {
+						info!("Statement store is full, {}/{} statements submitted, `statements_per_task` overestimated", statement_count, statements_per_task);
+						break;
+					}
 
-						if total_ignored.load(Ordering::Relaxed) == 1 {
-							info!("First statement rejection at task {}: {}", task_idx, e);
-						}
-					},
+					info!(
+						"Failed to submit statement, retrying in {}ms: {:?}",
+						RETRY_DELAY_MS, err
+					);
+					tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
 				}
-
-				tokio::time::sleep(Duration::from_secs(SEND_INTERVAL_SECS)).await;
 			}
 		});
-
-		if (task_idx + 1) % 10_000 == 0 {
-			info!("Spawned {} tasks", task_idx + 1);
-		}
 	}
 
-	info!("All {} tasks spawned in {:.2}s", TOTAL_TASKS, start_time.elapsed().as_secs_f64());
+	info!("All {} tasks spawned in {:.2}s", total_tasks, start_time.elapsed().as_secs_f64());
+
+	let mut prev_submitted: HashMap<&str, u64> = HashMap::new();
+	let mut prev_propagated: HashMap<&str, u64> = HashMap::new();
+	for &name in &collator_names {
+		prev_submitted.insert(name, 0);
+		prev_propagated.insert(name, 0);
+	}
 
 	loop {
-		tokio::time::sleep(Duration::from_secs(10)).await;
-		let sent = total_sent.load(Ordering::Relaxed);
-		let ignored = total_ignored.load(Ordering::Relaxed);
+		let interval = 5;
+		tokio::time::sleep(Duration::from_secs(interval)).await;
 		let elapsed = start_time.elapsed().as_secs();
 
-		info!(
-			"[{}s] Sent: {} | Ignored: {} | Rate: {:.0} stmt/s",
-			elapsed,
-			sent,
-			ignored,
-			sent as f64 / elapsed as f64
-		);
+		// Collect submitted metrics
+		let mut submitted_metrics = Vec::new();
+		for &name in &collator_names {
+			let node = network.get_node(name)?;
+			let prev_count = prev_submitted.get(name).copied().unwrap_or(0);
 
-		if store_full.load(Ordering::Relaxed) {
-			let final_sent = total_sent.load(Ordering::Relaxed);
-			let final_ignored = total_ignored.load(Ordering::Relaxed);
-			let final_elapsed = start_time.elapsed().as_secs_f64();
-			let final_success_rate = if final_sent + final_ignored > 0 {
-				(final_sent as f64 / (final_sent + final_ignored) as f64) * 100.0
-			} else {
-				0.0
-			};
+			let current_count = Cell::new(0.0f64);
+			node.wait_metric_with_timeout(
+				"substrate_sub_statement_store_submitted_statements",
+				|count| {
+					current_count.set(count);
+					true
+				},
+				30u64,
+			)
+			.await?;
 
-			info!("========================================");
-			info!("STATEMENT STORE IS FULL");
-			info!("Time: {:.2}s", final_elapsed);
-			info!("Sent: {}", final_sent);
-			info!("Ignored: {}", final_ignored);
-			info!("Average rate: {:.0} stmt/s", final_sent as f64 / final_elapsed);
+			let count = current_count.get() as u64;
+			let delta = count - prev_count;
+			let rate = delta / interval;
+			submitted_metrics.push((name, count, rate));
+			prev_submitted.insert(name, count);
+		}
+
+		// Collect propagated metrics
+		let mut propagated_metrics = Vec::new();
+		for &name in &collator_names {
+			let node = network.get_node(name)?;
+			let prev_count = prev_propagated.get(name).copied().unwrap_or(0);
+
+			let current_count = Cell::new(0.0f64);
+			node.wait_metric_with_timeout(
+				"substrate_sync_propagated_statements",
+				|count| {
+					current_count.set(count);
+					true
+				},
+				30u64,
+			)
+			.await?;
+
+			let count = current_count.get() as u64;
+			let delta = count - prev_count;
+			let rate = delta / interval;
+			propagated_metrics.push((name, count, rate));
+			prev_propagated.insert(name, count);
+		}
+
+		info!("[{:>3}s]  Statements  submitted                 propagated", elapsed);
+		for i in 0..collator_names.len() {
+			let (sub_name, sub_count, sub_rate) = submitted_metrics[i];
+			let (prop_name, prop_count, prop_rate) = propagated_metrics[i];
+			assert_eq!(sub_name, prop_name);
+
+			let sub_percentage = sub_count * 100 / submit_capacity;
+			let prop_percentage = prop_count * 100 / propogation_capacity;
+
 			info!(
-				"Estimated store size: {:.2} MB",
-				(final_sent as f64 * PAYLOAD_SIZE as f64) / (1024.0 * 1024.0)
+				"         {:<8}  {:>8} {:>3}% {:>8}/s   {:>8} {:>3}% {:>8}/s",
+				sub_name,
+				sub_count,
+				sub_percentage,
+				sub_rate,
+				prop_count,
+				prop_percentage,
+				prop_rate
 			);
+		}
 
+		let total_submitted: u64 = submitted_metrics.iter().map(|(_, count, _)| *count).sum();
+		if total_submitted == submit_capacity * num_collators {
+			info!("Reached total submit capacity of {} statements per node in {}s, benchmark completed successfully", submit_capacity, elapsed);
 			break;
 		}
-	}
-
-
-	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
-	info!("Statements submitted:");
-	for &name in &collator_names {
-		let node = network.get_node(name)?;
-		node.wait_metric_with_timeout(
-			"substrate_sub_statement_store_submitted_statements",
-			|count| {
-				info!("\t{}: {}", name, count);
-				true
-			},
-			30u64,
-		)
-		.await?;
-	}
-
-	info!("Statements propagated:");
-	for &name in &collator_names {
-		let node = network.get_node(name)?;
-		node.wait_metric_with_timeout(
-			"substrate_sync_propagated_statements",
-			|count| {
-				info!("	{}: {}", name, count);
-				true
-			},
-			30u64,
-		)
-		.await?;
 	}
 
 	Ok(())

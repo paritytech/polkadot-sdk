@@ -5289,6 +5289,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "rstest",
+ "sc-statement-store",
  "serde",
  "serde_json",
  "sp-core 28.0.0",
