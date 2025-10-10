@@ -1737,7 +1737,6 @@ fn no_connection_without_preconnect_message() {
 
 			// Verify that no ConnectToValidators message was sent
 			// by attempting to receive a message with a short timeout.
-			// We should either timeout or receive messages that are NOT ConnectToValidators.
 			let timeout = Duration::from_millis(250);
 			match overseer_recv_with_timeout(&mut virtual_overseer, timeout).await {
 				None => {
