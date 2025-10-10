@@ -1,6 +1,6 @@
 [package]
 name = "pallet-staking-async"
-version = "0.6.0"
+version = "0.6.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -33,14 +33,14 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, workspace = true }
-frame-support = { features = ["experimental"], default-features = true, workspace = true }
-pallet-bags-list = { default-features = true, workspace = true }
-pallet-balances = { default-features = true, workspace = true }
+frame-benchmarking = { default-features = true, path = "../benchmarking" }
+frame-support = { features = ["experimental"], default-features = true, path = "../support" }
+pallet-bags-list = { default-features = true, path = "../bags-list" }
+pallet-balances = { default-features = true, path = "../balances" }
 rand_chacha = { workspace = true, default-features = true }
-sp-npos-elections = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-substrate-test-utils = { workspace = true }
+sp-npos-elections = { default-features = true, path = "../../primitives/npos-elections" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]
@@ -68,8 +68,6 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-bags-list/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -78,8 +76,6 @@ try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-bags-list/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]
