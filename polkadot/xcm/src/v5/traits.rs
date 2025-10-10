@@ -154,6 +154,9 @@ pub enum Error {
 	/// Too many assets matched the given asset filter.
 	#[codec(index = 35)]
 	TooManyAssets,
+	/// Publishing data failed.
+	#[codec(index = 36)]
+	PublishFailed,
 
 	// Errors that happen prior to instructions being executed. These fall outside of the XCM
 	// spec.

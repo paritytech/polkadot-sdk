@@ -14,30 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{test_utils::*, *};
-use alloc::{vec, vec::Vec};
-use frame_support::{
-	assert_err,
-	traits::{ConstU32, ContainsPair, ProcessMessageError},
-	weights::constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
-};
-use xcm_executor::{traits::prelude::*, Config, XcmExecutor};
+//! Traits for publish/subscribe operations in the broadcaster pallet.
 
-mod mock;
-use mock::*;
+use alloc::vec::Vec;
+use polkadot_primitives::Id as ParaId;
+use sp_runtime::DispatchResult;
 
-mod aliases;
-mod assets;
-mod barriers;
-mod basic;
-mod bridging;
-mod expecting;
-mod locking;
-mod origins;
-mod pay;
-mod publish_subscribe;
-mod querying;
-mod routing;
-mod transacting;
-mod version_subscriptions;
-mod weight;
+pub trait PublishSubscribe {
+	/// Publish key-value data for a specific parachain.
+	fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult;
+}

@@ -1431,6 +1431,10 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				tracing::debug!(target: "xcm::versions::v5tov4", ?new_instruction, "not supported by v4");
 				return Err(());
 			},
+			Publish { .. } => {
+				tracing::debug!(target: "xcm::versions::v5tov4", ?new_instruction, "not supported by v4");
+				return Err(());
+			},
 		})
 	}
 }

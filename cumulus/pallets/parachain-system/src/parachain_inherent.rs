@@ -328,6 +328,30 @@ pub struct BasicParachainInherentData {
 	pub collator_peer_id: Option<ApprovedPeerId>,
 }
 
+/// Published data from the broadcaster pallet that is passed by the collator to the parachain
+/// runtime as part of the inherent data.
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	sp_core::RuntimeDebug,
+	Clone,
+	PartialEq,
+	TypeInfo,
+)]
+pub struct InboundPublishedData {
+	/// Published data grouped by publisher ParaId.
+	/// Key: Publisher ParaId, Value: Vector of (key, value) pairs published by that parachain.
+	pub data: BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>,
+}
+
+impl InboundPublishedData {
+	/// Creates a new instance of `InboundPublishedData` with the provided data.
+	pub fn new(data: BTreeMap<ParaId, Vec<(Vec<u8>, Vec<u8>)>>) -> Self {
+		Self { data }
+	}
+}
+
 /// The messages that are passed by the collator to the parachain runtime as part of the
 /// inherent data.
 #[derive(
@@ -357,7 +381,7 @@ impl InboundMessagesData {
 /// Deconstructs a `ParachainInherentData` instance.
 pub fn deconstruct_parachain_inherent_data(
 	data: ParachainInherentData,
-) -> (BasicParachainInherentData, InboundDownwardMessages, InboundHrmpMessages) {
+) -> (BasicParachainInherentData, InboundDownwardMessages, InboundHrmpMessages, InboundPublishedData) {
 	(
 		BasicParachainInherentData {
 			validation_data: data.validation_data,
@@ -367,6 +391,7 @@ pub fn deconstruct_parachain_inherent_data(
 		},
 		InboundDownwardMessages::new(data.downward_messages),
 		InboundHrmpMessages::from_map(data.horizontal_messages),
+		InboundPublishedData::new(data.published_data),
 	)
 }
 
