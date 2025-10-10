@@ -161,8 +161,9 @@ pub struct Client {
 	max_block_weight: Weight,
 	/// Whether the node has automine enabled.
 	automine: bool,
-	/// A notifier for new blocks when automine is enabled.
-	block_notifier: Option<tokio::sync::broadcast::Sender<()>>,
+	/// A notifier, that informs subscribers of new transaction hashes that are included in a
+	/// block, when automine is enabled.
+	tx_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -243,7 +244,7 @@ impl Client {
 			chain_id,
 			max_block_weight,
 			automine,
-			block_notifier: automine.then(|| tokio::sync::broadcast::channel::<()>(1).0),
+			tx_notifier: automine.then(|| tokio::sync::broadcast::channel::<H256>(10).0),
 		};
 
 		Ok(client)
@@ -351,10 +352,11 @@ impl Client {
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
 			// Only broadcast for best blocks to avoid duplicate notifications.
-			match (subscription_type, &self.block_notifier) {
-				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
-					let _ = sender.send(());
-				},
+			match (subscription_type, &self.tx_notifier) {
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 =>
+					for receipt in &receipts {
+						let _ = sender.send(receipt.transaction_hash);
+					},
 				_ => {},
 			}
 			Ok(())
@@ -711,8 +713,8 @@ impl Client {
 	}
 
 	/// Get the block notifier, if automine is enabled.
-	pub fn block_notifier(&self) -> Option<tokio::sync::broadcast::Sender<()>> {
-		self.block_notifier.clone()
+	pub fn tx_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
+		self.tx_notifier.clone()
 	}
 
 	/// Get the logs matching the given filter.

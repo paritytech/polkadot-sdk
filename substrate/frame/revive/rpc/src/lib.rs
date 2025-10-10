@@ -167,7 +167,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 
 		// Subscribe to new block only when automine is enabled.
-		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
+		let receiver = self.client.tx_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
 		self.client.submit(call).await.map_err(|err| {
@@ -178,12 +178,18 @@ impl EthRpcServer for EthRpcServerImpl {
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
 			let _ = tokio::time::timeout(Duration::from_millis(500), async {
-				let _ = receiver.recv().await;
+				loop {
+					if let Ok(mined_hash) = receiver.recv().await {
+						if mined_hash == hash {
+							break;
+						}
+					}
+				}
 			})
+			.await
 			.inspect_err(|_| {
 				log::debug!(target: LOG_TARGET, "timeout waiting for new block");
-			})
-			.await;
+			});
 		}
 
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
