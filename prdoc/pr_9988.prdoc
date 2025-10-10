@@ -2,7 +2,7 @@ title: '[pallet-revive] improve revive genesis config'
 doc:
 - audience: Runtime Dev
   description: |-
-    - make sure that contracts are brought to existence by minting e.d first
+    GenesisConfig: make sure that contracts are brought to existence by minting e.d first
 crates:
 - name: pallet-revive
   bump: patch
