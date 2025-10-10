@@ -55,7 +55,6 @@ std = [
 	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm-simulator/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
