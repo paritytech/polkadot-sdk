@@ -169,6 +169,41 @@ async fn claim_queue_at(
 	}
 }
 
+async fn should_skip_building_block_due_to_relay_parent_in_old_session<Client>(
+	relay_client: &Client,
+	relay_parent: sp_core::H256,
+	relay_grand_parent: sp_core::H256,
+) -> bool
+where
+	Client: RelayChainInterface,
+{
+	let Some(session_of_current_rp) = relay_client.session_index_for_child(relay_parent).await.ok()
+	else {
+		// Failed to fetch session index, do not skip building
+		return false;
+	};
+
+	let Some(session_of_last_rp) =
+		relay_client.session_index_for_child(relay_grand_parent).await.ok()
+	else {
+		// Failed to fetch session index, do not skip building
+		return false;
+	};
+
+	if session_of_current_rp > session_of_last_rp {
+		// This is a new session, so we should NOT skip building
+		false
+	} else if session_of_current_rp < session_of_last_rp {
+		// Is this even possible? probably a programmer error, wrong relay_parent /
+		// relay_grand_parent passed in? feels most prudent to not skip building in this case
+		false
+	} else {
+		// `session_of_current_rp == session_of_last_rp` => relay_parent is in old session
+		// => we SHOULD skip
+		true
+	}
+}
+
 // Checks if we own the slot at the given block and whether there
 // is space in the unincluded segment.
 async fn can_build_upon<Block: BlockT, Client, P>(
