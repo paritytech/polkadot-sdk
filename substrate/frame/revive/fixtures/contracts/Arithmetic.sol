@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract Arithmetic {
+    // We don't run the optimizer to avoid constant folding
     function testArithmetic() public {
         // ADD tests
         uint256 addResult;
