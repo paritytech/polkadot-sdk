@@ -177,19 +177,20 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
-			let _ = tokio::time::timeout(Duration::from_millis(500), async {
+			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
 				loop {
 					if let Ok(mined_hash) = receiver.recv().await {
 						if mined_hash == hash {
+							log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
 							break;
 						}
 					}
 				}
 			})
 			.await
-			.inspect_err(|_| {
-				log::debug!(target: LOG_TARGET, "timeout waiting for new block");
-			});
+			{
+				log::debug!(target: LOG_TARGET, "timeout waiting for new block: {err:?}");
+			}
 		}
 
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
