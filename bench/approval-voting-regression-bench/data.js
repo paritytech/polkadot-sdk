@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1760116849715,
+  "lastUpdate": 1760120049824,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "32168055+antkve@users.noreply.github.com",
-            "name": "Anthony Kveder",
-            "username": "antkve"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "187cddde3799b5761c8036aaf137b93ba09fa526",
-          "message": "Moved Rococo and Westend primitives (#8177)\n\n# Description\n\nMoved the Rococo and Westend bridge- and asset- hub bridge primitives\ninto cumulus/parachains/runtimes/rococo(westend)/bridge-primitives, as\nwell as chain-rococo and chain-westend into polkadot/runtime as per the\nthird task of [this\nissue](https://github.com/paritytech/parity-bridges-common/issues/2950)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-04-10T02:19:57Z",
-          "tree_id": "405b7824fcac509cd5e593f4346dbf707bc0db08",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/187cddde3799b5761c8036aaf137b93ba09fa526"
-        },
-        "date": 1744256816215,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63624.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001833931,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001833931,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.715921111790005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005864020850000009,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019691350000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019691350000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.346289831052213,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.8387693257600055,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3350969130999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.358661012699998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.380538377259998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3394163305499975,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.457575131570007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.000021334029999999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d65db6ef34c0e7b99655576fe2861105557afb97",
+          "message": "[pallet-revive] Implement the consume_all_gas syscall (#9997)\n\nThis PR implements a new API `consume_all_gas` which is required for\n100% EVM `INVALID` opcode compatibility.\n\nSince ceding of all remaining gas is handled in the EVM interpreter, I\ndecided to not add a return flag but make this a dedicated syscall for\nconsistency instead.\n\nDidn't implement a benchmark since the first (and only) thing this does\nis consuming all remaining gas anyways.\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-10-10T16:59:39Z",
+          "tree_id": "8301f54c9ebb8ba81aad943ffffe9f1980d42d88",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d65db6ef34c0e7b99655576fe2861105557afb97"
+        },
+        "date": 1760120024393,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63633.81,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017946760000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017946760000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001834507,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005620661960000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001834507,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.4675766225599998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.50438425669,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.4662734931999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 1.959641130189997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.42009249617999933,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.5720304857507372,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.4771235483200007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 12.300712209099995,
             "unit": "seconds"
           }
         ]
