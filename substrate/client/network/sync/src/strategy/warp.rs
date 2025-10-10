@@ -396,6 +396,8 @@ where
 			peer.state = PeerState::Available;
 		}
 
+		dbg!(&response.0);
+
 		let Phase::WarpProof { set_id, authorities, last_hash, warp_sync_provider } =
 			&mut self.phase
 		else {
