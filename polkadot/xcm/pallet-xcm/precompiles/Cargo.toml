@@ -50,6 +50,13 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

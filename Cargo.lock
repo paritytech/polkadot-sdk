@@ -16568,6 +16568,7 @@ dependencies = [
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub",
  "pallet-xcm-bridge-hub-router",
+ "pallet-xcm-precompiles",
  "parachains-common",
  "parachains-runtimes-test-utils",
  "polkadot-approval-distribution",
