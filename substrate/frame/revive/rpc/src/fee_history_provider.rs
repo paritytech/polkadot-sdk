@@ -47,7 +47,7 @@ impl FeeHistoryProvider {
 		let block_number: SubstrateBlockNumber =
 			block.number.try_into().expect("Block number is always valid");
 
-		let base_fee = block.base_fee_per_gas.unwrap_or_default().as_u128();
+		let base_fee = block.base_fee_per_gas.as_u128();
 		let gas_used = block.gas_used.as_u128();
 		let gas_used_ratio = (gas_used as f64) / (block.gas_limit.as_u128() as f64);
 		let mut result = FeeHistoryCacheItem { base_fee, gas_used_ratio, rewards: vec![] };
@@ -160,7 +160,7 @@ impl FeeHistoryProvider {
 async fn test_update_fee_history() {
 	let block = Block {
 		number: U256::from(200u64),
-		base_fee_per_gas: Some(U256::from(1000u64)),
+		base_fee_per_gas: U256::from(1000u64),
 		gas_used: U256::from(600u64),
 		gas_limit: U256::from(1200u64),
 		..Default::default()

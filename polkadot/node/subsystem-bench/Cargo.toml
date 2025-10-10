@@ -33,7 +33,9 @@ kvdb-memorydb = { workspace = true }
 polkadot-availability-bitfield-distribution = { workspace = true, default-features = true }
 polkadot-availability-distribution = { workspace = true, default-features = true }
 polkadot-availability-recovery = { features = ["subsystem-benchmarks"], workspace = true, default-features = true }
+polkadot-dispute-distribution = { workspace = true, default-features = true }
 polkadot-node-core-av-store = { workspace = true, default-features = true }
+polkadot-node-core-dispute-coordinator = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }

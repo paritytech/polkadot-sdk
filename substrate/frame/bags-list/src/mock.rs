@@ -33,7 +33,7 @@ parameter_types! {
 }
 
 pub struct StakingMock;
-impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
+impl ScoreProvider<AccountId> for StakingMock {
 	type Score = VoteWeight;
 
 	fn score(id: &AccountId) -> Option<Self::Score> {
@@ -55,13 +55,15 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
 	pub static BagThresholds: &'static [VoteWeight] = &[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+	pub static AutoRebagNumber: u32 = 10;
 }
 
 impl bags_list::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type BagThresholds = BagThresholds;
 	type ScoreProvider = StakingMock;
+	type BagThresholds = BagThresholds;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 	type Score = VoteWeight;
 }
 

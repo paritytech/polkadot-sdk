@@ -1000,7 +1000,7 @@ impl<T: Config> AsynchronousVerifier for Pallet<T> {
 	}
 
 	fn start() -> Result<(), &'static str> {
-		sublog!(info, "verifier", "start signal received.");
+		sublog!(debug, "verifier", "start signal received.");
 		if let Status::Nothing = Self::status() {
 			let claimed_score = Self::SolutionDataProvider::get_score();
 			if Self::ensure_score_quality(claimed_score).is_err() {

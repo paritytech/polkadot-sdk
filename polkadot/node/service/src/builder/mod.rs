@@ -57,7 +57,11 @@ use sc_telemetry::TelemetryWorkerHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_beefy::ecdsa_crypto;
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::Duration,
+};
 
 /// Polkadot node service initialization parameters.
 pub struct NewFullParams<OverseerGenerator: OverseerGen> {
@@ -90,6 +94,10 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	#[allow(dead_code)]
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
+	/// Set of invulnerable AH collator `PeerId`s
+	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
+	/// Override for `HOLD_OFF_DURATION` constant .
+	pub collator_protocol_hold_off: Option<Duration>,
 }
 
 /// Completely built polkadot node service.
@@ -199,6 +207,8 @@ where
 					prepare_workers_soft_max_num,
 					prepare_workers_hard_max_num,
 					keep_finalized_for,
+					invulnerable_ah_collators,
+					collator_protocol_hold_off,
 				},
 			overseer_connector,
 			partial_components:
@@ -440,6 +450,8 @@ where
 				dispute_coordinator_config,
 				chain_selection_config,
 				fetch_chunks_threshold,
+				invulnerable_ah_collators,
+				collator_protocol_hold_off,
 			})
 		};
 
@@ -480,6 +492,7 @@ where
 			);
 		}
 
+		let network_config = config.network.clone();
 		let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			config,
 			backend: backend.clone(),
@@ -493,6 +506,7 @@ where
 			system_rpc_tx,
 			tx_handler_controller,
 			telemetry: telemetry.as_mut(),
+			tracing_execute_block: None,
 		})?;
 
 		if let Some(hwbench) = hwbench {
@@ -568,6 +582,7 @@ where
 					public_addresses: auth_disc_public_addresses,
 					// Require that authority discovery records are signed.
 					strict_record_validation: true,
+					persisted_cache_directory: network_config.net_config_path,
 					..Default::default()
 				},
 				client.clone(),
@@ -575,6 +590,7 @@ where
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
+				task_manager.spawn_handle(),
 			);
 
 			task_manager.spawn_handle().spawn(

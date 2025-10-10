@@ -549,7 +549,7 @@ where
 					// necessary. See <https://github.com/paritytech/substrate/pull/6080>
 					.with_per_connection_event_buffer_size(24)
 					.with_max_negotiating_inbound_streams(2048)
-					.with_idle_connection_timeout(Duration::from_secs(10));
+					.with_idle_connection_timeout(network_config.idle_connection_timeout);
 
 				Swarm::new(transport, behaviour, local_peer_id, config)
 			};

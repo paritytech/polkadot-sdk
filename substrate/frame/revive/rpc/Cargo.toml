@@ -9,6 +9,12 @@ repository.workspace = true
 description = "An Ethereum JSON-RPC server for pallet-revive."
 default-run = "eth-rpc"
 
+[lints]
+workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [[bin]]
 name = "eth-rpc"
 path = "src/main.rs"
@@ -47,7 +53,9 @@ pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
-subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
 [build-dependencies]
 git2 = { workspace = true }
+revive-dev-runtime = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

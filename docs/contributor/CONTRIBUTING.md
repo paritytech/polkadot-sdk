@@ -181,6 +181,11 @@ If you're member of **paritytech** org - you can use command-bot to run various 
 
 Start with comment in PR: `/cmd --help` to see the list of available commands.
 
+## Debug builds
+
+In order to improve build times for debug builds, the workspace `Cargo.toml` is configured to emit
+source line debug information only. If you need full debug info in your local debug builds,
+search for the line `debug = "line-tables-only"`  and comment it out.
 
 ## Deprecating code
 

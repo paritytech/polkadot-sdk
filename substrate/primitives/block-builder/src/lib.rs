@@ -21,6 +21,12 @@
 
 extern crate alloc;
 
+#[cfg(feature = "std")]
+mod client_side;
+
+#[cfg(feature = "std")]
+pub use client_side::*;
+
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{traits::Block as BlockT, ApplyExtrinsicResult};
 

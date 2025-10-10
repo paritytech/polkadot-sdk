@@ -42,7 +42,6 @@ rand = { features = ["alloc", "small_rng"], optional = true, workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-sp-core = { workspace = true }
 sp-io = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 

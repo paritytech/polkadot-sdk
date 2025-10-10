@@ -146,10 +146,12 @@ pub trait Verifier {
 	/// A reasonable value for this should be the maximum number of winners that the election user
 	/// (e.g. the staking pallet) could ever desire.
 	type MaxWinnersPerPage: Get<u32>;
+
 	/// Maximum number of backers, per winner, among all pages of an election.
 	///
 	/// This can only be checked at the very final step of verification.
 	type MaxBackersPerWinnerFinal: Get<u32>;
+
 	/// Maximum number of backers that each winner could have, per page.
 	type MaxBackersPerWinner: Get<u32>;
 

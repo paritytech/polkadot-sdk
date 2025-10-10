@@ -18,18 +18,18 @@ jobs:
     steps:
       - name: Generate token
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         with:
           app-id: ${{ secrets.REVIEW_APP_ID }}
           private-key: ${{ secrets.REVIEW_APP_KEY }}
       - name: Extract content of artifact
         if: ${{ !inputs.pr-number }}
         id: number
-        uses: Bullrich/extract-text-from-artifact@v1.0.1
+        uses: Bullrich/extract-text-from-artifact@28b4a438a07226f4e4e19f625354bbe3e745a29e # v1.0.1
         with:
           artifact-name: pr_number
       - name: "Evaluates PR reviews and assigns reviewers"
-        uses: paritytech/review-bot@v2.7.1
+        uses: paritytech/review-bot@3428eb003056e07d56d7730e67c9ca165687ab89 # v2.7.1
         with:
           repo-token: ${{ steps.app_token.outputs.token }}
           team-token: ${{ steps.app_token.outputs.token }}

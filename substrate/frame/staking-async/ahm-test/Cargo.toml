@@ -41,6 +41,7 @@ pallet-session = { workspace = true, default-features = true }
 pallet-staking-async-ah-client = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 # staking classic which will be replaced by ah-client
+pallet-offences = { workspace = true, default-features = true }
 pallet-root-offences = { workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
 
@@ -61,6 +62,7 @@ try-runtime = [
 	"frame/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-election-provider-multi-block/try-runtime",
+	"pallet-offences/try-runtime",
 	"pallet-root-offences/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking-async-ah-client/try-runtime",

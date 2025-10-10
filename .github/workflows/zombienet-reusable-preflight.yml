@@ -16,6 +16,13 @@ name: Zombienet Preflight
 
 on:
   workflow_call:
+    inputs:
+      tests_yaml:
+        required: true
+        type: string
+      test_pattern:
+        required: false
+        type: string
     # Map the workflow outputs to job outputs
     outputs:
       changes_substrate:
@@ -133,6 +140,10 @@ on:
         description: |
           comma separated list of flaky tests to skip.
 
+      TEST_MATRIX:
+        value: ${{ jobs.preflight.outputs.TEST_MATRIX }}
+        description: |
+          JSON formatted test matrix parsed from test yaml
 jobs:
   #
   #
@@ -166,6 +177,7 @@ jobs:
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
       TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
       FLAKY_TESTS: ${{ steps.set_vars.outputs.FLAKY_TESTS }}
+      TEST_MATRIX: ${{ steps.generate_test_matrix.outputs.TEST_MATRIX }}
 
       # zombienet-sdk vars
       RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
@@ -175,7 +187,7 @@ jobs:
       ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       #
       # Set changes
@@ -189,7 +201,7 @@ jobs:
 
       - name: Set changes
         id: set_changes
-        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c #v46.0.5
+        uses: tj-actions/changed-files@24d32ffd492484c1d75e0c0b894501ddb9d30d62 #v47.0.0
         with:
           files_yaml: |
             substrate:
@@ -248,7 +260,7 @@ jobs:
 
             # Trick for multline strings: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-of-a-multiline-string
             echo 'FLAKY_TESTS<<EOF'
-            cat .github/zombienet-flaky-tests
+            cat .github/zombienet-flaky-tests | sed 's/:[0-9]*$//'
             echo EOF
 
             # global img from ci
@@ -268,7 +280,7 @@ jobs:
         shell: bash
         run: |
           export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" || ${{ github.event_name }} == "push" ]]; then
             export DOCKER_IMAGES_VERSION="${GITHUB_SHA}";
           fi
           echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
@@ -282,6 +294,20 @@ jobs:
           echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
           echo "ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}"
 
+      - name: Generate test matrix
+        id: generate_test_matrix
+        shell: bash
+        env:
+          TESTS_YAML:  ${{ inputs.tests_yaml }}
+          TEST_PATTERN: ${{ inputs.test_pattern || '' }}
+        run: |
+          python3 .github/scripts/parse-zombienet-tests.py \
+            --matrix  ${TESTS_YAML} \
+            --flaky-tests "${{ steps.set_vars.outputs.FLAKY_TESTS }}" \
+            --test-pattern "${TEST_PATTERN}" > matrix.json
+          echo "TEST_MATRIX=$(cat matrix.json)" >> $GITHUB_OUTPUT
+          echo "TEST_MATRIX:"
+          cat matrix.json | jq '.'
   #
   #
   #
@@ -325,7 +351,7 @@ jobs:
       POLKADOT_PR_ARTIFACTS_URL: ${{ steps.get_artifacts_url.outputs.POLKADOT_PR_ARTIFACTS_URL }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Wait until "Build and push images" workflow is done
         id: wait_build
         env:
@@ -334,7 +360,7 @@ jobs:
           gh --version
 
           export SHA=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" || ${{ github.event_name }} == "push" ]]; then
             # Full SHA is needed to query GH run status
             export SHA="${GITHUB_SHA}";
           fi
@@ -377,4 +403,3 @@ jobs:
       #     if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
       #     POLKADOT_PR_ARTIFACTS_URL=$(curl "https://api.github.com/repos/paritytech/polkadot-sdk/actions/runs/${{steps.wait_build.outputs.BUILD_RUN_ID}}/artifacts?name=build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" | jq -r ".artifacts[0].archive_download_url")
       #     echo "POLKADOT_PR_ARTIFACTS_URL=${POLKADOT_PR_ARTIFACTS_URL}" >> $GITHUB_OUTPUT
-

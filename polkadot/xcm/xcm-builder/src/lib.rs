@@ -33,7 +33,8 @@ mod asset_conversion;
 #[allow(deprecated)]
 pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchClasslessInstances, MatchInClassInstances,
+	MatchedConvertedConcreteId,
 };
 
 mod asset_exchange;
@@ -98,6 +99,8 @@ pub use matches_token::IsConcrete;
 
 mod matcher;
 pub use matcher::{CreateMatcher, MatchXcm, Matcher};
+
+pub mod unique_instances;
 
 mod nonfungibles_adapter;
 pub use nonfungibles_adapter::{

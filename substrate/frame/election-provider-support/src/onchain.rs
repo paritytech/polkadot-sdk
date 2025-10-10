@@ -185,6 +185,7 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 	type BlockNumber = BlockNumberFor<T::System>;
 	type Error = Error;
 	type MaxWinnersPerPage = T::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = T::MaxWinnersPerPage;
 	type MaxBackersPerWinner = T::MaxBackersPerWinner;
 	// can support any number of pages, as this is meant to be called "instantly". We don't care
 	// about this value here.

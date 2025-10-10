@@ -1,0 +1,32 @@
+title: Add `para_ids` Runtime API
+
+doc:
+  - audience: "Node Dev"
+    description: |
+      Add a new runtime API for querying the registered paraids at a relay parent (both on-demand parachains and parachains).
+
+      This can be used for pruning the reputation database for the new collator protocol, so that we don't keep storing reputations indefinitely for parachains that have been offboarded.
+
+crates:
+  - name: polkadot-node-core-runtime-api
+    bump: patch
+  - name: polkadot-primitives
+    bump: minor
+  - name: polkadot-runtime-parachains
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: polkadot-test-runtime
+    bump: minor
+  - name: pallet-staking-async-rc-runtime
+    bump: minor
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: polkadot-node-subsystem-util
+    bump: minor
+  - name: cumulus-relay-chain-minimal-node
+    bump: minor
+  - name: cumulus-relay-chain-rpc-interface
+    bump: minor

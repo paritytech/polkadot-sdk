@@ -46,5 +46,4 @@ sp-keyring = { workspace = true, default-features = true }
 
 # Polkadot
 metered = { features = ["futures_channel"], workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-test-client = { workspace = true }

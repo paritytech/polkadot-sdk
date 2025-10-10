@@ -20,7 +20,8 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use cumulus_primitives_core::relay_chain::Hash as RelayHash;
+use crate::parachain_inherent::InboundDownwardMessages;
+use cumulus_primitives_core::{relay_chain::Hash as RelayHash, InboundDownwardMessage};
 use frame_benchmarking::v2::*;
 use sp_runtime::traits::BlakeTwo256;
 
@@ -43,7 +44,10 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::enqueue_inbound_downward_messages(head, msgs);
+			Pallet::<T>::enqueue_inbound_downward_messages(
+				head,
+				InboundDownwardMessages::new(msgs).into_abridged(&mut usize::MAX.clone()),
+			);
 		}
 
 		assert_eq!(ProcessedDownwardMessages::<T>::get(), n);

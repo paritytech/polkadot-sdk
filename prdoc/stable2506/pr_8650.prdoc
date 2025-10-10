@@ -1,0 +1,25 @@
+title: 'litep2p/peerset: Reject non-reserved peers in the reserved-only mode'
+doc:
+- audience: Node Operator
+  description: |-
+    This PR rejects non-reserved peers in the reserved-only mode of the litep2p notification peerset.
+
+    Previously, litep2p ignored completely the reserved-only state while accepting inbound connections. However, it handled it properly during the slot allocation phase.
+    - the main changes are in the `report_inbound_substream` function, which now propagated a `Rejected` response to litep2p on the reserved-only state
+      - in response, litep2p should never open an inbound substream after receiving the rejected response
+      - the state of peers is not advanced while in `Disconnected` or `Backoff` states
+      - the opening state is moved to `Cancelled`
+    - for consistency purposes (and fuzzing purposes), the `report_substream_opened` is more robustly handling the `Disconnected` state
+      - while at it have replaced a panic with `debug_assert` and an instant reject
+
+    ## Testing Done
+    - started 2 nodes in Kusama and Polkadot with litep2p
+    - added the `reserved_only_rejects_non_reserved_peers` test to ensure litep2p handles peers properly from different states
+
+
+    This PR has been extracted from https://github.com/paritytech/polkadot-sdk/pull/8461 to ease the review process
+
+    cc @paritytech/networking
+crates:
+- name: sc-network
+  bump: patch

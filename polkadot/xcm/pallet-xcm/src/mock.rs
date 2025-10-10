@@ -337,6 +337,7 @@ impl pallet_assets::Config for Test {
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
+	type Balance = Balance;
 	type Currency = Balances;
 	type Precompiles = (XcmPrecompile<Self>,);
 	type Time = Timestamp;
@@ -750,12 +751,14 @@ pub(crate) fn new_test_ext_with_balances(
 		balances,
 		// By default set actual latest XCM version
 		Some(XCM_VERSION),
+		vec![],
 	)
 }
 
 pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	balances: Vec<(AccountId, Balance)>,
 	safe_xcm_version: Option<XcmVersion>,
+	supported_version: Vec<(Location, XcmVersion)>,
 ) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
@@ -763,11 +766,11 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
+	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, supported_version, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE] }
+	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

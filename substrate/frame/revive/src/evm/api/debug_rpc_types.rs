@@ -223,14 +223,16 @@ pub struct PrestateTraceInfo {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub code: Option<Bytes>,
 	/// The storage of the contract account.
-	#[serde(
-		skip_serializing_if = "BTreeMap::is_empty",
-		serialize_with = "serialize_map_skip_none"
-	)]
+	#[serde(skip_serializing_if = "is_empty", serialize_with = "serialize_map_skip_none")]
 	pub storage: BTreeMap<Bytes, Option<Bytes>>,
 }
 
-/// Serializes a map of `K -> Option<V>`, omitting any entries whose value is `None`.
+/// Returns true if the map has no `Some` element
+pub fn is_empty<K, V>(map: &BTreeMap<K, Option<V>>) -> bool {
+	!map.values().any(|v| v.is_some())
+}
+
+/// Serializes a map, skipping `None` values.
 pub fn serialize_map_skip_none<S, K, V>(
 	map: &BTreeMap<K, Option<V>>,
 	serializer: S,
@@ -256,13 +258,13 @@ where
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct CallTrace<Gas = U256> {
 	/// Address of the sender.
 	pub from: H160,
 	/// Amount of gas provided for the call.
 	pub gas: Gas,
 	/// Amount of gas used.
-	#[serde(rename = "gasUsed")]
 	pub gas_used: Gas,
 	/// Address of the receiver.
 	pub to: H160,
@@ -275,7 +277,7 @@ pub struct CallTrace<Gas = U256> {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
 	/// The revert reason, if the call reverted.
-	#[serde(rename = "revertReason", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub revert_reason: Option<String>,
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
@@ -289,6 +291,9 @@ pub struct CallTrace<Gas = U256> {
 	/// Type of call.
 	#[serde(rename = "type")]
 	pub call_type: CallType,
+	/// Number of child calls entered (for log position calculation)
+	#[serde(skip)]
+	pub child_call_count: u32,
 }
 
 /// A log emitted during a call.
@@ -311,9 +316,9 @@ pub struct CallLog {
 
 /// A transaction trace
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionTrace {
 	/// The transaction hash.
-	#[serde(rename = "txHash")]
 	pub tx_hash: H256,
 	/// The trace of the transaction.
 	#[serde(rename = "result")]

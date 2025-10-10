@@ -5,7 +5,7 @@
 // can achieve full throughput of 3 candidates per block.
 
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_finalized_para_throughput, create_assign_core_call};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, create_assign_core_call};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -88,7 +88,7 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 
 	log::info!("2 more cores assigned to adder-2000");
 
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		15,
 		[(ParaId::from(2000), 38..46), (ParaId::from(2001), 12..16)]

@@ -789,9 +789,11 @@ async fn handle_peer_view_change<Context>(
 	};
 
 	let added = peer_data.view.replace_difference(view).cloned().collect::<Vec<_>>();
+	let current_session_index = state.topologies.get_current_session_index();
 
 	let topology = state.topologies.get_current_topology().local_grid_neighbors();
 	let is_gossip_peer = topology.route_to_peer(RequiredRouting::GridXY, &origin);
+
 	let lucky = is_gossip_peer ||
 		util::gen_ratio_rng(
 			util::MIN_GOSSIP_PEERS.saturating_sub(topology.len()),
@@ -809,7 +811,11 @@ async fn handle_peer_view_change<Context>(
 	let delta_set: Vec<(ValidatorId, BitfieldGossipMessage)> = added
 		.into_iter()
 		.filter_map(|new_relay_parent_interest| {
-			if let Some(job_data) = state.per_relay_parent.get(&new_relay_parent_interest) {
+			if let Some(job_data) = state
+				.per_relay_parent
+				.get(&new_relay_parent_interest)
+				.filter(|job_data| job_data.signing_context.session_index == current_session_index)
+			{
 				// Send all jointly known messages for a validator (given the current relay parent)
 				// to the peer `origin`...
 				let one_per_validator = job_data.one_per_validator.clone();

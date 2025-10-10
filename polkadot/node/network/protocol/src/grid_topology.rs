@@ -496,6 +496,11 @@ impl SessionBoundGridTopologyStorage {
 		&self.current_topology.entry
 	}
 
+	/// Returns the current session index.
+	pub fn get_current_session_index(&self) -> SessionIndex {
+		self.current_topology.session_index
+	}
+
 	/// Access the current grid topology mutably. Dangerous and intended
 	/// to be used in tests.
 	pub fn get_current_topology_mut(&mut self) -> &mut SessionGridTopologyEntry {

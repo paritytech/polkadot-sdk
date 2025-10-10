@@ -524,7 +524,7 @@ fn report_equivocation_invalid_set_id(mut f: impl ReportEquivocationFn) {
 		// the call for reporting the equivocation should error
 		assert_err!(
 			f(block_num, set_id + 1, &equivocation_keyring, key_owner_proof),
-			Error::<Test>::InvalidEquivocationProofSession,
+			Error::<Test>::InvalidEquivocationProofSessionMember,
 		);
 	});
 }
@@ -554,7 +554,7 @@ fn report_equivocation_invalid_session(mut f: impl ReportEquivocationFn) {
 		// proof from the previous set, the session should be invalid.
 		assert_err!(
 			f(block_num, set_id + 1, &equivocation_keyring, key_owner_proof),
-			Error::<Test>::InvalidEquivocationProofSession,
+			Error::<Test>::InvalidEquivocationProofSessionMember,
 		);
 	});
 }

@@ -94,6 +94,7 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 	type MaxBackersPerWinner = ConstU32<100>;
 	type MaxWinnersPerPage = ConstU32<100>;
 	type Pages = ConstU32<1>;
+	type MaxBackersPerWinnerFinal = Self::MaxBackersPerWinner;
 	type Error = ();
 
 	fn elect(

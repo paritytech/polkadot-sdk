@@ -89,6 +89,30 @@ ord_parameter_types! {
 	pub const WestendStakingMiner: AccountId = AccountId::from(hex_literal::hex!("b65991822483a6c3bd24b1dcf6afd3e270525da1f9c8c22a4373d1e1079e236a"));
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub BenchElectionBounds: frame_election_provider_support::bounds::ElectionBounds =
+		frame_election_provider_support::bounds::ElectionBoundsBuilder::default().build();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct OnChainConfig;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl frame_election_provider_support::onchain::Config for OnChainConfig {
+	// unbounded
+	type Bounds = BenchElectionBounds;
+	// We should not need sorting, as our bounds are large enough for the number of
+	// nominators/validators in this test setup.
+	type Sort = ConstBool<false>;
+	type DataProvider = Staking;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type Solver = frame_election_provider_support::SequentialPhragmen<AccountId, Perbill>;
+	type System = Runtime;
+	type WeightInfo = ();
+}
+
 impl multi_block::Config for Runtime {
 	type Pages = Pages;
 	type UnsignedPhase = UnsignedPhase;
@@ -102,7 +126,10 @@ impl multi_block::Config for Runtime {
 	type MinerConfig = Self;
 	type Verifier = MultiBlockElectionVerifier;
 	// we chill and do nothing in the fallback.
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Fallback = multi_block::Continue<Self>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	// Revert back to signed phase if nothing is submitted and queued, so we prolong the election.
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
@@ -184,6 +211,7 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &bag_thresholds::THRESHOLDS;
+	pub const AutoRebagNumber: u32 = 10;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -193,6 +221,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 }
 
 pub struct EraPayout;
@@ -233,8 +262,8 @@ parameter_types! {
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 	// alias for 16, which is the max nominations per nominator in the runtime.
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
-	pub storage PlanningEraOffset: u32 = prod_or_fast!(2, 1);
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -262,18 +291,20 @@ impl pallet_staking_async::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
-	type PlanningEraOffset = PlanningEraOffset;
+	type PlanningEraOffset =
+		pallet_staking_async::PlanningEraOffsetOf<Runtime, RelaySessionDuration, ConstU32<5>>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
+	type MaxPruningItems = MaxPruningItems;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
+	type MaxValidatorSetRetries = ConstU32<64>;
 }
 
 #[derive(Encode, Decode)]
@@ -320,13 +351,13 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
-		>::split_then_send(report, Some(8));
+		>::send(report)
 	}
 }
 
@@ -448,10 +479,11 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 		));
 		let raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {
-				log::warn!("Unable to create signed payload: {:?}", e);
+				tracing::warn!(target: "runtime::staking", error=?e, "Unable to create signed payload");
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;

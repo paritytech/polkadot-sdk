@@ -29,6 +29,7 @@ use sc_service::{Configuration, Error as SubstrateServiceError, KeystoreContaine
 use sc_telemetry::{Telemetry, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus::SelectChain;
+use sp_consensus_babe::inherents::BabeCreateInherentDataProviders;
 use sp_consensus_beefy::ecdsa_crypto;
 use std::sync::Arc;
 
@@ -64,6 +65,8 @@ pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialC
 					FullGrandpaBlockImport<ChainSelection>,
 					ecdsa_crypto::AuthorityId,
 				>,
+				BabeCreateInherentDataProviders<Block>,
+				ChainSelection,
 			>,
 			sc_consensus_grandpa::LinkHalf<Block, FullClient, ChainSelection>,
 			sc_consensus_babe::BabeLink<Block>,
@@ -184,32 +187,33 @@ where
 		);
 
 	let babe_config = sc_consensus_babe::configuration(&*client)?;
-	let (block_import, babe_link) =
-		sc_consensus_babe::block_import(babe_config.clone(), beefy_block_import, client.clone())?;
+	let slot_duration = babe_config.slot_duration();
+	let (block_import, babe_link) = sc_consensus_babe::block_import(
+		babe_config.clone(),
+		beefy_block_import,
+		client.clone(),
+		Arc::new(move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
+			Ok((slot, timestamp))
+		}) as BabeCreateInherentDataProviders<Block>,
+		select_chain.clone(),
+		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+	)?;
 
-	let slot_duration = babe_link.config().slot_duration();
 	let (import_queue, babe_worker_handle) =
 		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
 			link: babe_link.clone(),
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),
-			select_chain: select_chain.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-				let slot =
-				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-					*timestamp,
-					slot_duration,
-				);
-
-				Ok((slot, timestamp))
-			},
+			slot_duration,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		})?;
 
 	let justification_stream = grandpa_link.justification_stream();

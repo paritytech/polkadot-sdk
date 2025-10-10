@@ -22,7 +22,7 @@ include!("../panic_handler.rs");
 use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, StorageFlags};
 
 const ADDRESS_KEY: [u8; 32] = [0u8; 32];
-const VALUE: [u8; 32] = u256_bytes(65536);
+const VALUE: [u8; 32] = u256_bytes(65_536_000_000);
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

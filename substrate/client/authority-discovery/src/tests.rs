@@ -17,11 +17,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	new_worker_and_service,
+	new_worker_and_service_with_config,
 	worker::{
 		tests::{TestApi, TestNetwork},
-		Role,
+		AddrCache, Role,
 	},
+	WorkerConfig,
 };
 
 use futures::{channel::mpsc::channel, executor::LocalPool, task::LocalSpawn};
@@ -30,11 +31,19 @@ use std::{collections::HashSet, sync::Arc};
 
 use sc_network::{multiaddr::Protocol, Multiaddr, PeerId};
 use sp_authority_discovery::AuthorityId;
-use sp_core::crypto::key_types;
+use sp_core::{crypto::key_types, testing::TaskExecutor, traits::SpawnNamed};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 
-#[test]
-fn get_addresses_and_authority_id() {
+pub(super) fn create_spawner() -> Box<dyn SpawnNamed> {
+	Box::new(TaskExecutor::new())
+}
+
+pub(super) fn test_config(path_buf: Option<std::path::PathBuf>) -> WorkerConfig {
+	WorkerConfig { persisted_cache_directory: path_buf, ..Default::default() }
+}
+
+#[tokio::test]
+async fn get_addresses_and_authority_id() {
 	let (_dht_event_tx, dht_event_rx) = channel(0);
 	let network: Arc<TestNetwork> = Arc::new(Default::default());
 
@@ -57,12 +66,16 @@ fn get_addresses_and_authority_id() {
 
 	let test_api = Arc::new(TestApi { authorities: vec![] });
 
-	let (mut worker, mut service) = new_worker_and_service(
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
+	let (mut worker, mut service) = new_worker_and_service_with_config(
+		test_config(Some(path)),
 		test_api,
 		network.clone(),
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		None,
+		create_spawner(),
 	);
 	worker.inject_addresses(remote_authority_id.clone(), vec![remote_addr.clone()]);
 
@@ -80,8 +93,8 @@ fn get_addresses_and_authority_id() {
 	});
 }
 
-#[test]
-fn cryptos_are_compatible() {
+#[tokio::test]
+async fn cryptos_are_compatible() {
 	use sp_core::crypto::Pair;
 
 	let libp2p_keypair = ed25519::Keypair::generate();
@@ -102,4 +115,54 @@ fn cryptos_are_compatible() {
 		&sp_core_public
 	));
 	assert!(libp2p_public.verify(message, sp_core_signature.as_ref()));
+}
+
+#[tokio::test]
+async fn when_addr_cache_is_persisted_with_authority_ids_then_when_worker_is_created_it_loads_the_persisted_cache(
+) {
+	// ARRANGE
+	let (_dht_event_tx, dht_event_rx) = channel(0);
+	let mut pool = LocalPool::new();
+	let key_store = MemoryKeystore::new();
+
+	let remote_authority_id: AuthorityId = pool.run_until(async {
+		key_store
+			.sr25519_generate_new(key_types::AUTHORITY_DISCOVERY, None)
+			.unwrap()
+			.into()
+	});
+	let remote_peer_id = PeerId::random();
+	let remote_addr = "/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
+		.parse::<Multiaddr>()
+		.unwrap()
+		.with(Protocol::P2p(remote_peer_id.into()));
+
+	let tempdir = tempfile::tempdir().unwrap();
+	let cache_path = tempdir.path().to_path_buf();
+
+	// persist the remote_authority_id and remote_addr in the cache
+	{
+		let mut addr_cache = AddrCache::default();
+		addr_cache.insert(remote_authority_id.clone(), vec![remote_addr.clone()]);
+		let path_to_save = cache_path.join(crate::worker::ADDR_CACHE_FILE_NAME);
+		addr_cache.serialize_and_persist(&path_to_save);
+	}
+
+	let (_, from_service) = futures::channel::mpsc::channel(0);
+
+	// ACT
+	// Create a worker with the persisted cache
+	let worker = crate::worker::Worker::new(
+		from_service,
+		Arc::new(TestApi { authorities: vec![] }),
+		Arc::new(TestNetwork::default()),
+		Box::pin(dht_event_rx),
+		Role::PublishAndDiscover(key_store.into()),
+		None,
+		test_config(Some(cache_path)),
+		create_spawner(),
+	);
+
+	// ASSERT
+	assert!(worker.contains_authority(&remote_authority_id));
 }

@@ -70,6 +70,25 @@ pub mod pallet {
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::DefaultNoBound;
 
+	/// Represents the current step in the era pruning process
+	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum PruningStep {
+		/// Pruning ErasStakersPaged storage
+		ErasStakersPaged,
+		/// Pruning ErasStakersOverview storage
+		ErasStakersOverview,
+		/// Pruning ErasValidatorPrefs storage
+		ErasValidatorPrefs,
+		/// Pruning ClaimedRewards storage
+		ClaimedRewards,
+		/// Pruning ErasValidatorReward storage
+		ErasValidatorReward,
+		/// Pruning ErasRewardPoints storage
+		ErasRewardPoints,
+		/// Pruning ErasTotalStake storage
+		ErasTotalStake,
+	}
+
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
 
@@ -308,10 +327,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
-		/// Maximum number of disabled validators.
-		#[pallet::constant]
-		type MaxDisabledValidators: Get<u32>;
-
 		/// Maximum allowed era duration in milliseconds.
 		///
 		/// This provides a defensive upper bound to cap the effective era duration, preventing
@@ -322,6 +337,14 @@ pub mod pallet {
 		/// this can be set to 604,800,000 ms (7 days).
 		#[pallet::constant]
 		type MaxEraDuration: Get<u64>;
+
+		/// Maximum number of storage items that can be pruned in a single call.
+		///
+		/// This controls how many storage items can be deleted in each call to `prune_era_step`.
+		/// This should be set to a conservative value (e.g., 100-500 items) to ensure pruning
+		/// doesn't consume too much block space. The actual weight is determined by benchmarks.
+		#[pallet::constant]
+		type MaxPruningItems: Get<u32>;
 
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
@@ -361,6 +384,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
+			pub const MaxPruningItems: u32 = 100;
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -383,8 +407,8 @@ pub mod pallet {
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
-			type MaxDisabledValidators = ConstU32<100>;
 			type MaxEraDuration = ();
+			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
@@ -625,8 +649,7 @@ pub mod pallet {
 	impl<T: Config> Get<u32> for ClaimedRewardsBound<T> {
 		fn get() -> u32 {
 			let max_total_nominators_per_validator =
-				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get() *
-					<T::ElectionProvider as ElectionProvider>::Pages::get();
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinnerFinal::get();
 			let exposure_page_size = T::MaxExposurePageSize::get();
 			max_total_nominators_per_validator
 				.saturating_div(exposure_page_size)
@@ -739,7 +762,7 @@ pub mod pallet {
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
 	#[pallet::storage]
-	pub type OffenceQueueEras<T: Config> = StorageValue<_, BoundedVec<u32, T::BondingDuration>>;
+	pub type OffenceQueueEras<T: Config> = StorageValue<_, WeakBoundedVec<u32, T::BondingDuration>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
 	///
@@ -770,6 +793,20 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Cancelled slashes by era and validator with maximum slash fraction to be cancelled.
+	///
+	/// When slashes are cancelled by governance, this stores the era and the validators
+	/// whose slashes should be cancelled, along with the maximum slash fraction that should
+	/// be cancelled for each validator.
+	#[pallet::storage]
+	pub type CancelledSlashes<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		BoundedVec<(T::AccountId, Perbill), T::MaxValidatorSet>,
+		ValueQuery,
+	>;
+
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
 	#[pallet::storage]
@@ -781,11 +818,6 @@ pub mod pallet {
 		T::AccountId,
 		(Perbill, BalanceOf<T>),
 	>;
-
-	/// All slashing events on nominators, mapped by era to the highest slash value of the era.
-	#[pallet::storage]
-	pub type NominatorSlashInEra<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -814,6 +846,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+
+	/// Tracks the current step of era pruning process for each era being lazily pruned.
+	#[pallet::storage]
+	pub type EraPruningState<T: Config> = StorageMap<_, Twox64Concat, EraIndex, PruningStep>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -997,6 +1033,8 @@ pub mod pallet {
 					));
 				});
 
+				// This allows us to work with configs like `dev_stakers: (0, 10)`. Don't create new
+				// validators, just add a bunch of nominators. Useful for slashing tests.
 				let all_validators = Validators::<T>::iter_keys().collect::<Vec<_>>();
 
 				(0..nominators).for_each(|index| {
@@ -1151,8 +1189,7 @@ pub mod pallet {
 		/// An unapplied slash has been cancelled.
 		SlashCancelled {
 			slash_era: EraIndex,
-			slash_key: (T::AccountId, Perbill, u32),
-			payout: BalanceOf<T>,
+			validator: T::AccountId,
 		},
 		/// Session change has been triggered.
 		///
@@ -1166,6 +1203,16 @@ pub mod pallet {
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
+		/// An offence was reported that was too old to be processed, and thus was dropped.
+		OffenceTooOld {
+			offence_era: EraIndex,
+			validator: T::AccountId,
+			fraction: Perbill,
+		},
+		/// An old era with the given index was pruned.
+		EraPruned {
+			index: EraIndex,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1255,6 +1302,13 @@ pub mod pallet {
 		/// Account is restricted from participation in staking. This may happen if the account is
 		/// staking in another way already, such as via pool.
 		Restricted,
+		/// Unapplied slashes in the recently concluded era is blocking this operation.
+		/// See `Call::apply_slash` to apply them.
+		UnappliedSlashesInPreviousEra,
+		/// The era is not eligible for pruning.
+		EraNotPrunable,
+		/// The slash has been cancelled and cannot be applied.
+		CancelledSlash,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1268,14 +1322,106 @@ pub mod pallet {
 					slash,
 					active_era,
 				);
-				let offence_era = active_era.saturating_sub(T::SlashDeferDuration::get());
-				slashing::apply_slash::<T>(slash, offence_era);
-				// remove the slash
+
+				// Check if this slash has been cancelled
+				if Self::check_slash_cancelled(active_era, &key.0, key.1) {
+					crate::log!(
+						debug,
+						"🦹 slash for {:?} in era {:?} was cancelled, skipping",
+						key.0,
+						active_era,
+					);
+				} else {
+					let offence_era = active_era.saturating_sub(T::SlashDeferDuration::get());
+					slashing::apply_slash::<T>(slash, offence_era);
+				}
+
+				// Always remove the slash from UnappliedSlashes
 				UnappliedSlashes::<T>::remove(&active_era, &key);
+
+				// Check if there are more slashes for this era
+				if UnappliedSlashes::<T>::iter_prefix(&active_era).next().is_none() {
+					// No more slashes for this era, clear CancelledSlashes
+					CancelledSlashes::<T>::remove(&active_era);
+				}
+
 				T::WeightInfo::apply_slash()
 			} else {
+				// No slashes found for this era
 				T::DbWeight::get().reads(1)
 			}
+		}
+
+		/// Execute one step of era pruning and get actual weight used
+		fn do_prune_era_step(era: EraIndex) -> Result<Weight, DispatchError> {
+			// Get current pruning state. If EraPruningState doesn't exist, it means:
+			// - Era was never marked for pruning, OR
+			// - Era was already fully pruned (pruning state was removed on final step)
+			// In either case, this is an error - user should not call prune on non-prunable eras
+			let current_step = EraPruningState::<T>::get(era).ok_or(Error::<T>::EraNotPrunable)?;
+
+			// Limit items to prevent deleting more than we can safely account for in weight
+			// calculations
+			let items_limit = T::MaxPruningItems::get().min(T::MaxValidatorSet::get());
+
+			let actual_weight = match current_step {
+				PruningStep::ErasStakersPaged => {
+					let result = ErasStakersPaged::<T>::clear_prefix((era,), items_limit, None);
+					let items_deleted = result.backend as u32;
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasStakersOverview)
+					});
+					T::WeightInfo::prune_era_stakers_paged(items_deleted)
+				},
+				PruningStep::ErasStakersOverview => {
+					let result = ErasStakersOverview::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorPrefs)
+					});
+					T::WeightInfo::prune_era_stakers_overview(items_deleted)
+				},
+				PruningStep::ErasValidatorPrefs => {
+					let result = ErasValidatorPrefs::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+					result
+						.maybe_cursor
+						.is_none()
+						.then(|| EraPruningState::<T>::insert(era, PruningStep::ClaimedRewards));
+					T::WeightInfo::prune_era_validator_prefs(items_deleted)
+				},
+				PruningStep::ClaimedRewards => {
+					let result = ClaimedRewards::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorReward)
+					});
+					T::WeightInfo::prune_era_claimed_rewards(items_deleted)
+				},
+				PruningStep::ErasValidatorReward => {
+					ErasValidatorReward::<T>::remove(era);
+					EraPruningState::<T>::insert(era, PruningStep::ErasRewardPoints);
+					T::WeightInfo::prune_era_validator_reward()
+				},
+				PruningStep::ErasRewardPoints => {
+					ErasRewardPoints::<T>::remove(era);
+					EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+					T::WeightInfo::prune_era_reward_points()
+				},
+				PruningStep::ErasTotalStake => {
+					ErasTotalStake::<T>::remove(era);
+					// This is the final step - remove the pruning state
+					EraPruningState::<T>::remove(era);
+					T::WeightInfo::prune_era_total_stake()
+				},
+			};
+
+			// Check if era is fully pruned (pruning state removed) and emit event
+			if EraPruningState::<T>::get(era).is_none() {
+				Self::deposit_event(Event::<T>::EraPruned { index: era });
+			}
+
+			Ok(actual_weight)
 		}
 	}
 
@@ -1304,6 +1450,7 @@ pub mod pallet {
 				MaxNominationsOf::<T>::get(),
 				<Self as ElectionDataProvider>::MaxVotesPerVoter::get()
 			);
+
 			// and that MaxNominations is always greater than 1, since we count on this.
 			assert!(!MaxNominationsOf::<T>::get().is_zero());
 
@@ -1312,6 +1459,13 @@ pub mod pallet {
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
 				T::BondingDuration::get(),
+			);
+
+			// Ensure MaxPruningItems is reasonable (minimum 100 for efficiency)
+			assert!(
+				T::MaxPruningItems::get() >= 100,
+				"MaxPruningItems must be at least 100 for efficient pruning, got: {}",
+				T::MaxPruningItems::get()
 			);
 		}
 
@@ -1424,8 +1578,8 @@ pub mod pallet {
 			let unlocking =
 				Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
 
-			// if there are no unlocking chunks available, try to withdraw chunks older than
-			// `BondingDuration` to proceed with the unbonding.
+			// if there are no unlocking chunks available, try to remove any chunks by withdrawing
+			// funds that have fully unbonded.
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					Some(Self::do_withdraw_unbonded(&controller)?)
@@ -1467,10 +1621,11 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Note: in case there is no current era it is fine to bond one era more.
-				let era = CurrentEra::<T>::get()
-					.unwrap_or(0)
-					.defensive_saturating_add(T::BondingDuration::get());
+				// Note: we used current era before, but that is meant to be used for only election.
+				// The right value to use here is the active era.
+
+				let era = session_rotation::Rotator::<T>::active_era()
+					.saturating_add(T::BondingDuration::get());
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
@@ -1502,10 +1657,14 @@ pub mod pallet {
 			Ok(actual_weight.into())
 		}
 
-		/// Remove any unlocked chunks from the `unlocking` queue from our management.
+		/// Remove any stake that has been fully unbonded and is ready for withdrawal.
 		///
-		/// This essentially frees up that balance to be used by the stash account to do whatever
-		/// it wants.
+		/// Stake is considered fully unbonded once [`Config::BondingDuration`] has elapsed since
+		/// the unbonding was initiated. In rare cases—such as when offences for the unbonded era
+		/// have been reported but not yet processed—withdrawal is restricted to eras for which
+		/// all offences have been processed.
+		///
+		/// The unlocked stake will be returned as free balance in the stash account.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller.
 		///
@@ -1515,8 +1674,8 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
-		/// compatibility. It no longer has any effect.
+		/// - `num_slashing_spans`: **Deprecated**. Retained only for backward compatibility; this
+		///   parameter has no effect.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
 		pub fn withdraw_unbonded(
@@ -1866,33 +2025,48 @@ pub mod pallet {
 
 		/// Cancels scheduled slashes for a given era before they are applied.
 		///
-		/// This function allows `T::AdminOrigin` to selectively remove pending slashes from
-		/// the `UnappliedSlashes` storage, preventing their enactment.
+		/// This function allows `T::AdminOrigin` to cancel pending slashes for specified validators
+		/// in a given era. The cancelled slashes are stored and will be checked when applying
+		/// slashes.
 		///
 		/// ## Parameters
-		/// - `era`: The staking era for which slashes were deferred.
-		/// - `slash_keys`: A list of slash keys identifying the slashes to remove. This is a tuple
-		/// of `(stash, slash_fraction, page_index)`.
+		/// - `era`: The staking era for which slashes should be cancelled. This is the era where
+		///   the slash would be applied, not the era in which the offence was committed.
+		/// - `validator_slashes`: A list of validator stash accounts and their slash fractions to
+		///   be cancelled.
 		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_keys.len() as u32))]
+		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(validator_slashes.len() as u32))]
 		pub fn cancel_deferred_slash(
 			origin: OriginFor<T>,
 			era: EraIndex,
-			slash_keys: Vec<(T::AccountId, Perbill, u32)>,
+			validator_slashes: Vec<(T::AccountId, Perbill)>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(!slash_keys.is_empty(), Error::<T>::EmptyTargets);
+			ensure!(!validator_slashes.is_empty(), Error::<T>::EmptyTargets);
 
-			// Remove the unapplied slashes.
-			slash_keys.into_iter().for_each(|i| {
-				UnappliedSlashes::<T>::take(&era, &i).map(|unapplied_slash| {
-					Self::deposit_event(Event::<T>::SlashCancelled {
-						slash_era: era,
-						slash_key: i,
-						payout: unapplied_slash.payout,
-					});
-				});
-			});
+			// Get current cancelled slashes for this era
+			let mut cancelled_slashes = CancelledSlashes::<T>::get(&era);
+
+			// Process each validator slash
+			for (validator, slash_fraction) in validator_slashes {
+				// Since this is gated by admin origin, we don't need to check if they are really
+				// validators and trust governance to correctly set the parameters.
+
+				// Remove any existing entry for this validator
+				cancelled_slashes.retain(|(v, _)| v != &validator);
+
+				// Add the validator with the specified slash fraction
+				cancelled_slashes
+					.try_push((validator.clone(), slash_fraction))
+					.map_err(|_| Error::<T>::BoundNotMet)
+					.defensive_proof("cancelled_slashes should have capacity for all validators")?;
+
+				Self::deposit_event(Event::<T>::SlashCancelled { slash_era: era, validator });
+			}
+
+			// Update storage
+			CancelledSlashes::<T>::insert(&era, cancelled_slashes);
+
 			Ok(())
 		}
 
@@ -1964,9 +2138,8 @@ pub mod pallet {
 		/// Remove all data structures concerning a staker/stash once it is at a state where it can
 		/// be considered `dust` in the staking system. The requirements are:
 		///
-		/// 1. the `total_balance` of the stash is below minimum bond.
-		/// 2. or, the `ledger.total` of the stash is below minimum bond.
-		/// 3. or, existential deposit is zero and either `total_balance` or `ledger.total` is zero.
+		/// 1. the `total_balance` of the stash is below `min_chilled_bond` or is zero.
+		/// 2. or, the `ledger.total` of the stash is below `min_chilled_bond` or is zero.
 		///
 		/// The former can happen in cases like a slash; the latter when a fully unbonded account
 		/// is still receiving staking rewards in `RewardDestination::Staked`.
@@ -2450,11 +2623,21 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Manually applies a deferred slash for a given era.
+		/// Manually and permissionlessly applies a deferred slash for a given era.
 		///
 		/// Normally, slashes are automatically applied shortly after the start of the `slash_era`.
-		/// This function exists as a **fallback mechanism** in case slashes were not applied due to
-		/// unexpected reasons. It allows anyone to manually apply an unapplied slash.
+		/// The automatic application of slashes is handled by the pallet's internal logic, and it
+		/// tries to apply one slash page per block of the era.
+		/// If for some reason, one era is not enough for applying all slash pages, the remaining
+		/// slashes need to be manually (permissionlessly) applied.
+		///
+		/// For a given era x, if at era x+1, slashes are still unapplied, all withdrawals get
+		/// blocked, and these need to be manually applied by calling this function.
+		/// This function exists as a **fallback mechanism** for this extreme situation, but we
+		/// never expect to encounter this in normal scenarios.
+		///
+		/// The parameters for this call can be queried by looking at the `UnappliedSlashes` storage
+		/// for eras older than the active era.
 		///
 		/// ## Parameters
 		/// - `slash_era`: The staking era in which the slash was originally scheduled.
@@ -2465,7 +2648,8 @@ pub mod pallet {
 		///
 		/// ## Behavior
 		/// - The function is **permissionless**—anyone can call it.
-		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
+		/// - The `slash_era` **must be the current era or a past era**.
+		/// If it is in the future, the
 		///   call fails with `EraNotStarted`.
 		/// - The fee is waived if the slash is successfully applied.
 		///
@@ -2482,6 +2666,13 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
 			ensure!(slash_era <= active_era, Error::<T>::EraNotStarted);
+
+			// Check if this slash has been cancelled
+			ensure!(
+				!Self::check_slash_cancelled(slash_era, &slash_key.0, slash_key.1),
+				Error::<T>::CancelledSlash
+			);
+
 			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
 				.ok_or(Error::<T>::InvalidSlashRecord)?;
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);
@@ -2489,37 +2680,44 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Adjusts the staking ledger by withdrawing any excess staked amount.
+		/// Perform one step of era pruning to prevent PoV size exhaustion from unbounded deletions.
 		///
-		/// This function corrects cases where a user's recorded stake in the ledger
-		/// exceeds their actual staked funds. This situation can arise due to cases such as
-		/// external slashing by another pallet, leading to an inconsistency between the ledger
-		/// and the actual stake.
+		/// This extrinsic enables permissionless lazy pruning of era data by performing
+		/// incremental deletion of storage items. Each call processes a limited number
+		/// of items based on available block weight to avoid exceeding block limits.
+		///
+		/// Returns `Pays::No` when work is performed to incentivize regular maintenance.
+		/// Anyone can call this to help maintain the chain's storage health.
+		///
+		/// The era must be eligible for pruning (older than HistoryDepth + 1).
+		/// Check `EraPruningState` storage to see if an era needs pruning before calling.
 		#[pallet::call_index(32)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
-		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
-			use sp_runtime::Saturating;
+		// NOTE: as pre-dispatch weight, use the maximum of all possible pruning step weights
+		#[pallet::weight({
+			let v = T::MaxValidatorSet::get();
+			T::WeightInfo::prune_era_stakers_paged(v)
+				.max(T::WeightInfo::prune_era_stakers_overview(v))
+				.max(T::WeightInfo::prune_era_validator_prefs(v))
+				.max(T::WeightInfo::prune_era_claimed_rewards(v))
+				.max(T::WeightInfo::prune_era_validator_reward())
+				.max(T::WeightInfo::prune_era_reward_points())
+				.max(T::WeightInfo::prune_era_total_stake())
+		})]
+		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
-			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let actual_stake = asset::staked::<T>(&stash);
-			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
+			// Verify era is eligible for pruning: era <= active_era - history_depth - 1
+			let active_era = crate::session_rotation::Rotator::<T>::active_era();
+			let history_depth = T::HistoryDepth::get();
+			let earliest_prunable_era = active_era.saturating_sub(history_depth).saturating_sub(1);
+			ensure!(era <= earliest_prunable_era, Error::<T>::EraNotPrunable);
 
-			// ensure there is something to force unstake.
-			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
+			let actual_weight = Self::do_prune_era_step(era)?;
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash, but we can't do much better here.
-			StakingLedger {
-				total: actual_stake,
-				active: ledger.active.saturating_sub(force_withdraw_amount),
-				..ledger
-			}
-			.update()?;
-
-			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
-
-			Ok(())
+			Ok(frame_support::dispatch::PostDispatchInfo {
+				actual_weight: Some(actual_weight),
+				pays_fee: frame_support::dispatch::Pays::No,
+			})
 		}
 	}
 }

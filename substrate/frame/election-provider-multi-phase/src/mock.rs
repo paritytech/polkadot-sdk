@@ -324,6 +324,7 @@ impl ElectionProvider for MockFallback {
 	type Error = &'static str;
 	type MaxWinnersPerPage = MaxWinners;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinner;
 	type Pages = ConstU32<1>;
 	type DataProvider = StakingMock;
 

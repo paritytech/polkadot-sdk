@@ -17,40 +17,17 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{H160, U256};
+use crate::{storage::WriteOutcome, BalanceOf, Config, H160, U256};
 use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
+use sp_core::Get;
 use sp_runtime::{
-	traits::{Saturating, Zero},
+	traits::{One, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
-
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum DepositLimit<Balance> {
-	/// Allows bypassing all balance transfer checks.
-	UnsafeOnlyForDryRun,
-
-	/// Specifies a maximum allowable balance for a deposit.
-	Balance(Balance),
-}
-
-impl<T> DepositLimit<T> {
-	pub fn is_unchecked(&self) -> bool {
-		match self {
-			Self::UnsafeOnlyForDryRun => true,
-			_ => false,
-		}
-	}
-}
-
-impl<T> From<T> for DepositLimit<T> {
-	fn from(value: T) -> Self {
-		Self::Balance(value)
-	}
-}
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.
@@ -108,12 +85,74 @@ pub enum EthTransactError {
 	Message(String),
 }
 
-/// Precision used for converting between Native and EVM balances.
-pub enum ConversionPrecision {
-	/// Exact conversion without any rounding.
-	Exact,
-	/// Conversion that rounds up to the nearest whole number.
-	RoundUp,
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+/// Error encountered while creating a BalanceWithDust from a U256 balance.
+pub enum BalanceConversionError {
+	/// Error encountered while creating the main balance value.
+	Value,
+	/// Error encountered while creating the dust value.
+	Dust,
+}
+
+/// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
+/// in the native currency
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
+pub struct BalanceWithDust<Balance> {
+	/// The value expressed in the native currency
+	value: Balance,
+	/// The dust, representing up to 1 unit of the native currency.
+	/// The dust is bounded between 0 and `crate::Config::NativeToEthRatio`
+	dust: u32,
+}
+
+impl<Balance> From<Balance> for BalanceWithDust<Balance> {
+	fn from(value: Balance) -> Self {
+		Self { value, dust: 0 }
+	}
+}
+
+impl<Balance> BalanceWithDust<Balance> {
+	/// Deconstructs the `BalanceWithDust` into its components.
+	pub fn deconstruct(self) -> (Balance, u32) {
+		(self.value, self.dust)
+	}
+
+	/// Creates a new `BalanceWithDust` with the given value and dust.
+	pub fn new_unchecked<T: Config>(value: Balance, dust: u32) -> Self {
+		debug_assert!(dust < T::NativeToEthRatio::get());
+		Self { value, dust }
+	}
+
+	/// Creates a new `BalanceWithDust` from the given EVM value.
+	pub fn from_value<T: Config>(
+		value: U256,
+	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError> {
+		if value.is_zero() {
+			return Ok(Default::default())
+		}
+
+		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
+		let value = quotient.try_into().map_err(|_| BalanceConversionError::Value)?;
+		let dust = remainder.try_into().map_err(|_| BalanceConversionError::Dust)?;
+
+		Ok(BalanceWithDust { value, dust })
+	}
+}
+
+impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
+	/// Returns true if both the value and dust are zero.
+	pub fn is_zero(&self) -> bool {
+		self.value.is_zero() && self.dust == 0
+	}
+
+	/// Returns the Balance rounded to the nearest whole unit if the dust is non-zero.
+	pub fn into_rounded_balance(self) -> Balance {
+		if self.dust == 0 {
+			self.value
+		} else {
+			self.value.saturating_add(Balance::one())
+		}
+	}
 }
 
 /// Result type of a `bare_code_upload` call.
@@ -122,6 +161,9 @@ pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, Disp
 /// Result type of a `get_storage` call.
 pub type GetStorageResult = Result<Option<Vec<u8>>, ContractAccessError>;
 
+/// Result type of a `set_storage` call.
+pub type SetStorageResult = Result<WriteOutcome, ContractAccessError>;
+
 /// The possible errors that can happen querying the storage of a contract.
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 pub enum ContractAccessError {
@@ -129,6 +171,8 @@ pub enum ContractAccessError {
 	DoesntExist,
 	/// Storage key cannot be decoded from the provided input data.
 	KeyDecodingFailed,
+	/// Writing to storage failed.
+	StorageWriteFailed(DispatchError),
 }
 
 /// Output of a contract call or instantiation which ran to completion.
@@ -275,20 +319,58 @@ where
 	}
 }
 
-/// Indicates whether the account nonce should be incremented after instantiating a new contract.
-///
-/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
-/// each instantiation, ensuring that each instantiation uses a unique nonce.
-///
-/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
-/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
-///
-/// Note:
-/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
-/// extension.
-pub enum BumpNonce {
-	/// Do not increment the nonce after contract instantiation
+/// `Stack` wide configuration options.
+#[derive(Debug, Clone)]
+pub struct ExecConfig {
+	/// Indicates whether the account nonce should be incremented after instantiating a new
+	/// contract.
+	///
+	/// In Substrate, where transactions can be batched, the account's nonce should be incremented
+	/// after each instantiation, ensuring that each instantiation uses a unique nonce.
+	///
+	/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only
+	/// be incremented once. In these cases, set this to `false` to suppress an extra nonce
+	/// increment.
+	///
+	/// Note:
+	/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+	/// extension.
+	///
+	/// This does not apply to contract initiated instantatiations. Those will always bump the
+	/// instantiating contract's nonce.
+	pub bump_nonce: bool,
+	/// Whether deposits will be withdrawn from the pallet_transaction_payment credit (`Some`)
+	/// free balance (`None`).
+	///
+	/// Contains the encoded_len + base weight.
+	pub collect_deposit_from_hold: Option<(u32, Weight)>,
+	/// The gas price that was chosen for this transaction.
+	///
+	/// It is determined when transforming `eth_transact` into a proper extrinsic.
+	pub effective_gas_price: Option<U256>,
+}
+
+impl ExecConfig {
+	/// Create a default config appropriate when the call originated from a subtrate tx.
+	pub fn new_substrate_tx() -> Self {
+		Self { bump_nonce: true, collect_deposit_from_hold: None, effective_gas_price: None }
+	}
+
+	/// Create a default config appropriate when the call originated from a ethereum tx.
+	pub fn new_eth_tx(effective_gas_price: U256, encoded_len: u32, base_weight: Weight) -> Self {
+		Self {
+			bump_nonce: false,
+			collect_deposit_from_hold: Some((encoded_len, base_weight)),
+			effective_gas_price: Some(effective_gas_price),
+		}
+	}
+}
+
+/// Indicates whether the code was removed after the last refcount was decremented.
+#[must_use = "You must handle whether the code was removed or not."]
+pub enum CodeRemoved {
+	/// The code was not removed. (refcount > 0)
 	No,
-	/// Increment the nonce after contract instantiation
+	/// The code was removed. (refcount == 0)
 	Yes,
 }

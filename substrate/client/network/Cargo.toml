@@ -70,9 +70,7 @@ zeroize = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-mockall = { workspace = true }
 multistream-select = { workspace = true }
-rand = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }

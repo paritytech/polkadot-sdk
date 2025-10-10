@@ -20,11 +20,14 @@ error: malformed `deprecated` attribute input
    |
 help: the following are the possible correct uses
    |
-24 |         #[deprecated = "reason"]
+24 -         #[deprecated = 5]
+24 +         #[deprecated = "reason"]
    |
-24 |         #[deprecated(/*opt*/ since = "version", /*opt*/ note = "reason")]
+24 -         #[deprecated = 5]
+24 +         #[deprecated(/*opt*/ since = "version", /*opt*/ note = "reason")]
    |
-24 |         #[deprecated]
+24 -         #[deprecated = 5]
+24 +         #[deprecated]
    |
 
 error[E0541]: unknown meta item 'unknown_kw'

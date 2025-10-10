@@ -186,13 +186,21 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// An account has delegated their vote to another account. \[who, target\]
-		Delegated(T::AccountId, T::AccountId),
+		Delegated(T::AccountId, T::AccountId, ClassOf<T, I>),
 		/// An \[account\] has cancelled a previous delegation operation.
-		Undelegated(T::AccountId),
+		Undelegated(T::AccountId, ClassOf<T, I>),
 		/// An account has voted
-		Voted { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		Voted {
+			who: T::AccountId,
+			vote: AccountVote<BalanceOf<T, I>>,
+			poll_index: PollIndexOf<T, I>,
+		},
 		/// A vote has been removed
-		VoteRemoved { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		VoteRemoved {
+			who: T::AccountId,
+			vote: AccountVote<BalanceOf<T, I>>,
+			poll_index: PollIndexOf<T, I>,
+		},
 		/// The lockup period of a conviction vote expired, and the funds have been unlocked.
 		VoteUnlocked { who: T::AccountId, class: ClassOf<T, I> },
 	}
@@ -537,7 +545,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(who, &class, vote.balance());
-				Self::deposit_event(Event::Voted { who: who.clone(), vote });
+				Self::deposit_event(Event::Voted { who: who.clone(), vote, poll_index });
 				Ok(())
 			})
 		})
@@ -640,6 +648,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						Self::deposit_event(Event::VoteRemoved {
 							who: who.clone(),
 							vote: account_vote,
+							poll_index,
 						});
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
 					}
@@ -925,7 +934,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Self::extend_lock(&who, &class, balance);
 				vote_accesses
 			})?;
-		Self::deposit_event(Event::<T, I>::Delegated(who, target));
+		Self::deposit_event(Event::<T, I>::Delegated(who, target, class));
 		Ok(vote_accesses)
 	}
 
@@ -971,7 +980,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				voting.set_delegate_info(None, Default::default(), None);
 				Ok(vote_accesses)
 			})?;
-		Self::deposit_event(Event::<T, I>::Undelegated(who));
+		Self::deposit_event(Event::<T, I>::Undelegated(who, class));
 		Ok(vote_accesses)
 	}
 

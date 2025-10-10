@@ -1,0 +1,17 @@
+title: '[Staking] [AHM] Fixes insufficient slashing of nominators and some other small
+  issues.'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Removed
+    - Config constant `MaxDisabledValidators`: This constant was removed since validator disabling logic has been moved to pallet-session, making it redundant in staking-async.
+    - Storage DoubleMap `NominatorSlashInEra`: This was used to track per-era maximum slashes for nominators. It’s no longer required — we now only track the highest slash per validator per era.
+    - Call `withdraw_overstake`: This was a temporary extrinsic meant to fix overstake issues, but with fungible migration of staking funds, this is no longer possible and the extrinsic is obsolete.
+
+    ## Changed
+    - Nominator slashing logic: The logic now aggregates slashes from distinct offending validators nominated by a nominator within the same era. For repeated offences by the same validator, only the highest slash fraction is applied. Previously, the pallet applied only the highest slash across all validators, regardless of how many were slashed.
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major

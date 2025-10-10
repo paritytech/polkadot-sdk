@@ -26,6 +26,7 @@ mod set_xcm_versions;
 mod swap;
 mod teleport;
 mod transact;
+mod transfer_assets_validation;
 mod treasury;
 mod xcm_fee_estimation;
 
@@ -35,7 +36,19 @@ macro_rules! foreign_balance_on {
 		emulated_integration_tests_common::impls::paste::paste! {
 			<$chain>::execute_with(|| {
 				type ForeignAssets = <$chain as [<$chain Pallet>]>::ForeignAssets;
-				<ForeignAssets as Inspect<_>>::balance($id, $who)
+				<ForeignAssets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
+			})
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! assets_balance_on {
+	( $chain:ident, $id:expr, $who:expr ) => {
+		emulated_integration_tests_common::impls::paste::paste! {
+			<$chain>::execute_with(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
 			})
 		}
 	};

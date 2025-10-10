@@ -118,7 +118,6 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
 use core::{cmp, mem};
 use frame_support::{
-	dispatch::PostDispatchInfo,
 	pallet_prelude::*,
 	traits::{EnsureOriginWithArg, EstimateNextSessionRotation},
 	DefaultNoBound,
@@ -705,7 +704,10 @@ pub mod pallet {
 		/// cooldown multiplied with this multiplier determines the cost.
 		type CooldownRemovalMultiplier: Get<BalanceOf<Self>>;
 
-		/// The origin that can authorize `force_set_current_code_hash`.
+		/// The origin that can authorize [`Pallet::authorize_force_set_current_code_hash`].
+		///
+		/// In the end this allows [`Pallet::apply_authorized_force_set_current_code`] to force set
+		/// the current code without paying any fee. So, the origin should be chosen with care.
 		type AuthorizeCurrentCodeOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, ParaId>;
 	}
 
@@ -1297,11 +1299,13 @@ pub mod pallet {
 			valid_period: BlockNumberFor<T>,
 		) -> DispatchResult {
 			T::AuthorizeCurrentCodeOrigin::ensure_origin(origin, &para)?;
+			// The requested para must be a valid para (neither onboarding nor offboarding).
+			ensure!(Self::is_valid_para(para), Error::<T>::NotRegistered);
 
 			let now = frame_system::Pallet::<T>::block_number();
 			let expire_at = now.saturating_add(valid_period);
 
-			// insert authorized code hash and make sure to overwrite existing one for a para.
+			// Insert the authorized code hash and ensure it overwrites the existing one for a para.
 			AuthorizedCodeHash::<T>::insert(
 				&para,
 				AuthorizedCodeHashAndExpiry::from((new_code_hash, expire_at)),
@@ -1324,7 +1328,7 @@ pub mod pallet {
 			para: ParaId,
 			new_code: ValidationCode,
 		) -> DispatchResultWithPostInfo {
-			// no need to ensure, anybody can do this
+			// no need to ensure anybody can do this
 
 			// Ensure `new_code` is authorized
 			let _ = Self::validate_code_is_authorized(&new_code, &para)?;
@@ -1334,13 +1338,7 @@ pub mod pallet {
 			// apply/dispatch
 			Self::do_force_set_current_code_update(para, new_code);
 
-			// if ok, then allows "for free"
-			Ok(PostDispatchInfo {
-				// consume the rest of the block to prevent further transactions
-				actual_weight: Some(T::BlockWeights::get().max_block),
-				// no fee for valid upgrade
-				pays_fee: Pays::No,
-			})
+			Ok(Pays::No.into())
 		}
 	}
 
@@ -1592,6 +1590,7 @@ impl<T: Config> Pallet<T> {
 					UpgradeGoAheadSignal::<T>::remove(&para);
 					UpgradeRestrictionSignal::<T>::remove(&para);
 					ParaLifecycles::<T>::remove(&para);
+					AuthorizedCodeHash::<T>::remove(&para);
 					let removed_future_code_hash = FutureCodeHash::<T>::take(&para);
 					if let Some(removed_future_code_hash) = removed_future_code_hash {
 						Self::decrease_code_ref(&removed_future_code_hash);

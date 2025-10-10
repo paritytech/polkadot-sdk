@@ -433,7 +433,7 @@ pub(crate) struct RuntimeApi {
 
 impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 	type Api = RuntimeApi;
-	fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
+	fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
 		RuntimeApi { _inner: self.clone() }.into()
 	}
 }
@@ -477,16 +477,18 @@ sp_api::mock_impl_runtime_apis! {
 					Ok(WeightToFee::weight_to_fee(&weight))
 				},
 				Ok(asset_id) => {
-					log::trace!(
+					tracing::trace!(
 						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
-						"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"
+						?asset_id,
+						"query_weight_to_asset_fee - unhandled!"
 					);
 					Err(XcmPaymentApiError::AssetNotFound)
 				},
 				Err(_) => {
-					log::trace!(
+					tracing::trace!(
 						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
-						"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"
+						?asset,
+						"query_weight_to_asset_fee - failed to convert!"
 					);
 					Err(XcmPaymentApiError::VersionedConversionFailed)
 				}

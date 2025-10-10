@@ -405,7 +405,7 @@ fn reserve_asset_transfer_nft() {
 		assert_ok!(ParachainPalletXcm::send_xcm(alice, Parent, message));
 	});
 	ParaA::execute_with(|| {
-		log::debug!(target: "xcm-executor", "Hello");
+		tracing::debug!(target: "xcm-executor", "Hello");
 		assert_eq!(
 			parachain::ForeignUniques::owner((Parent, GeneralIndex(2)).into(), 69u32.into()),
 			Some(ALICE),

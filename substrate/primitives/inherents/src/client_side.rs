@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use crate::{Error, InherentData, InherentIdentifier};
 use sp_runtime::traits::Block as BlockT;
 
@@ -23,9 +25,9 @@ use sp_runtime::traits::Block as BlockT;
 /// It is possible for the caller to provide custom arguments to the callee by setting the
 /// `ExtraArgs` generic parameter.
 ///
-/// The crate already provides some convince implementations of this trait for
-/// `Box<dyn CreateInherentDataProviders>` and closures. So, it should not be required to implement
-/// this trait manually.
+/// The crate already provides some convenience implementations of this trait for
+/// `Box<dyn CreateInherentDataProviders>`, `Arc<dyn CreateInherentDataProviders>` and closures. So,
+/// it should not be required to implement this trait manually.
 #[async_trait::async_trait]
 pub trait CreateInherentDataProviders<Block: BlockT, ExtraArgs>: Send + Sync {
 	/// The inherent data providers that will be created.
@@ -65,6 +67,22 @@ where
 impl<Block: BlockT, ExtraArgs: Send, IDPS: InherentDataProvider>
 	CreateInherentDataProviders<Block, ExtraArgs>
 	for Box<dyn CreateInherentDataProviders<Block, ExtraArgs, InherentDataProviders = IDPS>>
+{
+	type InherentDataProviders = IDPS;
+
+	async fn create_inherent_data_providers(
+		&self,
+		parent: Block::Hash,
+		extra_args: ExtraArgs,
+	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
+		(**self).create_inherent_data_providers(parent, extra_args).await
+	}
+}
+
+#[async_trait::async_trait]
+impl<Block: BlockT, ExtraArgs: Send, IDPS: InherentDataProvider>
+	CreateInherentDataProviders<Block, ExtraArgs>
+	for Arc<dyn CreateInherentDataProviders<Block, ExtraArgs, InherentDataProviders = IDPS>>
 {
 	type InherentDataProviders = IDPS;
 
