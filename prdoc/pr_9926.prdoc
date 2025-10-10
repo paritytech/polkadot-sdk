@@ -1,0 +1,14 @@
+title: 'Staking-Async: Chill stakers should not have a score'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Async: Chill stakers should not have a score.
+
+    While no severe consequence, this bug could cause non-validator and non-nominator stakers to retain a spot in the bags-list pallet, preventing other legit nominators/validators from taking their place.
+
+    Note that previously, this was not a possibility, because `staking` would always issue a `T::VoterList::on_remove` when someone `chill`s, ensuring they are removed from the list. Moreover, an older version of `pallet_bags_list::Pallet::rebag` didn't allow new nodes to be added, only the score of existing nodes to be adjusted.
+
+    But, in recent versions of `bags-list`, we added a `Lock` ability that would block any changes to the bags list (during the election snapshot phase). This also had us update the `rebag` transaction to add or remove nodes from the list, which opened the door to this issue.
+crates:
+- name: pallet-staking-async
+  bump: patch
