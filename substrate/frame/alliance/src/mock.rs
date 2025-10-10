@@ -115,7 +115,7 @@ impl pallet_identity::BenchmarkHelper<AccountU64, AccountU64> for BenchmarkHelpe
 
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Balances = Balances;
 	type BasicDeposit = BasicDeposit;
 	type ByteDeposit = ByteDeposit;
 	type UsernameDeposit = UsernameDeposit;
@@ -135,6 +135,8 @@ impl pallet_identity::Config for Test {
 	type MaxUsernameLength = ConstU32<32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = BenchmarkHelper;
+	#[cfg(feature = "runtime-benchmarks")]
+	type OldCurrency = Balances;
 	type WeightInfo = ();
 }
 

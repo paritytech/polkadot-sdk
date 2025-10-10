@@ -21,12 +21,15 @@
 
 use super::*;
 
-use crate::{migration::v2::LazyMigrationV1ToV2, Pallet as Identity};
+use crate::{
+	migration::{v2::LazyMigrationV1ToV2, v3::LazyMigrationV2ToV3},
+	Pallet as Identity,
+};
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
 	assert_ok, ensure,
-	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
+	traits::{fungible::Unbalanced, EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::{Bounded, One};
@@ -58,7 +61,7 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 	for i in 0..r {
 		let registrar: T::AccountId = account("registrar", i, SEED);
 		let registrar_lookup = T::Lookup::unlookup(registrar.clone());
-		let _ = T::Currency::make_free_balance_be(&registrar, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&registrar, BalanceOf::<T>::max_value());
 		let registrar_origin = T::RegistrarOrigin::try_successful_origin()
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
@@ -88,7 +91,7 @@ fn create_sub_accounts<T: Config>(
 
 	// Set identity so `set_subs` does not fail.
 	if IdentityOf::<T>::get(who).is_none() {
-		let _ = T::Currency::make_free_balance_be(who, BalanceOf::<T>::max_value() / 2u32.into());
+		let _ = T::Balances::write_balance(who, BalanceOf::<T>::max_value() / 2u32.into());
 		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(who_origin.into(), Box::new(info))?;
 	}
@@ -154,7 +157,7 @@ mod benchmarks {
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		let caller_origin: <T as frame_system::Config>::RuntimeOrigin =
 			RawOrigin::Signed(caller.clone()).into();
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&caller, BalanceOf::<T>::max_value());
 
 		// Add an initial identity
 		let initial_info = T::IdentityInformation::create_identity_info();
@@ -164,8 +167,8 @@ mod benchmarks {
 		for i in 0..r {
 			let registrar: T::AccountId = account("registrar", i, SEED);
 			let _ = T::Lookup::unlookup(registrar.clone());
-			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
-			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
+			let balance_to_use = T::Balances::minimum_balance() * 10u32.into();
+			let _ = T::Balances::write_balance(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(caller_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
@@ -232,7 +235,7 @@ mod benchmarks {
 		let caller_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		let caller_lookup = <T::Lookup as StaticLookup>::unlookup(caller.clone());
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&caller, BalanceOf::<T>::max_value());
 
 		// Register the registrars
 		add_registrars::<T>(r)?;
@@ -247,8 +250,8 @@ mod benchmarks {
 		// User requests judgement from all the registrars, and they approve
 		for i in 0..r {
 			let registrar: T::AccountId = account("registrar", i, SEED);
-			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
-			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
+			let balance_to_use = T::Balances::minimum_balance() * 10u32.into();
+			let _ = T::Balances::write_balance(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(caller_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
@@ -272,7 +275,7 @@ mod benchmarks {
 	#[benchmark]
 	fn request_judgement(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&caller, BalanceOf::<T>::max_value());
 
 		// Register the registrars
 		add_registrars::<T>(r)?;
@@ -295,8 +298,12 @@ mod benchmarks {
 
 	#[benchmark]
 	fn cancel_request(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
+		// let _ = env_logger::init();
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		// Not using `MAX_VALUE` because of how `can_deposit` works on `pallet-balances`. Having
+		// this value as the initial balance might lead to an overflow that's impossible in
+		// practice.
+		let _ = T::Balances::write_balance(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 
 		// Register the registrars
 		add_registrars::<T>(r)?;
@@ -349,7 +356,7 @@ mod benchmarks {
 	fn set_account_id(r: Linear<1, { T::MaxRegistrars::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&caller, BalanceOf::<T>::max_value());
 
 		add_registrars::<T>(r)?;
 
@@ -378,7 +385,7 @@ mod benchmarks {
 	fn set_fields(r: Linear<1, { T::MaxRegistrars::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&caller, BalanceOf::<T>::max_value());
 
 		add_registrars::<T>(r)?;
 
@@ -414,11 +421,11 @@ mod benchmarks {
 		let user_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(user.clone()));
 		let user_lookup = <T::Lookup as StaticLookup>::unlookup(user.clone());
-		let _ = T::Currency::make_free_balance_be(&user, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&user, BalanceOf::<T>::max_value());
 
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&caller, BalanceOf::<T>::max_value());
 
 		add_registrars::<T>(r)?;
 
@@ -452,7 +459,7 @@ mod benchmarks {
 		let target_origin: <T as frame_system::Config>::RuntimeOrigin =
 			RawOrigin::Signed(target.clone()).into();
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&target, BalanceOf::<T>::max_value());
 
 		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(target_origin.clone(), Box::new(info.clone()))?;
@@ -461,8 +468,8 @@ mod benchmarks {
 		// User requests judgement from all the registrars, and they approve
 		for i in 0..r {
 			let registrar: T::AccountId = account("registrar", i, SEED);
-			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
-			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
+			let balance_to_use = T::Balances::minimum_balance() * 10u32.into();
+			let _ = T::Balances::write_balance(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(target_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
@@ -605,7 +612,7 @@ mod benchmarks {
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
 		let suffix = bench_suffix();
 		let allocation = 10;
-		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&authority, BalanceOf::<T>::max_value());
 
 		Identity::<T>::add_username_authority(
 			auth_origin,
@@ -653,7 +660,7 @@ mod benchmarks {
 			assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().allocation, 9);
 		} else {
 			assert_eq!(
-				T::Currency::free_balance(&authority),
+				T::Balances::balance(&authority),
 				BalanceOf::<T>::max_value() - T::UsernameDeposit::get()
 			);
 		}
@@ -683,7 +690,7 @@ mod benchmarks {
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
 		let suffix = bench_suffix();
 		let allocation = 10;
-		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&authority, BalanceOf::<T>::max_value() / 2u32.into());
 
 		Identity::<T>::add_username_authority(
 			auth_origin,
@@ -697,7 +704,8 @@ mod benchmarks {
 		let username_deposit = T::UsernameDeposit::get();
 		let provider = match p {
 			0 => {
-				let _ = T::Currency::reserve(&authority, username_deposit);
+				let _ =
+					T::Balances::hold(&HoldReason::Username.into(), &authority, username_deposit);
 				Provider::AuthorityDeposit(username_deposit)
 			},
 			1 => Provider::Allocation,
@@ -716,7 +724,10 @@ mod benchmarks {
 		assert_last_event::<T>(Event::<T>::PreapprovalExpired { whose: caller }.into());
 		match p {
 			0 => {
-				assert_eq!(T::Currency::free_balance(&authority), BalanceOf::<T>::max_value());
+				assert_eq!(
+					T::Balances::balance(&authority),
+					BalanceOf::<T>::max_value() / 2u32.into()
+				);
 			},
 			1 => {
 				let suffix: Suffix<T> = suffix.try_into().unwrap();
@@ -755,7 +766,7 @@ mod benchmarks {
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
 		let suffix = bench_suffix();
 		let allocation = 10;
-		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&authority, BalanceOf::<T>::max_value());
 
 		Identity::<T>::add_username_authority(
 			auth_origin,
@@ -786,7 +797,7 @@ mod benchmarks {
 		// Set up a username authority.
 		let authority: T::AccountId = account("authority", 0, SEED);
 		let suffix = bench_suffix();
-		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&authority, BalanceOf::<T>::max_value());
 		let caller: T::AccountId = whitelisted_caller();
 		let username = bounded_username::<T>(bench_username(), suffix.clone());
 
@@ -818,7 +829,7 @@ mod benchmarks {
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
 		let suffix = bench_suffix();
 		let allocation = 10;
-		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+		let _ = T::Balances::write_balance(&authority, BalanceOf::<T>::max_value());
 
 		Identity::<T>::add_username_authority(
 			auth_origin,
@@ -832,7 +843,8 @@ mod benchmarks {
 		let username_deposit = T::UsernameDeposit::get();
 		let provider = match p {
 			0 => {
-				let _ = T::Currency::reserve(&authority, username_deposit);
+				let _ =
+					T::Balances::hold(&HoldReason::Username.into(), &authority, username_deposit);
 				Provider::AuthorityDeposit(username_deposit)
 			},
 			1 => Provider::Allocation,
@@ -848,7 +860,7 @@ mod benchmarks {
 		match p {
 			0 => {
 				assert_eq!(
-					T::Currency::free_balance(&authority),
+					T::Balances::balance(&authority),
 					BalanceOf::<T>::max_value() - username_deposit
 				);
 			},
@@ -926,6 +938,53 @@ mod benchmarks {
 			LazyMigrationV1ToV2::<T>::cleanup_username_step(None);
 		}
 		LazyMigrationV1ToV2::<T>::check_username_cleanup_validity(setup.username, setup.account);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v3_username_step() -> Result<(), BenchmarkError> {
+		let (authority, deposit) =
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::setup_benchmark_env_for_username_deposit_migration(false)?;
+		#[block]
+		{
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::username_step(None);
+		}
+		assert_eq!(T::Balances::balance_on_hold(&HoldReason::Username.into(), &authority), deposit);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v3_pending_username_step() -> Result<(), BenchmarkError> {
+		let (authority, deposit) =
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::setup_benchmark_env_for_username_deposit_migration(true)?;
+		#[block]
+		{
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::pending_username_step(None);
+		}
+		assert_eq!(T::Balances::balance_on_hold(&HoldReason::Username.into(), &authority), deposit);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v3_identity_step() -> Result<(), BenchmarkError> {
+		let (account_id, identity_deposit, judgements_deposit, subs_deposit) =
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::setup_benchmark_env_for_identity_deposit_migration()?;
+		#[block]
+		{
+			LazyMigrationV2ToV3::<T, T::OldCurrency>::identity_step(None);
+		}
+		assert_eq!(
+			T::Balances::balance_on_hold(&HoldReason::Identity.into(), &account_id),
+			identity_deposit
+		);
+		assert_eq!(
+			T::Balances::balance_on_hold(&HoldReason::Judgement.into(), &account_id),
+			judgements_deposit
+		);
+		assert_eq!(
+			T::Balances::balance_on_hold(&HoldReason::SubIdentities.into(), &account_id),
+			subs_deposit
+		);
 		Ok(())
 	}
 

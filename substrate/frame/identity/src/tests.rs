@@ -26,7 +26,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Get},
+	traits::{fungible::Unbalanced, ConstU32, ConstU64, Get},
 	BoundedVec,
 };
 use frame_system::EnsureRoot;
@@ -73,7 +73,7 @@ parameter_types! {
 
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Balances = Balances;
 	type Slashed = ();
 	type BasicDeposit = ConstU64<100>;
 	type ByteDeposit = ConstU64<10>;
@@ -93,6 +93,8 @@ impl pallet_identity::Config for Test {
 	type MaxUsernameLength = ConstU32<32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type OldCurrency = Balances;
 	type WeightInfo = ();
 }
 
@@ -747,37 +749,6 @@ fn requesting_judgement_should_work() {
 }
 
 #[test]
-fn provide_judgement_should_return_judgement_payment_failed_error() {
-	new_test_ext().execute_with(|| {
-		let [_, _, three, _, ten, _, _, _] = accounts();
-		let ten_info = infoof_ten();
-		let id_deposit = id_deposit(&ten_info);
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
-		assert_ok!(Identity::set_identity(
-			RuntimeOrigin::signed(ten.clone()),
-			Box::new(ten_info.clone())
-		));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10));
-		// 10 for the judgement request and the deposit for the identity.
-		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 10);
-
-		// This forces judgement payment failed error
-		Balances::make_free_balance_be(&three, 0);
-		assert_noop!(
-			Identity::provide_judgement(
-				RuntimeOrigin::signed(three.clone()),
-				0,
-				ten.clone(),
-				Judgement::Erroneous,
-				BlakeTwo256::hash_of(&ten_info)
-			),
-			Error::<Test>::JudgementPaymentFailed
-		);
-	});
-}
-
-#[test]
 fn field_deposit_should_work() {
 	new_test_ext().execute_with(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
@@ -1013,7 +984,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, _] = unfunded_accounts();
-		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&authority, initial_authority_balance));
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1130,7 +1101,7 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		// Set an identity for who. They need some balance though.
-		Balances::make_free_balance_be(&who_account, 1000);
+		assert_ok!(Balances::write_balance(&who_account, 1000));
 		let ten_info = infoof_ten();
 		assert_ok!(Identity::set_identity(
 			RuntimeOrigin::signed(who_account.clone()),
@@ -1160,7 +1131,7 @@ fn set_username_through_deposit_with_existing_identity_should_work() {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, _] = unfunded_accounts();
-		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&authority, initial_authority_balance));
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1180,7 +1151,7 @@ fn set_username_through_deposit_with_existing_identity_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		// Set an identity for who. They need some balance though.
-		Balances::make_free_balance_be(&who_account, 1000);
+		assert_ok!(Balances::write_balance(&who_account, 1000));
 		let ten_info = infoof_ten();
 		let expected_identity_deposit = Identity::calculate_identity_deposit(&ten_info);
 		assert_ok!(Identity::set_identity(
@@ -1304,7 +1275,7 @@ fn set_username_with_acceptance_should_work() {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, who] = unfunded_accounts();
-		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&authority, initial_authority_balance));
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1671,7 +1642,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, who] = unfunded_accounts();
-		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&authority, initial_authority_balance));
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1735,7 +1706,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, who] = unfunded_accounts();
-		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&authority, initial_authority_balance));
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1809,7 +1780,7 @@ fn kill_username_should_work() {
 		let initial_authority_balance = 10000;
 		// set up first authority
 		let authority = account(100);
-		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&authority, initial_authority_balance));
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -1820,7 +1791,7 @@ fn kill_username_should_work() {
 		));
 
 		let second_authority = account(200);
-		Balances::make_free_balance_be(&second_authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&second_authority, initial_authority_balance));
 		let second_suffix: Vec<u8> = b"abc".to_vec();
 		assert_ok!(Identity::add_username_authority(
 			RuntimeOrigin::root(),
@@ -1841,7 +1812,7 @@ fn kill_username_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		// Set an identity for who. They need some balance though.
-		Balances::make_free_balance_be(&who_account, 1000);
+		assert_ok!(Balances::write_balance(&who_account, 1000));
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			who_account.clone(),
@@ -1979,7 +1950,7 @@ fn unbind_and_remove_username_should_work() {
 		let initial_authority_balance = 10000;
 		// Set up authority.
 		let authority = account(100);
-		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&authority, initial_authority_balance));
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -2001,7 +1972,7 @@ fn unbind_and_remove_username_should_work() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		// Set an identity for who. They need some balance though.
-		Balances::make_free_balance_be(&who_account, 1000);
+		assert_ok!(Balances::write_balance(&who_account, 1000));
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			who_account.clone(),
@@ -2176,7 +2147,7 @@ fn unbind_dangling_username_defensive_should_panic() {
 		let initial_authority_balance = 10000;
 		// Set up authority.
 		let authority = account(100);
-		Balances::make_free_balance_be(&authority, initial_authority_balance);
+		assert_ok!(Balances::write_balance(&authority, initial_authority_balance));
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
 		assert_ok!(Identity::add_username_authority(
@@ -2198,7 +2169,7 @@ fn unbind_dangling_username_defensive_should_panic() {
 			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
 
 		// Set an identity for who. They need some balance though.
-		Balances::make_free_balance_be(&who_account, 1000);
+		assert_ok!(Balances::write_balance(&who_account, 1000));
 		assert_ok!(Identity::set_username_for(
 			RuntimeOrigin::signed(authority.clone()),
 			who_account.clone(),

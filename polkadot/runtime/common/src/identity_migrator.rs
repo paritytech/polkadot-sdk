@@ -25,13 +25,14 @@
 //! After the migration is complete, the pallet may be removed from both chains' runtimes as well as
 //! the `polkadot-runtime-common` crate.
 
-use frame_support::{dispatch::DispatchResult, traits::Currency, weights::Weight};
+use frame_support::{dispatch::DispatchResult, weights::Weight};
 pub use pallet::*;
 use pallet_identity;
 use sp_core::Get;
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::{account, v2::*, BenchmarkError};
+use frame_support::traits::fungible::Inspect;
 
 pub trait WeightInfo {
 	fn reap_identity(r: u32, s: u32) -> Weight;
@@ -58,7 +59,7 @@ impl WeightInfo for TestWeightInfo {
 }
 
 // Must use the same `Balance` as `T`'s Identity pallet to handle deposits.
-type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Currency<
+type BalanceOf<T> = <<T as pallet_identity::Config>::Balances as Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
 
@@ -185,7 +186,7 @@ mod benchmarks {
 	use super::*;
 	use alloc::{boxed::Box, vec, vec::Vec};
 	use codec::Encode;
-	use frame_support::traits::EnsureOrigin;
+	use frame_support::traits::{Currency, EnsureOrigin};
 	use frame_system::RawOrigin;
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
 	use sp_runtime::{
@@ -212,7 +213,10 @@ mod benchmarks {
 		let target_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&target,
+			BalanceOf::<T>::max_value() / 2u16.into(),
+		);
 
 		// set identity
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
@@ -243,9 +247,9 @@ mod benchmarks {
 			// registrar account
 			let registrar: T::AccountId = account("registrar", ii, SEED);
 			let registrar_lookup = T::Lookup::unlookup(registrar.clone());
-			let _ = <T as pallet_identity::Config>::Currency::make_free_balance_be(
+			let _ = <T as pallet_identity::Config>::OldCurrency::make_free_balance_be(
 				&registrar,
-				<T as pallet_identity::Config>::Currency::minimum_balance(),
+				<T as pallet_identity::Config>::OldCurrency::minimum_balance(),
 			);
 
 			// add registrar
@@ -282,7 +286,7 @@ mod benchmarks {
 	#[benchmark]
 	fn poke_deposit() -> Result<(), BenchmarkError> {
 		let target: T::AccountId = account("target", 0, SEED);
-		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
 
 		let _ = Identity::<T>::set_identity_no_deposit(&target, info.clone());

@@ -175,7 +175,10 @@ use frame_support::{
 	BoundedSlice, WeakBoundedVec,
 };
 use frame_system as system;
-pub use impl_currency::{NegativeImbalance, PositiveImbalance};
+pub use impl_currency::{
+	CreditToNegativeImbalanceAdapter, DebtToPositiveImbalanceAdapter, NegativeImbalance,
+	PositiveImbalance,
+};
 use scale_info::TypeInfo;
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
