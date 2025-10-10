@@ -9,6 +9,8 @@ crates:
 - name: asset-hub-westend-runtime
   bump: minor
 - name: pallet-xcm
-  bump: minor
+  bump: major
 - name: pallet-xcm-precompiles
+  bump: patch
+- name: polkadot-sdk
   bump: minor
