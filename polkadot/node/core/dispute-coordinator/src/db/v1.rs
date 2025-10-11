@@ -167,7 +167,7 @@ impl Backend for DbBackend {
 					);
 				},
 				BackendWriteOp::WriteCandidateVotes(session, candidate_hash, votes) => {
-					gum::trace!(target: LOG_TARGET, ?session, "Writing candidate votes");
+					gum::trace!(target: LOG_TARGET, ?session, ?candidate_hash, "Writing candidate votes");
 					tx.put_vec(
 						self.config.col_dispute_data,
 						&candidate_votes_key(session, &candidate_hash),

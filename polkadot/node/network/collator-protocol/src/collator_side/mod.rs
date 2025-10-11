@@ -875,18 +875,29 @@ async fn send_collation(
 	let relay_parent = request.relay_parent();
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
-
+	let head = parent_head_data.hash();
+	let pov_hash = pov.hash();
 	let result = Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
 		receipt,
 		pov,
 		parent_head_data,
 	});
 
+	let para_id = request.para_id();
+
 	let response =
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 
 	if let Err(_) = request.send_outgoing_response(response) {
-		gum::warn!(target: LOG_TARGET, "Sending collation response failed");
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?candidate_hash,
+			?para_id,
+			?pov_hash,
+			?head,
+			"Sending collation response failed"
+		);
 	}
 
 	state.active_collation_fetches.push(

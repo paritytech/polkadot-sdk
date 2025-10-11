@@ -878,6 +878,7 @@ impl Initialized {
 						gum::debug!(
 							target: LOG_TARGET,
 							session_index,
+							?candidate_hash,
 							"No votes found for candidate",
 						);
 					}
