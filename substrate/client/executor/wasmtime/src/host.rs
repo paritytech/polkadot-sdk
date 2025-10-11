@@ -35,14 +35,19 @@ pub struct HostState {
 	/// This is stored as an `Option` as we need to temporarily set this to `None` when we are
 	/// allocating/deallocating memory. The problem being that we can only mutable access `caller`
 	/// once.
-	allocator: Option<FreeingBumpHeapAllocator>,
+	pub(crate) allocator: Option<FreeingBumpHeapAllocator>,
 	panic_message: Option<String>,
+	pub(crate) input_data: Option<Vec<u8>>,
 }
 
 impl HostState {
 	/// Constructs a new `HostState`.
-	pub fn new(allocator: FreeingBumpHeapAllocator) -> Self {
-		HostState { allocator: Some(allocator), panic_message: None }
+	pub fn new(allocator: FreeingBumpHeapAllocator, input_data: impl AsRef<[u8]>) -> Self {
+		HostState {
+			allocator: Some(allocator),
+			panic_message: None,
+			input_data: Some(input_data.as_ref().to_vec()),
+		}
 	}
 
 	/// Takes the error message out of the host state, leaving a `None` in its place.
@@ -124,5 +129,20 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 
 	fn register_panic_error_message(&mut self, message: &str) {
 		self.host_state_mut().panic_message = Some(message.to_owned());
+	}
+
+	fn fill_input_data(
+		&mut self,
+		ptr: Pointer<u8>,
+		size: WordSize,
+	) -> sp_wasm_interface::Result<()> {
+		let input_data = self
+			.host_state_mut()
+			.input_data
+			.take()
+			.expect("input data is not empty when calling a function in wasm; qed");
+		assert_eq!(input_data.len(), size as usize, "input data length mismatch");
+		self.write_memory(ptr, &input_data[..])?;
+		Ok(())
 	}
 }
