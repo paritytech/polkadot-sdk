@@ -1,6 +1,21 @@
 name: Zombienet Parachain Templates
 
 on:
+  workflow_call:
+    inputs:
+      build_run_id:
+        type: string
+        description: "Build run ID from the build workflow."
+        required: true
+      ref_slug:
+        type: string
+        description: "Source ref slug from the build workflow."
+        required: false
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
   workflow_dispatch:
     inputs:
       test_pattern:
@@ -8,14 +23,9 @@ on:
         description: "Run tests which names match this pattern (also flaky)"
         default: ""
         required: false
-  push:
-   branches:
-     - master
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: para-tmpl-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions: read-all
@@ -36,6 +46,8 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_parachain-template_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+      build_run_id: ${{ inputs.build_run_id }}
+      ref_slug: ${{ inputs.ref_slug }}
 
 
   zombienet-parachain-template-tests:
