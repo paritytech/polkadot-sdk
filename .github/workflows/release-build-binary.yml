@@ -1,7 +1,7 @@
 name: Binary Build
 # This workflow can be used to build a binary like polkadot + workers, omninode or polkadot-parachain
 # from any branch with release or profuction profile to be later used for testing.
-# ⚠️ IT should not be used for release purposes!
+# ⚠️ IT should not be used for release purposes! 
 
 on:
   workflow_dispatch:
