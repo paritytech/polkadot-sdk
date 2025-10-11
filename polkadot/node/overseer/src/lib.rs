@@ -85,6 +85,7 @@ use polkadot_node_subsystem_types::messages::{
 	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
 	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
 	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
+	ConsensusStatisticsCollectorMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
@@ -518,6 +519,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(AvailabilityDistributionMessage, sends: [
 		AvailabilityStoreMessage,
 		ChainApiMessage,
+		ConsensusStatisticsCollectorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 	])]
@@ -527,6 +529,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeTxMessage,
 		RuntimeApiMessage,
 		AvailabilityStoreMessage,
+		ConsensusStatisticsCollectorMessage,
 	])]
 	availability_recovery: AvailabilityRecovery,
 
@@ -607,6 +610,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateValidationMessage,
 		ChainApiMessage,
 		ChainSelectionMessage,
+		ConsensusStatisticsCollectorMessage,
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 	])]
@@ -616,6 +620,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateValidationMessage,
 		ChainApiMessage,
 		ChainSelectionMessage,
+		ConsensusStatisticsCollectorMessage,
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
@@ -658,6 +663,12 @@ pub struct Overseer<SupportsParachains> {
 		ChainApiMessage,
 	])]
 	prospective_parachains: ProspectiveParachains,
+
+	#[subsystem(ConsensusStatisticsCollectorMessage, sends: [
+		RuntimeApiMessage,
+		ChainApiMessage,
+	])]
+	consensus_statistics_collector: ConsensusStatisticsCollector,
 
 	/// External listeners waiting for a hash to be in the active-leave set.
 	pub activation_external_listeners: HashMap<Hash, Vec<oneshot::Sender<SubsystemResult<()>>>>,

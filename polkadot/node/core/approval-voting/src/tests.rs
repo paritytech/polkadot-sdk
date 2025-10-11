@@ -72,6 +72,7 @@ use super::{
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2, dummy_candidate_receipt_v2_bad_sig,
 };
+use sp_core::blake2_512_into;
 
 const SLOT_DURATION_MILLIS: u64 = 5000;
 
@@ -650,6 +651,26 @@ fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
 	r
 }
 
+struct ExpectApprovalsStatsCollected {
+	candidate_hash: CandidateHash,
+	block_hash: Hash,
+	validators: Vec<ValidatorIndex>,
+	no_shows: Option<(SessionIndex, Vec<ValidatorIndex>)>,
+}
+
+impl ExpectApprovalsStatsCollected {
+	fn new(candidate_hash: CandidateHash, block_hash: Hash, validators: Vec<ValidatorIndex>) -> Self {
+		Self {
+			candidate_hash, block_hash, validators, no_shows: None,
+		}
+	}
+
+	fn with_no_shows(&mut self, no_shows: (SessionIndex, Vec<ValidatorIndex>)) -> &mut Self {
+		self.no_shows = Some(no_shows);
+		self
+	}
+}
+
 async fn import_approval(
 	overseer: &mut VirtualOverseer,
 	block_hash: Hash,
@@ -658,6 +679,7 @@ async fn import_approval(
 	candidate_hash: CandidateHash,
 	session_index: SessionIndex,
 	expect_chain_approved: bool,
+	expected_approvals_stats_collected: Option<ExpectApprovalsStatsCollected>,
 	signature_opt: Option<ValidatorSignature>,
 ) -> oneshot::Receiver<ApprovalCheckResult> {
 	let signature = signature_opt.unwrap_or(sign_approval(
@@ -681,6 +703,22 @@ async fn import_approval(
 		},
 	)
 	.await;
+
+	if let Some(expected_stats_collected) = expected_approvals_stats_collected {
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ConsensusStatisticsCollector(
+				ConsensusStatisticsCollectorMessage::CandidateApproved(
+					c_hash, b_hash, validators,
+				)
+			) => {
+				assert_eq!(b_hash, expected_stats_collected.block_hash);
+				assert_eq!(c_hash, expected_stats_collected.candidate_hash);
+				assert_eq!(validators, expected_stats_collected.validators);
+			}
+		);
+	}
+
 	if expect_chain_approved {
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1277,6 +1315,7 @@ fn subsystem_rejects_approval_if_no_candidate_entry() {
 			session_index,
 			false,
 			None,
+			None,
 		)
 		.await;
 
@@ -1317,6 +1356,7 @@ fn subsystem_rejects_approval_if_no_block_entry() {
 			candidate_hash,
 			session_index,
 			false,
+			None,
 			None,
 		)
 		.await;
@@ -1382,6 +1422,7 @@ fn subsystem_rejects_approval_before_assignment() {
 			candidate_hash,
 			session_index,
 			false,
+			None,
 			None,
 		)
 		.await;
@@ -1638,6 +1679,7 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 			candidate_hash,
 			session_index,
 			true,
+			Some(ExpectApprovalsStatsCollected::new(candidate_hash, block_hash, vec![validator])),
 			None,
 		)
 		.await;
@@ -1729,6 +1771,7 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 			session_index,
 			false,
 			None,
+			None,
 		)
 		.await;
 
@@ -1745,6 +1788,7 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 			candidate_hash,
 			session_index,
 			false,
+			None,
 			None,
 		)
 		.await;
@@ -1962,6 +2006,7 @@ fn test_approvals_on_fork_are_always_considered_after_no_show(
 			candidate_hash,
 			1,
 			false,
+			None,
 			None,
 		)
 		.await;
@@ -2356,6 +2401,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			candidate_hash,
 			session_index,
 			false,
+			None,
 			Some(sig_a),
 		)
 		.await;
@@ -2383,6 +2429,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			candidate_hash,
 			session_index,
 			true,
+			Some(ExpectApprovalsStatsCollected::new(candidate_hash, block_hash, vec![validator_index_a, validator_index_b])),
 			Some(sig_b),
 		)
 		.await;
@@ -2511,6 +2558,15 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 			} else {
 				sign_approval(Sr25519Keyring::Bob, *candidate_hash, session_index)
 			};
+
+			let expected_stats_collected = if i == 1 {
+				Some(ExpectApprovalsStatsCollected::new(candidate_hash1, block_hash, vec![validator1, validator2]))
+			} else if i == 3 {
+				Some(ExpectApprovalsStatsCollected::new(candidate_hash2, block_hash, vec![validator1, validator2]))
+			} else {
+				None
+			};
+
 			let rx = import_approval(
 				&mut virtual_overseer,
 				block_hash,
@@ -2519,6 +2575,7 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 				*candidate_hash,
 				session_index,
 				expect_block_approved,
+				expected_stats_collected,
 				Some(signature),
 			)
 			.await;
@@ -2791,6 +2848,7 @@ fn approved_ancestor_test(
 				candidate_hash,
 				i as u32 + 1,
 				true,
+				Some(ExpectApprovalsStatsCollected::new(candidate_hash, *block_hash, vec![validator])),
 				None,
 			)
 			.await;
@@ -3362,8 +3420,20 @@ where
 		}
 
 		let n_validators = validators.len();
+		let to_collect = min((n_validators/3) + 1, approvals_to_import.len());
+		let validators_collected = approvals_to_import[0..to_collect]
+			.iter()
+			.map(|vidx| ValidatorIndex(vidx.clone()))
+			.collect::<Vec<ValidatorIndex>>();
+
 		for (i, &validator_index) in approvals_to_import.iter().enumerate() {
 			let expect_chain_approved = 3 * (i + 1) > n_validators;
+			let expect_approvals_stats_collected = if expect_chain_approved {
+				Some(ExpectApprovalsStatsCollected::new(candidate_hash, block_hash, validators_collected.clone()))
+			} else {
+				None
+			};
+
 			let rx = import_approval(
 				&mut virtual_overseer,
 				block_hash,
@@ -3372,6 +3442,7 @@ where
 				candidate_hash,
 				1,
 				expect_chain_approved,
+				expect_approvals_stats_collected,
 				Some(sign_approval(validators[validator_index as usize], candidate_hash, 1)),
 			)
 			.await;
@@ -3731,6 +3802,7 @@ fn pre_covers_dont_stall_approval() {
 			candidate_hash,
 			session_index,
 			false,
+			None,
 			Some(sig_b),
 		)
 		.await;
@@ -3746,6 +3818,7 @@ fn pre_covers_dont_stall_approval() {
 			candidate_hash,
 			session_index,
 			false,
+			None,
 			Some(sig_c),
 		)
 		.await;
@@ -3781,6 +3854,27 @@ fn pre_covers_dont_stall_approval() {
 		// tranche 1, and the no-show from tranche 0 should be immediately covered.
 		assert_eq!(clock.inner.lock().next_wakeup(), Some(31));
 		clock.inner.lock().set_tick(31);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ConsensusStatisticsCollector(ConsensusStatisticsCollectorMessage::CandidateApproved(
+				c_hash, b_hash, validators,
+			)) => {
+				assert_eq!(b_hash, block_hash);
+				assert_eq!(c_hash, candidate_hash);
+				assert_eq!(validators, vec![validator_index_b, validator_index_c]);
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ConsensusStatisticsCollector(ConsensusStatisticsCollectorMessage::NoShows(
+				session_idx, validators,
+			)) => {
+				assert_eq!(session_idx, 1);
+				assert_eq!(validators, vec![validator_index_a]);
+			}
+		);
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
@@ -3903,6 +3997,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 			candidate_hash,
 			session_index,
 			false,
+			None,
 			Some(sig_a),
 		)
 		.await;
@@ -3919,6 +4014,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 			candidate_hash,
 			session_index,
 			false,
+			None,
 			Some(sig_b),
 		)
 		.await;
@@ -3942,6 +4038,21 @@ fn waits_until_approving_assignments_are_old_enough() {
 
 		// Sleep to ensure we get a consistent read on the database.
 		futures_timer::Delay::new(Duration::from_millis(100)).await;
+
+		let _ =
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ConsensusStatisticsCollector(
+				ConsensusStatisticsCollectorMessage::CandidateApproved(
+					c_hash, b_hash, validators
+				)
+			) => {
+				assert_eq!(b_hash, block_hash);
+				assert_eq!(c_hash, candidate_hash);
+				assert_eq!(validators, vec![validator_index_a, validator_index_b]);
+			}
+		);
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
