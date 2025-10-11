@@ -24,10 +24,10 @@ use std::time;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);
 
 /// Maximum number of known statement hashes to keep for a peer.
-pub(crate) const MAX_KNOWN_STATEMENTS: usize = 4 * 1024 * 1024;
+pub(crate) const MAX_KNOWN_STATEMENTS: usize = 4 * 1024 * 1024; // * 32 bytes for hash = 128 MB per peer
 
 /// Maximum allowed size for a statement notification.
-pub(crate) const MAX_STATEMENT_SIZE: u64 = 256 * 1024;
+pub(crate) const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
 
 /// Maximum number of statement validation request we keep at any moment.
 pub(crate) const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;
