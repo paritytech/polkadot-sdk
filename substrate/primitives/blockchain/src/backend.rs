@@ -48,6 +48,9 @@ pub trait HeaderBackend<Block: BlockT>: Send + Sync {
 	) -> Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>>;
 	/// Get block hash by number. Returns `None` if the header is not in the chain.
 	fn hash(&self, number: NumberFor<Block>) -> Result<Option<Block::Hash>>;
+	/// Returns hashes of all blocks that are leaves of the block tree.
+	/// in other words, that have no children, are chain heads.
+	fn leaf_hashes(&self) -> Result<Vec<Block::Hash>>;
 
 	/// Convert an arbitrary block ID into a block hash.
 	fn block_hash_from_id(&self, id: &BlockId<Block>) -> Result<Option<Block::Hash>> {

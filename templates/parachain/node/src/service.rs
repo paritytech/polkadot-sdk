@@ -127,7 +127,8 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		config,
 		telemetry.as_ref().map(|telemetry| telemetry.handle()),
 		&task_manager,
-	);
+	)
+	.map_err(|e| sc_service::Error::Other(e))?;
 
 	Ok(PartialComponents {
 		backend,
@@ -148,7 +149,7 @@ fn build_import_queue(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
-) -> sc_consensus::DefaultImportQueue<Block> {
+) -> Result<sc_consensus::DefaultImportQueue<Block>, String> {
 	cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
 		sp_consensus_aura::sr25519::AuthorityPair,
 		_,

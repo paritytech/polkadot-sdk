@@ -367,4 +367,8 @@ where
 	) -> sp_blockchain::Result<Option<Block::Hash>> {
 		self.client.hash(number)
 	}
+
+	fn leaf_hashes(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		self.client.leaf_hashes()
+	}
 }
