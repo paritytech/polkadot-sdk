@@ -211,10 +211,11 @@ fn deploy_revert() {
 
 // This test has a `caller` contract calling into a `callee` contract which then executes the
 // INVALID opcode. INVALID consumes all gas which means that it will error with OutOfGas.
-#[ignore = "TODO: ignore until we decide what is the correct way to handle this"]
-#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+// TODO: PVM returns empty data but EVM returns OOG, behavior needs to be unified. Until then only
+// testing PVM backend.
+// #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
-#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+// #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
 #[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
 fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
