@@ -218,6 +218,11 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn unapplied_slashes(
+		) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
+			unimplemented!()
+		}
+
+		fn unapplied_slashes_v2(
 		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
 			unimplemented!()
 		}
