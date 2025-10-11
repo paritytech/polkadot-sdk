@@ -74,7 +74,6 @@
 //! 4. Zero deposit serves as a permanent marker for failed migration
 //! 5. No additional storage needed - uses existing deposit field
 
-use super::*;
 extern crate alloc;
 use super::PALLET_MIGRATIONS_ID;
 use crate::{
@@ -84,7 +83,7 @@ use crate::{
 use alloc::collections::BTreeMap;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	pallet_prelude::{PhantomData, *},
+	pallet_prelude::{PhantomData, StorageVersion},
 	traits::{
 		fungible::{InspectHold, MutateHold},
 		Currency, Get, ReservableCurrency,
@@ -92,9 +91,6 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use sp_runtime::{traits::Zero, TryRuntimeError};
-
-#[cfg(feature = "try-runtime")]
-use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
@@ -296,8 +292,11 @@ impl<T: Config, C> MigrateCurrencyToFungibles<T, C> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::*;
-	use frame_support::{assert_ok, traits::fungible::Mutate};
+	use crate::{mock::*, Pallet};
+	use frame_support::{
+		assert_ok,
+		traits::{fungible::Mutate, GetStorageVersion},
+	};
 
 	fn account_from_u8(byte: u8) -> <Test as frame_system::Config>::AccountId {
 		byte as u64
