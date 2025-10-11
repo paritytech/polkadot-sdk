@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	gas::Token,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{
@@ -24,7 +25,7 @@ use crate::{
 		},
 		Ext,
 	},
-	DispatchError, Error, Key, RuntimeCosts, U256,
+	DispatchError, Error, Key, RuntimeCosts, LOG_TARGET, U256,
 };
 use core::ops::ControlFlow;
 
@@ -249,7 +250,25 @@ pub fn log<'ext, const N: usize, E: Ext>(
 /// Implements the SELFDESTRUCT instruction.
 ///
 /// Halt execution and register account for later deletion.
-pub fn selfdestruct<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
-	// TODO: for now this instruction is not supported
-	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
+pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
+	let ([], beneficiary) = interpreter.stack.popn_top()?;
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::Terminate { code_removed: true })?;
+	let dispatch_result = interpreter.ext.terminate(&beneficiary.into_address());
+
+	match dispatch_result {
+		Ok(code_removed) => {
+			// halt execution on successful selfdestruct
+			if matches!(code_removed, crate::CodeRemoved::No) {
+				let actual_cost = RuntimeCosts::Terminate { code_removed: false };
+				interpreter
+					.ext
+					.adjust_gas(charged, <RuntimeCosts as Token<E::T>>::weight(&actual_cost));
+			}
+			ControlFlow::Break(Halt::Return(Vec::default()))
+		},
+		Err(e) => {
+			log::error!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
+			ControlFlow::Break(Halt::Err(e))
+		},
+	}
 }

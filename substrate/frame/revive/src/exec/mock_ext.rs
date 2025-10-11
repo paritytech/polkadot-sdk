@@ -16,7 +16,6 @@
 // limitations under the License.
 
 #![cfg(test)]
-
 use crate::{
 	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
 	gas::GasMeter,
@@ -208,6 +207,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
 		panic!("MockExt::copy_code_slice")
+	}
+
+	fn terminate_caller(&mut self, _beneficiary: &H160) -> Result<(), DispatchError> {
+		panic!("MockExt::terminate_caller")
 	}
 
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {

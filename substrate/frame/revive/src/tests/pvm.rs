@@ -1017,7 +1017,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 }
 
 #[test]
-fn cannot_self_destruct_while_live() {
+fn can_self_destruct_while_live() {
 	let (binary, _code_hash) = compile_module("self_destruct").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1030,15 +1030,12 @@ fn cannot_self_destruct_while_live() {
 		// Check that the BOB contract has been instantiated.
 		get_contract(&addr);
 
-		// Call BOB with input data, forcing it make a recursive call to itself to
-		// self-destruct, resulting in a trap.
-		assert_err_ignore_postinfo!(
-			builder::call(addr).data(vec![0]).build(),
-			Error::<Test>::ContractTrapped,
-		);
+		// Call BOB with input that forces it to recurse and self-destruct.
+		// New behavior: termination while on the stack is allowed, so expect success.
+		assert_ok!(builder::call(addr).data(vec![0]).build());
 
-		// Check that BOB is still there.
-		get_contract(&addr);
+		// Contract should be removed.
+		assert!(get_contract_checked(&addr).is_none(), "contract should have been destroyed");
 	});
 }
 
@@ -1050,9 +1047,11 @@ fn self_destruct_works() {
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
 		let min_balance = Contracts::min_balance();
 
+		let initial_contract_balance = 100_000;
+
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(binary))
-			.native_value(100_000)
+			.native_value(initial_contract_balance)
 			.build_and_unwrap_contract();
 
 		let hold_balance = contract_base_deposit(&contract.addr);
@@ -1077,14 +1076,14 @@ fn self_destruct_works() {
 		// Check that the beneficiary (django) got remaining balance.
 		assert_eq!(
 			<Test as Config>::Currency::free_balance(DJANGO_FALLBACK),
-			1_000_000 + 100_000 + min_balance
+			1_000_000 + initial_contract_balance + min_balance
 		);
 
 		// Check that the Alice is missing Django's benefit. Within ALICE's total balance
 		// there's also the code upload deposit held.
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&ALICE),
-			1_000_000 - (100_000 + min_balance)
+			1_000_000 - (initial_contract_balance + min_balance)
 		);
 
 		pretty_assertions::assert_eq!(
@@ -1094,11 +1093,11 @@ fn self_destruct_works() {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
-							HoldReason::CodeUploadDepositReserve,
+							HoldReason::StorageDepositReserve,
 						),
-						source: Pallet::<Test>::account_id(),
+						source: contract.account_id.clone(),
 						dest: ALICE,
-						amount: upload_deposit,
+						amount: hold_balance,
 					}),
 					topics: vec![],
 				},
@@ -1106,11 +1105,11 @@ fn self_destruct_works() {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
-							HoldReason::StorageDepositReserve,
+							HoldReason::CodeUploadDepositReserve,
 						),
-						source: contract.account_id.clone(),
+						source: Pallet::<Test>::account_id(),
 						dest: ALICE,
-						amount: hold_balance,
+						amount: upload_deposit,
 					}),
 					topics: vec![],
 				},
@@ -1126,7 +1125,7 @@ fn self_destruct_works() {
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 						from: contract.account_id.clone(),
 						to: DJANGO_FALLBACK,
-						amount: 100_000 + min_balance,
+						amount: initial_contract_balance + min_balance,
 					}),
 					topics: vec![],
 				},
@@ -1135,41 +1134,124 @@ fn self_destruct_works() {
 	});
 }
 
-// This tests that one contract cannot prevent another from self-destructing by sending it
-// additional funds after it has been drained.
 #[test]
-fn destroy_contract_and_transfer_funds() {
-	let (callee_binary, callee_code_hash) = compile_module("self_destruct").unwrap();
-	let (caller_binary, _caller_code_hash) = compile_module("destroy_and_transfer").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		// Create code hash for bob to instantiate
+fn self_destruct2_does_not_delete_code() {
+	// Test EIP-6780 behavior where self-destruct does not delete the code.
+	let (binary, code_hash) = compile_module("self_destruct2").unwrap();
+	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE),
-			callee_binary.clone(),
+		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
+		let min_balance = Contracts::min_balance();
+
+		let initial_contract_balance = 100_000;
+
+		// Instantiate the BOB contract.
+		let contract = builder::bare_instantiate(Code::Upload(binary))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
+
+		let hold_balance = contract_base_deposit(&contract.addr);
+
+		// Check that the BOB contract has been instantiated.
+		let _ = get_contract(&contract.addr);
+
+		// Drop all previous events
+		initialize_block(2);
+
+		let alice_balance_before_termination = <Test as Config>::Currency::total_balance(&ALICE);
+
+		// Call BOB without input data which triggers termination.
+		assert_matches!(builder::call(contract.addr).build(), Ok(_));
+
+		// Check that the code still exists
+		assert!(PristineCode::<Test>::get(&code_hash).is_some());
+
+		// Check that account still exists
+		assert!(get_contract_checked(&contract.addr).is_some());
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&contract.account_id),
+			min_balance + hold_balance
+		);
+
+		// Check that the beneficiary (django) got remaining balance.
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(DJANGO_FALLBACK),
+			1_000_000 + initial_contract_balance
+		);
+
+		// Check that the Alice did not get a refund.
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&ALICE),
+			alice_balance_before_termination
+		);
+
+		pretty_assertions::assert_eq!(
+			System::events(),
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: contract.account_id.clone(),
+					to: DJANGO_FALLBACK,
+					amount: initial_contract_balance,
+				}),
+				topics: vec![],
+			},],
+		);
+	});
+}
+
+#[test]
+fn self_destruct2_works() {
+	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
+	let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let initial_contract_balance = 100_000;
+
+		// Upload both contracts
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(BOB),
+			selfdestruct_binary,
 			deposit_limit::<Test>(),
-		)
-		.unwrap();
+		));
 
-		// This deploys the BOB contract, which in turn deploys the CHARLIE contract during
-		// construction.
-		let Contract { addr: addr_bob, .. } =
-			builder::bare_instantiate(Code::Upload(caller_binary))
-				.native_value(200_000)
-				.data(callee_code_hash.as_ref().to_vec())
-				.build_and_unwrap_contract();
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(BOB),
+			factory_binary,
+			deposit_limit::<Test>(),
+		));
 
-		// Check that the CHARLIE contract has been instantiated.
-		let salt = [47; 32]; // hard coded in fixture.
-		let addr_charlie = create2(&addr_bob, &callee_binary, &[], &salt);
-		get_contract(&addr_charlie);
+		// Deploy factory
+		let factory = builder::bare_instantiate(Code::Existing(factory_code_hash))
+			.origin(RuntimeOrigin::signed(BOB))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
 
-		// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
-		assert_ok!(builder::call(addr_bob).data(addr_charlie.encode()).build());
+		let mut input_data = Vec::new();
+		input_data.extend_from_slice(selfdestruct_code_hash.as_bytes());
 
-		// Check that CHARLIE has moved on to the great beyond (ie. died).
-		assert!(get_contract_checked(&addr_charlie).is_none());
+		// Call factory
+		let result = builder::bare_call(factory.addr).data(input_data.clone()).build();
+		assert!(result.result.is_ok());
+
+		let returned_data = result.result.unwrap().data;
+		assert!(returned_data.len() >= 20, "Returned data too short to contain address");
+		let mut contract_addr_bytes = [0u8; 20];
+		contract_addr_bytes.copy_from_slice(&returned_data[0..20]);
+		let contract_addr = H160::from(contract_addr_bytes);
+
+		initialize_block(System::block_number() + 1);
+
+		assert!(get_contract_checked(&contract_addr).is_none(), "Contract found");
+
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&DJANGO_FALLBACK),
+			initial_contract_balance + min_balance
+		);
+		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - min_balance);
 	});
 }
 

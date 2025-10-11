@@ -88,6 +88,13 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
 			},
+			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
+				let _charged =
+					env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
+				let h160 = H160::from_slice(beneficiary.as_slice());
+				env.terminate_caller(&h160)?;
+				Ok(Vec::new())
+			},
 		}
 	}
 }

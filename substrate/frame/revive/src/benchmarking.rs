@@ -1201,7 +1201,29 @@ mod benchmarks {
 		}
 
 		assert!(matches!(result, Err(crate::vm::pvm::TrapReason::Termination)));
-		assert_eq!(PristineCode::<T>::get(code_hash).is_none(), delete_code);
+
+		Ok(())
+	}
+	#[benchmark(pov_mode = Measured)]
+	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+
+		build_runtime!(_runtime, instance, _memory: [beneficiary.encode(),]);
+		let code_hash = instance.info()?.code_hash;
+
+		// Increment the refcount of the code hash so that it does not get deleted
+		<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
+
+		#[block]
+		{
+			crate::storage::meter::terminate_logic_for_benchmark::<T>(
+				&instance.account_id,
+				&beneficiary,
+			)
+			.unwrap();
+		}
+
+		assert!(PristineCode::<T>::get(code_hash).is_none());
 
 		Ok(())
 	}
