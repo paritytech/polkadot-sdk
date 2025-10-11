@@ -16,17 +16,27 @@ if [ -n "$FEATURES" ]; then
 fi
 
 PROFILE=${PROFILE:-production}
+TARGET=${TARGET:-}
 ARTIFACTS=/artifacts/$BIN
+
+# If TARGET is specified, add it to cargo build command and adjust artifact path
+if [ -n "$TARGET" ]; then
+  TARGET_FLAG="--target ${TARGET}"
+  TARGET_DIR="target/${TARGET}/${PROFILE}"
+else
+  TARGET_FLAG=""
+  TARGET_DIR="target/${PROFILE}"
+fi
 
 echo "Artifacts will be copied into $ARTIFACTS"
 mkdir -p "$ARTIFACTS"
 
 git log --pretty=oneline -n 1
-time cargo build --profile $PROFILE --locked --verbose --bin $BIN --package $PACKAGE $FEATURES
+time cargo build --profile $PROFILE --locked --verbose --bin $BIN --package $PACKAGE $FEATURES $TARGET_FLAG
 
 echo "Artifact target: $ARTIFACTS"
 
-cp ./target/$PROFILE/$BIN "$ARTIFACTS"
+cp ./${TARGET_DIR}/$BIN "$ARTIFACTS"
 pushd "$ARTIFACTS" > /dev/null
 sha256sum "$BIN" | tee "$BIN.sha256"
 chmod a+x "$BIN"
