@@ -959,3 +959,18 @@ fn verify_execution_proof_not_finalized() {
 		);
 	});
 }
+
+#[test]
+fn verify_message_invalid_topic() {
+	let (event_log, proof) = get_message_verification_payload();
+	let mut event_log_muted = event_log.clone();
+	event_log_muted.topics[0] = H256::default();
+
+	new_tester().execute_with(|| {
+		assert_ok!(initialize_storage());
+		assert_err!(
+			EthereumBeaconClient::verify(&event_log_muted, &proof),
+			VerificationError::LogNotFound
+		);
+	});
+}
