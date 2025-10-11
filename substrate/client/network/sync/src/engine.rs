@@ -65,9 +65,10 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_blockchain::{Error as ClientError, HeaderMetadata};
 use sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
 use sp_runtime::{
-	traits::{Block as BlockT, Header, NumberFor, Zero},
+	traits::{Block as BlockT, HashingFor, Header, NumberFor, Zero},
 	Justifications,
 };
+use sp_trie::PrefixedMemoryDB;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -643,6 +644,14 @@ where
 						number,
 					)
 				},
+				SyncingAction::ImportPartialState { partial_state } => {
+					self.import_partial_state(partial_state);
+
+					trace!(
+						target: LOG_TARGET,
+						"Processed `SyncingAction::ImportPartialState`",
+					)
+				},
 				// Nothing to do, this is handled internally by `PolkadotSyncingStrategy`.
 				SyncingAction::Finished => {},
 			}
@@ -1135,5 +1144,13 @@ where
 		}
 
 		self.import_queue.import_justifications(peer_id, hash, number, justifications);
+	}
+
+	/// Import partial state.
+	fn import_partial_state(
+		&mut self,
+		partial_state: PrefixedMemoryDB<HashingFor<B>>,
+	) {
+		self.import_queue.import_partial_state(partial_state);
 	}
 }

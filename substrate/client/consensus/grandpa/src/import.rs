@@ -35,9 +35,10 @@ use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_consensus_grandpa::{ConsensusLog, GrandpaApi, ScheduledChange, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
-	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor, Zero},
 	Justification,
 };
+use sp_trie::PrefixedMemoryDB;
 
 use crate::{
 	authorities::{AuthoritySet, DelayKind, PendingChange, SharedAuthoritySet},
@@ -703,6 +704,10 @@ where
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await
+	}
+
+	async fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+		self.inner.import_partial_state(partial_state).await
 	}
 }
 

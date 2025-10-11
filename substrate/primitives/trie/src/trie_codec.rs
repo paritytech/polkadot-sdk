@@ -66,7 +66,7 @@ where
 	I: IntoIterator<Item = &'a [u8]>,
 {
 	let mut nodes_iter = encoded.into_iter();
-	let (top_root, _nb_used) = trie_db::decode_compact_from_iter::<L, _, _>(db, &mut nodes_iter)?;
+	let (top_root, _nb_used) = trie_db::decode_compact_from_iter_with_prefix::<L, _, _>(db, &mut nodes_iter, &[])?;
 
 	// Only check root if expected root is passed as argument.
 	if let Some(expected_root) = expected_root.filter(|expected| *expected != &top_root) {
@@ -93,7 +93,8 @@ where
 							return Err(Error::InvalidChildRoot(key, value))
 						}
 						root.as_mut().copy_from_slice(value.as_ref());
-						child_tries.push(root);
+						let child_prefix = key[sp_core::storage::well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX.len()..].to_vec();
+						child_tries.push((root, child_prefix));
 					},
 					// allow incomplete database error: we only
 					// require access to data in the proof.
@@ -113,9 +114,9 @@ where
 
 	let mut previous_extracted_child_trie = None;
 	let mut nodes_iter = nodes_iter.peekable();
-	for child_root in child_tries.into_iter() {
+	for (child_root, child_prefix) in child_tries.into_iter() {
 		if previous_extracted_child_trie.is_none() && nodes_iter.peek().is_some() {
-			let (top_root, _) = trie_db::decode_compact_from_iter::<L, _, _>(db, &mut nodes_iter)?;
+			let (top_root, _) = trie_db::decode_compact_from_iter_with_prefix::<L, _, _>(db, &mut nodes_iter, &child_prefix)?;
 			previous_extracted_child_trie = Some(top_root);
 		}
 

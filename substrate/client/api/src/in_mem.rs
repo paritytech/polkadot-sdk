@@ -32,6 +32,7 @@ use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
 	IndexOperation, StorageCollection,
 };
+use sp_trie::PrefixedMemoryDB;
 use std::{
 	collections::{HashMap, HashSet},
 	ptr,
@@ -547,6 +548,10 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		self.apply_storage(storage, true, state_version)
 	}
 
+	fn commit_complete_partial_state(&mut self) {
+		todo!()
+	}
+
 	fn insert_aux<I>(&mut self, ops: I) -> sp_blockchain::Result<()>
 	where
 		I: IntoIterator<Item = (Vec<u8>, Option<Vec<u8>>)>,
@@ -768,6 +773,10 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 	fn requires_full_sync(&self) -> bool {
 		false
+	}
+
+	fn import_partial_state(&self, _partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
+		todo!()
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
