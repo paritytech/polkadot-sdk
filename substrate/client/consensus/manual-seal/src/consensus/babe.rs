@@ -33,7 +33,7 @@ use sp_keystore::KeystorePtr;
 use std::{marker::PhantomData, sync::Arc};
 
 use sc_consensus::{BlockImportParams, ForkChoiceStrategy, Verifier};
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_babe::{
 	digests::{NextEpochDescriptor, PreDigest, SecondaryPlainPreDigest},
@@ -197,8 +197,6 @@ where
 	C::Api: BabeApi<B>,
 	P: Send + Sync,
 {
-	type Proof = P;
-
 	fn create_digest(&self, parent: &B::Header, inherents: &InherentData) -> Result<Digest, Error> {
 		let slot = inherents
 			.babe_inherent_data()?
@@ -265,7 +263,7 @@ where
 		parent: &B::Header,
 		params: &mut BlockImportParams<B>,
 		inherents: &InherentData,
-		_proof: Self::Proof,
+		_proof: StorageProof,
 	) -> Result<(), Error> {
 		let slot = inherents
 			.babe_inherent_data()?

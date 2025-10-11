@@ -22,7 +22,7 @@
 use crate::{ConsensusDataProvider, Error};
 use sc_client_api::{AuxStore, UsageProvider};
 use sc_consensus::BlockImportParams;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_consensus_aura::{
 	digests::CompatibleDigestItem,
 	sr25519::{AuthorityId, AuthoritySignature},
@@ -71,8 +71,6 @@ where
 	B: BlockT,
 	P: Send + Sync,
 {
-	type Proof = P;
-
 	fn create_digest(
 		&self,
 		_parent: &B::Header,
@@ -95,7 +93,7 @@ where
 		_parent: &B::Header,
 		_params: &mut BlockImportParams<B>,
 		_inherents: &InherentData,
-		_proof: Self::Proof,
+		_proof: StorageProof,
 	) -> Result<(), Error> {
 		Ok(())
 	}

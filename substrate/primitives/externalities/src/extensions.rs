@@ -29,6 +29,7 @@ use alloc::{
 };
 use core::{
 	any::{Any, TypeId},
+	iter::FromIterator,
 	ops::DerefMut,
 };
 
@@ -89,6 +90,14 @@ macro_rules! decl_extension {
 			}
 		}
 
+		impl $ext_name {
+			/// Returns the `TypeId` of this extension.
+			#[allow(dead_code)]
+			pub fn type_id() -> core::any::TypeId {
+				core::any::TypeId::of::<Self>()
+			}
+		}
+
 		impl core::ops::Deref for $ext_name {
 			type Target = $inner;
 
@@ -123,6 +132,14 @@ macro_rules! decl_extension {
 
 			fn type_id(&self) -> core::any::TypeId {
 				core::any::Any::type_id(self)
+			}
+		}
+
+		impl $ext_name {
+			/// Returns the `TypeId` of this extension.
+			#[allow(dead_code)]
+			pub fn type_id() -> core::any::TypeId {
+				core::any::TypeId::of::<Self>()
 			}
 		}
 	}
@@ -178,6 +195,11 @@ impl Extensions {
 		self.extensions.insert(type_id, Box::new(ext));
 	}
 
+	/// Returns `true` if an extension for the given `type_id` is already registered.
+	pub fn is_registered(&self, type_id: TypeId) -> bool {
+		self.extensions.contains_key(&type_id)
+	}
+
 	/// Register extension `extension` using the given `type_id`.
 	pub fn register_with_type_id(
 		&mut self,
@@ -220,12 +242,56 @@ impl Extensions {
 	pub fn merge(&mut self, other: Self) {
 		self.extensions.extend(other.extensions);
 	}
+
+	/// Returns an iterator that returns all stored extensions.
+	pub fn into_extensions(self) -> impl Iterator<Item = Box<dyn Extension>> {
+		self.extensions.into_values()
+	}
 }
 
 impl Extend<Extensions> for Extensions {
 	fn extend<T: IntoIterator<Item = Extensions>>(&mut self, iter: T) {
 		iter.into_iter()
 			.for_each(|ext| self.extensions.extend(ext.extensions.into_iter()));
+	}
+}
+
+impl<A: Extension> From<A> for Extensions {
+	fn from(ext: A) -> Self {
+		Self {
+			extensions: FromIterator::from_iter(
+				[(Extension::type_id(&ext), Box::new(ext) as Box<dyn Extension>)].into_iter(),
+			),
+		}
+	}
+}
+
+impl<A: Extension, B: Extension> From<(A, B)> for Extensions {
+	fn from((ext, ext2): (A, B)) -> Self {
+		Self {
+			extensions: FromIterator::from_iter(
+				[
+					(Extension::type_id(&ext), Box::new(ext) as Box<dyn Extension>),
+					(Extension::type_id(&ext2), Box::new(ext2) as Box<dyn Extension>),
+				]
+				.into_iter(),
+			),
+		}
+	}
+}
+
+impl<A: Extension, B: Extension, C: Extension> From<(A, B, C)> for Extensions {
+	fn from((ext, ext2, ext3): (A, B, C)) -> Self {
+		Self {
+			extensions: FromIterator::from_iter(
+				[
+					(Extension::type_id(&ext), Box::new(ext) as Box<dyn Extension>),
+					(Extension::type_id(&ext2), Box::new(ext2) as Box<dyn Extension>),
+					(Extension::type_id(&ext3), Box::new(ext3) as Box<dyn Extension>),
+				]
+				.into_iter(),
+			),
+		}
 	}
 }
 
@@ -271,5 +337,13 @@ mod tests {
 				ext2.downcast_mut::<DummyExt2>().expect("Downcasting works for Extension 2");
 			assert_eq!(ext_ty2.0, 2);
 		}
+	}
+
+	#[test]
+	fn from_boxed_extensions() {
+		let exts = Extensions::from((DummyExt(1), DummyExt2(2)));
+
+		assert!(exts.is_registered(DummyExt::type_id()));
+		assert!(exts.is_registered(DummyExt2::type_id()));
 	}
 }
