@@ -11,6 +11,6 @@ crates:
 - name: pallet-xcm
   bump: major
 - name: pallet-xcm-precompiles
-  bump: patch
+  bump: minor
 - name: polkadot-sdk
   bump: minor
