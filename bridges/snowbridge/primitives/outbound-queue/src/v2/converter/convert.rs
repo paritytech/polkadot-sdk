@@ -303,6 +303,7 @@ where
 			origin,
 			fee: fee_amount,
 			commands: BoundedVec::try_from(commands).map_err(|_| TooManyCommands)?,
+			from_governance: false,
 		};
 
 		// All xcm instructions must be consumed before exit.

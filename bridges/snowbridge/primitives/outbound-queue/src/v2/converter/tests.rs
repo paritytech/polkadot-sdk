@@ -1153,6 +1153,7 @@ fn xcm_converter_transfer_native_token_success() {
 		origin: hex!("aa16eddac8725928eaeda4aae518bf10d02bee80382517d21464a5cdf8d1d8e1").into(),
 		fee: 1000,
 		commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
+		from_governance: false,
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok(expected_message));

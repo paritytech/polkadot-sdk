@@ -196,6 +196,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
+	type AssetHubParaId = AssetHubParaId;
 }
 
 #[cfg(not(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test)))]

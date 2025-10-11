@@ -10,12 +10,14 @@ use frame_support::{
 	BoundedVec,
 };
 use hex_literal::hex;
-use snowbridge_core::{ChannelId, ParaId};
+use snowbridge_core::{AgentIdOf, ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{
 	v2::{abi::OutboundMessageWrapper, Command, Initializer, SendMessage},
 	SendError,
 };
 use sp_core::{hexdisplay::HexDisplay, H256};
+use xcm::{latest::ParentThen, prelude::Parachain};
+use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn submit_messages_and_commit() {
@@ -80,6 +82,7 @@ fn process_message_yields_on_max_messages_per_block() {
 				},
 			}])
 			.unwrap(),
+			from_governance: false,
 		};
 
 		let mut meter = WeightMeter::new();
@@ -183,6 +186,11 @@ fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_
 
 	let sibling_id: u32 = 1000;
 
+	let sibling_agent_id = AgentIdOf::convert_location(
+		&ParentThen(Parachain(<Test as Config>::AssetHubParaId::get().into()).into()).into(),
+	)
+	.unwrap();
+
 	new_tester().execute_with(|| {
 		// submit a lot of low priority messages from asset_hub which will need multiple blocks to
 		// execute(20 messages for each block so 40 required at least 2 blocks)
@@ -194,8 +202,7 @@ fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_
 			OutboundQueue::deliver(ticket).unwrap();
 		}
 
-		let footprint =
-			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
+		let footprint = MessageQueue::footprint(SnowbridgeV2(sibling_agent_id));
 		assert_eq!(footprint.storage.count, (max_messages) as u64);
 
 		let message = mock_governance_message::<Test>();
@@ -207,8 +214,7 @@ fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_
 		run_to_end_of_next_block();
 
 		// first process 20 messages from sibling channel
-		let footprint =
-			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
+		let footprint = MessageQueue::footprint(SnowbridgeV2(sibling_agent_id));
 		assert_eq!(footprint.storage.count, 40 - 20);
 
 		// and governance message does not have the chance to execute in same block
@@ -224,15 +230,13 @@ fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_
 		assert_eq!(footprint.storage.count, 0);
 
 		// and this time process 19 messages from sibling channel so we have 1 message left
-		let footprint =
-			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
+		let footprint = MessageQueue::footprint(SnowbridgeV2(sibling_agent_id));
 		assert_eq!(footprint.storage.count, 1);
 
 		// move to the next block, the last 1 message from sibling channel get executed
 		ServiceWeight::set(Some(Weight::MAX));
 		run_to_end_of_next_block();
-		let footprint =
-			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
+		let footprint = MessageQueue::footprint(SnowbridgeV2(sibling_agent_id));
 		assert_eq!(footprint.storage.count, 0);
 	});
 }
