@@ -30,7 +30,9 @@ use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_inbound_queue_primitives::v2::CreateAssetCallInfo;
+use snowbridge_inbound_queue_primitives::v2::{
+	CreateAssetCallInfo, MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor,
+};
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
@@ -123,20 +125,11 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 }
 
-impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Verifier = EthereumBeaconClient;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type XcmSender = crate::XcmRouter;
-	#[cfg(feature = "runtime-benchmarks")]
-	type XcmSender = benchmark_helpers::DoNothingRouter;
-	type GatewayAddress = EthereumGatewayAddress;
-	#[cfg(feature = "runtime-benchmarks")]
-	type Helper = Runtime;
-	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
-	type AssetHubParaId = AssetHubParaId;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
+pub type XcmMessageProcessor = InboundXcmMessageProcessor<
+	Runtime,
+	crate::XcmRouter,
+	XcmExecutor<XcmConfig>,
+	MessageToXcm<
 		CreateAssetCall,
 		EthereumNetwork,
 		RelayNetwork,
@@ -145,14 +138,28 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 		AssetHubParaId,
 		EthereumSystem,
 		AccountId,
-	>;
-	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
+	>,
+	xcm_builder::AliasesIntoAccountId32<
 		xcm_config::RelayNetwork,
 		<Runtime as frame_system::Config>::AccountId,
-	>;
+	>,
+	ConstU32<1000>,
+>;
+
+impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Verifier = EthereumBeaconClient;
+	type GatewayAddress = EthereumGatewayAddress;
+	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type MessageProcessor = benchmark_helpers::DummyXcmProcessor;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MessageProcessor = XcmMessageProcessor;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = Runtime;
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
@@ -384,6 +391,27 @@ pub mod benchmark_helpers {
 			Ok(hash)
 		}
 	}
+
+	pub type DummyXcmProcessor = InboundXcmMessageProcessor<
+		Runtime,
+		DoNothingRouter,
+		XcmExecutor<XcmConfig>,
+		MessageToXcm<
+			CreateAssetCall,
+			CreateForeignAssetDeposit,
+			EthereumNetwork,
+			InboundQueueV2Location,
+			EthereumSystem,
+			EthereumGatewayAddress,
+			EthereumUniversalLocation,
+			AssetHubFromEthereum,
+		>,
+		xcm_builder::AliasesIntoAccountId32<
+			xcm_config::RelayNetwork,
+			<Runtime as frame_system::Config>::AccountId,
+		>,
+		ConstU32<1000>,
+	>;
 
 	impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {

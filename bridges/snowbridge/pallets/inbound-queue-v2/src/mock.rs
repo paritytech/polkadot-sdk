@@ -10,12 +10,12 @@ use snowbridge_beacon_primitives::{
 };
 use snowbridge_core::{ParaId, TokenId};
 use snowbridge_inbound_queue_primitives::{
-	v2::{CreateAssetCallInfo, MessageToXcm},
+	v2::{MessageProcessorError, CreateAssetCallInfo, MessageToXcm, XcmMessageProcessor},
 	Log, Proof, VerificationError,
 };
 use sp_core::H160;
 use sp_runtime::{
-	traits::{IdentityLookup, MaybeConvert},
+	traits::{IdentityLookup, MaybeConvert, TryConvert},
 	BuildStorage,
 };
 use sp_std::{convert::From, default::Default, marker::PhantomData};
@@ -112,27 +112,65 @@ parameter_types! {
 	pub AssetHubParaId: ParaId = ParaId::from(1000);
 }
 
+pub struct DummyPrefix;
+
+impl MessageProcessor<AccountId> for DummyPrefix {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
+		false
+	}
+
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
+		panic!("DummyPrefix::process_message shouldn't be called");
+	}
+}
+
+pub struct DummySuffix;
+
+impl MessageProcessor<AccountId> for DummySuffix {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
+		true
+	}
+
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
+		panic!("DummySuffix::process_message shouldn't be called");
+	}
+}
+
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
-	type XcmSender = MockXcmSender;
-	type XcmExecutor = MockXcmExecutor;
 	type GatewayAddress = GatewayAddress;
-	type AssetHubParaId = ConstU32<1000>;
-	type MessageConverter = MessageToXcm<
-		CreateAssetCall,
-		EthereumNetwork,
-		LocalNetwork,
-		GatewayAddress,
-		InboundQueueLocation,
-		AssetHubParaId,
-		MockTokenIdConvert,
-		AccountId,
-	>;
+	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
+	type MessageProcessor = (
+		DummyPrefix,
+		XcmMessageProcessor<
+			Test,
+			MockXcmSender,
+			MockXcmExecutor,
+			MessageToXcm<
+				CreateAssetCall,
+				EthereumNetwork,
+				LocalNetwork,
+				GatewayAddress,
+				InboundQueueLocation,
+				AssetHubParaId,
+				MockTokenIdConvert,
+				AccountId,
+			>,
+			MockAccountLocationConverter<AccountId>,
+			ConstU32<1000>,
+		>,
+		DummySuffix,
+	);
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type WeightInfo = ();
-	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = MockRewardLedger;

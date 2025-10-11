@@ -36,7 +36,7 @@ use hex_literal::hex;
 use snowbridge_core::TokenIdOf;
 use snowbridge_inbound_queue_primitives::v2::{
 	EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},
-	Message, XcmPayload,
+	Message, Payload,
 };
 use sp_core::{H160, H256};
 use xcm::opaque::latest::AssetTransferFilter::{ReserveDeposit, ReserveWithdraw};
@@ -152,7 +152,7 @@ fn send_token_to_rococo_v2() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -314,7 +314,7 @@ fn send_ether_to_rococo_v2() {
 			nonce: 1,
 			origin,
 			assets: vec![],
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 6_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -505,7 +505,7 @@ fn send_roc_from_ethereum_to_rococo() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 9_500_000_000_000u128,
 			execution_fee: 3_500_000_000_000u128,
