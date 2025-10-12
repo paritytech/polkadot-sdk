@@ -83,7 +83,7 @@ use crate::{
 use alloc::collections::BTreeMap;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	pallet_prelude::{PhantomData, StorageVersion},
+	pallet_prelude::PhantomData,
 	traits::{
 		fungible::{InspectHold, MutateHold},
 		Currency, Get, ReservableCurrency,
@@ -295,6 +295,7 @@ mod tests {
 	use crate::{mock::*, Pallet};
 	use frame_support::{
 		assert_ok,
+		pallet_prelude::StorageVersion,
 		traits::{fungible::Mutate, GetStorageVersion},
 	};
 
