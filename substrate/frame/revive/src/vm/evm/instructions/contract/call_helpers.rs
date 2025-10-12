@@ -56,13 +56,13 @@ pub fn resize_memory<'a, E: Ext>(
 }
 
 /// Calculates gas cost and limit for call instructions.
-pub fn calc_call_gas<'a, E: Ext>(
+pub fn charge_call_gas<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 	callee: H160,
 	scheme: CallScheme,
 	input_len: usize,
 	value: U256,
-) -> ControlFlow<Halt, u64> {
+) -> ControlFlow<Halt, ()> {
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
 	match precompile {
@@ -106,5 +106,5 @@ pub fn calc_call_gas<'a, E: Ext>(
 			})?;
 	}
 
-	ControlFlow::Continue(u64::MAX) // TODO: Set the right gas limit
+	ControlFlow::Continue(())
 }

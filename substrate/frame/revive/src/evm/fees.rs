@@ -130,7 +130,7 @@ pub trait InfoT<T: Config>: seal::Sealed {
 	}
 
 	/// Convert a weight to an unadjusted fee.
-	fn weight_to_fee(_weight: &Weight, _combinator: Combinator) -> BalanceOf<T> {
+	fn weight_to_fee(_weight: &Weight) -> BalanceOf<T> {
 		Zero::zero()
 	}
 
@@ -158,14 +158,6 @@ pub trait InfoT<T: Config>: seal::Sealed {
 	}
 }
 
-/// Which function to use in order to combine `ref_time` and `proof_size` to a fee.
-pub enum Combinator {
-	/// Minimum function.
-	Min,
-	/// Maximum function.
-	Max,
-}
-
 impl<const P: u128, const Q: u128, T: Config> BlockRatioFee<P, Q, T> {
 	const REF_TIME_TO_FEE: FixedU128 = {
 		assert!(P > 0 && Q > 0);
@@ -179,26 +171,17 @@ impl<const P: u128, const Q: u128, T: Config> BlockRatioFee<P, Q, T> {
 			FixedU128::from_rational(max_weight.ref_time().into(), max_weight.proof_size().into());
 		Self::REF_TIME_TO_FEE.saturating_mul(ratio)
 	}
-
-	/// Calculate the fee for a weight.
-	fn weight_to_fee(weight: &Weight, combinator: Combinator) -> BalanceOf<T> {
-		let ref_time_fee = Self::REF_TIME_TO_FEE
-			.saturating_mul_int(BalanceOf::<T>::saturated_from(weight.ref_time()));
-		let proof_size_fee = Self::proof_size_to_fee()
-			.saturating_mul_int(BalanceOf::<T>::saturated_from(weight.proof_size()));
-
-		match combinator {
-			Combinator::Max => ref_time_fee.max(proof_size_fee),
-			Combinator::Min => ref_time_fee.min(proof_size_fee),
-		}
-	}
 }
 
 impl<const P: u128, const Q: u128, T: Config> WeightToFee for BlockRatioFee<P, Q, T> {
 	type Balance = BalanceOf<T>;
 
 	fn weight_to_fee(weight: &Weight) -> Self::Balance {
-		Self::weight_to_fee(weight, Combinator::Max)
+		let ref_time_fee = Self::REF_TIME_TO_FEE
+			.saturating_mul_int(BalanceOf::<T>::saturated_from(weight.ref_time()));
+		let proof_size_fee = Self::proof_size_to_fee()
+			.saturating_mul_int(BalanceOf::<T>::saturated_from(weight.proof_size()));
+		ref_time_fee.max(proof_size_fee)
 	}
 }
 
@@ -244,8 +227,8 @@ where
 	/// Calculate the fee using the weight instead of a dispatch info.
 	fn tx_fee_from_weight(encoded_len: u32, weight: &Weight) -> BalanceOf<E::Config> {
 		let fixed_fee = Self::fixed_fee(encoded_len);
-		let weight_fee = Self::next_fee_multiplier()
-			.saturating_mul_int(Self::weight_to_fee(weight, Combinator::Max));
+		let weight_fee =
+			Self::next_fee_multiplier().saturating_mul_int(Self::weight_to_fee(weight));
 		fixed_fee.saturating_add(weight_fee)
 	}
 
@@ -254,7 +237,6 @@ where
 			&<E::Config as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic,
-			Combinator::Max,
 		)
 		.saturating_add(Self::length_to_fee(encoded_len))
 	}
@@ -316,8 +298,8 @@ where
 		uxt.encoded_size() as u32
 	}
 
-	fn weight_to_fee(weight: &Weight, combinator: Combinator) -> BalanceOf<E::Config> {
-		<E::Config as TxConfig>::WeightToFee::weight_to_fee(&weight, combinator)
+	fn weight_to_fee(weight: &Weight) -> BalanceOf<E::Config> {
+		<E::Config as TxConfig>::WeightToFee::weight_to_fee(weight)
 	}
 
 	/// Convert an unadjusted fee back to a weight.

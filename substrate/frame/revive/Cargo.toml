@@ -63,6 +63,7 @@ subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
+itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
