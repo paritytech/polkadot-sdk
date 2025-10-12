@@ -20,13 +20,10 @@ use core::marker::PhantomData;
 use ethereum_standards::IERC721;
 use frame_support::traits::{fungible::Inspect, OriginTrait};
 use pallet_revive::{
-	precompiles::alloy::{
-		primitives::{Address},
-		sol_types::SolCall,
-	},
+	precompiles::alloy::{primitives::Address, sol_types::SolCall},
 	AddressMapper, ContractResult, DepositLimit, MomentOf,
 };
-use sp_core::{Get, H160, H256, U256}; // tieni questo per U256::zero()
+use sp_core::{Get, H160, H256, U256}; // keep this for U256::zero()
 
 use sp_runtime::Weight;
 use xcm::latest::prelude::*;
@@ -40,11 +37,29 @@ type BalanceOf<T> = <<T as pallet_revive::Config>::Currency as Inspect<
 
 use pallet_revive::precompiles::alloy::primitives::U256 as AlloyU256;
 
-/// An Asset Transactor that deals with ERC721 tokens.
-fn sp_u256_to_alloy(x: U256) -> AlloyU256 {
-	let bytes: [u8; 32] = x.to_big_endian();
-	AlloyU256::from_be_bytes(bytes)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SpAlloyU256(pub U256);
+
+impl From<U256> for SpAlloyU256 {
+	fn from(value: U256) -> Self {
+		SpAlloyU256(value)
+	}
 }
+
+impl From<SpAlloyU256> for AlloyU256 {
+	fn from(value: SpAlloyU256) -> Self {
+		let bytes: [u8; 32] = value.0.to_big_endian();
+		Self::from_be_bytes(bytes)
+	}
+}
+
+impl From<AlloyU256> for SpAlloyU256 {
+	fn from(value: AlloyU256) -> Self {
+		let bytes: [u8; 32] = value.to_be_bytes();
+		SpAlloyU256(U256::from_big_endian(&bytes))
+	}
+}
+
 fn asset_instance_to_u256(inst: &AssetInstance) -> Result<U256, XcmError> {
 	match inst {
 		AssetInstance::Undefined => Err(XcmError::FailedToTransactAsset("Undefined AssetInstance")),
@@ -56,6 +71,7 @@ fn asset_instance_to_u256(inst: &AssetInstance) -> Result<U256, XcmError> {
 	}
 }
 
+/// An Asset Transactor that deals with ERC721 tokens.
 pub struct ERC721Transactor<
 	T,
 	Matcher,
@@ -134,7 +150,7 @@ where
 		let caller_eth = T::AddressMapper::to_address(&who);
 		let caller_address = Address::from(Into::<[u8; 20]>::into(caller_eth));
 
-		let token_id_alloy = sp_u256_to_alloy(token_id);
+		let token_id_alloy: AlloyU256 = SpAlloyU256(token_id).into();
 		let data = IERC721::transferFromCall {
 			from: caller_address,
 			to: checking_address,
@@ -202,7 +218,7 @@ where
 		let checking_eth = T::AddressMapper::to_address(&TransfersCheckingAccount::get());
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_eth));
 
-		let token_id_alloy = sp_u256_to_alloy(token_id);
+		let token_id_alloy: AlloyU256 = SpAlloyU256(token_id).into();
 
 		let data = IERC721::transferFromCall {
 			from: checking_address,

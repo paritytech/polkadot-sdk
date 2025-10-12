@@ -234,7 +234,9 @@ pub type ERC20Transactor = assets_common::ERC20Transactor<
 parameter_types! {
 	pub const ERC721TransferGasLimit: Weight = Weight::from_parts(1_000_000_000, 200_000);
 	pub const ERC721TransferStorageDepositLimit: Balance = 25_000_000_000;
-	pub ERC721TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
+	// We reuse the same account as for ERC20 transfers.
+	//  since it's just an account that's used in the contract for holding the tokens.
+	pub ERC721TransfersCheckingAccount: AccountId = ERC20TransfersCheckingAccount::get();
 }
 
 /// Transactor for ERC721 tokens.

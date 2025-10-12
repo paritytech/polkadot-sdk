@@ -1968,9 +1968,6 @@ fn weight_of_message_increases_when_dealing_with_erc721s() {
 		weight.ref_time() > regular_asset_weight.ref_time()
 			&& weight.proof_size() > 10 * regular_asset_weight.proof_size()
 	);
-	// This doesn't work
-	// left: Weight { ref_time: 700000000, proof_size: 200000 }
- 	// right: Weight { ref_time: 1000000000, proof_size: 200000 }
 
 	assert_eq!(weight, crate::xcm_config::ERC721TransferGasLimit::get());
 }
@@ -2025,8 +2022,10 @@ fn withdraw_and_deposit_erc721s() {
 				AccountKey20 { key: erc721_address.into(), network: None },
 				AssetInstance::Index(token_id),
 			))
+			// Deposit ERC721 to beneficiary.
 			.deposit_asset(AllCounted(1), beneficiary.clone())
 			.refund_surplus()
+			// Deposit leftover fees back to the sender.
 			.deposit_asset(AllCounted(1), sender.clone())
 			.build();
 
@@ -2057,7 +2056,7 @@ fn non_existent_erc721_will_error() {
 	let initial_wnd_amount = 10_000_000_000_000u128;
 
 	let non_existent_contract_address: [u8; 20] = [1u8; 20];
-	let token_id: u128 = 42; // token arbitrario
+	let token_id: u128 = 42; // arbitrary token
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// Bring the revive account to life.
@@ -2075,7 +2074,7 @@ fn non_existent_erc721_will_error() {
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 
-		// Costruisci XCM che tenta di prelevare un token da un contratto inesistente
+		// Build an XCM that attempts to withdraw a token from a non-existent contract
 		let message = Xcm::<RuntimeCall>::builder()
 			.withdraw_asset((Parent, wnd_amount_for_fees))
 			.pay_fees((Parent, wnd_amount_for_fees))
@@ -2125,7 +2124,7 @@ fn smart_contract_not_erc721_will_error() {
 			.build_and_unwrap_contract();
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
-		let token_id: u128 = 0; // token arbitrario
+		let token_id: u128 = 0; // arbitrary token
 
 		let message = Xcm::<RuntimeCall>::builder()
 			.withdraw_asset((Parent, wnd_amount_for_fees))
@@ -2149,6 +2148,8 @@ fn smart_contract_not_erc721_will_error() {
 
 #[test]
 fn smart_contract_does_not_return_expected_value_fails() {
+	use frame_support::traits::nonfungibles;
+
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
 	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
@@ -2198,6 +2199,11 @@ fn smart_contract_does_not_return_expected_value_fails() {
 			Weight::from_parts(2_500_000_000, 220_000),
 		)
 		.is_err());
+
+		// Ownership must still remain with sender.
+		let final_owner =
+			<Revive as nonfungibles::Inspect<_>>::owner(&fake_erc721_address, &token_id).unwrap();
+		assert_eq!(final_owner, sender);
 	});
 }
 

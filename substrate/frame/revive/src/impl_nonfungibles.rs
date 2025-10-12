@@ -15,14 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Implementation of the `nonfungibles::*` family of traits for `pallet-revive`.
+//! # ERC721 Asset Transactor (Test Implementation)
 //!
-//! This allows ERC721 tokens stored on this pallet to be used with
-//! the nonfungibles traits.
+//! This module provides a test-only [`TransactAsset`] implementation for ERC721 (non-fungible)
+//! assets, following the same structure as the ERC20 transactor.
 //!
-//! As with the fungibles implementation, this is only meant for tests
-//! since gas limits and contract execution costs are not taken into account,
-//! and the feature flags ensure that this code is excluded in production runtimes.
+//! ## Purpose
+//! It allows verifying XCM `withdraw_asset` and `deposit_asset` behavior for ERC721 tokens
+//! under a local testing environment.
+//!
+//! ## Notes
+//! - This implementation is **not used in production** runtimes.
+//! - Gas limits, refunds, and contract execution costs are **not fully accounted for**.
+//! - The feature flags ensure that it is compiled **only when running tests**.
+//!
+//! ## Related
+//! See the [`ERC20Transactor`] for the fungible equivalent.
+
 
 #![cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 
@@ -51,7 +60,7 @@ where
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
 {
-	type CollectionId = H160; // indirizzo contratto ERC721
+	type CollectionId = H160; // ERC721 contract address
 	type ItemId = u128; // tokenId
 
 	fn owner(
@@ -97,7 +106,8 @@ where
 		item: &Self::ItemId,
 		who: &T::AccountId,
 	) -> DispatchResult {
-		// Mint simulato: trasferiamo l’NFT dal checking account → `who`.
+		// Simulated Mint: We transfer the NFT from the checking account → `who`.
+
 		let from = Self::checking_account();
 		let eth_from = T::AddressMapper::to_address(&from);
 		let from_addr = Address::from(Into::<[u8; 20]>::into(eth_from));
@@ -137,7 +147,7 @@ where
 		item: &Self::ItemId,
 		maybe_check_owner: Option<&T::AccountId>,
 	) -> DispatchResult {
-		// Burn simulato: trasferiamo l’NFT al checking account (o a 0x0 se preferisci).
+		// Simulated Burn: We transfer the NFT to the checking account
 		let owner = if let Some(acc) = maybe_check_owner {
 			if let Some(current) = <Self as nonfungibles::Inspect<_>>::owner(collection, item) {
 				if &current != acc {
@@ -228,29 +238,23 @@ mod erc721_contract_tests {
 			)
 			.build_and_unwrap_contract();
 
-			// ownerOf(0) must be ALICE
-			let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
-				.data(IERC721::ownerOfCall { tokenId: EU256::from(0) }.abi_encode())
-				.build_and_unwrap_result();
+			let token_id: u128 = 0;
 
-			let owner = Address::abi_decode_validate(&result.data).expect("decode ownerOf");
-			let owner_eth = H160::from_slice(owner.as_slice());
+            let owner =
+                <Pallet<Test> as nonfungibles::Inspect<_>>::owner(&addr, &token_id).unwrap();
+            assert_eq!(owner, ALICE, "Pallet::owner() must return ALICE for tokenId=0");
 
-			assert_eq!(owner_eth, <Test as Config>::AddressMapper::to_address(&ALICE));
+            // Check that can_transfer() returns true for a valid token.
+            assert!(
+                <Pallet<Test> as nonfungibles::Inspect<_>>::can_transfer(&addr, &token_id),
+                "Pallet::can_transfer() should return true for existing token"
+            );
 
-			// balanceOf(ALICE) must be 1
-			let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), addr)
-				.data(
-					IERC721::balanceOfCall {
-						owner: <Test as Config>::AddressMapper::to_address(&ALICE).0.into(),
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-
-			let balance: EU256 = EU256::abi_decode_validate(&result.data).unwrap();
-			assert_eq!(balance, EU256::from(1));
-		});
+            // Check that a non-existent token returns None.
+            let invalid_owner =
+                <Pallet<Test> as nonfungibles::Inspect<_>>::owner(&addr, &999u128);
+            assert!(invalid_owner.is_none(), "Pallet::owner() must return None for invalid token");
+ 		});
 	}
 
 	#[test]
