@@ -362,6 +362,7 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
+	pub static DebugFlag: bool = false;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -390,6 +391,7 @@ impl Config for Test {
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
+	type DebugEnabled = DebugFlag;
 }
 
 impl TryFrom<RuntimeCall> for Call<Test> {
@@ -404,13 +406,17 @@ impl TryFrom<RuntimeCall> for Call<Test> {
 }
 
 impl SetWeightLimit for RuntimeCall {
-	fn set_weight_limit(&mut self, weight_limit: Weight) {
+	fn set_weight_limit(&mut self, weight_limit: Weight) -> Weight {
 		match self {
 			Self::Contracts(
 				Call::eth_call { gas_limit, .. } |
 				Call::eth_instantiate_with_code { gas_limit, .. },
-			) => *gas_limit = weight_limit,
-			_ => (),
+			) => {
+				let old = *gas_limit;
+				*gas_limit = weight_limit;
+				old
+			},
+			_ => Default::default(),
 		}
 	}
 }
@@ -528,6 +534,7 @@ fn ext_builder_with_genesis_config_works() {
 	let config = GenesisConfig::<Test> {
 		mapped_accounts: vec![EVE],
 		accounts: vec![eoa.clone(), pvm_contract.clone(), evm_contract.clone()],
+		..Default::default()
 	};
 
 	// Genesis serialization works
