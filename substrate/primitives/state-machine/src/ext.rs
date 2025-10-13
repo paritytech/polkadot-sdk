@@ -69,6 +69,8 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
+	/// Last cursor of a storage operation.
+	last_cursor: Option<Vec<u8>>,
 }
 
 impl<'a, H, B> Ext<'a, H, B>
@@ -79,7 +81,7 @@ where
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
 	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0 }
+		Ext { overlay, backend, id: 0, last_cursor: None }
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -94,6 +96,7 @@ where
 			backend,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
+			last_cursor: None,
 		}
 	}
 }
@@ -554,6 +557,14 @@ where
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
 		self.overlay.commit_transaction().map_err(|_| ())
+	}
+
+	fn store_last_cursor(&mut self, cursor: &[u8]) {
+		self.last_cursor = Some(cursor.to_vec());
+	}
+
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		self.last_cursor.take()
 	}
 
 	fn wipe(&mut self) {
