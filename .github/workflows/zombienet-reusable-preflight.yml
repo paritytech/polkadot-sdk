@@ -245,8 +245,10 @@ jobs:
             # Set zombienet v1 configuration
             if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}"
-              echo "ZOMBIENET_DEFAULT_RUNNER=${!ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}}"
-              echo "ZOMBIENET_LARGE_RUNNER=${!ZOMBIENET_LARGE_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}}"
+              DEFAULT_RUNNER_VAR="ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}"
+              LARGE_RUNNER_VAR="ZOMBIENET_LARGE_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}"
+              echo "ZOMBIENET_DEFAULT_RUNNER=${!DEFAULT_RUNNER_VAR}"
+              echo "ZOMBIENET_LARGE_RUNNER=${!LARGE_RUNNER_VAR}"
             else
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_K8S}"
               # runner size for k8s is not relevant, it "only" spawns pods and runs the test
@@ -256,8 +258,10 @@ jobs:
 
             if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}"
-              echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${!ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}}"
-              echo "ZOMBIENET_SDK_LARGE_RUNNER=${!ZOMBIENET_SDK_LARGE_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}}"
+              SDK_DEFAULT_RUNNER_VAR="ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}"
+              SDK_LARGE_RUNNER_VAR="ZOMBIENET_SDK_LARGE_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}"
+              echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${!SDK_DEFAULT_RUNNER_VAR}"
+              echo "ZOMBIENET_SDK_LARGE_RUNNER=${!SDK_LARGE_RUNNER_VAR}"
             else
               echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_K8S}"
               # runner size for k8s is not relevant, it "only" spawns pods and runs the test

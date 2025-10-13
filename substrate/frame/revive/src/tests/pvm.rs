@@ -5115,3 +5115,41 @@ fn get_set_immutables_works() {
 		assert_eq!(immutable_data, new_data);
 	});
 }
+
+#[test]
+fn consume_all_gas_works() {
+	let (code, code_hash) = compile_module("consume_all_gas").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		assert_eq!(
+			builder::bare_instantiate(Code::Upload(code)).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 0 should consume all gas in deploy"
+		);
+		assert_ne!(
+			builder::bare_instantiate(Code::Existing(code_hash))
+				.evm_value(1.into())
+				.build()
+				.gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 1 should not consume all gas in deploy"
+		);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
+			.evm_value(2.into())
+			.build_and_unwrap_contract();
+
+		assert_eq!(
+			builder::bare_call(addr).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 0 should consume all gas"
+		);
+		assert_ne!(
+			builder::bare_call(addr).evm_value(1.into()).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 1 should not consume all gas"
+		);
+	});
+}

@@ -4642,6 +4642,7 @@ dependencies = [
  "sc-service",
  "sc-sysinfo",
  "sc-telemetry",
+ "sc-tracing",
  "sc-transaction-pool",
  "sc-utils",
  "sp-api",
@@ -4651,6 +4652,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-transaction-pool",
+ "sp-trie",
 ]
 
 [[package]]
@@ -11674,6 +11676,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-tracing 16.0.0",
+ "substrate-test-utils",
 ]
 
 [[package]]
