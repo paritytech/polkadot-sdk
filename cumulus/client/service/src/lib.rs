@@ -45,14 +45,16 @@ use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
 use sc_telemetry::{log, TelemetryWorkerHandle};
+use sc_tracing::block::TracingExecuteBlock;
 use sc_utils::mpsc::TracingUnboundedSender;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::Decode;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockIdTo, Header},
 	SaturatedConversion, Saturating,
 };
+use sp_trie::proof_size_extension::ProofSizeExt;
 use std::{
 	sync::Arc,
 	time::{Duration, Instant},
@@ -595,5 +597,38 @@ impl ParachainInformantMetrics {
 			parachain_block_backed_duration: parachain_block_authorship_duration,
 			unincluded_segment_size,
 		})
+	}
+}
+
+/// Implementation of [`TracingExecuteBlock`] for parachains.
+///
+/// Ensures that all the required extensions required by parachain runtimes are registered and
+/// available.
+pub struct ParachainTracingExecuteBlock<Client> {
+	client: Arc<Client>,
+}
+
+impl<Client> ParachainTracingExecuteBlock<Client> {
+	/// Creates a new instance of `self`.
+	pub fn new(client: Arc<Client>) -> Self {
+		Self { client }
+	}
+}
+
+impl<Block, Client> TracingExecuteBlock<Block> for ParachainTracingExecuteBlock<Client>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client::Api: Core<Block>,
+{
+	fn execute_block(&self, _: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
+		let mut runtime_api = self.client.runtime_api();
+		let storage_proof_recorder = ProofRecorder::<Block>::default();
+		runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
+		runtime_api.record_proof_with_recorder(storage_proof_recorder);
+
+		runtime_api
+			.execute_block(*block.header().parent_hash(), block)
+			.map_err(Into::into)
 	}
 }

@@ -98,13 +98,16 @@ pub enum RuntimeCosts {
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
 	SetStorage { old_bytes: u32, new_bytes: u32 },
-	/// Weight of calling `seal_clear_storage` per cleared byte.
+	/// Weight of calling the `clearStorage` function of the `Storage` pre-compile
+	/// per cleared byte.
 	ClearStorage(u32),
-	/// Weight of calling `seal_contains_storage` per byte of the checked item.
+	/// Weight of calling the `containsStorage` function of the `Storage` pre-compile
+	/// per byte of the checked item.
 	ContainsStorage(u32),
 	/// Weight of calling `seal_get_storage` with the specified size in storage.
 	GetStorage(u32),
-	/// Weight of calling `seal_take_storage` for the given size.
+	/// Weight of calling the `takeStorage` function of the `Storage` pre-compile
+	/// for the given size.
 	TakeStorage(u32),
 	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
 	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
@@ -259,10 +262,10 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
-			ClearStorage(len) => cost_storage!(write, seal_clear_storage, len),
-			ContainsStorage(len) => cost_storage!(read, seal_contains_storage, len),
+			ClearStorage(len) => cost_storage!(write, clear_storage, len),
+			ContainsStorage(len) => cost_storage!(read, contains_storage, len),
 			GetStorage(len) => cost_storage!(read, seal_get_storage, len),
-			TakeStorage(len) => cost_storage!(write, seal_take_storage, len),
+			TakeStorage(len) => cost_storage!(write, take_storage, len),
 			SetTransientStorage { new_bytes, old_bytes } => {
 				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes)
 			},

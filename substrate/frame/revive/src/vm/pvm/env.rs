@@ -828,37 +828,28 @@ pub mod env {
 		Ok(result?)
 	}
 
-	/// Returns the amount of ref_time left.
-	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
+	/// Returns the amount of evm gas left.
+	///
+	/// The name is only for historical reasons as renaming functions
+	/// would be a breaking change.
+	///
+	/// See [`pallet_revive_uapi::HostFn::gas_left`].
 	#[stable]
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
-		Ok(self.ext.gas_meter().gas_left().ref_time())
+		Ok(self.ext.gas_left())
 	}
 
-	/// Clear the value at the given key in the contract storage.
-	/// See [`pallet_revive_uapi::HostFn::clear_storage`]
-	#[mutating]
-	fn clear_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.clear_storage(memory, flags, key_ptr, key_len)
-	}
-
-	/// Checks whether there is a value stored under the given key.
-	/// See [`pallet_revive_uapi::HostFn::contains_storage`]
-	fn contains_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.contains_storage(memory, flags, key_ptr, key_len)
+	/// Reverts the execution without data and cedes all remaining gas.
+	///
+	/// See [`pallet_revive_uapi::HostFn::consume_all_gas`].
+	#[stable]
+	fn consume_all_gas(&mut self, memory: &mut M) -> Result<(), TrapReason> {
+		self.ext.gas_meter_mut().consume_all();
+		Err(TrapReason::Return(ReturnData {
+			flags: ReturnFlags::REVERT.bits(),
+			data: Default::default(),
+		}))
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
@@ -922,21 +913,6 @@ pub mod env {
 		} else {
 			Ok(ReturnErrorCode::Sr25519VerifyFailed)
 		}
-	}
-
-	/// Retrieve and remove the value under the given key from storage.
-	/// See [`pallet_revive_uapi::HostFn::take_storage`]
-	#[mutating]
-	fn take_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
 	}
 
 	/// Remove the calling account and transfer remaining **free** balance.
