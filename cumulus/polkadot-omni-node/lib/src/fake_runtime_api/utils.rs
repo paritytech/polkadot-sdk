@@ -124,7 +124,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl sp_session::SessionKeys<$block> for $runtime {
-				fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+			        fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
 					unimplemented!()
 				}
 
