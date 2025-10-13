@@ -708,6 +708,7 @@ pub trait Storage {
 		);
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
 			if maybe_cursor_out.len() >= cursor_out_len {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
@@ -989,6 +990,7 @@ pub trait DefaultChildStorage {
 		);
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
 			if maybe_cursor_out.len() >= cursor_out_len {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
@@ -1061,6 +1063,7 @@ pub trait DefaultChildStorage {
 		);
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
 			if maybe_cursor_out.len() >= cursor_out_len {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
@@ -1487,6 +1490,26 @@ pub trait Misc {
 				None
 			},
 		}
+	}
+
+	/// Get the last storage cursor stored by `storage::clear_prefix`,
+	/// `default_child_storage::clear_prefix` and `default_child_storage::kill_prefix`.
+	///
+	/// Returns the length of the cursor or `None` if no cursor is stored.
+	#[version(1, register_only)]
+	fn last_cursor(
+		&mut self,
+		out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let cursor = self.take_last_cursor()?;
+
+		if out.len() >= cursor.len() {
+			out.copy_from_slice(&cursor[..]);
+		} else {
+			self.store_last_cursor(&cursor[..]);
+		}
+
+		Some(cursor.len() as u32)
 	}
 }
 

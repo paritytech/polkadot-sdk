@@ -248,6 +248,16 @@ pub trait Externalities: ExtensionStore {
 		unimplemented!("storage_renew_transaction_index");
 	}
 
+	/// Store the last cursor of a storage operation.
+	fn store_last_cursor(&mut self, _cursor: &[u8]) {
+		unimplemented!("store_last_cursor");
+	}
+
+	/// Take the last cursor of a storage operation.
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		unimplemented!("take_last_cursor");
+	}
+
 	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	/// Benchmarking related functionality and shouldn't be used anywhere else!
 	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
