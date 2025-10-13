@@ -662,11 +662,12 @@ pub mod pallet {
 			use crate::{exec::Key, vm::ContractBlob};
 			use frame_support::traits::fungible::Mutate;
 
-			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
-				let _ = T::Currency::mint_into(
-					&Pallet::<T>::account_id(),
-					T::Currency::minimum_balance(),
-				);
+			// Bring up the pallet account and the default account.
+			for account_id in
+				[Pallet::<T>::account_id(), T::AddressMapper::to_account_id(&H160::default())]
+			{
+				let _ = T::Currency::mint_into(&account_id, T::Currency::minimum_balance());
+				<System<T>>::inc_account_nonce(account_id); // nonce should starts at 1
 			}
 
 			for id in &self.mapped_accounts {
