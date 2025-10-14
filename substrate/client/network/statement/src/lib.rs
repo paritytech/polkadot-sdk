@@ -445,7 +445,11 @@ where
 
 					if let Some(peers) = self.pending_statements_peers.get(&hash) {
 						if peers.contains(&who) {
-							// Already received this from the same peer.
+							log::trace!(
+								target: LOG_TARGET,
+								"Already received the statement from the same peer {}.",
+								who
+							);
 							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
 						}
 					}
