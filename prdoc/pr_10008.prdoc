@@ -2,7 +2,9 @@ title: Add instant seal to omni-node
 doc:
 - audience: Runtime Dev
   description: |-
-    when `--dev-block-time 0` is passed omni-node will run instant seal instead of manual seal.
+    Adds a new `--instant-seal` CLI flag to enable instant seal mode in omni-node. When this flag
+    is passed, blocks are produced immediately upon receiving transactions, rather than at fixed
+    intervals. This flag cannot be used together with `--dev-block-time`.
 
     fixes https://github.com/paritytech/polkadot-sdk/issues/9996
 crates:

@@ -22,7 +22,7 @@ use crate::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 			RuntimeResolver,
 		},
-		spec::DynNodeSpec,
+		spec::{DevSealMode, DynNodeSpec},
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
@@ -303,16 +303,22 @@ where
 				let node_spec =
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 
+				if cli.instant_seal {
+					return node_spec
+						.start_dev_seal_node(config, DevSealMode::InstantSeal)
+						.map_err(Into::into);
+				}
+
 				if cli.run.base.is_dev()? {
 					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
 					return node_spec
-						.start_manual_seal_node(config, dev_block_time)
+						.start_dev_seal_node(config, DevSealMode::ManualSeal(dev_block_time))
 						.map_err(Into::into);
 				}
 
 				if let Some(dev_block_time) = cli.dev_block_time {
 					return node_spec
-						.start_manual_seal_node(config, dev_block_time)
+						.start_dev_seal_node(config, DevSealMode::ManualSeal(dev_block_time))
 						.map_err(Into::into);
 				}
 

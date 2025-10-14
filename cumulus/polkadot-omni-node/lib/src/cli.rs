@@ -161,13 +161,24 @@ pub struct Cli<Config: CliConfig> {
 	/// its own, running the wasm blob and artificially producing a block each `dev_block_time` ms,
 	/// as if it was part of a parachain.
 	///
-	/// When `--dev-block-time 0` is passed, omni-node will run instant seal instead of manual
-	/// seal.
-	///
 	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
 	/// provided.
-	#[arg(long)]
+	///
+	/// Cannot be used together with `--instant-seal`.
+	#[arg(long, conflicts_with = "instant_seal")]
 	pub dev_block_time: Option<u64>,
+
+	/// Start a dev node with instant seal.
+	///
+	/// This is a dev option that enables instant sealing, meaning blocks are produced
+	/// immediately when transactions are received, rather than at fixed intervals.
+	/// Using this option won't result in starting or connecting to a parachain network.
+	/// The resulting node will work on its own, running the wasm blob and producing blocks
+	/// instantly upon receiving transactions.
+	///
+	/// Cannot be used together with `--dev-block-time`.
+	#[arg(long, conflicts_with = "dev_block_time")]
+	pub instant_seal: bool,
 
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///

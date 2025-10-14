@@ -57,6 +57,16 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
+/// Mode for development sealing (non-consensus block production).
+#[derive(Debug, Clone, Copy)]
+pub enum DevSealMode {
+	/// Instant seal mode - produces blocks immediately upon receiving transactions.
+	InstantSeal,
+	/// Manual seal mode - produces blocks at fixed time intervals.
+	/// The u64 parameter represents the block time in milliseconds.
+	ManualSeal(u64),
+}
+
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
 	RuntimeApi,
@@ -300,11 +310,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	fn start_manual_seal_node(
+	fn start_dev_seal_node(
 		_config: Configuration,
-		_block_time: u64,
+		_mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
-		Err(sc_service::Error::Other("Manual seal not supported for this node type".into()))
+		Err(sc_service::Error::Other("Dev seal not supported for this node type".into()))
 	}
 
 	/// Start a node with the given parachain spec.
@@ -557,11 +567,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
-	/// Start node with manual-seal consensus.
-	fn start_manual_seal_node(
+	/// Start node with dev seal consensus.
+	fn start_dev_seal_node(
 		self: Box<Self>,
 		config: Configuration,
-		block_time: u64,
+		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager>;
 
 	/// Start the node.
@@ -579,12 +589,12 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
-	fn start_manual_seal_node(
+	fn start_dev_seal_node(
 		self: Box<Self>,
 		config: Configuration,
-		block_time: u64,
+		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
-		<Self as NodeSpec>::start_manual_seal_node(config, block_time)
+		<Self as NodeSpec>::start_dev_seal_node(config, mode)
 	}
 
 	fn start_node(
