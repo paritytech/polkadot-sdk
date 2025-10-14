@@ -20,8 +20,8 @@ use crate::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
-			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec,
-			InitBlockImport, NodeSpec, StartConsensus,
+			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
+			NodeSpec, StartConsensus,
 		},
 		types::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
