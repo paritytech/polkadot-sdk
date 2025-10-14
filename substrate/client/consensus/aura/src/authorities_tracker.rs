@@ -62,12 +62,12 @@ where
 	/// and update the tracker.
 	pub fn fetch_or_update(
 		&self,
-		header: &B::Header,
+		post_header: &B::Header,
 		compatibility_mode: &CompatibilityMode<NumberFor<B>>,
 	) -> Result<Vec<AuthorityId<P>>, String> {
-		let hash = header.hash();
-		let number = *header.number();
-		let parent_hash = *header.parent_hash();
+		let hash = post_header.hash();
+		let number = *post_header.number();
+		let parent_hash = *post_header.parent_hash();
 
 		// Fetch authorities from cache, if available.
 		let authorities = {
