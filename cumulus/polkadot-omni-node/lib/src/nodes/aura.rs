@@ -277,24 +277,6 @@ where
 			None,
 		);
 
-		let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
-		let mut manual_seal_sink_clone = manual_seal_sink.clone();
-		task_manager
-			.spawn_essential_handle()
-			.spawn("block_authoring", None, async move {
-				loop {
-					futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
-					manual_seal_sink_clone
-						.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
-							create_empty: true,
-							finalize: true,
-							parent_hash: None,
-							sender: None,
-						})
-						.unwrap();
-				}
-			});
-
 		// Note: Changing slot durations are currently not supported
 		let slot_duration = sc_consensus_aura::slot_duration(&*client)
 			.expect("slot_duration is always present; qed.");
@@ -311,23 +293,62 @@ where
 			slot_duration,
 		);
 
-		let params = sc_consensus_manual_seal::ManualSealParams {
-			block_import: client.clone(),
-			env: proposer,
-			client: client.clone(),
-			pool: transaction_pool.clone(),
-			select_chain: LongestChain::new(backend.clone()),
-			commands_stream: Box::pin(manual_seal_stream),
-			consensus_data_provider: Some(Box::new(aura_digest_provider)),
-			create_inherent_data_providers,
-		};
+		if block_time == 0 {
+			// Instant seal mode
+			let params = sc_consensus_manual_seal::InstantSealParams {
+				block_import: client.clone(),
+				env: proposer,
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain: LongestChain::new(backend.clone()),
+				consensus_data_provider: Some(Box::new(aura_digest_provider)),
+				create_inherent_data_providers,
+			};
 
-		let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"manual-seal",
-			None,
-			authorship_future,
-		);
+			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"instant-seal",
+				None,
+				authorship_future,
+			);
+		} else {
+			// Manual seal mode with timer
+			let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
+			let mut manual_seal_sink_clone = manual_seal_sink.clone();
+			task_manager
+				.spawn_essential_handle()
+				.spawn("block_authoring", None, async move {
+					loop {
+						futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
+						manual_seal_sink_clone
+							.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+								create_empty: true,
+								finalize: true,
+								parent_hash: None,
+								sender: None,
+							})
+							.unwrap();
+					}
+				});
+
+			let params = sc_consensus_manual_seal::ManualSealParams {
+				block_import: client.clone(),
+				env: proposer,
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain: LongestChain::new(backend.clone()),
+				commands_stream: Box::pin(manual_seal_stream),
+				consensus_data_provider: Some(Box::new(aura_digest_provider)),
+				create_inherent_data_providers,
+			};
+
+			let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"manual-seal",
+				None,
+				authorship_future,
+			);
+		}
 
 		let rpc_extensions_builder = {
 			let client = client.clone();
