@@ -145,9 +145,8 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 
 			for statement_count in 0..statements_per_task {
 				let mut statement = Statement::new();
-				let topic = |idx: usize| {
-					blake2_256(format!("{idx}{statement_count}{public:?}").as_bytes())
-				};
+				let topic =
+					|idx: usize| blake2_256(format!("{idx}{statement_count}{public:?}").as_bytes());
 				statement.set_topic(0, topic(0));
 				statement.set_topic(1, topic(1));
 				statement.set_topic(2, topic(2));
@@ -626,7 +625,9 @@ impl Participant {
 							let data = statement.data().expect("Must contain request");
 							let req = StatementMessage::decode(&mut &data[..])?;
 
-							if let std::collections::hash_map::Entry::Vacant(e) = self.received_messages.entry((sender_idx, req.message_id)) {
+							if let std::collections::hash_map::Entry::Vacant(e) =
+								self.received_messages.entry((sender_idx, req.message_id))
+							{
 								e.insert(false);
 								self.pending_messages.insert(sender_idx, Some(req.message_id));
 								completed_this_round.push((sender_idx, sender_session_key));
