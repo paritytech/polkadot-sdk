@@ -276,7 +276,7 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
-			r.with_chain("westend-local")
+			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])
