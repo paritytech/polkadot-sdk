@@ -26226,7 +26226,7 @@ dependencies = [
 [[package]]
 name = "trie-db"
 version = "0.30.0"
-source = "git+https://github.com/turuslan/paritytech-trie.git?branch=fix/decode_compact_prefix_db_0_30_0#b7b46a8f878f20598c26a6b65c162f2a04b38948"
+source = "git+https://github.com/turuslan/paritytech-trie.git?branch=fix/decode_compact_prefix_db_0_30_0#1cc5991e6437630e2b4f98c86166cbf36c3f2a73"
 dependencies = [
  "hash-db",
  "log",

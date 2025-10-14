@@ -20,7 +20,7 @@
 //! This uses compact proof from trie crate and extends
 //! it to substrate specific layout and child trie system.
 
-use crate::{CompactProof, HashDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX};
+use crate::{CompactProof, HashDBT, KeySpacedDBMut, TrieConfiguration, TrieHash, EMPTY_PREFIX};
 use alloc::{boxed::Box, vec::Vec};
 use trie_db::{CError, Trie};
 
@@ -66,7 +66,7 @@ where
 	I: IntoIterator<Item = &'a [u8]>,
 {
 	let mut nodes_iter = encoded.into_iter();
-	let (top_root, _nb_used) = trie_db::decode_compact_from_iter_with_prefix::<L, _, _>(db, &mut nodes_iter, &[])?;
+	let (top_root, _nb_used) = trie_db::decode_compact_from_iter::<L, _, _>(db, &mut nodes_iter)?;
 
 	// Only check root if expected root is passed as argument.
 	if let Some(expected_root) = expected_root.filter(|expected| *expected != &top_root) {
@@ -116,7 +116,7 @@ where
 	let mut nodes_iter = nodes_iter.peekable();
 	for (child_root, child_prefix) in child_tries.into_iter() {
 		if previous_extracted_child_trie.is_none() && nodes_iter.peek().is_some() {
-			let (top_root, _) = trie_db::decode_compact_from_iter_with_prefix::<L, _, _>(db, &mut nodes_iter, &child_prefix)?;
+			let (top_root, _) = trie_db::decode_compact_from_iter::<L, _, _>(&mut KeySpacedDBMut::new(db, &child_prefix), &mut nodes_iter)?;
 			previous_extracted_child_trie = Some(top_root);
 		}
 
