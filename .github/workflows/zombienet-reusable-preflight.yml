@@ -23,6 +23,14 @@ on:
       test_pattern:
         required: false
         type: string
+      build_run_id:
+        required: false
+        type: string
+        description: "Build run ID from the build workflow (when called from build workflow)"
+      ref_slug:
+        required: false
+        type: string
+        description: "Source ref slug from the build workflow (when called from build workflow)"
     # Map the workflow outputs to job outputs
     outputs:
       changes_substrate:
@@ -150,14 +158,16 @@ jobs:
   #
   preflight:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || ! contains(github.event.pull_request.labels.*.name, 'T19-skip-zombienet_tests')
+    # Run if: workflow_call (from build) OR workflow_dispatch OR (PR without skip label)
+    if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || ! contains(github.event.pull_request.labels.*.name, 'T19-skip-zombienet_tests')
 
     outputs:
-      changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_templates: ${{ steps.set_changes.outputs.templates_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed }}
+      changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed }}
+      changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed }}
+      changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed }}
+      changes_templates: ${{ steps.set_changes.outputs.templates_any_changed }}
+      changes_workflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
 
       CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
 

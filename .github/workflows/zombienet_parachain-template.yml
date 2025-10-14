@@ -36,6 +36,8 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_parachain-template_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+      build_run_id: ${{ inputs.build_run_id }}
+      ref_slug: ${{ inputs.ref_slug }}
 
 
   zombienet-parachain-template-tests:
@@ -43,7 +45,8 @@ jobs:
     runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 40 # 30 for test + 10 for send logs
     needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
+    # Run if: called from build workflow OR (manual trigger AND relevant changes detected)
+    if: ${{ github.event_name == 'workflow_call' || (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet

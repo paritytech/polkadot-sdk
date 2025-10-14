@@ -45,13 +45,16 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_substrate_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+      build_run_id: ${{ inputs.build_run_id }}
+      ref_slug: ${{ inputs.ref_slug }}
 
   zombienet-substrate-tests:
     name: ${{ matrix.test.job-name }}
     runs-on: ${{ matrix.test.runner-type == 'large' && (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
     timeout-minutes: 70 # 60 for test + 10 for send logs
     needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) }}
+    # Run if: called from build workflow OR (manual trigger AND relevant changes detected)
+    if: ${{ github.event_name == 'workflow_call' || (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) }}
     container:
       image: ${{ matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet
