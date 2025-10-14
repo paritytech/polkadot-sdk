@@ -51,6 +51,9 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true }
 
+# For building docs
+docify = { workspace = true }
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 futures = { workspace = true }
@@ -128,5 +131,3 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental-ump-signals = []

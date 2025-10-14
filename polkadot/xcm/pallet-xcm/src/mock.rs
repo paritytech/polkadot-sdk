@@ -337,6 +337,7 @@ impl pallet_assets::Config for Test {
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
+	type Balance = Balance;
 	type Currency = Balances;
 	type Precompiles = (XcmPrecompile<Self>,);
 	type Time = Timestamp;

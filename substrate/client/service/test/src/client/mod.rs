@@ -1156,11 +1156,7 @@ fn importing_diverged_finalized_block_should_trigger_reorg() {
 
 	assert_eq!(client.chain_info().finalized_hash, b1.hash());
 
-	finality_notification_check(
-		&mut finality_notifications,
-		&[b1.hash()],
-		&[a1.hash(), a2.hash()],
-	);
+	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a1.hash(), a2.hash()]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 
@@ -1234,11 +1230,7 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 	// knowing about B2)
 	assert_eq!(client.chain_info().best_hash, b1.hash());
 
-	finality_notification_check(
-		&mut finality_notifications,
-		&[b1.hash()],
-		&[a1.hash(), a2.hash()],
-	);
+	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a1.hash(), a2.hash()]);
 
 	// `SelectChain` should report B2 as best block though
 	assert_eq!(block_on(select_chain.best_chain()).unwrap().hash(), b2.hash());
@@ -1388,11 +1380,7 @@ fn finality_notifications_content() {
 	// Import and finalize D4
 	block_on(client.import_as_final(BlockOrigin::Own, d4.clone())).unwrap();
 
-	finality_notification_check(
-		&mut finality_notifications,
-		&[d3.hash(), d4.hash()],
-		&[a3.hash()],
-	);
+	finality_notification_check(&mut finality_notifications, &[d3.hash(), d4.hash()], &[a3.hash()]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 

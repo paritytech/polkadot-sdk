@@ -14,22 +14,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides functionality to dynamically calculate the max block weight for a parachain.
+//! Provides functionality to dynamically calculate the block weight for a parachain.
 //!
 //! With block bundling, parachains are relative free to choose whatever block interval they want.
 //! The block interval is the time between individual blocks. The available resources per block (max
 //! block weight) depend on the number of cores allocated to the parachain on the relay chain. Each
 //! relay chain cores provides an execution time of `2s` and a storage size of `10MiB`. Depending on
-//! the desired number of blocks to produce, the resources need to be divided for
+//! the desired number of blocks to produce, the resources need to be divided between the individual
+//! blocks. With small blocks that do not have that many resources available, a problem may arises
+//! for bigger transactions not fitting into blocks anymore, e.g. a runtime upgrade. For these cases
+//! the weight of a block can be increased to use the weight of a full core. Only the first block of
+//! a core is allowed to increase its weight to use the full core weight. In the case of the first
+//! block using the full core weight, there will be no further block build on the same core. This is
+//! signaled to the node by setting the [`CumulusDigestItem::UseFullCore`] digest item.`
 //!
+//! The [`MaxParachainBlockWeight`] provides a [`Get`] implementation that will return the max block
+//! weight as determined by the [`DynamicMaxBlockWeight`] transaction extension.
 //!
-//! This means they will run under normal conditions with blocks that have a small block weight.
-//! These small blocks may prevent certain transactions to be applied, e.g. a runtime upgrade. But
-//! it is not only about transactions, also certain block logic may requires more weight from time
-//! to time. To serve these needs [`MaxParachainBlockWeight`], [`DynamicMaxBlockWeight`] and
-//! [`DynamicMaxBlockWeightHooks`] exist.
+//! [`DynamicMaxBlockWeightHooks`] needs to be registered as a pre-inherent hook. It is used to
+//! handle the weight consumption of `on_initialize` and change the block weight mode based on the
+//! consumed weight.
 //!
-//! - [`MaxParachainBlockWeight`]:
+//! # Setup
+//!
+//! Setup the transaction extension:
+#![doc = docify::embed!("src/max_parachain_block_weight/mock.rs", tx_extension_setup)]
+//!
+//! Setting up `MaximumBlockWeight`:
+#![doc = docify::embed!("src/max_parachain_block_weight/mock.rs", max_block_weight_setup)]
+//!
+//! Registering of the `PreInherents` hook:
+#![doc = docify::embed!("src/max_parachain_block_weight/mock.rs", pre_inherents_setup)]
 
 use crate::Config;
 use codec::{Decode, Encode};
@@ -84,54 +99,29 @@ pub enum BlockWeightMode {
 /// The max block weight is partly dynamic and controlled via the [`DynamicMaxBlockWeight`]
 /// transaction extension. The transaction extension is communicating the desired max block weight
 /// using the [`BlockWeightMode`].
-pub struct MaxParachainBlockWeight<T>(PhantomData<T>);
+pub struct MaxParachainBlockWeight<Config, TargetBlockRate>(PhantomData<(Config, TargetBlockRate)>);
 
-impl<T: Config> MaxParachainBlockWeight<T> {
+impl<Config: crate::Config, TargetBlockRate: Get<u32>>
+	MaxParachainBlockWeight<Config, TargetBlockRate>
+{
 	// Maximum ref time per core
 	const MAX_REF_TIME_PER_CORE_NS: u64 = 2 * WEIGHT_REF_TIME_PER_SECOND;
 	const FULL_CORE_WEIGHT: Weight =
 		Weight::from_parts(Self::MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
 
-	/// Calculate the maximum block weight based on target blocks and available cores.
-	pub fn get(target_blocks: u32) -> Weight {
-		let digest = frame_system::Pallet::<T>::digest();
-		let target_block_weight = Self::target_block_weight_with_digest(target_blocks, &digest);
-
-		let maybe_full_core_weight = if is_first_block_in_core_with_digest(&digest) {
-			Self::FULL_CORE_WEIGHT
-		} else {
-			target_block_weight
-		};
-
-		// If we are in `on_initialize` or at applying the inherents, we allow the maximum block
-		// weight as allowed by the current context.
-		if !frame_system::Pallet::<T>::inherents_applied() {
-			return maybe_full_core_weight
-		}
-
-		match crate::BlockWeightMode::<T>::get() {
-			// We allow the full core.
-			Some(BlockWeightMode::FullCore | BlockWeightMode::PotentialFullCore { .. }) =>
-				Self::FULL_CORE_WEIGHT,
-			// Let's calculate below how much weight we can use.
-			Some(BlockWeightMode::FractionOfCore { .. }) => target_block_weight,
-			// Either the runtime is not using the `DynamicMaxBlockWeight` extension or there is a
-			// bug. The value should be set before applying the first extrinsic.
-			None => maybe_full_core_weight,
-		}
-	}
-
 	/// Returns the target block weight for one block.
-	fn target_block_weight(target_blocks: u32) -> Weight {
-		let digest = frame_system::Pallet::<T>::digest();
-		Self::target_block_weight_with_digest(target_blocks, &digest)
+	fn target_block_weight() -> Weight {
+		let digest = frame_system::Pallet::<Config>::digest();
+		Self::target_block_weight_with_digest(&digest)
 	}
 
 	/// Same as [`Self::target_block_weight`], but takes the `digests` directly.
-	fn target_block_weight_with_digest(target_blocks: u32, digest: &Digest) -> Weight {
+	fn target_block_weight_with_digest(digest: &Digest) -> Weight {
 		let Some(core_info) = CumulusDigestItem::find_core_info(&digest) else {
 			return Self::FULL_CORE_WEIGHT;
 		};
+
+		let target_blocks = TargetBlockRate::get();
 
 		let number_of_cores = core_info.number_of_cores.0 as u32;
 
@@ -153,6 +143,38 @@ impl<T: Config> MaxParachainBlockWeight<T> {
 	}
 }
 
+impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
+	for MaxParachainBlockWeight<Config, TargetBlockRate>
+{
+	fn get() -> Weight {
+		let digest = frame_system::Pallet::<Config>::digest();
+		let target_block_weight = Self::target_block_weight_with_digest(&digest);
+
+		let maybe_full_core_weight = if is_first_block_in_core_with_digest(&digest) {
+			Self::FULL_CORE_WEIGHT
+		} else {
+			target_block_weight
+		};
+
+		// If we are in `on_initialize` or at applying the inherents, we allow the maximum block
+		// weight as allowed by the current context.
+		if !frame_system::Pallet::<Config>::inherents_applied() {
+			return maybe_full_core_weight
+		}
+
+		match crate::BlockWeightMode::<Config>::get() {
+			// We allow the full core.
+			Some(BlockWeightMode::FullCore | BlockWeightMode::PotentialFullCore { .. }) =>
+				Self::FULL_CORE_WEIGHT,
+			// Let's calculate below how much weight we can use.
+			Some(BlockWeightMode::FractionOfCore { .. }) => target_block_weight,
+			// Either the runtime is not using the `DynamicMaxBlockWeight` extension or there is a
+			// bug. The value should be set before applying the first extrinsic.
+			None => maybe_full_core_weight,
+		}
+	}
+}
+
 /// Is this the first block in a core?
 fn is_first_block_in_core<T: Config>() -> bool {
 	let digest = frame_system::Pallet::<T>::digest();
@@ -166,8 +188,7 @@ fn is_first_block_in_core_with_digest(digest: &Digest) -> bool {
 
 /// Is the `BlockWeight` already above the target block weight?
 fn block_weight_over_target_block_weight<T: Config, TargetBlockRate: Get<u32>>() -> bool {
-	let target_block_weight =
-		MaxParachainBlockWeight::<T>::target_block_weight(TargetBlockRate::get());
+	let target_block_weight = MaxParachainBlockWeight::<T, TargetBlockRate>::target_block_weight();
 
 	frame_system::Pallet::<T>::remaining_block_weight()
 		.consumed()

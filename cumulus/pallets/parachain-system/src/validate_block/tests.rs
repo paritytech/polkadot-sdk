@@ -561,7 +561,6 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 }
 
 #[test]
-#[cfg(feature = "experimental-ump-signals")]
 fn validate_block_handles_ump_signal() {
 	use cumulus_primitives_core::{
 		relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR},
@@ -588,7 +587,7 @@ fn validate_block_handles_ump_signal() {
 
 	let block = seal_parachain_block_data(block, &client);
 	let upward_messages = call_validate_block_validation_result(
-		test_runtime::elastic_scaling::WASM_BINARY
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,

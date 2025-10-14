@@ -242,8 +242,9 @@ pub struct BundleInfo {
 	pub index: u8,
 	/// Is this the last block in the bundle from the point of view of the node?
 	///
-	/// It is possible that at `index` zero the runtime outputs the [`CumulusDigestItem::Special`]
-	/// that informs the node to use an entire for one block only.
+	/// It is possible that at `index` zero the runtime outputs the
+	/// [`CumulusDigestItem::UseFullCore`] that informs the node to use an entire for one block
+	/// only.
 	pub maybe_last: bool,
 }
 

@@ -1,0 +1,7 @@
+title: 'CheckWeight: Take transaction length into account during validation'
+doc:
+- audience: Runtime Dev
+  description: The `CheckWeight` extension now takes the length into account when checking whether a transaction fits into a block at validation time.
+crates:
+- name: frame-system
+  bump: patch

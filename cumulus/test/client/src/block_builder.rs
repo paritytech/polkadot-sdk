@@ -49,7 +49,7 @@ pub trait InitBlockBuilder {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -60,7 +60,7 @@ pub trait InitBlockBuilder {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -73,7 +73,7 @@ pub trait InitBlockBuilder {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 
 	/// Init a specific block builder using the given pre-digests.
 	///
@@ -84,7 +84,7 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		pre_digests: Vec<DigestItem>,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 
 	/// Init a specific block builder that works for the test runtime.
 	///
@@ -97,7 +97,7 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> BlockBuilderAndSupportData;
+	) -> BlockBuilderAndSupportData<'_>;
 }
 
 fn init_block_builder(
@@ -201,7 +201,7 @@ impl InitBlockBuilder for Client {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		let chain_info = self.chain_info();
 		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -211,7 +211,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		pre_digests: Vec<DigestItem>,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		let chain_info = self.chain_info();
 		init_block_builder(
 			self,
@@ -229,7 +229,7 @@ impl InitBlockBuilder for Client {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		init_block_builder(self, at, validation_data, relay_sproof_builder, None, None, None)
 	}
 
@@ -240,7 +240,7 @@ impl InitBlockBuilder for Client {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		init_block_builder(
 			self,
 			at,
@@ -258,7 +258,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> BlockBuilderAndSupportData {
+	) -> BlockBuilderAndSupportData<'_> {
 		init_block_builder(
 			self,
 			at,

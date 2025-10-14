@@ -107,10 +107,6 @@ elastic-scaling-500ms = []
 elastic-scaling-multi-block-slot = []
 # A runtime that uses block-bundling.
 block-bundling = []
-# A runtime with 6s slot duration which sends RFC-103 compatible UMP signals.
-experimental-ump-signals = [
-	"cumulus-pallet-parachain-system/experimental-ump-signals",
-]
 # A runtime with 12s slot duration which only authors one block per slot.
 sync-backing = []
 # A runtime with 6s slot duration which only authors one block per slot.
