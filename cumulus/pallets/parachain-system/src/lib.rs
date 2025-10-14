@@ -62,8 +62,8 @@ use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
+pub mod block_weight;
 pub mod consensus_hook;
-pub mod max_parachain_block_weight;
 pub mod migration;
 mod mock;
 pub mod relay_state_snapshot;
