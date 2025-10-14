@@ -372,11 +372,7 @@ macro_rules! assert_noop {
 	) => {
 		let h = $crate::__private::storage_root();
 		$crate::assert_err!($x, $y);
-		assert_eq!(
-			h,
-			$crate::__private::storage_root(),
-			"storage has been mutated"
-		);
+		assert_eq!(h, $crate::__private::storage_root(), "storage has been mutated");
 	};
 }
 

@@ -753,7 +753,7 @@ pub trait Storage {
 		maybe_cursor_in: Option<&[u8]>,
 	) -> MultiRemovalResults {
 		let mut result = MultiRemovalResults::default();
-		let mut maybe_cursor_out = vec![0u8; 4096];
+		let mut maybe_cursor_out = vec![0u8; 1024];
 		let cursor_len = clear_prefix__wrapped(
 			maybe_prefix.as_ref(),
 			maybe_limit,
@@ -763,9 +763,16 @@ pub trait Storage {
 			&mut result.unique,
 			&mut result.loops,
 		) as usize;
-		maybe_cursor_out.truncate(cursor_len);
-		result.maybe_cursor = if cursor_len > 0 { Some(maybe_cursor_out) } else { None };
-
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				debug_assert!(cached_cursor_len.is_some());
+				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
 		result
 	}
 
@@ -1111,7 +1118,7 @@ pub trait DefaultChildStorage {
 		maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
 		let mut result = MultiRemovalResults::default();
-		let mut maybe_cursor_out = vec![0u8; 4096];
+		let mut maybe_cursor_out = vec![0u8; 1024];
 		let cursor_len = storage_kill__wrapped(
 			storage_key.as_ref(),
 			maybe_limit,
@@ -1120,9 +1127,17 @@ pub trait DefaultChildStorage {
 			&mut result.backend,
 			&mut result.unique,
 			&mut result.loops,
-		);
-		maybe_cursor_out.truncate(cursor_len as usize);
-		result.maybe_cursor = if cursor_len > 0 { Some(maybe_cursor_out) } else { None };
+		) as usize;
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				debug_assert!(cached_cursor_len.is_some());
+				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
 
 		result
 	}
@@ -1169,6 +1184,7 @@ pub trait DefaultChildStorage {
 	///
 	/// See `Storage` module `clear_prefix` documentation.
 	#[version(3)]
+	#[wrapped]
 	fn clear_prefix(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1198,6 +1214,40 @@ pub trait DefaultChildStorage {
 		*unique = removal_results.unique;
 		*loops = removal_results.loops;
 		cursor_out_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
+	/// function.
+	#[wrapper]
+	fn clear_prefix(
+		storage_key: impl AsRef<[u8]>,
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 1024];
+		let cursor_len = clear_prefix__wrapped(
+			storage_key.as_ref(),
+			maybe_prefix.as_ref(),
+			maybe_limit,
+			maybe_cursor_in,
+			&mut maybe_cursor_out,
+			&mut result.backend,
+			&mut result.unique,
+			&mut result.loops,
+		) as usize;
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				debug_assert!(cached_cursor_len.is_some());
+				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
+		result
 	}
 
 	/// Default child root calculation.
