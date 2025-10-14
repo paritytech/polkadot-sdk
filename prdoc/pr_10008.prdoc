@@ -1,0 +1,10 @@
+title: Add instant seal to omni-node
+doc:
+- audience: Runtime Dev
+  description: |-
+    when `--dev-block-time 0` is passed omni-node will run instant seal instead of manual seal.
+
+    fixes https://github.com/paritytech/polkadot-sdk/issues/9996
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
