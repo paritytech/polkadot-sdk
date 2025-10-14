@@ -17,7 +17,7 @@
 use super::{
 	block_weight_over_target_block_weight, is_first_block_in_core, BlockWeightMode, LOG_TARGET,
 };
-use crate::max_parachain_block_weight::MaxParachainBlockWeight;
+use crate::block_weight::MaxParachainBlockWeight;
 use cumulus_primitives_core::CumulusDigestItem;
 use frame_support::traits::PreInherents;
 use sp_core::Get;

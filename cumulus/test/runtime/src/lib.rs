@@ -231,7 +231,7 @@ parameter_types! {
 	pub const BlockHashCount: BlockNumber = 4096;
 	pub const Version: RuntimeVersion = VERSION;
 	/// We allow for 1 second of compute with a 6 second average block time.
-	pub MaximumBlockWeight: Weight = cumulus_pallet_parachain_system::max_parachain_block_weight::MaxParachainBlockWeight::<Runtime>::get(NumberOfBlocksPerRelaySlot::get());
+	pub MaximumBlockWeight: Weight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight::<Runtime>::get(NumberOfBlocksPerRelaySlot::get());
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -275,11 +275,10 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type PreInherents =
-		cumulus_pallet_parachain_system::max_parachain_block_weight::DynamicMaxBlockWeightHooks<
-			Runtime,
-			NumberOfBlocksPerRelaySlot,
-		>;
+	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
+		Runtime,
+		NumberOfBlocksPerRelaySlot,
+	>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
 
@@ -453,25 +452,24 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension =
-	cumulus_pallet_parachain_system::max_parachain_block_weight::DynamicMaxBlockWeight<
+pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeight<
+	Runtime,
+	cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		Runtime,
-		cumulus_pallet_weight_reclaim::StorageWeightReclaim<
-			Runtime,
-			(
-				frame_system::AuthorizeCall<Runtime>,
-				frame_system::CheckNonZeroSender<Runtime>,
-				frame_system::CheckSpecVersion<Runtime>,
-				frame_system::CheckGenesis<Runtime>,
-				frame_system::CheckEra<Runtime>,
-				frame_system::CheckNonce<Runtime>,
-				frame_system::CheckWeight<Runtime>,
-				pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-				test_pallet::TestTransactionExtension<Runtime>,
-			),
-		>,
-		NumberOfBlocksPerRelaySlot,
-	>;
+		(
+			frame_system::AuthorizeCall<Runtime>,
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+			test_pallet::TestTransactionExtension<Runtime>,
+		),
+	>,
+	NumberOfBlocksPerRelaySlot,
+>;
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =

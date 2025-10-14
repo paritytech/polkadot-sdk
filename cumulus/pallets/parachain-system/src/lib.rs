@@ -763,7 +763,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type BlockWeightMode<T: Config> =
-		StorageValue<_, max_parachain_block_weight::BlockWeightMode, OptionQuery>;
+		StorageValue<_, block_weight::BlockWeightMode, OptionQuery>;
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
 	/// ancestors of the currently executing block which have not been included in the observed
