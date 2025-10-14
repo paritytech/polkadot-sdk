@@ -47,7 +47,7 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::fungible::InspectHold,
+	traits::fungible::{InspectHold, UnbalancedHold},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -1206,10 +1206,9 @@ mod benchmarks {
 	}
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
-		use frame_support::traits::{fungible::UnbalancedHold, Hooks};
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
-		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
+		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
 
 		assert!(PristineCode::<T>::get(code_hash).is_some());
