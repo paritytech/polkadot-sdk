@@ -18,6 +18,7 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
+	Pallet as Contracts,
 	address::AddressMapper, storage::ContractInfo, AccountIdOf, AccountInfo, AccountInfoOf,
 	BalanceOf, CodeInfo, Config, Error, ExecConfig, ExecOrigin as Origin, HoldReason,
 	ImmutableDataOf, Inspect, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
@@ -30,6 +31,7 @@ use frame_support::{
 		tokens::{Fortitude::Polite, Preservation},
 		Get,
 	},
+	storage::{with_transaction, TransactionOutcome},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
@@ -539,32 +541,53 @@ fn terminate<T: Config>(
 	beneficiary: &T::AccountId,
 	delete_code: &bool,
 ) -> Result<(), DispatchError> {
-	if *delete_code {
-		// Clean up on-chain storage
-		let contract_address = T::AddressMapper::to_address(contract);
-		let contract_info = AccountInfo::<T>::load_contract(&contract_address)
-			.ok_or(Error::<T>::ContractNotFound)?;
-		contract_info.queue_trie_for_deletion();
-		AccountInfoOf::<T>::remove(contract_address);
-		ImmutableDataOf::<T>::remove(contract_address);
-		let _removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-		System::<T>::dec_consumers(&contract);
 
-		// Whatever is left in the contract is sent to the termination beneficiary.
-		let balance = T::Currency::total_balance(&contract);
-		if !balance.is_zero() {
-			T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
+	fn terminate_inner<T: Config>(
+		contract: &T::AccountId,
+		beneficiary: &T::AccountId,
+		delete_code: &bool,
+	) -> Result<(), DispatchError> {
+		use crate::CodeRemoved;
+		use frame_support::traits::fungible::InspectHold;
+		if *delete_code {
+			// Clean up on-chain storage
+			let contract_address = T::AddressMapper::to_address(contract);
+			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
+				.ok_or(Error::<T>::ContractNotFound)?;
+			contract_info.queue_trie_for_deletion();
+			AccountInfoOf::<T>::remove(contract_address);
+			ImmutableDataOf::<T>::remove(contract_address);
+
+			// ensure code is removed
+			<CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+			
+			System::<T>::dec_consumers(&contract);
+
+			// Whatever is left in the contract is sent to the termination beneficiary.
+			let balance = T::Currency::total_balance(&contract);
+			if !balance.is_zero() {
+				T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
+			}
+		} else {
+			// Whatever is left in the contract is sent to the termination beneficiary.
+			let balance = T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite);
+			if !balance.is_zero() {
+				T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
+			}
 		}
-	} else {
-		// Whatever is left in the contract is sent to the termination beneficiary.
-		let balance = T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite);
-		if !balance.is_zero() {
-			T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
-		}
+
+		Ok(())
 	}
 
-	Ok(())
+	with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+		match terminate_inner::<T>(contract, beneficiary, delete_code) {
+			Ok(_) => TransactionOutcome::Commit(Ok(())),
+			Err(e) => TransactionOutcome::Rollback(Err(e)),
+		}
+	})
 }
+
+
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn terminate_logic_for_benchmark<T: Config>(

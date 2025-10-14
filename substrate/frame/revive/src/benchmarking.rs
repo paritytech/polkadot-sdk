@@ -1206,24 +1206,44 @@ mod benchmarks {
 	}
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
+		use frame_support::traits::fungible::UnbalancedHold;
+		use frame_support::traits::Hooks;
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
-		build_runtime!(_runtime, instance, _memory: [beneficiary.encode(),]);
+		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
 		let code_hash = instance.info()?.code_hash;
 
-		// Increment the refcount of the code hash so that it does not get deleted
-		<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
+		assert!(PristineCode::<T>::get(code_hash).is_some());
 
+		// Set storage deposit to zero so terminate_logic can proceed.
+		T::Currency::set_balance_on_hold(
+			&HoldReason::StorageDepositReserve.into(), 
+			&instance.account_id, 
+			0u32.into()
+		).unwrap();
+
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
+
+		let result;
 		#[block]
 		{
-			crate::storage::meter::terminate_logic_for_benchmark::<T>(
+			result = crate::storage::meter::terminate_logic_for_benchmark::<T>(
 				&instance.account_id,
 				&beneficiary,
-			)
-			.unwrap();
+			);
 		}
+		result.unwrap();
 
+		// Check that the contract is removed
 		assert!(PristineCode::<T>::get(code_hash).is_none());
+
+		// Check that the balance has been transferred away
+		let balance = <T as Config>::Currency::balance(&instance.account_id);
+		assert_eq!(balance, 0u32.into());
+
+		// Check that the beneficiary received the balance
+		let balance = <T as Config>::Currency::balance(&beneficiary);
+		assert_eq!(balance,  Pallet::<T>::min_balance() * 2u32.into());
 
 		Ok(())
 	}
