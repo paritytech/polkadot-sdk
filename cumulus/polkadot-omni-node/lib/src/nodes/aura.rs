@@ -312,7 +312,7 @@ where
 				authorship_future,
 			);
 		} else {
-			// Manual seal mode with timer
+			// Manual seal mode
 			let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
 			let mut manual_seal_sink_clone = manual_seal_sink.clone();
 			task_manager
