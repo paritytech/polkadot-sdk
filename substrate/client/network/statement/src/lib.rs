@@ -59,6 +59,7 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 };
+use tokio::time::timeout;
 
 pub mod config;
 
@@ -87,6 +88,8 @@ mod rep {
 }
 
 const LOG_TARGET: &str = "statement-gossip";
+/// Maximim time we wait for sending a notification to a peer.
+const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
@@ -556,12 +559,14 @@ where
 
 					// If chunk fits, send it
 					if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-						if let Err(e) = self
-							.notification_service
-							.send_async_notification(who, chunk.encode())
-							.await
+						if let Err(e) = timeout(
+							SEND_TIMEOUT,
+							self.notification_service.send_async_notification(who, chunk.encode()),
+						)
+						.await
 						{
-							log::debug!(target: LOG_TARGET, "Failed to send notification to {}, peer disconnected: {:?}", who, e);
+							log::debug!(target: LOG_TARGET, "Failed to send notification to {}, peer disconnected, skipping further batches: {:?}", who, e);
+							offset = to_send.len();
 							break;
 						}
 						offset = current_end;
