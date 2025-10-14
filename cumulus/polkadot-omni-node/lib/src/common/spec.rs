@@ -60,9 +60,9 @@ use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 /// Mode for development sealing (non-consensus block production).
 #[derive(Debug, Clone, Copy)]
 pub enum DevSealMode {
-	/// Instant seal mode - produces blocks immediately upon receiving transactions.
+	/// Produces blocks immediately upon receiving transactions.
 	InstantSeal,
-	/// Manual seal mode - produces blocks at fixed time intervals.
+	/// Produces blocks at fixed time intervals.
 	/// The u64 parameter represents the block time in milliseconds.
 	ManualSeal(u64),
 }
