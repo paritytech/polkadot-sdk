@@ -158,7 +158,7 @@ where
 			let slot_now = slot_now(slot_duration);
 			let res = aura_internal::check_header_slot_and_seal::<Block, P>(
 				slot_now,
-				block_params.header,
+				block_params.post_header(),
 				&authorities,
 			);
 

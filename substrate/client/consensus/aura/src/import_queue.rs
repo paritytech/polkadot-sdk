@@ -161,15 +161,16 @@ where
 		}
 
 		let hash = block.header.hash();
+		let post_hash = block.post_hash();
 		let number = *block.header.number();
 		let parent_hash = *block.header.parent_hash();
 		let post_header = block.post_header();
 
 		let authorities = self
 			.authorities_tracker
-			.fetch_or_update(&block.header, &self.compatibility_mode)
+			.fetch_or_update(&post_header, &self.compatibility_mode)
 			.map_err(|e| {
-				format!("Could not fetch authorities for block {hash:?} at number {number}: {e}")
+				format!("Could not fetch authorities for block {post_hash:?} at number {number}: {e}")
 			})?;
 
 		let create_inherent_data_providers = self
@@ -191,8 +192,8 @@ where
 		let checked_header = check_header::<C, B, P>(
 			&self.client,
 			slot_now + 1,
-			block.header,
-			hash,
+			post_header,
+			post_hash,
 			&authorities[..],
 			self.check_for_equivocation,
 		)
@@ -230,7 +231,7 @@ where
 					block.body = Some(inner_body);
 				}
 
-				self.authorities_tracker.import(&post_header).map_err(|e| {
+				self.authorities_tracker.import(&block.post_header()).map_err(|e| {
 					format!(
 						"Could not import authorities for block {hash:?} at number {number}: {e}"
 					)
