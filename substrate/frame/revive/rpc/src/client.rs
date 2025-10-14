@@ -430,15 +430,14 @@ impl Client {
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<H256, ClientError> {
+	) -> Result<(), ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
-		let hash = self
+		let hash: H256 = self
 			.rpc_client
 			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
 			.await?;
-		// let hash = ext.submit().await?;
-		log::debug!(target: LOG_TARGET, "Submitted transaction to chain substrate hash: {hash:?}");
-		Ok(hash)
+		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
+		Ok(())
 	}
 
 	/// Get an EVM transaction receipt by hash.

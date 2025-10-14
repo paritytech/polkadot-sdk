@@ -175,6 +175,8 @@ impl EthRpcServer for EthRpcServerImpl {
 			err
 		})?;
 
+		log::debug!(target: LOG_TARGET, "send_raw_transaction with hash: {hash:?}");
+
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
 			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
