@@ -166,12 +166,12 @@ where
 		let parent_hash = *block.header.parent_hash();
 		let post_header = block.post_header();
 
-		let authorities = self
-			.authorities_tracker
-			.fetch_or_update(&post_header, &self.compatibility_mode)
-			.map_err(|e| {
-				format!("Could not fetch authorities for block {post_hash:?} at number {number}: {e}")
-			})?;
+		let authorities =
+			self.authorities_tracker
+				.fetch_or_update(&post_header, &self.compatibility_mode)
+				.map_err(|e| {
+					format!("Could not fetch authorities for block {post_hash:?} at number {number}: {e}")
+				})?;
 
 		let create_inherent_data_providers = self
 			.create_inherent_data_providers
