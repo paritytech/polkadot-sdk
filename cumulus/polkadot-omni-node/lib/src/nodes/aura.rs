@@ -319,7 +319,8 @@ where
 				.spawn_essential_handle()
 				.spawn("block_authoring", None, async move {
 					loop {
-						futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
+						futures_timer::Delay::new(std::time::Duration::from_millis(block_time))
+							.await;
 						manual_seal_sink_clone
 							.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
 								create_empty: true,
