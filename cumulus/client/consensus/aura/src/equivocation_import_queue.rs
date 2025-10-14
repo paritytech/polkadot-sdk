@@ -139,14 +139,14 @@ where
 			return Ok(block_params)
 		}
 
-		let post_hash = block_params.header.hash();
+		let post_hash = block_params.post_hash();
 		let parent_hash = *block_params.header.parent_hash();
 
 		// check seal and update pre-hash/post-hash
 		{
 			let authorities = self
 				.authorities_tracker
-				.fetch_or_update(&block_params.header, &CompatibilityMode::None)
+				.fetch_or_update(&block_params.post_header(), &CompatibilityMode::None)
 				.map_err(|e| format!("Could not fetch authorities: {}", e))?;
 
 			let slot_duration = self
