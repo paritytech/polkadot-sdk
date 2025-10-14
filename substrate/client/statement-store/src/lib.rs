@@ -76,9 +76,13 @@ const CURRENT_VERSION: u32 = 1;
 
 const LOG_TARGET: &str = "statement-store";
 
-const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
-const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 8192;
-const DEFAULT_MAX_TOTAL_SIZE: usize = 64 * 1024 * 1024;
+/// The amount of time an expired statement is kept before it is removed from the store entirely.
+pub const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
+/// The maximum number of statements the statement store can hold.
+pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
+/// The maximum amount of data the statement store can hold, regardless of the number of
+/// statements from which the data originates.
+pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -488,12 +492,7 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block>
-			+ HeaderBackend<Block>
-			+ sc_client_api::ExecutorProvider<Block>
-			+ Send
-			+ Sync
-			+ 'static,
+		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 		Client::Api: ValidateStatement<Block>,
 	{
 		let store = Arc::new(Self::new(path, options, client, keystore, prometheus)?);
@@ -517,7 +516,8 @@ impl Store {
 
 	/// Create a new instance.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
-	fn new<Block, Client>(
+	#[doc(hidden)]
+	pub fn new<Block, Client>(
 		path: &std::path::Path,
 		options: Options,
 		client: Arc<Client>,
@@ -671,21 +671,25 @@ impl Store {
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		let deleted = self.index.write().maintain(self.timestamp());
+		let (deleted, active_count, expired_count): (Vec<_>, usize, usize) = {
+			let mut index = self.index.write();
+			let deleted = index.maintain(self.timestamp());
+			(deleted, index.entries.len(), index.expired.len())
+		};
 		let deleted: Vec<_> =
 			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
-		let count = deleted.len() as u64;
+		let deleted_count = deleted.len() as u64;
 		if let Err(e) = self.db.commit(deleted) {
 			log::warn!(target: LOG_TARGET, "Error writing to the statement database: {:?}", e);
 		} else {
-			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(count));
+			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
 		log::trace!(
 			target: LOG_TARGET,
 			"Completed store maintenance. Purged: {}, Active: {}, Expired: {}",
-			count,
-			self.index.read().entries.len(),
-			self.index.read().expired.len()
+			deleted_count,
+			active_count,
+			expired_count
 		);
 	}
 
@@ -764,7 +768,7 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for h in self.index.read().entries.keys() {
+		for h in index.entries.keys() {
 			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
 			if let Some(encoded) = encoded {
 				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
@@ -1023,7 +1027,7 @@ mod tests {
 
 	impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 		type Api = RuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
+		fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
 			RuntimeApi { _inner: self.clone() }.into()
 		}
 	}

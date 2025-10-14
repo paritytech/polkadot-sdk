@@ -23,7 +23,6 @@ use crate::{ConsensusDataProvider, Error};
 use sc_client_api::{AuxStore, UsageProvider};
 use sc_consensus::BlockImportParams;
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::{
 	digests::CompatibleDigestItem,
 	sr25519::{AuthorityId, AuthoritySignature},
@@ -34,39 +33,42 @@ use sp_runtime::{traits::Block as BlockT, Digest, DigestItem};
 use sp_timestamp::TimestampInherentData;
 use std::{marker::PhantomData, sync::Arc};
 
-/// Consensus data provider for Aura.
-pub struct AuraConsensusDataProvider<B, C, P> {
+/// Consensus data provider for Aura. This allows to use manual-seal driven nodes to author valid
+/// AURA blocks. It will inspect incoming [`InherentData`] and look for included timestamps. Based
+/// on these timestamps, the [`AuraConsensusDataProvider`] will emit fitting digest items.
+pub struct AuraConsensusDataProvider<B, P> {
 	// slot duration
 	slot_duration: SlotDuration,
 	// phantom data for required generics
-	_phantom: PhantomData<(B, C, P)>,
+	_phantom: PhantomData<(B, P)>,
 }
 
-impl<B, C, P> AuraConsensusDataProvider<B, C, P>
+impl<B, P> AuraConsensusDataProvider<B, P>
 where
 	B: BlockT,
-	C: AuxStore + ProvideRuntimeApi<B> + UsageProvider<B>,
-	C::Api: AuraApi<B, AuthorityId>,
 {
 	/// Creates a new instance of the [`AuraConsensusDataProvider`], requires that `client`
 	/// implements [`sp_consensus_aura::AuraApi`]
-	pub fn new(client: Arc<C>) -> Self {
+	pub fn new<C>(client: Arc<C>) -> Self
+	where
+		C: AuxStore + ProvideRuntimeApi<B> + UsageProvider<B>,
+		C::Api: AuraApi<B, AuthorityId>,
+	{
 		let slot_duration = sc_consensus_aura::slot_duration(&*client)
 			.expect("slot_duration is always present; qed.");
 
 		Self { slot_duration, _phantom: PhantomData }
 	}
+
+	/// Creates a new instance of the [`AuraConsensusDataProvider`]
+	pub fn new_with_slot_duration(slot_duration: SlotDuration) -> Self {
+		Self { slot_duration, _phantom: PhantomData }
+	}
 }
 
-impl<B, C, P> ConsensusDataProvider<B> for AuraConsensusDataProvider<B, C, P>
+impl<B, P> ConsensusDataProvider<B> for AuraConsensusDataProvider<B, P>
 where
 	B: BlockT,
-	C: AuxStore
-		+ HeaderBackend<B>
-		+ HeaderMetadata<B, Error = sp_blockchain::Error>
-		+ UsageProvider<B>
-		+ ProvideRuntimeApi<B>,
-	C::Api: AuraApi<B, AuthorityId>,
 	P: Send + Sync,
 {
 	type Proof = P;

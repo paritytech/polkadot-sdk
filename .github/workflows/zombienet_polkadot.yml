@@ -45,7 +45,7 @@ jobs:
   zombienet-polkadot-tests:
     name: ${{ matrix.test.job-name }}
     runs-on: ${{ matrix.test.runner-type == 'large' && (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
-    timeout-minutes: 60
+    timeout-minutes: 70 # 60 for test + 10 for send logs
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) }}
     container:
@@ -83,6 +83,7 @@ jobs:
 
       - name: zombienet_test (v1)
         if: ${{ !matrix.test.use-zombienet-sdk }}
+        timeout-minutes: 60
         uses: ./.github/actions/zombienet
         with:
           test-definition: ${{ matrix.test.test-definition }}
@@ -103,3 +104,26 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+      - name: process_logs
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo "Processing log files"
+          echo "::group::Logs"
+          # do not fail the whole run if this step fails
+          if ! ./.github/scripts/process-logs-zombienet.sh ; then
+            echo "::endgroup::"
+            echo "::warning ::WARNING: Failed to process logs"
+          else
+            echo "::endgroup::"
+          fi
+
+
+      - name: upload_logs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ always() }}
+        with:
+          name: zombienet-logs-${{ matrix.test.job-name }}-${{ github.sha }}
+          path: |
+            /tmp/zombie*/logs/*

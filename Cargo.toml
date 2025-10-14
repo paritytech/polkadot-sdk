@@ -241,6 +241,7 @@ members = [
 	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
+	"polkadot/xcm/pallet-xcm/precompiles",
 	"polkadot/xcm/procedural",
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
@@ -636,7 +637,10 @@ pallet-oracle-runtime-api = { path = "substrate/frame/honzon/oracle/runtime-api"
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
-alloy-core = { version = "1.1.0", default-features = false }
+alloy-consensus = { version = "1.0.20", default-features = false }
+alloy-core = { version = "1.2.1", default-features = false }
+alloy-primitives = { version = "1.2.1", default-features = false }
+alloy-rlp = { version = "0.3", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
@@ -1090,6 +1094,7 @@ pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
+pallet-xcm-precompiles = { path = "polkadot/xcm/pallet-xcm/precompiles", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
@@ -1178,6 +1183,7 @@ procfs = { version = "0.16.0" }
 prometheus = { version = "0.13.0", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
 prometheus-parse = { version = "0.2.2" }
+proptest = { version = "1" }
 prost = { version = "0.12.4" }
 prost-build = { version = "0.13.2" }
 pyroscope = { version = "0.5.8" }
@@ -1412,7 +1418,8 @@ syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
-test-case = { version = "3.3.1" }
+# pinned test-case to 3.3.1 because they support only the latest stable version of rust
+test-case = { version = "=3.3.1" }
 test-log = { version = "0.2.14" }
 test-pallet = { path = "substrate/frame/support/test/pallet", default-features = false, package = "frame-support-test-pallet" }
 test-parachain-adder = { path = "polkadot/parachain/test-parachains/adder" }
