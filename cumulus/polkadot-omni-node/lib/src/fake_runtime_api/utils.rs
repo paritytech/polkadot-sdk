@@ -105,7 +105,6 @@ macro_rules! impl_node_runtime_apis {
 				) -> sp_inherents::CheckInherentsResult {
 					unimplemented!()
 				}
-
 			}
 
 			impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<$block> for $runtime {
@@ -175,7 +174,6 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
-
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(
@@ -245,7 +243,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl cumulus_primitives_core::SlotSchedule<$block> for $runtime {
-				fn next_slot_schedule(_: u32) -> cumulus_primitives_core::BlockInterval {
+				fn next_slot_schedule(_: u32) -> cumulus_primitives_core::NextSlotSchedule {
 					unimplemented!()
 				}
 			}

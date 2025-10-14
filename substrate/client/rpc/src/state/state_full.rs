@@ -67,6 +67,7 @@ pub struct FullState<BE, Block: BlockT, Client> {
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
 	block_execute: Option<Arc<dyn TracingExecuteBlock<Block>>>,
+	execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
 	_phantom: PhantomData<BE>,
 }
 
@@ -83,9 +84,9 @@ where
 	pub fn new(
 		client: Arc<Client>,
 		executor: SubscriptionTaskExecutor,
-		block_execute: Option<Arc<dyn TracingExecuteBlock<Block>>>,
+		execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
 	) -> Self {
-		Self { client, executor, block_execute, _phantom: PhantomData }
+		Self { client, executor, block_execute, execute_block, _phantom: PhantomData }
 	}
 
 	/// Returns given block hash or best block hash if None is passed.
@@ -485,7 +486,7 @@ where
 			targets,
 			storage_keys,
 			methods,
-			self.block_execute.clone(),
+			self.execute_block.clone(),
 		)
 		.trace_block()
 		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))

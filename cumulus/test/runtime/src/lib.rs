@@ -233,7 +233,15 @@ type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxPara
 >;
 
 parameter_types! {
+<<<<<<< HEAD
 	pub const BlockHashCount: BlockNumber = 4096;
+||||||| 5f69bea23d
+	pub const BlockHashCount: BlockNumber = 250;
+=======
+	/// Target number of blocks per relay chain slot.
+	pub const NumberOfBlocksPerRelaySlot: u32 = 12;
+	pub const BlockHashCount: BlockNumber = 250;
+>>>>>>> origin/master
 	pub const Version: RuntimeVersion = VERSION;
 	/// We allow for 1 second of compute with a 6 second average block time.
 	pub RuntimeBlockLength: BlockLength =
@@ -649,17 +657,11 @@ impl_runtime_apis! {
 		fn parachain_id() -> ParaId {
 			ParachainInfo::parachain_id()
 		}
-
 	}
 
 	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
-		fn next_slot_schedule(num_cores: u32) -> cumulus_primitives_core::BlockInterval {
-			let block_time = Duration::from_secs(2) * num_cores / TARGET_BLOCKS;
-
-			cumulus_primitives_core::BlockInterval {
-				number_of_blocks: TARGET_BLOCKS,
-				block_time: block_time.min(Duration::from_millis(500)),
-			}
+		fn next_slot_schedule(cores: u32) -> cumulus_primitives_core::NextSlotSchedule {
+			cumulus_primitives_core::NextSlotSchedule::x_blocks_using_y_cores(TARGET_BLOCKS, cores)
 		}
 	}
 }

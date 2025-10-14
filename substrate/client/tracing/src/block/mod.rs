@@ -53,10 +53,7 @@ const TRACE_TARGET: &str = "block_trace";
 const REQUIRED_EVENT_FIELD: &str = "method";
 
 /// Something that can execute a block in a tracing context.
-///
-/// [`DefaultExecuteBlock`] provides a default implementation that simply forwards the block to
-/// [`Core::execute_block`] without any other changes.
-pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
+pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync + Send + Sync {
 	/// Execute the given `block`.
 	///
 	/// The `block` is prepared to be executed right away, this means that any `Seal` was already
