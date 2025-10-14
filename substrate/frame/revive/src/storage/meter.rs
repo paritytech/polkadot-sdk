@@ -18,7 +18,6 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	Pallet as Contracts,
 	address::AddressMapper, storage::ContractInfo, AccountIdOf, AccountInfo, AccountInfoOf,
 	BalanceOf, CodeInfo, Config, Error, ExecConfig, ExecOrigin as Origin, HoldReason,
 	ImmutableDataOf, Inspect, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
@@ -547,8 +546,6 @@ fn terminate<T: Config>(
 		beneficiary: &T::AccountId,
 		delete_code: &bool,
 	) -> Result<(), DispatchError> {
-		use crate::CodeRemoved;
-		use frame_support::traits::fungible::InspectHold;
 		if *delete_code {
 			// Clean up on-chain storage
 			let contract_address = T::AddressMapper::to_address(contract);
@@ -559,7 +556,7 @@ fn terminate<T: Config>(
 			ImmutableDataOf::<T>::remove(contract_address);
 
 			// ensure code is removed
-			<CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+			let _code_removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
 			
 			System::<T>::dec_consumers(&contract);
 
