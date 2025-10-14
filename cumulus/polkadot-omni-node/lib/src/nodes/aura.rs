@@ -397,7 +397,7 @@ where
 	///
 	/// This function sets up the timestamp and parachain validation data providers
 	/// required for dev seal block production in a parachain environment.
-	fn create_dev_seal_inherent_data_providers(
+	fn create_dev_node_inherent_data_providers(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		para_id: ParaId,
 		slot_duration: sp_consensus_aura::SlotDuration,
