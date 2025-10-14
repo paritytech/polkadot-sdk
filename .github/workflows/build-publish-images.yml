@@ -738,3 +738,24 @@ jobs:
     with:
       build_run_id: ${{ github.run_id }}
       ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+  confirm-required-zombienet-tests-passed:
+    runs-on: ubuntu-latest
+    name: All required zombienet tests passed
+    needs:
+      - trigger-zombienet-polkadot
+      - trigger-zombienet-cumulus
+      - trigger-zombienet-substrate
+      - trigger-zombienet-parachain-template
+    if: always() && !cancelled()
+    steps:
+      - name: Check zombienet tests success
+        run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required zombienet test failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### All the required zombienet tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
