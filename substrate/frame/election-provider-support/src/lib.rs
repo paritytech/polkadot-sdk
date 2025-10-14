@@ -797,7 +797,6 @@ pub trait NposSolver {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct QuickDirtySolver<AccountId, Accuracy>(core::marker::PhantomData<(AccountId, Accuracy)>);
 #[cfg(feature = "runtime-benchmarks")]
-
 impl<AccountId: IdentifierT, Accuracy: PerThing128> NposSolver
 	for QuickDirtySolver<AccountId, Accuracy>
 {
