@@ -310,7 +310,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	fn start_dev_seal_node(
+	fn start_dev_node(
 		_config: Configuration,
 		_mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
