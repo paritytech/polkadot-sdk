@@ -25,12 +25,12 @@ use crate::{
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
+	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::Mutate,
 		tokens::{Fortitude::Polite, Preservation},
 		Get,
 	},
-	storage::{with_transaction, TransactionOutcome},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
@@ -540,7 +540,6 @@ fn terminate<T: Config>(
 	beneficiary: &T::AccountId,
 	delete_code: &bool,
 ) -> Result<(), DispatchError> {
-
 	fn terminate_inner<T: Config>(
 		contract: &T::AccountId,
 		beneficiary: &T::AccountId,
@@ -557,7 +556,7 @@ fn terminate<T: Config>(
 
 			// ensure code is removed
 			let _code_removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-			
+
 			System::<T>::dec_consumers(&contract);
 
 			// Whatever is left in the contract is sent to the termination beneficiary.
@@ -567,7 +566,8 @@ fn terminate<T: Config>(
 			}
 		} else {
 			// Whatever is left in the contract is sent to the termination beneficiary.
-			let balance = T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite);
+			let balance =
+				T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite);
 			if !balance.is_zero() {
 				T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
 			}
@@ -583,8 +583,6 @@ fn terminate<T: Config>(
 		}
 	})
 }
-
-
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn terminate_logic_for_benchmark<T: Config>(

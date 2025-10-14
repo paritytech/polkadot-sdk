@@ -1206,8 +1206,7 @@ mod benchmarks {
 	}
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
-		use frame_support::traits::fungible::UnbalancedHold;
-		use frame_support::traits::Hooks;
+		use frame_support::traits::{fungible::UnbalancedHold, Hooks};
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
 		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
@@ -1217,10 +1216,11 @@ mod benchmarks {
 
 		// Set storage deposit to zero so terminate_logic can proceed.
 		T::Currency::set_balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(), 
-			&instance.account_id, 
-			0u32.into()
-		).unwrap();
+			&HoldReason::StorageDepositReserve.into(),
+			&instance.account_id,
+			0u32.into(),
+		)
+		.unwrap();
 
 		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 2u32.into());
 
@@ -1243,7 +1243,7 @@ mod benchmarks {
 
 		// Check that the beneficiary received the balance
 		let balance = <T as Config>::Currency::balance(&beneficiary);
-		assert_eq!(balance,  Pallet::<T>::min_balance() * 2u32.into());
+		assert_eq!(balance, Pallet::<T>::min_balance() * 2u32.into());
 
 		Ok(())
 	}
