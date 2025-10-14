@@ -433,7 +433,7 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Register the caller of the current contract for destruction.
 	/// Destruction happens at the end of the call stack.
-	/// This is supposed to be used by the selfdestruct precompile.
+	/// This is supposed to be used by the terminate precompile.
 	///
 	/// Transfer all funds to `beneficiary`.
 	/// Contract is deleted at the end of the call stack.
@@ -1448,7 +1448,7 @@ where
 					contract.clone(),
 				);
 			}
-			// iterate contracts_to_be_destroyed and destroy each contract
+			// destroy each contract registered for destruction
 			let contracts_to_destroy = mem::take(&mut self.contracts_to_be_destroyed);
 			for (contract_address, (contract_info, beneficiary)) in contracts_to_destroy {
 				let _code_removed =
@@ -1741,14 +1741,13 @@ where
 	}
 
 	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		let contract_address = {
+		let (account_id, contract_address) = {
 			let frame = self.top_frame_mut();
 			if frame.entry_point == ExportedFunction::Constructor {
 				return Err(Error::<T>::TerminatedInConstructor.into());
 			}
-			T::AddressMapper::to_address(&frame.account_id)
+			(frame.account_id.clone(), T::AddressMapper::to_address(&frame.account_id))
 		};
-		let account_id = self.top_frame_mut().account_id.clone();
 
 		let contract_info = AccountInfo::<T>::load_contract(&contract_address)
 			.ok_or(Error::<T>::ContractNotFound)?;
