@@ -161,6 +161,9 @@ pub struct Cli<Config: CliConfig> {
 	/// its own, running the wasm blob and artificially producing a block each `dev_block_time` ms,
 	/// as if it was part of a parachain.
 	///
+	/// When `--dev-block-time 0` is passed, omni-node will run instant seal instead of manual
+	/// seal.
+	///
 	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
 	/// provided.
 	#[arg(long)]
