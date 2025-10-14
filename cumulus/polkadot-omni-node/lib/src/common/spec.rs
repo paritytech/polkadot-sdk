@@ -16,6 +16,7 @@
 
 use crate::{
 	chain_spec::Extensions,
+	cli::DevSealMode,
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
@@ -56,16 +57,6 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
-
-/// Mode for development sealing (non-consensus block production).
-#[derive(Debug, Clone, Copy)]
-pub enum DevSealMode {
-	/// Produces blocks immediately upon receiving transactions.
-	InstantSeal,
-	/// Produces blocks at fixed time intervals.
-	/// The u64 parameter represents the block time in milliseconds.
-	ManualSeal(u64),
-}
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -568,7 +559,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
 	/// Start node with manual or instant seal consensus.
-	fn start_dev_seal_node(
+	fn start_dev_node(
 		self: Box<Self>,
 		config: Configuration,
 		mode: DevSealMode,
@@ -589,12 +580,12 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
-	fn start_dev_seal_node(
+	fn start_dev_node(
 		self: Box<Self>,
 		config: Configuration,
 		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
-		<Self as NodeSpec>::start_dev_seal_node(config, mode)
+		<Self as NodeSpec>::start_dev_node(config, mode)
 	}
 
 	fn start_node(

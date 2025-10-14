@@ -16,6 +16,9 @@
 
 //! CLI options of the omni-node. See [`Command`].
 
+/// Default block time for dev mode when using `--dev` flag.
+const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
+
 use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
@@ -219,6 +222,16 @@ pub struct Cli<Config: CliConfig> {
 	pub(crate) _phantom: PhantomData<Config>,
 }
 
+/// Development sealing mode.
+#[derive(Debug, Clone, Copy)]
+pub enum DevSealMode {
+	/// Produces blocks immediately upon receiving transactions.
+	InstantSeal,
+	/// Produces blocks at fixed time intervals.
+	/// The u64 parameter represents the block time in milliseconds.
+	ManualSeal(u64),
+}
+
 /// Collator implementation to use.
 #[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
 pub enum AuthoringPolicy {
@@ -250,6 +263,19 @@ impl<Config: CliConfig> Cli<Config> {
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			enable_statement_store: self.enable_statement_store,
+		}
+	}
+
+	/// Returns the dev seal mode if the node is in dev mode.
+	pub fn dev_mode(&self) -> sc_cli::Result<Option<DevSealMode>> {
+		if self.instant_seal {
+			Ok(Some(DevSealMode::InstantSeal))
+		} else if let Some(dev_block_time) = self.dev_block_time {
+			Ok(Some(DevSealMode::ManualSeal(dev_block_time)))
+		} else if self.run.base.is_dev()? {
+			Ok(Some(DevSealMode::ManualSeal(DEFAULT_DEV_BLOCK_TIME_MS)))
+		} else {
+			Ok(None)
 		}
 	}
 }

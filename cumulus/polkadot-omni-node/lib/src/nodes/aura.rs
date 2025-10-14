@@ -15,12 +15,12 @@
 // limitations under the License.
 
 use crate::{
-	cli::AuthoringPolicy,
+	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
-			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DevSealMode, DynNodeSpec,
+			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec,
 			InitBlockImport, NodeSpec, StartConsensus,
 		},
 		types::{
@@ -211,7 +211,7 @@ where
 	type StartConsensus = StartConsensus;
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 
-	fn start_dev_seal_node(
+	fn start_dev_node(
 		mut config: Configuration,
 		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
@@ -288,7 +288,7 @@ where
 		let para_id =
 			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
 		let create_inherent_data_providers =
-			Self::create_dev_seal_inherent_data_providers(client.clone(), para_id, slot_duration);
+			Self::create_dev_node_inherent_data_providers(client.clone(), para_id, slot_duration);
 
 		match mode {
 			DevSealMode::InstantSeal => {
