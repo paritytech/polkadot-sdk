@@ -393,7 +393,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 {
-	/// Creates the inherent data providers for dev seal consensus.
+	/// Creates the inherent data providers for manual and instant seal consensus.
 	///
 	/// This function sets up the timestamp and parachain validation data providers
 	/// required for dev seal block production in a parachain environment.
