@@ -567,7 +567,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
-	/// Start node with dev seal consensus.
+	/// Start node with manual or instant seal consensus.
 	fn start_dev_seal_node(
 		self: Box<Self>,
 		config: Configuration,
