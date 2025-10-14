@@ -163,8 +163,6 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
 	/// provided.
-	///
-	/// Cannot be used together with `--instant-seal`.
 	#[arg(long, conflicts_with = "instant_seal")]
 	pub dev_block_time: Option<u64>,
 
@@ -175,8 +173,6 @@ pub struct Cli<Config: CliConfig> {
 	/// Using this option won't result in starting or connecting to a parachain network.
 	/// The resulting node will work on its own, running the wasm blob and producing blocks
 	/// instantly upon receiving transactions.
-	///
-	/// Cannot be used together with `--dev-block-time`.
 	#[arg(long, conflicts_with = "dev_block_time")]
 	pub instant_seal: bool,
 
