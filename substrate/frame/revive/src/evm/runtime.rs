@@ -299,6 +299,8 @@ pub trait EthExtra {
 			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
 			InvalidTransaction::Call
 		})?;
+
+		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
 		let call_info = create_call::<Self::Config>(tx, Some(encoded_len as u32))?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,

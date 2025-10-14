@@ -430,10 +430,14 @@ impl Client {
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<H256, ClientError> {
+	) -> Result<(), ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
-		let hash = ext.submit().await?;
-		Ok(hash)
+		let hash: H256 = self
+			.rpc_client
+			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
+			.await?;
+		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
+		Ok(())
 	}
 
 	/// Get an EVM transaction receipt by hash.
@@ -748,4 +752,8 @@ impl Client {
 	pub async fn get_automine(&self) -> bool {
 		get_automine(&self.rpc_client).await
 	}
+}
+
+fn to_hex(bytes: impl AsRef<[u8]>) -> String {
+	format!("0x{}", hex::encode(bytes.as_ref()))
 }
