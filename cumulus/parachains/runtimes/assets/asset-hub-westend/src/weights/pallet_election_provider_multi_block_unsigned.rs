@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `pallet_election_provider_multi_block_unsigned`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> pallet_election_provider_multi_block_unsigned::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> pallet_election_provider_multi_block::unsigned::WeightInfo for WeightInfo<T> {
 	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
 	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x33ed3d010c1fea25c2adbfba9297161f` (r:1 w:0)
