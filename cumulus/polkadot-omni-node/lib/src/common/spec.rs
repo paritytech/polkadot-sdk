@@ -305,7 +305,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		_config: Configuration,
 		_mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
-		Err(sc_service::Error::Other("Dev seal not supported for this node type".into()))
+		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
 
 	/// Start a node with the given parachain spec.
