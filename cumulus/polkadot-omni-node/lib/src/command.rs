@@ -301,7 +301,7 @@ where
 				let node_spec =
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 
-				if let Some(dev_mode) = cli.dev_mode()? {
+				if let Some(dev_mode) = cli.dev_mode() {
 					return node_spec.start_dev_node(config, dev_mode).map_err(Into::into);
 				}
 
