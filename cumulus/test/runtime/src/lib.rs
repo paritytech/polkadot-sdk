@@ -71,7 +71,7 @@ use core::time::Duration;
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
+use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -225,13 +225,17 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
+/// Target number of blocks per relay chain slot.
+const TARGET_BLOCKS: u32 = 12;
+type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
+	Runtime,
+	ConstU32<TARGET_BLOCKS>,
+>;
+
 parameter_types! {
-	/// Target number of blocks per relay chain slot.
-	pub const NumberOfBlocksPerRelaySlot: u32 = 12;
 	pub const BlockHashCount: BlockNumber = 4096;
 	pub const Version: RuntimeVersion = VERSION;
 	/// We allow for 1 second of compute with a 6 second average block time.
-	pub MaximumBlockWeight: Weight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight::<Runtime>::get(NumberOfBlocksPerRelaySlot::get());
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -277,7 +281,7 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
 		Runtime,
-		NumberOfBlocksPerRelaySlot,
+		ConstU32<TARGET_BLOCKS>,
 	>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
@@ -468,7 +472,7 @@ pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMax
 			test_pallet::TestTransactionExtension<Runtime>,
 		),
 	>,
-	NumberOfBlocksPerRelaySlot,
+	ConstU32<TARGET_BLOCKS>,
 >;
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -650,10 +654,10 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
 		fn next_slot_schedule(num_cores: u32) -> cumulus_primitives_core::BlockInterval {
-			let block_time = Duration::from_secs(2) * num_cores / NumberOfBlocksPerRelaySlot::get();
+			let block_time = Duration::from_secs(2) * num_cores / TARGET_BLOCKS;
 
 			cumulus_primitives_core::BlockInterval {
-				number_of_blocks: NumberOfBlocksPerRelaySlot::get(),
+				number_of_blocks: TARGET_BLOCKS,
 				block_time: block_time.min(Duration::from_millis(500)),
 			}
 		}

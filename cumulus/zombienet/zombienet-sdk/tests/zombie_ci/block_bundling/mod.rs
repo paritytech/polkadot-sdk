@@ -16,7 +16,7 @@
 // limitations under the License.
 
 mod basic;
+mod full_core_usage_scenarios;
 mod runtime_upgrade;
 mod three_cores_glutton;
-mod full_core_usage_scenarios;
 mod tracing_block;

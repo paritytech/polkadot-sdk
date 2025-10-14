@@ -79,7 +79,9 @@ use futures::FutureExt;
 use polkadot_primitives::{
 	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
 };
-use sc_client_api::{backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider};
+use sc_client_api::{
+	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider,
+};
 use sc_consensus::BlockImport;
 use sc_utils::mpsc::tracing_unbounded;
 use sp_api::{ProvideRuntimeApi, StorageProof};

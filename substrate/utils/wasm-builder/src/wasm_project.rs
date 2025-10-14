@@ -27,7 +27,7 @@ use std::{
 	borrow::ToOwned,
 	collections::HashSet,
 	env, fs,
-	hash::{Hash, Hasher, DefaultHasher},
+	hash::{DefaultHasher, Hash, Hasher},
 	ops::Deref,
 	path::{Path, PathBuf},
 	process,
@@ -204,7 +204,8 @@ pub(crate) fn create_and_compile(
 	let blob_name = format!("{}-{}", features_hash, base_blob_name);
 
 	// Check if we will have multiple outputs after creating this file
-	let should_cleanup_legacy = will_have_multiple_outputs_after_adding(&project, &base_blob_name, target, &features_hash);
+	let should_cleanup_legacy =
+		will_have_multiple_outputs_after_adding(&project, &base_blob_name, target, &features_hash);
 
 	let (final_blob_binary, bloaty_blob_binary) = match target {
 		RuntimeTarget::Wasm => {
@@ -686,7 +687,12 @@ fn generate_features_hash(enabled_features: &HashSet<String>) -> String {
 }
 
 /// Check if adding a new file with the given hash will result in multiple different hashes
-fn will_have_multiple_outputs_after_adding(project: &Path, base_blob_name: &str, target: RuntimeTarget, new_hash: &str) -> bool {
+fn will_have_multiple_outputs_after_adding(
+	project: &Path,
+	base_blob_name: &str,
+	target: RuntimeTarget,
+	new_hash: &str,
+) -> bool {
 	let extension = match target {
 		RuntimeTarget::Wasm => ".compact.compressed.wasm",
 		RuntimeTarget::Riscv => ".polkavm",
@@ -711,7 +717,8 @@ fn will_have_multiple_outputs_after_adding(project: &Path, base_blob_name: &str,
 				// Check if this matches our hash pattern
 				if file_name.ends_with(&pattern_suffix) {
 					let hash_len = file_name.len() - pattern_suffix.len();
-					if hash_len == 8 {  // We use 8-character hashes
+					if hash_len == 8 {
+						// We use 8-character hashes
 						let hash = &file_name[..8];
 						unique_hashes.insert(hash.to_string());
 					}

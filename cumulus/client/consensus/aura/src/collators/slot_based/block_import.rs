@@ -30,7 +30,10 @@ use sp_api::{
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::AuraApi;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
-use sp_trie::{proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider}, recorder::IgnoredNodes};
+use sp_trie::{
+	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
+	recorder::IgnoredNodes,
+};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 /// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
