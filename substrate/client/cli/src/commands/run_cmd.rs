@@ -291,7 +291,7 @@ impl CliConfiguration for RunCmd {
 	}
 
 	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<RpcEndpoint>>> {
-		self.rpc_params.rpc_addr(self.is_dev()?, self.validator, default_listen_port)
+		self.rpc_params.rpc_addr(self.is_dev(), self.validator, default_listen_port)
 	}
 
 	fn rpc_methods(&self) -> Result<sc_service::config::RpcMethods> {

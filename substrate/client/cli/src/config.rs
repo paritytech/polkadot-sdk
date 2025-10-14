@@ -139,8 +139,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// Returns `true` if the node is for development or not
 	///
 	/// By default this is retrieved from `SharedParams`.
-	fn is_dev(&self) -> Result<bool> {
-		Ok(self.shared_params().is_dev())
+	fn is_dev(&self) -> bool {
+		self.shared_params().is_dev()
 	}
 
 	/// Gets the role
@@ -455,7 +455,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// By default this is retrieved from `NodeKeyParams` if it is available. Otherwise its
 	/// `NodeKeyConfig::default()`.
 	fn node_key(&self, net_config_dir: &PathBuf) -> Result<NodeKeyConfig> {
-		let is_dev = self.is_dev()?;
+		let is_dev = self.is_dev();
 		let role = self.role(is_dev)?;
 		self.node_key_params()
 			.map(|x| x.node_key(net_config_dir, role, is_dev))
@@ -489,7 +489,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		cli: &C,
 		tokio_handle: tokio::runtime::Handle,
 	) -> Result<Configuration> {
-		let is_dev = self.is_dev()?;
+		let is_dev = self.is_dev();
 		let chain_id = self.chain_id(is_dev)?;
 		let chain_spec = cli.load_spec(&chain_id)?;
 		let base_path = base_path_or_default(self.base_path()?, &C::executable_name());
