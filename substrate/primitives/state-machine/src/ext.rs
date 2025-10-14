@@ -37,8 +37,6 @@ use core::{
 	any::{Any, TypeId},
 	cmp::Ordering,
 };
-#[cfg(feature = "std")]
-use std::error;
 
 const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within runtime";
 const BENCHMARKING_FN: &str = "\
@@ -54,38 +52,6 @@ fn guard() -> sp_panic_handler::AbortGuard {
 #[cfg(not(feature = "std"))]
 fn guard() -> () {
 	()
-}
-
-/// Errors that can occur when interacting with the externalities.
-#[cfg(feature = "std")]
-#[derive(Debug, Copy, Clone)]
-pub enum Error<B, E> {
-	/// Failure to load state data from the backend.
-	#[allow(unused)]
-	Backend(B),
-	/// Failure to execute a function.
-	#[allow(unused)]
-	Executor(E),
-}
-
-#[cfg(feature = "std")]
-impl<B: std::fmt::Display, E: std::fmt::Display> std::fmt::Display for Error<B, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Error::Backend(ref e) => write!(f, "Storage backend error: {}", e),
-			Error::Executor(ref e) => write!(f, "Sub-call execution error: {}", e),
-		}
-	}
-}
-
-#[cfg(feature = "std")]
-impl<B: error::Error, E: error::Error> error::Error for Error<B, E> {
-	fn description(&self) -> &str {
-		match *self {
-			Error::Backend(..) => "backend error",
-			Error::Executor(..) => "executor error",
-		}
-	}
 }
 
 /// Wraps a read-only backend, call executor, and current overlayed changes.
