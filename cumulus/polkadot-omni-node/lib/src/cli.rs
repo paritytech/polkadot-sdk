@@ -267,15 +267,15 @@ impl<Config: CliConfig> Cli<Config> {
 	}
 
 	/// Returns the dev seal mode if the node is in dev mode.
-	pub fn dev_mode(&self) -> sc_cli::Result<Option<DevSealMode>> {
+	pub fn dev_mode(&self) -> Option<DevSealMode> {
 		if self.instant_seal {
-			Ok(Some(DevSealMode::InstantSeal))
+			Some(DevSealMode::InstantSeal)
 		} else if let Some(dev_block_time) = self.dev_block_time {
-			Ok(Some(DevSealMode::ManualSeal(dev_block_time)))
+			Some(DevSealMode::ManualSeal(dev_block_time))
 		} else if self.run.base.is_dev()? {
-			Ok(Some(DevSealMode::ManualSeal(DEFAULT_DEV_BLOCK_TIME_MS)))
+			Some(DevSealMode::ManualSeal(DEFAULT_DEV_BLOCK_TIME_MS))
 		} else {
-			Ok(None)
+			None
 		}
 	}
 }
