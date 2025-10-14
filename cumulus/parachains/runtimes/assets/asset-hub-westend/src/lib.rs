@@ -71,7 +71,8 @@ use pallet_assets_precompiles::{InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
-use pallet_xcm::{precompiles::XcmPrecompile, EnsureXcm};
+use pallet_xcm::EnsureXcm;
+use pallet_xcm_precompiles::XcmPrecompile;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -1195,10 +1196,7 @@ impl pallet_revive::Config for Runtime {
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 	type UnsafeUnstableInterface = ConstBool<false>;
-	#[cfg(feature = "runtime-benchmarks")]
 	type AllowEVMBytecode = ConstBool<true>;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type AllowEVMBytecode = ConstBool<false>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
