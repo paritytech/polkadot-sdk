@@ -308,9 +308,9 @@ where
 			futures::select! {
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements().await;
-					if let Some(ref metrics) = self.metrics {
+					self.metrics.as_ref().map(|metrics| {
 						metrics.pending_statements.set(self.pending_statements.len() as u64);
-					}
+					});
 				},
 				(hash, result) = self.pending_statements.select_next_some() => {
 					if let Some(peers) = self.pending_statements_peers.remove(&hash) {
@@ -429,9 +429,9 @@ where
 						statements_left,
 						MAX_PENDING_STATEMENTS,
 					);
-					if let Some(ref metrics) = self.metrics {
+					self.metrics.as_ref().map(|metrics| {
 						metrics.ignored_statements.inc_by(statements_left);
-					}
+					});
 					break
 				}
 
@@ -439,9 +439,9 @@ where
 				peer.known_statements.insert(hash);
 
 				if self.statement_store.has_statement(&hash) {
-					if let Some(ref metrics) = self.metrics {
+					self.metrics.as_ref().map(|metrics| {
 						metrics.known_statements_received.inc();
-					}
+					});
 
 					if let Some(peers) = self.pending_statements_peers.get(&hash) {
 						if peers.contains(&who) {
@@ -566,10 +566,10 @@ where
 						}
 						offset = current_end;
 						log::trace!(target: LOG_TARGET, "Sent {} statements ({} KB) to {}, {} left", chunk.len(), encoded_size / 1024, who, to_send.len() - offset);
-						if let Some(ref metrics) = self.metrics {
+						self.metrics.as_ref().map(|metrics| {
 							metrics.propagated_statements.inc_by(chunk.len() as u64);
 							metrics.propagated_statements_chunks.observe(chunk.len() as f64);
-						}
+						});
 						break;
 					}
 
@@ -582,9 +582,9 @@ where
 					if new_chunk_size == 0 {
 						if chunk.len() == 1 {
 							log::warn!(target: LOG_TARGET, "Statement too large ({} KB), skipping", encoded_size / 1024);
-							if let Some(ref metrics) = self.metrics {
+							self.metrics.as_ref().map(|metrics| {
 								metrics.skipped_oversized_statements.inc();
-							}
+							});
 							offset = current_end;
 							break;
 						}
