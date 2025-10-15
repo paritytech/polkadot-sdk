@@ -30,7 +30,7 @@ use core::mem;
 use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
-use sp_core::{H160, H256, U256};
+use sp_core::U256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{DispatchError, SaturatedConversion};
 

@@ -36,13 +36,13 @@ mod storage;
 mod tests;
 mod transient_storage;
 mod vm;
+mod weightinfo_extension;
 
 pub mod evm;
 pub mod migrations;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
-pub mod weightinfo_extension;
 pub mod weights;
 
 use crate::{
@@ -58,6 +58,7 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
+	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -104,7 +105,6 @@ pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
 pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
-pub use weightinfo_extension::OnFinalizeBlockParts;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
