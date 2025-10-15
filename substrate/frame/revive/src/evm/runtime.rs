@@ -46,7 +46,9 @@ use sp_runtime::{
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
 pub trait SetWeightLimit {
 	/// Set the weight limit of this call.
-	fn set_weight_limit(&mut self, weight_limit: Weight);
+	///
+	/// Returns the replaced weight.
+	fn set_weight_limit(&mut self, weight_limit: Weight) -> Weight;
 }
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
@@ -291,12 +293,14 @@ pub trait EthExtra {
 			InvalidTransaction::BadProof
 		})?;
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
-		let base_fee = <Pallet<Self::Config>>::evm_gas_price();
+		let base_fee = <Pallet<Self::Config>>::evm_base_fee();
 		let tx = GenericTransaction::from_signed(tx, base_fee, None);
 		let nonce = tx.nonce.unwrap_or_default().try_into().map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
 			InvalidTransaction::Call
 		})?;
+
+		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
 		let call_info = create_call::<Self::Config>(tx, Some(encoded_len as u32))?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
 					&signer,
@@ -406,7 +410,7 @@ mod test {
 			Self::fund_account(&account);
 
 			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone());
-			self.tx.gas_price = Some(<Pallet<Test>>::evm_gas_price());
+			self.tx.gas_price = Some(<Pallet<Test>>::evm_base_fee());
 
 			match dry_run {
 				Ok(dry_run) => {
@@ -510,13 +514,11 @@ mod test {
 				value,
 				data,
 				gas_limit,
-				storage_deposit_limit,
 				effective_gas_price,
 				encoded_len,
 			}) if dest == tx.to.unwrap() &&
 				value == tx.value.unwrap_or_default().as_u64().into() &&
 				data == tx.input.to_vec() &&
-				storage_deposit_limit == <BalanceOf<Test>>::max_value() &&
 				effective_gas_price == expected_effective_gas_price.into() =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
@@ -547,13 +549,11 @@ mod test {
 				code,
 				data,
 				gas_limit,
-				storage_deposit_limit,
 				effective_gas_price,
 				encoded_len,
 			}) if value == expected_value &&
 				code == expected_code &&
 				data == expected_data &&
-				storage_deposit_limit == <BalanceOf<Test>>::max_value() &&
 				effective_gas_price == expected_effective_gas_price.into() =>
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
