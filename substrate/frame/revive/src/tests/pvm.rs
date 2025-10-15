@@ -428,7 +428,7 @@ fn deposit_event_max_value_limit() {
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		// Create
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
 			.native_value(30_000)
 			.build_and_unwrap_contract();
@@ -4020,7 +4020,7 @@ fn call_tracing_works() {
 	let (code, _code_hash) = compile_module("tracing").unwrap();
 	let (binary_callee, _) = compile_module("tracing_callee").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(binary_callee)).build_and_unwrap_contract();
