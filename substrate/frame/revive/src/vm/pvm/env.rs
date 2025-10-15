@@ -627,7 +627,7 @@ pub mod env {
 	#[stable]
 	fn gas_limit(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasLimit)?;
-		Ok(<E::T as frame_system::Config>::BlockWeights::get().max_block.ref_time())
+		Ok(self.ext.gas_limit())
 	}
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.

@@ -218,6 +218,19 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
+		/// The amount of balance a caller has to pay for each child trie storage item.
+		///
+		/// Those are the items created by a contract. In Solidity each value is a single
+		/// storage item. This is why we need to set a lower value here than for the main
+		/// trie items. Otherwise the storage deposit is too high.
+		///
+		/// # Note
+		///
+		/// It is safe to change this value on a live chain as all refunds are pro rata.
+		#[pallet::constant]
+		#[pallet::no_default_bounds]
+		type DepositPerChildTrieItem: Get<BalanceOf<Self>>;
+
 		/// The percentage of the storage deposit that should be held for using a code hash.
 		/// Instantiating a contract, protects the code from being removed. In order to prevent
 		/// abuse these actions are protected with a percentage of the code deposit.
@@ -339,6 +352,7 @@ pub mod pallet {
 
 		parameter_types! {
 			pub const DepositPerItem: Balance = deposit(1, 0);
+			pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1, 2);
@@ -381,6 +395,7 @@ pub mod pallet {
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;
+			type DepositPerChildTrieItem = DepositPerChildTrieItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
 			type AllowEVMBytecode = ConstBool<true>;
