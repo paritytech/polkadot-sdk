@@ -30,6 +30,9 @@ use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
 
+/// The number of recent blocks to keep in cache when `keep_latest_n_blocks` is None.
+const CACHE_SIZE_PERSISTENT_MODE: usize = 256;
+
 /// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
 pub struct ReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
@@ -39,13 +42,12 @@ pub struct ReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
 	block_provider: B,
 	/// A means to extract receipts from extrinsics.
 	receipt_extractor: ReceiptExtractor,
-	/// When `false`, old blocks will be pruned.
-	archive_mode: bool,
+	/// When `Some`, old blocks will be pruned.
+	keep_latest_n_blocks: Option<usize>,
 	/// A Map of the latest block numbers to block hashes (substrate_hash, ethereum_hash).
-	/// In Archive mode: This is a cache for recent blocks.
-	/// Else: This is the only source of block mappings.
+	/// In Mode 1 (keep_latest_n_blocks = Some(n)): This is the only source of block mappings.
+	/// In Mode 2 (keep_latest_n_blocks = None): This is a cache for recent blocks.
 	block_number_to_hash: Arc<Mutex<BTreeMap<SubstrateBlockNumber, (H256, H256)>>>,
-	cache_size: usize,
 }
 
 /// Provides information about a block,
@@ -73,17 +75,15 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		pool: SqlitePool,
 		block_provider: B,
 		receipt_extractor: ReceiptExtractor,
-		archive_mode: bool,
-		cache_size: usize,
+		keep_latest_n_blocks: Option<usize>,
 	) -> Result<Self, sqlx::Error> {
 		sqlx::migrate!().run(&pool).await?;
 		Ok(Self {
 			pool,
 			block_provider,
 			receipt_extractor,
-			archive_mode,
+			keep_latest_n_blocks,
 			block_number_to_hash: Default::default(),
-			cache_size,
 		})
 	}
 
@@ -107,70 +107,37 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Insert a block mapping from Ethereum block hash to Substrate block hash.
-	/// This method:
-	/// 1. Updates the cache with the new mapping
-	/// 2. Detects forks (same block number, different substrate hash)
-	/// 3. Detects pruning needs (cache exceeds size limit)
-	/// 4. Writes to database
-	/// 5. Returns list of substrate and ethereum block hash tuples that should be removed
-	async fn insert_block_mapping(
+	/// Always writes to database. Pruning behavior differs by mode:
+	/// - Mode 1 (keep_latest_n_blocks = Some(n)): Mapping gets pruned when cache exceeds limit
+	/// - Mode 2 (keep_latest_n_blocks = None): Mapping persists permanently
+	pub async fn insert_block_mapping(
 		&self,
-		block: &impl BlockInfo,
-		ethereum_hash: &H256,
-	) -> Result<Vec<(H256, H256)>, ClientError> {
-		let substrate_hash = block.hash();
-		let block_number = block.number();
-
-		// Step 1: Update cache and detect forks/pruning
-		let mut to_remove = Vec::new();
-		{
-			let mut cache = self.block_number_to_hash.lock().await;
-
-			// Insert into cache and check for fork
-			match cache.insert(block_number, (substrate_hash, *ethereum_hash)) {
-				Some((old_substrate_hash, old_ethereum_hash))
-					if old_substrate_hash != substrate_hash =>
-				{
-					log::debug!(target: LOG_TARGET, "Fork detected at block #{block_number}: old={old_substrate_hash:?}, new={substrate_hash:?}");
-					to_remove.push((old_substrate_hash, old_ethereum_hash));
-				},
-				_ => {},
-			}
-
-			// Check if cache exceeds limit and needs pruning
-			while cache.len() > self.cache_size {
-				if let Some((_, (old_substrate_hash, old_ethereum_hash))) = cache.pop_first() {
-					log::trace!(target: LOG_TARGET, "Pruning block from cache: {old_substrate_hash:?}");
-					to_remove.push((old_substrate_hash, old_ethereum_hash));
-				}
-			}
-		}
-
-		// Step 2: Write to database
-		let ethereum_hash_ref = ethereum_hash.as_ref();
-		let substrate_hash_ref = substrate_hash.as_ref();
-		let block_number_i64 = block_number as i64;
+		ethereum_block_hash: &H256,
+		substrate_block_hash: &H256,
+		block_number: u64,
+	) -> Result<(), ClientError> {
+		let ethereum_hash = ethereum_block_hash.as_ref();
+		let substrate_hash = substrate_block_hash.as_ref();
+		let block_number = block_number as i64;
 
 		query!(
 			r#"
 			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash, block_number)
 			VALUES ($1, $2, $3)
 			"#,
-			ethereum_hash_ref,
-			substrate_hash_ref,
-			block_number_i64
+			ethereum_hash,
+			substrate_hash,
+			block_number
 		)
 		.execute(&self.pool)
 		.await?;
 
-		log::trace!(target: LOG_TARGET, "Insert block mapping: ethereum block: {ethereum_hash:?} -> substrate block: {substrate_hash:?}");
-
-		// Step 3: Return blocks to remove
-		Ok(to_remove)
+		log::trace!(target: LOG_TARGET, "Insert block mapping: ethereum block: {ethereum_block_hash:?} -> substrate block: {substrate_block_hash:?}");
+		Ok(())
 	}
 
 	/// Get the Substrate block hash for the given Ethereum block hash.
-	/// Checks cache first, then falls back to DB in archive mode.
+	/// Checks cache first, then falls back to DB in Mode 2.
 	pub async fn get_substrate_hash(&self, ethereum_block_hash: &H256) -> Option<H256> {
 		// Check cache first
 		{
@@ -183,13 +150,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			}
 		}
 
-		// Not archive mode - it's been pruned
-		if self.archive_mode {
+		// Mode 1: Not in cache means it's been pruned
+		if self.keep_latest_n_blocks.is_some() {
 			log::trace!(target: LOG_TARGET, "No block mapping found in cache (Mode 1): {ethereum_block_hash:?}");
 			return None;
 		}
 
-		// Archive mode: Fall back to database
+		// Mode 2: Fall back to database
 		let ethereum_hash = ethereum_block_hash.as_ref();
 		let result = query!(
 			r#"
@@ -216,7 +183,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Get the Ethereum block hash for the given Substrate block hash.
-	/// Checks cache first, then falls back to DB in archive mode.
+	/// Checks cache first, then falls back to DB in Mode 2.
 	pub async fn get_ethereum_hash(&self, substrate_block_hash: &H256) -> Option<H256> {
 		// Check cache first
 		{
@@ -229,13 +196,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			}
 		}
 
-		// Not archive mode - it's been pruned
-		if !self.archive_mode {
+		// Mode 1: Not in cache means it's been pruned
+		if self.keep_latest_n_blocks.is_some() {
 			log::trace!(target: LOG_TARGET, "No block mapping found in cache (Mode 1): {substrate_block_hash:?}");
 			return None;
 		}
 
-		// Archive mode: Fall back to database
+		// Mode 2: Fall back to database
 		let substrate_hash = substrate_block_hash.as_ref();
 		let result = query!(
 			r#"
@@ -261,68 +228,86 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(ethereum_hash)
 	}
 
-	/// Remove block mappings for the given list of substrate and ethereum hash tuples.
+	/// Remove block mappings for the given Ethereum block hashes.
 	pub async fn remove_block_mappings(
 		&self,
-		block_hashes: &[(H256, H256)],
+		ethereum_block_hashes: &[H256],
 	) -> Result<(), ClientError> {
-		log::trace!(target: LOG_TARGET, "Removing block mappings: {block_hashes:?}");
-		if block_hashes.is_empty() {
+		if ethereum_block_hashes.is_empty() {
 			return Ok(());
 		}
 
-		let mut cache = self.block_number_to_hash.lock().await;
-		for (substrate_hash, _) in block_hashes {
-			if let Some((&key, _)) =
-				cache.iter().find(|(_, (sub_hash, _))| sub_hash == substrate_hash)
-			{
-				cache.remove(&key);
-			}
-		}
-		// Archive mode: Keep eth_to_substrate_blocks intact (persistent storage)
-		// Else: Also delete from eth_to_substrate_blocks
-		if !self.archive_mode {
-			let placeholders = vec!["?"; block_hashes.len()].join(", ");
-			let sql_mappings = format!(
-				"DELETE FROM eth_to_substrate_blocks WHERE substrate_block_hash in ({placeholders})"
-			);
-			let mut delete_mappings_query = sqlx::query(&sql_mappings);
-			for (substrate_hash, _) in block_hashes {
-				delete_mappings_query = delete_mappings_query.bind(substrate_hash.as_ref());
-			}
-			delete_mappings_query.execute(&self.pool).await?;
+		log::trace!(target: LOG_TARGET, "Removing block mappings: {ethereum_block_hashes:?}");
+
+		let placeholders = vec!["?"; ethereum_block_hashes.len()].join(", ");
+		let sql = format!(
+			"DELETE FROM eth_to_substrate_blocks WHERE ethereum_block_hash in ({placeholders})"
+		);
+		let mut query = sqlx::query(&sql);
+
+		for ethereum_hash in ethereum_block_hashes {
+			query = query.bind(ethereum_hash.as_ref());
 		}
 
+		query.execute(&self.pool).await?;
 		Ok(())
 	}
 
 	/// Deletes older records from the database.
-	/// Archive mode: Removes from transaction_hashes and logs only.
-	/// Else: Removes from all tables.
-	pub async fn remove(&self, block_hashes: &[(H256, H256)]) -> Result<(), ClientError> {
+	/// Mode 1 (keep_latest_n_blocks = Some(n)): Removes from all tables.
+	/// Mode 2 (keep_latest_n_blocks = None): Removes from transaction_hashes and logs only.
+	pub async fn remove(&self, block_hashes: &[H256]) -> Result<(), ClientError> {
 		if block_hashes.is_empty() {
 			return Ok(());
 		}
 		log::debug!(target: LOG_TARGET, "Removing block hashes (substrate): {block_hashes:?}");
 
+		// Get ethereum hashes from cache for deleting logs
+		let ethereum_hashes: Vec<H256> = {
+			let cache = self.block_number_to_hash.lock().await;
+			block_hashes
+				.iter()
+				.filter_map(|substrate_hash| {
+					cache
+						.values()
+						.find(|(sub_hash, _)| sub_hash == substrate_hash)
+						.map(|(_, eth_hash)| *eth_hash)
+				})
+				.collect()
+		};
+
 		// Delete from transaction_hashes (uses substrate hash)
 		let placeholders = vec!["?"; block_hashes.len()].join(", ");
 		let sql_tx = format!("DELETE FROM transaction_hashes WHERE block_hash in ({placeholders})");
 		let mut delete_tx_query = sqlx::query(&sql_tx);
-		for (substrate_hash, _) in block_hashes {
-			delete_tx_query = delete_tx_query.bind(substrate_hash.as_ref());
+		for block_hash in block_hashes {
+			delete_tx_query = delete_tx_query.bind(block_hash.as_ref());
 		}
 		delete_tx_query.execute(&self.pool).await?;
 
 		// Delete from logs (uses ethereum hash)
-		let sql_logs = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
-		let mut delete_logs_query = sqlx::query(&sql_logs);
-		for (_, ethereum_hash) in block_hashes {
-			delete_logs_query = delete_logs_query.bind(ethereum_hash.as_ref());
+		if !ethereum_hashes.is_empty() {
+			let eth_placeholders = vec!["?"; ethereum_hashes.len()].join(", ");
+			let sql_logs = format!("DELETE FROM logs WHERE block_hash in ({eth_placeholders})");
+			let mut delete_logs_query = sqlx::query(&sql_logs);
+			for ethereum_hash in &ethereum_hashes {
+				delete_logs_query = delete_logs_query.bind(ethereum_hash.as_ref());
+			}
+			delete_logs_query.execute(&self.pool).await?;
 		}
-		delete_logs_query.execute(&self.pool).await?;
 
-		self.remove_block_mappings(block_hashes).await?;
+		// Mode 1: Also delete from eth_to_substrate_blocks
+		// Mode 2: Keep eth_to_substrate_blocks intact (persistent storage)
+		if self.keep_latest_n_blocks.is_some() {
+			let sql_mappings = format!(
+				"DELETE FROM eth_to_substrate_blocks WHERE substrate_block_hash in ({placeholders})"
+			);
+			let mut delete_mappings_query = sqlx::query(&sql_mappings);
+			for block_hash in block_hashes {
+				delete_mappings_query = delete_mappings_query.bind(block_hash.as_ref());
+			}
+			delete_mappings_query.execute(&self.pool).await?;
+		}
 
 		Ok(())
 	}
@@ -355,6 +340,51 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(receipts)
 	}
 
+	/// Prune blocks older blocks.
+	/// Always maintains cache; prunes database only in Mode 1 (keep_latest_n_blocks = Some(n)).
+	async fn prune_blocks(
+		&self,
+		block: &impl BlockInfo,
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		let substrate_hash = block.hash();
+		let block_number = block.number();
+		let mut block_number_to_hash = self.block_number_to_hash.lock().await;
+
+		// Determine cache size based on mode
+		let cache_size = self.keep_latest_n_blocks.unwrap_or(CACHE_SIZE_PERSISTENT_MODE);
+
+		// Fork? - If inserting the same block number with a different substrate hash, remove the
+		// old one
+		let mut to_remove = Vec::new();
+		match block_number_to_hash.insert(block_number, (substrate_hash, *ethereum_hash)) {
+			Some((old_substrate_hash, _)) if old_substrate_hash != substrate_hash => {
+				log::debug!(target: LOG_TARGET, "Fork detected at block #{block_number}: old={old_substrate_hash:?}, new={substrate_hash:?}");
+				to_remove.push(old_substrate_hash);
+			},
+			_ => {},
+		}
+
+		// If we have more blocks than we should keep, remove the oldest ones by count
+		// (not by block number range, to handle gaps correctly)
+		while block_number_to_hash.len() > cache_size {
+			// Remove the block with the smallest number (first in BTreeMap)
+			if let Some((_, (substrate_hash, _))) = block_number_to_hash.pop_first() {
+				to_remove.push(substrate_hash);
+			}
+		}
+
+		if !to_remove.is_empty() {
+			log::trace!(target: LOG_TARGET, "Pruning old blocks: {to_remove:?}");
+			// In Mode 1: removes from all tables (transaction_hashes, logs,
+			// eth_to_substrate_blocks) In Mode 2: only removes from transaction_hashes and logs
+			// (eth_to_substrate_blocks keeps all)
+			self.remove(&to_remove).await?;
+		}
+
+		Ok(())
+	}
+
 	/// Insert receipts into the provider.
 	///
 	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
@@ -372,17 +402,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", block_hash);
 
-		// Step 1: Insert block mapping (updates cache, detects forks/pruning, writes to DB)
-		let blocks_to_remove = self.insert_block_mapping(block, ethereum_hash).await?;
-
-		// Step 2: Remove forked/pruned blocks (cleans up transaction_hashes, logs, and optionally
-		// eth_to_substrate_blocks)
-		if !blocks_to_remove.is_empty() {
-			log::trace!(target: LOG_TARGET, "Removing forked/pruned blocks: {blocks_to_remove:?}");
-			self.remove(&blocks_to_remove).await?;
-		}
-
-		// Step 3: Check if receipts already exist for this block
 		let result = sqlx::query!(
 			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,
 			block_hash_ref
@@ -390,7 +409,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		.fetch_one(&self.pool)
 		.await?;
 
-		// Step 4: Insert receipts and logs for the new block
+		self.prune_blocks(block, ethereum_hash).await?;
+
 		if !result.exists {
 			for (_, receipt) in receipts {
 				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
@@ -448,6 +468,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				}
 			}
 		}
+
+		// Insert block mapping from Ethereum to Substrate hash
+		self.insert_block_mapping(&ethereum_hash, &block_hash, block_number as u64)
+			.await?;
 
 		Ok(())
 	}
@@ -713,9 +737,8 @@ mod tests {
 			pool,
 			block_provider: MockBlockInfoProvider {},
 			receipt_extractor: ReceiptExtractor::new_mock(),
-			archive_mode: false,
+			keep_latest_n_blocks: Some(10),
 			block_number_to_hash: Default::default(),
-			cache_size: 10,
 		}
 	}
 
@@ -736,7 +759,7 @@ mod tests {
 		let row = provider.fetch_row(&receipts[0].1.transaction_hash).await;
 		assert_eq!(row, Some((block.hash, 0)));
 
-		provider.remove(&[(block.hash(), ethereum_hash)]).await?;
+		provider.remove(&[block.hash()]).await?;
 		assert_eq!(count(&provider.pool, "transaction_hashes", Some(block.hash())).await, 0);
 		assert_eq!(count(&provider.pool, "logs", Some(block.hash())).await, 0);
 		Ok(())
@@ -745,7 +768,7 @@ mod tests {
 	#[sqlx::test]
 	async fn test_prune(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
-		let n = provider.cache_size;
+		let n = provider.keep_latest_n_blocks.unwrap();
 
 		for i in 0..2 * n {
 			let block = MockBlockInfo { hash: H256::from([i as u8; 32]), number: i as _ };
@@ -988,17 +1011,20 @@ mod tests {
 	async fn test_block_mapping_insert_get(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let ethereum_hash = H256::from([1u8; 32]);
-		let block1 = MockBlockInfo { hash: H256::from([2u8; 32]), number: 42 };
+		let substrate_hash = H256::from([2u8; 32]);
+		let block_number = 42u64;
 
 		// Insert mapping
-		provider.insert_block_mapping(&block1, &ethereum_hash).await?;
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
+			.await?;
 
 		// Test forward lookup
 		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
-		assert_eq!(resolved, Some(block1.hash));
+		assert_eq!(resolved, Some(substrate_hash));
 
 		// Test reverse lookup
-		let resolved = provider.get_ethereum_hash(&block1.hash).await;
+		let resolved = provider.get_ethereum_hash(&substrate_hash).await;
 		assert_eq!(resolved, Some(ethereum_hash));
 
 		Ok(())
@@ -1007,20 +1033,25 @@ mod tests {
 	#[sqlx::test]
 	async fn test_block_mapping_overwrite(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
-		let block1 = MockBlockInfo { hash: H256::from([2u8; 32]), number: 42 };
-		let block2 = MockBlockInfo { hash: H256::from([3u8; 32]), number: 42 };
 		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash1 = H256::from([2u8; 32]);
+		let substrate_hash2 = H256::from([3u8; 32]);
+		let block_number = 42u64;
 
 		// Insert first mapping
-		provider.insert_block_mapping(&block1, &ethereum_hash).await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(block1.hash));
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash1, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash1));
 
 		// Insert second mapping (should overwrite)
-		provider.insert_block_mapping(&block2, &ethereum_hash).await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(block2.hash));
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash2, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash2));
 
 		// Old mapping should be gone
-		assert_eq!(provider.get_ethereum_hash(&block1.hash).await, None);
+		assert_eq!(provider.get_ethereum_hash(&substrate_hash1).await, None);
 
 		Ok(())
 	}
@@ -1030,23 +1061,28 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await;
 		let ethereum_hash1 = H256::from([1u8; 32]);
 		let ethereum_hash2 = H256::from([2u8; 32]);
-		let block1 = MockBlockInfo { hash: H256::from([3u8; 32]), number: 42 };
-		let block2 = MockBlockInfo { hash: H256::from([4u8; 32]), number: 43 };
+		let substrate_hash1 = H256::from([3u8; 32]);
+		let substrate_hash2 = H256::from([4u8; 32]);
+		let block_number = 42u64;
 
 		// Insert mappings
-		provider.insert_block_mapping(&block1, &ethereum_hash1).await?;
-		provider.insert_block_mapping(&block2, &ethereum_hash2).await?;
+		provider
+			.insert_block_mapping(&ethereum_hash1, &substrate_hash1, block_number)
+			.await?;
+		provider
+			.insert_block_mapping(&ethereum_hash2, &substrate_hash2, block_number)
+			.await?;
 
 		// Verify they exist
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, Some(block1.hash));
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(block2.hash));
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, Some(substrate_hash1));
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
 
 		// Remove one mapping
-		provider.remove_block_mappings(&[(block1.hash, H256::default())]).await?;
+		provider.remove_block_mappings(&[ethereum_hash1]).await?;
 
 		// Verify removal
 		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, None);
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(block2.hash));
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
 
 		Ok(())
 	}
@@ -1054,15 +1090,18 @@ mod tests {
 	#[sqlx::test]
 	async fn test_block_mapping_pruning_integration(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
-		let block = MockBlockInfo { hash: H256::from([1u8; 32]), number: 42 };
-		let ethereum_hash = H256::from([2u8; 32]);
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash = H256::from([2u8; 32]);
+		let block_number = 42u64;
 
 		// Insert mapping
-		provider.insert_block_mapping(&block, &ethereum_hash).await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(block.hash));
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash));
 
 		// Remove substrate block (this should also remove the mapping)
-		provider.remove(&[(block.hash, ethereum_hash)]).await?;
+		provider.remove(&[substrate_hash]).await?;
 
 		// Mapping should be gone
 		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, None);
@@ -1119,19 +1158,18 @@ mod tests {
 		// Initially no mappings
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 0);
 
-		let block1 = MockBlockInfo { hash: H256::from([1u8; 32]), number: 1 };
-		let block2 = MockBlockInfo { hash: H256::from([3u8; 32]), number: 2 };
-		let ethereum_hash1 = H256::from([2u8; 32]);
-		let ethereum_hash2 = H256::from([4u8; 32]);
-
 		// Insert some mappings
-		provider.insert_block_mapping(&block1, &ethereum_hash1).await?;
-		provider.insert_block_mapping(&block2, &ethereum_hash2).await?;
+		provider
+			.insert_block_mapping(&H256::from([1u8; 32]), &H256::from([2u8; 32]), 1)
+			.await?;
+		provider
+			.insert_block_mapping(&H256::from([3u8; 32]), &H256::from([4u8; 32]), 2)
+			.await?;
 
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
 
 		// Remove one
-		provider.remove_block_mappings(&[(block1.hash, H256::default())]).await?;
+		provider.remove_block_mappings(&[H256::from([1u8; 32])]).await?;
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
 
 		Ok(())

@@ -111,7 +111,7 @@ fn build_client(
 		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
 		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
-		let (pool, archive_mode) = if database_url == IN_MEMORY_DB {
+		let (pool, keep_latest_n_blocks) = if database_url == IN_MEMORY_DB {
 			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {cache_size} blocks in memory");
 			// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
 			let pool = SqlitePoolOptions::new()
@@ -120,9 +120,9 @@ fn build_client(
 					.max_lifetime(None)
 					.connect(database_url).await?;
 
-			(pool, false)
+			(pool, Some(cache_size))
 		} else {
-			(SqlitePoolOptions::new().connect(database_url).await?, true)
+			(SqlitePoolOptions::new().connect(database_url).await?, None)
 		};
 
 		let receipt_extractor = ReceiptExtractor::new(
@@ -134,8 +134,7 @@ fn build_client(
 				pool,
 				block_provider.clone(),
 				receipt_extractor.clone(),
-				archive_mode,
-				cache_size
+				keep_latest_n_blocks,
 			)
 			.await?;
 
