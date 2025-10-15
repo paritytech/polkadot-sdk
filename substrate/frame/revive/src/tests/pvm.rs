@@ -62,7 +62,10 @@ use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::{Get, U256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, TokenError};
+use sp_runtime::{
+	testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, SaturatedConversion,
+	TokenError,
+};
 
 #[test]
 fn transfer_with_dust_works() {
@@ -428,7 +431,7 @@ fn deposit_event_max_value_limit() {
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		// Create
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
 			.native_value(30_000)
 			.build_and_unwrap_contract();
@@ -3954,7 +3957,7 @@ fn gas_limit_api_works() {
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(
 			u64::from_le_bytes(received.data[..].try_into().unwrap()),
-			<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+			<Pallet<Test>>::evm_block_gas_limit().saturated_into::<u64>(),
 		);
 	});
 }
@@ -4021,7 +4024,7 @@ fn call_tracing_works() {
 	let (code, _code_hash) = compile_module("tracing").unwrap();
 	let (binary_callee, _) = compile_module("tracing_callee").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(binary_callee)).build_and_unwrap_contract();
@@ -4150,7 +4153,6 @@ fn call_tracing_works() {
 					]
 			};
 
-			// gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			let mut tracer = CallTracer::new(config, |_| U256::zero());
 			trace(&mut tracer, || {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
@@ -5118,5 +5120,43 @@ fn get_set_immutables_works() {
 		Pallet::<Test>::set_immutables(addr, BoundedVec::truncate_from(new_data.clone())).unwrap();
 		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
 		assert_eq!(immutable_data, new_data);
+	});
+}
+
+#[test]
+fn consume_all_gas_works() {
+	let (code, code_hash) = compile_module("consume_all_gas").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		assert_eq!(
+			builder::bare_instantiate(Code::Upload(code)).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 0 should consume all gas in deploy"
+		);
+		assert_ne!(
+			builder::bare_instantiate(Code::Existing(code_hash))
+				.evm_value(1.into())
+				.build()
+				.gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 1 should not consume all gas in deploy"
+		);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
+			.evm_value(2.into())
+			.build_and_unwrap_contract();
+
+		assert_eq!(
+			builder::bare_call(addr).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 0 should consume all gas"
+		);
+		assert_ne!(
+			builder::bare_call(addr).evm_value(1.into()).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 1 should not consume all gas"
+		);
 	});
 }

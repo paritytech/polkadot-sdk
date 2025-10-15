@@ -376,7 +376,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn block_hash(&self, block_number: U256) -> Option<H256>;
 
 	/// Returns the author of the current block.
-	fn block_author(&self) -> Option<H160>;
+	fn block_author(&self) -> H160;
 
 	/// Returns the block gas limit.
 	fn gas_limit(&self) -> u64;
@@ -2118,12 +2118,12 @@ where
 		self.block_hash(block_number)
 	}
 
-	fn block_author(&self) -> Option<H160> {
-		Some(Contracts::<Self::T>::block_author())
+	fn block_author(&self) -> H160 {
+		Contracts::<Self::T>::block_author()
 	}
 
 	fn gas_limit(&self) -> u64 {
-		<T as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+		<Contracts<T>>::evm_block_gas_limit().saturated_into()
 	}
 
 	fn chain_id(&self) -> u64 {

@@ -54,7 +54,7 @@ pub const PAYLOAD_BYTES: u32 = 416;
 /// Maximum size of of the transaction payload
 ///
 /// Maximum code size during instantiation taken into account plus some overhead.
-pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + 128 * 1024;
+pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES;
 
 /// The extra charge of deposit event per byte.
 ///

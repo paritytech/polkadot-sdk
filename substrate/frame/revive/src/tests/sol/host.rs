@@ -462,7 +462,7 @@ fn logs_work(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();

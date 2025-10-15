@@ -36,13 +36,13 @@ mod storage;
 mod tests;
 mod transient_storage;
 mod vm;
+mod weightinfo_extension;
 
 pub mod evm;
 pub mod migrations;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
-pub mod weightinfo_extension;
 pub mod weights;
 
 use crate::{
@@ -58,6 +58,7 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
+	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -104,7 +105,6 @@ pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
 pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
-pub use weightinfo_extension::OnFinalizeBlockParts;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
@@ -221,6 +221,19 @@ pub mod pallet {
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type DepositPerItem: Get<BalanceOf<Self>>;
+
+		/// The amount of balance a caller has to pay for each child trie storage item.
+		///
+		/// Those are the items created by a contract. In Solidity each value is a single
+		/// storage item. This is why we need to set a lower value here than for the main
+		/// trie items. Otherwise the storage deposit is too high.
+		///
+		/// # Note
+		///
+		/// It is safe to change this value on a live chain as all refunds are pro rata.
+		#[pallet::constant]
+		#[pallet::no_default_bounds]
+		type DepositPerChildTrieItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
 		/// Instantiating a contract, protects the code from being removed. In order to prevent
@@ -343,6 +356,7 @@ pub mod pallet {
 
 		parameter_types! {
 			pub const DepositPerItem: Balance = deposit(1, 0);
+			pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1, 2);
@@ -385,6 +399,7 @@ pub mod pallet {
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;
+			type DepositPerChildTrieItem = DepositPerChildTrieItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
 			type AllowEVMBytecode = ConstBool<true>;
