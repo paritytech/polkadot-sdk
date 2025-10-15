@@ -240,7 +240,7 @@ fn runtime_metadata() {
 				" The `Core` runtime api that every Substrate runtime needs to implement.",
 			]),
 			deprecation_info: ItemDeprecationInfoIR::NotDeprecated,
-			version: codec::Compact(6),
+			version: codec::Compact(5),
 		},
 	];
 
