@@ -156,7 +156,8 @@ where
 		self.validator_set.validators()
 	}
 
-	/// Return voting weight associated with given authority or default 1 in case mapping does not exist
+	/// Return voting weight associated with given authority or default 1 in case mapping does not
+	/// exist
 	pub(crate) fn vote_weight(&self, authority: &AuthorityId) -> VoteWeight {
 		*self.voting_weights.get(authority).unwrap_or(&One::one())
 	}
@@ -216,8 +217,8 @@ where
 		// add valid vote
 		let vote_weight = self.vote_weight(&vote.id);
 		let round = self.rounds.entry(vote.commitment.clone()).or_default();
-		if round.add_vote((vote.id, vote.signature), vote_weight)
-			&& round.is_done(threshold(self.validator_set.len()))
+		if round.add_vote((vote.id, vote.signature), vote_weight) &&
+			round.is_done(threshold(self.validator_set.len()))
 		{
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
 				return VoteImportResult::RoundConcluded(self.signed_commitment(round));
@@ -537,8 +538,8 @@ mod tests {
 			VoteImportResult::RoundConcluded(SignedCommitment {
 				commitment,
 				signatures: vec![
-					// SignedCommitment threats authorities as independent entities, in order to keep
-					// the same order and length as in the validator set
+					// SignedCommitment threats authorities as independent entities, in order to
+					// keep the same order and length as in the validator set
 					Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
 					Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
 					Some(Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed")),
