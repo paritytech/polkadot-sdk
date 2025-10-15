@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.30;
 
 /// @title ConvictionVoting Interface
@@ -67,44 +66,16 @@ interface IConvictionVoting {
 	/// @param referendumIndex The referendum index.
 	function removeVote(uint16 trackId, uint32 referendumIndex) external;
 
-	/// @notice Unlock expired voting/delegation lock
-	/// @param trackId The trackId/track ID to unlock
-	/// @param target The account to unlock (can be yourself or others)
-	function unlock(uint16 trackId, bytes32 target) external;
-
 	/// @notice Delegate voting power to another account within a specific governance track.
 	/// @dev Applies the sender’s balance with the specified conviction multiplier.
 	/// @param trackId The governance track identifier.
-	/// @param to The account to which voting power is delegated (32-byte bytes32). See https://docs.polkadot.com/polkadot-protocol/smart-contract-basics/accounts/#polkadot-to-ethereum-mapping.
+	/// @param to The substrate account to which voting power is delegated (32-byte bytes32). See https://docs.polkadot.com/polkadot-protocol/smart-contract-basics/accounts/#ethereum-to-polkadot-mapping.
 	/// @param conviction Conviction level as defined in the `Conviction` enum.
 	function delegate(uint16 trackId, bytes32 to, Conviction conviction, uint128 balance) external;
 
 	/// @notice Remove any existing delegation within a governance track.
 	/// @param trackId The governance track identifier.
 	function undelegate(uint16 trackId) external;
-
-	/// @notice Get the locked balance for an account in a trackId
-	/// @param who The account to query
-	/// @param trackId The governance track to query
-	/// @return The locked amount
-	function getLockedBalance(bytes32 who, uint16 trackId) external view returns (uint128);
-
-	/// @notice Get the maximum locked balance across all trackIds.
-	/// @param who The account to query
-	/// @return The total locked amount (max of all locks along governance tracks)
-	function getTotalLocked(bytes32 who) external view returns (uint128);
-
-	/// @notice Get the current delegation details for an account in a governance track.
-	/// @dev Returns zero values if no delegation.
-	/// @param who The account to query
-	/// @param trackId The governance track to query
-	/// @return target The account to which voting power is delegated (32-byte bytes32). Is 0 when there is no delegation. See https://docs.polkadot.com/polkadot-protocol/smart-contract-basics/accounts/#polkadot-to-ethereum-mapping.
-	/// @return balance The amount of tokens delegated (pre-conviction).
-	/// @return conviction The conviction level applied to the delegation as defined in the `Conviction` enum.
-	function getDelegation(
-		bytes32 who,
-		uint16 trackId
-	) external view returns (bytes32 target, uint128 balance, Conviction conviction);
 
 	/// @notice Get the current vote details for specific referendum of an account in a governance track
 	/// @param who The account to query
@@ -118,7 +89,7 @@ interface IConvictionVoting {
 	/// @return abstainAmount The amount of tokens voting abstain (pre-conviction). 0 for standard and split votes.
 	/// @return conviction The conviction level applied to the vote as defined in the `Conviction` enum. Not applicable for split and split-abstain votes.
 	function getVoting(
-		bytes32 who,
+		address who,
 		uint16 trackId,
 		uint32 referendumIndex
 	)
@@ -133,4 +104,16 @@ interface IConvictionVoting {
 			uint128 abstainAmount,
 			Conviction conviction
 		);
+
+	/// @notice Get the current delegation details for an account in a governance track.
+	/// @dev Returns zero values if no delegation.
+	/// @param who The account to query
+	/// @param trackId The governance track to query
+	/// @return target The account to which voting power is delegated (32-byte bytes32). Is 0 when there is no delegation. See https://docs.polkadot.com/polkadot-protocol/smart-contract-basics/accounts/#polkadot-to-ethereum-mapping.
+	/// @return balance The amount of tokens delegated (pre-conviction).
+	/// @return conviction The conviction level applied to the delegation as defined in the `Conviction` enum.
+	function getDelegation(
+		bytes32 who,
+		uint16 trackId
+	) external view returns (bytes32 target, uint128 balance, Conviction conviction);
 }

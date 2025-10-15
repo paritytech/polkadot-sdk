@@ -5,30 +5,10 @@ pragma solidity ^0.8.30;
 interface IReferenda {
 	/// @notice When the referendum should be enacted.
 	enum Timing {
-		/// @custom:variant At specified block.
+		/// @custom:variant Enact at specific block number
 		AtBlock,
-		/// @custom:variant After specified number of blocks.
+		/// @custom:variant Enact after N blocks from approval
 		AfterBlock
-	}
-
-	/// @notice Information about a referendum status.
-	enum ReferendumStatus {
-		/// @custom:variant Referendum has been submitted but still waiting for decision deposit.
-		Prepare,
-		/// @custom:variant Referendum is being voted on, decision deposit has been placed.
-		Deciding,
-		/// @custom:variant Referendum is in the confirmation period after a successful vote.
-		Confirming,
-		/// @custom:variant Referendum finished with approval. Submission deposit is held.
-		Approved,
-		/// @custom:variant Referendum finished with rejection. Submission deposit is held.
-		Rejected,
-		/// @custom:variant Referendum finished with cancellation. Submission deposit is held.
-		Cancelled,
-		/// @custom:variant Referendum finished and was never decided. Submission deposit is held.
-		TimedOut,
-		/// @custom:variant Referendum finished with a kill.
-		Killed
 	}
 
 	/// @notice The origin of a referendum submission.
@@ -68,31 +48,38 @@ interface IReferenda {
 		BigSpender
 	}
 
-	/// @notice Information about a referendum.
-	struct ReferendumInfo {
-		/// @custom:property The governance track ID.
-		uint16 trackId;
-		/// @custom:property Lifecycle status as defined in the `ReferendumStatus` enum.
-		ReferendumStatus status;
-		/// @custom:property The origin of the referendum submission as defined in the `GovernanceOrigin` enum.
-		GovernanceOrigin origin;
-		/// @custom:property  The hash of the proposal call data.
-		bytes32 callHash;
-		/// @custom:property  When the referendum will be enacted if approved.
-		uint32 enactmentBlock;
-		/// @custom:property  When the referendum was submitted.
-		uint32 submissionBlock;
-		/// @custom:property  The block number when the referendum entered the Deciding phase. 0 if in Prepare phase.
-		uint32 decidingSince;
-		/// @custom:property  The block number when the referendum will exit the Confirming phase. 0 if not in Confirming phase.
-		uint32 confirmingUntil;
-		/// @custom:property  The amount of submission deposit held.
-		uint128 submissionDeposit;
-		/// @custom:property  The amount of decision deposit placed.
-		uint128 decisionDeposit;
+	/// @notice Information about a referendum status.
+	enum ReferendumStatus {
+		/// @custom:variant /// Referendum has been submitted and has substatus defined by `OngoingPhase`.
+		Ongoing,
+		/// @custom:variant Referendum finished with approval. Submission deposit is held.
+		Approved,
+		/// @custom:variant Referendum finished with rejection. Submission deposit is held.
+		Rejected,
+		/// @custom:variant Referendum finished with cancellation. Submission deposit is held.
+		Cancelled,
+		/// @custom:variant Referendum finished and was never decided. Submission deposit is held.
+		TimedOut,
+		/// @custom:variant Referendum finished with a kill.
+		Killed
+	}
+
+	/// @notice Sub-phases of an ongoing referendum.
+	enum OngoingPhase {
+		/// @custom:variant Referendum is waiting for decision deposit to be placed
+		AwaitingDeposit,
+		/// @custom:variant Decision deposit placed, preparing
+		Preparing,
+		/// @custom:variant Ready but waiting for track space
+		Queued,
+		/// @custom:variant Active voting period
+		Deciding,
+		/// @custom:variant Passing, in confirmation period
+		Confirming
 	}
 
 	/// @notice Submit a referendum via preimage lookup (for large proposals).
+	/// @dev Requires prior call to `pallet_preimage::note_preimage()`
 	/// @param origin The origin of the proposal.
 	/// @param hash The hash of the referendum info to be looked up.
 	/// @param preimageLength The length of the preimage in bytes.
@@ -124,44 +111,43 @@ interface IReferenda {
 	/// @param referendumIndex The index of the referendum for which to place the deposit.
 	function placeDecisionDeposit(uint32 referendumIndex) external;
 
-	/// @notice Refund the submission deposit for a referendum.
-	/// @param referendumIndex The index of the referendum for which to refund the deposit.
-	/// @return refundAmount The amount refunded to the submitter.
-	function refundSubmissionDeposit(
-		uint32 referendumIndex
-	) external returns (uint128 refundAmount);
-
-	/// @notice Refund the decision deposit for a referendum.
-	/// @param referendumIndex The index of the referendum for which to refund the deposit.
-	/// @return refundAmount The amount refunded to the depositor.
-	function refundDecisionDeposit(uint32 referendumIndex) external returns (uint128 refundAmount);
-
-	/// @notice Cancel an ongoing referendum. (requires the `ReferendumCanceller` origin in Polkadot/Kusama)
-	/// @param referendumIndex The index of the referendum to cancel.
-	function cancel(uint32 referendumIndex) external;
-
-	/// @notice Kill an ongoing referendum and slash deposits. (requires the `ReferendumKiller` origin in Polkadot/Kusama)
-	/// @param referendumIndex The index of the referendum to kill.
-	function kill(uint32 referendumIndex) external;
-
-	/// @notice Set metadata for a referendum. Only callable by the referendum submitter.
-	/// @param referendumIndex The index of the referendum for which to set metadata.
-	/// @param metadataHash The hash of the metadata to associate with the referendum.
-	function setMetadata(uint32 referendumIndex, bytes32 metadataHash) external;
-
-	/// @notice Clear metadata for a referendum and refund the metadata deposit.
-	/// @param referendumIndex The index of the referendum for which to clear metadata.
-	function clearMetadata(uint32 referendumIndex) external;
-
-	/// @notice Get metadata hash for a referendum.
+	/// @notice Get comprehensive referendum information
 	/// @param referendumIndex The index of the referendum to query.
-	function getMetadata(uint32 referendumIndex) external view returns (bytes32);
-
-	/// @notice Check if a referendum is ongoing (in voting period).
-	/// @param referendumIndex The referendum index
 	/// @return exists Whether the referendum exists
-	/// @return isOngoing Whether the referendum is ongoing (in either Prepare, Deciding, Confirming phase)
-	function isOngoing(uint32 referendumIndex) external view returns (bool exists, bool isOngoing);
+	/// @return status Current status as defined in the `ReferendumStatus` enum
+	/// @return ongoingPhase Sub-phase if status is Ongoing as defined in the `OngoingPhase` enum
+	/// @return trackId The governance track ID
+	/// @return proposalHash Hash of the proposal
+	/// @return submissionDeposit Submission deposit amount
+	/// @return decisionDeposit Decision deposit amount
+	/// @return enactmentBlock Block number for execution (if approved)
+	/// @return submissionBlock Block when referendum was submitted
+	function getReferendumInfo(
+		uint32 referendumIndex
+	)
+		external
+		view
+		returns (
+			bool exists,
+			ReferendumStatus status,
+			OngoingPhase ongoingPhase,
+			uint16 trackId,
+			bytes32 proposalHash,
+			uint128 submissionDeposit,
+			uint128 decisionDeposit,
+			uint32 enactmentBlock,
+			uint32 submissionBlock
+		);
+
+	/// @notice Get voting tally for an ongoing referendum
+	/// @param referendumIndex The index of the referendum to query.
+	/// @return exists Whether referendum exists and is ongoing
+	/// @return ayes Aye votes (post-conviction)
+	/// @return nays Nay votes (post-conviction)
+	/// @return support Aye votes (pre-conviction, for turnout calculation)
+	function getReferendumTally(
+		uint32 referendumIndex
+	) external view returns (bool exists, uint128 ayes, uint128 nays, uint128 support);
 
 	/// @notice Check if a referendum would pass if ended now
 	/// @param referendumIndex The referendum index
@@ -170,48 +156,6 @@ interface IReferenda {
 	function isReferendumPassing(
 		uint32 referendumIndex
 	) external view returns (bool exists, bool passing);
-
-	/// @notice Get information about a referendum
-	/// @param referendumIndex The referendum index
-	/// @return exists Whether the referendum exists
-	/// @return The referendum information as a `ReferendumInfo` struct
-	function getReferendumInfo(
-		uint32 referendumIndex
-	) external view returns (bool exists, ReferendumInfo memory);
-
-	/// @notice Get voting tally for an ongoing referendum
-	/// @param referendumIndex The referendum index
-	/// @return inVoting Whether the referendum exists and is either in the Deciding or Confirming phase.
-	/// @return ayes The number of aye votes, expressed in terms of post-conviction lock-vote.
-	/// @return nays The number of nay votes, expressed in terms of post-conviction lock-vote.
-	/// @return support The basic number of aye votes, expressed pre-conviction.
-	function getReferendumTally(
-		uint32 referendumIndex
-	) external view returns (bool inVoting, uint128 ayes, uint128 nays, uint128 support);
-
-	/// @notice Get track information
-	/// @param track The track ID
-	/// @return exists Whether the track exists
-	/// @return maxDeciding Maximum concurrent deciding referenda
-	/// @return decisionDeposit Required decision deposit
-	/// @return preparePeriod Preparation period in blocks
-	/// @return decisionPeriod Decision period in blocks
-	/// @return confirmPeriod Confirmation period in blocks
-	/// @return minEnactmentPeriod Minimum enactment period in blocks
-	function getTrackInfo(
-		uint16 track
-	)
-		external
-		view
-		returns (
-			bool exists,
-			uint32 maxDeciding,
-			uint128 decisionDeposit,
-			uint32 preparePeriod,
-			uint32 decisionPeriod,
-			uint32 confirmPeriod,
-			uint32 minEnactmentPeriod
-		);
 
 	/// @notice Get the submission deposit amount required for submitting a referendum
 	/// @return The submission deposit amount
