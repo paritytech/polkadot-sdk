@@ -273,12 +273,32 @@ pub async fn start_parachain_node(
 	let transaction_pool = params.transaction_pool.clone();
 	let import_queue_service = params.import_queue.service();
 
-	// Take parachain id from runtime.
+	// Take parachain id from runtime or fall back to the old mechanism fetching it from the
+	// `Extension`.
+	//
+	// The fallback is needed if some old chain syncs from scratch, where the runtime
+	// api does not yet implement the runtime api at genesis.
 	let best_hash = client.chain_info().best_hash;
-	let para_id = client
+	let para_id = if client
 		.runtime_api()
-		.parachain_id(best_hash)
-		.map_err(|_| "Failed to retrieve parachain id from runtime. Make sure you implement `cumulus_primitives_core::GetParachaiNidentity` runtime API.")?;
+		.has_api::<dyn GetParachainInfo<Block>>(best_hash)
+		.ok()
+		.filter(|has_api| *has_api)
+		.is_some()
+	{
+		client.runtime_api().parachain_id(best_hash).map_err(|err| {
+			format!(
+				"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
+				err
+			)
+		})?
+	} else {
+		ParaId::from(
+			Extensions::try_get(&*parachain_config.chain_spec)
+				.map(|ext| ext.para_id)
+				.ok_or_else(|| "Failed to retrieve parachain id from Extensions")?,
+		)
+	};
 
 	// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
 	// when starting the network.
