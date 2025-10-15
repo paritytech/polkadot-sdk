@@ -359,6 +359,7 @@ where
 			sync_service,
 			config,
 			telemetry: telemetry.as_mut(),
+			tracing_execute_block: None,
 		})?;
 
 		Ok(task_manager)
