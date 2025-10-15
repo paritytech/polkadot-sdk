@@ -382,6 +382,7 @@ impl Config for Test {
 	type Currency = Balances;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
+	type DepositPerChildTrieItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;
 	type AllowEVMBytecode = AllowEvmBytecode;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
