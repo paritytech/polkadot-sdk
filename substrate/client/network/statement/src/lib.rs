@@ -534,7 +534,7 @@ where
 			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
 
 			// never send statements to light nodes
-			if matches!(peer.role, ObservedRole::Light) {
+			if peer.role.is_light() {
 				log::trace!(target: LOG_TARGET, "{} is a light node, skipping propagation", who);
 				continue
 			}
