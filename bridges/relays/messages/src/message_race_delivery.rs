@@ -527,10 +527,6 @@ where
 	type ProofParameters = MessageProofParameters;
 	type TargetNoncesData = DeliveryRaceTargetNoncesData;
 
-	fn is_empty(&self) -> bool {
-		self.strategy.is_empty()
-	}
-
 	async fn required_source_header_at_target<
 		RS: RaceState<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>>,
 	>(

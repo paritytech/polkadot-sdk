@@ -457,7 +457,7 @@ impl Headers {
 	}
 
 	/// Convert this headers into an iterator.
-	pub fn into_iter(&self) -> HeadersIterator {
+	pub fn into_iter(&self) -> HeadersIterator<'_> {
 		HeadersIterator { collection: &self.raw, index: None }
 	}
 }
