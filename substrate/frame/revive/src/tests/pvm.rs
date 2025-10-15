@@ -4149,7 +4149,6 @@ fn call_tracing_works() {
 					]
 			};
 
-			// gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			let mut tracer = CallTracer::new(config, |_| U256::zero());
 			trace(&mut tracer, || {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
