@@ -450,8 +450,7 @@ where
 						if peers.contains(&who) {
 							log::trace!(
 								target: LOG_TARGET,
-								"Already received the statement from the same peer {}.",
-								who
+								"Already received the statement from the same peer {who}.",
 							);
 							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
 						}
