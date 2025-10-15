@@ -1089,7 +1089,7 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 
-		let block_author = runtime.ext().block_author().unwrap_or(H160::zero());
+		let block_author = runtime.ext().block_author();
 		assert_eq!(&memory[..], block_author.as_bytes());
 	}
 
