@@ -709,7 +709,7 @@ jobs:
 
   trigger-zombienet-polkadot:
     needs: [preflight, confirm-required-build-jobs-passed]
-    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' && !github.event.pull_request.draft }}
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
     uses: ./.github/workflows/zombienet_polkadot.yml
     with:
       build_run_id: ${{ github.run_id }}
@@ -717,7 +717,7 @@ jobs:
 
   trigger-zombienet-cumulus:
     needs: [preflight, confirm-required-build-jobs-passed]
-    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' && !github.event.pull_request.draft }}
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
     uses: ./.github/workflows/zombienet_cumulus.yml
     with:
       build_run_id: ${{ github.run_id }}
@@ -725,7 +725,7 @@ jobs:
 
   trigger-zombienet-substrate:
     needs: [preflight, confirm-required-build-jobs-passed]
-    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' && !github.event.pull_request.draft }}
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
     uses: ./.github/workflows/zombienet_substrate.yml
     with:
       build_run_id: ${{ github.run_id }}
@@ -733,29 +733,8 @@ jobs:
 
   trigger-zombienet-parachain-template:
     needs: [preflight, confirm-required-build-jobs-passed]
-    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' && !github.event.pull_request.draft }}
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
     uses: ./.github/workflows/zombienet_parachain-template.yml
     with:
       build_run_id: ${{ github.run_id }}
       ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-
-  confirm-required-zombienet-tests-passed:
-    runs-on: ubuntu-latest
-    name: All required zombienet tests passed
-    needs:
-      - trigger-zombienet-polkadot
-      - trigger-zombienet-cumulus
-      - trigger-zombienet-substrate
-      - trigger-zombienet-parachain-template
-    if: always() && !cancelled()
-    steps:
-      - name: Check zombienet tests success
-        run: |
-          tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
-          if [ $FAILURES -gt 0 ]; then
-            echo "### At least one required zombienet test failed ❌" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          else
-            echo '### All the required zombienet tests passed 🚀' >> $GITHUB_STEP_SUMMARY
-          fi

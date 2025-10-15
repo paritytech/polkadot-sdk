@@ -516,6 +516,7 @@ async fn distribute_collation<Context>(
 	}
 
 	let para_head = receipt.descriptor.para_head();
+	let pov_hash = pov.hash();
 	per_relay_parent.collations.insert(
 		candidate_hash,
 		CollationData {
@@ -527,9 +528,16 @@ async fn distribute_collation<Context>(
 			},
 			core_index,
 			session_index,
-			stats: per_relay_parent
-				.block_number
-				.map(|n| CollationStats::new(para_head, n, candidate_relay_parent, &state.metrics)),
+			stats: per_relay_parent.block_number.map(|n| {
+				CollationStats::new(
+					para_head,
+					n,
+					candidate_relay_parent,
+					&state.metrics,
+					*candidate_hash,
+					pov_hash,
+				)
+			}),
 		},
 	);
 
@@ -1437,7 +1445,7 @@ async fn handle_our_view_change<Context>(
 
 			if let Some(block_number) = maybe_block_number {
 				let expired_collations = state.collation_tracker.drain_expired(block_number);
-				process_expired_collations(expired_collations, *removed, para_id, &state.metrics);
+				process_expired_collations(expired_collations, para_id, &state.metrics);
 			}
 
 			// Get all the collations built on top of the removed leaf.
@@ -1526,20 +1534,24 @@ fn process_out_of_view_collation(
 /// Collations no more tracked after this call.
 fn process_expired_collations(
 	expired_collations: Vec<CollationStats>,
-	removed: Hash,
 	para_id: ParaId,
 	metrics: &Metrics,
 ) {
 	for expired_collation in expired_collations {
 		let collation_state = expired_collation.expiry_state();
 		let age = expired_collation.expired().unwrap_or_default();
+		let candidate_hash = expired_collation.candidate_hash();
+		let pov_hash = expired_collation.pov_hash();
+		let relay_parent = expired_collation.relay_parent();
 		gum::debug!(
 			target: crate::LOG_TARGET_STATS,
 			?age,
 			?collation_state,
-			relay_parent = ?removed,
+			?relay_parent,
 			?para_id,
 			head = ?expired_collation.head(),
+			?candidate_hash,
+			?pov_hash,
 			"Collation expired",
 		);
 

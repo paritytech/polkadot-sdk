@@ -31,16 +31,30 @@ runs:
         TEST_FILTER: ${{ inputs.test-filter }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-        echo "Vars"
-        echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-        echo "ZOMBIE_PROVIDER": $ZOMBIE_PROVIDER
-        echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
-        echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
-        echo "COL_IMAGE: $COL_IMAGE"
-        echo "MALUS_IMAGE: $MALUS_IMAGE"
-        echo "Inputs"
-        echo "test: $TEST_FILTER"
-        echo "prefix: $PREFIX"
+        echo "::group::Test Configuration (SDK)"
+        echo "Environment Variables:"
+        echo "  ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+        echo "  ZOMBIE_PROVIDER: $ZOMBIE_PROVIDER"
+        echo "  POLKADOT_IMAGE: $POLKADOT_IMAGE"
+        echo "  CUMULUS_IMAGE: $CUMULUS_IMAGE"
+        echo "  COL_IMAGE: $COL_IMAGE"
+        echo "  MALUS_IMAGE: $MALUS_IMAGE"
+        echo ""
+        echo "Test Parameters:"
+        echo "  Test Filter: $TEST_FILTER"
+        echo "  Prefix: $PREFIX"
+        echo "  Job Name: ${{ inputs.job-name }}"
+        echo ""
+        # Show flaky tests information if any are disabled
+        if [[ -f .github/zombienet-flaky-tests ]]; then
+          FLAKY_COUNT=$(grep -v '^#' .github/zombienet-flaky-tests | grep -v '^$' | wc -l | tr -d ' ')
+          if [[ $FLAKY_COUNT -gt 0 ]]; then
+            echo "⚠️ Flaky/Disabled Tests: $FLAKY_COUNT test(s) currently disabled"
+            echo "📄 See: https://github.com/paritytech/polkadot-sdk/blob/${{ github.sha }}/.github/zombienet-flaky-tests"
+            echo "📖 Docs: https://github.com/paritytech/polkadot-sdk/blob/${{ github.sha }}/.github/ZOMBIENET_FLAKY_TESTS.md"
+          fi
+        fi
+        echo "::endgroup::"
 
     - name: Download binaries for zombienet native tests
       if: env.ZOMBIE_PROVIDER == 'native'
@@ -91,27 +105,3 @@ runs:
         # If we want to get rid of '--no-capture' some day, please use '--test-threads 1' or NEXTEST_TEST_THREADS=1
         # Both options cannot coexist for cargo-nextest below v0.9.94
         cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_FILTER}
-
-    - name: process_logs
-      if: ${{ ! cancelled() }}
-      shell: bash
-      run: |
-        echo "Processing log files"
-        echo "::group::Logs"
-        # do not fail the whole run if this step fails
-        if ! ./.github/scripts/process-logs-zombienet.sh ; then
-          echo "::endgroup::"
-          echo "::warning ::WARNING: Failed to process logs"
-        else
-          echo "::endgroup::"
-        fi
-
-
-    - name: upload_logs
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-      if: ${{ ! cancelled() }}
-      with:
-        name: zombienet-logs-${{ inputs.job-name }}-${{ github.sha }}
-        path: |
-          /tmp/zombie*/logs/*
-

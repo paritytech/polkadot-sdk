@@ -174,31 +174,36 @@ async fn tx_slow_client_replace_old_messages() {
 		.await
 		.unwrap();
 
+	assert_eq!(TransactionEvent::<H256>::Validated, sub.next().await.unwrap().unwrap().0);
+
 	// Import block 2 with the transaction included.
 	let block = api.push_block(2, vec![uxt.clone()], true);
 	let block_hash = block.hash();
 	let event = ChainEvent::NewBestBlock { hash: block_hash, tree_route: None };
 	pool.inner_pool.maintain(event).await;
 
-	let mut block2_hash = None;
+	// Import again with block 3
+	let block3 = api.push_block(3, vec![uxt.clone()], true);
+	let event = ChainEvent::NewBestBlock { hash: dbg!(block3.hash()), tree_route: None };
+	pool.inner_pool.maintain(event).await;
 
-	// Import block 2 again without the transaction included.
-	for _ in 0..10 {
-		let block_not_imported = api.push_block(2, vec![], true);
-		let event = ChainEvent::NewBestBlock { hash: block_not_imported.hash(), tree_route: None };
-		pool.inner_pool.maintain(event).await;
+	// Import block 3 again without the transaction included.
+	let block_not_imported = api.push_block(3, vec![], true);
+	let event = ChainEvent::NewBestBlock { hash: block_not_imported.hash(), tree_route: None };
+	pool.inner_pool.maintain(event).await;
 
-		let block2 = api.push_block(2, vec![uxt.clone()], true);
-		block2_hash = Some(block2.hash());
-		let event = ChainEvent::NewBestBlock { hash: block2.hash(), tree_route: None };
+	// Import again with block 4
+	let block4 = api.push_block(4, vec![uxt.clone()], true);
+	let event = ChainEvent::NewBestBlock { hash: dbg!(block4.hash()), tree_route: None };
+	pool.inner_pool.maintain(event).await;
 
-		pool.inner_pool.maintain(event).await;
-	}
-
-	let block2_hash = block2_hash.unwrap();
+	// Import again with block 5
+	let block5 = api.push_block(5, vec![uxt.clone()], true);
+	let event = ChainEvent::NewBestBlock { hash: dbg!(block5.hash()), tree_route: None };
+	pool.inner_pool.maintain(event).await;
 
 	// Finalize the transaction
-	let event = ChainEvent::Finalized { hash: block2_hash, tree_route: Arc::from(vec![]) };
+	let event = ChainEvent::Finalized { hash: block5.hash(), tree_route: Arc::from(vec![]) };
 	pool.inner_pool.maintain(event).await;
 
 	// Hack to mimic a slow client.
@@ -215,23 +220,26 @@ async fn tx_slow_client_replace_old_messages() {
 		res.push(ev);
 	}
 
-	// BestBlockIncluded(None) is dropped and not seen.
-	let exp = vec![
-		// First message
-		TransactionEvent::Validated,
-		// Second message
+	// `BestBlockIncluded(None)` is dropped and not seen.
+	let expected = vec![
 		TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock {
 			hash: block_hash,
 			index: 0,
 		})),
-		// Most recent 3 messages.
-		TransactionEvent::Validated,
 		TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock {
-			hash: block2_hash,
+			hash: block3.hash(),
 			index: 0,
 		})),
-		TransactionEvent::Finalized(TransactionBlock { hash: block2_hash, index: 0 }),
+		TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock {
+			hash: block4.hash(),
+			index: 0,
+		})),
+		TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock {
+			hash: block5.hash(),
+			index: 0,
+		})),
+		TransactionEvent::Finalized(TransactionBlock { hash: block5.hash(), index: 0 }),
 	];
 
-	assert_eq!(res, exp);
+	assert_eq!(expected, res);
 }
