@@ -31,6 +31,7 @@ use sp_runtime::{
 	traits::{Block, Header, NumberFor},
 	DigestItem,
 };
+use sp_tracing::tracing;
 
 use crate::{fetch_authorities_from_runtime, AuthorityId, CompatibilityMode};
 
@@ -63,7 +64,8 @@ where
 			// block if there is no imported ancestor. The chain must be imported in order, from
 			// first block to last.
 			let mut chain = Vec::new();
-			loop {
+			// Limit the backtracking to 100 blocks, which should always be sufficient.
+			while chain.len() < 100 {
 				let header = client
 					.header(hash)
 					.map_err(|e| format!("Could not get header for {hash:?}: {e}"))?
