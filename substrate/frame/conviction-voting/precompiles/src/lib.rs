@@ -17,6 +17,9 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use core::{fmt, marker::PhantomData, num::NonZero};
 use frame_support::dispatch::RawOrigin;
 use pallet_revive::{
@@ -28,7 +31,34 @@ use pallet_revive::{
 };
 use tracing::error;
 
-alloy::sol!("src/interface/IGovernance.sol");
-use IGovernance::IGovernanceCalls;
+alloy::sol!("src/interface/IConvictionVoting.sol");
+use IConvictionVoting::IConvictionVotingCalls;
 
-pub struct GovernancePrecompile<T>(PhantomData<T>);
+const LOG_TARGET: &str = "conviction-voting::precompiles";
+
+fn revert(error: &impl fmt::Debug, message: &str) -> Error {
+	error!(target: LOG_TARGET, ?error, "{}", message);
+	Error::Revert(message.into())
+}
+
+
+pub struct ConvictionVotingPrecompile<T>(PhantomData<T>);
+impl<Runtime> Precompile for ConvictionVotingPrecompile<Runtime>
+where
+	Runtime: crate::Config + pallet_revive::Config,
+{
+	type T = Runtime;
+	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(12).unwrap());
+	const HAS_CONTRACT_INFO: bool = false;
+	type Interface = IConvictionVoting::IConvictionVotingCalls;
+
+	fn call(
+		_address: &[u8; 20],
+		input: &Self::Interface,
+		env: &mut impl Ext<T = Self::T>,
+	) -> Result<Vec<u8>, Error> {
+		let origin = env.caller();
+		
+		Ok(Vec::new())
+	}
+}

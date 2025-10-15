@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+/// @dev The on-chain address of the Conviction Voting precompile.
+address constant CONVICTION_VOTING_PRECOMPILE_ADDRESS = address(0xC0000);
+
 /// @title ConvictionVoting Interface
 interface IConvictionVoting {
 	/// @notice A value denoting the strength of conviction of a vote.
