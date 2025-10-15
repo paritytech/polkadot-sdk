@@ -1,0 +1,23 @@
+title: 'pallet_revive: Change EVM call opcodes to respect the gas limit passed'
+doc:
+- audience: Runtime Dev
+  description: |-
+    So far the EVM family of call opcodes did ignore the `gas` argument passed to them. The consequence was that we were not able to  limit the resource usage of sub contract calls. This PR changes that.  **Gas is now fully functional on the EVM backend.**
+
+    The resources of any sub contract call are now effectively limited. This is both true for `Weight` and storage deposit. The algorithm works in a way that if you pass `x%` of the current `GAS` the the `CALL` opcode the sub call will have `x%` of currently available `Weight` and storage deposit available. This allows the caller to always make sure to execute code after retuning from a sub call.
+
+    ### Changes to the gas meter
+
+    I needed to change the gas meter to track `gas_consumed` instead of `gas_left`. Otherwise it is not possible to know the total amount of gas spent for a call stack that is not unwinded, yet.
+
+    ### Followup
+    - Implement a new PVM syscall that takes the new unified gas instead of `Weight` and storage deposit limit
+    - Change resolc to use this new syscall
+    - Enable the test added here to run on resolc
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
