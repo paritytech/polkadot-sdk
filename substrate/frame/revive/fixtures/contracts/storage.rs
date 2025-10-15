@@ -17,9 +17,12 @@
 
 //! This contract tests the storage APIs. It sets and clears storage values using the different
 //! versions of the storage APIs.
+
 #![no_std]
 #![no_main]
+
 include!("../panic_handler.rs");
+include!("../sol_utils.rs");
 
 use uapi::{unwrap_output, HostFn, HostFnImpl as api, StorageFlags};
 
@@ -36,7 +39,7 @@ pub extern "C" fn call() {
 	const VALUE_3: [u8; 4] = [3u8; 4];
 
 	api::set_storage(StorageFlags::empty(), &KEY, &VALUE_1);
-	assert_eq!(api::contains_storage(StorageFlags::empty(), &KEY), Some(VALUE_1.len() as _));
+	assert_eq!(contains_storage::<api>(StorageFlags::empty(), &KEY), Some(VALUE_1.len() as _));
 	unwrap_output!(val, [0u8; 4], api::get_storage, StorageFlags::empty(), &KEY);
 	assert_eq!(**val, VALUE_1);
 
@@ -45,19 +48,20 @@ pub extern "C" fn call() {
 	unwrap_output!(val, [0u8; 4], api::get_storage, StorageFlags::empty(), &KEY);
 	assert_eq!(**val, VALUE_2);
 
-	api::clear_storage(StorageFlags::empty(), &KEY);
-	assert_eq!(api::contains_storage(StorageFlags::empty(), &KEY), None);
+	clear_storage::<api>(StorageFlags::empty(), &KEY);
+	assert_eq!(contains_storage::<api>(StorageFlags::empty(), &KEY), None);
 
 	let existing = api::set_storage(StorageFlags::empty(), &KEY, &VALUE_3);
 	assert_eq!(existing, None);
-	assert_eq!(api::contains_storage(StorageFlags::empty(), &KEY), Some(VALUE_1.len() as _));
+	assert_eq!(contains_storage::<api>(StorageFlags::empty(), &KEY), Some(VALUE_1.len() as _));
 	unwrap_output!(val, [0u8; 32], api::get_storage, StorageFlags::empty(), &KEY);
 	assert_eq!(**val, VALUE_3);
 
-	api::clear_storage(StorageFlags::empty(), &KEY);
-	assert_eq!(api::contains_storage(StorageFlags::empty(), &KEY), None);
+	clear_storage::<api>(StorageFlags::empty(), &KEY);
+	assert_eq!(contains_storage::<api>(StorageFlags::empty(), &KEY), None);
 	let existing = api::set_storage(StorageFlags::empty(), &KEY, &VALUE_3);
 	assert_eq!(existing, None);
-	unwrap_output!(val, [0u8; 32], api::take_storage, StorageFlags::empty(), &KEY);
-	assert_eq!(**val, VALUE_3);
+	let mut decoded_buf = [0u8; 4];
+	assert_eq!(take_storage::<api>(StorageFlags::empty(), &KEY, &mut decoded_buf), Some(4));
+	assert_eq!(decoded_buf, VALUE_3);
 }
