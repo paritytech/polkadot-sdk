@@ -39,7 +39,6 @@ use polkadot_sdk::{
 	},
 	*,
 };
-use sp_session::OpaqueGeneratedSessionKeys;
 use sp_weights::{ConstantMultiplier, IdentityFee};
 
 pub use polkadot_sdk::{
@@ -403,8 +402,8 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 	}
 
 	impl apis::SessionKeys<Block> for Runtime {
-			fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> OpaqueGeneratedSessionKeys {
-			SessionKeys::generate(&owner, seed).into()
+			fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> apis::OpaqueGeneratedSessionKeys {
+			apis::SessionKeys::generate(&owner, seed).into()
 		}
 
 
