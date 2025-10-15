@@ -73,6 +73,7 @@ impl PerRelayView {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PerSessionView {
     authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>,
 }
@@ -85,8 +86,6 @@ impl PerSessionView {
 
 struct View {
     latest_finalized: Option<(Hash, BlockNumber)>,
-    best_blocks: Vec<Hash>,
-
     roots: HashSet<Hash>,
     per_relay: HashMap<Hash, PerRelayView>,
     per_session: HashMap<SessionIndex, PerSessionView>,
@@ -104,8 +103,7 @@ impl View {
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
             candidates_per_session: HashMap::new(),
-            availability_chunks: HashMap::new(),
-            best_blocks: Vec::new()
+            availability_chunks: HashMap::new()
         };
     }
 }
@@ -288,7 +286,10 @@ pub(crate) async fn run_iteration<Context>(
             FromOrchestra::Communication { msg } => {
                 match msg {
                     ConsensusStatisticsCollectorMessage::ChunksDownloaded(
-                        session_index, candidate_hash, downloads)=> {
+                        session_index,
+                        candidate_hash,
+                        downloads,
+                    )=> {
                         handle_chunks_downloaded(
                             view,
                             session_index,
@@ -296,14 +297,21 @@ pub(crate) async fn run_iteration<Context>(
                             downloads,
                         )
                     },
-                    ConsensusStatisticsCollectorMessage::ChunkUploaded(candidate_hash, authority_ids) => {
+                    ConsensusStatisticsCollectorMessage::ChunkUploaded(
+                        candidate_hash,
+                        authority_ids,
+                    ) => {
                         handle_chunk_uploaded(
                             view,
                             candidate_hash,
                             authority_ids,
                         )
                     },
-                    ConsensusStatisticsCollectorMessage::CandidateApproved(candidate_hash, block_hash, approvals) => {
+                    ConsensusStatisticsCollectorMessage::CandidateApproved(
+                        candidate_hash,
+                        block_hash,
+                        approvals,
+                    ) => {
                         handle_candidate_approved(
                             view,
                             block_hash,
@@ -312,7 +320,11 @@ pub(crate) async fn run_iteration<Context>(
                             metrics,
                         );
                     }
-                    ConsensusStatisticsCollectorMessage::NoShows(candidate_hash, block_hash, no_show_validators) => {
+                    ConsensusStatisticsCollectorMessage::NoShows(
+                        candidate_hash,
+                        block_hash,
+                        no_show_validators,
+                    ) => {
                         handle_observed_no_shows(
                             view,
                             block_hash,

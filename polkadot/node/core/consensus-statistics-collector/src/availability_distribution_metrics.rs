@@ -19,8 +19,9 @@ use std::collections::hash_map::Entry;
 use std::ops::Add;
 use gum::CandidateHash;
 use polkadot_primitives::{AuthorityDiscoveryId, SessionIndex, ValidatorIndex};
-use crate::View;
+use crate::{PerSessionView, View};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AvailabilityChunks {
     pub downloads_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
     pub uploads_per_candidate: HashMap<CandidateHash, HashMap<ValidatorIndex, u64>>,
@@ -40,12 +41,17 @@ impl AvailabilityChunks {
         validator_index: ValidatorIndex,
         count: u64,
     ) {
-        let _ = self.downloads_per_candidate
+        let validator_downloads = self.downloads_per_candidate
             .entry(candidate_hash)
             .or_default()
-            .entry(validator_index)
-            .and_modify(|v| *v += count)
-            .or_insert(count);
+            .entry(validator_index);
+
+        match validator_downloads {
+            Entry::Occupied(mut validator_downloads) => {
+                *validator_downloads.get_mut() += count;
+            }
+            Entry::Vacant(entry) => { entry.insert(count); }
+        }
     }
 
     pub fn note_candidate_chunk_uploaded(
@@ -54,12 +60,17 @@ impl AvailabilityChunks {
         validator_index: ValidatorIndex,
         count: u64,
     ) {
-        let _ = self.uploads_per_candidate
+        let validator_uploads = self.uploads_per_candidate
             .entry(candidate_hash)
             .or_default()
-            .entry(validator_index)
-            .and_modify(|v| *v += count)
-            .or_insert(count);
+            .entry(validator_index);
+
+        match validator_uploads {
+            Entry::Occupied(mut validator_uploads) => {
+                *validator_uploads.get_mut() += count;
+            }
+            Entry::Vacant(entry) => { entry.insert(count); }
+        }
     }
 }
 
@@ -72,16 +83,22 @@ pub fn handle_chunks_downloaded(
     candidate_hash: CandidateHash,
     downloads: HashMap<ValidatorIndex, u64>,
 ) {
-    view.candidates_per_session
+    let candidates_per_session = view.candidates_per_session.entry(session_index);
+    match candidates_per_session {
+        Entry::Occupied(mut candidates_per_session) => {
+            candidates_per_session.get_mut().insert(candidate_hash);
+        }
+        Entry::Vacant(entry) => {
+            entry.insert(HashSet::new());
+        }
+    }
+
+    let av_chunks = view.availability_chunks
         .entry(session_index)
-        .or_default()
-        .insert(candidate_hash);
+        .or_insert(AvailabilityChunks::new());
 
     for (validator_index, download_count) in downloads {
-        view.availability_chunks
-            .entry(session_index)
-            .and_modify(|av_chunks_stats| av_chunks_stats.note_candidate_chunk_downloaded(candidate_hash, validator_index, download_count))
-            .or_insert(AvailabilityChunks::new());
+        av_chunks.note_candidate_chunk_downloaded(candidate_hash, validator_index, download_count)
     }
 }
 
@@ -90,36 +107,32 @@ pub fn handle_chunk_uploaded(
     candidate_hash: CandidateHash,
     authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
-    // check if candidate is present
-    let sessions = view.candidates_per_session
-        .iter()
-        .filter_map(|(session_index, candidates)| {
-            if candidates.contains(&candidate_hash) {
-                return Some(session_index);
-            }
+    // will look up in the stored sessions,
+    // from the most recent session to the oldest session
+    // to find the first validator index that matches
+    // with a single authority discovery id from the set
 
-            None
-        });
+    let mut sessions: Vec<(&SessionIndex, &PerSessionView)> = view.per_session.iter().collect();
+    sessions.sort_by(|(a, _), (b, _)| a.partial_cmp(&b).unwrap());
 
-    for session_index in sessions {
-        let validator_index = view.per_session.get(session_index).and_then(|session_view| {
-            for authority_id in authority_ids.iter() {
-                match session_view.authorities_lookup.get(authority_id) {
-                    Some(validator_idx) => return Some(validator_idx),
-                    None => continue,
+    for (session_idx, session_view) in sessions {
+        // Find the first authority with a matching validator index
+        if let Some(validator_idx) = authority_ids
+            .iter()
+            .find_map(|id| session_view.authorities_lookup.get(id).map(|v| v))
+        {
+            let av_chunks = view.availability_chunks.entry(*session_idx);
+            match av_chunks {
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut()
+                        .note_candidate_chunk_uploaded(candidate_hash, *validator_idx, 1);
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(AvailabilityChunks::new())
+                        .note_candidate_chunk_uploaded(candidate_hash, *validator_idx, 1);
                 }
             }
-            None
-        });
-
-        if validator_index.is_none() {
-            continue;
+            break;
         }
-
-        view.availability_chunks
-            .entry(session_index.clone())
-            .and_modify(|av_chunks_stats| av_chunks_stats
-                .note_candidate_chunk_uploaded(candidate_hash, validator_index.unwrap().clone(), 1))
-            .or_insert(AvailabilityChunks::new());
     }
 }

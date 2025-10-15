@@ -15,15 +15,18 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use assert_matches::assert_matches;
 use overseer::FromOrchestra;
-use polkadot_primitives::{SessionIndex};
-use polkadot_node_subsystem::messages::{ConsensusStatisticsCollectorMessage};
+use polkadot_primitives::{AssignmentId, GroupIndex, SessionIndex, SessionInfo};
+use polkadot_node_subsystem::messages::{AllMessages, ChainApiResponseChannel, ConsensusStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest};
 
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ConsensusStatisticsCollectorMessage>;
 use polkadot_node_subsystem::{ActivatedLeaf};
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use sp_core::traits::CodeNotFound;
+use polkadot_primitives::{Hash, Header};
+use sp_application_crypto::Pair as PairT;
+use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use test_helpers::mock::new_leaf;
 
 async fn activate_leaf(
@@ -103,11 +106,10 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let (mut context, virtual_overseer) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
-    let metrics = Metrics;
-
 	let mut view = View::new();
+
 	let subsystem = async move {
-		if let Err(e) = run_iteration(&mut context, &mut view, &metrics).await {
+		if let Err(e) = run_iteration(&mut context, &mut view, &Metrics(None)).await {
 			panic!("{:?}", e);
 		}
 
@@ -277,8 +279,11 @@ fn note_chunks_downloaded() {
 		virtual_overseer
 	});
 
-	assert_eq!(view.chunks_downloaded.chunks_per_candidate.len(), 1);
-	let amt_per_validator = view.chunks_downloaded.chunks_per_candidate
+	assert_eq!(view.availability_chunks.len(), 1);
+	let ac = view.availability_chunks.get(&session_idx).unwrap();
+
+	assert_eq!(ac.downloads_per_candidate.len(), 1);
+	let amt_per_validator = ac.downloads_per_candidate
 		.get(&candidate_hash)
 		.unwrap();
 
@@ -291,4 +296,113 @@ fn note_chunks_downloaded() {
 		let count = amt_per_validator.get(&vidx).unwrap();
 		assert_eq!(*count, expected_count);
 	}
+}
+
+fn default_header() -> Header {
+	Header {
+		parent_hash: Hash::zero(),
+		number: 100500,
+		state_root: Hash::zero(),
+		extrinsics_root: Hash::zero(),
+		digest: Default::default(),
+	}
+}
+
+fn default_session_info(session_idx: SessionIndex) -> SessionInfo {
+	SessionInfo {
+		active_validator_indices: vec![],
+		random_seed: Default::default(),
+		dispute_period: session_idx,
+		validators: Default::default(),
+		discovery_keys: vec![],
+		assignment_keys: vec![],
+		validator_groups: Default::default(),
+		n_cores: 0,
+		zeroth_delay_tranche_width: 0,
+		relay_vrf_modulo_samples: 0,
+		n_delay_tranches: 0,
+		no_show_slots: 0,
+		needed_approvals: 0,
+	}
+}
+
+#[test]
+fn note_chunks_uploaded_to_active_validator() {
+	let activated_leaf_hash = Hash::from_low_u64_be(111);
+	let leaf1 = new_leaf(activated_leaf_hash.clone(), 1);
+	let leaf1_header = default_header();
+	let session_index: SessionIndex = 2;
+	let mut session_info: SessionInfo = default_session_info(session_index);
+
+	let validator_idx_pair = AuthorityDiscoveryPair::generate();
+	let validator_idx_auth_id: AuthorityDiscoveryId = validator_idx_pair.0.public().into();
+
+	session_info.discovery_keys = vec![
+		validator_idx_auth_id.clone(),
+	];
+
+	let candidate_hash: CandidateHash = CandidateHash(Hash::from_low_u64_be(132));
+
+	let view = test_harness(|mut virtual_overseer| async move {
+		virtual_overseer.send(FromOrchestra::Signal(
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate{
+				activated: Some(leaf1),
+				deactivated: Default::default(),
+			}),
+		)).await;
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ChainApi(
+				ChainApiMessage::BlockHeader(relay_hash, tx)
+			) if relay_hash == activated_leaf_hash => {
+				tx.send(Ok(Some(leaf1_header))).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+			) if parent == activated_leaf_hash => {
+				tx.send(Ok(session_index)).unwrap();
+			}
+		);
+
+		// given that session index is not cached yet
+		// the subsystem will retrieve the session info
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionInfo(req_session, tx))
+			) if req_session == session_index => {
+				tx.send(Ok(Some(session_info))).unwrap();
+			}
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication {
+			msg: ConsensusStatisticsCollectorMessage::ChunkUploaded(
+				candidate_hash.clone(), HashSet::from_iter(vec![validator_idx_auth_id.clone()]),
+			),
+		}).await;
+
+		virtual_overseer
+	});
+
+	let validator_idx_auth_id: AuthorityDiscoveryId = validator_idx_pair.0.public().into();
+
+	// assert that the leaf was activated and the session info is present
+	let expected_view = PerSessionView::new(
+		HashMap::from_iter(vec![(validator_idx_auth_id.clone(), ValidatorIndex(0))]));
+
+	assert_eq!(view.per_session.len(),1);
+	assert_eq!(view.per_session.get(&2).unwrap().clone(), expected_view);
+
+	assert_matches!(view.availability_chunks.len(), 1);
+
+	let mut expected_av_chunks = AvailabilityChunks::new();
+	expected_av_chunks.note_candidate_chunk_uploaded(
+		candidate_hash, ValidatorIndex(0), 1);
+
+	assert_matches!(view.availability_chunks.get(&2).unwrap(), expected_av_chunks);
 }

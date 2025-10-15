@@ -26,8 +26,7 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
-polkadot-primitives-test-helpers = { workspace = true }
-rand = { workspace = true }
-rstest = { workspace = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
