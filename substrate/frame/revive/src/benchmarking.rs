@@ -29,7 +29,7 @@ use crate::{
 			SolType,
 		},
 		run::builtin as run_builtin_precompile,
-		BenchmarkSystem, BuiltinPrecompile,
+		BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 	},
 	storage::WriteOutcome,
 	vm::{
@@ -52,7 +52,9 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_revive_uapi::{
-	pack_hi_lo, precompiles::system::ISystem, CallFlags, ReturnErrorCode, StorageFlags,
+	pack_hi_lo,
+	precompiles::{storage::IStorage, system::ISystem},
+	CallFlags, ReturnErrorCode, StorageFlags,
 };
 use revm::bytecode::Bytecode;
 use sp_consensus_aura::AURA_ENGINE_ID;
@@ -295,7 +297,6 @@ mod benchmarks {
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
-		let storage_deposit = default_deposit_limit::<T>();
 
 		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
 
@@ -304,7 +305,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(origin, evm_value, Weight::MAX, storage_deposit, code, input, 0u32.into(), 0);
+		_(origin, evm_value, Weight::MAX, code, input, 0u32.into(), 0);
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
@@ -442,9 +443,10 @@ mod benchmarks {
 		let caller_addr = T::AddressMapper::to_address(&instance.caller);
 		let origin = Origin::EthTransaction(instance.caller.clone());
 		let before = Pallet::<T>::evm_balance(&instance.address);
-		let storage_deposit = default_deposit_limit::<T>();
+
 		#[extrinsic_call]
-		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data, 0u32.into(), 0);
+		_(origin, instance.address, evm_value, Weight::MAX, data, 0u32.into(), 0);
+
 		let deposit = T::Currency::balance_on_hold(
 			&HoldReason::StorageDepositReserve.into(),
 			&instance.account_id,
@@ -805,7 +807,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_ref_time_left(memory.as_mut_slice());
 		}
-		assert_eq!(result.unwrap(), runtime.ext().gas_meter().gas_left().ref_time());
+		assert_eq!(result.unwrap(), runtime.ext().gas_left());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1374,29 +1376,35 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_clear_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn clear_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.unhashed(), ]);
-		let info = instance.info()?;
 
-		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+			flags: StorageFlags::empty().bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_clear_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,
-				max_key_len,
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
-
 		assert_ok!(result);
-		assert!(info.read(&key).is_none());
+		assert!(ext.get_storage(&key).is_none());
+
 		Ok(())
 	}
 
@@ -1431,62 +1439,67 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_contains_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn contains_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.unhashed(), ]);
-		let info = instance.info()?;
+		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
 
-		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_contains_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,
-				max_key_len,
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_some());
 
-		assert_eq!(result.unwrap(), n);
 		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_take_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn take_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
+		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.unhashed(), n.to_le_bytes(), vec![0u8; n as _], ]);
-		let info = instance.info()?;
 
-		let value = vec![42u8; n as usize];
-		info.write(&key, Some(value.clone()), None, false)
+		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+			flags: StorageFlags::empty().bits(),
+			key: vec![3u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		let out_ptr = max_key_len + 4;
 		let result;
 		#[block]
 		{
-			result = runtime.bench_take_storage(
-				memory.as_mut_slice(),
-				StorageFlags::empty().bits(),
-				0,           // key_ptr
-				max_key_len, // key_len
-				out_ptr,     // out_ptr
-				max_key_len, // out_len_ptr
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
-
 		assert_ok!(result);
-		assert!(&info.read(&key).is_none());
-		assert_eq!(&value, &memory[out_ptr as usize..]);
+		assert!(ext.get_storage(&key).is_none());
+
 		Ok(())
 	}
 
@@ -1660,26 +1673,30 @@ mod benchmarks {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, memory: [ key.unhashed(), ]);
-		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
-		runtime
-			.ext()
-			.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
+		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_clear_storage(
-				memory.as_mut_slice(),
-				StorageFlags::TRANSIENT.bits(),
-				0,
-				max_key_len,
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
-
 		assert_ok!(result);
-		assert!(runtime.ext().get_transient_storage(&key).is_none());
+		assert!(ext.get_transient_storage(&key).is_none());
+
 		Ok(())
 	}
 
@@ -1726,25 +1743,31 @@ mod benchmarks {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, memory: [ key.unhashed(), ]);
-		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
-		runtime
-			.ext()
-			.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
+
+		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_contains_storage(
-				memory.as_mut_slice(),
-				StorageFlags::TRANSIENT.bits(),
-				0,
-				max_key_len,
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
+		assert!(result.is_ok());
+		assert!(ext.get_transient_storage(&key).is_some());
 
-		assert_eq!(result.unwrap(), n);
 		Ok(())
 	}
 
@@ -1753,34 +1776,35 @@ mod benchmarks {
 		n: Linear<0, { limits::PAYLOAD_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let n = limits::PAYLOAD_BYTES;
+		let value = vec![42u8; n as usize];
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, memory: [ key.unhashed(), n.to_le_bytes(), vec![0u8; n as _], ]);
-		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
-		let value = vec![42u8; n as usize];
-		runtime
-			.ext()
-			.set_transient_storage(&key, Some(value.clone()), false)
+
+		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+			flags: StorageFlags::TRANSIENT.bits(),
+			key: vec![0u8; max_key_len as usize].into(),
+			isFixedKey: false,
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+		ext.set_transient_storage(&key, Some(value), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
-		let out_ptr = max_key_len + 4;
 		let result;
 		#[block]
 		{
-			result = runtime.bench_take_storage(
-				memory.as_mut_slice(),
-				StorageFlags::TRANSIENT.bits(),
-				0,           // key_ptr
-				max_key_len, // key_len
-				out_ptr,     // out_ptr
-				max_key_len, // out_len_ptr
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
+		assert!(result.is_ok());
+		assert!(ext.get_transient_storage(&key).is_none());
 
-		assert_ok!(result);
-		assert!(&runtime.ext().get_transient_storage(&key).is_none());
-		assert_eq!(&value, &memory[out_ptr as usize..]);
 		Ok(())
 	}
 
