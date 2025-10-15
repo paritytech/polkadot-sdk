@@ -132,3 +132,20 @@ fn mcopy_works(fixture_type: FixtureType) {
 		assert_eq!(expected_value, decoded, "memory test should return {expected_value}");
 	});
 }
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn zero_byte_reads_from_any_offset(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("MemoryBounds", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr).build_and_unwrap_result();
+		assert!(!result.did_revert());
+		assert!(result.data.is_empty());
+	});
+}
