@@ -137,7 +137,7 @@ impl Diff {
 	/// this information from the passed `info`.
 	pub fn update_contract<T: Config>(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		let per_byte = T::DepositPerByte::get();
-		let per_item = T::DepositPerItem::get();
+		let per_item = T::DepositPerChildTrieItem::get();
 		let bytes_added = self.bytes_added.saturating_sub(self.bytes_removed);
 		let items_added = self.items_added.saturating_sub(self.items_removed);
 		let mut bytes_deposit = Deposit::Charge(per_byte.saturating_mul((bytes_added).into()));

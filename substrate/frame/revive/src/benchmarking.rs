@@ -985,7 +985,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_gas_limit(&mut memory);
 		}
-		assert_eq!(result.unwrap(), T::BlockWeights::get().max_block.ref_time());
+		assert_eq!(U256::from(result.unwrap()), <Pallet<T>>::evm_block_gas_limit());
 	}
 
 	#[benchmark(pov_mode = Measured)]
