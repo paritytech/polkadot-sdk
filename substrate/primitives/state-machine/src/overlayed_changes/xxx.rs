@@ -4,7 +4,6 @@ use core::{
 	hash::{BuildHasher, Hash},
 	mem,
 };
-use foldhash::fast::FixedState;
 use indexmap::IndexMap as HashMap;
 #[cfg(not(feature = "std"))]
 use indexmap::IndexSet as HashSet;
@@ -84,13 +83,6 @@ impl<K> Default for TransactionLayer<K> {
 impl<K, H: Default> Default for Changeset<K, H> {
 	fn default() -> Self {
 		Self { layers: Vec::new(), current: TransactionLayer::default(), hasher: H::default() }
-	}
-}
-
-impl<K, H: Default> Changeset<K, H> {
-	/// Creates a new, empty instance of Changeset
-	pub fn new() -> Self {
-		Self::default()
 	}
 }
 
@@ -250,7 +242,7 @@ mod tests {
 
 	#[test]
 	fn test_empty_snapshot() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		let delta = changeset.create_snapshot_and_get_delta2();
 		assert!(delta.is_empty());
 		let delta = changeset.create_snapshot_and_get_delta2();
@@ -265,7 +257,7 @@ mod tests {
 
 	#[test]
 	fn test_simple_snapshot() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);
 		let delta = changeset.create_snapshot_and_get_delta2();
@@ -277,7 +269,7 @@ mod tests {
 
 	#[test]
 	fn test_nested_tx_and_rollback() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);
 		let d1 = changeset.create_snapshot_and_get_delta2();
@@ -296,7 +288,7 @@ mod tests {
 
 	#[test]
 	fn test_nested_tx_and_commit() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);
 		changeset.add_key("c".to_string(), KeyOp::Updated);
@@ -320,7 +312,7 @@ mod tests {
 
 	#[test]
 	fn test_commit_merges_dirty_keys() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("x".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
 		changeset.add_key("y".to_string(), KeyOp::Updated);
@@ -331,7 +323,7 @@ mod tests {
 
 	#[test]
 	fn test_commit_merges_dirty_keys2() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("x".to_string(), KeyOp::Updated);
 		let delta = changeset.create_snapshot_and_get_delta2();
 		delta_assert_eq!(delta, ["x"]);
@@ -344,7 +336,7 @@ mod tests {
 
 	#[test]
 	fn test_open_commit_and_rollback_combined() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
 		changeset.add_key("b".to_string(), KeyOp::Updated);
@@ -359,7 +351,7 @@ mod tests {
 
 	#[test]
 	fn test_open_commit_and_rollback_combined_nested00() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
 		{
@@ -388,7 +380,7 @@ mod tests {
 
 	#[test]
 	fn test_open_commit_and_rollback_combined_nested01() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
 		{
@@ -417,7 +409,7 @@ mod tests {
 
 	#[test]
 	fn test_open_commit_and_rollback_combined_nested02() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
 		{
@@ -451,7 +443,7 @@ mod tests {
 		// 	.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
 		// 	.try_init()
 		// 	.ok(); // Ignore error if already initialized
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);
 		let delta = changeset.create_snapshot_and_get_delta2();
@@ -465,7 +457,7 @@ mod tests {
 
 	#[test]
 	fn test_simple_snapshot_uniq2() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.start_transaction();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);
@@ -483,7 +475,7 @@ mod tests {
 
 	#[test]
 	fn test_simple_snapshot_uniq3() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.start_transaction();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);
@@ -501,7 +493,7 @@ mod tests {
 
 	#[test]
 	fn test_simple_snapshot_uniq4() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.start_transaction();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);
@@ -520,7 +512,7 @@ mod tests {
 
 	#[test]
 	fn test_simple_snapshot_uniq5() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.start_transaction();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);
@@ -542,7 +534,7 @@ mod tests {
 
 	#[test]
 	fn test_rollback_without_snapshot() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
 		changeset.add_key("b".to_string(), KeyOp::Updated);
@@ -554,7 +546,7 @@ mod tests {
 
 	#[test]
 	fn test_empty_transaction_commit() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
 		changeset.commit_transaction();
@@ -564,7 +556,7 @@ mod tests {
 
 	#[test]
 	fn test_empty_transaction_rollback() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
 		changeset.rollback_transaction();
@@ -574,7 +566,7 @@ mod tests {
 
 	#[test]
 	fn test_transaction_snapshot_rollback_root_visibility() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("root1".to_string(), KeyOp::Updated);
 		changeset.add_key("root2".to_string(), KeyOp::Updated);
 		changeset.start_transaction();
@@ -589,7 +581,7 @@ mod tests {
 
 	#[test]
 	fn test_deep_nesting_snapshots_at_every_level() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("l0".to_string(), KeyOp::Updated);
 		let s0 = changeset.create_snapshot_and_get_delta2();
 		delta_assert_eq!(s0, ["l0"]);
@@ -619,7 +611,7 @@ mod tests {
 
 	#[test]
 	fn test_duplicate_keys_in_same_transaction() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.start_transaction();
 		changeset.add_key("dup".to_string(), KeyOp::Updated);
 		changeset.add_key("dup".to_string(), KeyOp::Updated);
@@ -633,7 +625,7 @@ mod tests {
 	#[test]
 	fn test_updated_then_deleted_same_transaction() {
 		// Updated then Deleted in same transaction - both should appear
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), super::KeyOp::Updated);
 		let delta1 = changeset.create_snapshot_and_get_delta2();
 		delta_assert_eq!(delta1, ["a"]);
@@ -646,7 +638,7 @@ mod tests {
 	#[test]
 	fn test_updated_then_deleted_across_transactions() {
 		// Updated then Deleted across transactions
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.start_transaction();
 		changeset.add_key("a".to_string(), super::KeyOp::Updated);
 		changeset.commit_transaction();
@@ -663,7 +655,7 @@ mod tests {
 	#[test]
 	fn test_deleted_then_updated_filters_updated() {
 		// Deleted then Updated - Updated should be filtered
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), super::KeyOp::Deleted);
 		let delta1 = changeset.create_snapshot_and_get_delta2();
 		delta_assert_eq!(delta1, ["a"]);
@@ -676,7 +668,7 @@ mod tests {
 	#[test]
 	fn test_deleted_then_updated_no_snapshot_between() {
 		// Deleted then Updated before snapshot - only Deleted appears
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), super::KeyOp::Deleted);
 		changeset.add_key("a".to_string(), super::KeyOp::Updated);
 		let delta = changeset.create_snapshot_and_get_delta2();
@@ -686,7 +678,7 @@ mod tests {
 	#[test]
 	fn test_updated_in_parent_deleted_in_child() {
 		// Updated in parent, Deleted in child transaction
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), super::KeyOp::Updated);
 		changeset.start_transaction();
 		changeset.add_key("a".to_string(), super::KeyOp::Deleted);
@@ -697,8 +689,7 @@ mod tests {
 
 	#[test]
 	fn test_deleted_in_parent_updated_in_child_rollback() {
-		// Deleted in parent, Updated in child - then rollback
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), super::KeyOp::Deleted);
 		let delta1 = changeset.create_snapshot_and_get_delta2();
 		delta_assert_eq!(delta1, ["a"]);
@@ -708,29 +699,28 @@ mod tests {
 		changeset.rollback_transaction();
 
 		let delta2 = changeset.create_snapshot_and_get_delta2();
-		assert!(delta2.is_empty()); // Tombstone persists after rollback
+		assert!(delta2.is_empty());
 	}
 
 	#[test]
 	fn test_multiple_updated_then_deleted() {
-		// Multiple Updated, then one Deleted
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), super::KeyOp::Updated);
 		let delta1 = changeset.create_snapshot_and_get_delta2();
 		delta_assert_eq!(delta1, ["a"]);
 
 		changeset.add_key("a".to_string(), super::KeyOp::Updated);
 		let delta2 = changeset.create_snapshot_and_get_delta2();
-		assert!(delta2.is_empty()); // Filtered
+		assert!(delta2.is_empty());
 
 		changeset.add_key("a".to_string(), super::KeyOp::Deleted);
 		let delta3 = changeset.create_snapshot_and_get_delta2();
-		delta_assert_eq!(delta3, ["a"]); // Deleted appears
+		delta_assert_eq!(delta3, ["a"]);
 	}
 
 	#[test]
 	fn test_updated_then_deleted_in_child_snapshot_then_rollback() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), super::KeyOp::Updated);
 
 		changeset.start_transaction();
@@ -746,7 +736,7 @@ mod tests {
 
 	#[test]
 	fn test_updated_then_deleted_in_child_snapshot_then_rollback_2() {
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.add_key("a".to_string(), super::KeyOp::Updated);
 		let delta = changeset.create_snapshot_and_get_delta2();
 		delta_assert_eq!(delta, ["a"]); // Updated key appears again
@@ -770,7 +760,7 @@ mod tests {
 		// 	.try_init()
 		// 	.ok(); // Ignore error if already initialized
 		//
-		let mut changeset = Changeset::new();
+		let mut changeset = Changeset::default();
 		changeset.start_transaction();
 		changeset.add_key("a".to_string(), KeyOp::Updated);
 		changeset.add_key("b".to_string(), KeyOp::Updated);

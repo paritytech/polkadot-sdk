@@ -688,7 +688,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 		(root, false)
 	}
 
-	// todo: doc
+	/// Updates the recorder's proof size by recording trie nodes using `backend` and all changes
+	/// as seen by the current transaction.
 	pub fn trigger_storage_root_size_estimation<B: Backend<H>>(
 		&mut self,
 		backend: &B,
@@ -947,7 +948,6 @@ mod tests {
 	use crate::{ext::Ext, new_in_mem, InMemoryBackend};
 	use array_bytes::bytes2hex;
 	use sp_core::{traits::Externalities, Blake2Hasher};
-	use sp_trie::MemoryDB;
 	use std::collections::BTreeMap;
 
 	fn assert_extrinsics(

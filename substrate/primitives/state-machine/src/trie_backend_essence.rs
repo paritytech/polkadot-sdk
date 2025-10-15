@@ -19,10 +19,9 @@
 //! from storage.
 
 use crate::{
-	backend::{BackendSnapshot, IterArgs, StorageIterator},
-	debug,
+	backend::{IterArgs, StorageIterator},
 	trie_backend::TrieCacheProvider,
-	warn, BackendTransaction, StorageKey, StorageValue,
+	warn, StorageKey, StorageValue,
 };
 #[cfg(feature = "std")]
 use alloc::sync::Arc;

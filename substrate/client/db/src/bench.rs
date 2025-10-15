@@ -29,9 +29,8 @@ use sp_core::{
 };
 use sp_runtime::{traits::Hash, StateVersion, Storage};
 use sp_state_machine::{
-	backend::{Backend as StateBackend, BackendSnapshot},
-	BackendTransaction, ChildStorageCollection, DBValue, IterArgs, StorageCollection,
-	StorageIterator, StorageKey, StorageValue,
+	backend::Backend as StateBackend, BackendTransaction, ChildStorageCollection, DBValue,
+	IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},

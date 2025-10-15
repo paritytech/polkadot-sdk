@@ -175,9 +175,6 @@ where
 /// state for a new block.
 pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 
-pub type BackendSnapshot<'a, H> =
-	(Vec<Option<&'a BackendTransaction<H>>>, Option<<H as Hasher>::Out>);
-
 /// A state backend is used to read state data and can have changes committed
 /// to it.
 ///

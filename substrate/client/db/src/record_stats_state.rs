@@ -25,7 +25,7 @@ use sp_runtime::{
 	StateVersion,
 };
 use sp_state_machine::{
-	backend::{AsTrieBackend, Backend as StateBackend, BackendSnapshot},
+	backend::{AsTrieBackend, Backend as StateBackend},
 	BackendTransaction, IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend,
 };
 use sp_trie::MerkleValue;
