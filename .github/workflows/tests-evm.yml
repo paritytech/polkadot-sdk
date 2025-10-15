@@ -48,12 +48,14 @@ jobs:
 
       - uses: denoland/setup-deno@v1
         with:
-          deno-version: v1.x
+          deno-version: v2.x
 
       - name: script
         run: |
           echo "Change to the evm-test-suite directory"
           cd evm-test-suite
+
+          deno --version
 
           echo "Download the resolc binary"
           wget -O resolc https://github.com/paritytech/revive/releases/download/v0.3.0/resolc-x86_64-unknown-linux-musl -q
