@@ -1,0 +1,12 @@
+title: ' Wait for transaction receipt if instant seal is enabled'
+doc:
+- audience: Runtime Dev
+  description: "Fixes https://github.com/paritytech/contract-issues/issues/165\n\n\
+    The main changes in this PR are:\n\n1. Add a new API to revive-dev-node to check\
+    \ whether the node has instant seal enabled.\n2. Add a new debug API to eth-rpc\
+    \ to check whether the node has instant seal enabled. (optional)\n3. Query and\
+    \ cache the node\u2019s instant seal status during eth-rpc initialization.\n4.\
+    \ If instant seal is enabled, wait for the transaction receipt to be available"
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
