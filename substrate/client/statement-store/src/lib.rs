@@ -523,7 +523,8 @@ impl Store {
 
 	/// Create a new instance.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
-	fn new<Block, Client>(
+	#[doc(hidden)]
+	pub fn new<Block, Client>(
 		path: &std::path::Path,
 		options: Options,
 		client: Arc<Client>,
@@ -1055,7 +1056,7 @@ mod tests {
 
 	impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 		type Api = RuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
+		fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
 			RuntimeApi { _inner: self.clone() }.into()
 		}
 	}
