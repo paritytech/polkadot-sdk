@@ -89,8 +89,6 @@ struct View {
     roots: HashSet<Hash>,
     per_relay: HashMap<Hash, PerRelayView>,
     per_session: HashMap<SessionIndex, PerSessionView>,
-    // TODO: this information should not be needed
-    candidates_per_session: HashMap<SessionIndex, HashSet<CandidateHash>>,
     availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
 
 }
@@ -102,7 +100,6 @@ impl View {
             roots: HashSet::new(),
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
-            candidates_per_session: HashMap::new(),
             availability_chunks: HashMap::new()
         };
     }

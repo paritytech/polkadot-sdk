@@ -83,16 +83,6 @@ pub fn handle_chunks_downloaded(
     candidate_hash: CandidateHash,
     downloads: HashMap<ValidatorIndex, u64>,
 ) {
-    let candidates_per_session = view.candidates_per_session.entry(session_index);
-    match candidates_per_session {
-        Entry::Occupied(mut candidates_per_session) => {
-            candidates_per_session.get_mut().insert(candidate_hash);
-        }
-        Entry::Vacant(entry) => {
-            entry.insert(HashSet::new());
-        }
-    }
-
     let av_chunks = view.availability_chunks
         .entry(session_index)
         .or_insert(AvailabilityChunks::new());
