@@ -132,17 +132,22 @@ pub extern "C" fn call() {
 	assert!(matches!(res, Err(ReturnErrorCode::OutOfResources)));
 
 	// Fail to call the contract due to insufficient proof_size weight.
+	let mut output = [0u8; 4];
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
 		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		load_code_proof_size, //just enough to load the contract
+		load_code_proof_size, // just enough to load the contract
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&INPUT,
-		None,
+		Some(&mut &mut output[..]),
 	);
-	assert!(matches!(res, Err(ReturnErrorCode::OutOfResources)));
+	assert!(matches!(res, Err(ReturnErrorCode::CalleeReverted)));
+
+	let mut decode_buf = [0u8; 4];
+	decode_buf[..4].copy_from_slice(&output[..4]);
+	assert_eq!(u32::from_le_bytes(decode_buf), ReturnErrorCode::OutOfResources as u32);
 
 	// Call the contract successfully.
 	let mut output = [0u8; 4];

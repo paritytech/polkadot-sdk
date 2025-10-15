@@ -22,7 +22,7 @@ use crate::{
 };
 use alloy::primitives::U256;
 use frame_support::{assert_ok, traits::Currency};
-use pallet_revive::DepositLimit;
+use pallet_revive::ExecConfig;
 use sp_core::H160;
 use sp_runtime::Weight;
 
@@ -77,8 +77,9 @@ fn precompile_transfer_works() {
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			u64::MAX,
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 
 		assert_contract_event(
@@ -115,8 +116,9 @@ fn total_supply_works() {
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			u64::MAX,
 			data,
+			ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -147,8 +149,9 @@ fn balance_of_works() {
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			u64::MAX,
 			data,
+			ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -192,8 +195,9 @@ fn approval_works() {
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			u64::MAX,
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 
 		assert_contract_event(
@@ -214,8 +218,9 @@ fn approval_works() {
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			u64::MAX,
 			data,
+			ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -236,8 +241,9 @@ fn approval_works() {
 			H160::from(asset_addr),
 			0u32.into(),
 			Weight::MAX,
-			DepositLimit::UnsafeOnlyForDryRun,
+			u64::MAX,
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 		assert_eq!(Assets::balance(asset_id, owner), 90);
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 15);

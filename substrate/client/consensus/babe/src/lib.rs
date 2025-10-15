@@ -113,7 +113,7 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppCrypto;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{
-	Backend as _, BlockStatus, Error as ClientError, ForkBackend, HeaderBackend, HeaderMetadata,
+	Backend as _, BlockStatus, Error as ClientError, HeaderBackend, HeaderMetadata,
 	Result as ClientResult,
 };
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
@@ -561,16 +561,7 @@ fn aux_storage_cleanup<C: HeaderMetadata<Block> + HeaderBackend<Block>, Block: B
 			.filter(|h| **h != notification.hash),
 	);
 
-	// Cleans data for stale forks.
-	let stale_forks = match client.expand_forks(&notification.stale_heads) {
-		Ok(stale_forks) => stale_forks,
-		Err(e) => {
-			warn!(target: LOG_TARGET, "{:?}", e);
-
-			Default::default()
-		},
-	};
-	hashes.extend(stale_forks.iter());
+	hashes.extend(notification.stale_blocks.iter().map(|b| b.hash));
 
 	hashes
 		.into_iter()
