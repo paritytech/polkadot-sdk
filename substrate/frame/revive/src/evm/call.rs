@@ -119,7 +119,7 @@ where
 				value,
 				gas_limit: Zero::zero(),
 				data,
-				transaction_encoded: transaction_encoded.clone(),
+				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
 			}
