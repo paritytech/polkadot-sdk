@@ -72,9 +72,6 @@ extern crate self as sp_api;
 
 extern crate alloc;
 
-#[cfg(feature = "std")]
-pub mod client_side;
-
 /// Private exports used by the macros.
 ///
 /// This is seen as internal API and can change at any point.
@@ -822,13 +819,10 @@ pub fn deserialize_runtime_api_info(bytes: [u8; RUNTIME_API_INFO_SIZE]) -> ([u8;
 decl_runtime_apis! {
 	/// The `Core` runtime api that every Substrate runtime needs to implement.
 	#[core_trait]
-	#[api_version(6)]
+	#[api_version(5)]
 	pub trait Core {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
-		/// Execute the given block.
-		#[changed_in(6)]
-		fn execute_block(block: Block);
 		/// Execute the given block.
 		fn execute_block(block: Block::LazyBlock);
 		/// Initialize a block with the given header.

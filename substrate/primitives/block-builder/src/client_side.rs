@@ -17,7 +17,6 @@
 
 use crate::BlockBuilder;
 
-use sp_api::ApiExt;
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::traits::Block as BlockT;
 
@@ -32,8 +31,6 @@ pub enum CheckInherentsError {
 	CheckInherents(sp_inherents::Error),
 	/// Unknown inherent error for identifier
 	CheckInherentsUnknownError(InherentIdentifier),
-	/// Failed to get runtime version
-	VersionInvalid(String),
 }
 
 /// Create inherent data and check that the inherents are valid.
@@ -65,26 +62,10 @@ pub async fn check_inherents_with_data<Block: BlockT, Client: sp_api::ProvideRun
 where
 	Client::Api: BlockBuilder<Block>,
 {
-	let api_version = client
+	let res = client
 		.runtime_api()
-		.api_version::<dyn BlockBuilder<Block>>(at_hash)
-		.map_err(CheckInherentsError::Client)?
-		.ok_or(CheckInherentsError::VersionInvalid("BlockBuilder".to_string()))?;
-
-	let res = match api_version {
-		..7 => {
-			// Until version 6, `check_inherents` didn't have to receive a lazy block.
-			#[allow(deprecated)]
-			client
-				.runtime_api()
-				.check_inherents_before_version_7(at_hash, block, inherent_data)
-				.map_err(CheckInherentsError::Client)?
-		},
-		7.. => client
-			.runtime_api()
-			.check_inherents(at_hash, block.into(), inherent_data)
-			.map_err(CheckInherentsError::Client)?,
-	};
+		.check_inherents(at_hash, block.into(), inherent_data)
+		.map_err(CheckInherentsError::Client)?;
 
 	if !res.ok() {
 		for (id, error) in res.into_errors() {

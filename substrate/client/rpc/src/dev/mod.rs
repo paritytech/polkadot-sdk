@@ -62,7 +62,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: ApiExt<Block> + Core<Block>,
+	Client::Api: Core<Block>,
 {
 	fn block_stats(
 		&self,
@@ -100,8 +100,8 @@ where
 		let pre_root = *parent_header.state_root();
 		let mut runtime_api = self.client.runtime_api();
 		runtime_api.record_proof();
-
-		sp_api::client_side::execute_block(&runtime_api, parent_header.hash(), block)
+		runtime_api
+			.execute_block(parent_header.hash(), block.into())
 			.map_err(|_| Error::BlockExecutionFailed)?;
 		let witness = runtime_api
 			.extract_proof()

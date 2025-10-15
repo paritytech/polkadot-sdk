@@ -1322,8 +1322,6 @@ where
 					CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
 					CheckInherentsError::CheckInherentsUnknownError(id) =>
 						Error::CheckInherentsUnhandled(id),
-					CheckInherentsError::VersionInvalid(e) =>
-						Error::Client(sp_blockchain::Error::VersionInvalid(e)),
 				}))
 			})?;
 			let (_, inner_body) = new_block.deconstruct();
