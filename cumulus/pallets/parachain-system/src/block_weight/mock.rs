@@ -22,24 +22,20 @@ use cumulus_primitives_core::{
 };
 use frame_support::{
 	construct_runtime, derive_impl,
-	dispatch::{DispatchClass, DispatchInfo, Pays},
-	traits::Hooks,
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+	dispatch::DispatchClass,
+	parameter_types,
+	weights::{
+		constants::{BlockExecutionWeight, ExtrinsicBaseWeight},
+		Weight,
+	},
 };
-use frame_system::mocking::MockBlock;
-use polkadot_primitives::MAX_POV_SIZE;
+use frame_system::limits::BlockWeights;
 use sp_core::ConstU32;
 use sp_io;
-use sp_runtime::{
-	generic::Header,
-	testing::{TestXt, UintAuthorityId},
-	traits::{
-		BlakeTwo256, Block as BlockT, Dispatchable, Header as HeaderT, IdentityLookup,
-		TransactionExtension,
-	},
-	transaction_validity::TransactionSource,
-	BuildStorage, Perbill,
-};
+use sp_runtime::{BuildStorage, Perbill};
+
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
@@ -63,6 +59,8 @@ pub type TxExtension = DynamicMaxBlockWeight<
 
 #[docify::export_content(max_block_weight_setup)]
 mod max_block_weight_setup {
+	use super::*;
+
 	type MaximumBlockWeight = MaxParachainBlockWeight<Runtime, ConstU32<TARGET_BLOCK_RATE>>;
 
 	parameter_types! {
@@ -92,7 +90,7 @@ mod max_block_weight_setup {
 #[docify::export(pre_inherents_setup)]
 impl frame_system::Config for Runtime {
 	// Setup the block weight.
-	type BlockWeights = RuntimeBlockWeights;
+	type BlockWeights = max_block_weight_setup::RuntimeBlockWeights;
 	// Set the `PreInherents` hook.
 	type PreInherents = DynamicMaxBlockWeightHooks<Runtime, ConstU32<TARGET_BLOCK_RATE>>;
 
@@ -146,9 +144,76 @@ pub fn new_test_ext_with_digest(num_cores: Option<u16>) -> sp_io::TestExternalit
 
 			let digest = CumulusDigestItem::CoreInfo(core_info).to_digest_item();
 
-			frame_system::Pallet::<Test>::deposit_log(digest);
+			frame_system::Pallet::<Runtime>::deposit_log(digest);
 		}
 	});
 
 	ext
+}
+
+/// Helper to create test externalities with core and bundle info
+pub fn new_test_ext_with_bundle(
+	num_cores: Option<u16>,
+	bundle_index: u8,
+	maybe_last: bool,
+) -> sp_io::TestExternalities {
+	let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+	let mut ext = sp_io::TestExternalities::from(storage);
+
+	ext.execute_with(|| {
+		if let Some(num_cores) = num_cores {
+			let core_info = CoreInfo {
+				selector: CoreSelector(0),
+				claim_queue_offset: ClaimQueueOffset(0),
+				number_of_cores: Compact(num_cores),
+			};
+
+			let digest = CumulusDigestItem::CoreInfo(core_info).to_digest_item();
+			frame_system::Pallet::<Runtime>::deposit_log(digest);
+		}
+
+		let bundle_info = BundleInfo { index: bundle_index, maybe_last };
+		let digest = CumulusDigestItem::BundleInfo(bundle_info).to_digest_item();
+		frame_system::Pallet::<Runtime>::deposit_log(digest);
+	});
+
+	ext
+}
+
+/// Helper to create test externalities for first block in core
+pub fn new_test_ext_first_block(num_cores: u16) -> sp_io::TestExternalities {
+	new_test_ext_with_bundle(Some(num_cores), 0, false)
+}
+
+/// Helper to create test externalities for non-first block in core
+pub fn new_test_ext_non_first_block(num_cores: u16) -> sp_io::TestExternalities {
+	new_test_ext_with_bundle(Some(num_cores), 1, false)
+}
+
+/// Helper to check if UseFullCore digest was deposited
+pub fn has_use_full_core_digest() -> bool {
+	use codec::Decode;
+	use cumulus_primitives_core::CUMULUS_CONSENSUS_ID;
+	use sp_runtime::DigestItem;
+
+	let digest = frame_system::Pallet::<Runtime>::digest();
+	digest.logs.iter().any(|log| match log {
+		DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+			if let Ok(CumulusDigestItem::UseFullCore) = CumulusDigestItem::decode(&mut &val[..]) {
+				true
+			} else {
+				false
+			}
+		},
+		_ => false,
+	})
+}
+
+/// Helper to register weight as consumed (simulating on_initialize)
+pub fn register_weight(weight: Weight) {
+	frame_system::Pallet::<Runtime>::register_extra_weight_unchecked(
+		weight,
+		DispatchClass::Mandatory,
+	);
 }

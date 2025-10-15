@@ -350,7 +350,7 @@ where
 						?error,
 						"Failed to fetch `slot_schedule`, assuming one block with 2s"
 					);
-					cumulus_primitives_core::BlockInterval {
+					cumulus_primitives_core::NextSlotSchedule {
 						number_of_blocks: 1,
 						block_time: Duration::from_secs(2),
 					}

@@ -24,7 +24,6 @@ use core::time::Duration;
 
 use alloc::vec::Vec;
 use codec::{Compact, Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use core::time::Duration;
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
@@ -535,18 +534,6 @@ pub struct CollationInfo {
 	pub head_data: HeadData,
 }
 
-<<<<<<< HEAD
-/// Block interval configuration for parachain block production for one relay chain slot.
-#[derive(Clone, Debug, codec::Decode, codec::Encode, PartialEq, TypeInfo)]
-pub struct BlockInterval {
-	/// The number of blocks to produce in the relay chain slot.
-	pub number_of_blocks: u32,
-	/// The target block time in wall clock time for each block.
-	pub block_time: Duration,
-}
-
-||||||| 5f69bea23d
-=======
 /// The schedule for the next relay chain slot.
 ///
 /// Returns the maximum number of parachain blocks to produce and the block time per block to use.
@@ -587,7 +574,6 @@ impl NextSlotSchedule {
 	}
 }
 
->>>>>>> origin/master
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
 	///
@@ -619,25 +605,6 @@ sp_api::decl_runtime_apis! {
 	pub trait RelayParentOffsetApi {
 		/// Fetch the slot offset that is expected from the relay chain.
 		fn relay_parent_offset() -> u32;
-<<<<<<< HEAD
-	}
-
-	/// API for parachain slot scheduling.
-	///
-	/// This runtime API allows the parachain runtime to communicate the block interval
-	/// to the node side. The node will call this API every relay chain slot (~6 seconds)
-	/// to get the scheduled parachain block interval.
-	pub trait SlotSchedule {
-		/// Get the block production schedule for the next relay chain slot.
-		///
-		/// - `num_cores`: The number of cores assigned to this parachain
-		///
-		/// Returns a [`BlockInterval`] specifying the number of blocks and target block time
-		/// on standard hardware in wall clock time. This should be used as the upper wall
-		/// clock time when building a block.
-		fn next_slot_schedule(num_cores: u32) -> BlockInterval;
-||||||| 5f69bea23d
-=======
 	}
 
 	/// API for parachain slot scheduling.
@@ -752,6 +719,5 @@ mod tests {
 		let schedule = NextSlotSchedule::x_blocks_using_y_cores(12, 1);
 		assert_eq!(schedule.number_of_blocks, 12);
 		assert_eq!(schedule.block_time, Duration::from_nanos(166_666_666));
->>>>>>> origin/master
 	}
 }

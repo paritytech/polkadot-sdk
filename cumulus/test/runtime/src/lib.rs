@@ -233,15 +233,9 @@ type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxPara
 >;
 
 parameter_types! {
-<<<<<<< HEAD
-	pub const BlockHashCount: BlockNumber = 4096;
-||||||| 5f69bea23d
-	pub const BlockHashCount: BlockNumber = 250;
-=======
 	/// Target number of blocks per relay chain slot.
 	pub const NumberOfBlocksPerRelaySlot: u32 = 12;
 	pub const BlockHashCount: BlockNumber = 250;
->>>>>>> origin/master
 	pub const Version: RuntimeVersion = VERSION;
 	/// We allow for 1 second of compute with a 6 second average block time.
 	pub RuntimeBlockLength: BlockLength =

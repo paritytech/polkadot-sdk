@@ -130,8 +130,12 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 			return Self::FULL_CORE_WEIGHT;
 		}
 
-		let total_ref_time =
-			(number_of_cores as u64).saturating_mul(Self::MAX_REF_TIME_PER_CORE_NS);
+		// At maximum we want to allow `6s` of ref time, because we don't want to overload nodes
+		// that are running with standard hardware. These nodes need to be able to import all the
+		// blocks in 6s.
+		let total_ref_time = (number_of_cores as u64)
+			.saturating_mul(Self::MAX_REF_TIME_PER_CORE_NS)
+			.min(WEIGHT_REF_TIME_PER_SECOND * 6);
 		let ref_time_per_block = total_ref_time
 			.saturating_div(target_blocks as u64)
 			.min(Self::MAX_REF_TIME_PER_CORE_NS);
