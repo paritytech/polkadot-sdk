@@ -828,12 +828,28 @@ pub mod env {
 		Ok(result?)
 	}
 
-	/// Returns the amount of ref_time left.
-	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
+	/// Returns the amount of evm gas left.
+	///
+	/// The name is only for historical reasons as renaming functions
+	/// would be a breaking change.
+	///
+	/// See [`pallet_revive_uapi::HostFn::gas_left`].
 	#[stable]
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
-		Ok(self.ext.gas_meter().gas_left().ref_time())
+		Ok(self.ext.gas_left())
+	}
+
+	/// Reverts the execution without data and cedes all remaining gas.
+	///
+	/// See [`pallet_revive_uapi::HostFn::consume_all_gas`].
+	#[stable]
+	fn consume_all_gas(&mut self, memory: &mut M) -> Result<(), TrapReason> {
+		self.ext.gas_meter_mut().consume_all();
+		Err(TrapReason::Return(ReturnData {
+			flags: ReturnFlags::REVERT.bits(),
+			data: Default::default(),
+		}))
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
