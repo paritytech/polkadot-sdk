@@ -34,21 +34,37 @@ interface IReferenda {
 	/// @notice The origin of a referendum submission.
 	/// @dev This is an encoded representation of the origin type in Polkadot/Kusama governance. For extension, new types can be added as needed at the end of the enum.
 	enum GovernanceOrigin {
+		/// @custom:variant The origin with the highest level of privileges.
 		Root,
+		/// @custom:variant Origin commanded by the Fellowship whitelist some hash of a call and allow the call to be dispatched with the root origin.
 		WhitelistedCaller,
+		/// @custom:variant The Wish For Change track serves as a medium for gathering consensus on a proposed change.
 		WishForChange,
+		/// @custom:variant The origin for canceling slashes. This origin has the privilege to execute calls from the staking pallet and the Election Provider Multiphase Pallet.
 		StakingAdmin,
+		/// @custom:variant The origin for spending funds from the treasury. This origin has the privilege to execute calls from the Treasury pallet.
 		Treasurer,
+		/// @custom:variant This origin can force slot leases. This origin has the privilege to execute calls from the Slots pallet.
 		LeaseAdmin,
+		/// @custom:variant The origin for managing the composition of the fellowship.
 		FellowshipAdmin,
+		/// @custom:variant The origin managing the registrar and permissioned HRMP channel operations.
 		GeneralAdmin,
+		/// @custom:variant Origin for starting auctions.
 		AuctionAdmin,
+		/// @custom:variant This origin can cancel referenda.
 		ReferendumCanceller,
+		/// @custom:variant The origin can cancel an ongoing referendum and slash the deposits.
 		ReferendumKiller,
+		/// @custom:variant Origin for submitting small tips.
 		SmallTipper,
+		/// @custom:variant Origin for submitting big tips.
 		BigTipper,
+		/// @custom:variant Origin able to spend small amounts from the treasury.
 		SmallSpender,
+		/// @custom:variant Origin able to spend medium amounts from the treasury.
 		MediumSpender,
+		/// @custom:variant Origin able to spend large amounts from the treasury.
 		BigSpender
 	}
 
