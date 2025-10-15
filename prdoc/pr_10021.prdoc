@@ -1,0 +1,9 @@
+title: '[parachain-template] fix getting para-id for old runtimes that do not implement
+  the `GetParachainInfo` runtime api'
+doc:
+- audience: Node Dev
+  description: |-
+    At encointer we used the parachain-template as orientation when following the upstream upgrades, but this recently lead to the bug that we couldn't sync from genesis anymore as our genesis runtime doesn't implement the `GetParachainInfo` runtime api.
+
+    The approach here has been inspired by the one that the [omni-node-lib uses](https://github.com/paritytech/polkadot-sdk/blob/0e3195df28c6b39d098d4149f9dbc78009e88493/cumulus/polkadot-omni-node/lib/src/common/spec.rs#L161). The change has been tested when encointer implemented it [downstream](https://github.com/encointer/encointer-parachain/pull/250).
+crates: []
