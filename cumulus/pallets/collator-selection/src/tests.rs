@@ -124,7 +124,7 @@ fn invulnerable_limit_works() {
 			// only keys were registered in mock for 1 to 5
 			if ii > 5 {
 				Balances::make_free_balance_be(&ii, 100);
-				let key = MockSessionKeys { aura: UintAuthorityId(ii) };
+				let mut key = MockSessionKeys { aura: UintAuthorityId(ii) };
 				Session::set_keys(
 					RuntimeOrigin::signed(ii).into(),
 					key.clone(),
@@ -488,8 +488,13 @@ fn cannot_register_candidate_if_too_many() {
 		// candidates.
 		for i in 6..=23 {
 			Balances::make_free_balance_be(&i, 100);
-			let key = MockSessionKeys { aura: UintAuthorityId(i) };
-			Session::set_keys(RuntimeOrigin::signed(i).into(), key, Vec::new()).unwrap();
+			let mut key = MockSessionKeys { aura: UintAuthorityId(i) };
+			Session::set_keys(
+				RuntimeOrigin::signed(i).into(),
+				key.clone(),
+				key.create_ownership_proof(&i.encode()).unwrap().encode(),
+			)
+			.unwrap();
 		}
 
 		for c in 3..=22 {
@@ -771,8 +776,13 @@ fn take_candidate_slot_works() {
 		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 
 		Balances::make_free_balance_be(&6, 100);
-		let key = MockSessionKeys { aura: UintAuthorityId(6) };
-		Session::set_keys(RuntimeOrigin::signed(6).into(), key, Vec::new()).unwrap();
+		let mut key = MockSessionKeys { aura: UintAuthorityId(6) };
+		Session::set_keys(
+			RuntimeOrigin::signed(6).into(),
+			key.clone(),
+			key.create_ownership_proof(&6u64.encode()).unwrap().encode(),
+		)
+		.unwrap();
 
 		assert_ok!(CollatorSelection::take_candidate_slot(
 			RuntimeOrigin::signed(6),
