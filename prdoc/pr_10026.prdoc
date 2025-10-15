@@ -4,4 +4,4 @@ doc:
   description: Fixes https://github.com/paritytech/contract-issues/issues/112
 crates:
 - name: pallet-revive
-  bump: major
+  bump: patch
