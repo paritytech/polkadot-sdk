@@ -1977,7 +1977,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "regex",
@@ -9243,8 +9243,7 @@ dependencies = [
 [[package]]
 name = "kvdb"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7d770dcb02bf6835887c3a979b5107a04ff4bbde97a5f0928d27404a155add9"
+source = "git+https://github.com/Harrm/parity-common.git#ec191b2a5573d71737e61b2bd2cbea680669ecd3"
 dependencies = [
  "smallvec",
 ]
@@ -9252,8 +9251,7 @@ dependencies = [
 [[package]]
 name = "kvdb-memorydb"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf7a85fe66f9ff9cd74e169fdd2c94c6e1e74c412c99a73b4df3200b5d3760b2"
+source = "git+https://github.com/Harrm/parity-common.git#ec191b2a5573d71737e61b2bd2cbea680669ecd3"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.3",
@@ -9262,8 +9260,7 @@ dependencies = [
 [[package]]
 name = "kvdb-rocksdb"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8beb5ce840610e5a945f0306f6e7a2d5b3e68ea3e64e9a4f081fa4ee5aa6525"
+source = "git+https://github.com/Harrm/parity-common.git#ec191b2a5573d71737e61b2bd2cbea680669ecd3"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -9275,8 +9272,7 @@ dependencies = [
 [[package]]
 name = "kvdb-shared-tests"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d3b4e3e80c369f1b5364b6acdeba9b8a02285e91a5570f7c0404b7f9024541"
+source = "git+https://github.com/Harrm/parity-common.git#ec191b2a5573d71737e61b2bd2cbea680669ecd3"
 dependencies = [
  "kvdb",
 ]
@@ -17945,7 +17941,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",

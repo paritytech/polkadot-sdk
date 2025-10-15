@@ -56,7 +56,7 @@ substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 
 [features]
-default = []
+default = ["rocksdb"]
 test-helpers = []
 runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",

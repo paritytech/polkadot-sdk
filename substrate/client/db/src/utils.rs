@@ -22,8 +22,9 @@
 use std::{fmt, fs, io, path::Path, sync::Arc};
 
 use log::{debug, info};
+use sp_database::DatabaseWithSeekableIterator;
 
-use crate::{Database, DatabaseSource, DbHash};
+use crate::{BackendDatabase, Database, DatabaseSource, DbHash};
 use codec::Decode;
 use sc_client_api::blockchain::{BlockGap, BlockGapType};
 use sp_database::Transaction;
@@ -199,21 +200,22 @@ fn open_database_at<Block: BlockT>(
 	db_type: DatabaseType,
 	create: bool,
 ) -> OpenDbResult {
-	let db: Arc<dyn Database<DbHash>> = match &db_source {
+	let db: BackendDatabase = match &db_source {
 		DatabaseSource::ParityDb { path } => open_parity_db::<Block>(path, db_type, create)?,
 		#[cfg(feature = "rocksdb")]
-		DatabaseSource::RocksDb { path, cache_size } =>
+		DatabaseSource::RocksDb { path, cache_size } => BackendDatabase::DatabaseWithSeekableIterator(
 			open_kvdb_rocksdb::<Block>(path, db_type, create, *cache_size)?,
+		),
 		DatabaseSource::Custom { db, require_create_flag } => {
 			if *require_create_flag && !create {
 				return Err(OpenDbError::DoesNotExist);
 			}
-			db.clone()
+			BackendDatabase::Database(db.clone())
 		},
 		DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size } => {
 			// check if rocksdb exists first, if not, open paritydb
 			match open_kvdb_rocksdb::<Block>(rocksdb_path, db_type, false, *cache_size) {
-				Ok(db) => db,
+				Ok(rocksdb) => BackendDatabase::DatabaseWithSeekableIterator(rocksdb),
 				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) =>
 					open_parity_db::<Block>(paritydb_path, db_type, create)?,
 				Err(as_is) => return Err(as_is),
@@ -221,7 +223,7 @@ fn open_database_at<Block: BlockT>(
 		},
 	};
 
-	check_database_type(&*db, db_type)?;
+	check_database_type(db.as_ref(), db_type)?;
 	Ok(db)
 }
 
@@ -239,7 +241,7 @@ pub enum OpenDbError {
 	},
 }
 
-type OpenDbResult = Result<Arc<dyn Database<DbHash>>, OpenDbError>;
+type OpenDbResult = Result<BackendDatabase, OpenDbError>;
 
 impl fmt::Display for OpenDbError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -292,11 +294,11 @@ impl From<io::Error> for OpenDbError {
 
 fn open_parity_db<Block: BlockT>(path: &Path, db_type: DatabaseType, create: bool) -> OpenDbResult {
 	match crate::parity_db::open(path, db_type, create, false) {
-		Ok(db) => Ok(db),
+		Ok(db) => Ok(BackendDatabase::Database(db)),
 		Err(parity_db::Error::InvalidConfiguration(_)) => {
 			log::warn!("Invalid parity db configuration, attempting database metadata update.");
 			// Try to update the database with the new config
-			Ok(crate::parity_db::open(path, db_type, create, true)?)
+			Ok(BackendDatabase::Database(crate::parity_db::open(path, db_type, create, true)?))
 		},
 		Err(e) => Err(e.into()),
 	}
@@ -308,7 +310,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	db_type: DatabaseType,
 	create: bool,
 	cache_size: usize,
-) -> OpenDbResult {
+) -> Result<Arc<dyn DatabaseWithSeekableIterator<DbHash>>, OpenDbError> {
 	// first upgrade database to required version
 	match crate::upgrade::upgrade_db::<Block>(path, db_type) {
 		// in case of missing version file, assume that database simply does not exist at given
@@ -349,7 +351,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
 	// write database version only after the database is successfully opened
 	crate::upgrade::update_version(path)?;
-	Ok(sp_database::as_database(db))
+	Ok(sp_database::as_database_with_seekable_iter(db))
 }
 
 #[cfg(not(any(feature = "rocksdb", test)))]
@@ -358,7 +360,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	_db_type: DatabaseType,
 	_create: bool,
 	_cache_size: usize,
-) -> OpenDbResult {
+) -> Result<Arc<dyn DatabaseWithSeekableIterator<DbHash>>, OpenDbError> {
 	Err(OpenDbError::NotEnabled("with-kvdb-rocksdb"))
 }
 

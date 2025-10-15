@@ -18,10 +18,10 @@
 
 use std::sync::Arc;
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use sc_client_api::ChildInfo;
 use sp_core::Hasher;
-use sp_database::OrderedDatabase;
+use sp_database::{Database, DatabaseWithSeekableIterator};
 use sp_runtime::traits::{BlakeTwo256, BlockNumber, HashingFor, Header};
 use sp_state_machine::{
 	BackendTransaction, ChildStorageCollection, DefaultError, IterArgs, StorageCollection,
@@ -32,7 +32,7 @@ use sp_trie::MerkleValue;
 use crate::{columns, BlockT, DbHash, StateBackend, StateMachineStats, StorageDb};
 
 pub(crate) struct ArchiveDb<Block: BlockT> {
-	db: Arc<dyn OrderedDatabase<DbHash>>,
+	db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
 	parent_hash: Option<Block::Hash>,
 	block_number: <<Block as BlockT>::Header as Header>::Number,
 }
@@ -45,7 +45,7 @@ impl<B: BlockT> std::fmt::Debug for ArchiveDb<B> {
 
 impl<Block: BlockT> ArchiveDb<Block> {
 	pub(crate) fn new(
-		db: Arc<dyn OrderedDatabase<DbHash>>,
+		db: Arc<dyn DatabaseWithSeekableIterator<DbHash>>,
 		parent_hash: Option<Block::Hash>,
 		block_number: <<Block as BlockT>::Header as Header>::Number,
 	) -> Self {
@@ -54,7 +54,18 @@ impl<Block: BlockT> ArchiveDb<Block> {
 
 	pub(crate) fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, DefaultError> {
 		let full_key = make_full_key(key, self.block_number);
-		Ok(self.db.get(columns::ARCHIVE, &full_key))
+		let mut iter = self
+			.db
+			.seekable_iter(columns::ARCHIVE)
+			.expect("Archive column space must exist if ArchiveDb exists");
+		iter.seek_prev(&full_key);
+
+		if let Some((found_key, value)) = iter.get() {
+			if extract_key::<<<Block as BlockT>::Header as Header>::Number>(&found_key) == key {
+				return Ok(Some(value.to_owned()));
+			}
+		}
+		Ok(None)
 	}
 
 	pub(crate) fn storage_hash(
@@ -178,4 +189,38 @@ pub(crate) fn make_full_key(key: &[u8], number: impl Encode) -> Vec<u8> {
 	full_key.extend_from_slice(&key[..]);
 	number.encode_to(&mut &mut full_key);
 	full_key
+}
+
+pub(crate) fn extract_key<BlockNumber: Decode>(full_key: &[u8]) -> &[u8] {
+	let key_len = full_key.len() -
+		BlockNumber::encoded_fixed_size()
+			.expect("Variable length block numbers can't be used for archive storage");
+	&full_key[..key_len]
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use crate::columns::ARCHIVE;
+
+	use sp_database::{Change, MemDb, Transaction};
+	use sp_runtime::testing::{Block, MockCallU64, TestXt};
+
+	type TestBlock = Block<TestXt<MockCallU64, ()>>;
+
+	#[test]
+	fn set_get() {
+		let mut mem_db = Arc::new(MemDb::new());
+		mem_db.commit(Transaction(vec![
+			Change::<sp_core::H256>::Set(ARCHIVE, make_full_key(&[1, 2, 3], 4u64), vec![4, 2]),
+			Change::<sp_core::H256>::Set(ARCHIVE, make_full_key(&[1, 2, 3], 6u64), vec![5, 2])
+		]));
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
+		assert_eq!(archive_db.storage(&[1, 2, 3]), Ok(Some(vec![4u8, 2u8])));
+
+		let archive_db = ArchiveDb::<TestBlock>::new(mem_db, Some(sp_core::H256::default()), 7);
+		assert_eq!(archive_db.storage(&[1, 2, 3]), Ok(Some(vec![5u8, 2u8])));
+
+	}
 }

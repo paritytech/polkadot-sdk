@@ -20,7 +20,7 @@ use ::kvdb::{DBTransaction, KeyValueDB};
 
 #[cfg(feature = "rocksdb")]
 use crate::DatabaseWithSeekableIterator;
-use crate::{error, Change, ColumnId, Database, Transaction};
+use crate::{error, Change, ColumnId, Database, SeekableIterator, Transaction};
 
 struct DbAdapter<D: KeyValueDB + 'static>(D);
 
@@ -33,10 +33,18 @@ fn handle_err<T>(result: std::io::Result<T>) -> T {
 	}
 }
 
-/// Wrap RocksDb database into a trait object that implements `sp_database::Database`
 pub fn as_database<D, H>(db: D) -> std::sync::Arc<dyn Database<H>>
 where
 	D: KeyValueDB + 'static,
+	H: Clone + AsRef<[u8]>,
+{
+	std::sync::Arc::new(DbAdapter(db))
+}
+
+/// Wrap RocksDb database into a trait object that implements `sp_database::DatabaseWithSeekableIterator`
+#[cfg(any(feature = "rocksdb", test))]
+pub fn as_database_with_seekable_iter<H>(db: kvdb_rocksdb::Database) -> std::sync::Arc<dyn DatabaseWithSeekableIterator<H>>
+where
 	H: Clone + AsRef<[u8]>,
 {
 	std::sync::Arc::new(DbAdapter(db))
@@ -120,12 +128,36 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 }
 
 #[cfg(feature = "rocksdb")]
-impl DatabaseWithSeekableIterator for kvdb_rocksdb:: {
+impl<'a> SeekableIterator for kvdb_rocksdb::DBRawIterator<'a> {
+	fn seek(&mut self, key: &[u8]) {
+		kvdb_rocksdb::DBRawIterator::seek(self, key)
+	}
 
+	fn seek_prev(&mut self, key: &[u8]) {
+		kvdb_rocksdb::DBRawIterator::seek_for_prev(self, key)
+	}
+
+	fn get(&self) -> Option<(&[u8], Vec<u8>)> {
+		let (k, v) = self.item()?;
+		Some((k, v.to_owned()))
+	}
+	
+	fn prev(&mut self) {
+		kvdb_rocksdb::DBRawIterator::prev(self)
+	}
+	
+	fn next(&mut self) {
+		kvdb_rocksdb::DBRawIterator::next(self)
+	}
 }
 
-
 #[cfg(feature = "rocksdb")]
-impl DatabaseWithSeekableIterator for kvdb_rocksdb::Database {
-	
+impl<H: Clone + AsRef<[u8]>> DatabaseWithSeekableIterator<H> for DbAdapter<kvdb_rocksdb::Database> {
+	fn seekable_iter<'a>(&'a self, col: u32) -> Option<Box<dyn crate::SeekableIterator + 'a>> {
+		match self.0.raw_iter(col) {
+			Ok(iter) => Some(Box::new(iter)),
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+			Err(e) => panic!("Internal database error: {}", e)
+		}
+	}
 }

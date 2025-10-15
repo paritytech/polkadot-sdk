@@ -79,7 +79,7 @@ use sp_core::{
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys, ChildInfo},
 };
-use sp_database::{OrderedDatabase, Transaction};
+use sp_database::{DatabaseWithSeekableIterator, Transaction};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{
@@ -1112,6 +1112,7 @@ impl<T: Clone> FrozenForDuration<T> {
 /// blocks. Otherwise, trie nodes are kept only from some recent blocks.
 pub struct Backend<Block: BlockT> {
 	storage: Arc<StorageDb<Block>>,
+	db: BackendDatabase,
 	offchain_storage: offchain::LocalStorage,
 	blockchain: BlockchainDb<Block>,
 	canonicalization_delay: u64,
@@ -1122,6 +1123,30 @@ pub struct Backend<Block: BlockT> {
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+}
+
+#[derive(Clone)]
+enum BackendDatabase {
+	Database(Arc<dyn Database<DbHash>>),
+	DatabaseWithSeekableIterator(Arc<dyn DatabaseWithSeekableIterator<DbHash>>),
+}
+
+impl Into<Arc<dyn Database<DbHash>>> for BackendDatabase {
+	fn into(self) -> Arc<dyn Database<DbHash>> {
+		match self {
+			BackendDatabase::Database(db) => db.clone(),
+			BackendDatabase::DatabaseWithSeekableIterator(db) => db.clone(),
+		}
+	}
+}
+
+impl AsRef<dyn Database<DbHash>> for BackendDatabase {
+	fn as_ref(&self) -> &(dyn Database<DbHash> + 'static) {
+		match self {
+			BackendDatabase::Database(db) => db.as_ref(),
+			BackendDatabase::DatabaseWithSeekableIterator(db) => db.as_ref(),
+		}
+	}
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -1144,7 +1169,7 @@ impl<Block: BlockT> Backend<Block> {
 				Err(as_is) => return Err(as_is.into()),
 			};
 
-		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config, needs_init)
+		Self::from_database(db, canonicalization_delay, &db_config, needs_init)
 	}
 
 	/// Reset the shared trie cache.
@@ -1212,12 +1237,14 @@ impl<Block: BlockT> Backend<Block> {
 	}
 
 	fn from_database(
-		db: Arc<dyn Database<DbHash> + MaybeOrderedDatabase>,
+		backend_db: BackendDatabase,
 		canonicalization_delay: u64,
 		config: &DatabaseSettings,
 		should_init: bool,
 	) -> ClientResult<Self> {
 		let mut db_init_transaction = Transaction::new();
+
+		let db: Arc<dyn Database<DbHash>> = backend_db.clone().into();
 
 		let requested_state_pruning = config.state_pruning.clone();
 		let state_meta_db = StateMetaDb(db.clone());
@@ -1260,6 +1287,7 @@ impl<Block: BlockT> Backend<Block> {
 
 		let backend = Backend {
 			storage: Arc::new(storage_db),
+			db: backend_db,
 			offchain_storage,
 			blockchain,
 			canonicalization_delay,
@@ -1614,6 +1642,7 @@ impl<Block: BlockT> Backend<Block> {
 						bytes += v.len() as u64;
 					}
 					let full_key = make_full_key(&key, pending_block.header.number());
+					println!("#{:?}: {:?} -> {:?}", pending_block.header.hash(), key, value);
 					transaction.set_from_vec(columns::ARCHIVE, &full_key, value.encode());
 				}
 				self.state_usage.tally_writes(ops, bytes);
@@ -2013,11 +2042,15 @@ impl<Block: BlockT> Backend<Block> {
 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()))
 			.build();
 		let trie_state = RefTrackingState::new(db_state, self.storage.clone(), None);
-		let archive_state =
-			ArchiveDb::new(self.storage.clone(), None, <Block::Header as HeaderT>::Number::zero());
+		let archive_state = match &self.db {
+			BackendDatabase::DatabaseWithSeekableIterator(db) => {
+				Some(ArchiveDb::new(db.clone(), None, <Block::Header as HeaderT>::Number::zero()))
+			},
+			_ => None
+		};
 
 		RecordStatsState::new(
-			TrieOrArchiveState { trie_state: Some(trie_state), archive_state: Some(archive_state) },
+			TrieOrArchiveState { trie_state: Some(trie_state), archive_state },
 			None,
 			self.state_usage.clone(),
 		)
@@ -2788,11 +2821,16 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						.build();
 
 				let trie_state = Some(RefTrackingState::new(db_state, self.storage.clone(), None));
-				let archive_state = Some(ArchiveDb::new(
-					self.storage.db.downcast(),
-					Some(hash),
+				let archive_state = match &self.db {
+					BackendDatabase::DatabaseWithSeekableIterator(db) => {
+						Some(ArchiveDb::new(
+							db.clone(),
+						Some(hash),
 					<Block::Header as HeaderT>::Number::zero(),
-				));
+						))
+					},
+					_ => None
+				};
 				let trie_or_archive_state = TrieOrArchiveState { trie_state, archive_state };
 
 				return Ok(RecordStatsState::new(
@@ -2831,8 +2869,13 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				} else {
 					None
 				};
-				let archive_state =
-					Some(ArchiveDb::new(self.storage.clone(), Some(hash), hdr.number));
+				let archive_state = match &self.db {
+					BackendDatabase::DatabaseWithSeekableIterator(db) => {
+						Some(ArchiveDb::new(db.clone(), Some(hash), hdr.number))
+					},
+					_ => None
+				};
+					
 				let trie_or_archive_state = TrieOrArchiveState { trie_state, archive_state };
 				Ok(RecordStatsState::new(
 					trie_or_archive_state,

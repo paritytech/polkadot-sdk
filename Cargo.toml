@@ -890,10 +890,10 @@ jsonrpsee = { version = "0.24.3" }
 jsonrpsee-core = { version = "0.24.3" }
 k256 = { version = "0.13.4", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
-kvdb = { git = "https://github.com/paritytech/parity-common.git" }
-kvdb-memorydb = { git = "https://github.com/paritytech/parity-common.git" }
-kvdb-rocksdb = { git = "https://github.com/paritytech/parity-common.git" }
-kvdb-shared-tests = { git = "https://github.com/paritytech/parity-common.git" }
+kvdb = { git = "https://github.com/Harrm/parity-common.git" }
+kvdb-memorydb = { git = "https://github.com/Harrm/parity-common.git" }
+kvdb-rocksdb = { git = "https://github.com/Harrm/parity-common.git" }
+kvdb-shared-tests = { git = "https://github.com/Harrm/parity-common.git" }
 landlock = { version = "0.3.0" }
 libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }

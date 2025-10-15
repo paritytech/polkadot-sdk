@@ -21,7 +21,9 @@ pub mod error;
 mod kvdb;
 mod mem;
 
-pub use crate::kvdb::as_database;
+pub use kvdb::as_database;
+#[cfg(any(feature = "rocksdb", test))]
+pub use kvdb::as_database_with_seekable_iter;
 pub use mem::MemDb;
 
 /// An identifier for a column.
@@ -78,12 +80,15 @@ impl<H> Transaction<H> {
 }
 
 pub trait SeekableIterator {
-	fn seek(&self, col: ColumnId, key: &[u8]) -> bool;
-	fn get(&self) -> Option<(Vec<u8>, Vec<u8>)>;
+	fn seek(&mut self, key: &[u8]);
+	fn seek_prev(&mut self, key: &[u8]);
+	fn prev(&mut self);
+	fn next(&mut self);
+	fn get(&self) -> Option<(&[u8], Vec<u8>)>;
 }
 
-pub trait DatabaseWithSeekableIterator {
-	fn seekable_iter(&self) -> Box<dyn SeekableIterator>;
+pub trait DatabaseWithSeekableIterator<H: Clone + AsRef<[u8]>>: Database<H> {
+	fn seekable_iter<'a>(&'a self, col: u32) -> Option<Box<dyn SeekableIterator + 'a>>;
 }
 
 pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
@@ -126,6 +131,7 @@ pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 	///
 	/// Not all database implementations use a prefix for keys, so this function may be a noop.
 	fn sanitize_key(&self, _key: &mut Vec<u8>) {}
+
 }
 
 impl<H> std::fmt::Debug for dyn Database<H> {

@@ -17,13 +17,17 @@
 
 //! In-memory implementation of `Database`
 
-use crate::{error, Change, ColumnId, Database, Transaction};
+use crate::{
+	error, Change, ColumnId, Database, DatabaseWithSeekableIterator, SeekableIterator, Transaction,
+};
 use parking_lot::RwLock;
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{btree_map::Entry, BTreeMap, HashMap};
+
+type ColumnSpace = BTreeMap<Vec<u8>, (u32, Vec<u8>)>;
 
 #[derive(Default)]
 /// This implements `Database` as an in-memory hash map. `commit` is not atomic.
-pub struct MemDb(RwLock<HashMap<ColumnId, HashMap<Vec<u8>, (u32, Vec<u8>)>>>);
+pub struct MemDb(RwLock<HashMap<ColumnId, ColumnSpace>>);
 
 impl<H> Database<H> for MemDb
 where
@@ -72,6 +76,116 @@ where
 	fn get(&self, col: ColumnId, key: &[u8]) -> Option<Vec<u8>> {
 		let s = self.0.read();
 		s.get(&col).and_then(|c| c.get(key).map(|(_, v)| v.clone()))
+	}
+}
+
+enum IterState {
+	Valid { current_key: Vec<u8> },
+	Invalid,
+}
+
+struct MemDbSeekableIter<'db> {
+	db: &'db MemDb,
+	column: ColumnId,
+	state: IterState,
+}
+
+impl<'db> MemDbSeekableIter<'db> {
+	fn lock_col_space<T>(&self, callback: impl FnOnce(&ColumnSpace) -> T) -> T {
+		let lock = self.db.0.read();
+		let column_space = lock
+			.get(&self.column)
+			.expect("Iterator must always point to an existing column");
+		callback(column_space)
+	}
+}
+
+impl<'db> SeekableIterator for MemDbSeekableIter<'db> {
+	fn seek(&mut self, key: &[u8]) {
+		let next_kv = self.lock_col_space(|col_space| {
+			let mut range = col_space
+				.range::<[u8], _>((std::ops::Bound::Included(key), std::ops::Bound::Unbounded));
+			range.next().map(|(k, _)| k.to_owned())
+		});
+		self.state = match next_kv {
+			Some(key) => IterState::Valid { current_key: key },
+			None => IterState::Invalid,
+		};
+	}
+
+	fn seek_prev(&mut self, key: &[u8]) {
+		let prev_kv = self.lock_col_space(|col_space| {
+			let mut range = col_space
+				.range::<[u8], _>((std::ops::Bound::Unbounded, std::ops::Bound::Included(key)));
+			range.next_back().map(|(k, _)| k.to_owned())
+		});
+		self.state = match prev_kv {
+			Some(key) => IterState::Valid { current_key: key },
+			None => IterState::Invalid,
+		};
+	}
+
+	fn prev(&mut self) {
+		let prev_kv = match self.state {
+			IterState::Valid { ref current_key } => self.lock_col_space(|col_space| {
+				let mut range = col_space.range::<Vec<u8>, _>((
+					std::ops::Bound::Unbounded,
+					std::ops::Bound::Excluded(current_key),
+				));
+				range.next_back().map(|(k, _)| k.to_owned())
+			}),
+			IterState::Invalid => None,
+		};
+		self.state = match prev_kv {
+			Some(key) => IterState::Valid { current_key: key },
+			None => IterState::Invalid,
+		};
+	}
+
+	fn next(&mut self) {
+		let next_kv = match &self.state {
+			IterState::Valid { current_key } => self.lock_col_space(|col_space| {
+				let mut range = col_space.range::<Vec<u8>, _>((
+					std::ops::Bound::Excluded(current_key),
+					std::ops::Bound::Unbounded,
+				));
+				range.next().map(|(k, _)| k.to_owned())
+			}),
+			IterState::Invalid => None,
+		};
+		self.state = match next_kv {
+			Some(key) => IterState::Valid { current_key: key },
+			None => IterState::Invalid,
+		};
+	}
+
+	fn get(&self) -> Option<(&[u8], Vec<u8>)> {
+		match self.state {
+			IterState::Valid { ref current_key } => Some((
+				&current_key,
+				self.lock_col_space(|col_space| {
+					col_space
+						.get(current_key)
+						.expect("Iterator in valid state must always point to an existing key")
+						.1
+						.clone()
+				}),
+			)),
+			IterState::Invalid => None,
+		}
+	}
+}
+
+impl<H> DatabaseWithSeekableIterator<H> for MemDb
+where
+	H: Clone + AsRef<[u8]>,
+{
+	fn seekable_iter<'a>(&'a self, column: u32) -> Option<Box<dyn crate::SeekableIterator + 'a>> {
+		if self.0.read().contains_key(&column) {
+			Some(Box::new(MemDbSeekableIter { db: self, column, state: IterState::Invalid }))
+		} else {
+			None
+		}
 	}
 }
 
