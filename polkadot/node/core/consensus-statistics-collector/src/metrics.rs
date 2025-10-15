@@ -20,11 +20,35 @@ use polkadot_node_subsystem_util::metrics::{
 	prometheus::{self, Gauge, GaugeVec, U64},
 };
 
+#[derive(Clone)]
+pub(crate) struct MetricsInner {
+	approvals_usage_total: prometheus::Counter<U64>,
+}
+
+
 /// Candidate backing metrics.
 #[derive(Default, Clone)]
-pub struct Metrics;
+pub struct Metrics(pub(crate) Option<MetricsInner>);
+
+impl Metrics {
+	pub fn record_approvals_usage(&self, collected: u64) {
+		self.0.as_ref().map(|metrics| {
+			metrics.approvals_usage_total.inc_by(collected);
+		});
+	}
+}
+
 impl metrics::Metrics for Metrics {
 	fn try_register(registry: &prometheus::Registry) -> Result<Self, prometheus::PrometheusError> {
-		Ok(Metrics)
+		let metrics = MetricsInner {
+			approvals_usage_total: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_rewards_statistics_collector_approvals_usage_total",
+					"Total of collected meaningfull approvals used to approve a candidate",
+					)?,
+				registry,
+			)?,
+		};
+		Ok(Metrics(Some(metrics)))
 	}
 }

@@ -18,7 +18,7 @@
 
 use futures::channel::oneshot;
 
-use polkadot_node_subsystem::{RuntimeApiError, SubsystemError};
+use polkadot_node_subsystem::{ChainApiError, RuntimeApiError, SubsystemError};
 use polkadot_node_subsystem_util::runtime;
 
 use crate::LOG_TARGET;
@@ -36,6 +36,9 @@ pub enum Error {
 
 	#[error("Failed to request runtime data: {0}")]
 	RuntimeApiCallError(#[source] RuntimeApiError),
+
+	#[error("Failed to request chain api data: {0}")]
+	ChainApiCallError(#[source] ChainApiError),
 }
 
 /// General `Result` type.

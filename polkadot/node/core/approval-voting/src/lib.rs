@@ -96,8 +96,6 @@ use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
 };
 use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
-use polkadot_overseer::Subsystem;
-
 mod approval_checking;
 pub mod approval_db;
 mod backend;
@@ -1307,6 +1305,11 @@ where
 	let mut currently_checking_set = CurrentlyCheckingSet::default();
 	let mut delayed_approvals_timers = DelayedApprovalTimer::default();
 	let mut approvals_cache = LruMap::new(ByLength::new(APPROVAL_CACHE_SIZE));
+
+	gum::info!(
+		target: LOG_TARGET,
+		"Approval Voting Subsytem is running..."
+	);
 
 	loop {
 		let mut overlayed_db = OverlayedBackend::new(&backend);
@@ -2615,11 +2618,10 @@ fn schedule_wakeup_action(
 	block_hash: Hash,
 	block_number: BlockNumber,
 	candidate_hash: CandidateHash,
-	block_tick: Tick,
+	approval_status: &ApprovalStatus,
 	tick_now: Tick,
-	required_tranches: RequiredTranches,
 ) -> Option<Action> {
-	let maybe_action = match required_tranches {
+	let maybe_action = match approval_status.required_tranches {
 		_ if approval_entry.is_approved() => None,
 		RequiredTranches::All => None,
 		RequiredTranches::Exact { next_no_show, last_assignment_tick, .. } => {
@@ -2658,7 +2660,7 @@ fn schedule_wakeup_action(
 
 				// Apply the clock drift to these tranches.
 				min_prefer_some(next_announced, our_untriggered)
-					.map(|t| t as Tick + block_tick + clock_drift)
+					.map(|t| t as Tick + approval_status.block_tick + clock_drift)
 			};
 
 			min_prefer_some(next_non_empty_tranche, next_no_show).map(|tick| {
@@ -2673,14 +2675,14 @@ fn schedule_wakeup_action(
 			tick,
 			?candidate_hash,
 			?block_hash,
-			block_tick,
+			approval_status.block_tick,
 			"Scheduling next wakeup.",
 		),
 		None => gum::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?block_hash,
-			block_tick,
+			approval_status.block_tick,
 			"No wakeup needed.",
 		),
 		Some(_) => {}, // unreachable
@@ -2858,9 +2860,8 @@ where
 					block_entry.block_hash(),
 					block_entry.block_number(),
 					*assigned_candidate_hash,
-					status.block_tick,
+					&status,
 					tick_now,
-					status.required_tranches,
 				));
 			}
 
@@ -3202,9 +3203,8 @@ where
 			block_hash,
 			block_number,
 			candidate_hash,
-			status.block_tick.clone(),
+			&status,
 			tick_now,
-			status.required_tranches.clone(),
 		));
 
 		if is_approved && transition.is_remote_approval() {
@@ -3264,6 +3264,13 @@ where
 	};
 
 	if newly_approved {
+		gum::info!(
+			target: LOG_TARGET,
+			?block_hash,
+			?candidate_hash,
+			"Candidate newly approved, collecting useful approvals..."
+		);
+
 		collect_useful_approvals(sender,  &status, block_hash, &candidate_entry);
 
 		if status.no_show_validators.len() > 0 {
@@ -4140,6 +4147,15 @@ where
 	};
 
 	if collected_useful_approvals.len() > 0 {
+		let useful_approvals = collected_useful_approvals.len();
+		gum::info!(
+			target: LOG_TARGET,
+			?block_hash,
+			?candidate_hash,
+			?useful_approvals,
+			"collected useful approvals"
+		);
+
 		_ = sender.try_send_message(ConsensusStatisticsCollectorMessage::CandidateApproved(
 			candidate_hash,
 			block_hash,

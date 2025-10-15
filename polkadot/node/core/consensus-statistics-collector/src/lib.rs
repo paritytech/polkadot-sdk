@@ -22,15 +22,15 @@
 //! on the approval work carried out by all session validators.
 
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
 use futures::{channel::oneshot, prelude::*};
 use gum::CandidateHash;
 use polkadot_node_subsystem::{
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
-use polkadot_node_subsystem::messages::ConsensusStatisticsCollectorMessage;
-use polkadot_primitives::{AuthorityDiscoveryId, Hash, SessionIndex, ValidatorIndex};
+use polkadot_node_subsystem::messages::{ChainApiMessage, ConsensusStatisticsCollectorMessage};
+use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorIndex};
 use polkadot_node_primitives::approval::time::Tick;
 use polkadot_node_primitives::approval::v1::DelayTranche;
 use polkadot_primitives::well_known_keys::relay_dispatch_queue_remaining_capacity;
@@ -54,16 +54,22 @@ use self::metrics::Metrics;
 const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
 
 struct PerRelayView {
-    relay_approved: bool,
+    parent_hash: Option<Hash>,
+    children: HashSet<Hash>,
     approvals_stats: HashMap<CandidateHash, ApprovalsStats>,
 }
 
 impl PerRelayView {
-    fn new(candidates: Vec<CandidateHash>) -> Self {
-        return PerRelayView{
-            relay_approved: false,
+    fn new(parent_hash: Option<Hash>) -> Self {
+        PerRelayView{
+            parent_hash: parent_hash,
+            children: HashSet::new(),
             approvals_stats: HashMap::new(),
         }
+    }
+
+    fn link_child(&mut self, hash: Hash) {
+        self.children.insert(hash);
     }
 }
 
@@ -78,20 +84,28 @@ impl PerSessionView {
 }
 
 struct View {
+    latest_finalized: Option<(Hash, BlockNumber)>,
+    best_blocks: Vec<Hash>,
+
+    roots: HashSet<Hash>,
     per_relay: HashMap<Hash, PerRelayView>,
     per_session: HashMap<SessionIndex, PerSessionView>,
     // TODO: this information should not be needed
     candidates_per_session: HashMap<SessionIndex, HashSet<CandidateHash>>,
     availability_chunks: HashMap<SessionIndex, AvailabilityChunks>,
+
 }
 
 impl View {
     fn new() -> Self {
         return View{
+            latest_finalized: None,
+            roots: HashSet::new(),
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
             candidates_per_session: HashMap::new(),
             availability_chunks: HashMap::new(),
+            best_blocks: Vec::new()
         };
     }
 }
@@ -147,16 +161,37 @@ pub(crate) async fn run_iteration<Context>(
             FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
             FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
                 if let Some(activated) = update.activated {
-                    view.per_relay.insert(activated.hash, PerRelayView::new(vec![]));
+                    let relay_hash = activated.hash;
 
-                    let session_idx = request_session_index_for_child(activated.hash, ctx.sender())
+                    let (tx, rx) = oneshot::channel();
+
+                    ctx.send_message(ChainApiMessage::BlockHeader(relay_hash, tx)).await;
+                    let header = rx
+                        .map_err(JfyiError::OverseerCommunication)
+                        .await?
+                        .map_err(JfyiError::ChainApiCallError)?;
+
+                    if let Some(ref h) = header {
+                        let parent_hash = h.clone().parent_hash;
+                        if let Some(parent) = view.per_relay.get_mut(&parent_hash) {
+                            parent.link_child(relay_hash.clone());
+                        } else {
+                            view.roots.insert(relay_hash.clone());
+                        }
+                        view.per_relay.insert(relay_hash, PerRelayView::new(Some(parent_hash)));
+                    } else {
+                        view.roots.insert(relay_hash.clone());
+                        view.per_relay.insert(relay_hash, PerRelayView::new(None));
+                    }
+
+                    let session_idx = request_session_index_for_child(relay_hash, ctx.sender())
                             .await
                             .await
                             .map_err(JfyiError::OverseerCommunication)?
                             .map_err(JfyiError::RuntimeApiCallError)?;
 
                     if !view.per_session.contains_key(&session_idx) {
-                        let session_info = request_session_info(activated.hash, session_idx, ctx.sender())
+                        let session_info = request_session_info(relay_hash, session_idx, ctx.sender())
                             .await
                             .await
                             .map_err(JfyiError::OverseerCommunication)?
@@ -173,7 +208,83 @@ pub(crate) async fn run_iteration<Context>(
                     }
                 }
             },
-            FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
+            FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, fin_block_num)) => {
+                let latest_finalized = match view.latest_finalized {
+                    Some(latest_finalized) => latest_finalized,
+                    None => (fin_block_hash, fin_block_num),
+                };
+
+                // update the latest finalized on the view
+                view.latest_finalized = Some((fin_block_hash, fin_block_num));
+
+                // since we want to reward only valid approvals, we retain
+                // only finalized chain blocks and its descendants
+                // identify the finalized chain so we don't prune
+                let rb_view = match view.per_relay.get_mut(&fin_block_hash) {
+                    Some(per_relay_view) => per_relay_view,
+                    //TODO: the finalized block should already exists on the relay view mapping
+                    None => continue
+                };
+
+                let mut removal_stack = Vec::new();
+                let mut retain_relay_hashes = Vec::new();
+                retain_relay_hashes.push(fin_block_hash);
+
+                let mut current_block_hash = fin_block_hash;
+                let mut current_parent_hash = rb_view.parent_hash;
+                while let Some(parent_hash) = current_parent_hash {
+                    retain_relay_hashes.push(parent_hash.clone());
+
+                    match view.per_relay.get_mut(&parent_hash) {
+                        Some(parent_view) => {
+                            if parent_view.children.len() > 1 {
+                                let filtered_set = parent_view.children
+                                    .iter()
+                                    .filter(|&child_hash| child_hash.eq(&current_block_hash))
+                                    .cloned() // Clone the elements to own them in the new HashSet
+                                    .collect::<Vec<_>>();
+
+                                removal_stack.extend(filtered_set);
+
+                                // unlink all the other children keeping only
+                                // the one that belongs to the finalized chain
+                                parent_view.children = HashSet::from_iter(vec![current_block_hash.clone()]);
+                            }
+                            current_block_hash = parent_hash;
+                            current_parent_hash = parent_view.parent_hash;
+                        },
+                        None => break
+                    };
+                }
+
+                if view.roots.len() > 1 {
+                    for root in view.roots.clone() {
+                        if !retain_relay_hashes.contains(&root) {
+                            removal_stack.push(root);
+                        }
+                    }
+                }
+
+                let mut to_prune = HashSet::new();
+                let mut queue: VecDeque<Hash> = VecDeque::from(removal_stack);
+
+                while let Some(hash) = queue.pop_front() {
+                    if !to_prune.insert(hash) {
+                        continue; // already seen
+                    }
+
+                    if let Some(r_view) = view.per_relay.get(&hash) {
+                        for child in &r_view.children {
+                            queue.push_back(child.clone());
+                        }
+                    }
+                }
+
+                for rb_hash in to_prune {
+                    view.per_relay.remove(&rb_hash);
+                    view.roots.remove(&rb_hash);
+                }
+            }
             FromOrchestra::Communication { msg } => {
                 match msg {
                     ConsensusStatisticsCollectorMessage::ChunksDownloaded(
@@ -198,6 +309,7 @@ pub(crate) async fn run_iteration<Context>(
                             block_hash,
                             candidate_hash,
                             approvals,
+                            metrics,
                         );
                     }
                     ConsensusStatisticsCollectorMessage::NoShows(candidate_hash, block_hash, no_show_validators) => {

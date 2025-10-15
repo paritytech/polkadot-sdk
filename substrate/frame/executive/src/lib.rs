@@ -196,16 +196,16 @@ impl core::fmt::Debug for ExecutiveError {
 /// - [**DEPRECATED** `OnRuntimeUpgrade`]: This parameter is deprecated and will be removed after
 ///   September 2026. Use type `SingleBlockMigrations` in frame_system::Config instead.
 #[allow(deprecated)]
-#[deprecated(
-	note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
-	Use type `SingleBlockMigrations` in frame_system::Config instead."
-)]
 pub struct Executive<
 	System,
 	Block,
 	Context,
 	UnsignedValidator,
 	AllPalletsWithSystem,
+	#[deprecated(
+		note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
+	Use type `SingleBlockMigrations` in frame_system::Config instead."
+	)]
 	OnRuntimeUpgrade = (),
 >(
 	PhantomData<(
