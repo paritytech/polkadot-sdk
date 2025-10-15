@@ -31,7 +31,6 @@ use sp_runtime::{
 	traits::{Block, Header, NumberFor},
 	DigestItem,
 };
-use sp_tracing::tracing;
 
 use crate::{fetch_authorities_from_runtime, AuthorityId, CompatibilityMode};
 
