@@ -74,6 +74,9 @@ jobs:
           chmod +x solc-static-linux
           mv solc-static-linux /usr/local/bin/solc
 
+          echo "Building fixture contracts"
+          deno task build
+
           echo "Starting the tests"
           START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test
 
