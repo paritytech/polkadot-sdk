@@ -348,21 +348,40 @@ pub struct ExecConfig {
 	///
 	/// It is determined when transforming `eth_transact` into a proper extrinsic.
 	pub effective_gas_price: Option<U256>,
+	/// Whether this configuration was created for a dry-run execution.
+	/// Use to enable logic that should only run in dry-run mode.
+	pub is_dry_run: bool,
 }
 
 impl ExecConfig {
-	/// Create a default config appropriate when the call originated from a subtrate tx.
+	/// Create a default config appropriate when the call originated from a substrate tx.
 	pub fn new_substrate_tx() -> Self {
-		Self { bump_nonce: true, collect_deposit_from_hold: None, effective_gas_price: None }
+		Self {
+			bump_nonce: true,
+			collect_deposit_from_hold: None,
+			effective_gas_price: None,
+			is_dry_run: false,
+		}
 	}
 
 	/// Create a default config appropriate when the call originated from a ethereum tx.
-	pub fn new_eth_tx(effective_gas_price: U256, encoded_len: u32, base_weight: Weight) -> Self {
+	pub fn new_eth_tx(
+		effective_gas_price: U256,
+		encoded_len: u32,
+		base_weight: Weight,
+	) -> Self {
 		Self {
 			bump_nonce: false,
 			collect_deposit_from_hold: Some((encoded_len, base_weight)),
 			effective_gas_price: Some(effective_gas_price),
+			is_dry_run: false,
 		}
+	}
+
+	/// Set this config to be a dry-run.
+	pub fn dry_run(self) -> Self {
+		self.is_dry_run = true
+		self
 	}
 }
 

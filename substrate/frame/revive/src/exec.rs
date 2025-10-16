@@ -1288,8 +1288,12 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					// Only keep return data for tracing
-					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
+					// Only keep return data for tracing and for dry runs.
+					// When a dry-run simulates contract deployment, keep the execution result's
+					// data.
+					let data = if crate::tracing::if_tracing(|_| {}).is_none() &&
+						!self.exec_config.is_dry_run
+					{
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
 						output.data.clone()
