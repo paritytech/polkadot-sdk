@@ -254,7 +254,7 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 	let eth_api = EthRpcServerImpl::new(client.clone())
 		.with_accounts(if is_dev {
 			vec![
-				crate::Account::from(subxt_signer::eth::dev::alith()),				
+				crate::Account::from(subxt_signer::eth::dev::alith()),			
 				crate::Account::from(subxt_signer::eth::dev::baltathar()),
 				crate::Account::from(subxt_signer::eth::dev::charleth()),
 				crate::Account::from(subxt_signer::eth::dev::dorothy()),
