@@ -42,7 +42,20 @@ pub struct ReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
 	/// When `Some`, old blocks will be pruned.
 	keep_latest_n_blocks: Option<usize>,
 	/// A Map of the latest block numbers to block hashes.
-	block_number_to_hash: Arc<Mutex<BTreeMap<SubstrateBlockNumber, H256>>>,
+	block_number_to_hashes: Arc<Mutex<BTreeMap<SubstrateBlockNumber, BlockHashMap>>>,
+}
+
+/// Substrate block to Ethereum block mapping
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct BlockHashMap {
+	substrate_hash: H256,
+	ethereum_hash: H256,
+}
+
+impl BlockHashMap {
+	fn new(substrate_hash: H256, ethereum_hash: H256) -> Self {
+		Self { substrate_hash, ethereum_hash }
+	}
 }
 
 /// Provides information about a block,
@@ -78,7 +91,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			block_provider,
 			receipt_extractor,
 			keep_latest_n_blocks,
-			block_number_to_hash: Default::default(),
+			block_number_to_hashes: Default::default(),
 		})
 	}
 
@@ -102,29 +115,28 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Insert a block mapping from Ethereum block hash to Substrate block hash.
-	pub async fn insert_block_mapping(
+	async fn insert_block_mapping(
 		&self,
-		ethereum_block_hash: &H256,
-		substrate_block_hash: &H256,
 		block_number: u64,
+		block_map: &BlockHashMap,
 	) -> Result<(), ClientError> {
-		let ethereum_hash = ethereum_block_hash.as_ref();
-		let substrate_hash = substrate_block_hash.as_ref();
 		let block_number = block_number as i64;
+		let ethereum_hash_ref = block_map.ethereum_hash.as_ref();
+		let substrate_hash_ref = block_map.substrate_hash.as_ref();
 
 		query!(
 			r#"
 			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash, block_number)
 			VALUES ($1, $2, $3)
 			"#,
-			ethereum_hash,
-			substrate_hash,
+			ethereum_hash_ref,
+			substrate_hash_ref,
 			block_number
 		)
 		.execute(&self.pool)
 		.await?;
 
-		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {ethereum_block_hash:?} -> substrate block: {substrate_block_hash:?}");
+		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {ethereum_hash_ref:?} -> substrate block: {substrate_hash_ref:?}");
 		Ok(())
 	}
 
@@ -208,28 +220,29 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Deletes older records from the database.
-	pub async fn remove(&self, block_hashes: &[H256]) -> Result<(), ClientError> {
-		if block_hashes.is_empty() {
+	async fn remove(&self, block_mappings: &[BlockHashMap]) -> Result<(), ClientError> {
+		if block_mappings.is_empty() {
 			return Ok(());
 		}
-		log::debug!(target: LOG_TARGET, "Removing block hashes: {block_hashes:?}");
+		log::debug!(target: LOG_TARGET, "Removing block hashes: {block_mappings:?}");
 
-		let placeholders = vec!["?"; block_hashes.len()].join(", ");
+		let placeholders = vec!["?"; block_mappings.len()].join(", ");
 		let sql = format!("DELETE FROM transaction_hashes WHERE block_hash in ({placeholders})");
+
 		let mut delete_tx_query = sqlx::query(&sql);
-
-		let sql = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
-		let mut delete_logs_query = sqlx::query(&sql);
-
 		let sql = format!(
 			"DELETE FROM eth_to_substrate_blocks WHERE substrate_block_hash in ({placeholders})"
 		);
 		let mut delete_mappings_query = sqlx::query(&sql);
 
-		for block_hash in block_hashes {
-			delete_tx_query = delete_tx_query.bind(block_hash.as_ref());
-			delete_logs_query = delete_logs_query.bind(block_hash.as_ref());
-			delete_mappings_query = delete_mappings_query.bind(block_hash.as_ref());
+		let sql = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
+		let mut delete_logs_query = sqlx::query(&sql);
+
+		for block_map in block_mappings {
+			delete_tx_query = delete_tx_query.bind(block_map.substrate_hash.as_ref());
+			delete_mappings_query = delete_mappings_query.bind(block_map.substrate_hash.as_ref());
+			// logs table uses  ethereum block hash
+			delete_logs_query = delete_logs_query.bind(block_map.ethereum_hash.as_ref());
 		}
 
 		let delete_transaction_hashes = delete_tx_query.execute(&self.pool);
@@ -268,17 +281,20 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Prune blocks older blocks.
-	async fn prune_blocks(&self, block: &impl BlockInfo) -> Result<(), ClientError> {
+	async fn prune_blocks(
+		&self,
+		block_number: SubstrateBlockNumber,
+		block_map: &BlockHashMap,
+	) -> Result<(), ClientError> {
 		// Keep track of the latest block hashes, so we can prune older blocks.
 		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
-			let block_hash = block.hash();
-			let mut block_number_to_hash = self.block_number_to_hash.lock().await;
+			let mut block_number_to_hash = self.block_number_to_hashes.lock().await;
 
 			// Fork? - If inserting the same block number with a different hash, remove the old one
 			let mut to_remove = Vec::new();
-			match block_number_to_hash.insert(block.number(), block_hash) {
-				Some(old_hash) if old_hash != block_hash => {
-					to_remove.push(old_hash);
+			match block_number_to_hash.insert(block_number, block_map.clone()) {
+				Some(old_block_map) if &old_block_map != block_map => {
+					to_remove.push(old_block_map);
 				},
 				_ => {},
 			}
@@ -287,8 +303,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			// (not by block number range, to handle gaps correctly)
 			while block_number_to_hash.len() > keep_latest_n_blocks {
 				// Remove the block with the smallest number (first in BTreeMap)
-				if let Some((_, hash)) = block_number_to_hash.pop_first() {
-					to_remove.push(hash);
+				if let Some((_, block_map)) = block_number_to_hash.pop_first() {
+					to_remove.push(block_map);
 				}
 			}
 
@@ -308,11 +324,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		receipts: &[(TransactionSigned, ReceiptInfo)],
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
-		let block_hash = block.hash();
-		let block_hash_ref = block_hash.as_ref();
+		let substrate_block_hash = block.hash();
+		let block_hash_ref = substrate_block_hash.as_ref();
 		let block_number = block.number() as i64;
+		let ethereum_hash_ref = ethereum_hash.as_ref();
+		let block_map = BlockHashMap::new(substrate_block_hash, ethereum_hash.clone());
 
-		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", block_hash);
+		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", substrate_block_hash);
 
 		let result = sqlx::query!(
 			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,
@@ -321,7 +339,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		.fetch_one(&self.pool)
 		.await?;
 
-		self.prune_blocks(block).await?;
+		self.prune_blocks(block.number(), &block_map).await?;
 
 		if !result.exists {
 			for (_, receipt) in receipts {
@@ -363,7 +381,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 							data)
 						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 						"#,
-						block_hash_ref,
+						ethereum_hash_ref,
 						transaction_index,
 						log_index,
 						address,
@@ -382,8 +400,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		// Insert block mapping from Ethereum to Substrate hash
-		self.insert_block_mapping(&ethereum_hash, &block_hash, block_number as u64)
-			.await?;
+		self.insert_block_mapping(block_number as u64, &block_map).await?;
 
 		Ok(())
 	}
@@ -432,9 +449,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
 			},
 			(None, None, Some(hash)) => {
-				// Try to resolve Ethereum hash to Substrate hash first
-				let substrate_hash = self.get_substrate_hash(&hash).await.unwrap_or(hash);
-				qb.push(" AND block_hash = ").push_bind(substrate_hash.0.to_vec());
+				qb.push(" AND block_hash = ").push_bind(hash.0.to_vec());
 			},
 			(None, None, None) => {
 				qb.push(" AND block_number = ").push_bind(latest_block.as_u64() as i64);
@@ -652,7 +667,7 @@ mod tests {
 			block_provider: MockBlockInfoProvider {},
 			receipt_extractor: ReceiptExtractor::new_mock(),
 			keep_latest_n_blocks: Some(10),
-			block_number_to_hash: Default::default(),
+			block_number_to_hashes: Default::default(),
 		}
 	}
 
@@ -668,12 +683,13 @@ mod tests {
 			},
 		)];
 		let ethereum_hash = H256::from([1_u8; 32]);
+		let block_map = BlockHashMap::new(block.hash(), ethereum_hash);
 
 		provider.insert(&block, &receipts, &ethereum_hash).await?;
 		let row = provider.fetch_row(&receipts[0].1.transaction_hash).await;
 		assert_eq!(row, Some((block.hash, 0)));
 
-		provider.remove(&[block.hash()]).await?;
+		provider.remove(&[block_map]).await?;
 		assert_eq!(count(&provider.pool, "transaction_hashes", Some(block.hash())).await, 0);
 		assert_eq!(count(&provider.pool, "logs", Some(block.hash())).await, 0);
 		Ok(())
@@ -705,7 +721,7 @@ mod tests {
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, n);
 		assert_eq!(count(&provider.pool, "logs", None).await, n);
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
-		assert_eq!(provider.block_number_to_hash.lock().await.len(), n);
+		assert_eq!(provider.block_number_to_hashes.lock().await.len(), n);
 
 		return Ok(());
 	}
@@ -736,8 +752,8 @@ mod tests {
 		assert_eq!(count(&provider.pool, "logs", None).await, 1);
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
 		assert_eq!(
-			provider.block_number_to_hash.lock().await.clone(),
-			[(1, H256::from([2u8; 32]))].into(),
+			provider.block_number_to_hashes.lock().await.clone(),
+			[(1, BlockHashMap::new(H256::from([2u8; 32]), H256::from([3u8; 32])))].into(),
 			"New receipt for block #1 should replace the old one"
 		);
 
@@ -771,8 +787,10 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await;
 		let block1 = MockBlockInfo { hash: H256::from([1u8; 32]), number: 1 };
 		let block2 = MockBlockInfo { hash: H256::from([2u8; 32]), number: 2 };
+		let ethereum_hash1 = H256::from([3u8; 32]);
+		let ethereum_hash2 = H256::from([4u8; 32]);
 		let log1 = Log {
-			block_hash: block1.hash,
+			block_hash: ethereum_hash1,
 			block_number: block1.number.into(),
 			address: H160::from([1u8; 20]),
 			topics: vec![H256::from([1u8; 32]), H256::from([2u8; 32])],
@@ -783,7 +801,7 @@ mod tests {
 			..Default::default()
 		};
 		let log2 = Log {
-			block_hash: block2.hash,
+			block_hash: ethereum_hash2,
 			block_number: block2.number.into(),
 			address: H160::from([2u8; 20]),
 			topics: vec![H256::from([2u8; 32]), H256::from([3u8; 32])],
@@ -792,8 +810,6 @@ mod tests {
 			log_index: U256::from(1),
 			..Default::default()
 		};
-		let ethereum_hash1 = H256::from([3u8; 32]);
-		let ethereum_hash2 = H256::from([4u8; 32]);
 
 		provider
 			.insert(
@@ -927,11 +943,10 @@ mod tests {
 		let ethereum_hash = H256::from([1u8; 32]);
 		let substrate_hash = H256::from([2u8; 32]);
 		let block_number = 42u64;
+		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		provider
-			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
-			.await?;
+		provider.insert_block_mapping(block_number, &block_map).await?;
 
 		// Test forward lookup
 		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
@@ -951,21 +966,25 @@ mod tests {
 		let substrate_hash1 = H256::from([2u8; 32]);
 		let substrate_hash2 = H256::from([3u8; 32]);
 		let block_number = 42u64;
+		let block_map1 = BlockHashMap::new(substrate_hash1, ethereum_hash.clone());
+		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash);
 
 		// Insert first mapping
-		provider
-			.insert_block_mapping(&ethereum_hash, &substrate_hash1, block_number)
-			.await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash1));
+		provider.insert_block_mapping(block_number, &block_map1).await?;
+		assert_eq!(
+			provider.get_substrate_hash(&block_map1.ethereum_hash).await,
+			Some(block_map1.substrate_hash)
+		);
 
 		// Insert second mapping (should overwrite)
-		provider
-			.insert_block_mapping(&ethereum_hash, &substrate_hash2, block_number)
-			.await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash2));
+		provider.insert_block_mapping(block_number, &block_map2).await?;
+		assert_eq!(
+			provider.get_substrate_hash(&block_map2.ethereum_hash).await,
+			Some(block_map2.substrate_hash)
+		);
 
 		// Old mapping should be gone
-		assert_eq!(provider.get_ethereum_hash(&substrate_hash1).await, None);
+		assert_eq!(provider.get_ethereum_hash(&block_map1.substrate_hash).await, None);
 
 		Ok(())
 	}
@@ -978,21 +997,25 @@ mod tests {
 		let substrate_hash1 = H256::from([3u8; 32]);
 		let substrate_hash2 = H256::from([4u8; 32]);
 		let block_number = 42u64;
+		let block_map1 = BlockHashMap::new(substrate_hash1, ethereum_hash1);
+		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash2);
 
 		// Insert mappings
-		provider
-			.insert_block_mapping(&ethereum_hash1, &substrate_hash1, block_number)
-			.await?;
-		provider
-			.insert_block_mapping(&ethereum_hash2, &substrate_hash2, block_number)
-			.await?;
+		provider.insert_block_mapping(block_number, &block_map1).await?;
+		provider.insert_block_mapping(block_number, &block_map2).await?;
 
 		// Verify they exist
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, Some(substrate_hash1));
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
+		assert_eq!(
+			provider.get_substrate_hash(&block_map1.ethereum_hash).await,
+			Some(block_map1.substrate_hash)
+		);
+		assert_eq!(
+			provider.get_substrate_hash(&block_map2.ethereum_hash).await,
+			Some(block_map2.substrate_hash)
+		);
 
 		// Remove one mapping
-		provider.remove_block_mappings(&[ethereum_hash1]).await?;
+		provider.remove(&[block_map1]).await?;
 
 		// Verify removal
 		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, None);
@@ -1007,18 +1030,20 @@ mod tests {
 		let ethereum_hash = H256::from([1u8; 32]);
 		let substrate_hash = H256::from([2u8; 32]);
 		let block_number = 42u64;
+		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		provider
-			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
-			.await?;
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash));
+		provider.insert_block_mapping(block_number, &block_map).await?;
+		assert_eq!(
+			provider.get_substrate_hash(&block_map.ethereum_hash).await,
+			Some(block_map.substrate_hash)
+		);
 
 		// Remove substrate block (this should also remove the mapping)
-		provider.remove(&[substrate_hash]).await?;
+		provider.remove(&[block_map.clone()]).await?;
 
 		// Mapping should be gone
-		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, None);
+		assert_eq!(provider.get_substrate_hash(&block_map.ethereum_hash).await, None);
 
 		Ok(())
 	}
@@ -1030,9 +1055,9 @@ mod tests {
 		let substrate_hash = H256::from([2u8; 32]);
 		let block_number = 1u64;
 
-		// Create a log with substrate hash
+		// Create a log with ethereum hash
 		let log = Log {
-			block_hash: substrate_hash,
+			block_hash: ethereum_hash,
 			block_number: block_number.into(),
 			address: H160::from([1u8; 20]),
 			topics: vec![H256::from([1u8; 32])],
@@ -1072,18 +1097,17 @@ mod tests {
 		// Initially no mappings
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 0);
 
+		let block_map1 = BlockHashMap::new(H256::from([1u8; 32]), H256::from([2u8; 32]));
+		let block_map2 = BlockHashMap::new(H256::from([3u8; 32]), H256::from([4u8; 32]));
+
 		// Insert some mappings
-		provider
-			.insert_block_mapping(&H256::from([1u8; 32]), &H256::from([2u8; 32]), 1)
-			.await?;
-		provider
-			.insert_block_mapping(&H256::from([3u8; 32]), &H256::from([4u8; 32]), 2)
-			.await?;
+		provider.insert_block_mapping(1, &block_map1).await?;
+		provider.insert_block_mapping(2, &block_map2).await?;
 
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
 
 		// Remove one
-		provider.remove_block_mappings(&[H256::from([1u8; 32])]).await?;
+		provider.remove(&[block_map1]).await?;
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
 
 		Ok(())
