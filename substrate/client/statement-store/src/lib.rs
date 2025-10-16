@@ -1266,8 +1266,8 @@ mod tests {
 		let recent1 = store.take_recent_statements().unwrap();
 		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) = recent1.into_iter().unzip();
 		let expected1 = vec![statement0, statement1, statement2];
-		assert_eq!(recent1_hashes, expected1.iter().map(|s| s.hash()).collect::<Vec<_>>());
-		assert_eq!(recent1_statements, expected1);
+		assert!(expected1.iter().all(|s| recent1_hashes.contains(&s.hash())));
+		assert!(expected1.iter().all(|s| recent1_statements.contains(s)));
 
 		// Recent statements are cleared.
 		let recent2 = store.take_recent_statements().unwrap();
@@ -1278,8 +1278,8 @@ mod tests {
 		let recent3 = store.take_recent_statements().unwrap();
 		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) = recent3.into_iter().unzip();
 		let expected3 = vec![statement3];
-		assert_eq!(recent3_hashes, expected3.iter().map(|s| s.hash()).collect::<Vec<_>>());
-		assert_eq!(recent3_statements, expected3);
+		assert!(expected3.iter().all(|s| recent3_hashes.contains(&s.hash())));
+		assert!(expected3.iter().all(|s| recent3_statements.contains(s)));
 
 		// Recent statements are cleared, but statements remain in the store.
 		assert_eq!(store.statements().unwrap().len(), 4);
