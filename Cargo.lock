@@ -20541,6 +20541,7 @@ version = "0.16.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
+ "async-trait",
  "futures",
  "log",
  "parity-scale-codec",
@@ -20552,6 +20553,7 @@ dependencies = [
  "sp-runtime",
  "sp-statement-store",
  "substrate-prometheus-endpoint",
+ "tokio",
 ]
 
 [[package]]
