@@ -401,9 +401,9 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 	}
 
-	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
-		        SessionKeys::generate(&owner, seed).into()
+	impl apis::SessionKeys<Block> for Runtime {
+		fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> apis::OpaqueGeneratedSessionKeys {
+		Default::default()
 		}
 
 
