@@ -219,14 +219,14 @@ jobs:
 
       - name: Login to Dockerhub to publish polkadot
         if: ${{ env.BINARY == 'polkadot' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
           password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}
 
       - name: Login to Dockerhub to publish polkadot-omni-node/polkadot-parachain/chain-spec-builder
         if: ${{ env.BINARY == 'polkadot-omni-node' || env.BINARY == 'polkadot-parachain' || env.BINARY == 'chain-spec-builder' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           username: ${{ secrets.CUMULUS_DOCKERHUB_USERNAME }}
           password: ${{ secrets.CUMULUS_DOCKERHUB_TOKEN }}
@@ -261,6 +261,8 @@ jobs:
       - name: Get version
         id: fetch-latest-apt
         run: |
+          gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
+          gpg --export 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE > /usr/share/keyrings/parity.gpg
           apt update
           apt show polkadot
           version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
@@ -291,7 +293,7 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Login to Docker Hub
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
           password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}

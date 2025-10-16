@@ -14,251 +14,242 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-use super::Context;
-
 use crate::{
 	storage::WriteOutcome,
 	vec::Vec,
-	vm::{evm::U256Converter, Ext},
-	DispatchError, Key, RuntimeCosts,
+	vm::{
+		evm::{
+			instructions::utility::IntoAddress, interpreter::Halt, util::as_usize_or_halt,
+			Interpreter,
+		},
+		Ext,
+	},
+	DispatchError, Error, Key, RuntimeCosts, U256,
 };
-use revm::{
-	interpreter::{interpreter_types::StackTr, InstructionResult},
-	primitives::{Bytes, U256},
-};
+use core::ops::ControlFlow;
 
 /// Implements the BALANCE instruction.
 ///
 /// Gets the balance of the given account.
-pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::BalanceOf);
-	popn_top!([], top, context.interpreter);
-	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
-	*top = context.interpreter.extend.balance_of(&h160).into_revm_u256();
+pub fn balance<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(RuntimeCosts::BalanceOf)?;
+	let ([], top) = interpreter.stack.popn_top()?;
+	*top = interpreter.ext.balance_of(&top.into_address());
+	ControlFlow::Continue(())
 }
 
 /// EIP-1884: Repricing for trie-size-dependent opcodes
-pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::Balance);
-	let balance = context.interpreter.extend.balance();
-	push!(context.interpreter, balance.into_revm_u256());
+pub fn selfbalance<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(RuntimeCosts::Balance)?;
+	let balance = interpreter.ext.balance();
+	interpreter.stack.push(balance)
 }
 
 /// Implements the EXTCODESIZE instruction.
 ///
 /// Gets the size of an account's code.
-pub fn extcodesize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	popn_top!([], top, context.interpreter);
-	gas!(context.interpreter, RuntimeCosts::CodeSize);
-	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
-	let code_size = context.interpreter.extend.code_size(&h160);
+pub fn extcodesize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let ([], top) = interpreter.stack.popn_top()?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::CodeSize)?;
+	let code_size = interpreter.ext.code_size(&top.into_address());
 	*top = U256::from(code_size);
+	ControlFlow::Continue(())
 }
 
 /// EIP-1052: EXTCODEHASH opcode
-pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	popn_top!([], top, context.interpreter);
-	gas!(context.interpreter, RuntimeCosts::CodeHash);
-	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
-	let code_hash = context.interpreter.extend.code_hash(&h160);
-	*top = U256::from_be_bytes(code_hash.0);
+pub fn extcodehash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let ([], top) = interpreter.stack.popn_top()?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::CodeHash)?;
+	let code_hash = interpreter.ext.code_hash(&top.into_address());
+	*top = U256::from_big_endian(&code_hash.0);
+	ControlFlow::Continue(())
 }
 
 /// Implements the EXTCODECOPY instruction.
 ///
 /// Copies a portion of an account's code to memory.
-pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
-	let len = as_usize_or_fail!(context.interpreter, len_u256);
-
-	gas!(context.interpreter, RuntimeCosts::ExtCodeCopy(len as u32));
-	let address = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
-
+pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let [address, memory_offset, code_offset, len] = interpreter.stack.popn()?;
+	let len = as_usize_or_halt::<E::T>(len)?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::ExtCodeCopy(len as u32))?;
 	if len == 0 {
-		return;
+		return ControlFlow::Continue(());
 	}
-	let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
-	let code_offset = as_usize_saturated!(code_offset);
 
-	resize_memory!(context.interpreter, memory_offset, len);
+	let address = address.into_address();
+	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
+	let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
 
-	let mut buf = context.interpreter.memory.slice_mut(memory_offset, len);
+	interpreter.memory.resize(memory_offset, len)?;
+
+	let mut buf = interpreter.memory.slice_mut(memory_offset, len);
 	// Note: This can't panic because we resized memory to fit.
-	context.interpreter.extend.copy_code_slice(&mut buf, &address, code_offset);
+	interpreter.ext.copy_code_slice(&mut buf, &address, code_offset);
+	ControlFlow::Continue(())
 }
 
 /// Implements the BLOCKHASH instruction.
 ///
 /// Gets the hash of one of the 256 most recent complete blocks.
-pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::BlockHash);
-	popn_top!([], number, context.interpreter);
-	let requested_number = <sp_core::U256 as U256Converter>::from_revm_u256(&number);
+pub fn blockhash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(RuntimeCosts::BlockHash)?;
+	let ([], number) = interpreter.stack.popn_top()?;
 
 	// blockhash should push zero if number is not within valid range.
-	if let Some(hash) = context.interpreter.extend.block_hash(requested_number) {
-		*number = U256::from_be_bytes(hash.0)
+	if let Some(hash) = interpreter.ext.block_hash(*number) {
+		*number = U256::from_big_endian(&hash.0)
 	} else {
-		*number = U256::ZERO
+		*number = U256::zero()
 	};
+	ControlFlow::Continue(())
 }
 
 /// Implements the SLOAD instruction.
 ///
 /// Loads a word from storage.
-pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	popn_top!([], index, context.interpreter);
+pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let ([], index) = interpreter.stack.popn_top()?;
 	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
-	gas!(context.interpreter, RuntimeCosts::GetStorage(32));
-	let key = Key::Fix(index.to_be_bytes());
-	let value = context.interpreter.extend.get_storage(&key);
+	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(32))?;
+	let key = Key::Fix(index.to_big_endian());
+	let value = interpreter.ext.get_storage(&key);
 
 	*index = if let Some(storage_value) = value {
 		// sload always reads a word
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
 			log::debug!(target: crate::LOG_TARGET, "sload read invalid storage value length. Expected 32.");
-			context.interpreter.halt(InstructionResult::FatalExternalError);
-			return
+			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		};
-		U256::from_be_bytes(bytes)
+		U256::from_big_endian(&bytes)
 	} else {
 		// the key was never written before
-		U256::ZERO
+		U256::zero()
 	};
+	ControlFlow::Continue(())
 }
 
 fn store_helper<'ext, E: Ext>(
-	context: Context<'_, 'ext, E>,
+	interpreter: &mut Interpreter<'ext, E>,
 	cost_before: RuntimeCosts,
 	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
 	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
-) {
-	if context.interpreter.extend.is_read_only() {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
+) -> ControlFlow<Halt> {
+	if interpreter.ext.is_read_only() {
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
-	popn!([index, value], context.interpreter);
+	let [index, value] = interpreter.stack.popn()?;
 
 	// Charge gas before set_storage and later adjust it down to the true gas cost
-	let Ok(charged_amount) = context.interpreter.extend.gas_meter_mut().charge(cost_before) else {
-		context.interpreter.halt(InstructionResult::OutOfGas);
-		return;
-	};
-
-	let key = Key::Fix(index.to_be_bytes());
+	let charged_amount = interpreter.ext.charge_or_halt(cost_before)?;
+	let key = Key::Fix(index.to_big_endian());
 	let take_old = false;
-	let Ok(write_outcome) = set_function(
-		context.interpreter.extend,
-		&key,
-		Some(value.to_be_bytes::<32>().to_vec()),
-		take_old,
-	) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
+	let Ok(write_outcome) =
+		set_function(interpreter.ext, &key, Some(value.to_big_endian().to_vec()), take_old)
+	else {
+		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	context
-		.interpreter
-		.extend
+	interpreter
+		.ext
 		.gas_meter_mut()
 		.adjust_gas(charged_amount, adjust_cost(32, write_outcome.old_len()));
+
+	ControlFlow::Continue(())
 }
 
 /// Implements the SSTORE instruction.
 ///
 /// Stores a word to storage.
-pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	let old_bytes = context.interpreter.extend.max_value_size();
+pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let old_bytes = interpreter.ext.max_value_size();
 	store_helper(
-		context,
+		interpreter,
 		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes },
 		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
 		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
-	);
+	)
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
-pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	let old_bytes = context.interpreter.extend.max_value_size();
+pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let old_bytes = interpreter.ext.max_value_size();
 	store_helper(
-		context,
+		interpreter,
 		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes },
 		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
 		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
-	);
+	)
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Load value from transient storage
-pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	popn_top!([], index, context.interpreter);
-	gas!(context.interpreter, RuntimeCosts::GetTransientStorage(32));
+pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let ([], index) = interpreter.stack.popn_top()?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::GetTransientStorage(32))?;
 
-	let key = Key::Fix(index.to_be_bytes());
-	let bytes = context.interpreter.extend.get_transient_storage(&key);
+	let key = Key::Fix(index.to_big_endian());
+	let bytes = interpreter.ext.get_transient_storage(&key);
+
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
 			// tload always reads a word
-			log::error!(target: crate::LOG_TARGET, "tload read invalid storage value length. Expected 32.");
-			context.interpreter.halt(InstructionResult::FatalExternalError);
-			return;
+			log::debug!(target: crate::LOG_TARGET, "tload read invalid storage value length. Expected 32.");
+			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		}
-		let mut bytes = [0u8; 32];
-		bytes.copy_from_slice(&storage_value);
-		U256::from_be_bytes(bytes)
+
+		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
+			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
+		};
+		U256::from_big_endian(&bytes)
 	} else {
 		// the key was never written before
-		U256::ZERO
+		U256::zero()
 	};
+	ControlFlow::Continue(())
 }
 
 /// Implements the LOG0-LOG4 instructions.
 ///
 /// Appends log record with N topics.
-pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	if context.interpreter.extend.is_read_only() {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
+pub fn log<'ext, const N: usize, E: Ext>(
+	interpreter: &mut Interpreter<'ext, E>,
+) -> ControlFlow<Halt> {
+	if interpreter.ext.is_read_only() {
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
-	popn!([offset, len], context.interpreter);
-	let len = as_usize_or_fail!(context.interpreter, len);
-	if len as u32 > context.interpreter.extend.max_value_size() {
-		context
-			.interpreter
-			.halt(revm::interpreter::InstructionResult::InvalidOperandOOG);
-		return;
+	let [offset, len] = interpreter.stack.popn()?;
+	let len = as_usize_or_halt::<E::T>(len)?;
+	if len as u32 > interpreter.ext.max_value_size() {
+		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
 	}
 
-	gas!(context.interpreter, RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 });
+	let cost = RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 };
+	interpreter.ext.charge_or_halt(cost)?;
+
 	let data = if len == 0 {
-		Bytes::new()
+		Vec::new()
 	} else {
-		let offset = as_usize_or_fail!(context.interpreter, offset);
-		resize_memory!(context.interpreter, offset, len);
-		Bytes::copy_from_slice(context.interpreter.memory.slice_len(offset, len).as_ref())
+		let offset = as_usize_or_halt::<E::T>(offset)?;
+		interpreter.memory.resize(offset, len)?;
+		interpreter.memory.slice(offset..offset + len).to_vec()
 	};
-	if context.interpreter.stack.len() < N {
-		context.interpreter.halt(InstructionResult::StackUnderflow);
-		return;
+	if interpreter.stack.len() < N {
+		return ControlFlow::Break(Error::<E::T>::StackUnderflow.into());
 	}
-	let Some(topics) = <_ as StackTr>::popn::<N>(&mut context.interpreter.stack) else {
-		context.interpreter.halt(InstructionResult::StackUnderflow);
-		return;
-	};
+	let topics = interpreter.stack.popn::<N>()?;
+	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
 
-	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_be_bytes())).collect();
-
-	context.interpreter.extend.deposit_event(topics, data.to_vec());
+	interpreter.ext.deposit_event(topics, data.to_vec());
+	ControlFlow::Continue(())
 }
 
 /// Implements the SELFDESTRUCT instruction.
 ///
 /// Halt execution and register account for later deletion.
-pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+pub fn selfdestruct<'ext, E: Ext>(_interpreter: &mut Interpreter<'ext, E>) -> ControlFlow<Halt> {
 	// TODO: for now this instruction is not supported
-	context.interpreter.halt(InstructionResult::NotActivated);
+	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
 }
