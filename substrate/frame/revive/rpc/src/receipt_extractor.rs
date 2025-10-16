@@ -20,7 +20,6 @@ use crate::{
 		self,
 		revive::{calls::types::EthTransact, events::ContractEmitted},
 		system::events::ExtrinsicSuccess,
-		transaction_payment::events::TransactionFeePaid,
 		SrcChainConfig,
 	},
 	ClientError, H160, LOG_TARGET,
@@ -60,20 +59,11 @@ pub struct ReceiptExtractor {
 	/// Fetch the gas price from the chain.
 	fetch_gas_price: FetchGasPriceFn,
 
-	/// The native to eth decimal ratio, used to calculated gas from native fees.
-	native_to_eth_ratio: u32,
-
 	/// Earliest block number to consider when searching for transaction receipts.
 	earliest_receipt_block: Option<SubstrateBlockNumber>,
 
 	/// Recover the ethereum address from a transaction signature.
 	recover_eth_address: RecoverEthAddressFn,
-}
-
-/// Fetch the native_to_eth_ratio
-async fn native_to_eth_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<u32, ClientError> {
-	let query = subxt_client::constants().revive().native_to_eth_ratio();
-	api.constants().at(&query).map_err(|err| err.into())
 }
 
 impl ReceiptExtractor {
@@ -105,8 +95,6 @@ impl ReceiptExtractor {
 		earliest_receipt_block: Option<SubstrateBlockNumber>,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
-		let native_to_eth_ratio = native_to_eth_ratio(&api).await?;
-
 		let api_inner = api.clone();
 		let fetch_eth_block_hash = Arc::new(move |block_hash, block_number| {
 			let api_inner = api_inner.clone();
@@ -149,7 +137,6 @@ impl ReceiptExtractor {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
 			fetch_gas_price,
-			native_to_eth_ratio,
 			earliest_receipt_block,
 			recover_eth_address: recover_eth_address_fn,
 		})
@@ -172,7 +159,6 @@ impl ReceiptExtractor {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
 			fetch_gas_price,
-			native_to_eth_ratio: 1_000_000,
 			earliest_receipt_block: None,
 			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
 				signed_tx.recover_eth_address()
@@ -187,7 +173,7 @@ impl ReceiptExtractor {
 		eth_block_hash: H256,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
-		maybe_receipt: Option<ReceiptGasInfo>,
+		receipt_gas_info: ReceiptGasInfo,
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let events = ext.events().await?;
@@ -200,12 +186,6 @@ impl ReceiptExtractor {
 			);
 		})?;
 
-		let tx_fees = events
-		.find_first::<TransactionFeePaid>()?
-		.ok_or(ClientError::TxFeeNotFound)
-		.inspect_err(
-			|err| log::debug!(target: LOG_TARGET, "TransactionFeePaid not found in events for block {block_number}\n{err:?}")
-		)?;
 		let transaction_hash = H256(keccak_256(&call.payload));
 
 		let signed_tx =
@@ -220,16 +200,6 @@ impl ReceiptExtractor {
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
 
 		let gas_price = tx_info.gas_price.unwrap_or_default();
-		let gas_used = if let Some(receipt) = maybe_receipt {
-			// If we have a receipt, use it to accurately represent the gas.
-			U256::from(receipt.gas_used)
-		} else {
-			// Otherwise, calculate gas used from the transaction fees.
-			U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
-				.saturating_mul(self.native_to_eth_ratio.into())
-				.checked_div(gas_price)
-				.unwrap_or_default()
-		};
 
 		// get logs from ContractEmitted event
 		let logs = events
@@ -273,7 +243,7 @@ impl ReceiptExtractor {
 			logs,
 			tx_info.to,
 			gas_price,
-			gas_used,
+			U256::from(receipt_gas_info.gas_used),
 			success,
 			transaction_hash,
 			transaction_index.into(),
@@ -326,7 +296,7 @@ impl ReceiptExtractor {
 			Item = (
 				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 				EthTransact,
-				Option<ReceiptGasInfo>,
+				ReceiptGasInfo,
 			),
 		>,
 		ClientError,
@@ -336,7 +306,9 @@ impl ReceiptExtractor {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
 		})?;
 
-		let mut maybe_data = (self.fetch_receipt_data)(block.hash()).await;
+		let receipt_data = (self.fetch_receipt_data)(block.hash())
+			.await
+			.ok_or(ClientError::ReceiptDataNotFound)?;
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
 			.flat_map(|ext| {
@@ -346,28 +318,20 @@ impl ReceiptExtractor {
 			.collect();
 
 		// Sanity check we received enough data from the pallet revive.
-		if let Some(data) = &mut maybe_data {
-			if data.len() != extrinsics.len() {
-				log::warn!(
-					target: LOG_TARGET,
-					"Receipt data length ({}) does not match extrinsics length ({})",
-					data.len(),
-					extrinsics.len()
-				);
-				maybe_data = None;
-			}
+		if receipt_data.len() != extrinsics.len() {
+			log::error!(
+				target: LOG_TARGET,
+				"Receipt data length ({}) does not match extrinsics length ({})",
+				receipt_data.len(),
+				extrinsics.len()
+			);
+			Err(ClientError::ReceiptDataLengthMismatch)
+		} else {
+			Ok(extrinsics
+				.into_iter()
+				.zip(receipt_data)
+				.map(|((extr, call), rec)| (extr, call, rec)))
 		}
-
-		Ok(extrinsics
-			.into_iter()
-			.zip(
-				maybe_data
-					.unwrap_or_default()
-					.into_iter()
-					.map(Some)
-					.chain(std::iter::repeat(None)),
-			)
-			.map(|((extr, call), rec)| (extr, call, rec)))
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] for a specific transaction in a
@@ -379,7 +343,7 @@ impl ReceiptExtractor {
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let ext_iter = self.get_block_extrinsics(block).await?;
 
-		let (ext, eth_call, maybe_receipt) = ext_iter
+		let (ext, eth_call, receipt_gas_info) = ext_iter
 			.into_iter()
 			.nth(transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
@@ -396,7 +360,7 @@ impl ReceiptExtractor {
 			eth_block_hash,
 			ext,
 			eth_call,
-			maybe_receipt,
+			receipt_gas_info,
 			transaction_index,
 		)
 		.await

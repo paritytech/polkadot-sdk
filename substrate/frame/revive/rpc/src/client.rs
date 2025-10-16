@@ -126,6 +126,9 @@ pub enum ClientError {
 	/// Ethereum block was not found.
 	#[error("Ethereum block not found")]
 	EthereumBlockNotFound,
+	/// Receipt data length mismatch.
+	#[error("Receipt data length mismatch")]
+	ReceiptDataLengthMismatch,
 }
 const LOG_TARGET: &str = "eth-rpc::client";
 
