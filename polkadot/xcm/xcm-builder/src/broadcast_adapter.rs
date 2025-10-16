@@ -54,6 +54,26 @@ where
 			.collect();
 		Handler::publish_data(para_id, data_vec).map_err(|_| XcmError::PublishFailed)
 	}
+
+	fn handle_subscribe(origin: &Location, publisher: u32) -> XcmResult {
+		// Check if origin is authorized to subscribe
+		if !Filter::contains(origin) {
+			return Err(XcmError::NoPermission);
+		}
+
+		// Extract subscriber parachain ID from authorized origin
+		let subscriber_id = match origin.unpack() {
+			(0, [Junction::Parachain(id)]) => ParaId::from(*id), // Direct parachain
+			(1, [Junction::Parachain(id), ..]) => ParaId::from(*id), // Sibling parachain
+			_ => return Err(XcmError::BadOrigin),                // Should be caught by filter
+		};
+
+		let publisher_id = ParaId::from(publisher);
+
+		// Call the handler for subscribe toggle
+		Handler::toggle_subscription(subscriber_id, publisher_id)
+			.map_err(|_| XcmError::SubscribeFailed)
+	}
 }
 
 /// Allows only direct parachains (parents=0, interior=[Parachain(_)]).

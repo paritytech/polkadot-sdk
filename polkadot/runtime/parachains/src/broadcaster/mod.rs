@@ -278,4 +278,9 @@ impl<T: Config> PublishSubscribe for Pallet<T> {
 	fn publish_data(publisher: ParaId, data: Vec<(Vec<u8>, Vec<u8>)>) -> DispatchResult {
 		Self::handle_publish(publisher, data)
 	}
+
+	fn toggle_subscription(_subscriber: ParaId, _publisher: ParaId) -> DispatchResult {
+		// TODO: Implement subscription logic 
+		Ok(())
+	}
 }

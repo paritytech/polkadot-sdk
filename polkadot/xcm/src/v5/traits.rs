@@ -157,6 +157,9 @@ pub enum Error {
 	/// Publishing data failed.
 	#[codec(index = 36)]
 	PublishFailed,
+	/// Subscribing to a publisher failed.
+	#[codec(index = 37)]
+	SubscribeFailed,
 
 	// Errors that happen prior to instructions being executed. These fall outside of the XCM
 	// spec.
