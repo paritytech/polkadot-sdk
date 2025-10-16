@@ -1034,8 +1034,8 @@ impl OpaqueExtrinsic {
 }
 
 impl LazyExtrinsic for OpaqueExtrinsic {
-	fn try_from_opaque(opaque: &OpaqueExtrinsic) -> Result<Self, codec::Error> {
-		Ok(opaque.clone())
+	fn decode_with_len(data: &[u8], _len: usize) -> Result<Self, codec::Error> {
+		Ok(Self(data.to_vec().into()))
 	}
 }
 

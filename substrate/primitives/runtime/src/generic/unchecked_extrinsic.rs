@@ -623,9 +623,8 @@ where
 	Preamble<Address, Signature, Extension>: Decode,
 	Call: DecodeWithMemTracking,
 {
-	fn try_from_opaque(opaque: &OpaqueExtrinsic) -> Result<Self, codec::Error> {
-		let len = opaque.0.len();
-		Self::decode_with_len(&mut &opaque.0[..], len)
+	fn decode_with_len(data: &[u8], len: usize) -> Result<Self, codec::Error> {
+		Self::decode_with_len(&mut &data[..], len)
 	}
 }
 

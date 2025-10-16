@@ -139,7 +139,9 @@ where
 	}
 
 	fn extrinsics(&self) -> impl Iterator<Item = Result<Self::Extrinsic, codec::Error>> {
-		self.extrinsics.iter().map(|xt| Self::Extrinsic::try_from_opaque(&xt))
+		self.extrinsics
+			.iter()
+			.map(|xt| Self::Extrinsic::decode_with_len(&xt.0, xt.0.len()))
 	}
 }
 

@@ -1302,8 +1302,8 @@ pub trait HeaderProvider {
 
 /// An extrinsic that can be lazily decoded.
 pub trait LazyExtrinsic: Sized {
-	/// Create a new instance of this `LazyExtrinsic` from an `OpaqueExtrinsic`.
-	fn try_from_opaque(opaque: &OpaqueExtrinsic) -> Result<Self, codec::Error>;
+	/// Try to decode the lazy extrinsic.
+	fn decode_with_len(data: &[u8], len: usize) -> Result<Self, codec::Error>;
 }
 
 /// A Substrate block that allows us to lazily decode its extrinsics.

@@ -49,8 +49,8 @@ impl From<Extrinsic> for OpaqueExtrinsic {
 }
 
 impl LazyExtrinsic for Extrinsic {
-	fn try_from_opaque(opaque: &OpaqueExtrinsic) -> Result<Self, codec::Error> {
-		Self::decode(&mut opaque.inner())
+	fn decode_with_len(data: &[u8], _len: usize) -> Result<Self, codec::Error> {
+		Self::decode(&mut &data[..])
 	}
 }
 
