@@ -60,6 +60,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&[msg.as_bounded_slice()],
+				true,
 				&mut WeightMeter::new()
 			));
 		}
@@ -96,6 +97,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs,
+				true,
 				&mut WeightMeter::new()
 			));
 		}
@@ -122,6 +124,7 @@ mod benchmarks {
 		assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 			0.into(),
 			&[BoundedVec::try_from(vec![0; n as usize]).unwrap().as_bounded_slice()],
+			true,
 			&mut WeightMeter::new()
 		));
 
@@ -132,6 +135,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&[BoundedVec::new().as_bounded_slice()],
+				true,
 				&mut WeightMeter::new()
 			));
 		}
@@ -171,6 +175,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs.iter().map(|msg| msg.as_bounded_slice()).collect::<Vec<_>>(),
+				true,
 				&mut WeightMeter::new()
 			));
 		}
@@ -201,6 +206,7 @@ mod benchmarks {
 			])
 			.unwrap()
 			.as_bounded_slice()],
+			true,
 			&mut WeightMeter::new()
 		));
 
@@ -216,6 +222,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs.iter().map(|msg| msg.as_bounded_slice()).collect::<Vec<_>>(),
+				true,
 				&mut WeightMeter::new()
 			));
 		}

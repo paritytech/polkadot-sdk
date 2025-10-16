@@ -23,24 +23,39 @@ use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
-const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+const SAFE_XCM_VERSION: u32 = staging_xcm::prelude::XCM_VERSION;
 
 const DEFAULT_PARA_ID: ParaId = ParaId::new(1000);
 const ENDOWMENT: u128 = 1 << 60;
 
 fn yap_parachain_genesis(
 	root_key: AccountId,
-	initial_authorities: Vec<AuraId>,
+	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
-		aura: AuraConfig { authorities: initial_authorities },
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
+		collator_selection: CollatorSelectionConfig {
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			candidacy_bond: ExistentialDeposit::get() * 16,
+		},
+		session: SessionConfig {
+			keys: invulnerables
+				.into_iter()
+				.map(|(acc, aura)| {
+					(
+						acc.clone(),          // account id
+						acc,                  // validator id
+						SessionKeys { aura }, // session keys
+					)
+				})
+				.collect(),
+		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(root_key) }
 	})
@@ -59,11 +74,13 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	};
 
 	let patch = match id.as_ref() {
-		sp_genesis_builder::DEV_RUNTIME_PRESET =>
-			genesis_fn(vec![Sr25519Keyring::Alice.public().into()]),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![
+		sp_genesis_builder::DEV_RUNTIME_PRESET => genesis_fn(vec![(
+			Sr25519Keyring::Alice.to_account_id(),
 			Sr25519Keyring::Alice.public().into(),
-			Sr25519Keyring::Bob.public().into(),
+		)]),
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![
+			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 		]),
 		_ => return None,
 	};

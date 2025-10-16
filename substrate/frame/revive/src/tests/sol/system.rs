@@ -18,12 +18,13 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	evm::fees::InfoT,
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, GAS_LIMIT},
 	tests::{builder, Contracts, ExtBuilder, Test},
-	Code, Config,
+	Code, Combinator, Config, ExecConfig, U256,
 };
-use alloy_core::{primitives::U256, sol_types::SolCall};
-use frame_support::traits::fungible::Mutate;
+use alloy_core::sol_types::SolCall;
+use frame_support::traits::fungible::{Balanced, Mutate};
 use pallet_revive_fixtures::{
 	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
 };
@@ -31,256 +32,276 @@ use pretty_assertions::assert_eq;
 use revm::primitives::Bytes;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
+use test_case::test_case;
 
-#[test]
-fn keccak_256_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn keccak_256_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let pre = b"revive";
-			let expected = keccak_256(pre);
+		let pre = b"revive";
+		let expected = keccak_256(pre);
 
-			let result = builder::bare_call(addr)
-				.data(SystemFixture::keccak256FuncCall { data: Bytes::from(pre) }.abi_encode())
-				.build_and_unwrap_result();
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::keccak256FuncCall { data: Bytes::from(pre) }.abi_encode())
+			.build_and_unwrap_result();
 
-			assert_eq!(&expected, result.data.as_slice());
-		});
-	}
+		assert_eq!(&expected, result.data.as_slice());
+	});
 }
 
-#[test]
-fn address_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn address_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(SystemFixture::addressFuncCall {}.abi_encode())
-				.build_and_unwrap_result();
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::addressFuncCall {}.abi_encode())
+			.build_and_unwrap_result();
 
-			let returned_addr: H160 = H160::from_slice(&result.data[12..]);
-			assert_eq!(addr, returned_addr);
-		});
-	}
+		let decoded = SystemFixture::addressFuncCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(addr, H160::from_slice(decoded.as_slice()));
+	});
 }
 
-#[test]
-fn caller_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn caller_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(SystemFixture::callerCall {}.abi_encode())
-				.build_and_unwrap_result();
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::callerCall {}.abi_encode())
+			.build_and_unwrap_result();
 
-			let returned_caller = H160::from_slice(&result.data[12..]);
-			assert_eq!(ALICE_ADDR, returned_caller);
-		});
-	}
+		let decoded = SystemFixture::callerCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(ALICE_ADDR, H160::from_slice(decoded.as_slice()));
+	});
 }
 
-#[test]
-fn callvalue_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn callvalue_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let value = 1337u64;
+		let value = 1337u64;
 
-			let result = builder::bare_call(addr)
-				.evm_value(value.into())
-				.data(SystemFixture::callvalueCall {}.abi_encode())
-				.build_and_unwrap_result();
+		let result = builder::bare_call(addr)
+			.evm_value(value.into())
+			.data(SystemFixture::callvalueCall {}.abi_encode())
+			.build_and_unwrap_result();
 
-			let returned_val = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-			assert_eq!(U256::from(value), returned_val);
-		});
-	}
+		let decoded = SystemFixture::callvalueCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(value, decoded);
+	});
 }
 
-#[test]
-fn calldataload_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn calldataload_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(
-						SystemFixture::calldataloadCall { offset: U256::from(4u32) } /* skip selector */
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::calldataloadCall { offset: 4u64 }.abi_encode())
+			.build_and_unwrap_result();
 
-			// Call calldataload(offset=4) → returns the argument "4"
-			let returned = U256::from_be_bytes::<32>(result.data.as_slice().try_into().unwrap());
-			assert_eq!(U256::from(4u32), returned);
-		});
-	}
+		// Call calldataload(offset=4) → returns the argument "4"
+		let decoded = SystemFixture::calldataloadCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(U256::from(4u32), U256::from_big_endian(decoded.as_slice()));
+	});
 }
 
-#[test]
-fn calldatasize_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn calldatasize_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			// calldata = selector + encoded argument
-			let result = builder::bare_call(addr)
-				.data(SystemFixture::calldatasizeCall {}.abi_encode())
-				.build_and_unwrap_result();
+		// calldata = selector + encoded argument
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::calldatasizeCall {}.abi_encode())
+			.build_and_unwrap_result();
 
-			// ABI encodes: 4 (selector) + 0 (no args) = 4
-			let returned = U256::from_be_bytes::<32>(result.data.as_slice().try_into().unwrap());
-			assert_eq!(returned, U256::from(4u32));
-		});
-	}
+		// ABI encodes: 4 (selector) + 0 (no args) = 4
+		let decoded = SystemFixture::calldatasizeCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(4u64, decoded);
+	});
 }
 
-#[test]
-fn calldatacopy_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn calldatacopy_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let call_data = SystemFixture::calldatacopyCall {
-				destOffset: U256::from(0u32), // unused
-				offset: U256::from(4u32),     // skip selector
-				size: U256::from(64u32),      // copy destOffset + offset
-			}
-			.abi_encode();
+		let call_data = SystemFixture::calldatacopyCall {
+			destOffset: 0u64, // unused
+			offset: 4u64,     // skip selector
+			size: 64u64,      // copy destOffset + offset
+		}
+		.abi_encode();
 
-			let result = builder::bare_call(addr).data(call_data.clone()).build_and_unwrap_result();
+		let result = builder::bare_call(addr).data(call_data.clone()).build_and_unwrap_result();
 
-			let returned_data =
-				SystemFixture::calldatacopyCall::abi_decode_returns(&result.data).unwrap();
+		let returned_data =
+			SystemFixture::calldatacopyCall::abi_decode_returns(&result.data).unwrap();
 
-			let returned_data = returned_data.as_ref();
-			assert_eq!(returned_data.len(), 64);
+		let returned_data = returned_data.as_ref();
+		assert_eq!(returned_data.len(), 64);
 
-			// The expected data is the slice of the original calldata that was copied.
-			let expected_data = &call_data.as_slice()[4..(4 + 64) as usize];
-			assert_eq!(expected_data, returned_data);
-		});
-	}
+		// The expected data is the slice of the original calldata that was copied.
+		let expected_data = &call_data.as_slice()[4..(4 + 64) as usize];
+		assert_eq!(expected_data, returned_data);
+	});
 }
 
-#[test]
-fn codesize_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn codesize_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 
-			let result = builder::bare_call(addr)
-				.data(SystemFixture::codesizeCall {}.abi_encode())
-				.build_and_unwrap_result();
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::codesizeCall {}.abi_encode())
+			.build_and_unwrap_result();
 
-			// Now fetch the actual *runtime* code size from storage
-			let code = Contracts::code(&addr);
+		// Now fetch the actual *runtime* code size from storage
+		let code = Contracts::code(&addr);
 
-			let returned_size =
-				U256::from_be_bytes::<32>(result.data.as_slice().try_into().unwrap());
-			let expected_size = U256::from(code.len());
+		let decoded = SystemFixture::codesizeCall::abi_decode_returns(&result.data).unwrap();
+		let expected_size = code.len() as u64;
 
-			assert_eq!(expected_size, returned_size);
-		});
-	}
+		assert_eq!(expected_size, decoded);
+	});
 }
 
-#[test]
-fn returndatasize_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn gas_works(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		// enable txhold collection which we expect to be on when using the evm backend
+		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Max);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
+		let mut exec_config = ExecConfig::new_substrate_tx();
+		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
 
-			// Instantiate the callee contract, which can echo a value.
-			let Contract { addr: callee_addr, .. } =
-				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+		let result = builder::bare_call(addr)
+			.data(SystemFixture::gasCall {}.abi_encode())
+			.exec_config(exec_config)
+			.build_and_unwrap_result();
 
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let gas_left: u64 = SystemFixture::gasCall::abi_decode_returns(&result.data)
+			.unwrap()
+			.try_into()
+			.unwrap();
 
-			let magic_number = U256::from(42);
-			let result = builder::bare_call(addr)
-				.data(
-					SystemFixture::returndatasizeCall {
-						_callee: callee_addr.0.into(),
-						_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
-						_gas: U256::MAX,
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-
-			let size = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-			// Always 32 bytes for a single uint256
-			assert_eq!(U256::from(32), size);
-		});
-	}
+		assert!(gas_left > 0);
+		assert!(gas_left < hold_initial);
+	});
 }
 
-#[test]
-fn returndatacopy_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
-		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn returndatasize_works(caller_type: FixtureType, callee_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
 
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			// Instantiate the callee contract, which can echo a value.
-			let Contract { addr: callee_addr, .. } =
-				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		// Instantiate the callee contract, which can echo a value.
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
-			let magic_number = U256::from(42);
-			let result = builder::bare_call(addr)
-				.data(
-					SystemFixture::returndatacopyCall {
-						_callee: callee_addr.0.into(),
-						_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
-						_gas: U256::MAX,
-						destOffset: U256::ZERO,
-						offset: U256::ZERO,
-						size: U256::from(32u32),
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let result =
-				SystemFixture::returndatacopyCall::abi_decode_returns(&result.data).unwrap();
-			assert_eq!(magic_number, U256::from_be_bytes::<32>(result.as_ref().try_into().unwrap()))
-		});
-	}
+		let magic_number = 42u64;
+		let result = builder::bare_call(addr)
+			.data(
+				SystemFixture::returndatasizeCall {
+					_callee: callee_addr.0.into(),
+					_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		let decoded = SystemFixture::returndatasizeCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(decoded, 32);
+	});
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn returndatacopy_works(caller_type: FixtureType, callee_type: FixtureType) {
+	let (code, _) = compile_module_with_type("System", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		// Instantiate the callee contract, which can echo a value.
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let magic_number = U256::from(42);
+		let result = builder::bare_call(addr)
+			.data(
+				SystemFixture::returndatacopyCall {
+					_callee: callee_addr.0.into(),
+					_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+					_gas: u64::MAX,
+					destOffset: 0u64,
+					offset: 0u64,
+					size: 32u64,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		let decoded = SystemFixture::returndatacopyCall::abi_decode_returns(&result.data).unwrap();
+		let decoded_value = U256::from_big_endian(decoded.as_ref());
+		assert_eq!(magic_number, decoded_value)
+	});
 }

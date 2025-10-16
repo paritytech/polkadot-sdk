@@ -120,13 +120,6 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 	type Proof = MockAncestryProof;
 	type ValidationContext = MockAncestryProofContext;
 
-	fn generate_proof(
-		_prev_block_number: Header::Number,
-		_best_known_block_number: Option<Header::Number>,
-	) -> Option<Self::Proof> {
-		unimplemented!()
-	}
-
 	fn is_proof_optimal(proof: &Self::Proof) -> bool {
 		proof.is_optimal
 	}
