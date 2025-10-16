@@ -2106,7 +2106,7 @@ where
 	}
 
 	fn gas_limit(&self) -> u64 {
-		<T as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+		<Contracts<T>>::evm_block_gas_limit().saturated_into()
 	}
 
 	fn chain_id(&self) -> u64 {
