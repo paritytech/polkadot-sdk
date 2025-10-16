@@ -637,10 +637,11 @@ pallet-oracle-runtime-api = { path = "substrate/frame/honzon/oracle/runtime-api"
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
-alloy-consensus = { version = "1.0.20", default-features = false }
+alloy-consensus = { version = "1.0.24", default-features = false }
 alloy-core = { version = "1.2.1", default-features = false }
 alloy-primitives = { version = "1.2.1", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
+alloy-trie = { version = "0.9.1", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
