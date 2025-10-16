@@ -462,7 +462,7 @@ pub mod pallet {
 		DecodingFailed = 0x0A,
 		/// Contract trapped during execution.
 		ContractTrapped = 0x0B,
-		/// Event body or storage item exceeds [`limits::PAYLOAD_BYTES`].
+		/// Event body or storage item exceeds [`limits::STORAGE_BYTES`].
 		ValueTooLarge = 0x0C,
 		/// Termination of a contract is not allowed while the contract is already
 		/// on the call stack. Can be triggered by `seal_terminate`.
@@ -840,55 +840,59 @@ pub mod pallet {
 			T::FeeInfo::integrity_test();
 
 			// The memory available in the block building runtime
-			let max_runtime_mem: u32 = T::RuntimeMemory::get();
+			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
 
 			// We only allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
-			const TOTAL_MEMORY_DEVIDER: u32 = 2;
+			const TOTAL_MEMORY_DEVIDER: u64 = 2;
 
 			// Validators are configured to be able to use more memory than block builders. This is
 			// because in addition to `max_runtime_mem` they need to hold additional data in
 			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
 			// includes emitted events. The assumption is that storage/events size
 			// can be a maximum of half of the validator runtime memory - max_runtime_mem.
-			let max_block_ref_time = T::BlockWeights::get()
+			let max_block_weight = T::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.max_total
-				.unwrap_or_else(|| T::BlockWeights::get().max_block)
-				.ref_time();
-			let max_payload_size = limits::PAYLOAD_BYTES;
-			let max_key_size =
+				.unwrap_or_else(|| T::BlockWeights::get().max_block);
+			let max_key_size: u64 =
 				Key::try_from_var(alloc::vec![0u8; limits::STORAGE_KEY_BYTES as usize])
 					.expect("Key of maximal size shall be created")
 					.hash()
-					.len() as u32;
+					.len()
+					.try_into()
+					.unwrap();
 
-			let max_immutable_key_size = T::AccountId::max_encoded_len() as u32;
-			let max_immutable_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
-					limits::IMMUTABLE_BYTES,
+			let max_immutable_key_size: u64 = T::AccountId::max_encoded_len().try_into().unwrap();
+			let max_immutable_size: u64 = max_block_weight
+				.checked_div_per_component(&<RuntimeCosts as gas::Token<T>>::weight(
+					&RuntimeCosts::SetImmutableData(limits::IMMUTABLE_BYTES),
 				))
-				.ref_time()))
-			.saturating_mul(limits::IMMUTABLE_BYTES.saturating_add(max_immutable_key_size) as u64))
-			.try_into()
-			.expect("Immutable data size too big");
+				.unwrap()
+				.saturating_mul(
+					u64::from(limits::IMMUTABLE_BYTES)
+						.saturating_add(max_immutable_key_size)
+						.into(),
+				);
 
-			let max_pvf_mem: u32 = T::PVFMemory::get();
+			let max_pvf_mem: u64 = T::PVFMemory::get().into();
 			let storage_size_limit = max_pvf_mem.saturating_sub(max_runtime_mem) / 2;
 
 			// We can use storage to store events using the available block ref_time with the
 			// `deposit_event` host function. The overhead of stored events, which is around 100B,
 			// is not taken into account to simplify calculations, as it does not change much.
-			let max_events_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
-					num_topic: 0,
-					len: max_payload_size,
-				})
-				.saturating_add(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::HostFn))
-				.ref_time()))
-			.saturating_mul(max_payload_size as u64))
-			.try_into()
-			.expect("Events size too big");
+			let max_events_size = max_block_weight
+				.checked_div_per_component(
+					&(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+						num_topic: 0,
+						len: limits::EVENT_BYTES,
+					})
+					.saturating_add(<RuntimeCosts as gas::Token<T>>::weight(
+						&RuntimeCosts::HostFn,
+					))),
+				)
+				.unwrap()
+				.saturating_mul(limits::EVENT_BYTES.into());
 
 			assert!(
 				max_events_size < storage_size_limit,
@@ -932,7 +936,7 @@ pub mod pallet {
 			// In practice, the builder will consume even lower amounts considering
 			// it is unlikely for a transaction to utilize all the weight of the block for events.
 			let max_eth_block_builder_bytes =
-				block_storage::block_builder_bytes_usage(max_events_size);
+				block_storage::block_builder_bytes_usage(max_events_size.try_into().unwrap());
 
 			log::debug!(
 				target: LOG_TARGET,
@@ -945,7 +949,7 @@ pub mod pallet {
 			//
 			// Dynamic allocations are not available, yet. Hence they are not taken into
 			// consideration here.
-			let memory_left = i64::from(max_runtime_mem)
+			let memory_left = i128::from(max_runtime_mem)
 				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
 				.saturating_sub(limits::MEMORY_REQUIRED.into())
 				.saturating_sub(max_eth_block_builder_bytes.into());
@@ -960,17 +964,17 @@ pub mod pallet {
 
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
-			let max_storage_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
-					new_bytes: max_payload_size,
-					old_bytes: 0,
-				})
-				.ref_time()))
-			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
-			.saturating_add(max_immutable_size.into())
-			.saturating_add(max_eth_block_builder_bytes.into())
-			.try_into()
-			.expect("Storage size too big");
+			let max_storage_size = max_block_weight
+				.checked_div_per_component(
+					&<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+						new_bytes: limits::STORAGE_BYTES,
+						old_bytes: 0,
+					})
+					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
+				)
+				.unwrap()
+				.saturating_add(max_immutable_size.into())
+				.saturating_add(max_eth_block_builder_bytes.into());
 
 			assert!(
 				max_storage_size < storage_size_limit,

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	limits,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
 	vm::RuntimeCosts,
@@ -51,7 +52,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 		}
 
 		use IStorage::IStorageCalls;
-		let max_size = env.max_value_size();
+		let max_size = limits::STORAGE_BYTES;
 		match input {
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)
