@@ -19,7 +19,7 @@ use polkadot_primitives::{CandidateHash, Hash, SessionIndex, ValidatorIndex};
 use crate::metrics::Metrics;
 use crate::View;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct ApprovalsStats {
     pub votes: HashSet<ValidatorIndex>,
     pub no_shows: HashSet<ValidatorIndex>,
