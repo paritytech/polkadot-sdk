@@ -122,7 +122,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
-			match self.handle_message(&peer, &payload) {
+			match self.handle_message(&peer, payload.as_slice()) {
 				Ok(response) => {
 					let response = OutgoingResponse {
 						result: Ok(response),
@@ -136,7 +136,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 						},
 						Err(_) => debug!(
 							target: LOG_TARGET,
-							"Failed to handle light client request from {peer}: {}",
+							"Failed to handle bitswap request from {peer}: {}",
 							BitswapError::SendResponse,
 						),
 					}
@@ -168,9 +168,9 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 	fn handle_message(
 		&mut self,
 		peer: &PeerId,
-		payload: &Vec<u8>,
+		payload: &[u8],
 	) -> Result<Vec<u8>, BitswapError> {
-		let request = schema::bitswap::Message::decode(&payload[..])?;
+		let request = schema::bitswap::Message::decode(payload)?;
 
 		trace!(target: LOG_TARGET, "Received request: {:?} from {}", request, peer);
 
