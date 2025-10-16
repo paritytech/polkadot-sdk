@@ -163,6 +163,7 @@ where
 		let hash = block.header.hash();
 		let number = *block.header.number();
 		let parent_hash = *block.header.parent_hash();
+		let post_header = block.post_header();
 
 		let authorities = self
 			.authorities_tracker
@@ -229,7 +230,7 @@ where
 					block.body = Some(inner_body);
 				}
 
-				self.authorities_tracker.import(&pre_header).map_err(|e| {
+				self.authorities_tracker.import(&post_header).map_err(|e| {
 					format!(
 						"Could not import authorities for block {hash:?} at number {number}: {e}"
 					)

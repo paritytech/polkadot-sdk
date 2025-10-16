@@ -20,19 +20,12 @@
 mod runtime_api;
 mod storage_api;
 
-use runtime_api::RuntimeApi;
-use storage_api::StorageApi;
-
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo, LOG_TARGET,
 };
-use jsonrpsee::{
-	core::traits::ToRpcParams,
-	rpc_params,
-	types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned},
-};
+use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
@@ -41,9 +34,11 @@ use pallet_revive::{
 	},
 	EthTransactError,
 };
+use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{ops::Range, sync::Arc, time::Duration};
+use storage_api::StorageApi;
 use subxt::{
 	backend::{
 		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
@@ -53,6 +48,7 @@ use subxt::{
 		},
 	},
 	config::{HashFor, Header},
+	ext::subxt_rpcs::rpc_params,
 	Config, OnlineClient,
 };
 use thiserror::Error;
@@ -73,7 +69,7 @@ pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 pub type Balance = u128;
 
 /// The subscription type used to listen to new blocks.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SubscriptionType {
 	/// Subscribe to best blocks.
 	BestBlocks,
@@ -156,13 +152,18 @@ impl From<ClientError> for ErrorObjectOwned {
 #[derive(Clone)]
 pub struct Client {
 	api: OnlineClient<SrcChainConfig>,
-	rpc_client: ReconnectingRpcClient,
+	rpc_client: RpcClient,
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: ReceiptProvider,
 	block_provider: SubxtBlockInfoProvider,
 	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
+	/// Whether the node has automine enabled.
+	automine: bool,
+	/// A notifier, that informs subscribers of new transaction hashes that are included in a
+	/// block, when automine is enabled.
+	tx_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -179,6 +180,17 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 	Ok(max_block.0)
 }
 
+/// Get the automine status from the node.
+async fn get_automine(rpc_client: &RpcClient) -> bool {
+	match rpc_client.request::<bool>("getAutomine", rpc_params![]).await {
+		Ok(val) => val,
+		Err(err) => {
+			log::info!(target: LOG_TARGET, "Node does not have getAutomine RPC. Defaulting to automine=false. error: {err:?}");
+			false
+		},
+	}
+}
+
 /// Extract the block timestamp.
 async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 	let extrinsics = block.extrinsics().await.ok()?;
@@ -193,19 +205,18 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 /// clients.
 pub async fn connect(
 	node_rpc_url: &str,
-) -> Result<
-	(OnlineClient<SrcChainConfig>, ReconnectingRpcClient, LegacyRpcMethods<SrcChainConfig>),
-	ClientError,
-> {
+) -> Result<(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<SrcChainConfig>), ClientError>
+{
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
 		.build(node_rpc_url.to_string())
 		.await?;
+	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
-	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
+	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(rpc_client.clone());
 	Ok((api, rpc_client, rpc))
 }
 
@@ -213,15 +224,17 @@ impl Client {
 	/// Create a new client instance.
 	pub async fn new(
 		api: OnlineClient<SrcChainConfig>,
-		rpc_client: ReconnectingRpcClient,
+		rpc_client: RpcClient,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
 	) -> Result<Self, ClientError> {
-		let (chain_id, max_block_weight) =
-			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
+		let (chain_id, max_block_weight, automine) =
+			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
+				Ok(get_automine(&rpc_client).await)
+			},)?;
 
-		Ok(Self {
+		let client = Self {
 			api,
 			rpc_client,
 			rpc,
@@ -230,7 +243,11 @@ impl Client {
 			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
-		})
+			automine,
+			tx_notifier: automine.then(|| tokio::sync::broadcast::channel::<H256>(10).0),
+		};
+
+		Ok(client)
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -333,6 +350,15 @@ impl Client {
 			self.block_provider.update_latest(block, subscription_type).await;
 
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
+
+			// Only broadcast for best blocks to avoid duplicate notifications.
+			match (subscription_type, &self.tx_notifier) {
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 =>
+					for receipt in &receipts {
+						let _ = sender.send(receipt.transaction_hash);
+					},
+				_ => {},
+			}
 			Ok(())
 		})
 		.await
@@ -404,10 +430,14 @@ impl Client {
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<H256, ClientError> {
+	) -> Result<(), ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
-		let hash = ext.submit().await?;
-		Ok(hash)
+		let hash: H256 = self
+			.rpc_client
+			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
+			.await?;
+		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
+		Ok(())
 	}
 
 	/// Get an EVM transaction receipt by hash.
@@ -418,7 +448,7 @@ impl Client {
 	pub async fn sync_state(
 		&self,
 	) -> Result<sc_rpc::system::SyncState<SubstrateBlockNumber>, ClientError> {
-		let client = RpcClient::new(self.rpc_client.clone());
+		let client = self.rpc_client.clone();
 		let sync_state: sc_rpc::system::SyncState<SubstrateBlockNumber> =
 			client.request("system_syncState", Default::default()).await?;
 		Ok(sync_state)
@@ -531,15 +561,17 @@ impl Client {
 		>,
 		ClientError,
 	> {
-		let params = rpc_params![block_hash].to_rpc_params().unwrap_or_default();
-		let res = self.rpc_client.request("chain_getBlock".to_string(), params).await.unwrap();
-
 		let signed_block: sp_runtime::generic::SignedBlock<
 			sp_runtime::generic::Block<
 				sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
 				sp_runtime::OpaqueExtrinsic,
 			>,
-		> = serde_json::from_str(res.get()).unwrap();
+		> = self
+			.rpc_client
+			.request("chain_getBlock", rpc_params![block_hash])
+			.await
+			.unwrap();
+
 		Ok(signed_block.block)
 	}
 
@@ -684,6 +716,11 @@ impl Client {
 		self.max_block_weight
 	}
 
+	/// Get the block notifier, if automine is enabled.
+	pub fn tx_notifier(&self) -> Option<tokio::sync::broadcast::Sender<H256>> {
+		self.tx_notifier.clone()
+	}
+
 	/// Get the logs matching the given filter.
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
 		let logs =
@@ -705,4 +742,18 @@ impl Client {
 			.fee_history(block_count, latest_block.number(), reward_percentiles)
 			.await
 	}
+
+	/// Check if automine is enabled.
+	pub fn is_automine(&self) -> bool {
+		self.automine
+	}
+
+	/// Get the automine status from the node.
+	pub async fn get_automine(&self) -> bool {
+		get_automine(&self.rpc_client).await
+	}
+}
+
+fn to_hex(bytes: impl AsRef<[u8]>) -> String {
+	format!("0x{}", hex::encode(bytes.as_ref()))
 }

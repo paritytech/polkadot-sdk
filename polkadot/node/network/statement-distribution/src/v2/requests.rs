@@ -184,7 +184,7 @@ impl RequestManager {
 		relay_parent: Hash,
 		candidate_hash: CandidateHash,
 		group_index: GroupIndex,
-	) -> Entry {
+	) -> Entry<'_> {
 		let identifier = CandidateIdentifier { relay_parent, candidate_hash, group_index };
 
 		let (candidate, fresh) = match self.requests.entry(identifier.clone()) {

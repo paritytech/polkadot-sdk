@@ -344,7 +344,7 @@ where
 	/// Returns the first message in the page without removing it.
 	///
 	/// SAFETY: Does not panic even on corrupted storage.
-	fn peek_first(&self) -> Option<BoundedSlice<u8, IntoU32<HeapSize, Size>>> {
+	fn peek_first(&self) -> Option<BoundedSlice<'_, u8, IntoU32<HeapSize, Size>>> {
 		if self.first > self.last {
 			return None
 		}

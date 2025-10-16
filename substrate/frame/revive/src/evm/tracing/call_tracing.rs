@@ -51,8 +51,8 @@ impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(&mut self) -> Option<CallTrace<Gas>> {
-		core::mem::take(&mut self.traces).pop()
+	pub fn collect_trace(mut self) -> Option<CallTrace<Gas>> {
+		self.traces.pop()
 	}
 }
 
@@ -71,6 +71,13 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		input: &[u8],
 		gas_left: Weight,
 	) {
+		// Increment parent's child call count.
+		if let Some(&index) = self.current_stack.last() {
+			if let Some(trace) = self.traces.get_mut(index) {
+				trace.child_call_count += 1;
+			}
+		}
+
 		if self.traces.is_empty() || !self.config.only_top_call {
 			let (call_type, input) = match self.code_with_salt.take() {
 				Some((Code::Upload(v), salt)) => (
@@ -121,12 +128,17 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		}
 
 		let current_index = self.current_stack.last().unwrap();
-		let position = self.traces[*current_index].calls.len() as u32;
-		let log =
-			CallLog { address, topics: topics.to_vec(), data: data.to_vec().into(), position };
 
-		let current_index = *self.current_stack.last().unwrap();
-		self.traces[current_index].logs.push(log);
+		if let Some(trace) = self.traces.get_mut(*current_index) {
+			let log = CallLog {
+				address,
+				topics: topics.to_vec(),
+				data: data.to_vec().into(),
+				position: trace.child_call_count,
+			};
+
+			trace.logs.push(log);
+		}
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
