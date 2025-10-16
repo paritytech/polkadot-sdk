@@ -414,7 +414,7 @@ impl<T: Config> Pallet<T> {
 	fn pot() -> (T::AccountId, BalanceOf<T>) {
 		let account_id = Self::account_id();
 		let balance =
-			T::Currency::reducible_balance(&account_id, Preservation::Preserve, Fortitude::Polite).saturating_sub(T::Currency::minimum_balance());
+			T::Currency::reducible_balance(&account_id, Preservation::Preserve, Fortitude::Polite);
 
 		(account_id, balance)
 	}
