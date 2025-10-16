@@ -115,23 +115,17 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Insert a block mapping from Ethereum block hash to Substrate block hash.
-	async fn insert_block_mapping(
-		&self,
-		block_number: u64,
-		block_map: &BlockHashMap,
-	) -> Result<(), ClientError> {
-		let block_number = block_number as i64;
+	async fn insert_block_mapping(&self, block_map: &BlockHashMap) -> Result<(), ClientError> {
 		let ethereum_hash_ref = block_map.ethereum_hash.as_ref();
 		let substrate_hash_ref = block_map.substrate_hash.as_ref();
 
 		query!(
 			r#"
-			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash, block_number)
-			VALUES ($1, $2, $3)
+			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
+			VALUES ($1, $2)
 			"#,
 			ethereum_hash_ref,
 			substrate_hash_ref,
-			block_number
 		)
 		.execute(&self.pool)
 		.await?;
@@ -192,31 +186,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		log::trace!(target: LOG_TARGET, "Get block mapping substrate block: {substrate_block_hash:?} -> ethereum block: {:?}", H256::from_slice(&result.ethereum_block_hash[..]));
 
 		Some(H256::from_slice(&result.ethereum_block_hash[..]))
-	}
-
-	/// Remove block mappings for the given Ethereum block hashes.
-	pub async fn remove_block_mappings(
-		&self,
-		ethereum_block_hashes: &[H256],
-	) -> Result<(), ClientError> {
-		if ethereum_block_hashes.is_empty() {
-			return Ok(());
-		}
-
-		log::trace!(target: LOG_TARGET, "Removing block mappings: {ethereum_block_hashes:?}");
-
-		let placeholders = vec!["?"; ethereum_block_hashes.len()].join(", ");
-		let sql = format!(
-			"DELETE FROM eth_to_substrate_blocks WHERE ethereum_block_hash in ({placeholders})"
-		);
-		let mut query = sqlx::query(&sql);
-
-		for ethereum_hash in ethereum_block_hashes {
-			query = query.bind(ethereum_hash.as_ref());
-		}
-
-		query.execute(&self.pool).await?;
-		Ok(())
 	}
 
 	/// Deletes older records from the database.
@@ -400,7 +369,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		// Insert block mapping from Ethereum to Substrate hash
-		self.insert_block_mapping(block_number as u64, &block_map).await?;
+		self.insert_block_mapping(&block_map).await?;
 
 		Ok(())
 	}
@@ -942,11 +911,10 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await;
 		let ethereum_hash = H256::from([1u8; 32]);
 		let substrate_hash = H256::from([2u8; 32]);
-		let block_number = 42u64;
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		provider.insert_block_mapping(block_number, &block_map).await?;
+		provider.insert_block_mapping(&block_map).await?;
 
 		// Test forward lookup
 		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
@@ -965,19 +933,18 @@ mod tests {
 		let ethereum_hash = H256::from([1u8; 32]);
 		let substrate_hash1 = H256::from([2u8; 32]);
 		let substrate_hash2 = H256::from([3u8; 32]);
-		let block_number = 42u64;
 		let block_map1 = BlockHashMap::new(substrate_hash1, ethereum_hash.clone());
 		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash);
 
 		// Insert first mapping
-		provider.insert_block_mapping(block_number, &block_map1).await?;
+		provider.insert_block_mapping(&block_map1).await?;
 		assert_eq!(
 			provider.get_substrate_hash(&block_map1.ethereum_hash).await,
 			Some(block_map1.substrate_hash)
 		);
 
 		// Insert second mapping (should overwrite)
-		provider.insert_block_mapping(block_number, &block_map2).await?;
+		provider.insert_block_mapping(&block_map2).await?;
 		assert_eq!(
 			provider.get_substrate_hash(&block_map2.ethereum_hash).await,
 			Some(block_map2.substrate_hash)
@@ -996,13 +963,12 @@ mod tests {
 		let ethereum_hash2 = H256::from([2u8; 32]);
 		let substrate_hash1 = H256::from([3u8; 32]);
 		let substrate_hash2 = H256::from([4u8; 32]);
-		let block_number = 42u64;
 		let block_map1 = BlockHashMap::new(substrate_hash1, ethereum_hash1);
 		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash2);
 
 		// Insert mappings
-		provider.insert_block_mapping(block_number, &block_map1).await?;
-		provider.insert_block_mapping(block_number, &block_map2).await?;
+		provider.insert_block_mapping(&block_map1).await?;
+		provider.insert_block_mapping(&block_map2).await?;
 
 		// Verify they exist
 		assert_eq!(
@@ -1029,11 +995,10 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await;
 		let ethereum_hash = H256::from([1u8; 32]);
 		let substrate_hash = H256::from([2u8; 32]);
-		let block_number = 42u64;
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		provider.insert_block_mapping(block_number, &block_map).await?;
+		provider.insert_block_mapping(&block_map).await?;
 		assert_eq!(
 			provider.get_substrate_hash(&block_map.ethereum_hash).await,
 			Some(block_map.substrate_hash)
@@ -1101,8 +1066,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(H256::from([3u8; 32]), H256::from([4u8; 32]));
 
 		// Insert some mappings
-		provider.insert_block_mapping(1, &block_map1).await?;
-		provider.insert_block_mapping(2, &block_map2).await?;
+		provider.insert_block_mapping(&block_map1).await?;
+		provider.insert_block_mapping(&block_map2).await?;
 
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
 
