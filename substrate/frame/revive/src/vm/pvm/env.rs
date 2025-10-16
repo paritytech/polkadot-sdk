@@ -152,7 +152,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 					return Some(Ok(ExecReturnValue {
 						flags: ReturnFlags::empty(),
 						data: Vec::new(),
-					}))
+					}));
 				}
 				let Some(syscall_symbol) = module.imports().get(idx) else {
 					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
@@ -298,14 +298,44 @@ pub mod env {
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
+		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::Call { value_ptr },
 			callee_ptr,
-			deposit_ptr,
-			Weight::from_parts(ref_time_limit, proof_size_limit),
+			&CallResources::Precise { weight, deposit_limit },
+			input_data_ptr,
+			input_data_len,
+			output_ptr,
+			output_len_ptr,
+		)
+	}
+
+	/// Make a call to another contract.
+	/// See [`pallet_revive_uapi::HostFn::call`].
+	#[stable]
+	fn call_evm(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		callee: u32,
+		value_ptr: u32,
+		gas: u64,
+		input_data: u64,
+		output_data: u64,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+
+		self.call(
+			memory,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::Call { value_ptr },
+			callee,
+			&CallResources::Ethereum(gas.into()),
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -329,14 +359,43 @@ pub mod env {
 		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
+		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::DelegateCall,
 			address_ptr,
-			deposit_ptr,
-			Weight::from_parts(ref_time_limit, proof_size_limit),
+			&CallResources::Precise { weight, deposit_limit },
+			input_data_ptr,
+			input_data_len,
+			output_ptr,
+			output_len_ptr,
+		)
+	}
+
+	/// Same as `delegate_call` but with EVM gas.
+	/// See [`pallet_revive_uapi::HostFn::delegate_call_evm`].
+	#[stable]
+	fn delegate_call_evm(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		callee: u32,
+		gas: u64,
+		input_data: u64,
+		output_data: u64,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
+		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+
+		self.call(
+			memory,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallType::DelegateCall,
+			callee,
+			&CallResources::Ethereum(gas.into()),
 			input_data_ptr,
 			input_data_len,
 			output_ptr,

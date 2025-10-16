@@ -67,6 +67,7 @@ mod sys {
 		pub fn call_evm(
 			flags: u32,
 			callee: u32,
+			value: u32,
 			gas: u64,
 			input_data: u64,
 			output_data: u64,
@@ -254,7 +255,14 @@ impl HostFn for HostFnImpl {
 		let output_data = pack_hi_lo(&mut output_len as *mut _ as _, output_ptr as _);
 
 		let ret_code = unsafe {
-			sys::call_evm(flags.bits(), callee.as_ptr() as u32, gas, input_data, output_data)
+			sys::call_evm(
+				flags.bits(),
+				callee.as_ptr() as _,
+				value.as_ptr() as _,
+				gas,
+				input_data,
+				output_data,
+			)
 		};
 
 		if let Some(ref mut output) = output {
@@ -312,7 +320,7 @@ impl HostFn for HostFnImpl {
 		let ret_code = unsafe {
 			sys::delegate_call_evm(
 				flags.bits(),
-				address.as_ptr() as u32,
+				address.as_ptr() as _,
 				gas,
 				input_data,
 				output_data,
