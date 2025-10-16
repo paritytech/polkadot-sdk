@@ -428,7 +428,6 @@ impl State {
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn distribute_collation<Context>(
 	ctx: &mut Context,
-	runtime: &mut RuntimeInfo,
 	state: &mut State,
 	id: ParaId,
 	receipt: CandidateReceipt,
@@ -516,16 +515,16 @@ async fn distribute_collation<Context>(
 		);
 	}
 
-	let our_core = core_index;
-
-	// Determine the group on that core.
-	let GroupValidators { validators } =
-		determine_our_validators(ctx, runtime, our_core, candidate_relay_parent).await?;
+	let validators = per_relay_parent
+		.validator_group
+		.get(&core_index)
+		.map(|v| v.validators.clone())
+		.unwrap_or_default();
 
 	if validators.is_empty() {
 		gum::warn!(
 			target: LOG_TARGET,
-			core = ?our_core,
+			core = ?core_index,
 			"there are no validators assigned to core",
 		);
 
@@ -538,7 +537,7 @@ async fn distribute_collation<Context>(
 		candidate_relay_parent = %candidate_relay_parent,
 		?candidate_hash,
 		pov_hash = ?pov.hash(),
-		core = ?our_core,
+		?core_index,
 		current_validators = ?validators,
 		"Accepted collation, connecting to validators."
 	);
@@ -947,7 +946,6 @@ async fn process_msg<Context>(
 					let _ = state.metrics.time_collation_distribution("distribute");
 					distribute_collation(
 						ctx,
-						runtime,
 						state,
 						id,
 						candidate_receipt,
