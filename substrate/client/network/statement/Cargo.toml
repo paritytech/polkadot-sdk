@@ -21,6 +21,7 @@ async-channel = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
+<<<<<<< HEAD
 prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
 sc-network.default-features = true
@@ -37,3 +38,17 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 sp-statement-store.default-features = true
 sp-statement-store.workspace = true
+=======
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+async-trait = { workspace = true }
+>>>>>>> b21cbb58 (Improve statement-store gossiping performance (#9912))
