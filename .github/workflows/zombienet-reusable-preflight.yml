@@ -260,7 +260,7 @@ jobs:
 
             # Trick for multline strings: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-of-a-multiline-string
             echo 'FLAKY_TESTS<<EOF'
-            cat .github/zombienet-flaky-tests
+            cat .github/zombienet-flaky-tests | sed 's/:[0-9]*$//'
             echo EOF
 
             # global img from ci

@@ -34,15 +34,30 @@ runs:
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
-        echo "Vars"
-        echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-        echo "ZOMBIENET_PROVIDER: $ZOMBIENET_PROVIDER"
-        echo "COL_IMAGE: $COL_IMAGE"
-        echo "Inputs"
-        echo "test-definition: $TEST_DEFINITION"
-        echo "job-name: ${{ inputs.job-name }}"
-        echo "local-dir: $LOCAL_PATH"
-        echo "concurrency: $CONCURRENCY"
+        echo "::group::Test Configuration"
+        echo "══════════════════════════════════════════════════════════════════"
+        echo "Environment Variables:"
+        echo "  ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+        echo "  ZOMBIENET_PROVIDER: $ZOMBIENET_PROVIDER"
+        echo "  COL_IMAGE: $COL_IMAGE"
+        echo ""
+        echo "Test Parameters:"
+        echo "  Test Definition: $TEST_DEFINITION"
+        echo "  Job Name: ${{ inputs.job-name }}"
+        echo "  Local Directory: $LOCAL_PATH"
+        echo "  Concurrency: $CONCURRENCY"
+        echo ""
+        # Show flaky tests information if any are disabled
+        if [[ -f .github/zombienet-flaky-tests ]]; then
+          FLAKY_COUNT=$(grep -v '^#' .github/zombienet-flaky-tests | grep -v '^$' | wc -l | tr -d ' ')
+          if [[ $FLAKY_COUNT -gt 0 ]]; then
+            echo "⚠️ Flaky/Disabled Tests: $FLAKY_COUNT test(s) currently disabled"
+            echo "📄 See: https://github.com/paritytech/polkadot-sdk/blob/${{ github.sha }}/.github/zombienet-flaky-tests"
+            echo "📖 Docs: https://github.com/paritytech/polkadot-sdk/blob/${{ github.sha }}/.github/ZOMBIENET_FLAKY_TESTS.md"
+          fi
+        fi
+        echo "════════════════════════════════════════════════════════════════"
+        echo "::endgroup::"
 
     - name: Download binaries for zombienet native tests
       if: env.ZOMBIENET_PROVIDER == 'native'
