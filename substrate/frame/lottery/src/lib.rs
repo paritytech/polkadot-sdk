@@ -63,7 +63,10 @@ use frame_support::{
 	ensure,
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
-	traits::{Currency, ExistenceRequirement::KeepAlive, Get, Randomness, ReservableCurrency},
+	traits::{
+		tokens::{Fortitude, Preservation},
+		fungible::{Inspect, Mutate},
+		Get, Randomness},
 	PalletId,
 };
 pub use pallet::*;
@@ -74,7 +77,7 @@ use sp_runtime::{
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 // Any runtime call can be encoded into two bytes which represent the pallet and call index.
 // We use this to uniquely match someone's incoming call with the calls configured for the lottery.
@@ -141,7 +144,8 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>;
 
 		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>;
 
 		/// Something that provides randomness in the runtime.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -256,7 +260,7 @@ pub mod pallet {
 							&Self::account_id(),
 							&winner,
 							lottery_balance,
-							KeepAlive,
+							Preservation::Preserve,
 						);
 						debug_assert!(res.is_ok());
 
@@ -372,7 +376,7 @@ pub mod pallet {
 			let lottery_account = Self::account_id();
 			if T::Currency::total_balance(&lottery_account).is_zero() {
 				let _ =
-					T::Currency::deposit_creating(&lottery_account, T::Currency::minimum_balance());
+					T::Currency::mint_into(&lottery_account, T::Currency::minimum_balance());
 			}
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())
@@ -410,7 +414,7 @@ impl<T: Config> Pallet<T> {
 	fn pot() -> (T::AccountId, BalanceOf<T>) {
 		let account_id = Self::account_id();
 		let balance =
-			T::Currency::free_balance(&account_id).saturating_sub(T::Currency::minimum_balance());
+			T::Currency::reducible_balance(&account_id, Preservation::Preserve, Fortitude::Polite).saturating_sub(T::Currency::minimum_balance());
 
 		(account_id, balance)
 	}
@@ -467,7 +471,7 @@ impl<T: Config> Pallet<T> {
 				}
 				participating_calls.try_push(call_index).map_err(|_| Error::<T>::TooManyCalls)?;
 				// Check user has enough funds and send it to the Lottery account.
-				T::Currency::transfer(caller, &Self::account_id(), config.price, KeepAlive)?;
+				T::Currency::transfer(caller, &Self::account_id(), config.price, Preservation::Preserve)?;
 				// Create a new ticket.
 				TicketsCount::<T>::put(new_ticket_count);
 				Tickets::<T>::insert(ticket_count, caller.clone());
