@@ -301,22 +301,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", substrate_block_hash);
 
+		// Check if mapping already exists (eg. added when processing best block and we are now
+		// processing finalized block)
 		let result = sqlx::query!(
-			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,
-			substrate_hash_ref
+			r#"SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS "exists!:bool""#, substrate_hash_ref
 		)
 		.fetch_one(&self.pool)
 		.await?;
 
 		self.prune_blocks(block.number(), &block_map).await?;
 
-		// Check if mapping already exists (eg. added when processing best block and we are now
-		// processing finalized block)
-		if self.get_ethereum_hash(&block_map.substrate_hash).await.is_none() {
-			// Insert block mapping from Ethereum to Substrate hash
-			self.insert_block_mapping(&block_map).await?;
-		}
-
+		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
+		// logs exist
 		if !result.exists {
 			for (_, receipt) in receipts {
 				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
@@ -373,6 +369,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					.await?;
 				}
 			}
+			// Insert block mapping from Ethereum to Substrate hash
+			self.insert_block_mapping(&block_map).await?;
 		}
 
 		Ok(())
