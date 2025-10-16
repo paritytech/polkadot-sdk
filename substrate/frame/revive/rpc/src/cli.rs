@@ -252,7 +252,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 /// Create the JSON-RPC module.
 fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
-		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
+		.with_accounts(if is_dev {
+			vec![
+				crate::Account::default(),
+				crate::Account::from(subxt_signer::eth::dev::baltathar()),
+				crate::Account::from(subxt_signer::eth::dev::charleth()),
+				crate::Account::from(subxt_signer::eth::dev::dorothy()),
+				crate::Account::from(subxt_signer::eth::dev::ethan()),
+			]
+		} else {
+			vec![]
+		})
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
