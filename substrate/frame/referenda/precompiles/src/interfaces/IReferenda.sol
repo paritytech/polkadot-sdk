@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 /// @dev The on-chain address of the Referenda precompile.
 address constant REFERENDA_PRECOMPILE_ADDRESS = address(0xB0000);
 
-/// @title Referenda Interface
+/// @title Referenda Precompile Interface
 interface IReferenda {
 	/// @notice When the referendum should be enacted.
 	enum Timing {
