@@ -116,7 +116,7 @@ interface IConvictionVoting {
 	/// @return balance The amount of tokens delegated (pre-conviction).
 	/// @return conviction The conviction level applied to the delegation as defined in the `Conviction` enum.
 	function getDelegation(
-		bytes32 who,
+		address who,
 		uint16 trackId
 	) external view returns (bytes32 target, uint128 balance, Conviction conviction);
 }

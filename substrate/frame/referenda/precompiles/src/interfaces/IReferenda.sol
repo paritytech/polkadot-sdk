@@ -114,6 +114,15 @@ interface IReferenda {
 	/// @param referendumIndex The index of the referendum for which to place the deposit.
 	function placeDecisionDeposit(uint32 referendumIndex) external;
 
+	/// @notice Set metadata for a referendum. Only callable by the referendum submitter.
+	/// @param referendumIndex The index of the referendum for which to set metadata.
+	/// @param metadataHash The hash of the metadata to associate with the referendum.
+	function setMetadata(uint32 referendumIndex, bytes32 metadataHash) external;
+
+	/// @notice Clear metadata for a referendum and refund the metadata deposit.
+	/// @param referendumIndex The index of the referendum for which to clear metadata.
+	function clearMetadata(uint32 referendumIndex) external;
+
 	/// @notice Get comprehensive referendum information
 	/// @param referendumIndex The index of the referendum to query.
 	/// @return exists Whether the referendum exists
