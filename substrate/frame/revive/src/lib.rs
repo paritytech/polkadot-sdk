@@ -1476,7 +1476,8 @@ impl<T: Config> Pallet<T> {
 				effective_gas_price,
 				call_info.encoded_len,
 				base_info.total_weight(),
-			).dry_run()
+			)
+			.dry_run()
 		};
 
 		// emulate transaction behavior

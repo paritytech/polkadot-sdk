@@ -365,11 +365,7 @@ impl ExecConfig {
 	}
 
 	/// Create a default config appropriate when the call originated from a ethereum tx.
-	pub fn new_eth_tx(
-		effective_gas_price: U256,
-		encoded_len: u32,
-		base_weight: Weight,
-	) -> Self {
+	pub fn new_eth_tx(effective_gas_price: U256, encoded_len: u32, base_weight: Weight) -> Self {
 		Self {
 			bump_nonce: false,
 			collect_deposit_from_hold: Some((encoded_len, base_weight)),
@@ -379,8 +375,8 @@ impl ExecConfig {
 	}
 
 	/// Set this config to be a dry-run.
-	pub fn dry_run(self) -> Self {
-		self.is_dry_run = true
+	pub fn dry_run(mut self) -> Self {
+		self.is_dry_run = true;
 		self
 	}
 }
