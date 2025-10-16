@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/evm-test-suite
-          ref: 9c45a674178c2b8d20ec93a2a0ebe525beb46c14
+          ref: 84e536af80513f87bc16f6c7b7dbf796fe9010ab
           path: evm-test-suite
 
       - uses: denoland/setup-deno@v1
@@ -57,28 +57,16 @@ jobs:
 
           deno --version
 
-          echo "Download the resolc binary"
-          wget -O resolc https://github.com/paritytech/revive/releases/download/v0.3.0/resolc-x86_64-unknown-linux-musl -q
-          chmod +x resolc
-          mv resolc /usr/local/bin
-          resolc --version
-
           echo "Check that binaries are in place"
           export REVIVE_DEV_NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
           export ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
-          export RESOLC_PATH=/usr/local/bin/resolc
-          echo $REVIVE_DEV_NODE_PATH $ETH_RPC_PATH $RESOLC_PATH
+          echo $REVIVE_DEV_NODE_PATH $ETH_RPC_PATH
 
-          echo "Installing solc"
-          wget https://github.com/ethereum/solidity/releases/download/v0.8.30/solc-static-linux -q
-          chmod +x solc-static-linux
-          mv solc-static-linux /usr/local/bin/solc
+          echo "== Running pvm tests ==j"
+          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test:pvm
 
-          echo "Building fixture contracts"
-          deno task build
-
-          echo "Starting the tests"
-          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test
+          echo "== Running evm tests =="
+          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test:evm
 
       - name: Collect tests results
         if: always()
