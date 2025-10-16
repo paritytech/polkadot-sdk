@@ -67,7 +67,7 @@ fn block_author_works(fixture_type: FixtureType) {
 			.data(BlockInfo::BlockInfoCalls::coinbase(BlockInfo::coinbaseCall {}).abi_encode())
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::coinbaseCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(Contracts::block_author().unwrap(), H160::from_slice(decoded.as_slice()));
+		assert_eq!(Contracts::block_author(), H160::from_slice(decoded.as_slice()));
 	});
 }
 

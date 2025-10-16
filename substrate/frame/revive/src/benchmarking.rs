@@ -20,6 +20,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
+	evm::{
+		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
+		TransactionSigned, TransactionUnsigned,
+	},
 	exec::{Key, PrecompileExt},
 	limits,
 	precompiles::{
@@ -47,10 +51,11 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::fungible::InspectHold,
+	traits::{fungible::InspectHold, Hooks},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
+use k256::ecdsa::SigningKey;
 use pallet_revive_uapi::{
 	pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
@@ -109,7 +114,6 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 #[benchmarks(
 	where
 		T: Config,
-		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 		OriginFor<T>: From<Origin<T>>,
@@ -305,7 +309,16 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(origin, evm_value, Weight::MAX, code, input, 0u32.into(), 0);
+		_(
+			origin,
+			evm_value,
+			Weight::MAX,
+			code,
+			input,
+			TransactionSigned::default().signed_payload(),
+			0u32.into(),
+			0,
+		);
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
@@ -445,8 +458,16 @@ mod benchmarks {
 		let before = Pallet::<T>::evm_balance(&instance.address);
 
 		#[extrinsic_call]
-		_(origin, instance.address, evm_value, Weight::MAX, data, 0u32.into(), 0);
-
+		_(
+			origin,
+			instance.address,
+			evm_value,
+			Weight::MAX,
+			data,
+			TransactionSigned::default().signed_payload(),
+			0u32.into(),
+			0,
+		);
 		let deposit = T::Currency::balance_on_hold(
 			&HoldReason::StorageDepositReserve.into(),
 			&instance.account_id,
@@ -1068,7 +1089,7 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 
-		let block_author = runtime.ext().block_author().unwrap_or(H160::zero());
+		let block_author = runtime.ext().block_author();
 		assert_eq!(&memory[..], block_author.as_bytes());
 	}
 
@@ -2560,6 +2581,379 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
+	}
+
+	/// Helper function to create a test signer for finalize_block benchmark
+	fn create_test_signer<T: Config>() -> (T::AccountId, SigningKey, H160) {
+		use hex_literal::hex;
+		// dev::alith()
+		let signer_account_id = hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac");
+		let signer_priv_key =
+			hex!("5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133");
+
+		let signer_key = SigningKey::from_bytes(&signer_priv_key.into()).expect("valid key");
+
+		let signer_address = H160::from_slice(&signer_account_id);
+		let signer_caller = T::AddressMapper::to_fallback_account_id(&signer_address);
+
+		(signer_caller, signer_key, signer_address)
+	}
+
+	/// Helper function to create and sign a transaction for finalize_block benchmark
+	fn create_signed_transaction<T: Config>(
+		signer_key: &SigningKey,
+		target_address: H160,
+		value: U256,
+		input_data: Vec<u8>,
+	) -> Vec<u8> {
+		let unsigned_tx: TransactionUnsigned = TransactionLegacyUnsigned {
+			to: Some(target_address),
+			value,
+			chain_id: Some(T::ChainId::get().into()),
+			input: input_data.into(),
+			..Default::default()
+		}
+		.into();
+
+		let hashed_payload = sp_io::hashing::keccak_256(&unsigned_tx.unsigned_payload());
+		let (signature, recovery_id) =
+			signer_key.sign_prehash_recoverable(&hashed_payload).expect("signing success");
+
+		let mut sig_bytes = [0u8; 65];
+		sig_bytes[..64].copy_from_slice(&signature.to_bytes());
+		sig_bytes[64] = recovery_id.to_byte();
+
+		let signed_tx = unsigned_tx.with_signature(sig_bytes);
+
+		signed_tx.signed_payload()
+	}
+
+	/// Helper function to generate common finalize_block benchmark setup
+	fn setup_finalize_block_benchmark<T>(
+	) -> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
+	where
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
+		T: Config,
+		MomentOf<T>: Into<U256>,
+		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+	{
+		// Setup test signer
+		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
+		whitelist_account!(signer_caller);
+
+		// Setup contract instance
+		let instance =
+			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
+		let storage_deposit = default_deposit_limit::<T>();
+		let value = Pallet::<T>::min_balance();
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
+
+		// Setup block
+		let current_block = BlockNumberFor::<T>::from(1u32);
+		frame_system::Pallet::<T>::set_block_number(current_block);
+
+		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
+	}
+
+	/// Benchmark the `on_finalize` hook scaling with number of transactions.
+	///
+	/// This benchmark measures the marginal computational cost of adding transactions
+	/// to a block during finalization, with fixed payload size to isolate transaction
+	/// count scaling effects.
+	///
+	/// ## Parameters:
+	/// - `n`: Number of transactions in the block (0-200)
+	///
+	/// ## Test Setup:
+	/// - Creates `n` transactions with fixed 100-byte payloads
+	/// - Pre-populates block builder storage with test data
+	///
+	/// ## Usage:
+	/// Use this with `on_finalize_per_byte` to calculate total cost:
+	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_transaction(n: Linear<0, 200>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Fixed payload size to isolate transaction count effects
+		let fixed_payload_size = 100usize;
+
+		// Pre-populate InflightTransactions with n transactions of fixed size
+		if n > 0 {
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
+			// Create input data of fixed size for consistent transaction payloads
+			let input_data = vec![0x42u8; fixed_payload_size];
+			let gas_used = Weight::from_parts(1_000_000, 1000);
+
+			for _ in 0..n {
+				// Create real signed transaction with fixed-size input data
+				let signed_transaction = create_signed_transaction::<T>(
+					&signer_key,
+					instance.address,
+					evm_value,
+					input_data.clone(),
+				);
+
+				// Store transaction
+				let _ = block_storage::with_ethereum_context(|| {
+					let (encoded_logs, bloom) =
+						block_storage::get_receipt_details().unwrap_or_default();
+
+					let block_builder_ir = EthBlockBuilderIR::<T>::get();
+					let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+					block_builder.process_transaction(
+						signed_transaction,
+						true,
+						gas_used,
+						encoded_logs,
+						bloom,
+					);
+
+					EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+				});
+			}
+		}
+
+		#[block]
+		{
+			// Measure only the finalization cost with n transactions of fixed size
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), n as usize);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` hook scaling with transaction payload size.
+	///
+	/// This benchmark measures the marginal computational cost of processing
+	/// larger transaction payloads during finalization, with fixed transaction count
+	/// to isolate payload size scaling effects.
+	///
+	/// ## Parameters:
+	/// - `d`: Payload size per transaction in bytes (0-1000)
+	///
+	/// ## Test Setup:
+	/// - Creates 10 transactions with payload size `d`
+	/// - Pre-populates block builder storage with test data
+	///
+	/// ## Usage:
+	/// Use this with `on_finalize_per_transaction` to calculate total cost:
+	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_transaction_data(d: Linear<0, 1000>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Fixed transaction count to isolate payload size effects
+		let fixed_tx_count = 10u32;
+
+		// Initialize block
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Create input data of variable size p for realistic transaction payloads
+		let input_data = vec![0x42u8; d as usize];
+		let gas_used = Weight::from_parts(1_000_000, 1000);
+
+		for _ in 0..fixed_tx_count {
+			// Create real signed transaction with variable-size input data
+			let signed_transaction = create_signed_transaction::<T>(
+				&signer_key,
+				instance.address,
+				evm_value,
+				input_data.clone(),
+			);
+
+			// Store transaction
+			let _ = block_storage::with_ethereum_context(|| {
+				let (encoded_logs, bloom) =
+					block_storage::get_receipt_details().unwrap_or_default();
+
+				let block_builder_ir = EthBlockBuilderIR::<T>::get();
+				let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+				block_builder.process_transaction(
+					signed_transaction,
+					true,
+					gas_used,
+					encoded_logs,
+					bloom,
+				);
+
+				EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+			});
+		}
+
+		#[block]
+		{
+			// Measure only the finalization cost with fixed count, variable payload size
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), fixed_tx_count as usize);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` per-event costs.
+	///
+	/// This benchmark measures the computational cost of processing events
+	/// within the finalization process, isolating the overhead of event count.
+	/// Uses a single transaction with varying numbers of minimal events.
+	///
+	/// ## Parameters:
+	/// - `e`: Number of events per transaction
+	///
+	/// ## Test Setup:
+	/// - Creates 1 transaction with `e` ContractEmitted events
+	/// - Each event contains minimal data (no topics, empty data field)
+	///
+	/// ## Usage:
+	/// Measures the per-event processing overhead during finalization
+	/// - Fixed cost: `on_finalize_per_event(0)` - baseline finalization cost
+	/// - Per event: `on_finalize_per_event(e)` - linear scaling with event count
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_event(e: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Create a single transaction with e events, each with minimal data
+		let input_data = vec![0x42u8; 100];
+		let signed_transaction = create_signed_transaction::<T>(
+			&signer_key,
+			instance.address,
+			evm_value,
+			input_data.clone(),
+		);
+
+		let gas_used = Weight::from_parts(1_000_000, 1000);
+
+		// Store transaction
+		let _ = block_storage::with_ethereum_context(|| {
+			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				gas_used,
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+		});
+
+		// Create e events with minimal data to isolate event count overhead
+		for _ in 0..e {
+			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
+		}
+
+		#[block]
+		{
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
+			// Measure the finalization cost with e events
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
+	/// ## Test Setup:
+	/// - Creates 1 transaction with 1 ContractEmitted event
+	/// - Event contains `d` total bytes of data across data field and topics
+	///
+	/// ## Usage:
+	/// Measures the per-byte event data processing overhead during finalization
+	/// - Fixed cost: `on_finalize_per_event_data(0)` - baseline cost with empty event
+	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_event_data(d: Linear<0, 16384>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Create a single transaction with one event containing d bytes of data
+		let input_data = vec![0x42u8; 100];
+		let signed_transaction = create_signed_transaction::<T>(
+			&signer_key,
+			instance.address,
+			evm_value,
+			input_data.clone(),
+		);
+
+		let gas_used = Weight::from_parts(1_000_000, 1000);
+
+		// Store transaction
+		let _ = block_storage::with_ethereum_context(|| {
+			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				gas_used,
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+		});
+
+		// Create one event with d bytes of data distributed across topics and data field
+		let (event_data, topics) = if d < 32 {
+			// If total data is less than 32 bytes, put all in data field
+			(vec![0x42u8; d as usize], vec![])
+		} else {
+			// Fill topics first, then put remaining bytes in data field
+			let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / 32);
+			let topic_bytes_used = num_topics * 32;
+			let data_bytes_remaining = d - topic_bytes_used;
+
+			// Create topics filled with sequential data
+			let mut topics = Vec::new();
+			for topic_index in 0..num_topics {
+				let topic_data = [topic_index as u8; 32];
+				topics.push(H256::from(topic_data));
+			}
+
+			// Remaining bytes go to data field
+			let event_data = vec![0x42u8; data_bytes_remaining as usize];
+
+			(event_data, topics)
+		};
+
+		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+
+		#[block]
+		{
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
+			// Measure the finalization cost with d bytes of event data
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(
