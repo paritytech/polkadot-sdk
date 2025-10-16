@@ -121,7 +121,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		query!(
 			r#"
-			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
+			INSERT INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
 			VALUES ($1, $2)
 			"#,
 			ethereum_hash_ref,
@@ -310,8 +310,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		self.prune_blocks(block.number(), &block_map).await?;
 
-		// Insert block mapping from Ethereum to Substrate hash
-		self.insert_block_mapping(&block_map).await?;
+		// Check if mapping already exists (eg. added when processing best block and we are now
+		// processing finalized block)
+		if self.get_ethereum_hash(&block_map.substrate_hash).await.is_none() {
+			// Insert block mapping from Ethereum to Substrate hash
+			self.insert_block_mapping(&block_map).await?;
+		}
 
 		if !result.exists {
 			for (_, receipt) in receipts {
@@ -320,7 +324,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 				query!(
 					r#"
-					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+					INSERT INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
 					VALUES ($1, $2, $3)
 					"#,
 					transaction_hash,
@@ -342,7 +346,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 					query!(
 						r#"
-						INSERT OR REPLACE INTO logs(
+						INSERT INTO logs(
 							block_hash,
 							transaction_index,
 							log_index,
@@ -923,35 +927,6 @@ mod tests {
 		// Test reverse lookup
 		let resolved = provider.get_ethereum_hash(&substrate_hash).await;
 		assert_eq!(resolved, Some(ethereum_hash));
-
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn test_block_mapping_overwrite(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-		let ethereum_hash = H256::from([1u8; 32]);
-		let substrate_hash1 = H256::from([2u8; 32]);
-		let substrate_hash2 = H256::from([3u8; 32]);
-		let block_map1 = BlockHashMap::new(substrate_hash1, ethereum_hash.clone());
-		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash);
-
-		// Insert first mapping
-		provider.insert_block_mapping(&block_map1).await?;
-		assert_eq!(
-			provider.get_substrate_hash(&block_map1.ethereum_hash).await,
-			Some(block_map1.substrate_hash)
-		);
-
-		// Insert second mapping (should overwrite)
-		provider.insert_block_mapping(&block_map2).await?;
-		assert_eq!(
-			provider.get_substrate_hash(&block_map2.ethereum_hash).await,
-			Some(block_map2.substrate_hash)
-		);
-
-		// Old mapping should be gone
-		assert_eq!(provider.get_ethereum_hash(&block_map1.substrate_hash).await, None);
 
 		Ok(())
 	}
