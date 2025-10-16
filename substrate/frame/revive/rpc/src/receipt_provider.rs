@@ -294,7 +294,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
 		let substrate_block_hash = block.hash();
-		let block_hash_ref = substrate_block_hash.as_ref();
+		let substrate_hash_ref = substrate_block_hash.as_ref();
 		let block_number = block.number() as i64;
 		let ethereum_hash_ref = ethereum_hash.as_ref();
 		let block_map = BlockHashMap::new(substrate_block_hash, ethereum_hash.clone());
@@ -303,12 +303,15 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		let result = sqlx::query!(
 			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,
-			block_hash_ref
+			substrate_hash_ref
 		)
 		.fetch_one(&self.pool)
 		.await?;
 
 		self.prune_blocks(block.number(), &block_map).await?;
+
+		// Insert block mapping from Ethereum to Substrate hash
+		self.insert_block_mapping(&block_map).await?;
 
 		if !result.exists {
 			for (_, receipt) in receipts {
@@ -321,7 +324,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					VALUES ($1, $2, $3)
 					"#,
 					transaction_hash,
-					block_hash_ref,
+					substrate_hash_ref,
 					transaction_index
 				)
 				.execute(&self.pool)
@@ -367,9 +370,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				}
 			}
 		}
-
-		// Insert block mapping from Ethereum to Substrate hash
-		self.insert_block_mapping(&block_map).await?;
 
 		Ok(())
 	}
