@@ -8,10 +8,14 @@ doc:
 
     This PR enables us to lazily decode the block extrinsics when needed.
 crates:
-- name: pallet-revive
-  bump: patch
 - name: sp-runtime
-  bump: patch
+  bump: major
+- name: frame-executive
+  bump: major
+- name: cumulus-primitives-core
+  bump: minor
+- name: pallet-revive
+  bump: minor
 - name: frame-benchmarking-cli
   bump: patch
 - name: sc-rpc
@@ -24,9 +28,29 @@ crates:
   bump: patch
 - name: cumulus-client-consensus-aura
   bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: sc-basic-authorship
+  bump: patch
+- name: frame-support
+  bump: patch
+- name: sp-api-proc-macro
+  bump: patch
+- name: frame-try-runtime
+  bump: patch
+- name: sp-block-builder
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
 - name: cumulus-pallet-aura-ext
   bump: patch
-- name: cumulus-pallet-parachain-system
+- name: cumulus-client-service
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: westend-runtime
   bump: patch
 - name: asset-hub-rococo-runtime
   bump: patch
@@ -54,33 +78,5 @@ crates:
   bump: patch
 - name: yet-another-parachain-runtime
   bump: patch
-- name: polkadot-omni-node-lib
-  bump: patch
-- name: polkadot-service
-  bump: patch
 - name: rococo-runtime
-  bump: patch
-- name: westend-runtime
-  bump: patch
-- name: sc-basic-authorship
-  bump: patch
-- name: frame-executive
-  bump: patch
-- name: frame-support
-  bump: patch
-- name: sp-api-proc-macro
-  bump: patch
-- name: frame-try-runtime
-  bump: patch
-- name: cumulus-primitives-core
-  bump: patch
-- name: sc-consensus-babe
-  bump: patch
-- name: sc-consensus-pow
-  bump: patch
-- name: sp-block-builder
-  bump: patch
-- name: frame-support-procedural
-  bump: patch
-- name: sc-rpc-spec-v2
   bump: patch
