@@ -22,6 +22,7 @@ use crate::{
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
+use alloc::vec::Vec;
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::Get;
@@ -46,7 +47,7 @@ pub struct CallInfo<T: Config> {
 /// Decode `tx` into a dispatchable call.
 pub fn create_call<T>(
 	tx: GenericTransaction,
-	encoded_len: Option<u32>,
+	signed_transaction: Option<(u32, Vec<u8>)>,
 ) -> Result<CallInfo<T>, InvalidTransaction>
 where
 	T: Config,
@@ -79,17 +80,20 @@ where
 		return Err(InvalidTransaction::Payment);
 	}
 
-	let encoded_len = if let Some(encoded_len) = encoded_len {
-		encoded_len
-	} else {
-		let unsigned_tx = tx.clone().try_into_unsigned().map_err(|_| {
-			log::debug!(target: LOG_TARGET, "Invalid transaction type.");
-			InvalidTransaction::Call
-		})?;
-		let eth_transact_call =
-			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-		<T as Config>::FeeInfo::encoded_len(eth_transact_call.into())
-	};
+	let (encoded_len, transaction_encoded) =
+		if let Some((encoded_len, transaction_encoded)) = signed_transaction {
+			(encoded_len, transaction_encoded)
+		} else {
+			let unsigned_tx = tx.clone().try_into_unsigned().map_err(|_| {
+				log::debug!(target: LOG_TARGET, "Invalid transaction type.");
+				InvalidTransaction::Call
+			})?;
+			let transaction_encoded = unsigned_tx.dummy_signed_payload();
+
+			let eth_transact_call =
+				crate::Call::<T>::eth_transact { payload: transaction_encoded.clone() };
+			(<T as Config>::FeeInfo::encoded_len(eth_transact_call.into()), transaction_encoded)
+		};
 
 	let value = tx.value.unwrap_or_default();
 	let data = tx.input.to_vec();
@@ -115,6 +119,7 @@ where
 				value,
 				gas_limit: Zero::zero(),
 				data,
+				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
 			}
@@ -137,6 +142,7 @@ where
 			gas_limit: Zero::zero(),
 			code,
 			data,
+			transaction_encoded,
 			effective_gas_price,
 			encoded_len,
 		}
