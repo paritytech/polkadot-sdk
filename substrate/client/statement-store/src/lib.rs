@@ -389,9 +389,7 @@ impl Index {
 		current_time: u64,
 	) -> MaybeInserted {
 		let statement_len = statement.data_len();
-		if statement_len > validation.max_size as usize ||
-			statement.encoded_size() > MAX_STATEMENT_SIZE
-		{
+		if statement_len > validation.max_size as usize {
 			log::debug!(
 				target: LOG_TARGET,
 				"Ignored oversize message: {:?} ({} bytes)",
@@ -896,6 +894,18 @@ impl StatementStore for Store {
 	/// Submit a statement to the store. Validates the statement and returns validation result.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
 		let hash = statement.hash();
+		let encoded_size = statement.encoded_size();
+		if encoded_size > MAX_STATEMENT_SIZE {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement is too big for propogation: {:?} ({}/{} bytes)",
+				HexDisplay::from(&hash),
+				statement.encoded_size(),
+				MAX_STATEMENT_SIZE
+			);
+			return SubmitResult::Ignored
+		}
+
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired =>
 				if !source.can_be_resubmitted() {
