@@ -207,8 +207,9 @@ pub fn worker_entrypoint(
 					)
 				})?;
 
-				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
-					.map_err(|errno| {
+				#[cfg(not(feature = "x-shadow"))]
+				let usage_before =
+					nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN).map_err(|errno| {
 						let e = stringify_errno("getrusage before", errno);
 						map_and_send_err!(
 							e,
@@ -217,6 +218,12 @@ pub fn worker_entrypoint(
 							worker_info
 						)
 					})?;
+				#[cfg(feature = "x-shadow")]
+				// The getrusage system call is not supported under Shadow simulation.
+				// As a workaround, we return a zeroed structure. This is safe, but
+				// it makes CPU usage calculations meaningless.
+				let usage_before = unsafe { std::mem::zeroed() };
+
 				let stream_fd = stream.as_raw_fd();
 
 				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
@@ -598,10 +605,17 @@ fn handle_parent_process(
 		status,
 	);
 
+	#[cfg(not(feature = "x-shadow"))]
 	let usage_after = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 		Ok(usage) => usage,
 		Err(errno) => return Ok(Err(internal_error_from_errno("getrusage after", errno))),
 	};
+
+	#[cfg(feature = "x-shadow")]
+	// The getrusage system call is not supported under Shadow simulation.
+	// As a workaround, we return a zeroed structure. This is safe, but
+	// it makes CPU usage calculations meaningless.
+	let usage_after = unsafe { std::mem::zeroed() };
 
 	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
 	// child to report its own time.

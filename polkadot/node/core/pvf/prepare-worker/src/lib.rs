@@ -211,7 +211,7 @@ pub fn worker_entrypoint(
 ) {
 	run_worker(
 		WorkerKind::Prepare,
-        endpoint,
+		endpoint,
 		worker_dir_path,
 		node_version,
 		worker_version,
@@ -233,15 +233,22 @@ pub fn worker_entrypoint(
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec()?;
 
-				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
-					Ok(usage) => usage,
-					Err(errno) => {
-						let result: PrepareWorkerResult =
-							Err(error_from_errno("getrusage before", errno));
-						send_result(&mut stream, result, worker_info)?;
-						continue
-					},
-				};
+                #[cfg(not(feature = "x-shadow"))]
+                let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
+                    Ok(usage) => usage,
+                    Err(errno) => {
+                        let result: PrepareWorkerResult =
+                            Err(error_from_errno("getrusage before", errno));
+                        send_result(&mut stream, result, worker_info)?;
+                        continue
+                    },
+                };
+
+                #[cfg(feature = "x-shadow")]
+                // The getrusage system call is not supported under Shadow simulation.
+                // As a workaround, we return a zeroed structure. This is safe, but
+                // it makes CPU usage calculations meaningless.
+                let usage_before = unsafe { std::mem::zeroed() };
 
 				let stream_fd = stream.as_raw_fd();
 
@@ -531,7 +538,7 @@ fn handle_child_process(
 			let mut result = prepare_artifact(pvf).map(|o| (o,));
 
 			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
-			#[cfg(target_os = "linux")]
+			#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 			let mut result = result.map(|outcome| (outcome.0, get_max_rss_thread()));
 
 			// If we are pre-checking, check for runtime construction errors.
@@ -677,8 +684,15 @@ fn handle_parent_process(
 		status,
 	);
 
+	#[cfg(not(feature = "x-shadow"))]
 	let usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 		.map_err(|errno| error_from_errno("getrusage after", errno))?;
+
+	#[cfg(feature = "x-shadow")]
+    // The getrusage system call is not supported under Shadow simulation.
+    // As a workaround, we return a zeroed structure. This is safe, but
+    // it makes CPU usage calculations meaningless.
+	let usage_after = unsafe { std::mem::zeroed() };
 
 	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
 	// child to report its own time.
