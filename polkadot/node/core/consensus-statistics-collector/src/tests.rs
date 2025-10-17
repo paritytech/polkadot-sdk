@@ -32,12 +32,46 @@ use test_helpers::mock::new_leaf;
 async fn activate_leaf(
 	virtual_overseer: &mut VirtualOverseer,
 	activated: ActivatedLeaf,
+	leaf_header: Header,
+	session_index: SessionIndex,
+	session_info: Option<SessionInfo>,
 ) {
+	let activated_leaf_hash = activated.hash;
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
 			activated,
 		))))
 		.await;
+
+
+	assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ChainApi(
+				ChainApiMessage::BlockHeader(relay_hash, tx)
+			) if relay_hash == activated_leaf_hash => {
+				tx.send(Ok(Some(leaf_header))).unwrap();
+			}
+		);
+
+	assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+			) if parent == activated_leaf_hash => {
+				tx.send(Ok(session_index)).unwrap();
+			}
+		);
+
+	if let Some(session_info) = session_info {
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionInfo(req_session, tx))
+			) if req_session == session_index => {
+				tx.send(Ok(Some(session_info))).unwrap();
+			}
+		);
+	}
 }
 
 async fn candidate_approved(
@@ -144,7 +178,14 @@ fn single_candidate_approved() {
     );
 
     let view = test_harness(|mut virtual_overseer| async move {
-        activate_leaf(&mut virtual_overseer, leaf.clone()).await;
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf.clone(),
+			default_header(),
+			1,
+			Some(default_session_info(1)),
+		).await;
+
 		candidate_approved(&mut virtual_overseer, candidate_hash.clone(), rb_hash, vec![validator_idx.clone()]).await;
         virtual_overseer
     });
@@ -177,18 +218,31 @@ fn candidate_approved_for_different_forks() {
 	let rb_hash_fork_1 = Hash::from_low_u64_be(231);
 
 	let view = test_harness(|mut virtual_overseer| async move {
-		let leaf1 = new_leaf(
+		let leaf0 = new_leaf(
 			rb_hash_fork_0.clone(),
 			1,
 		);
 
-		let leaf2 = new_leaf(
+		let leaf1 = new_leaf(
 			rb_hash_fork_1.clone(),
 			1,
 		);
 
-		activate_leaf(&mut virtual_overseer, leaf1.clone()).await;
-		activate_leaf(&mut virtual_overseer, leaf2.clone()).await;
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf0.clone(),
+			default_header(),
+			1,
+			Some(default_session_info(1)),
+		).await;
+
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf1.clone(),
+			default_header(),
+			1,
+			None,
+		).await;
 
 		candidate_approved(
 			&mut virtual_overseer,
@@ -226,7 +280,13 @@ fn candidate_approval_stats_with_no_shows() {
 
 	let view = test_harness(|mut virtual_overseer| async move {
 		let leaf1 = new_leaf(rb_hash.clone(), 1);
-		activate_leaf(&mut virtual_overseer, leaf1.clone()).await;
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf1.clone(),
+			default_header(),
+			1,
+			Some(default_session_info(1)),
+		).await;
 
 		candidate_approved(
 			&mut virtual_overseer,
@@ -344,41 +404,13 @@ fn note_chunks_uploaded_to_active_validator() {
 	let candidate_hash: CandidateHash = CandidateHash(Hash::from_low_u64_be(132));
 
 	let view = test_harness(|mut virtual_overseer| async move {
-		virtual_overseer.send(FromOrchestra::Signal(
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate{
-				activated: Some(leaf1),
-				deactivated: Default::default(),
-			}),
-		)).await;
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::ChainApi(
-				ChainApiMessage::BlockHeader(relay_hash, tx)
-			) if relay_hash == activated_leaf_hash => {
-				tx.send(Ok(Some(leaf1_header))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
-			) if parent == activated_leaf_hash => {
-				tx.send(Ok(session_index)).unwrap();
-			}
-		);
-
-		// given that session index is not cached yet
-		// the subsystem will retrieve the session info
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionInfo(req_session, tx))
-			) if req_session == session_index => {
-				tx.send(Ok(Some(session_info))).unwrap();
-			}
-		);
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf1,
+			leaf1_header,
+			session_index,
+			Some(session_info),
+		).await;
 
 		virtual_overseer.send(FromOrchestra::Communication {
 			msg: ConsensusStatisticsCollectorMessage::ChunkUploaded(
