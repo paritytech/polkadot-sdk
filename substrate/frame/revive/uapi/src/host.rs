@@ -407,8 +407,8 @@ pub trait HostFn: private::Sealed {
 	/// - `offset`: Byte offset into the returned data
 	fn return_data_copy(output: &mut &mut [u8], offset: u32);
 
-	/// Returns the amount of ref_time left.
-	fn ref_time_left() -> u64;
+	/// Returns the amount of ethereum gas left.
+	fn gas_left() -> u64;
 
 	/// Stores the current block author of into the supplied buffer.
 	///
@@ -431,6 +431,10 @@ pub trait HostFn: private::Sealed {
 	/// - `block_number`: A reference to the block number buffer.
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
+
+	/// Reverts the execution and cedes all supplied gas,
+	/// akin to the `INVALID` EVM opcode.
+	fn consume_all_gas() -> !;
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.

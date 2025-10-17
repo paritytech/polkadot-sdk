@@ -261,8 +261,44 @@ jobs:
           echo "RUNNER=${{ steps.set-image.outputs.RUNNER }}"
           echo "IMAGE=${{ steps.set-image.outputs.IMAGE }}"
 
+  check-pr-author:
+    runs-on: ubuntu-latest
+    outputs:
+      is_author: ${{ steps.check-author.outputs.result }}
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@db4a51e5b21b6b7c0c69dd6c93c5bf3142490885 # v1.34.1
+        with:
+          app-id: ${{ secrets.CMD_BOT_APP_ID }}
+          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
+
+      - name: Check if user is PR author
+        id: check-author
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          result-encoding: string
+          script: |
+            const commentUser = '${{ github.event.comment.user.login }}';
+            const prNumber = ${{ github.event.issue.number }};
+
+            try {
+              const pr = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+
+              const prAuthor = pr.data.user.login;
+              return commentUser === prAuthor ? 'true' : 'false';
+            } catch (error) {
+              console.error('Error checking PR author:', error);
+              return 'false';
+            }
+
   run-cmd-workflow:
-    needs: [set-image, get-pr-info, is-org-member]
+    needs: [set-image, get-pr-info, is-org-member, check-pr-author]
     runs-on: ubuntu-latest
     # don't run on help command
     if: ${{ startsWith(github.event.comment.body, '/cmd') && !contains(github.event.comment.body, '--help') }}
@@ -278,6 +314,7 @@ jobs:
       IMAGE: ${{ needs.set-image.outputs.IMAGE }}
       REPO: ${{ needs.get-pr-info.outputs.repo }}
       IS_ORG_MEMBER: ${{ needs.is-org-member.outputs.member }}
+      IS_PR_AUTHOR: ${{ needs.check-pr-author.outputs.is_author }}
       COMMENT_ID: ${{ github.event.comment.id }}
       PR_NUMBER: ${{ github.event.issue.number }}
     steps:
@@ -296,6 +333,7 @@ jobs:
             -f pr_num="${PR_NUMBER}" \
             -f runner="${RUNNER}" \
             -f is_org_member="${IS_ORG_MEMBER}" \
+            -f is_pr_author="${IS_PR_AUTHOR}" \
             -f comment_id="${COMMENT_ID}" \
             -f image="${IMAGE}" \
             -f is_quiet="${{ contains(github.event.comment.body, '--quiet') }}"
