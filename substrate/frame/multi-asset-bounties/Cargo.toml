@@ -7,7 +7,6 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet to manage multi-asset and cross-chain bounties"
-readme = "README.md"
 
 [lints]
 workspace = true
