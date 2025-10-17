@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod block_hash;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
@@ -240,7 +241,14 @@ pub(crate) mod builder {
 	}
 
 	pub fn eth_call(dest: H160) -> EthCallBuilder<Test> {
-		EthCallBuilder::<Test>::eth_call(RuntimeOrigin::signed(ALICE), dest)
+		EthCallBuilder::<Test>::eth_call(crate::Origin::<Test>::EthTransaction(ALICE).into(), dest)
+	}
+
+	pub fn eth_instantiate_with_code(code: Vec<u8>) -> EthInstantiateWithCodeBuilder<Test> {
+		EthInstantiateWithCodeBuilder::<Test>::eth_instantiate_with_code(
+			crate::Origin::<Test>::EthTransaction(ALICE).into(),
+			code,
+		)
 	}
 }
 
@@ -382,6 +390,7 @@ impl Config for Test {
 	type Currency = Balances;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
+	type DepositPerChildTrieItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;
 	type AllowEVMBytecode = AllowEvmBytecode;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;

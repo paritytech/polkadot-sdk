@@ -155,6 +155,7 @@ impl Default for Options {
 
 #[derive(Default)]
 struct Index {
+	recent: HashSet<Hash>,
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
@@ -243,6 +244,7 @@ impl Index {
 		}
 		let priority = Priority(statement.priority().unwrap_or(0));
 		self.entries.insert(hash, (account, priority, statement.data_len()));
+		self.recent.insert(hash);
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -324,6 +326,10 @@ impl Index {
 		purged
 	}
 
+	fn take_recent(&mut self) -> HashSet<Hash> {
+		std::mem::take(&mut self.recent)
+	}
+
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
 		if let Some((account, priority, len)) = self.entries.remove(hash) {
 			self.total_size -= len;
@@ -347,6 +353,7 @@ impl Index {
 					}
 				}
 			}
+			let _ = self.recent.remove(hash);
 			self.expired.insert(*hash, current_time);
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
 				self.accounts.entry(account)
@@ -768,13 +775,31 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for h in index.entries.keys() {
-			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
-			if let Some(encoded) = encoded {
-				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-					let hash = statement.hash();
-					result.push((hash, statement));
-				}
+		for hash in index.entries.keys().cloned() {
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				continue
+			};
+			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				result.push((hash, statement));
+			}
+		}
+		Ok(result)
+	}
+
+	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
+		let mut index = self.index.write();
+		let recent = index.take_recent();
+		let mut result = Vec::with_capacity(recent.len());
+		for hash in recent {
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				continue
+			};
+			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				result.push((hash, statement));
 			}
 		}
 		Ok(result)
@@ -809,6 +834,10 @@ impl StatementStore for Store {
 				},
 			},
 		)
+	}
+
+	fn has_statement(&self, hash: &Hash) -> bool {
+		self.index.read().entries.contains_key(hash)
 	}
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
@@ -1213,6 +1242,40 @@ mod tests {
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1));
+	}
+
+	#[test]
+	fn take_recent_statements_clears_index() {
+		let (store, _temp) = test_store();
+		let statement0 = signed_statement(0);
+		let statement1 = signed_statement(1);
+		let statement2 = signed_statement(2);
+		let statement3 = signed_statement(3);
+
+		let _ = store.submit(statement0.clone(), StatementSource::Local);
+		let _ = store.submit(statement1.clone(), StatementSource::Local);
+		let _ = store.submit(statement2.clone(), StatementSource::Local);
+
+		let recent1 = store.take_recent_statements().unwrap();
+		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) = recent1.into_iter().unzip();
+		let expected1 = vec![statement0, statement1, statement2];
+		assert!(expected1.iter().all(|s| recent1_hashes.contains(&s.hash())));
+		assert!(expected1.iter().all(|s| recent1_statements.contains(s)));
+
+		// Recent statements are cleared.
+		let recent2 = store.take_recent_statements().unwrap();
+		assert_eq!(recent2.len(), 0);
+
+		store.submit(statement3.clone(), StatementSource::Network);
+
+		let recent3 = store.take_recent_statements().unwrap();
+		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) = recent3.into_iter().unzip();
+		let expected3 = vec![statement3];
+		assert!(expected3.iter().all(|s| recent3_hashes.contains(&s.hash())));
+		assert!(expected3.iter().all(|s| recent3_statements.contains(s)));
+
+		// Recent statements are cleared, but statements remain in the store.
+		assert_eq!(store.statements().unwrap().len(), 4);
 	}
 
 	#[test]
