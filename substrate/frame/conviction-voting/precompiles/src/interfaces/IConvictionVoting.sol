@@ -80,6 +80,11 @@ interface IConvictionVoting {
 	/// @param trackId The governance track identifier.
 	function undelegate(uint16 trackId) external;
 
+	/// @notice Unlock expired voting/delegation lock
+	/// @param trackId The trackId/track ID to unlock
+	/// @param target The account to unlock (can be yourself or others)
+	function unlock(uint16 trackId, address target) external;
+
 	/// @notice Get the current vote details for specific referendum of an account in a governance track
 	/// @param who The account to query
 	/// @param trackId The governance track to query

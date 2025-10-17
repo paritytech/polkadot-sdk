@@ -124,6 +124,18 @@ interface IReferenda {
 	/// @param referendumIndex The index of the referendum for which to clear metadata.
 	function clearMetadata(uint32 referendumIndex) external;
 
+	/// @notice Refund the submission deposit for a referendum.
+	/// @param referendumIndex The index of the referendum for which to refund the deposit.
+	/// @return refundAmount The amount refunded to the submitter.
+	function refundSubmissionDeposit(
+		uint32 referendumIndex
+	) external returns (uint128 refundAmount);
+
+	/// @notice Refund the decision deposit for a referendum.
+	/// @param referendumIndex The index of the referendum for which to refund the deposit.
+	/// @return refundAmount The amount refunded to the depositor.
+	function refundDecisionDeposit(uint32 referendumIndex) external returns (uint128 refundAmount);
+
 	/// @notice Get comprehensive referendum information
 	/// @param referendumIndex The index of the referendum to query.
 	/// @return exists Whether the referendum exists
