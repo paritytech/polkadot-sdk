@@ -260,8 +260,8 @@ benchmarks_instance_pallet! {
         }
         
         // Delegator votes on the last `s` polls.
-		let remainder = (polls.len() as u32).saturating_sub(s);
-        for i in polls.iter().skip(remainder as usize).take(s as usize) {
+		let remainder = polls.len().saturating_sub(s as usize);
+        for i in polls.iter().skip(remainder).take(s as usize) {
             ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, vote)?;
         }
 
@@ -292,7 +292,7 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 
 		let delegated_balance: BalanceOf<T, I> = 1000u32.into();
-		let delegate_vote = account_vote::<T, I>(delegated_balance);
+		let vote = account_vote::<T, I>(delegated_balance);
 
 		ConvictionVoting::<T, I>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -302,13 +302,16 @@ benchmarks_instance_pallet! {
 			delegated_balance,
 		)?;
 
-		// Create votes for both delegator and delegate.
-		for i in polls.iter().take(r as usize) {
-			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, delegate_vote)?;
-		}
-		for i in polls.iter().take(s as usize) {
-			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, delegate_vote)?;
-		}
+		// Delegate votes on the *first* `r` polls
+        for i in polls.iter().take(r as usize) {
+            ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, vote)?;
+        }
+        
+        // Delegator votes on the *last* `s` polls
+		let remainder = polls.len().saturating_sub(s as usize);
+        for i in polls.iter().skip(remainder).take(s as usize) {
+            ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, vote)?;
+        }
 
 		assert_eq!(
 			VotingFor::<T, I>::get(&voter, &class).votes.len(),
