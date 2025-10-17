@@ -17,6 +17,11 @@
 
 //! ConvictionVoting pallet benchmarking.
 
+//TODO:
+// - take a look at what matters in delegate and undelegate
+// - rework those benchmarks & their local env
+// - rework local env of other benchmarks
+
 use super::*;
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
@@ -190,6 +195,7 @@ benchmarks_instance_pallet! {
 
 	delegate {
 		let r in 0 .. T::MaxVotes::get().min(T::Polls::max_ongoing().1);
+		let s in 0 .. T::MaxVotes::get().min(T::Polls::max_ongoing().1);
 
 		let all_polls = fill_voting::<T, I>().1;
 		let class = T::Polls::max_ongoing().0;
@@ -202,22 +208,31 @@ benchmarks_instance_pallet! {
 		let delegated_balance: BalanceOf<T, I> = 1000u32.into();
 		let delegate_vote = account_vote::<T, I>(delegated_balance);
 
-		// We need to create existing delegations
+		// We need to create existing votes.
 		for i in polls.iter().take(r as usize) {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, delegate_vote)?;
 		}
-		assert_matches!(
-			VotingFor::<T, I>::get(&voter, &class),
-			Voting::Casting(Casting { votes, .. }) if votes.len() == r as usize
+		for i in polls.iter().take(s as usize) {
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, delegate_vote)?;
+		}
+
+		assert_eq!(
+			VotingFor::<T, I>::get(&voter, &class).votes.len(),
+			r as usize
+		);
+		assert_eq!(
+			VotingFor::<T, I>::get(&caller, &class).votes.len(),
+			s as usize
 		);
 
 	}: _(RawOrigin::Signed(caller.clone()), class.clone(), voter_lookup, Conviction::Locked1x, delegated_balance)
 	verify {
-		assert_matches!(VotingFor::<T, I>::get(&caller, &class), Voting::Delegating(_));
+		assert_matches!(VotingFor::<T, I>::get(&caller, &class).maybe_delegate, Some(voter_lookup));
 	}
 
 	undelegate {
 		let r in 0 .. T::MaxVotes::get().min(T::Polls::max_ongoing().1);
+		let s in 0 .. T::MaxVotes::get().min(T::Polls::max_ongoing().1);
 
 		let all_polls = fill_voting::<T, I>().1;
 		let class = T::Polls::max_ongoing().0;
@@ -238,18 +253,26 @@ benchmarks_instance_pallet! {
 			delegated_balance,
 		)?;
 
-		// We need to create delegations
+		// Create votes.
 		for i in polls.iter().take(r as usize) {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, delegate_vote)?;
 		}
-		assert_matches!(
-			VotingFor::<T, I>::get(&voter, &class),
-			Voting::Casting(Casting { votes, .. }) if votes.len() == r as usize
+		for i in polls.iter().take(s as usize) {
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, delegate_vote)?;
+		}
+
+		assert_eq!(
+			VotingFor::<T, I>::get(&voter, &class).votes.len(),
+			r as usize
 		);
-		assert_matches!(VotingFor::<T, I>::get(&caller, &class), Voting::Delegating(_));
+		assert_eq!(
+			VotingFor::<T, I>::get(&caller, &class).votes.len(),
+			s as usize
+		);
+		assert_matches!(VotingFor::<T, I>::get(&caller, &class).maybe_delegate, Some(voter_lookup));
 	}: _(RawOrigin::Signed(caller.clone()), class.clone())
 	verify {
-		assert_matches!(VotingFor::<T, I>::get(&caller, &class), Voting::Casting(_));
+		assert_matches!(VotingFor::<T, I>::get(&caller, &class).maybe_delegate, None);
 	}
 
 	unlock {
