@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-/// @title Referenda Interface
+/// @dev The on-chain address of the Referenda precompile.
+address constant REFERENDA_PRECOMPILE_ADDRESS = address(0xB0000);
+
+/// @title Referenda Precompile Interface
 interface IReferenda {
 	/// @notice When the referendum should be enacted.
 	enum Timing {
@@ -110,6 +113,15 @@ interface IReferenda {
 	/// @notice Place the decision deposit for a referendum.
 	/// @param referendumIndex The index of the referendum for which to place the deposit.
 	function placeDecisionDeposit(uint32 referendumIndex) external;
+
+	/// @notice Set metadata for a referendum. Only callable by the referendum submitter.
+	/// @param referendumIndex The index of the referendum for which to set metadata.
+	/// @param metadataHash The hash of the metadata to associate with the referendum.
+	function setMetadata(uint32 referendumIndex, bytes32 metadataHash) external;
+
+	/// @notice Clear metadata for a referendum and refund the metadata deposit.
+	/// @param referendumIndex The index of the referendum for which to clear metadata.
+	function clearMetadata(uint32 referendumIndex) external;
 
 	/// @notice Get comprehensive referendum information
 	/// @param referendumIndex The index of the referendum to query.

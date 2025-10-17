@@ -1,12 +1,12 @@
 [package]
-name = "governance-precompiles"
+name = "conviction-voting-precompiles"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "Provides precompiles for governance"
+description = "Provides precompiles for the conviction voting pallet"
 
 [lints]
 workspace = true
@@ -20,7 +20,6 @@ tracing = { workspace = true }
 
 frame-support = { workspace = true }
 pallet-revive = { workspace = true }
-pallet-referenda = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 
 [dev-dependencies]
@@ -39,7 +38,6 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-revive/std",
-	"pallet-referenda/std",
 	"pallet-conviction-voting/std",
 	"pallet-timestamp/std",
 	"polkadot-parachain-primitives/std",
@@ -53,7 +51,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
-	"pallet-referenda/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -64,7 +61,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-revive/try-runtime",
-	"pallet-referenda/try-runtime",
 	"pallet-conviction-voting/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",

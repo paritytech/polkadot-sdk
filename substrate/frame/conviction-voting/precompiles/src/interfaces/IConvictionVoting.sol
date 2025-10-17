@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-/// @title ConvictionVoting Interface
+/// @dev The on-chain address of the Conviction Voting precompile.
+address constant CONVICTION_VOTING_PRECOMPILE_ADDRESS = address(0xC0000);
+
+/// @title ConvictionVoting Precompile Interface
 interface IConvictionVoting {
 	/// @notice A value denoting the strength of conviction of a vote.
 	enum Conviction {
@@ -113,7 +116,7 @@ interface IConvictionVoting {
 	/// @return balance The amount of tokens delegated (pre-conviction).
 	/// @return conviction The conviction level applied to the delegation as defined in the `Conviction` enum.
 	function getDelegation(
-		bytes32 who,
+		address who,
 		uint16 trackId
 	) external view returns (bytes32 target, uint128 balance, Conviction conviction);
 }
