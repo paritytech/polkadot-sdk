@@ -325,6 +325,9 @@ benchmarks_instance_pallet! {
 		let caller = funded_account::<T, I>("caller", 0);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		whitelist_account!(caller);
+		let delegate_acc = funded_account::<T, I>("delegate_acc", 0);
+		let delegate_lookup = T::Lookup::unlookup(delegate_acc.clone());
+
 		let normal_account_vote = account_vote::<T, I>(T::Currency::free_balance(&caller) - 100u32.into());
 		let big_account_vote = account_vote::<T, I>(T::Currency::free_balance(&caller));
 
@@ -337,6 +340,15 @@ benchmarks_instance_pallet! {
 				ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, normal_account_vote)?;
 			}
 		}
+
+		// Small delegation lock.
+		ConvictionVoting::<T, I>::delegate(
+			RawOrigin::Signed(caller.clone()).into(),
+			class.clone(),
+			delegate_lookup,
+			Conviction::Locked1x,
+			50u32.into(),
+		)?;
 
 		let orig_usable = <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite);
 		let polls = &all_polls[&class];
