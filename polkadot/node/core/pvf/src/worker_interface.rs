@@ -420,7 +420,25 @@ impl fmt::Debug for WorkerHandle {
 pub async fn framed_send(w: &mut (impl AsyncWrite + Unpin), buf: &[u8]) -> io::Result<()> {
 	let len_buf = buf.len().to_le_bytes();
 	w.write_all(&len_buf).await?;
+
+	#[cfg(not(feature = "x-shadow"))]
 	w.write_all(buf).await?;
+
+	#[cfg(feature = "x-shadow")]
+	{
+		// Under Shadow simulation, writes are performed in chunks because
+		// sending large blocks at once can, in some cases, cause a deadlock
+		// between the sender and the receiver.
+		let mut offset = 0;
+		const CHUNK_SIZE: usize = 1 << 15;
+
+		while offset < buf.len() {
+			let end = std::cmp::min(offset + CHUNK_SIZE, buf.len());
+			w.write_all(&buf[offset..end]).await?;
+			offset = end;
+		}
+	}
+
 	Ok(())
 }
 
