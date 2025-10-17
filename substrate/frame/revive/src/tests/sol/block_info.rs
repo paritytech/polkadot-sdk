@@ -21,7 +21,7 @@ use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
 	vm::evm::DIFFICULTY,
-	Code, Config,
+	Code, Config, Pallet,
 };
 
 use alloy_core::sol_types::{SolCall, SolInterface};
@@ -67,7 +67,7 @@ fn block_author_works(fixture_type: FixtureType) {
 			.data(BlockInfo::BlockInfoCalls::coinbase(BlockInfo::coinbaseCall {}).abi_encode())
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::coinbaseCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(Contracts::block_author().unwrap(), H160::from_slice(decoded.as_slice()));
+		assert_eq!(Contracts::block_author(), H160::from_slice(decoded.as_slice()));
 	});
 }
 
@@ -127,10 +127,7 @@ fn gaslimit_works(fixture_type: FixtureType) {
 			.data(BlockInfo::BlockInfoCalls::gaslimit(BlockInfo::gaslimitCall {}).abi_encode())
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::gaslimitCall::abi_decode_returns(&result.data).unwrap();
-		assert_eq!(
-			<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time() as u64,
-			decoded
-		);
+		assert_eq!(<Pallet<Test>>::evm_block_gas_limit(), decoded.into());
 	});
 }
 
