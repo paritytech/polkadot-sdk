@@ -1886,6 +1886,33 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::view_functions]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Provide the asset details for asset `id`.
+		pub fn asset_details(
+			id: T::AssetId,
+		) -> Option<AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>> {
+			Asset::<T, I>::get(id)
+		}
+
+		/// Provide the balance of `who` for asset `id`.
+		pub fn balance_of(who: T::AccountId, id: T::AssetId) -> Option<<T as Config<I>>::Balance> {
+			Account::<T, I>::get(id, who).map(|account| account.balance)
+		}
+
+		/// Provide the configured metadata for asset `id`.
+		pub fn get_metadata(
+			id: T::AssetId,
+		) -> Option<AssetMetadata<DepositBalanceOf<T, I>, BoundedVec<u8, T::StringLimit>>> {
+			Metadata::<T, I>::try_get(id).ok()
+		}
+
+		/// Provide the configured reserves for asset `id`.
+		pub fn get_reserves(id: T::AssetId) -> Vec<T::ReserveId> {
+			Self::reserves(&id)
+		}
+	}
+
 	/// Implements [`AccountTouch`] trait.
 	/// Note that a depositor can be any account, without any specific privilege.
 	/// This implementation is supposed to be used only for creation of system accounts.
