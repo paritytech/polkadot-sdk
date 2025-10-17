@@ -83,22 +83,19 @@ benchmarks_instance_pallet! {
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len() - 1;
-		// We need to create existing votes
+		// We need to create existing votes.
 		for i in polls.iter().skip(1) {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, account_vote)?;
 		}
-		let votes = match VotingFor::<T, I>::get(&caller, &class) {
-			Voting::Casting(Casting { votes, .. }) => votes,
-			_ => return Err("Votes are not direct".into()),
-		};
+		let votes = VotingFor::<T, I>::get(&caller, &class).votes;
 		assert_eq!(votes.len(), r as usize, "Votes were not recorded.");
 
 		let index = polls[0];
 	}: vote(RawOrigin::Signed(caller.clone()), index, account_vote)
 	verify {
-		assert_matches!(
-			VotingFor::<T, I>::get(&caller, &class),
-			Voting::Casting(Casting { votes, .. }) if votes.len() == (r + 1) as usize
+		assert_eq!(
+			VotingFor::<T, I>::get(&caller, &class).votes.len(),
+			(r + 1) as usize
 		);
 	}
 
@@ -116,19 +113,16 @@ benchmarks_instance_pallet! {
 		for i in polls.iter() {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, old_account_vote)?;
 		}
-		let votes = match VotingFor::<T, I>::get(&caller, &class) {
-			Voting::Casting(Casting { votes, .. }) => votes,
-			_ => return Err("Votes are not direct".into()),
-		};
+		let votes = VotingFor::<T, I>::get(&caller, &class).votes;
 		assert_eq!(votes.len(), r, "Votes were not recorded.");
 
 		let new_account_vote = account_vote::<T, I>(200u32.into());
 		let index = polls[0];
 	}: vote(RawOrigin::Signed(caller.clone()), index, new_account_vote)
 	verify {
-		assert_matches!(
-			VotingFor::<T, I>::get(&caller, &class),
-			Voting::Casting(Casting { votes, .. }) if votes.len() == r as usize
+		assert_eq!(
+			VotingFor::<T, I>::get(&caller, &class).votes.len(),
+			r as usize
 		);
 	}
 
@@ -146,18 +140,15 @@ benchmarks_instance_pallet! {
 		for i in polls.iter() {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, old_account_vote)?;
 		}
-		let votes = match VotingFor::<T, I>::get(&caller, &class) {
-			Voting::Casting(Casting { votes, .. }) => votes,
-			_ => return Err("Votes are not direct".into()),
-		};
+		let votes = VotingFor::<T, I>::get(&caller, &class).votes;
 		assert_eq!(votes.len(), r, "Votes were not recorded.");
 
 		let index = polls[0];
 	}: _(RawOrigin::Signed(caller.clone()), Some(class.clone()), index)
 	verify {
-		assert_matches!(
-			VotingFor::<T, I>::get(&caller, &class),
-			Voting::Casting(Casting { votes, .. }) if votes.len() == (r - 1) as usize
+		assert_eq!(
+			VotingFor::<T, I>::get(&caller, &class).votes.len(),
+			(r - 1) as usize
 		);
 	}
 
@@ -177,19 +168,16 @@ benchmarks_instance_pallet! {
 		for i in polls.iter() {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, old_account_vote)?;
 		}
-		let votes = match VotingFor::<T, I>::get(&caller, &class) {
-			Voting::Casting(Casting { votes, .. }) => votes,
-			_ => return Err("Votes are not direct".into()),
-		};
+		let votes = VotingFor::<T, I>::get(&caller, &class).votes;
 		assert_eq!(votes.len(), r, "Votes were not recorded.");
 
 		let index = polls[0];
 		assert!(T::Polls::end_ongoing(index, false).is_ok());
 	}: _(RawOrigin::Signed(caller.clone()), voter_lookup, class.clone(), index)
 	verify {
-		assert_matches!(
-			VotingFor::<T, I>::get(&voter, &class),
-			Voting::Casting(Casting { votes, .. }) if votes.len() == (r - 1) as usize
+		assert_eq!(
+			VotingFor::<T, I>::get(&voter, &class).votes.len(),
+			(r - 1) as usize
 		);
 	}
 
