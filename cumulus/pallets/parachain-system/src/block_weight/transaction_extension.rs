@@ -116,8 +116,8 @@ where
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let is_not_inherent = frame_system::Pallet::<Config>::inherents_applied();
-		let transaction_index = is_not_inherent
-			.then(|| frame_system::Pallet::<Config>::extrinsic_index().unwrap_or_default());
+		let extrinsic_index = frame_system::Pallet::<Config>::extrinsic_index().unwrap_or_default();
+		let transaction_index = is_not_inherent.then(|| extrinsic_index);
 
 		crate::BlockWeightMode::<Config>::mutate(|mode| {
 			let current_mode = *mode.get_or_insert_with(|| BlockWeightMode::FractionOfCore {
@@ -141,7 +141,7 @@ where
 						"`PotentialFullCore` should resolve to `FullCore` or `FractionOfCore` after applying a transaction.",
 					);
 
-					let block_weight_over_limit = first_transaction_index == transaction_index
+					let block_weight_over_limit = extrinsic_index == 0
 						&& block_weight_over_target_block_weight::<Config, TargetBlockRate>();
 
 					let block_weights = Config::BlockWeights::get();
@@ -164,13 +164,14 @@ where
 							"Inherent block logic took longer than the target block weight, \
 							`DynamicMaxBlockWeightHooks` not registered as `PreInherents` hook!",
 						);
-					} else if info
+					} else if dbg!(dbg!(info
 						.total_weight()
 						// The extrinsic lengths counts towards the POV size
-						.saturating_add(Weight::from_parts(0, len as u64))
-						.any_gt(target_weight) && is_first_block_in_core::<Config>()
+						.saturating_add(Weight::from_parts(0, len as u64)))
+						.any_gt(dbg!(target_weight)))
 					{
-						if transaction_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER {
+						if transaction_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER
+							&& is_first_block_in_core::<Config>() {
 							log::trace!(
 								target: LOG_TARGET,
 								"Enabling `PotentialFullCore` mode for extrinsic",
@@ -196,12 +197,15 @@ where
 							"Resetting back to `FractionOfCore`"
 						);
 						*mode =
-							Some(BlockWeightMode::FractionOfCore { first_transaction_index });
+							Some(BlockWeightMode::FractionOfCore { first_transaction_index: first_transaction_index.or(transaction_index) });
 					} else {
 						log::trace!(
 							target: LOG_TARGET,
 							"Not changing block weight mode"
 						);
+
+						*mode =
+							Some(BlockWeightMode::FractionOfCore { first_transaction_index: first_transaction_index.or(transaction_index) });
 					}
 				},
 			};
@@ -265,7 +269,7 @@ where
 					let block_weight = frame_system::BlockWeight::<Config>::get();
 					let extrinsic_class_weight = block_weight.get(info.class);
 
-					if extrinsic_class_weight.any_gt(target_weight) {
+					if dbg!(extrinsic_class_weight).any_gt(dbg!(target_weight)) {
 						log::trace!(
 							target: LOG_TARGET,
 							"Extrinsic class weight {extrinsic_class_weight:?} above target weight {target_weight:?}, enabling `FullCore` mode."

@@ -39,6 +39,10 @@ where
 {
 	fn pre_inherents() {
 		if !block_weight_over_target_block_weight::<Config, TargetBlockRate>() {
+			// We still initialize the `BlockWeightMode`.
+			crate::BlockWeightMode::<Config>::put(BlockWeightMode::FractionOfCore {
+				first_transaction_index: None,
+			});
 			return
 		}
 

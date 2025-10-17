@@ -71,7 +71,7 @@ const LOG_TARGET: &str = "runtime::parachain-system::block-weight";
 /// The current block weight mode.
 ///
 /// Based on this mode [`MaxParachainBlockWeight`] determines the current allowed block weight.
-#[derive(Debug, Encode, Decode, Clone, Copy, TypeInfo)]
+#[derive(Debug, Encode, Decode, Clone, Copy, TypeInfo, PartialEq)]
 pub enum BlockWeightMode {
 	/// The block is allowed to use the weight of a full core.
 	FullCore,
@@ -141,7 +141,9 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 			.min(Self::MAX_REF_TIME_PER_CORE_NS);
 
 		let total_pov_size = (number_of_cores as u64).saturating_mul(MAX_POV_SIZE as u64);
-		let proof_size_per_block = total_pov_size.saturating_div(target_blocks as u64);
+		// Each block at max gets one core.
+		let proof_size_per_block =
+			total_pov_size.saturating_div(target_blocks as u64).min(MAX_POV_SIZE as u64);
 
 		Weight::from_parts(ref_time_per_block, proof_size_per_block)
 	}

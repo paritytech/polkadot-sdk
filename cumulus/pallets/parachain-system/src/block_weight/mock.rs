@@ -24,6 +24,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
+	traits::PreInherents,
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight},
 		Weight,
@@ -34,12 +35,15 @@ use sp_core::ConstU32;
 use sp_io;
 use sp_runtime::{BuildStorage, Perbill};
 
-const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
+const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
+
+/// A simple call, which one doesn't matter.
+pub const CALL: &RuntimeCall =
+	&RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 0u64 });
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
-const TARGET_BLOCK_RATE: u32 = 12;
+pub const TARGET_BLOCK_RATE: u32 = 12;
 
 #[docify::export(tx_extension_setup)]
 pub type TxExtension = DynamicMaxBlockWeight<
@@ -70,15 +74,10 @@ mod max_block_weight_setup {
 				weights.base_extrinsic = ExtrinsicBaseWeight::get();
 			})
 			.for_class(DispatchClass::Normal, |weights| {
-				weights.max_total = Some(NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get());
+				weights.max_total = Some(MaximumBlockWeight::get());
 			})
 			.for_class(DispatchClass::Operational, |weights| {
 				weights.max_total = Some(MaximumBlockWeight::get());
-				// Operational transactions have some extra reserved space, so that they
-				// are included even if block reached `MaximumBlockWeight`.
-				weights.reserved = Some(
-					MaximumBlockWeight::get() - NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get()
-				);
 			})
 			.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 			.build_or_panic();
@@ -211,9 +210,14 @@ pub fn has_use_full_core_digest() -> bool {
 }
 
 /// Helper to register weight as consumed (simulating on_initialize)
-pub fn register_weight(weight: Weight) {
-	frame_system::Pallet::<Runtime>::register_extra_weight_unchecked(
-		weight,
-		DispatchClass::Mandatory,
-	);
+pub fn register_weight(weight: Weight, class: DispatchClass) {
+	frame_system::Pallet::<Runtime>::register_extra_weight_unchecked(weight, class);
+}
+
+/// Emulates what happes after `initialize_block` finished.
+pub fn initialize_block_finished() {
+	System::set_block_consumed_resources(Weight::zero(), 0);
+	System::note_finished_initialize();
+	<Runtime as frame_system::Config>::PreInherents::pre_inherents();
+	System::note_inherents_applied();
 }
