@@ -6,8 +6,6 @@ address constant REFERENDA_PRECOMPILE_ADDRESS = address(0xB0000);
 
 /// @title Referenda Precompile Interface
 /// @dev Exposes a lower-level interface to the Referenda pallet functionality.
-/// @dev The interface exposes a low level way of updating Polls (submitting votes) and querying their state.
-/// @dev Smart contracts can buld a custom voting system on top of it or refer to the Conviction Voting Precompile.
 interface IReferenda {
 	/// @notice When the referendum should be enacted.
 	enum Timing {
