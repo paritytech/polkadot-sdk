@@ -289,7 +289,7 @@ pub async fn start(
 		Ok(ok) => ok,
 		Err(err) => return Err(SubsystemError::Context(err)),
 	};
-    #[cfg(all(not(target_os = "linux"), not(feature = "x-shadow")))]
+	#[cfg(all(not(target_os = "linux"), not(feature = "x-shadow")))]
 	let security_status = if config.secure_validator_mode {
 		gum::error!(
 			target: LOG_TARGET,
@@ -310,7 +310,7 @@ pub async fn start(
 		);
 		SecurityStatus::default()
 	};
-    #[cfg(feature = "x-shadow")]
+	#[cfg(feature = "x-shadow")]
 	let security_status = if config.secure_validator_mode {
 		return Err(SubsystemError::Context(
 			"could not enable Secure Validator Mode for shadow simulation; check logs".into(),
