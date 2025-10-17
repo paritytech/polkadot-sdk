@@ -60,6 +60,12 @@ use sp_runtime::{
 /// dispatching the extrinsic are repeated with the post dispatch weights. The [`BlockWeightMode`]
 /// may is changed properly.
 ///
+/// # Note
+///
+/// The extension requires that any of the inner extensions sets the
+/// [`BlockWeight`](frame_system::BlockWeight). Otherwise the weight tracking is not working
+/// properly. Normally this is done by [`CheckWeight`](frame_system::CheckWeight).
+///
 /// # Generic parameters
 ///
 /// - `Config`: The [`Config`](crate::Config) trait of this pallet.

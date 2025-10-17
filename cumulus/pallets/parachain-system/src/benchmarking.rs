@@ -22,8 +22,8 @@
 use super::*;
 use crate::{
 	block_weight::{
-		mock::has_use_full_core_digest, BlockWeightMode, DynamicMaxBlockWeight,
-		MaxParachainBlockWeight,
+		mock::{has_use_full_core_digest, register_weight},
+		BlockWeightMode, DynamicMaxBlockWeight, MaxParachainBlockWeight,
 	},
 	parachain_inherent::InboundDownwardMessages,
 };
@@ -85,7 +85,9 @@ mod benchmarks {
 	fn block_weight_tx_extension_max_weight() -> Result<(), BenchmarkError> {
 		let caller = account("caller", 0, 0);
 
-		frame_system::Pallet::<T>::inherents_applied();
+		frame_system::Pallet::<T>::note_inherents_applied();
+
+		frame_system::Pallet::<T>::set_extrinsic_index(1);
 
 		frame_system::Pallet::<T>::deposit_log(
 			BundleInfo { index: 0, maybe_last: false }.to_digest_item(),
@@ -98,7 +100,7 @@ mod benchmarks {
 			}
 			.to_digest_item(),
 		);
-		let target_weight = MaxParachainBlockWeight::<T, ConstU32<4>>::get();
+		let target_weight = MaxParachainBlockWeight::<T, ConstU32<4>>::target_block_weight();
 
 		let info = DispatchInfo {
 			// The weight needs to be more than the target weight.
@@ -120,16 +122,129 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(post_info))
-				.unwrap()
-				.unwrap();
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| {
+				// Normally this is done by `CheckWeight`
+				register_weight(info.call_weight, DispatchClass::Normal);
+				Ok(post_info)
+			})
+			.unwrap()
+			.unwrap();
 		}
 
+		assert_eq!(crate::BlockWeightMode::<T>::get().unwrap(), BlockWeightMode::FullCore);
 		assert!(has_use_full_core_digest());
 		assert_eq!(
 			MaxParachainBlockWeight::<T, ConstU32<4>>::get(),
 			MaxParachainBlockWeight::<T, ConstU32<4>>::FULL_CORE_WEIGHT
 		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn block_weight_tx_extension_stays_fraction_of_core() -> Result<(), BenchmarkError> {
+		let caller = account("caller", 0, 0);
+
+		frame_system::Pallet::<T>::note_inherents_applied();
+
+		frame_system::Pallet::<T>::set_extrinsic_index(1);
+
+		frame_system::Pallet::<T>::deposit_log(
+			BundleInfo { index: 0, maybe_last: false }.to_digest_item(),
+		);
+		frame_system::Pallet::<T>::deposit_log(
+			CoreInfo {
+				selector: 0.into(),
+				claim_queue_offset: 0.into(),
+				number_of_cores: 1.into(),
+			}
+			.to_digest_item(),
+		);
+		let target_weight = MaxParachainBlockWeight::<T, ConstU32<4>>::target_block_weight();
+
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(1024, 1024),
+			extension_weight: Weight::zero(),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		let post_info = PostDispatchInfo { actual_weight: None, pays_fee: Default::default() };
+		let len = 0_usize;
+
+		crate::BlockWeightMode::<T>::put(BlockWeightMode::FractionOfCore {
+			first_transaction_index: None,
+		});
+
+		let ext = DynamicMaxBlockWeight::<T, (), ConstU32<4>>::new(());
+
+		#[block]
+		{
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| {
+				// Normally this is done by `CheckWeight`
+				register_weight(info.call_weight, DispatchClass::Normal);
+				Ok(post_info)
+			})
+			.unwrap()
+			.unwrap();
+		}
+
+		assert_eq!(
+			crate::BlockWeightMode::<T>::get().unwrap(),
+			BlockWeightMode::FractionOfCore { first_transaction_index: Some(1) }
+		);
+		assert!(!has_use_full_core_digest());
+		assert_eq!(MaxParachainBlockWeight::<T, ConstU32<4>>::get(), target_weight);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn block_weight_tx_extension_full_core() -> Result<(), BenchmarkError> {
+		let caller = account("caller", 0, 0);
+
+		frame_system::Pallet::<T>::note_inherents_applied();
+
+		frame_system::Pallet::<T>::set_extrinsic_index(1);
+
+		frame_system::Pallet::<T>::deposit_log(
+			BundleInfo { index: 0, maybe_last: false }.to_digest_item(),
+		);
+		frame_system::Pallet::<T>::deposit_log(
+			CoreInfo {
+				selector: 0.into(),
+				claim_queue_offset: 0.into(),
+				number_of_cores: 1.into(),
+			}
+			.to_digest_item(),
+		);
+
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(1024, 1024),
+			extension_weight: Weight::zero(),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		let post_info = PostDispatchInfo { actual_weight: None, pays_fee: Default::default() };
+		let len = 0_usize;
+
+		crate::BlockWeightMode::<T>::put(BlockWeightMode::FullCore);
+
+		let ext = DynamicMaxBlockWeight::<T, (), ConstU32<4>>::new(());
+
+		#[block]
+		{
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| {
+				// Normally this is done by `CheckWeight`
+				register_weight(info.call_weight, DispatchClass::Normal);
+				Ok(post_info)
+			})
+			.unwrap()
+			.unwrap();
+		}
+
+		assert_eq!(crate::BlockWeightMode::<T>::get().unwrap(), BlockWeightMode::FullCore);
 
 		Ok(())
 	}

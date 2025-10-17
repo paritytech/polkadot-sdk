@@ -110,7 +110,7 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 		Weight::from_parts(Self::MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
 
 	/// Returns the target block weight for one block.
-	fn target_block_weight() -> Weight {
+	pub(crate) fn target_block_weight() -> Weight {
 		let digest = frame_system::Pallet::<Config>::digest();
 		Self::target_block_weight_with_digest(&digest)
 	}
