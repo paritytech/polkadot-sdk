@@ -297,7 +297,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let substrate_hash_ref = substrate_block_hash.as_ref();
 		let block_number = block.number() as i64;
 		let ethereum_hash_ref = ethereum_hash.as_ref();
-		let block_map = BlockHashMap::new(substrate_block_hash, ethereum_hash.clone());
+		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
 
 		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", substrate_block_hash);
 
