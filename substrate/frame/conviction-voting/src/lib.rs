@@ -281,7 +281,7 @@ pub mod pallet {
 		// NOTE: weight must cover an incorrect voting of origin with max votes, this is ensure
 		// because a valid delegation cover decoding a direct voting with max votes.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::delegate(T::MaxVotes::get()))]
+		#[pallet::weight(T::WeightInfo::delegate(T::MaxVotes::get(), T::MaxVotes::get()))]
 		pub fn delegate(
 			origin: OriginFor<T>,
 			class: ClassOf<T, I>,
@@ -291,9 +291,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let to = T::Lookup::lookup(to)?;
-			let votes = Self::try_delegate(who, class, to, conviction, balance)?;
+			let (delegate_votes, delegator_votes) = Self::try_delegate(who, class, to, conviction, balance)?;
 
-			Ok(Some(T::WeightInfo::delegate(votes)).into())
+			Ok(Some(T::WeightInfo::delegate(delegate_votes, delegator_votes)).into())
 		}
 
 		/// Undelegate the voting power of the sending account for a particular class of polls.
@@ -313,14 +313,14 @@ pub mod pallet {
 		// NOTE: weight must cover an incorrect voting of origin with max votes, this is ensure
 		// because a valid delegation cover decoding a direct voting with max votes.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::undelegate(T::MaxVotes::get().into()))]
+		#[pallet::weight(T::WeightInfo::undelegate(T::MaxVotes::get(), T::MaxVotes::get()))]
 		pub fn undelegate(
 			origin: OriginFor<T>,
 			class: ClassOf<T, I>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let votes = Self::try_undelegate(who, class)?;
-			Ok(Some(T::WeightInfo::undelegate(votes)).into())
+			let (delegate_votes, delegator_votes) = Self::try_undelegate(who, class)?;
+			Ok(Some(T::WeightInfo::undelegate(delegate_votes, delegator_votes)).into())
 		}
 
 		/// Remove the lock caused by prior voting/delegating which has expired within a particular
@@ -759,19 +759,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Increase the amount delegated to `who` and update tallies accordingly.
 	///
-	/// Return the number of votes accessed in the process.
+	/// Returns the number of (delegate, delegator) votes accessed in the process.
 	fn increase_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
 		delegators_ongoing_votes: Vec<PollIndexOf<T, I>>,
-	) -> Result<u32, DispatchError> {
+	) -> Result<(u32, u32), DispatchError> {
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			// Increase delegate's delegation counter.
 			voting.delegations = voting.delegations.saturating_add(amount);
 
 			let votes = &mut voting.votes;
-			let vote_accesses = (delegators_ongoing_votes.len() + votes.len()) as u32;
+			let votes_accessed = (delegators_ongoing_votes.len() as u32, votes.len() as u32);
 
 			// For each of the delegate's votes.
 			for VoteRecord { poll_index, maybe_vote, .. } in votes.iter() {
@@ -814,26 +814,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 				}
 			}
-			Ok(vote_accesses)
+			Ok(votes_accessed)
 		})
 	}
 
 	/// Reduce the amount delegated to `who` and update tallies accordingly.
 	///
-	/// Return the number of votes accessed in the process.
+	/// Returns the number of (delegate, delegator) votes accessed in the process.
 	fn reduce_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
 		delegators_votes: Vec<PollIndexOf<T, I>>,
-	) -> Result<u32, DispatchError> {
+	) -> Result<(u32, u32), DispatchError> {
 		// Grab the delegate's voting data.
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			// Reduce amount delegated to this delegate.
 			voting.delegations = voting.delegations.saturating_sub(amount);
 
 			let votes = &mut voting.votes;
-			let vote_accesses = (delegators_votes.len() + votes.len()) as u32;
+			let votes_accessed = (delegators_votes.len() as u32, votes.len() as u32);
 
 			// For each of the delegate's votes.
 			for VoteRecord { poll_index, maybe_vote, .. } in votes.iter() {
@@ -882,27 +882,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					}
 				}
 			}
-			Ok(vote_accesses)
+			Ok(votes_accessed)
 		})
 	}
 
 	/// Attempt to delegate `balance` times `conviction` of voting power from `who` to `target`.
 	///
-	/// Return the number of votes accessed in the process.
+	/// Returns the number of (delegate, delegator) votes accessed in the process.
 	fn try_delegate(
 		who: T::AccountId,
 		class: ClassOf<T, I>,
 		target: T::AccountId,
 		conviction: Conviction,
 		balance: BalanceOf<T, I>,
-	) -> Result<u32, DispatchError> {
+	) -> Result<(u32, u32), DispatchError> {
 		// Sanity checks
 		ensure!(who != target, Error::<T, I>::Nonsense);
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 
 		let votes_accessed =
-			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
+			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<(u32, u32), DispatchError> {
 				// Ensure not already delegating.
 				if voting.maybe_delegate.is_some() {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
@@ -940,10 +940,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Attempt to end the current delegation.
 	///
-	/// Return the number of votes accessed in the process.
-	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<u32, DispatchError> {
+	/// Returns the number of (delegate, delegator) votes accessed in the process.
+	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<(u32, u32), DispatchError> {
 		let votes_accessed =
-			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
+			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<(u32, u32), DispatchError> {
 				// If they're currently delegating.
 				let (delegate, conviction) =
 					match (&voting.maybe_delegate, &voting.maybe_conviction) {

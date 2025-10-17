@@ -76,8 +76,8 @@ pub trait WeightInfo {
 	fn vote_existing() -> Weight;
 	fn remove_vote() -> Weight;
 	fn remove_other_vote() -> Weight;
-	fn delegate(r: u32, ) -> Weight;
-	fn undelegate(r: u32, ) -> Weight;
+	fn delegate(r: u32, _s: u32) -> Weight;
+	fn undelegate(r: u32, _s: u32) -> Weight;
 	fn unlock() -> Weight;
 }
 
@@ -181,7 +181,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 1]`.
-	fn delegate(r: u32, ) -> Weight {
+	fn delegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `146 + r * (1516 ±0)`
 		//  Estimated: `109992 + r * (109992 ±0)`
@@ -204,7 +204,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 1]`.
-	fn undelegate(r: u32, ) -> Weight {
+	fn undelegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `350 + r * (1264 ±0)`
 		//  Estimated: `109992 + r * (109992 ±0)`
@@ -338,7 +338,7 @@ impl WeightInfo for () {
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 1]`.
-	fn delegate(r: u32, ) -> Weight {
+	fn delegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `146 + r * (1516 ±0)`
 		//  Estimated: `109992 + r * (109992 ±0)`
@@ -361,7 +361,7 @@ impl WeightInfo for () {
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[0, 1]`.
-	fn undelegate(r: u32, ) -> Weight {
+	fn undelegate(r: u32, _s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `350 + r * (1264 ±0)`
 		//  Estimated: `109992 + r * (109992 ±0)`
