@@ -22,9 +22,15 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Compact, Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::time::Duration;
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
+
+/// The ref time per core in seconds.
+///
+/// This is the execution time each PoV gets on a core on the relay chain.
+pub const REF_TIME_PER_CORE_IN_SECS: u64 = 2;
 
 pub mod parachain_block_data;
 
@@ -284,7 +290,7 @@ impl CumulusDigestItem {
 		})
 	}
 
-	/// Returns the found [`CoreInfo`] and  iff [`Self::CoreInfo`] exists at max once in the given
+	/// Returns the found [`CoreInfo`] and iff [`Self::CoreInfo`] exists at max once in the given
 	/// `digest`.
 	pub fn core_info_exists_at_max_once(digest: &Digest) -> CoreInfoExistsAtMaxOnce {
 		let mut core_info = None;
@@ -461,6 +467,46 @@ pub struct CollationInfo {
 	pub head_data: HeadData,
 }
 
+/// The schedule for the next relay chain slot.
+///
+/// Returns the maximum number of parachain blocks to produce and the block time per block to use.
+#[derive(Clone, Debug, codec::Decode, codec::Encode, PartialEq, TypeInfo)]
+pub struct NextSlotSchedule {
+	/// The maximum number of blocks to produce in the relay chain slot.
+	///
+	/// The node is free to produce less blocks.
+	pub number_of_blocks: u32,
+	/// The target block time in wall clock time for each block.
+	///
+	/// The maximum should be [`REF_TIME_PER_CORE_IN_SECS`] or otherwise blocks may fail to
+	/// validate on the relay chain.
+	pub block_time: Duration,
+}
+
+impl NextSlotSchedule {
+	/// Creates a schedule that produces one block, occupying an entire core.
+	pub fn one_block_using_one_core() -> Self {
+		Self { number_of_blocks: 1, block_time: Duration::from_secs(REF_TIME_PER_CORE_IN_SECS) }
+	}
+
+	/// A schedule that maps `x` blocks onto `y` cores.
+	pub fn x_blocks_using_y_cores(blocks: u32, cores: u32) -> Self {
+		let ref_time_per_core = Duration::from_secs(REF_TIME_PER_CORE_IN_SECS);
+
+		if blocks == 0 || cores == 0 {
+			return Self { number_of_blocks: 0, block_time: Duration::from_secs(0) }
+		}
+
+		// In wall clock time we can not go above `6s` (relay chain slot duration), so we need to
+		// cap there.
+		let block_time = (ref_time_per_core * cores).min(Duration::from_secs(6)) / blocks;
+		// One block can at max occupy one core.
+		let block_time = block_time.min(ref_time_per_core);
+
+		Self { block_time, number_of_blocks: blocks }
+	}
+}
+
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
 	///
@@ -492,5 +538,119 @@ sp_api::decl_runtime_apis! {
 	pub trait RelayParentOffsetApi {
 		/// Fetch the slot offset that is expected from the relay chain.
 		fn relay_parent_offset() -> u32;
+	}
+
+	/// API for parachain slot scheduling.
+	///
+	/// This runtime API allows the parachain runtime to communicate the block interval
+	/// to the node side. The node will call this API every relay chain slot (~6 seconds)
+	/// to get the scheduled parachain block interval.
+	pub trait SlotSchedule {
+		/// Get the block production schedule for the next relay chain slot.
+		///
+		/// - `num_cores`: The number of cores assigned to this parachain
+		///
+		/// Returns a [`NextSlotSchedule`].
+		fn next_slot_schedule(num_cores: u32) -> NextSlotSchedule;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn one_block_using_one_core_works() {
+		let schedule = NextSlotSchedule::one_block_using_one_core();
+		assert_eq!(schedule.number_of_blocks, 1);
+		assert_eq!(schedule.block_time, Duration::from_secs(REF_TIME_PER_CORE_IN_SECS));
+	}
+
+	#[test]
+	fn x_blocks_using_y_cores_basic_functionality() {
+		// 2 blocks using 1 core: each block gets 1 second
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(2, 1);
+		assert_eq!(schedule.number_of_blocks, 2);
+		assert_eq!(schedule.block_time, Duration::from_secs(1));
+
+		// 4 blocks using 2 cores: each block gets 1 second
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(4, 2);
+		assert_eq!(schedule.number_of_blocks, 4);
+		assert_eq!(schedule.block_time, Duration::from_secs(1));
+
+		// 2 blocks using 2 cores: each block gets 2 seconds (max)
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(2, 2);
+		assert_eq!(schedule.number_of_blocks, 2);
+		assert_eq!(schedule.block_time, Duration::from_secs(2));
+	}
+
+	#[test]
+	fn x_blocks_using_y_cores_caps_block_time_at_ref_time() {
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(2, 10);
+		assert_eq!(schedule.number_of_blocks, 2);
+		assert_eq!(schedule.block_time, Duration::from_secs(REF_TIME_PER_CORE_IN_SECS));
+
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(1, 5);
+		assert_eq!(schedule.number_of_blocks, 1);
+		assert_eq!(schedule.block_time, Duration::from_secs(REF_TIME_PER_CORE_IN_SECS));
+	}
+
+	#[test]
+	fn x_blocks_using_y_cores_edge_cases() {
+		// Zero blocks
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(0, 1);
+		assert_eq!(schedule.number_of_blocks, 0);
+		assert_eq!(schedule.block_time, Duration::from_secs(0));
+
+		// Zero cores (should not panic, though not realistic)
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(2, 0);
+		assert_eq!(schedule.number_of_blocks, 0);
+		assert_eq!(schedule.block_time, Duration::from_secs(0));
+
+		// Large numbers
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(100, 50);
+		assert_eq!(schedule.number_of_blocks, 100);
+		assert_eq!(schedule.block_time, Duration::from_millis(60));
+	}
+
+	#[test]
+	fn x_blocks_using_y_cores_various_ratios() {
+		// 6 blocks, 3 cores: each block gets 1 second
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(6, 3);
+		assert_eq!(schedule.number_of_blocks, 6);
+		assert_eq!(schedule.block_time, Duration::from_secs(1));
+
+		// 8 blocks, 4 cores: each block gets 1 second
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(8, 4);
+		assert_eq!(schedule.number_of_blocks, 8);
+		assert_eq!(schedule.block_time, Duration::from_millis(750));
+
+		// 4 blocks, 8 cores: each block gets 2 seconds (capped)
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(4, 8);
+		assert_eq!(schedule.number_of_blocks, 4);
+		assert_eq!(schedule.block_time, Duration::from_millis(1500));
+
+		// 10 blocks, 2 cores: each block gets `400ms`
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(10, 2);
+		assert_eq!(schedule.number_of_blocks, 10);
+		assert_eq!(schedule.block_time, Duration::from_millis(400));
+	}
+
+	#[test]
+	fn x_blocks_using_y_cores_fractional_seconds() {
+		// 6 blocks, 1 core: each block gets `333.333... ms (2000ms / 6)`
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(6, 1);
+		assert_eq!(schedule.number_of_blocks, 6);
+		assert_eq!(schedule.block_time, Duration::from_nanos(333_333_333));
+
+		// 8 blocks, 1 core: each block gets `250ms`
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(8, 1);
+		assert_eq!(schedule.number_of_blocks, 8);
+		assert_eq!(schedule.block_time, Duration::from_millis(250));
+
+		// 12 blocks, 1 core: each block gets `~166.666ms`
+		let schedule = NextSlotSchedule::x_blocks_using_y_cores(12, 1);
+		assert_eq!(schedule.number_of_blocks, 12);
+		assert_eq!(schedule.block_time, Duration::from_nanos(166_666_666));
 	}
 }
