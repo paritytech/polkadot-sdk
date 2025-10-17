@@ -254,7 +254,7 @@ benchmarks_instance_pallet! {
 		let delegated_balance: BalanceOf<T, I> = 1000u32.into();
 		let delegate_vote = account_vote::<T, I>(delegated_balance);
 
-		// We need to create existing votes.
+		// We need to create existing votes for both delegator and delegate.
 		for i in polls.iter().take(r as usize) {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, delegate_vote)?;
 		}
@@ -299,7 +299,7 @@ benchmarks_instance_pallet! {
 			delegated_balance,
 		)?;
 
-		// Create votes.
+		// Create votes for both delegator and delegate.
 		for i in polls.iter().take(r as usize) {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, delegate_vote)?;
 		}
