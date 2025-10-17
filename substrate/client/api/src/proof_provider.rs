@@ -21,6 +21,7 @@ use crate::{CompactProof, StorageProof};
 use sp_runtime::traits::Block as BlockT;
 use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
 use sp_storage::ChildInfo;
+use sp_trie::ClientProof;
 
 /// Interface for providing block proving utilities.
 pub trait ProofProvider<Block: BlockT> {
@@ -90,4 +91,11 @@ pub trait ProofProvider<Block: BlockT> {
 		proof: CompactProof,
 		start_keys: &[Vec<u8>],
 	) -> sp_blockchain::Result<(KeyValueStates, usize)>;
+
+	/// Return trie nodes for specified subtrees.
+	fn proposal_prove(
+		&self,
+		client_proof: &ClientProof<Block::Hash>,
+		size_limit: usize,
+	) -> sp_blockchain::Result<CompactProof>;
 }

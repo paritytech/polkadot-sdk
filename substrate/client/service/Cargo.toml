@@ -73,6 +73,7 @@ thiserror = { workspace = true }
 tokio = { features = ["parking_lot", "rt-multi-thread", "time"], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 tracing-futures = { workspace = true }
+trie-db = { workspace = true }
 
 [dev-dependencies]
 substrate-test-runtime = { workspace = true }

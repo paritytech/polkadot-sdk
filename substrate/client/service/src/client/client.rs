@@ -84,6 +84,12 @@ use std::{
 	path::PathBuf,
 	sync::Arc,
 };
+use sp_trie::get_trie_node_children;
+use sp_trie::ClientProof;
+use sp_trie::TrieNodeChild;
+use sp_trie::TrieNodeChildKind;
+use trie_db::NibbleVec;
+use codec::Encode;
 
 use super::call_executor::LocalCallExecutor;
 use sp_core::traits::CodeExecutor;
@@ -1382,6 +1388,87 @@ where
 		)?;
 
 		Ok(state)
+	}
+
+	fn proposal_prove(
+		&self,
+		client_proof: &ClientProof<Block::Hash>,
+		size_limit: usize,
+	) -> sp_blockchain::Result<CompactProof> {
+		let load = |node: &TrieNodeChild<Block::Hash>| {
+			let encoded = match self.backend.get_trie_node(node.prefix.as_prefix(), &node.hash) {
+				Err(e) => {
+					return Err(sp_blockchain::Error::Proposal(e.to_string()));
+				},
+				Ok(None) => {
+					return Ok(None);
+				},
+				Ok(Some(encoded)) => encoded,
+			};
+			let child_nodes = if node.kind == TrieNodeChildKind::Value {
+				None
+			} else {
+				match get_trie_node_children::<HashingFor<Block>>(&node.prefix, &encoded) {
+					Err(e) => {
+						return Err(sp_blockchain::Error::Proposal(format!("{e:?}")));
+					},
+					Ok(child_nodes) => Some(child_nodes),
+				}
+			};
+			Ok(Some((encoded, child_nodes)))
+		};
+
+		let mut results = CompactProof { encoded_nodes: vec![] };
+		let mut size = 0;
+		let mut leaf_iter = std::iter::from_fn({
+			let mut stack = vec![(
+				client_proof,
+				TrieNodeChild { kind: TrieNodeChildKind::Branch, prefix: NibbleVec::new(), hash: client_proof.hash },
+			)];
+			move || {
+				while let Some((proof, node)) = stack.pop() {
+					if proof.is_leaf() {
+						return Some(Ok(node));
+					}
+					let child_nodes = match load(&node) {
+						Err(e) => {
+							return Some(Err(e));
+						},
+						Ok(None) => {
+							continue;
+						},
+						Ok(Some((_, child_nodes))) => child_nodes,
+					};
+					for child_proof in proof.children.iter().rev() {
+						if let Some(child_node) = child_nodes.iter().flatten().find(|node| node.hash == child_proof.hash) {
+							stack.push((child_proof, child_node.clone()));
+						} else {
+							return Some(Err(sp_blockchain::Error::Proposal("ClientProof: unexpected child".to_string())));
+						}
+					}
+				}
+				None
+			}
+		});
+		while let Some(node) = leaf_iter.next().transpose()? {
+			let mut result = vec![];
+			let mut stack = vec![node.clone()];
+			while let Some(node) = stack.pop() {
+				if let Some((encoded, child_nodes)) = load(&node)? {
+					size += encoded.len();
+					result.push(encoded.clone());
+					if size >= size_limit {
+						break;
+					}
+					stack.extend(child_nodes.into_iter().flatten());
+				}
+			}
+			results.encoded_nodes.push(StorageProof::new(result).into_compact_proof::<HashingFor<Block>>(node.hash).map_err(|e| sp_blockchain::Error::Proposal(e.to_string()))?.encode());
+			if size >= size_limit {
+				break;
+			}
+		}
+		Ok(results)
 	}
 }
 

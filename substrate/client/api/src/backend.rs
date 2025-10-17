@@ -36,6 +36,7 @@ use sp_state_machine::{
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
 use sp_trie::PrefixedMemoryDB;
+use hash_db::Prefix;
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
 
@@ -685,6 +686,9 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Inject partial state into the database.
 	fn import_partial_state(&self, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()>;
+
+	/// Get trie node from database.
+	fn get_trie_node(&self, prefix: Prefix, hash: &Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>>;
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

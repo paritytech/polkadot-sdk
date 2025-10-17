@@ -29,6 +29,8 @@ use log::{debug, trace};
 use prost::Message;
 use sc_network_types::PeerId;
 use schnellru::{ByLength, LruMap};
+use sp_trie::ClientProof;
+use sp_trie::CLIENT_PROOF;
 
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_network::{
@@ -214,7 +216,12 @@ where
 		let result = if reputation_changes.is_empty() {
 			let mut response = StateResponse::default();
 
-			if !request.no_proof {
+			if request.start.get(0).map_or(false, |x| x == CLIENT_PROOF) {
+				let client_proof = request.start.get(1).ok_or_else(|| HandleRequestError::ProposalRequest)?;
+				let client_proof = ClientProof::decode(&mut &client_proof[..])?;
+				let proof = self.client.proposal_prove(&client_proof, MAX_RESPONSE_BYTES)?;
+				response.proof = proof.encode();
+			} else if !request.no_proof {
 				let (proof, _count) = self.client.read_proof_collection(
 					block,
 					request.start.as_slice(),
@@ -292,4 +299,7 @@ enum HandleRequestError {
 
 	#[error("Failed to send response.")]
 	SendResponse,
+
+	#[error("Proposal request decoding failed.")]
+	ProposalRequest,
 }

@@ -2638,6 +2638,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		Ok(())
 	}
 
+	fn get_trie_node(&self, prefix: Prefix, hash: &Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		Ok(sp_state_machine::Storage::get(self.storage.as_ref(), hash, prefix).map_err(|e| sp_blockchain::Error::Proposal(e))?)
+	}
+
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {
 		let hint = || {
 			let header_metadata = self.blockchain.header_metadata(hash);

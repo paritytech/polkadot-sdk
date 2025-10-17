@@ -180,6 +180,9 @@ pub enum Error {
 	// the storage `fn`s returns typed errors.
 	#[error("Storage error: {0}")]
 	Storage(String),
+
+	#[error("Proposal error: {0}")]
+	Proposal(String),
 }
 
 impl From<Box<dyn sp_state_machine::Error + Send + Sync + 'static>> for Error {

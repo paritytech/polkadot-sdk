@@ -19827,6 +19827,7 @@ version = "28.0.0"
 dependencies = [
  "fnv",
  "futures",
+ "hash-db",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -20894,6 +20895,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-futures",
+ "trie-db",
 ]
 
 [[package]]
@@ -23782,6 +23784,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-runtime",
+ "sp-storage 19.0.0",
  "substrate-prometheus-endpoint",
  "thiserror 1.0.65",
  "tracing",
