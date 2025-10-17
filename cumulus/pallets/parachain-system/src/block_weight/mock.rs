@@ -128,66 +128,84 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
-pub fn new_test_ext_with_digest(num_cores: Option<u16>) -> sp_io::TestExternalities {
-	let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-
-	let mut ext = sp_io::TestExternalities::from(storage);
-
-	ext.execute_with(|| {
-		if let Some(num_cores) = num_cores {
-			let core_info = CoreInfo {
-				selector: CoreSelector(0),
-				claim_queue_offset: ClaimQueueOffset(0),
-				number_of_cores: Compact(num_cores),
-			};
-
-			let digest = CumulusDigestItem::CoreInfo(core_info).to_digest_item();
-
-			frame_system::Pallet::<Runtime>::deposit_log(digest);
-		}
-	});
-
-	ext
-}
-
-/// Helper to create test externalities with core and bundle info
-pub fn new_test_ext_with_bundle(
+/// Builder for test externalities with fluent API
+pub struct TestExtBuilder {
 	num_cores: Option<u16>,
-	bundle_index: u8,
-	maybe_last: bool,
-) -> sp_io::TestExternalities {
-	let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	bundle_index: Option<u8>,
+	bundle_maybe_last: bool,
+}
 
-	let mut ext = sp_io::TestExternalities::from(storage);
+impl Default for TestExtBuilder {
+	fn default() -> Self {
+		sp_tracing::init_for_tests();
 
-	ext.execute_with(|| {
-		if let Some(num_cores) = num_cores {
-			let core_info = CoreInfo {
-				selector: CoreSelector(0),
-				claim_queue_offset: ClaimQueueOffset(0),
-				number_of_cores: Compact(num_cores),
-			};
+		Self { num_cores: None, bundle_index: None, bundle_maybe_last: false }
+	}
+}
 
-			let digest = CumulusDigestItem::CoreInfo(core_info).to_digest_item();
-			frame_system::Pallet::<Runtime>::deposit_log(digest);
+impl TestExtBuilder {
+	/// Create a new builder
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// Set the number of cores
+	pub fn number_of_cores(mut self, num_cores: u16) -> Self {
+		self.num_cores = Some(num_cores);
+		self
+	}
+
+	/// Set this as the first block in the core (bundle index = 0)
+	pub fn first_block_in_core(mut self, is_first: bool) -> Self {
+		if is_first {
+			self.bundle_index = Some(0);
+		} else if self.bundle_index.is_none() {
+			// If not first and no bundle index set, default to index 1
+			self.bundle_index = Some(1);
 		}
+		self
+	}
 
-		let bundle_info = BundleInfo { index: bundle_index, maybe_last };
-		let digest = CumulusDigestItem::BundleInfo(bundle_info).to_digest_item();
-		frame_system::Pallet::<Runtime>::deposit_log(digest);
-	});
+	/// Set the bundle index directly
+	pub fn bundle_index(mut self, index: u8) -> Self {
+		self.bundle_index = Some(index);
+		self
+	}
 
-	ext
-}
+	/// Set whether this is maybe the last block in the bundle
+	pub fn maybe_last(mut self, maybe_last: bool) -> Self {
+		self.bundle_maybe_last = maybe_last;
+		self
+	}
 
-/// Helper to create test externalities for first block in core
-pub fn new_test_ext_first_block(num_cores: u16) -> sp_io::TestExternalities {
-	new_test_ext_with_bundle(Some(num_cores), 0, false)
-}
+	/// Build the test externalities
+	pub fn build(self) -> sp_io::TestExternalities {
+		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		let mut ext = sp_io::TestExternalities::from(storage);
 
-/// Helper to create test externalities for non-first block in core
-pub fn new_test_ext_non_first_block(num_cores: u16) -> sp_io::TestExternalities {
-	new_test_ext_with_bundle(Some(num_cores), 1, false)
+		ext.execute_with(|| {
+			// Add core info if specified
+			if let Some(num_cores) = self.num_cores {
+				let core_info = CoreInfo {
+					selector: CoreSelector(0),
+					claim_queue_offset: ClaimQueueOffset(0),
+					number_of_cores: Compact(num_cores),
+				};
+				let digest = CumulusDigestItem::CoreInfo(core_info).to_digest_item();
+				frame_system::Pallet::<Runtime>::deposit_log(digest);
+			}
+
+			// Add bundle info if specified
+			if let Some(bundle_index) = self.bundle_index {
+				let bundle_info =
+					BundleInfo { index: bundle_index, maybe_last: self.bundle_maybe_last };
+				let digest = CumulusDigestItem::BundleInfo(bundle_info).to_digest_item();
+				frame_system::Pallet::<Runtime>::deposit_log(digest);
+			}
+		});
+
+		ext
+	}
 }
 
 /// Helper to check if UseFullCore digest was deposited
