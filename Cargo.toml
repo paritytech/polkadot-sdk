@@ -399,6 +399,7 @@ members = [
 	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/migrations",
 	"substrate/frame/mixnet",
+	"substrate/frame/multi-asset-bounties",
 	"substrate/frame/multisig",
 	"substrate/frame/nft-fractionalization",
 	"substrate/frame/nfts",
@@ -1019,6 +1020,7 @@ pallet-migrations = { path = "substrate/frame/migrations", default-features = fa
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
 pallet-mmr = { path = "substrate/frame/merkle-mountain-range", default-features = false }
+pallet-multi-asset-bounties = { path = "substrate/frame/multi-asset-bounties", default-features = false }
 pallet-multisig = { path = "substrate/frame/multisig", default-features = false }
 pallet-nft-fractionalization = { path = "substrate/frame/nft-fractionalization", default-features = false }
 pallet-nfts = { path = "substrate/frame/nfts", default-features = false }
