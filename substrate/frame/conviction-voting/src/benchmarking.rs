@@ -201,19 +201,33 @@ benchmarks_instance_pallet! {
 		let voter = funded_account::<T, I>("caller", 0);
 		let voter_lookup = T::Lookup::unlookup(voter.clone());
 		whitelist_account!(caller);
-		let old_account_vote = account_vote::<T, I>(100u32.into());
-
+		let delegate_acc = funded_account::<T, I>("delegate_acc", 0);
+		let delegate_lookup = T::Lookup::unlookup(delegate_acc.clone());
+		
 		T::VotingHooks::on_vote_worst_case(&caller);
-
+		
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len();
-		// We need to create existing votes
+		
+		ConvictionVoting::<T, I>::delegate(
+			RawOrigin::Signed(voter.clone()).into(),
+			class.clone(),
+			delegate_lookup,
+			Conviction::Locked1x,
+			1000u32.into(),
+		)?;
+
+		// We need to create existing votes for both delegate and delegator.
+		let old_account_vote = account_vote::<T, I>(100u32.into());
 		for i in polls.iter() {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(voter.clone()).into(), *i, old_account_vote)?;
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(delegate_acc.clone()).into(), *i, old_account_vote)?;
 		}
 		let votes = VotingFor::<T, I>::get(&caller, &class).votes;
 		assert_eq!(votes.len(), r, "Votes were not recorded.");
+		let votes_d = VotingFor::<T, I>::get(&delegate_acc, &class).votes;
+		assert_eq!(votes_d.len(), polls.len(), "Delegate's votes were not recorded.");
 
 		let index = polls[0];
 		assert!(T::Polls::end_ongoing(index, false).is_ok());
