@@ -76,14 +76,23 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 		let delegate = funded_account::<T, I>("delegate", 0);
 		whitelist_account!(delegate);
+		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
 		let account_vote = account_vote::<T, I>(100u32.into());
 
 		T::VotingHooks::on_vote_worst_case(&caller);
-
+		
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len() - 1;
 		
+		ConvictionVoting::<T, I>::delegate(
+			RawOrigin::Signed(caller.clone()).into(),
+			class.clone(),
+			delegate_lookup,
+			Conviction::Locked1x,
+			1000u32.into(),
+		)?;
+
 		// We need to create existing votes for voter & their delegate.
 		for i in polls.iter().skip(1) {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, account_vote)?;
@@ -111,6 +120,7 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 		let delegate = funded_account::<T, I>("delegate", 0);
 		whitelist_account!(delegate);
+		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
 		let old_account_vote = account_vote::<T, I>(100u32.into());
 
 		T::VotingHooks::on_vote_worst_case(&caller);
@@ -118,6 +128,14 @@ benchmarks_instance_pallet! {
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len();
+
+		ConvictionVoting::<T, I>::delegate(
+			RawOrigin::Signed(caller.clone()).into(),
+			class.clone(),
+			delegate_lookup,
+			Conviction::Locked1x,
+			1000u32.into(),
+		)?;
 
 		// We need to create existing votes for voter & their delegate.
 		for i in polls.iter() {
