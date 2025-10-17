@@ -240,6 +240,14 @@ impl core::hash::Hash for CoreInfo {
 	}
 }
 
+impl CoreInfo {
+	/// Puts this into a [`CumulusDigestItem::CoreInfo`] and then encodes it as a Substrate
+	/// [`DigestItem`].
+	pub fn to_digest_item(&self) -> DigestItem {
+		CumulusDigestItem::CoreInfo(self.clone()).to_digest_item()
+	}
+}
+
 /// Information about a block that is part of a PoV bundle.
 #[derive(Clone, Debug, Decode, Encode, PartialEq)]
 pub struct BundleInfo {
@@ -251,6 +259,14 @@ pub struct BundleInfo {
 	/// [`CumulusDigestItem::UseFullCore`] that informs the node to use an entire for one block
 	/// only.
 	pub maybe_last: bool,
+}
+
+impl BundleInfo {
+	/// Puts this into a [`CumulusDigestItem::BundleInfo`] and then encodes it as a Substrate
+	/// [`DigestItem`].
+	pub fn to_digest_item(&self) -> DigestItem {
+		CumulusDigestItem::BundleInfo(self.clone()).to_digest_item()
+	}
 }
 
 /// Return value of [`CumulusDigestItem::core_info_exists_at_max_once`]

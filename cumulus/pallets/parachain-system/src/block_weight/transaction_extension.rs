@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use super::{
-	block_weight_over_target_block_weight, is_first_block_in_core, BlockWeightMode,
+	block_weight_over_target_block_weight, is_first_block_in_core_with_digest, BlockWeightMode,
 	MaxParachainBlockWeight, LOG_TARGET,
 };
 use alloc::vec::Vec;
@@ -141,12 +141,13 @@ where
 						"`PotentialFullCore` should resolve to `FullCore` or `FractionOfCore` after applying a transaction.",
 					);
 
+					let digest = frame_system::Pallet::<Config>::digest();
 					let block_weight_over_limit = extrinsic_index == 0
 						&& block_weight_over_target_block_weight::<Config, TargetBlockRate>();
 
 					let block_weights = Config::BlockWeights::get();
 					let target_weight = block_weights.get(info.class).max_total.unwrap_or_else(
-						|| MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight().saturating_sub(block_weights.base_block)
+						|| MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest).saturating_sub(block_weights.base_block)
 					);
 
 					// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
@@ -158,7 +159,7 @@ where
 							CumulusDigestItem::UseFullCore.to_digest_item(),
 						);
 
-						if !is_first_block_in_core::<Config>() {
+						if !is_first_block_in_core_with_digest(&digest) {
 							// We are already above the allowed maximum and do not want to accept any more
 							// extrinsics.
 							frame_system::Pallet::<Config>::register_extra_weight_unchecked(
@@ -179,7 +180,7 @@ where
 						.any_gt(target_weight)
 					{
 						if transaction_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER
-							&& is_first_block_in_core::<Config>() {
+							&& is_first_block_in_core_with_digest(&digest) {
 							log::trace!(
 								target: LOG_TARGET,
 								"Enabling `PotentialFullCore` mode for extrinsic",
@@ -230,8 +231,9 @@ where
 				// If the previous mode was already `FullCore`, we are fine.
 				BlockWeightMode::FullCore => {},
 				BlockWeightMode::FractionOfCore { .. } => {
+					let digest = frame_system::Pallet::<Config>::digest();
 					let target_block_weight =
-						MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight();
+						MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest);
 
 					let is_above_limit = frame_system::Pallet::<Config>::remaining_block_weight()
 						.consumed()
@@ -250,7 +252,7 @@ where
 						// If this isn't the first block in a core, we register the full core weight
 						// to ensure that we don't include any other transactions. Because we don't
 						// know how many weight of the core was already used by the blocks before.
-						if !is_first_block_in_core::<Config>() {
+						if !is_first_block_in_core_with_digest(&digest) {
 							log::error!(
 								target: LOG_TARGET,
 								"Registering `FULL_CORE_WEIGHT` to ensure no other transaction is included \

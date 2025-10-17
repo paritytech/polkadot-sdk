@@ -56,7 +56,7 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::Digest;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 pub(crate) mod mock;
 pub mod pre_inherents_hook;
 #[cfg(test)]
@@ -106,7 +106,7 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 {
 	// Maximum ref time per core
 	const MAX_REF_TIME_PER_CORE_NS: u64 = 2 * WEIGHT_REF_TIME_PER_SECOND;
-	const FULL_CORE_WEIGHT: Weight =
+	pub(crate) const FULL_CORE_WEIGHT: Weight =
 		Weight::from_parts(Self::MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
 
 	/// Returns the target block weight for one block.

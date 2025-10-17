@@ -125,12 +125,14 @@ construct_runtime!(
 );
 
 /// Builder for test externalities
+#[cfg(test)]
 pub struct TestExtBuilder {
 	num_cores: Option<u16>,
 	bundle_index: Option<u8>,
 	bundle_maybe_last: bool,
 }
 
+#[cfg(test)]
 impl Default for TestExtBuilder {
 	fn default() -> Self {
 		sp_tracing::init_for_tests();
@@ -139,6 +141,7 @@ impl Default for TestExtBuilder {
 	}
 }
 
+#[cfg(test)]
 impl TestExtBuilder {
 	/// Create a new builder
 	pub fn new() -> Self {

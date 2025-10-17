@@ -20,12 +20,29 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::parachain_inherent::InboundDownwardMessages;
-use cumulus_primitives_core::{relay_chain::Hash as RelayHash, InboundDownwardMessage};
+use crate::{
+	block_weight::{
+		mock::has_use_full_core_digest, BlockWeightMode, DynamicMaxBlockWeight,
+		MaxParachainBlockWeight,
+	},
+	parachain_inherent::InboundDownwardMessages,
+};
+use cumulus_primitives_core::{
+	relay_chain::Hash as RelayHash, BundleInfo, CoreInfo, InboundDownwardMessage,
+};
 use frame_benchmarking::v2::*;
-use sp_runtime::traits::BlakeTwo256;
+use frame_support::{
+	dispatch::{DispatchInfo, PostDispatchInfo},
+	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+};
+use frame_system::RawOrigin;
+use sp_core::ConstU32;
+use sp_runtime::traits::{BlakeTwo256, DispatchTransaction, Dispatchable};
 
-#[benchmarks]
+#[benchmarks(where
+	T: Send + Sync,
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+)]
 mod benchmarks {
 	use super::*;
 
@@ -62,6 +79,59 @@ mod benchmarks {
 			head = BlakeTwo256::hash_of(&(head, msg.sent_at, msg_hash));
 		}
 		head
+	}
+
+	#[benchmark]
+	fn block_weight_tx_extension_max_weight() -> Result<(), BenchmarkError> {
+		let caller = account("caller", 0, 0);
+
+		frame_system::Pallet::<T>::inherents_applied();
+
+		frame_system::Pallet::<T>::deposit_log(
+			BundleInfo { index: 0, maybe_last: false }.to_digest_item(),
+		);
+		frame_system::Pallet::<T>::deposit_log(
+			CoreInfo {
+				selector: 0.into(),
+				claim_queue_offset: 0.into(),
+				number_of_cores: 1.into(),
+			}
+			.to_digest_item(),
+		);
+		let target_weight = MaxParachainBlockWeight::<T, ConstU32<4>>::get();
+
+		let info = DispatchInfo {
+			// The weight needs to be more than the target weight.
+			call_weight: target_weight
+				.saturating_add(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0)),
+			extension_weight: Weight::zero(),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		let post_info = PostDispatchInfo { actual_weight: None, pays_fee: Default::default() };
+		let len = 0_usize;
+
+		crate::BlockWeightMode::<T>::put(BlockWeightMode::FractionOfCore {
+			first_transaction_index: None,
+		});
+
+		let ext = DynamicMaxBlockWeight::<T, (), ConstU32<4>>::new(());
+
+		#[block]
+		{
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(post_info))
+				.unwrap()
+				.unwrap();
+		}
+
+		assert!(has_use_full_core_digest());
+		assert_eq!(
+			MaxParachainBlockWeight::<T, ConstU32<4>>::get(),
+			MaxParachainBlockWeight::<T, ConstU32<4>>::FULL_CORE_WEIGHT
+		);
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite! {

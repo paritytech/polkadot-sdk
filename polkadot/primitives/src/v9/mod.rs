@@ -2238,9 +2238,21 @@ impl Ord for CommittedCandidateReceiptV2 {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug, Copy)]
 pub struct CoreSelector(pub u8);
 
+impl From<u8> for CoreSelector {
+	fn from(value: u8) -> Self {
+		Self(value)
+	}
+}
+
 /// An offset in the relay chain claim queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug, Copy)]
 pub struct ClaimQueueOffset(pub u8);
+
+impl From<u8> for ClaimQueueOffset {
+	fn from(value: u8) -> Self {
+		Self(value)
+	}
+}
 
 /// Signals that a parachain can send to the relay chain via the UMP queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
