@@ -19011,6 +19011,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rlp-derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e33d7b2abe0c340d8797fe2907d3f20d3b5ea5908683618bfe80df7f621f672a"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "rocksdb"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -22249,19 +22260,26 @@ dependencies = [
  "alloy-core",
  "alloy-primitives",
  "alloy-rlp",
+ "alloy-rlp-derive",
+ "derive_more 0.99.17",
  "ethabi-decode",
  "ethbloom",
  "ethereum-types",
+ "hash-db",
+ "hash256-std-hasher",
  "hex-literal",
+ "memory-db",
  "parity-bytes",
  "parity-scale-codec",
  "rlp 0.6.1",
+ "rlp-derive",
  "scale-info",
  "serde",
  "serde-big-array",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "trie-db",
 ]
 
 [[package]]

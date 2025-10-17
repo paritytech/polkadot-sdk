@@ -19,15 +19,21 @@ alloy-consensus = { workspace = true }
 alloy-core = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-rlp = { workspace = true }
+alloy-rlp-derive = { workspace = true }
 codec = { features = ["derive"], workspace = true }
+derive_more = { workspace = true, features = ["from"] }
 ethbloom = { workspace = true }
 ethereum-types = { features = ["codec", "rlp", "serialize"], workspace = true }
+hash-db = { workspace = true }
+hash256-std-hasher = { workspace = true }
 hex-literal = { workspace = true }
+memory-db = { workspace = true }
 parity-bytes = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 serde-big-array = { optional = true, features = ["const-generics"], workspace = true }
+trie-db = { workspace = true }
 
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
@@ -35,6 +41,8 @@ sp-std = { workspace = true }
 
 ethabi = { workspace = true }
 
+[dev-dependencies]
+rlp-derive = "0.1.0"
 
 [features]
 default = ["std"]
@@ -48,6 +56,9 @@ std = [
 	"ethabi/std",
 	"ethbloom/std",
 	"ethereum-types/std",
+	"hash-db/std",
+    "hash256-std-hasher/std",
+	"memory-db/std",
 	"parity-bytes/std",
 	"rlp/std",
 	"scale-info/std",
@@ -56,4 +67,5 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"trie-db/std",
 ]

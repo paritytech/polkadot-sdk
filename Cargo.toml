@@ -641,6 +641,7 @@ alloy-consensus = { version = "1.0.24", default-features = false }
 alloy-core = { version = "1.2.1", default-features = false }
 alloy-primitives = { version = "1.2.1", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
+alloy-rlp-derive = { version = "0.3", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
