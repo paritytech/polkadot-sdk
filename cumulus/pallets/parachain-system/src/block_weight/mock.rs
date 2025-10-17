@@ -61,6 +61,9 @@ pub type TxExtension = DynamicMaxBlockWeight<
 	ConstU32<TARGET_BLOCK_RATE>,
 >;
 
+#[allow(dead_code)]
+type NotDeadCode = TxExtension;
+
 #[docify::export_content(max_block_weight_setup)]
 mod max_block_weight_setup {
 	use super::*;
@@ -93,9 +96,10 @@ impl frame_system::Config for Runtime {
 	// Set the `PreInherents` hook.
 	type PreInherents = DynamicMaxBlockWeightHooks<Runtime, ConstU32<TARGET_BLOCK_RATE>>;
 
-	// Rest of the types is omitted here.
+	// Just required to make it compile, but not that important for this example here.
 	type Block = Block;
 	type OnSetCode = crate::ParachainSetCode<Runtime>;
+	// Rest of the types are omitted here.
 }
 
 impl crate::Config for Runtime {
@@ -120,15 +124,7 @@ construct_runtime!(
 	}
 );
 
-pub type Executive = frame_executive::Executive<
-	Runtime,
-	Block,
-	frame_system::ChainContext<Runtime>,
-	Runtime,
-	AllPalletsWithSystem,
->;
-
-/// Builder for test externalities with fluent API
+/// Builder for test externalities
 pub struct TestExtBuilder {
 	num_cores: Option<u16>,
 	bundle_index: Option<u8>,
@@ -163,18 +159,6 @@ impl TestExtBuilder {
 			// If not first and no bundle index set, default to index 1
 			self.bundle_index = Some(1);
 		}
-		self
-	}
-
-	/// Set the bundle index directly
-	pub fn bundle_index(mut self, index: u8) -> Self {
-		self.bundle_index = Some(index);
-		self
-	}
-
-	/// Set whether this is maybe the last block in the bundle
-	pub fn maybe_last(mut self, maybe_last: bool) -> Self {
-		self.bundle_maybe_last = maybe_last;
 		self
 	}
 

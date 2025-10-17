@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use cumulus_primitives_core::CumulusDigestItem;
 use frame_support::{
-	dispatch::{DispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
 	pallet_prelude::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 	},
@@ -150,7 +150,6 @@ where
 					);
 
 					// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
-					//TODO: Ensure we are first block in core
 					if block_weight_over_limit {
 						*mode = Some(BlockWeightMode::FullCore);
 
@@ -159,16 +158,25 @@ where
 							CumulusDigestItem::UseFullCore.to_digest_item(),
 						);
 
+						if !is_first_block_in_core::<Config>() {
+							// We are already above the allowed maximum and do not want to accept any more
+							// extrinsics.
+							frame_system::Pallet::<Config>::register_extra_weight_unchecked(
+								MaxParachainBlockWeight::<Config, TargetBlockRate>::FULL_CORE_WEIGHT,
+								DispatchClass::Mandatory,
+							);
+						}
+
 						log::error!(
 							target: LOG_TARGET,
 							"Inherent block logic took longer than the target block weight, \
 							`DynamicMaxBlockWeightHooks` not registered as `PreInherents` hook!",
 						);
-					} else if dbg!(dbg!(info
+					} else if info
 						.total_weight()
 						// The extrinsic lengths counts towards the POV size
-						.saturating_add(Weight::from_parts(0, len as u64)))
-						.any_gt(dbg!(target_weight)))
+						.saturating_add(Weight::from_parts(0, len as u64))
+						.any_gt(target_weight)
 					{
 						if transaction_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER
 							&& is_first_block_in_core::<Config>() {
@@ -251,7 +259,7 @@ where
 
 							frame_system::Pallet::<Config>::register_extra_weight_unchecked(
 								MaxParachainBlockWeight::<Config, TargetBlockRate>::FULL_CORE_WEIGHT,
-								frame_support::dispatch::DispatchClass::Mandatory,
+								DispatchClass::Mandatory,
 							);
 						}
 
@@ -269,7 +277,7 @@ where
 					let block_weight = frame_system::BlockWeight::<Config>::get();
 					let extrinsic_class_weight = block_weight.get(info.class);
 
-					if dbg!(extrinsic_class_weight).any_gt(dbg!(target_weight)) {
+					if extrinsic_class_weight.any_gt(target_weight) {
 						log::trace!(
 							target: LOG_TARGET,
 							"Extrinsic class weight {extrinsic_class_weight:?} above target weight {target_weight:?}, enabling `FullCore` mode."

@@ -21,7 +21,7 @@ use cumulus_primitives_core::{
 	BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
 };
 use frame_support::{
-	assert_err, assert_ok,
+	assert_ok,
 	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
 	traits::PreInherents,
@@ -456,39 +456,55 @@ fn tx_extension_large_tx_after_limit_is_rejected() {
 
 #[test]
 fn tx_extension_large_weight_before_first_tx() {
-	TestExtBuilder::new()
-		.number_of_cores(2)
-		.first_block_in_core(true)
-		.build()
-		.execute_with(|| {
-			initialize_block_finished();
+	for first_block_in_core in [true, false] {
+		TestExtBuilder::new()
+			.number_of_cores(2)
+			.first_block_in_core(first_block_in_core)
+			.build()
+			.execute_with(|| {
+				initialize_block_finished();
 
-			let target_weight = MaximumBlockWeight::target_block_weight();
-			let large_weight = target_weight
-				.saturating_add(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 1024 * 1024));
+				let target_weight = MaximumBlockWeight::target_block_weight();
+				let large_weight = target_weight
+					.saturating_add(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 1024 * 1024));
 
-			register_weight(large_weight, DispatchClass::Normal);
+				register_weight(large_weight, DispatchClass::Normal);
 
-			let small_weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND / 10, 1024);
-			let info = DispatchInfo { call_weight: small_weight, ..Default::default() };
+				let small_weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND / 10, 1024);
+				let info = DispatchInfo { call_weight: small_weight, ..Default::default() };
 
-			assert_ok!(TxExtension::validate_and_prepare(
-				TxExtension::new(Default::default()),
-				SystemOrigin::Signed(0).into(),
-				&CALL,
-				&info,
-				100,
-				0,
-			));
+				let res = TxExtension::validate_and_prepare(
+					TxExtension::new(Default::default()),
+					SystemOrigin::Signed(0).into(),
+					&CALL,
+					&info,
+					100,
+					0,
+				);
 
-			assert_matches!(
-				crate::BlockWeightMode::<Runtime>::get(),
-				Some(BlockWeightMode::FullCore)
-			);
+				if first_block_in_core {
+					assert!(res.is_ok())
+				} else {
+					assert_eq!(res.unwrap_err(), InvalidTransaction::ExhaustsResources.into());
+				}
 
-			assert!(has_use_full_core_digest());
-			assert_eq!(MaximumBlockWeight::get().ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
-		});
+				assert_matches!(
+					crate::BlockWeightMode::<Runtime>::get(),
+					Some(BlockWeightMode::FullCore)
+				);
+
+				assert!(has_use_full_core_digest());
+				assert_eq!(MaximumBlockWeight::get().ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
+
+				if !first_block_in_core {
+					// Should have registered FULL_CORE_WEIGHT to prevent more transactions
+					let final_remaining = frame_system::Pallet::<Runtime>::remaining_block_weight();
+					assert!(final_remaining
+						.consumed()
+						.all_gte(MaximumBlockWeight::FULL_CORE_WEIGHT));
+				}
+			});
+	}
 }
 
 #[test]
@@ -531,9 +547,6 @@ fn pre_inherents_hook_non_first_block_over_limit() {
 				.saturating_add(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 1024 * 1024));
 
 			register_weight(excessive_weight, DispatchClass::Mandatory);
-
-			// Get initial remaining weight
-			let initial_remaining = frame_system::Pallet::<Runtime>::remaining_block_weight();
 
 			// Call pre_inherents hook
 			DynamicMaxBlockWeightHooks::<Runtime, ConstU32<4>>::pre_inherents();
