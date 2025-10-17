@@ -18,9 +18,7 @@
 //! ConvictionVoting pallet benchmarking.
 
 //TODO:
-// - take a look at what matters in delegate and undelegate
-// - rework those benchmarks & their local env
-// - rework local env of other benchmarks
+// - look at each benchmark and consider what needs to change
 
 use super::*;
 
@@ -76,6 +74,8 @@ benchmarks_instance_pallet! {
 	vote_new {
 		let caller = funded_account::<T, I>("caller", 0);
 		whitelist_account!(caller);
+		let delegate = funded_account::<T, I>("delegate", 0);
+		whitelist_account!(delegate);
 		let account_vote = account_vote::<T, I>(100u32.into());
 
 		T::VotingHooks::on_vote_worst_case(&caller);
@@ -83,12 +83,19 @@ benchmarks_instance_pallet! {
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len() - 1;
-		// We need to create existing votes.
+		
+		// We need to create existing votes for voter & their delegate.
 		for i in polls.iter().skip(1) {
 			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), *i, account_vote)?;
 		}
+		for i in polls.iter() {
+			ConvictionVoting::<T, I>::vote(RawOrigin::Signed(delegate.clone()).into(), *i, account_vote)?;
+		}
+		
 		let votes = VotingFor::<T, I>::get(&caller, &class).votes;
 		assert_eq!(votes.len(), r as usize, "Votes were not recorded.");
+		let votes_d = VotingFor::<T, I>::get(&delegate, &class).votes;
+		assert_eq!(votes_d.len(), polls.len(), "Delegate's votes were not recorded.");
 
 		let index = polls[0];
 	}: vote(RawOrigin::Signed(caller.clone()), index, account_vote)
