@@ -152,15 +152,6 @@ interface IReferenda {
 			uint32 submissionBlock
 		);
 
-	/// @notice Get voting tally for an ongoing referendum
-	/// @param referendumIndex The index of the referendum to query.
-	/// @return exists Whether referendum exists and is ongoing
-	/// @return ayes Aye votes (post-conviction if using conviction voting)
-	/// @return nays Nay votes (post-conviction if using conviction voting)
-	function getReferendumTally(
-		uint32 referendumIndex
-	) external view returns (bool exists, uint128 ayes, uint128 nays);
-
 	/// @notice Check if a referendum would pass if ended now
 	/// @param referendumIndex The referendum index
 	/// @return exists Whether the referendum exists

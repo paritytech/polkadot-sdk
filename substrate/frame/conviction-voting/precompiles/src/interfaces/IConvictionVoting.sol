@@ -119,4 +119,14 @@ interface IConvictionVoting {
 		address who,
 		uint16 trackId
 	) external view returns (bytes32 target, uint128 balance, Conviction conviction);
+
+	/// @notice Get voting tally for an ongoing referendum
+	/// @param referendumIndex The index of the referendum to query.
+	/// @return exists Whether referendum exists and is ongoing
+	/// @return ayes Aye votes (post-conviction)
+	/// @return nays Nay votes (post-conviction)
+	/// @return support Aye votes (pre-conviction, for turnout calculation)
+	function getReferendumTally(
+		uint32 referendumIndex
+	) external view returns (bool exists, uint128 ayes, uint128 nays, uint128 support);
 }
