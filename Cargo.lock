@@ -12829,6 +12829,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-multi-asset-bounties"
+version = "1.0.0"
+dependencies = [
+ "docify",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-preimage",
+ "pallet-utility",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-multisig"
 version = "28.0.0"
 dependencies = [
@@ -16550,6 +16569,7 @@ dependencies = [
  "pallet-migrations",
  "pallet-mixnet",
  "pallet-mmr",
+ "pallet-multi-asset-bounties",
  "pallet-multisig",
  "pallet-nft-fractionalization",
  "pallet-nfts",
