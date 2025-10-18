@@ -18,6 +18,7 @@ use super::{
 	block_weight_over_target_block_weight, is_first_block_in_core_with_digest, BlockWeightMode,
 	MaxParachainBlockWeight, LOG_TARGET,
 };
+use crate::WeightInfo;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use cumulus_primitives_core::CumulusDigestItem;
@@ -117,6 +118,7 @@ where
 	Config: crate::Config,
 	TargetBlockRate: Get<u32>,
 {
+	/// Should be executed before `validate` is called for any inner extension.
 	fn pre_validate_extrinsic(
 		info: &DispatchInfo,
 		len: usize,
@@ -229,13 +231,19 @@ where
 		}).map_err(Into::into)
 	}
 
-	fn post_dispatch_extrinsic(info: &DispatchInfo) {
+	/// Should be called after all inner extensions have finished executing their post dispatch
+	/// handling.
+	///
+	/// Returns the weight to refund. Aka the weight that wasn't used by this extension.
+	fn post_dispatch_extrinsic(info: &DispatchInfo) -> Weight {
 		crate::BlockWeightMode::<Config>::mutate(|weight_mode| {
-			let Some(mode) = *weight_mode else { return };
+			let Some(mode) = *weight_mode else { return Weight::zero() };
 
 			match mode {
 				// If the previous mode was already `FullCore`, we are fine.
-				BlockWeightMode::FullCore => {},
+				BlockWeightMode::FullCore =>
+					Config::WeightInfo::block_weight_tx_extension_max_weight()
+						.saturating_sub(Config::WeightInfo::block_weight_tx_extension_full_core()),
 				BlockWeightMode::FractionOfCore { .. } => {
 					let digest = frame_system::Pallet::<Config>::digest();
 					let target_block_weight =
@@ -278,6 +286,10 @@ where
 							CumulusDigestItem::UseFullCore.to_digest_item(),
 						);
 					}
+
+					Config::WeightInfo::block_weight_tx_extension_max_weight().saturating_sub(
+						Config::WeightInfo::block_weight_tx_extension_stays_fraction_of_core(),
+					)
 				},
 				// Now we need to check if the transaction required more weight than a fraction of a
 				// core block.
@@ -307,9 +319,12 @@ where
 						*weight_mode =
 							Some(BlockWeightMode::FractionOfCore { first_transaction_index });
 					}
+
+					// We run into the worst case, so no refund :)
+					Weight::zero()
 				},
 			}
-		});
+		})
 	}
 }
 
@@ -361,7 +376,7 @@ where
 	}
 
 	fn weight(&self, _: &Config::RuntimeCall) -> Weight {
-		Weight::zero()
+		Config::WeightInfo::block_weight_tx_extension_max_weight()
 	}
 
 	fn validate(
@@ -391,18 +406,18 @@ where
 		self.0.prepare(val, origin, call, info, len)
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<Config::RuntimeCall>,
-		post_info: &mut PostDispatchInfo,
+		post_info: &PostDispatchInfo,
 		len: usize,
 		result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		Inner::post_dispatch(pre, info, post_info, len, result)?;
+	) -> Result<Weight, TransactionValidityError> {
+		let weight_refund = Inner::post_dispatch_details(pre, info, post_info, len, result)?;
 
-		Self::post_dispatch_extrinsic(info);
+		let extra_refund = Self::post_dispatch_extrinsic(info);
 
-		Ok(())
+		Ok(weight_refund.saturating_add(extra_refund))
 	}
 
 	fn bare_validate(

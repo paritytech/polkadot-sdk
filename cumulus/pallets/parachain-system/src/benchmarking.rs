@@ -81,6 +81,10 @@ mod benchmarks {
 		head
 	}
 
+	/// The worst-case scenario for the block weight transaction extension.
+	///
+	/// Before executing an extrinsic `FractionOfCore` is set, changed to `PotentialFullCore` and
+	/// post dispatch switches to `FullCore`.
 	#[benchmark]
 	fn block_weight_tx_extension_max_weight() -> Result<(), BenchmarkError> {
 		let caller = account("caller", 0, 0);
@@ -141,6 +145,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// A benchmark that assumes that an extrinsic was executed with `FractionOfCore` set.
 	#[benchmark]
 	fn block_weight_tx_extension_stays_fraction_of_core() -> Result<(), BenchmarkError> {
 		let caller = account("caller", 0, 0);
@@ -199,6 +204,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// A benchmark that assumes that `FullCore` was set already before executing an extrinsic.
 	#[benchmark]
 	fn block_weight_tx_extension_full_core() -> Result<(), BenchmarkError> {
 		let caller = account("caller", 0, 0);
