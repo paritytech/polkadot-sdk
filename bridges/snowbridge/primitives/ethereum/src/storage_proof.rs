@@ -18,7 +18,13 @@
 //! Storage Proof abstraction
 
 use crate::node_codec;
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::{
+	collections::BTreeSet,
+	format,
+	string::{String, ToString},
+	vec,
+	vec::Vec,
+};
 use alloy_rlp::Decodable;
 use alloy_rlp_derive::{RlpDecodable, RlpEncodable};
 use codec::{Decode, Encode};
