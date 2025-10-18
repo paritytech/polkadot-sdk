@@ -22266,7 +22266,6 @@ dependencies = [
  "ethbloom",
  "ethereum-types",
  "hash-db",
- "hash256-std-hasher",
  "hex-literal",
  "memory-db",
  "parity-bytes",

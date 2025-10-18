@@ -25,7 +25,6 @@ derive_more = { workspace = true, features = ["from"] }
 ethbloom = { workspace = true }
 ethereum-types = { features = ["codec", "rlp", "serialize"], workspace = true }
 hash-db = { workspace = true }
-hash256-std-hasher = { workspace = true }
 hex-literal = { workspace = true }
 memory-db = { workspace = true }
 parity-bytes = { workspace = true }
@@ -42,7 +41,7 @@ sp-std = { workspace = true }
 ethabi = { workspace = true }
 
 [dev-dependencies]
-rlp-derive = "0.1.0"
+rlp-derive = { workspace = true }
 
 [features]
 default = ["std"]
@@ -57,7 +56,6 @@ std = [
 	"ethbloom/std",
 	"ethereum-types/std",
 	"hash-db/std",
-    "hash256-std-hasher/std",
 	"memory-db/std",
 	"parity-bytes/std",
 	"rlp/std",

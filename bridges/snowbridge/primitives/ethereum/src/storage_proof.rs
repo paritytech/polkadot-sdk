@@ -23,9 +23,9 @@ use alloy_rlp::Decodable;
 use alloy_rlp_derive::{RlpDecodable, RlpEncodable};
 use codec::{Decode, Encode};
 use ethereum_types::{H256, U256};
-use hash256_std_hasher::Hash256StdHasher;
 use hash_db::{HashDB, Hasher};
 use scale_info::TypeInfo;
+use sp_runtime::traits::Keccak256;
 use sp_std::marker::PhantomData;
 use trie_db::{DBValue, Trie, TrieDBBuilder, TrieLayout};
 
@@ -144,68 +144,48 @@ impl Iterator for StorageProofNodeIterator {
 	}
 }
 
-/// A trait that returns a 256 bit keccak has of some bytes
-pub trait Keccak256 {
-	/// Returns a keccak256 hash of a byte slice
-	fn keccak256(bytes: &[u8]) -> H256
-	where
-		Self: Sized;
-}
-
-pub struct KeccakHasher<H: Keccak256>(core::marker::PhantomData<H>);
-
-impl<H: Keccak256 + Send + Sync> Hasher for KeccakHasher<H> {
-	type Out = H256;
-	type StdHasher = Hash256StdHasher;
-	const LENGTH: usize = 32;
-
-	fn hash(x: &[u8]) -> Self::Out {
-		H::keccak256(x)
-	}
-}
-
 /// Errors that may be encountered by the ISMP module
 #[derive(Debug, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum Error {
 	/// Custom error: {0}
-	Custom(String),
+	Decode(String),
 }
 
-pub fn get_contract_account<H: Keccak256 + Send + Sync>(
+pub fn get_contract_account(
 	contract_account_proof: Vec<Vec<u8>>,
 	contract_address: &[u8],
 	root: H256,
 ) -> Result<Account, Error> {
-	let db = StorageProof::new(contract_account_proof).into_memory_db::<KeccakHasher<H>>();
-	let trie = TrieDBBuilder::<EIP1186Layout<KeccakHasher<H>>>::new(&db, &root).build();
-	let key = H::keccak256(contract_address).0;
+	let db = StorageProof::new(contract_account_proof).into_memory_db::<Keccak256>();
+	let trie = TrieDBBuilder::<EIP1186Layout<Keccak256>>::new(&db, &root).build();
+	let key = Keccak256::hash(contract_address).0;
 	let result = trie
 		.get(&key)
-		.map_err(|_| Error::Custom("Invalid contract account proof".to_string()))?
-		.ok_or_else(|| Error::Custom("Contract account is not present in proof".to_string()))?;
+		.map_err(|_| Error::Decode("Invalid contract account proof".to_string()))?
+		.ok_or_else(|| Error::Decode("Contract account is not present in proof".to_string()))?;
 
 	let contract_account = <Account as Decodable>::decode(&mut &*result).map_err(|_| {
-		Error::Custom(format!("Error decoding contract account from value {:?}", &result))
+		Error::Decode(format!("Error decoding contract account from value {:?}", &result))
 	})?;
 
 	Ok(contract_account)
 }
 
-pub fn derive_map_key<H: Keccak256>(mut key: Vec<u8>, slot: u64) -> H256 {
+pub fn derive_map_key(mut key: Vec<u8>, slot: u64) -> H256 {
 	key.extend_from_slice(&U256::from(slot).to_big_endian());
-	H::keccak256(H::keccak256(&key).0.as_slice())
+	Keccak256::hash(&key).0.into()
 }
 
-pub fn derive_map_key_with_offset<H: Keccak256>(mut key: Vec<u8>, slot: u64, offset: u64) -> H256 {
+pub fn derive_map_key_with_offset(mut key: Vec<u8>, slot: u64, offset: u64) -> H256 {
 	key.extend_from_slice(&U256::from(slot).to_big_endian());
-	let root_key = H::keccak256(&key).0;
+	let root_key = Keccak256::hash(&key).0;
 	let number = U256::from_big_endian(root_key.as_slice()) + U256::from(offset);
-	H::keccak256(&number.to_big_endian())
+	Keccak256::hash(&number.to_big_endian()).0.into()
 }
 
-pub fn derive_unhashed_map_key<H: Keccak256>(mut key: Vec<u8>, slot: u64) -> H256 {
+pub fn derive_unhashed_map_key(mut key: Vec<u8>, slot: u64) -> H256 {
 	key.extend_from_slice(&U256::from(slot).to_big_endian());
-	H::keccak256(&key)
+	Keccak256::hash(&key).0.into()
 }
 
 pub fn add_off_set_to_map_key(key: &[u8], offset: u64) -> H256 {
@@ -213,41 +193,43 @@ pub fn add_off_set_to_map_key(key: &[u8], offset: u64) -> H256 {
 	H256(number.to_big_endian())
 }
 
-pub fn derive_array_item_key<H: Keccak256>(slot: u64, index: u64, offset: u64) -> Vec<u8> {
-	let hash_result = H::keccak256(&U256::from(slot).to_big_endian());
+pub fn derive_array_item_key(slot: u64, index: u64, offset: u64) -> Vec<u8> {
+	let hash_result = Keccak256::hash(&U256::from(slot).to_big_endian());
 
 	let array_pos = U256::from_big_endian(&hash_result.0);
 	let item_pos = array_pos + U256::from(index * 2) + U256::from(offset);
 
-	H::keccak256(&item_pos.to_big_endian()).0.to_vec()
+	Keccak256::hash(&item_pos.to_big_endian()).0.to_vec()
 }
 
-pub fn get_values_from_proof<H: Keccak256 + Send + Sync>(
+pub fn get_values_from_proof(
 	keys: Vec<Vec<u8>>,
 	root: H256,
 	proof: Vec<Vec<u8>>,
 ) -> Result<Vec<Option<DBValue>>, Error> {
 	let mut values = vec![];
-	let proof_db = StorageProof::new(proof).into_memory_db::<KeccakHasher<H>>();
-	let trie = TrieDBBuilder::<EIP1186Layout<KeccakHasher<H>>>::new(&proof_db, &root).build();
+	let proof_db = StorageProof::new(proof).into_memory_db::<Keccak256>();
+	let trie = TrieDBBuilder::<EIP1186Layout<Keccak256>>::new(&proof_db, &root).build();
 	for key in keys {
-		let val = trie.get(&key).map_err(|_| Error::Custom(format!("Error reading proof db")))?;
+		let val = trie
+			.get(&key)
+			.map_err(|e| Error::Decode(format!("Error reading proof db {:?}", e)))?;
 		values.push(val);
 	}
 
 	Ok(values)
 }
 
-pub fn get_value_from_proof<H: Keccak256 + Send + Sync>(
+pub fn get_value_from_proof(
 	key: Vec<u8>,
 	root: H256,
 	proof: Vec<Vec<u8>>,
 ) -> Result<Option<DBValue>, Error> {
-	let proof_db = StorageProof::new(proof).into_memory_db::<KeccakHasher<H>>();
-	let trie = TrieDBBuilder::<EIP1186Layout<KeccakHasher<H>>>::new(&proof_db, &root).build();
+	let proof_db = StorageProof::new(proof).into_memory_db::<Keccak256>();
+	let trie = TrieDBBuilder::<EIP1186Layout<Keccak256>>::new(&proof_db, &root).build();
 	let val = trie
 		.get(&key)
-		.map_err(|e| Error::Custom(format!("Error reading proof db {:?}", e)))?;
+		.map_err(|e| Error::Decode(format!("Error reading proof db {:?}", e)))?;
 
 	Ok(val)
 }
