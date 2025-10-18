@@ -221,6 +221,14 @@ pub trait StakeStrategy {
 		value: Self::Balance,
 	) -> DispatchResult;
 
+	/// Force withdraw funds from pool account.
+	fn force_withdraw(
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
+		from_unlocking: Self::Balance,
+		from_active: Self::Balance,
+	) -> DispatchResult;
+
 	/// List of validators nominated by the pool account.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn nominations(pool_account: Pool<Self::AccountId>) -> Option<Vec<Self::AccountId>> {
@@ -351,6 +359,15 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	) -> DispatchResult {
 		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
 	}
+
+	fn force_withdraw(
+		_who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
+		from_unlocking: Self::Balance,
+		from_active: Self::Balance,
+	) -> DispatchResult {
+		Staking::force_withdraw(&pool_account.0, from_unlocking, from_active)
+	}
 }
 
 /// A staking strategy implementation that supports delegation based staking.
@@ -460,6 +477,17 @@ impl<
 		value: Self::Balance,
 	) -> DispatchResult {
 		Delegation::migrate_delegation(pool.into(), delegator.into(), value)
+	}
+
+	fn force_withdraw(
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
+		from_unlocking: Self::Balance,
+		from_active: Self::Balance,
+	) -> DispatchResult {
+		let total_amount = from_active.saturating_add(from_unlocking);
+		Staking::force_withdraw(&pool_account.0, from_unlocking, from_active)?;
+		Delegation::withdraw_delegation(who.into(), pool_account.clone().into(), total_amount, 0)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
