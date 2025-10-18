@@ -7,7 +7,7 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -20,14 +20,11 @@ pub extern "C" fn call() {
     
     let mut addr = [0u8; 20];
     let salt = [1u8; 32];
-    // Send 100,000 units when creating the contract (100_000 plank is 100_000_000_000 in balance (wei))
-    let mut value_bytes = [0u8; 32];
-    value_bytes[..8].copy_from_slice(&100_000_000_000u64.to_le_bytes()[..8]);
     api::instantiate(
         u64::MAX,
         u64::MAX,
         &[u8::MAX; 32],
-        &value_bytes,
+        &u256_bytes(100_000_000_000u64),
         code_hash,
         Some(&mut addr),
         None,

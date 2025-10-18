@@ -90,8 +90,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			},
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
 				// no need to adjust gas because this always deletes code
-				let _charged =
-					env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
+				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
 				env.terminate_caller(&h160)?;
 				Ok(Vec::new())
