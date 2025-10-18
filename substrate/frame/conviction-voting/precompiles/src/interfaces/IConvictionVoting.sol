@@ -5,6 +5,13 @@ pragma solidity ^0.8.30;
 address constant CONVICTION_VOTING_PRECOMPILE_ADDRESS = address(0xC0000);
 
 /// @title ConvictionVoting Precompile Interface
+/// @notice A higher-level interface for interacting with `pallet_conviction_voting` and querying referendum tallies.
+/// It forwards calls directly to the corresponding dispatchable functions,
+/// providing access to conviction voting functionalities.
+/// @dev Documentation:
+/// @dev - Accounts on Asset Hub: https://docs.polkadot.com/polkadot-protocol/smart-contract-basics/accounts/#accounts-on-asset-hub-smart-contracts
+/// @dev - OpenGov: https://wiki.polkadot.com/learn/learn-polkadot-opengov
+/// @dev - Voting in OpenGov: https://wiki.polkadot.com/learn/learn-polkadot-opengov/#voting-on-a-referendum
 interface IConvictionVoting {
 	/// @notice A value denoting the strength of conviction of a vote.
 	enum Conviction {
