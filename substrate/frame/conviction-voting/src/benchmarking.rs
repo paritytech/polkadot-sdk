@@ -17,9 +17,6 @@
 
 //! ConvictionVoting pallet benchmarking.
 
-//TODO:
-// - look at each benchmark and consider what needs to change
-
 use super::*;
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
