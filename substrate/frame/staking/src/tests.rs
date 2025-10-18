@@ -9387,3 +9387,142 @@ fn manual_slashing_works() {
 		);
 	})
 }
+
+mod force_withdraw {
+	use sp_staking::StakingInterface;
+	use super::*;
+
+
+	// Test that force_withdraw can remove amounts from both
+	// unlocking and active portions of a staking ledger
+	#[test]
+	fn force_withdraw_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			let bonding_duration = 3;
+			// Account 11 is already bonded with 1000 in the default setup
+			// Start era 1
+			mock::start_active_era(1);
+
+			// Unbond 500 units - this goes into unlocking
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 500));
+
+			// Check ledger state - should have 500 active and 500 unlocking
+			assert_eq!(
+				Staking::ledger(11.into()).unwrap(),
+				StakingLedgerInspect {
+					stash: 11,
+					total: 1000,
+					active: 500,
+					unlocking: bounded_vec![UnlockChunk { value: 500, era: 1 + bonding_duration }],
+					legacy_claimed_rewards: bounded_vec![],
+				}
+			);
+
+			// Force withdraw dust: 200 from unlocking, 100 from active
+			let from_unlocking = 200;
+			let from_active = 100;
+
+			assert_ok!(<Staking as StakingInterface>::force_withdraw(&11, from_unlocking, from_active));
+
+			// Check ledger was updated correctly
+			assert_eq!(
+				Staking::ledger(11.into()).unwrap(),
+				StakingLedgerInspect {
+					stash: 11,
+					total: 1000 - from_unlocking - from_active,  // 700
+					active: 500 - from_active,  // 400
+					unlocking: bounded_vec![
+						UnlockChunk { value: 500 - from_unlocking, era: 1 + bonding_duration }],  // 300
+					legacy_claimed_rewards: bounded_vec![],
+				}
+			);
+		});
+	}
+
+	// Tests that after the withdraw if we have a empty chunk, it is removed.
+	#[test]
+	fn force_withdraw_removes_empty_chunks() {
+		ExtBuilder::default().build_and_execute(|| {
+			start_active_era(1);
+
+			// Create two unbonding chunks
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 200));
+
+			start_active_era(2);
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 300));
+
+			// Should have 2 unlocking chunks and 500 active
+			assert_eq!(
+				Staking::ledger(11.into()).unwrap(),
+				StakingLedgerInspect {
+					stash: 11,
+					total: 1000,
+					active: 500,
+					unlocking: bounded_vec![
+                                        UnlockChunk { value: 200, era: 1 + 3 },
+                                        UnlockChunk { value: 300, era: 2 + 3 },
+                                ],
+					legacy_claimed_rewards: bounded_vec![],
+				}
+			);
+
+			// Force withdraw exactly 250 from unlocking (removes first chunk entirely)
+			// and only 50 of the second one
+			assert_ok!(Staking::force_withdraw(&11, 250, 0));
+
+			// First chunk should be removed, second chunk remains
+			assert_eq!(
+				Staking::ledger(11.into()).unwrap(),
+				StakingLedgerInspect {
+					stash: 11,
+					total: 750,
+					active: 500,
+					unlocking: bounded_vec![
+                                        UnlockChunk { value: 250, era: 2 + 3 },
+                                ],
+					legacy_claimed_rewards: bounded_vec![],
+				}
+			);
+		});
+	}
+
+	// Test that trying to withdraw more than available fails
+	#[test]
+	fn force_withdraw_dust_fails_when_not_enough_unlocking() {
+		ExtBuilder::default().build_and_execute(|| {
+			mock::start_active_era(1);
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 200));
+
+			// Try to withdraw 300 from unlocking when only 200 exists
+			assert_noop!(
+                        <Staking as StakingInterface>::force_withdraw(&11, 300, 0),
+                        Error::<Test>::NotEnoughFunds
+                );
+		});
+	}
+
+	// Test that trying to withdraw more active than available fails
+	#[test]
+	fn force_withdraw_dust_fails_when_not_enough_active() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+                        <Staking as StakingInterface>::force_withdraw(&11, 0, 1500),
+                        Error::<Test>::NotEnoughFunds
+                );
+		});
+	}
+
+	// Test that zero amounts are handled gracefully
+	#[test]
+	fn force_withdraw_dust_handles_zero_amounts() {
+		ExtBuilder::default().build_and_execute(|| {
+			let initial_ledger = Staking::ledger(11.into()).unwrap();
+
+			// Withdrawing zero should be a no-op
+			assert_ok!(<Staking as StakingInterface>::force_withdraw(&11, 0, 0));
+
+			// Ledger should be unchanged
+			assert_eq!(Staking::ledger(11.into()).unwrap(), initial_ledger);
+		});
+	}
+}

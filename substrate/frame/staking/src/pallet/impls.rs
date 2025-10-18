@@ -2126,6 +2126,50 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		SlashRewardFraction::<T>::get()
 	}
 
+	fn force_withdraw(
+		stash: &Self::AccountId,
+		from_unlocking: Self::Balance,
+		from_active: Self::Balance,
+	) -> DispatchResult {
+		let total_dust = from_unlocking.saturating_add(from_active);
+		if total_dust.is_zero() {
+			return Ok(());
+		}
+
+		let mut ledger = Self::ledger(Stash(stash.clone()))?;
+
+		if !from_unlocking.is_zero() {
+			let mut remaining = from_unlocking;
+			for chunk in ledger.unlocking.iter_mut() {
+				if remaining.is_zero() {
+					break;
+				}
+				let removed = chunk.value.min(remaining);
+				chunk.value -= removed;
+				remaining -= removed;
+			}
+			ensure!(remaining.is_zero(), Error::<T>::NotEnoughFunds);
+			ledger.unlocking.retain(|chunk| !chunk.value.is_zero());
+			ledger.total = ledger
+				.total
+				.checked_sub(&from_unlocking)
+				.ok_or(Error::<T>::NotEnoughFunds)?;
+		}
+
+		if !from_active.is_zero() {
+			ledger.active = ledger
+				.active
+				.checked_sub(&from_active)
+				.ok_or(Error::<T>::NotEnoughFunds)?;
+			ledger.total = ledger
+				.total
+				.checked_sub(&from_active)
+				.ok_or(Error::<T>::NotEnoughFunds)?;
+		}
+
+		Ok(ledger.update()?)
+	}
+
 	sp_staking::runtime_benchmarks_enabled! {
 		fn nominations(who: &Self::AccountId) -> Option<Vec<T::AccountId>> {
 			Nominators::<T>::get(who).map(|n| n.targets.into_inner())

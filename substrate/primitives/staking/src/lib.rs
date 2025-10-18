@@ -300,6 +300,15 @@ pub trait StakingInterface {
 		}
 	}
 
+	/// Force withdraw active and unlocking funds from a stash.
+	///
+	/// This function is used to force withdraw dust from a reaped pool member.
+	fn force_withdraw(
+		stash: &Self::AccountId,
+		from_unlocking: Self::Balance,
+		from_active: Self::Balance,
+	) -> DispatchResult;
+
 	/// Returns the fraction of the slash to be rewarded to reporter.
 	fn slash_reward_fraction() -> Perbill;
 
