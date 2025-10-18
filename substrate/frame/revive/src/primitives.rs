@@ -375,7 +375,7 @@ impl ExecConfig {
 	}
 
 	/// Set this config to be a dry-run.
-	pub fn dry_run(mut self) -> Self {
+	pub fn with_dry_run(mut self) -> Self {
 		self.is_dry_run = true;
 		self
 	}
