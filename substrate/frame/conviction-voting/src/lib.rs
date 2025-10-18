@@ -722,7 +722,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Removes the voting record from the delegator's delegate if no longer needed.
 	///
-	/// Only called in PollStatus::Completed or PollStatus::None paths.
+	/// Only called in try_remove_vote PollStatus::Completed or PollStatus::None paths.
 	fn clean_delegate_vote_record(
 		delegate: &T::AccountId,
 		class: &ClassOf<T, I>,
