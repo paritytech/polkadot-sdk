@@ -93,7 +93,14 @@ pub struct DynamicMaxBlockWeight<
 	const ONLY_OPERATIONAL: bool = false,
 >(pub Inner, core::marker::PhantomData<(Config, TargetBlockRate)>);
 
-impl<T, S, TargetBlockRate> DynamicMaxBlockWeight<T, S, TargetBlockRate> {
+impl<
+		T,
+		S,
+		TargetBlockRate,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ONLY_OPERATIONAL: bool,
+	> DynamicMaxBlockWeight<T, S, TargetBlockRate, MAX_TRANSACTION_TO_CONSIDER, ONLY_OPERATIONAL>
+{
 	/// Create a new [`DynamicMaxBlockWeight`] instance.
 	pub fn new(s: S) -> Self {
 		Self(s, Default::default())
@@ -187,8 +194,10 @@ where
 						.saturating_add(Weight::from_parts(0, len as u64))
 						.any_gt(target_weight)
 					{
+						let class_allowed = if ONLY_OPERATIONAL { info.class == DispatchClass::Operational } else { true };
+
 						if transaction_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER
-							&& is_first_block_in_core_with_digest(&digest) {
+							&& is_first_block_in_core_with_digest(&digest) && class_allowed {
 							log::trace!(
 								target: LOG_TARGET,
 								"Enabling `PotentialFullCore` mode for extrinsic",
@@ -203,7 +212,7 @@ where
 						} else {
 							log::trace!(
 								target: LOG_TARGET,
-								"Transaction is over the block limit, but outside of the window of transactions to consider.",
+								"Transaction is over the block limit, but is either outside of the allowed window or the dispatch class is not allowed.",
 							);
 
 							return Err(InvalidTransaction::ExhaustsResources)
@@ -328,16 +337,40 @@ where
 	}
 }
 
-impl<Config, Inner, TargetBlockRate> From<Inner>
-	for DynamicMaxBlockWeight<Config, Inner, TargetBlockRate>
+impl<
+		Config,
+		Inner,
+		TargetBlockRate,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ONLY_OPERATIONAL: bool,
+	> From<Inner>
+	for DynamicMaxBlockWeight<
+		Config,
+		Inner,
+		TargetBlockRate,
+		MAX_TRANSACTION_TO_CONSIDER,
+		ONLY_OPERATIONAL,
+	>
 {
 	fn from(s: Inner) -> Self {
 		Self::new(s)
 	}
 }
 
-impl<Config, Inner: core::fmt::Debug, TargetBlockRate> core::fmt::Debug
-	for DynamicMaxBlockWeight<Config, Inner, TargetBlockRate>
+impl<
+		Config,
+		Inner: core::fmt::Debug,
+		TargetBlockRate,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ONLY_OPERATIONAL: bool,
+	> core::fmt::Debug
+	for DynamicMaxBlockWeight<
+		Config,
+		Inner,
+		TargetBlockRate,
+		MAX_TRANSACTION_TO_CONSIDER,
+		ONLY_OPERATIONAL,
+	>
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
 		write!(f, "DynamicMaxBlockWeight<{:?}>", self.0)
@@ -348,8 +381,16 @@ impl<
 		Config: crate::Config + Send + Sync,
 		Inner: TransactionExtension<Config::RuntimeCall>,
 		TargetBlockRate: Get<u32> + Send + Sync + 'static,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ONLY_OPERATIONAL: bool,
 	> TransactionExtension<Config::RuntimeCall>
-	for DynamicMaxBlockWeight<Config, Inner, TargetBlockRate>
+	for DynamicMaxBlockWeight<
+		Config,
+		Inner,
+		TargetBlockRate,
+		MAX_TRANSACTION_TO_CONSIDER,
+		ONLY_OPERATIONAL,
+	>
 where
 	Config::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
@@ -421,6 +462,7 @@ where
 	}
 
 	fn bare_validate(
+
 		call: &Config::RuntimeCall,
 		info: &DispatchInfoOf<Config::RuntimeCall>,
 		len: usize,

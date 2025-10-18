@@ -36,6 +36,8 @@ use sp_runtime::{
 };
 
 type TxExtension = DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<4>>;
+type TxExtensionOnlyOperational =
+	DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<4>, 10, true>;
 type MaximumBlockWeight = MaxParachainBlockWeight<Runtime, ConstU32<TARGET_BLOCK_RATE>>;
 
 #[test]
@@ -248,6 +250,73 @@ fn tx_extension_large_tx_enables_full_core_usage() {
 
 			assert_ok!(TxExtension::validate_and_prepare(
 				TxExtension::new(Default::default()),
+				SystemOrigin::Signed(0).into(),
+				&CALL,
+				&info,
+				100,
+				0,
+			));
+
+			assert_matches!(
+				crate::BlockWeightMode::<Runtime>::get(),
+				Some(BlockWeightMode::PotentialFullCore { first_transaction_index: Some(0), .. })
+			);
+
+			let mut post_info =
+				PostDispatchInfo { actual_weight: None, pays_fee: Default::default() };
+
+			assert_ok!(TxExtension::post_dispatch((), &info, &mut post_info, 0, &Ok(())));
+
+			assert_eq!(crate::BlockWeightMode::<Runtime>::get(), Some(BlockWeightMode::FullCore));
+			assert!(has_use_full_core_digest());
+			assert_eq!(MaximumBlockWeight::get().ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
+		});
+}
+
+#[test]
+fn tx_extension_only_allows_large_operational_tx_to_enable_full_core_usage() {
+	TestExtBuilder::new()
+		.number_of_cores(2)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			initialize_block_finished();
+
+			// Create a transaction larger than target weight
+			let target_weight = MaximumBlockWeight::target_block_weight();
+			let large_weight = target_weight
+				.saturating_add(Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 1024 * 1024));
+
+			let mut info = DispatchInfo {
+				call_weight: large_weight,
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			// As `Normal` transaction this should be rejected.
+			assert_eq!(
+				TxExtensionOnlyOperational::validate_and_prepare(
+					TxExtensionOnlyOperational::new(Default::default()),
+					SystemOrigin::Signed(0).into(),
+					&CALL,
+					&info,
+					100,
+					0,
+				)
+				.unwrap_err(),
+				InvalidTransaction::ExhaustsResources.into()
+			);
+
+			assert_matches!(
+				crate::BlockWeightMode::<Runtime>::get(),
+				Some(BlockWeightMode::FractionOfCore { first_transaction_index: None })
+			);
+
+			info.class = DispatchClass::Operational;
+
+			// As `Operational` transaction this is accepted.
+			assert_ok!(TxExtensionOnlyOperational::validate_and_prepare(
+				TxExtensionOnlyOperational::new(Default::default()),
 				SystemOrigin::Signed(0).into(),
 				&CALL,
 				&info,
