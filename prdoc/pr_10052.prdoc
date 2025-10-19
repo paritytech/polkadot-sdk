@@ -1,0 +1,7 @@
+title: for detailed output add filename and lineno to logs
+doc:
+- audience: Runtime Dev
+  description: Adding filename and line number to logs (if detailed output is enabled)
+crates:
+- name: sc-tracing
+  bump: patch
