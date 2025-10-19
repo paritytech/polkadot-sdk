@@ -25,6 +25,7 @@ use tracing_subscriber::{
 	fmt::{format, time::FormatTime, FmtContext, FormatEvent, FormatFields},
 	registry::LookupSpan,
 };
+use std::path::Path;
 
 /// A pre-configured event formatter.
 pub struct EventFormat<T = FastLocalTime> {
@@ -38,6 +39,8 @@ pub struct EventFormat<T = FastLocalTime> {
 	pub display_thread_name: bool,
 	/// Duplicate INFO, WARN and ERROR messages to stdout.
 	pub dup_to_stdout: bool,
+	/// Sets whether or not the location (file:line) is displayed.
+	pub display_location: bool,
 }
 
 impl<T> EventFormat<T>
@@ -76,6 +79,20 @@ where
 				None => {
 					write!(&mut writer, "{:0>2?} ", current_thread.id())?;
 				},
+			}
+		}
+
+		if self.display_location {
+			if let (Some(file), Some(line)) = (meta.file(), meta.line()) {
+				let display_path = if let Some(pos) = file.find("polkadot-sdk") {
+					let start = pos + "polkadot-sdk".len();
+					&file[start..].trim_start_matches(|c| c == '/' || c == '\\')
+				} else {
+					file
+				};
+				write!(&mut writer, "{}:{} ", display_path, line)?;
+			} else {
+				write!(&mut writer, "<unknown>:0 ")?;
 			}
 		}
 

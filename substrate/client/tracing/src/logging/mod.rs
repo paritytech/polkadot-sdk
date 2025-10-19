@@ -195,6 +195,7 @@ where
 		display_level: detailed_output,
 		display_thread_name: detailed_output,
 		dup_to_stdout: !io::stderr().is_terminal() && io::stdout().is_terminal(),
+		display_location: detailed_output,
 	};
 	let builder = FmtSubscriber::builder().with_env_filter(env_filter);
 
