@@ -65,6 +65,7 @@ impl<T: Config> ContractBlob<T> {
 		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE &&
 			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
+			log::debug!(target: LOG_TARGET, "EVM init code too large: {} bytes, owner: {:?}", code.len(), owner);
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
@@ -101,6 +102,7 @@ impl<T: Config> ContractBlob<T> {
 		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE &&
 			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
+			log::debug!(target: LOG_TARGET, "EVM runtime code too large: {} bytes, owner: {:?}", code.len(), owner);
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 

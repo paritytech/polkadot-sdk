@@ -59,6 +59,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	if len != 0 {
 		// EIP-3860: Limit initcode
 		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+			log::debug!(target: LOG_TARGET, "blob too large: {} bytes", len);
 			return ControlFlow::Break(Error::<E::T>::BlobTooLarge.into());
 		}
 
