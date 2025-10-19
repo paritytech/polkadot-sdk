@@ -1,21 +1,8 @@
 title: '[AHM/Staking] Allow own stake to be collected in all pages'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     TLDR: Thanks to a number of reports from Kusama validator, we have been investigating an issue where the self stake of some validators is not present in `ErasStakersPaged` and `ErasStakersOverview`. After investigation, it was clear that the `polkadot-staking-miner` is doing the right thing, and the self-stake is indeed submitted to the chain as a part of the election result. The root cause in how `pallet-staking-async` ingests the paginated election result. This code **made a (wrong) assumption that self-stake is only present in the first page of a multi-page election. This PR fixes this issue.**
-
-    - [ ] (nice to have) revisit try-state checks of the pallet, `ErasStakersPaged`, `ErasStakersOverview` and `ErasTotalStake` are triple checked for correctness
-    - [ ] backport to 2507 and 2509
-    - Westend
-      - [ ] Find a similar issue in westend for monitoring
-      - [ ] Upgrade westend to a branch/release containing this fix
-      - [ ] Upgrade westend with this fix, observe test examples are resolved
-    - [ ] Bump backported version in `fellowship/runtimes`
-    - [ ] Release 1.9.3 for Kusama with this fix
-    - [ ] Ensure known test cases are fixed
-      - One example: `F2WyUUFXLYnBg6acv7t2KFzH6D7CyNcvC4mRCwUdsHTUB4t` (in election round 46, likely repeating in subsequent ones too)
-    - This PR will be part of Polkadot release 2.0.0, the Polkadot AHM.
-    - [ ] Forum post with further explanation
 crates:
 - name: pallet-staking-async
   bump: patch
