@@ -1457,7 +1457,8 @@ where
 			// destroy each contract registered for destruction
 			let contracts_to_destroy = mem::take(&mut self.contracts_to_be_destroyed);
 			for (contract_address, (contract_info, beneficiary)) in contracts_to_destroy {
-				let _code_removed = self.destroy_contract(&contract_address, &contract_info, &beneficiary);
+				let _code_removed =
+					self.destroy_contract(&contract_address, &contract_info, &beneficiary);
 			}
 		}
 	}
@@ -1761,7 +1762,11 @@ where
 			if frame.entry_point == ExportedFunction::Constructor {
 				return Err(Error::<T>::TerminatedInConstructor.into());
 			}
-			(frame.account_id.clone(), T::AddressMapper::to_address(&frame.account_id), frame.contract_info().clone())
+			(
+				frame.account_id.clone(),
+				T::AddressMapper::to_address(&frame.account_id),
+				frame.contract_info().clone(),
+			)
 		};
 		self.contracts_to_be_destroyed
 			.insert(contract_address, (contract_info.clone(), *beneficiary));
