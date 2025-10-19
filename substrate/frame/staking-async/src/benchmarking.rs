@@ -1230,7 +1230,8 @@ mod benchmarks {
 			.for_each(|validator| {
 				let exposure = sp_staking::Exposure::<T::AccountId, BalanceOf<T>> {
 					own: T::Currency::minimum_balance(),
-					total: T::Currency::minimum_balance() * (exposed_nominators_per_validator + 1).into(),
+					total: T::Currency::minimum_balance() *
+						(exposed_nominators_per_validator + 1).into(),
 					others: (0..exposed_nominators_per_validator)
 						.map(|n| {
 							let nominator = account::<T::AccountId>("nominator", n, SEED);
