@@ -282,6 +282,8 @@ impl<T: Config> Eras<T> {
 				},
 			};
 
+			ErasStakersOverview::<T>::insert(era, &validator, updated_overview);
+			drop(updated_overview);
 			// we are done updating the overview now. We've updated:
 			// * nominator count
 			// * total stake
@@ -290,10 +292,9 @@ impl<T: Config> Eras<T> {
 			//
 			// next step:
 			// * new-keys or updates in `ErasStakersPaged`
-			ErasStakersOverview::<T>::insert(era, &validator, updated_overview);
 			// we don't need the information about own stake anymore -- drop it.
+			exposure.total = exposure.total.saturating_sub(exposure.own);
 			exposure.own = Zero::zero();
-			exposure.total = exposure.total.saturating_sub(updated_overview.own);
 
 			// splits the exposure so that `append_to_last_page` will fit within the last exposure
 			// page, up to the max exposure page size. The remaining individual exposures in
