@@ -283,8 +283,8 @@ impl<T: Config> Eras<T> {
 			};
 
 			ErasStakersOverview::<T>::insert(era, &validator, updated_overview);
-			drop(updated_overview);
-			// we are done updating the overview now. We've updated:
+			// we are done updating the overview now, `updated_overview` should not be used anymore.
+			// We've updated:
 			// * nominator count
 			// * total stake
 			// * own stake (if applicable)
