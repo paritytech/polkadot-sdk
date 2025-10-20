@@ -113,7 +113,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	// Wait for collator to claim a slot.
+	// Expect that `collator-5` claims at least 3 slots during this run.
 	let result = para_node
 		.wait_log_line_count_with_timeout(
 			"*Received PreConnectToBackingGroups message*",
@@ -123,7 +123,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 		.await?;
 	assert!(result.success());
 
-	// Wait for collator slot to pass.
+	// It should disconnect at least 3 times after it's slot passes.
 	let result = para_node
 		.wait_log_line_count_with_timeout(
 			"*Received DisconnectFromBackingGroups message*",
