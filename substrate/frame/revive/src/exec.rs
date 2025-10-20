@@ -384,9 +384,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the chain id.
 	fn chain_id(&self) -> u64;
 
-	/// Returns the maximum allowed size of a storage item.
-	fn max_value_size(&self) -> u32;
-
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
 
@@ -2128,10 +2125,6 @@ where
 
 	fn chain_id(&self) -> u64 {
 		<T as Config>::ChainId::get()
-	}
-
-	fn max_value_size(&self) -> u32 {
-		limits::PAYLOAD_BYTES
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
