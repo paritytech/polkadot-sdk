@@ -99,11 +99,11 @@ impl<Client> BackingGroupConnectionHelper<Client> {
 		if Some(current_slot) <= self.our_slot {
 			// Current slot or next slot is ours.
 			// We already sent pre-connect message, no need to proceed further.
-			return;
+			return
 		}
 
 		let Some(authorities) = self.client.runtime_api().authorities(best_block).ok() else {
-			return;
+			return
 		};
 
 		match aura_internal::claim_slot::<P>(current_slot + 1, &authorities, &self.keystore).await {
