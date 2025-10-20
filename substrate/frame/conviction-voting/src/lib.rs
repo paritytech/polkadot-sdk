@@ -895,11 +895,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             {
                 if r_poll_index < s_vote_record.poll_index {
                     // Delegator vote not in delegate's list.
-                    r_iter.next(); // Consume delegator vote
+                    r_iter.next(); // Consume delegator vote.
                 } else if r_poll_index > s_vote_record.poll_index {
                     // Delegate vote not in delegator's list. Copy it.
                     new_votes.push(s_vote_record.clone());
-                    s_iter.next(); // Consume delegate vote
+                    s_iter.next(); // Consume delegate vote.
                 } else {
                     // Both have a vote record for this poll.
                     let mut matched_record = s_vote_record.clone();
@@ -913,7 +913,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                         matched_record.poll_index,
                         |poll_status| match poll_status {
                             PollStatus::Ongoing(tally, _) => {
-                                // Give back the tally contribution
+                                // Give back the tally contribution.
                                 if let Some(AccountVote::Standard { vote, .. }) =
                                     matched_record.maybe_vote
                                 {
@@ -921,18 +921,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                                 }
                                 false
                             },
-                            _ => true, // Completed or None
+                            _ => true, // Completed or None.
                         },
                     );
 
-                    // Only keep the record if still necessary
+                    // Only keep the record if still necessary.
                     if matched_record.maybe_vote.is_some() ||
                         (matched_record.retracted_votes.votes > Zero::zero() && !poll_has_ended)
                     {
                         new_votes.push(matched_record);
                     }
 
-                    r_iter.next(); // Consume both
+                    r_iter.next(); // Consume both.
                     s_iter.next();
                 }
             }
