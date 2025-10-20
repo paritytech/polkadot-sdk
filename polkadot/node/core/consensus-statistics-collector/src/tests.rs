@@ -487,6 +487,10 @@ fn prune_unfinalized_forks() {
 	let hash_d = Hash::from_slice(&[03; 32]);
 	let session_zero: SessionIndex = 0;
 
+	let candidate_hash_a: CandidateHash = CandidateHash(Hash::from_low_u64_be(100));
+	let candidate_hash_b: CandidateHash = CandidateHash(Hash::from_low_u64_be(200));
+	let candidate_hash_c: CandidateHash = CandidateHash(Hash::from_low_u64_be(300));
+
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		let leaf_a = new_leaf(hash_a.clone(), 1);
@@ -500,6 +504,11 @@ fn prune_unfinalized_forks() {
 			Some(default_session_info(session_zero)),
 		).await;
 
+		candidate_approved(&mut virtual_overseer, candidate_hash_a, hash_a,
+						   vec![ValidatorIndex(2), ValidatorIndex(3)]).await;
+		no_shows(&mut virtual_overseer, candidate_hash_a, hash_a,
+				 vec![ValidatorIndex(0), ValidatorIndex(1)]).await;
+
 		let leaf_b = new_leaf(hash_b.clone(), 2);
 		let leaf_b_header = header_with_number_and_parent(2, hash_a.clone());
 
@@ -511,6 +520,9 @@ fn prune_unfinalized_forks() {
 			None,
 		).await;
 
+		candidate_approved(&mut virtual_overseer, candidate_hash_b, hash_b,
+						   vec![ValidatorIndex(0), ValidatorIndex(1)]).await;
+
 		let leaf_c = new_leaf(hash_c.clone(), 2);
 		let leaf_c_header = header_with_number_and_parent(2, hash_a.clone());
 
@@ -521,6 +533,9 @@ fn prune_unfinalized_forks() {
 			session_zero,
 			None,
 		).await;
+
+		candidate_approved(&mut virtual_overseer, candidate_hash_c, hash_c,
+						   vec![ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)]).await;
 
 		let leaf_d = new_leaf(hash_d.clone(), 3);
 		let leaf_d_header = header_with_number_and_parent(3, hash_c.clone());
@@ -583,6 +598,8 @@ fn prune_unfinalized_forks() {
 	let hash_e = Hash::from_slice(&[04; 32]);
 	let hash_f = Hash::from_slice(&[05; 32]);
 	let hash_g = Hash::from_slice(&[06; 32]);
+
+	let candidate_hash_e = CandidateHash(Hash::from_low_u64_be(0xEE0011));
 	let session_one: SessionIndex = 1;
 
 	test_harness(&mut view, |mut virtual_overseer| async move {
@@ -596,6 +613,11 @@ fn prune_unfinalized_forks() {
 			session_one,
 			Some(default_session_info(session_one)),
 		).await;
+
+		candidate_approved(&mut virtual_overseer, candidate_hash_e, hash_e,
+						   vec![ValidatorIndex(3), ValidatorIndex(1), ValidatorIndex(0)]).await;
+		no_shows(&mut virtual_overseer, candidate_hash_e, hash_e,
+				 vec![ValidatorIndex(2)]).await;
 
 		let leaf_f = new_leaf(hash_f.clone(), 5);
 		let leaf_f_header = header_with_number_and_parent(5, hash_e.clone());
@@ -654,6 +676,33 @@ fn prune_unfinalized_forks() {
 		vec![hash_e],
 		expect.clone(),
 	);
+
+	let expected_session_views = HashMap::from_iter(vec![
+		(0 as SessionIndex, PerSessionView {
+			authorities_lookup: HashMap::new(),
+			finalized_approval_stats: HashMap::from_iter(vec![
+				(
+					candidate_hash_a.clone(),
+					// expected approval stats from a given finalized session
+					// ignoring the stats collected for relay block B
+					ApprovalsStats::new(
+						HashSet::from_iter(vec![ValidatorIndex(2), ValidatorIndex(3)]),
+						HashSet::from_iter(vec![ValidatorIndex(0), ValidatorIndex(1)])
+					),
+				),
+				(
+					candidate_hash_c.clone(),
+					ApprovalsStats::new(
+						HashSet::from_iter(vec![ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)]),
+						Default::default(),
+					),
+				),
+			]),
+		}),
+		(1 as SessionIndex, PerSessionView::new(Default::default())),
+	]);
+
+	assert_eq!(view.per_session, expected_session_views);
 }
 
 fn assert_roots_and_relay_views(

@@ -244,10 +244,10 @@ pub(crate) async fn run_iteration<Context>(
                                 }
 
                                 view.per_session
-                                    .get_mut(&session_idx)
+                                    .get_mut(&rb_view.session_index)
                                     .and_then(|session_view| {
                                         metrics.record_approvals_stats(
-                                            session_idx,
+                                            rb_view.session_index,
                                             rb_view.approvals_stats.clone());
 
                                         session_view.finalized_approval_stats
