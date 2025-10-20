@@ -154,7 +154,7 @@ enum ShouldAdvertiseTo {
 /// Info about validators we are currently connected to.
 ///
 /// It keeps track to which validators we advertised our collation.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 struct ValidatorGroup {
 	/// Validators discovery ids. Lazily initialized when first
 	/// distributing a collation.
