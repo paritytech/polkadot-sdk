@@ -88,7 +88,6 @@ use sp_trie::get_trie_node_children;
 use sp_trie::ClientProof;
 use sp_trie::TrieNodeChild;
 use sp_trie::TrieNodeChildKind;
-use trie_db::NibbleVec;
 use codec::Encode;
 
 use super::call_executor::LocalCallExecutor;
@@ -1405,7 +1404,7 @@ where
 				},
 				Ok(Some(encoded)) => encoded,
 			};
-			let child_nodes = if node.kind == TrieNodeChildKind::Value {
+			let child_nodes = if !node.has_children() {
 				None
 			} else {
 				match get_trie_node_children::<HashingFor<Block>>(&node.prefix, &encoded) {
@@ -1421,10 +1420,7 @@ where
 		let mut results = CompactProof { encoded_nodes: vec![] };
 		let mut size = 0;
 		let mut leaf_iter = std::iter::from_fn({
-			let mut stack = vec![(
-				client_proof,
-				TrieNodeChild { kind: TrieNodeChildKind::Branch, prefix: NibbleVec::new(), hash: client_proof.hash },
-			)];
+			let mut stack = vec![(client_proof, TrieNodeChild::root(client_proof.hash))];
 			move || {
 				while let Some((proof, node)) = stack.pop() {
 					if proof.is_leaf() {

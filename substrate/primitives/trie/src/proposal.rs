@@ -59,6 +59,16 @@ pub struct TrieNodeChild<H> {
 	pub hash: H,
 }
 
+impl<H> TrieNodeChild<H> {
+	pub fn root(hash: H) -> Self {
+		Self { kind: TrieNodeChildKind::Branch, prefix: NibbleVec::new(), hash }
+	}
+
+	pub fn has_children(&self) -> bool {
+		self.kind != TrieNodeChildKind::Value
+	}
+}
+
 pub fn get_trie_node_children<H: Hasher>(
 	prefix: &NibbleVec,
 	encoded: &[u8],

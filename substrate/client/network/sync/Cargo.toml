@@ -22,6 +22,7 @@ async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 fork-tree = { workspace = true, default-features = true }
 futures = { workspace = true }
+hash-db = { workspace = true }
 log = { workspace = true, default-features = true }
 mockall = { workspace = true }
 prometheus-endpoint = { workspace = true, default-features = true }

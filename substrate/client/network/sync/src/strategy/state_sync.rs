@@ -33,6 +33,12 @@ use sp_runtime::{
 	Justifications,
 };
 use sp_trie::PrefixedMemoryDB;
+use sp_trie::MemoryDB;
+use sp_trie::ClientProof;
+use sp_trie::CLIENT_PROOF;
+use sp_trie::TrieNodeChild;
+use sp_trie::get_trie_node_children;
+use hash_db::HashDB;
 use std::{collections::HashMap, fmt, sync::Arc};
 
 /// Generic state sync provider. Used for mocking in tests.
@@ -155,6 +161,89 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	}
 }
 
+enum Tree<B: BlockT> {
+	Known {
+		hash: B::Hash,
+		children: Vec<Tree<B>>,
+	},
+	Unknown(TrieNodeChild<B::Hash>),
+}
+impl<B: BlockT> Tree<B> {
+	fn complete(&self) -> bool {
+		match self {
+			Self::Known { children, .. } if children.is_empty() => true,
+			_ => false,
+		}
+	}
+
+	fn node_hash(&self) -> &B::Hash {
+		match self {
+			Self::Known { hash, .. } | Self::Unknown(TrieNodeChild { hash, .. }) => hash,
+		}
+	}
+
+	fn request(&self) -> ClientProof<B::Hash> {
+		ClientProof {
+			hash: *self.node_hash(),
+			children: if let Self::Known { children, .. } = self {
+				children.iter().map(|child| child.request()).collect()
+			} else {
+				vec![]
+			},
+		}
+	}
+}
+
+type Paths<B> = HashMap<<B as BlockT>::Hash, Vec<Vec<<B as BlockT>::Hash>>>;
+
+fn fill<B: BlockT>(
+	tree: &mut Tree<B>,
+	paths: &mut Paths<B>,
+	db_out: &mut PrefixedMemoryDB::<HashingFor<B>>,
+	db_in: &MemoryDB::<HashingFor<B>>,
+	path: &mut Vec<B::Hash>,
+	depth: usize,
+) {
+	match tree {
+		Tree::Known { children, .. } => {
+			let child_hash = path.get(depth).unwrap();
+			let child_index = children.iter().position(|child_tree| child_tree.node_hash() == child_hash).unwrap();
+			let child_tree = children.get_mut(child_index).unwrap();
+			fill(child_tree, paths, db_out, db_in, path, depth + 1);
+			if child_tree.complete() {
+				children.remove(child_index);
+			}
+		},
+		Tree::Unknown(node) => {
+			if let Some(encoded) = db_in.get(&node.hash, node.prefix.as_prefix()) {
+				let children = if !node.has_children() {
+					vec![]
+				} else {
+					get_trie_node_children::<HashingFor<B>>(&node.prefix, &encoded)
+						.unwrap()
+						.into_iter()
+						.filter_map(|child_node| {
+							let mut child_tree = Tree::Unknown(child_node);
+							path.push(*child_tree.node_hash());
+							fill(&mut child_tree, paths, db_out, db_in, path, depth + 1);
+							path.pop();
+							if child_tree.complete() {
+								None
+							} else {
+								Some(child_tree)
+							}
+						})
+						.collect()
+				};
+				db_out.emplace(node.hash, node.prefix.as_prefix(), encoded);
+				*tree = Tree::Known { hash: node.hash, children };
+			} else {
+				paths.entry(node.hash).or_default().push(path.clone());
+			}
+		}
+	}
+}
+
 /// State sync state machine.
 ///
 /// Accumulates partial state data until it is ready to be imported.
@@ -162,6 +251,8 @@ pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
+	tree: Tree<B>,
+	paths: Paths<B>,
 }
 
 impl<B, Client> StateSync<B, Client>
@@ -177,6 +268,7 @@ where
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
 	) -> Self {
+		let state_root = *target_header.state_root();
 		Self {
 			client,
 			metadata: StateSyncMetadata {
@@ -189,6 +281,8 @@ where
 				skip_proof,
 			},
 			state: HashMap::default(),
+			tree: Tree::Unknown(TrieNodeChild::root(state_root)),
+			paths: Paths::<B>::from_iter([(state_root, vec![])]),
 		}
 	}
 
@@ -293,44 +387,37 @@ where
 				},
 			};
 
-			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::new(&[]);
-			if let Err(e) = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
-				&mut partial_state,
-				proof.iter_compact_encoded_nodes(),
-				Some(&self.metadata.target_root()),
-			) {
-				debug!(
-					target: LOG_TARGET,
-					"Error decoding proof to prefixed db: {}",
-					e,
-				);
-				return ImportResult::BadResponse
+			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::default();
+			for proof in &proof.encoded_nodes {
+				let proof = match CompactProof::decode(&mut &proof[..]) {
+					Ok(proof) => proof,
+					Err(e) => {
+						debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
+						return ImportResult::BadResponse;
+					},
+				};
+				let mut db = MemoryDB::<HashingFor<B>>::default();
+				let root = match sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
+					&mut db,
+					proof.iter_compact_encoded_nodes(),
+					None,
+				) {
+					Ok(root) => root,
+					Err(e) => {
+						debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
+						return ImportResult::BadResponse;
+					},
+				};
+				if let Some(paths) = self.paths.remove(&root) {
+					for mut path in paths {
+						fill(&mut self.tree, &mut self.paths, &mut partial_state, &db, &mut path, 0);
+					}
+				}
 			}
-
-			let (values, completed) = match self.client.verify_range_proof(
-				self.metadata.target_root(),
-				proof,
-				self.metadata.last_key.as_slice(),
-			) {
-				Err(e) => {
-					debug!(
-						target: LOG_TARGET,
-						"StateResponse failed proof verification: {}",
-						e,
-					);
-					return ImportResult::BadResponse
-				},
-				Ok(values) => values,
-			};
-			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
-
-			let complete = completed == 0;
-			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
-				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
-			};
+			debug!(target: LOG_TARGET, "Imported with ??? nodes");
 
 			self.metadata.imported_bytes += proof_size;
-			(complete, Some(partial_state))
+			(self.tree.complete(), Some(partial_state))
 		} else {
 			(self.process_state_unverified(response), None)
 		};
@@ -359,7 +446,11 @@ where
 
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest {
-		self.metadata.next_request()
+		StateRequest {
+			block: self.target_hash().encode(),
+			start: vec![CLIENT_PROOF.to_vec(), self.tree.request().encode()],
+			no_proof: false,
+		}
 	}
 
 	/// Check if the state is complete.
