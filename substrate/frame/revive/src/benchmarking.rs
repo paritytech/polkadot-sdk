@@ -133,7 +133,7 @@ mod benchmarks {
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
-			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::PAYLOAD_BYTES)?;
+			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
 		instance.info()?.queue_trie_for_deletion();
 
 		#[block]
@@ -1232,7 +1232,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_deposit_event(
 		t: Linear<0, { limits::NUM_EVENT_TOPICS as u32 }>,
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::EVENT_BYTES }>,
 	) {
 		let num_topic = t as u32;
 		let topics = (0..t).map(|i| H256::repeat_byte(i as u8)).collect::<Vec<_>>();
@@ -1267,7 +1267,7 @@ mod benchmarks {
 	fn get_storage_empty() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES as usize;
+		let max_value_len = limits::STORAGE_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
@@ -1290,7 +1290,7 @@ mod benchmarks {
 	fn get_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
@@ -1313,7 +1313,7 @@ mod benchmarks {
 	fn set_storage_empty() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES as usize;
+		let max_value_len = limits::STORAGE_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
 		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
@@ -1338,7 +1338,7 @@ mod benchmarks {
 	fn set_storage_full() -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
 		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
@@ -1363,8 +1363,8 @@ mod benchmarks {
 	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn seal_set_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
-		o: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1396,7 +1396,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn clear_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1429,7 +1429,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_get_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_get_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1459,7 +1459,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1491,7 +1491,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn take_storage(n: Linear<0, { limits::PAYLOAD_BYTES }>) -> Result<(), BenchmarkError> {
+	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1529,7 +1529,7 @@ mod benchmarks {
 	// complexity can introduce approximation errors.
 	#[benchmark(pov_mode = Ignored)]
 	fn set_transient_storage_empty() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1551,7 +1551,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn set_transient_storage_full() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1574,7 +1574,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn get_transient_storage_empty() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1599,7 +1599,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn get_transient_storage_full() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1626,7 +1626,7 @@ mod benchmarks {
 	// The weight of journal rollbacks should be taken into account when setting storage.
 	#[benchmark(pov_mode = Ignored)]
 	fn rollback_transient_storage() -> Result<(), BenchmarkError> {
-		let max_value_len = limits::PAYLOAD_BYTES;
+		let max_value_len = limits::STORAGE_BYTES;
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1654,8 +1654,8 @@ mod benchmarks {
 	// o: old byte size
 	#[benchmark(pov_mode = Measured)]
 	fn seal_set_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
-		o: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1688,7 +1688,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_clear_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1722,7 +1722,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_get_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1758,7 +1758,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_contains_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
@@ -1793,9 +1793,9 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_take_transient_storage(
-		n: Linear<0, { limits::PAYLOAD_BYTES }>,
+		n: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
-		let n = limits::PAYLOAD_BYTES;
+		let n = limits::STORAGE_BYTES;
 		let value = vec![42u8; n as usize];
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
