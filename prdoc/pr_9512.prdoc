@@ -36,6 +36,6 @@ doc:
     Part of: https://github.com/paritytech/contract-issues/issues/139
 crates:
 - name: pallet-revive
-  bump: major
-- name: pallet-revive-eth-rpc
   bump: minor
+- name: pallet-revive-eth-rpc
+  bump: major
