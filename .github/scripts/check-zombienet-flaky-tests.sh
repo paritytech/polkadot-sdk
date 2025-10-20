@@ -2,8 +2,9 @@
 
 # Validates the .github/zombienet-flaky-tests file to ensure:
 # 1. Each entry has the correct format: <test-name>:<issue-number>
-# 2. The referenced GitHub issue exists
-# 3. The issue is OPEN (fails if closed)
+# 2. The referenced number is a GitHub Issue
+# 3. The GitHub issue exists
+# 4. The issue is OPEN (warns if closed)
 
 set -uo pipefail
 
@@ -46,7 +47,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     issue_number="${BASH_REMATCH[2]}"
     
     set +e
-    issue_data=$(gh issue view "$issue_number" --json state,title 2>&1)
+    issue_data=$(gh issue view "$issue_number" --json state,title,url 2>&1)
     gh_exit_code=$?
     set -e
     
@@ -57,8 +58,19 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         continue
     fi
     
+    url=$(echo "$issue_data" | jq -r '.url')
     state=$(echo "$issue_data" | jq -r '.state')
     title=$(echo "$issue_data" | jq -r '.title')
+    
+    # Check if it's an issue (not a PR) by verifying the URL contains '/issues/'
+    if [[ ! "$url" =~ /issues/ ]]; then
+        echo "❌ Line $line_num: #$issue_number is a Pull Request, not an Issue" >&2
+        echo "   Test: $test_name" >&2
+        echo "   URL: $url" >&2
+        echo "   Please reference a GitHub Issue, not a PR" >&2
+        has_errors=true
+        continue
+    fi
     
     if [[ "$state" == "OPEN" ]]; then
         echo "✅ Line $line_num: $test_name -> Issue #$issue_number (open)"
@@ -66,7 +78,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         echo "⚠️  Line $line_num: Issue #$issue_number is closed: '$title'" >&2
         echo "   Test: $test_name" >&2
         echo "   Consider removing this entry if the issue is resolved." >&2
-        # Note: We treat closed issues as warnings, not errors
     fi
     
 done < "$FLAKY_TESTS_FILE"

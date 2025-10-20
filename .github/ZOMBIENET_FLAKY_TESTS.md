@@ -66,6 +66,7 @@ Once a flaky test has been fixed:
 The `.github/zombienet-flaky-tests` file is automatically validated in CI whenever it's modified. The validation checks:
 
 - **Format**: Each entry must follow the `<test-name>:<issue-number>` format
+- **Issue vs PR**: The referenced number must be a GitHub Issue, not a Pull Request
 - **Issue existence**: The referenced GitHub issue must exist in the repository
 - **Issue state**: A warning is shown if the referenced issue is closed (suggesting the entry might be outdated)
 
