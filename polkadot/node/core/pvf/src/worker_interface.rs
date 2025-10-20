@@ -429,13 +429,9 @@ pub async fn framed_send(w: &mut (impl AsyncWrite + Unpin), buf: &[u8]) -> io::R
 		// Under Shadow simulation, writes are performed in chunks because
 		// sending large blocks at once can, in some cases, cause a deadlock
 		// between the sender and the receiver.
-		let mut offset = 0;
 		const CHUNK_SIZE: usize = 1 << 15;
-
-		while offset < buf.len() {
-			let end = std::cmp::min(offset + CHUNK_SIZE, buf.len());
-			w.write_all(&buf[offset..end]).await?;
-			offset = end;
+		for chunk in buf.chunks(CHUNK_SIZE) {
+			w.write_all(chunk).await?;
 		}
 	}
 
