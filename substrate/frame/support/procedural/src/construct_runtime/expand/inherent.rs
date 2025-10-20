@@ -125,11 +125,8 @@ pub fn expand_outer_inherent(
 
 				let mut pallet_has_inherent = [false; #pallet_count];
 				for maybe_xt in block.extrinsics() {
-					let xt = match maybe_xt {
-						Ok(xt) => xt,
-						Err(_) => {
-							panic!("check_extrinsics(): Unable to decode extrinsic");
-						}
+					let Ok(xt) = maybe_xt else {
+						panic!("check_extrinsics(): Unable to decode extrinsic");
 					};
 
 					// Inherents are before any other extrinsics.

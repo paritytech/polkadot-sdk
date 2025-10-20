@@ -44,12 +44,12 @@ pub enum Extrinsic {
 
 impl From<Extrinsic> for OpaqueExtrinsic {
 	fn from(xt: Extrinsic) -> Self {
-		OpaqueExtrinsic::from_bytes(xt.encode())
+		OpaqueExtrinsic::from_blob(xt.encode())
 	}
 }
 
 impl LazyExtrinsic for Extrinsic {
-	fn decode_with_len(data: &[u8], _len: usize) -> Result<Self, codec::Error> {
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode(&mut &data[..])
 	}
 }

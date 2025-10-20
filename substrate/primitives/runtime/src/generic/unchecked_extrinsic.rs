@@ -357,10 +357,7 @@ impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize>
 		Preamble<Address, Signature, Extension>: Encode,
 		Call: Encode,
 	{
-		let mut tmp = self.preamble.encode();
-		self.function.encode_to(&mut tmp);
-
-		tmp
+		(&self.preamble, &self.function).encode()
 	}
 }
 
@@ -613,7 +610,7 @@ where
 	Call: Encode,
 {
 	fn from(extrinsic: UncheckedExtrinsic<Address, Call, Signature, Extension>) -> Self {
-		Self::from_bytes(extrinsic.encode_without_prefix())
+		Self::from_blob(extrinsic.encode_without_prefix())
 	}
 }
 
@@ -623,8 +620,8 @@ where
 	Preamble<Address, Signature, Extension>: Decode,
 	Call: DecodeWithMemTracking,
 {
-	fn decode_with_len(data: &[u8], len: usize) -> Result<Self, codec::Error> {
-		Self::decode_with_len(&mut &data[..], len)
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
+		Self::decode_with_len(&mut &data[..], data.len())
 	}
 }
 

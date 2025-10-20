@@ -42,6 +42,7 @@ use polkadot_sdk::{
 	polkadot_sdk_frame::{
 		deps::sp_genesis_builder,
 		runtime::{apis, prelude::*},
+		traits::Block as BlockT,
 	},
 	*,
 };
@@ -356,7 +357,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			VERSION
 		}
 
-		fn execute_block(block: <Block as polkadot_sdk::polkadot_sdk_frame::traits::Block>::LazyBlock) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block)
 		}
 
@@ -393,7 +394,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn check_inherents(
-			block: <Block as polkadot_sdk::polkadot_sdk_frame::traits::Block>::LazyBlock,
+			block: <Block as BlockT>::LazyBlock,
 			data: InherentData,
 		) -> CheckInherentsResult {
 			data.check_extrinsics(&block)

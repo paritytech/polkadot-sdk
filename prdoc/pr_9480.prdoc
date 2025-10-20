@@ -7,6 +7,11 @@ doc:
     Addresses https://github.com/paritytech/polkadot-sdk/pull/7902#pullrequestreview-3079855302
 
     This PR enables us to lazily decode the block extrinsics when needed.
+
+    The PR changes the signature of the `execute_block` and `check_inherents` runtime APIs in order to receive
+    a `LazyBlock` instead of a `Block`. However `LazyBlock` and `Block` encode to the same byte sequence.
+    If some tools are using metadata, the type may appear as `LazyBlock` instead of `Block`.
+    But the underlying type is the same.
 crates:
 - name: sp-runtime
   bump: major
@@ -25,7 +30,7 @@ crates:
 - name: sc-tracing
   bump: patch
 - name: sp-api
-  bump: patch
+  bump: major
 - name: cumulus-client-consensus-aura
   bump: patch
 - name: cumulus-pallet-parachain-system
@@ -35,15 +40,15 @@ crates:
 - name: sc-basic-authorship
   bump: patch
 - name: frame-support
-  bump: patch
+  bump: major
 - name: sp-api-proc-macro
-  bump: patch
+  bump: major
 - name: frame-try-runtime
   bump: patch
 - name: sp-block-builder
   bump: patch
 - name: frame-support-procedural
-  bump: patch
+  bump: major
 - name: cumulus-pallet-aura-ext
   bump: patch
 - name: cumulus-client-service

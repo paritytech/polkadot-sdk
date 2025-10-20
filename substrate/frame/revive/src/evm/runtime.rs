@@ -234,8 +234,8 @@ impl<Address, Signature, E: EthExtra> LazyExtrinsic for UncheckedExtrinsic<Addre
 where
 	generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>: LazyExtrinsic,
 {
-	fn decode_with_len(data: &[u8], len: usize) -> Result<Self, codec::Error> {
-		Ok(Self(LazyExtrinsic::decode_with_len(data, len)?))
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
+		Ok(Self(LazyExtrinsic::decode_unprefixed(data)?))
 	}
 }
 

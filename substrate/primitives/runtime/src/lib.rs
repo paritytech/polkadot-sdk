@@ -1017,14 +1017,20 @@ impl TypeInfo for OpaqueExtrinsic {
 }
 
 impl OpaqueExtrinsic {
-	/// Create a new instance of `OpaqueExtrinsic` from a `Vec<u8>`.
-	pub fn from_bytes(bytes: Vec<u8>) -> Self {
-		Self(bytes.into())
-	}
-
 	/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
 	pub fn try_from_encoded_extrinsic(mut bytes: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode(&mut bytes)
+	}
+
+	/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
+	#[deprecated = "Use `try_from_encoded_extrinsic()` instead"]
+	pub fn from_bytes(bytes: &[u8]) -> Result<Self, codec::Error> {
+		Self::try_from_encoded_extrinsic(bytes)
+	}
+
+	/// Create a new instance of `OpaqueExtrinsic` from a `Vec<u8>`.
+	pub fn from_blob(bytes: Vec<u8>) -> Self {
+		Self(bytes.into())
 	}
 
 	/// Get the actual blob.
@@ -1034,7 +1040,7 @@ impl OpaqueExtrinsic {
 }
 
 impl LazyExtrinsic for OpaqueExtrinsic {
-	fn decode_with_len(data: &[u8], _len: usize) -> Result<Self, codec::Error> {
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
 		Ok(Self(data.to_vec().into()))
 	}
 }
@@ -1183,7 +1189,7 @@ mod tests {
 
 	#[test]
 	fn opaque_extrinsic_serialization() {
-		let ex = OpaqueExtrinsic::from_bytes(vec![1, 2, 3, 4]);
+		let ex = OpaqueExtrinsic::from_blob(vec![1, 2, 3, 4]);
 		assert_eq!(serde_json::to_string(&ex).unwrap(), "\"0x1001020304\"".to_owned());
 	}
 

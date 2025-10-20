@@ -1303,7 +1303,13 @@ pub trait HeaderProvider {
 /// An extrinsic that can be lazily decoded.
 pub trait LazyExtrinsic: Sized {
 	/// Try to decode the lazy extrinsic.
-	fn decode_with_len(data: &[u8], len: usize) -> Result<Self, codec::Error>;
+	///
+	/// Usually an encoded extrinsic is composed of 2 parts:
+	/// - a `Compact<u32>` prefix (`len)`
+	/// - a blob of size `len`
+	/// This method expects to receive just the blob as a byte slice.
+	/// The size of the blob is the `len`.
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error>;
 }
 
 /// A Substrate block that allows us to lazily decode its extrinsics.
