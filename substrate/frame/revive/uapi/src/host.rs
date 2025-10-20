@@ -432,6 +432,10 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
 
+	/// Reverts the execution and cedes all supplied gas,
+	/// akin to the `INVALID` EVM opcode.
+	fn consume_all_gas() -> !;
+
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.
 	///
