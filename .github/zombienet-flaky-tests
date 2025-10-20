@@ -9,4 +9,6 @@ zombienet-polkadot-functional-duplicate-collations:8950
 zombienet-substrate-0002-validators-warp-sync:8871
 zombienet-cumulus-0009-elastic_scaling_pov_recovery:8986
 zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:8999
+zombienet-cumulus-0005-migrate_solo_to_para:9512
+zombienet-cumulus-0007-full_node_warp_sync:100001
 zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:9980
