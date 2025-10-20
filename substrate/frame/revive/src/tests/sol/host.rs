@@ -471,6 +471,7 @@ fn logs_work(fixture_type: FixtureType) {
 		initialize_block(2);
 
 		let result = builder::bare_call(addr)
+			.gas_limit(crate::Weight::from_parts(100_000_000_000_000, 50 * 1024 * 1024))
 			.data(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "test reverted");

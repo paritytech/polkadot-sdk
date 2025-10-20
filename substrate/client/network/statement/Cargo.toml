@@ -29,3 +29,7 @@ sc-network-types = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+async-trait = { workspace = true }
