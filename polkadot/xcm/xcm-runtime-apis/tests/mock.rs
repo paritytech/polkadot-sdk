@@ -378,7 +378,7 @@ impl xcm_executor::traits::AssetExchange for MockAssetExchanger {
 					// Convert native asset to USDT at 1:2 rate
 					let usdt_amount = give_asset.saturating_mul(2);
 					let mut result = xcm_executor::AssetsInHolding::new();
-					let _ = result.subsume((AssetId(usdt_location), usdt_amount).into());
+					result.subsume((AssetId(usdt_location), usdt_amount).into());
 					return Ok(result);
 				}
 			}
