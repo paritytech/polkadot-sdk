@@ -42,11 +42,9 @@ pub fn handle_candidate_approved(
         relay_view.approvals_stats
             .entry(candidate_hash)
             .and_modify(|a: &mut ApprovalsStats| {
-                metrics.record_approvals_usage(approvals.len() as u64);
                 a.votes.extend(approvals.iter())
             })
             .or_insert_with(|| {
-                metrics.record_approvals_usage(approvals.len() as u64);
                 ApprovalsStats::new(HashSet::from_iter(approvals), HashSet::new())
             });
     }

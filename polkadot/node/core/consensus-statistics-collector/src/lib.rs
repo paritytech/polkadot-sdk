@@ -240,6 +240,10 @@ pub(crate) async fn run_iteration<Context>(
                                 view.per_session
                                     .get_mut(&session_idx)
                                     .and_then(|session_view| {
+                                        metrics.record_approvals_stats(
+                                            session_idx,
+                                            rb_view.approvals_stats.clone());
+
                                         session_view.finalized_approval_stats
                                             .extend(rb_view.approvals_stats.clone());
                                         Some(session_view)
