@@ -789,7 +789,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 }
             }
 
-            // --- Linear Merge ---
             let mut new_votes = Vec::with_capacity(r_len + s_len);
             let mut r_iter = delegators_ongoing_votes.iter().peekable();
             let mut s_iter = delegate_votes.iter().peekable();
@@ -857,72 +856,98 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     }
 
 	/// Reduce the amount delegated to `who` and update tallies accordingly.
-	///
-	/// Returns the number of (delegate, delegator) votes accessed in the process.
-	fn reduce_upstream_delegation(
-		who: &T::AccountId,
-		class: &ClassOf<T, I>,
-		amount: Delegations<BalanceOf<T, I>>,
-		delegators_votes: Vec<PollIndexOf<T, I>>,
-	) -> Result<(u32, u32), DispatchError> {
-		// Grab the delegate's voting data.
-		VotingFor::<T, I>::try_mutate(who, class, |voting| {
-			// Reduce amount delegated to this delegate.
-			voting.delegations = voting.delegations.saturating_sub(amount);
+    ///
+    /// This implementation uses an O(R + S) linear merge, where R is the number of
+    /// delegator's votes and S is the number of delegate's votes.
+    ///
+    /// Returns the number of (delegator, delegate) votes accessed in the process.
+    fn reduce_upstream_delegation(
+        who: &T::AccountId,
+        class: &ClassOf<T, I>,
+        amount: Delegations<BalanceOf<T, I>>,
+        delegator_votes: Vec<PollIndexOf<T, I>>,
+    ) -> Result<(u32, u32), DispatchError> {
+        // Grab the delegate's voting data.
+        VotingFor::<T, I>::try_mutate(who, class, |voting| {
+            // Reduce amount delegated to this delegate.
+            voting.delegations = voting.delegations.saturating_sub(amount);
 
-			let votes = &mut voting.votes;
-			let votes_accessed = (delegators_votes.len() as u32, votes.len() as u32);
+            let delegate_votes = core::mem::take(&mut voting.votes).into_inner();
+            let (r_len, s_len) = (delegator_votes.len(), delegate_votes.len());
 
-			// For each of the delegate's votes.
-			for VoteRecord { poll_index, maybe_vote, .. } in votes.iter() {
-				// That are standard aye or nay.
-				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
-					T::Polls::access_poll(*poll_index, |poll_status| {
-						// And for an ongoing poll.
-						if let PollStatus::Ongoing(tally, _) = poll_status {
-							// Reduce the tally by the delegated amount.
-							tally.reduce(vote.aye, amount);
-						}
-					});
-				}
-			}
+            // First preemptively update all of delegates votes. Clawbacks will be handled next.
+            for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
+                if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
+                    T::Polls::access_poll(*poll_index, |poll_status| {
+                        if let PollStatus::Ongoing(tally, _) = poll_status {
+                            tally.reduce(vote.aye, amount);
+                        }
+                    });
+                }
+            }
 
-			// For all the delegator's votes (poll Ongoing, Completed, or None/Cancelled).
-			for poll_index in delegators_votes {
-				// That the delegate has data for.
-				if let Ok(i) = votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
-					let poll_has_ended = T::Polls::access_poll(poll_index, |poll_status| {
-						match poll_status {
-							// If ongoing.
-							PollStatus::Ongoing(tally, _) => {
-								// Remove the clawback.
-								votes[i].retracted_votes =
-									votes[i].retracted_votes.saturating_sub(amount);
+			// Capacity will be at most delegate_votes.len(), as we are only removing items.
+            let mut new_votes = Vec::with_capacity(s_len);
+            let mut r_iter = delegator_votes.iter().peekable();
+            let mut s_iter = delegate_votes.iter().peekable();
 
-								// And increase the tally by clawback amount if the delegate has
-								// voted standard.
-								if let Some(AccountVote::Standard { vote, .. }) =
-									votes[i].maybe_vote
-								{
-									tally.increase(vote.aye, amount);
-								}
-								false
-							},
-							_ => true,
-						}
-					});
+            while let (Some(&&r_poll_index), Some(&s_vote_record)) = (r_iter.peek(), s_iter.peek())
+            {
+                if r_poll_index < s_vote_record.poll_index {
+                    // Delegator vote not in delegate's list.
+                    r_iter.next(); // Consume delegator vote
+                } else if r_poll_index > s_vote_record.poll_index {
+                    // Delegate vote not in delegator's list. Copy it.
+                    new_votes.push(s_vote_record.clone());
+                    s_iter.next(); // Consume delegate vote
+                } else {
+                    // Both have a vote record for this poll.
+                    let mut matched_record = s_vote_record.clone();
 
-					// And remove the voting data if there's no longer a reason to hold.
-					if votes[i].maybe_vote.is_none() &&
-						(votes[i].retracted_votes == Default::default() || poll_has_ended)
-					{
-						votes.remove(i);
-					}
-				}
-			}
-			Ok(votes_accessed)
-		})
-	}
+                    // Remove the delegator's contribution from the clawback amount.
+                    matched_record.retracted_votes =
+                        matched_record.retracted_votes.saturating_sub(amount);
+
+                    // Check poll status to reverse the tally reduction (if needed) and decide on cleanup.
+                    let poll_has_ended = T::Polls::access_poll(
+                        matched_record.poll_index,
+                        |poll_status| match poll_status {
+                            PollStatus::Ongoing(tally, _) => {
+                                // Give back the tally contribution
+                                if let Some(AccountVote::Standard { vote, .. }) =
+                                    matched_record.maybe_vote
+                                {
+                                    tally.increase(vote.aye, amount);
+                                }
+                                false
+                            },
+                            _ => true, // Completed or None
+                        },
+                    );
+
+                    // Only keep the record if still necessary
+                    if matched_record.maybe_vote.is_some() ||
+                        (matched_record.retracted_votes.votes > Zero::zero() && !poll_has_ended)
+                    {
+                        new_votes.push(matched_record);
+                    }
+
+                    r_iter.next(); // Consume both
+                    s_iter.next();
+                }
+            }
+
+            for s_vote_record in s_iter {
+                // Any remaining delegate votes are unaffected, copy.
+                new_votes.push(s_vote_record.clone());
+            }
+
+            voting.votes = BoundedVec::try_from(new_votes)
+                .expect("new_votes len is <= s_len, which is <= T::MaxVotes; qed");
+
+            Ok((r_len as u32, s_len as u32))
+        })
+    }
 
 	/// Attempt to delegate `balance` times `conviction` of voting power from `who` to `target`.
 	///
