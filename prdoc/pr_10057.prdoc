@@ -1,0 +1,10 @@
+title: added filename and lineno to logging
+doc:
+- audience: Runtime Dev
+  description: logging in runtime passes through a trait which renders builtin logging,
+    added filename:lineno there
+crates:
+- name: sp-io
+  bump: patch
+- name: sp-runtime
+  bump: patch
