@@ -20,6 +20,8 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [dependencies]
+alloy-consensus = { workspace = true, default-features = true }
+alloy-core = { workspace = true, features = ["sol-types"], default-features = true }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
@@ -34,6 +36,7 @@ sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true, features = ["alloc", "derive"] }
 serde_json = { workspace = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
