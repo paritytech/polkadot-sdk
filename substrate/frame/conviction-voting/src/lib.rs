@@ -772,7 +772,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         delegators_ongoing_votes: Vec<PollIndexOf<T, I>>,
     ) -> Result<(u32, u32), DispatchError> {
         VotingFor::<T, I>::try_mutate(who, class, |voting| {
-            // Increase delegate's delegation counter
+            // Increase delegate's delegation counter.
             voting.delegations = voting.delegations.saturating_add(amount);
 
             let delegate_votes = core::mem::take(&mut voting.votes).into_inner();
@@ -802,11 +802,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                         maybe_vote: None,
                         retracted_votes: amount,
                     });
-                    r_iter.next(); // Consume delegator vote
+                    r_iter.next(); // Consume delegator vote.
                 } else if r_poll_index > &s_vote_record.poll_index {
                     // Delegate vote not in delegator's list. Copy it.
                     new_votes.push(s_vote_record.clone());
-                    s_iter.next(); // Consume delegate vote
+                    s_iter.next(); // Consume delegate vote.
                 } else {
                     // Both have a vote for this poll.
                     let mut matched_record = s_vote_record.clone();
@@ -826,7 +826,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                     }
 
                     new_votes.push(matched_record);
-                    r_iter.next(); // Consume both
+                    r_iter.next(); // Consume both.
                     s_iter.next();
                 }
             }
