@@ -24,7 +24,7 @@ use crate::{
 };
 use core::ops::ControlFlow;
 use revm::interpreter::gas::BASE;
-use sp_core::{H160, U256};
+use sp_core::U256;
 
 /// EIP-1344: ChainID opcode
 pub fn chainid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
@@ -38,7 +38,7 @@ pub fn chainid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Pushes the current block's beneficiary address onto the stack.
 pub fn coinbase<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(RuntimeCosts::BlockAuthor)?;
-	let coinbase = interpreter.ext.block_author().unwrap_or(H160::zero());
+	let coinbase = interpreter.ext.block_author();
 	interpreter.stack.push(coinbase)?;
 	ControlFlow::Continue(())
 }
