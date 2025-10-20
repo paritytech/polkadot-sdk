@@ -173,13 +173,18 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	Ord,
 	PartialEq,
 	PartialOrd,
-	Debug,
 	serde::Serialize,
 	serde::Deserialize,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(derive_more::Display))]
 pub struct Id(u32);
+
+impl core::fmt::Debug for Id {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		self.0.fmt(f)
+	}
+}
 
 impl codec::EncodeLike<u32> for Id {}
 impl codec::EncodeLike<Id> for u32 {}
@@ -472,4 +477,15 @@ pub struct ValidationResult {
 	/// The mark which specifies the block number up to which all inbound HRMP messages are
 	/// processed.
 	pub hrmp_watermark: RelayChainBlockNumber,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn para_id_debug() {
+		let id = Id::new(42);
+		assert_eq!(format!("{:?}", id), "42");
+	}
 }
