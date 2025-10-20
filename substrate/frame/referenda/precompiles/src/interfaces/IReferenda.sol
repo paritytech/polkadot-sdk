@@ -140,6 +140,11 @@ interface IReferenda {
 		uint32 referendumIndex
 	) external view returns (bool exists, bool passing);
 
+	/// @notice Get the decision deposit left to be placed for a referendum
+	/// @param referendumIndex The index of the referendum to query.
+	/// @return The decision deposit amount required
+	function decisionDeposit(uint32 referendumIndex) external view returns (uint128);
+
 	/// @notice Get the submission deposit amount required for submitting a referendum
 	/// @return The submission deposit amount
 	function submissionDeposit() external view returns (uint128);
