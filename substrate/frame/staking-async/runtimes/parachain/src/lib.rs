@@ -1610,7 +1610,7 @@ impl_runtime_apis! {
 		}
 
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
-			type AssetExchanger = <XcmConfig as xcm_executor::Config>::AssetExchanger;
+			type AssetExchanger = <xcm_config::XcmConfig as xcm_executor::Config>::AssetExchanger;
 			PolkadotXcm::query_delivery_fees::<AssetExchanger>(destination, message, asset_id)
 		}
 	}
