@@ -298,8 +298,10 @@ pub mod env {
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let deposit_limit = memory.read_u256(deposit_ptr)?;
 		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		self.call(
 			memory,
@@ -359,8 +361,10 @@ pub mod env {
 		let (flags, address_ptr) = extract_hi_lo(flags_and_callee);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let deposit_limit = memory.read_u256(deposit_ptr)?;
 		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
+
+		self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		self.call(
 			memory,
