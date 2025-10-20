@@ -1045,8 +1045,9 @@ impl<T: Config> EraElectionPlanner<T> {
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			log!(
 				trace,
-				"stored exposure for stash {:?} and {:?} backers",
+				"storing exposure for stash {:?} with {:?} own-stake and {:?} backers",
 				stash,
+				exposure.own,
 				exposure.others.len()
 			);
 			// build elected stash.
