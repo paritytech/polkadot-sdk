@@ -247,7 +247,7 @@ pub mod pallet {
 		/// - `poll_index`: The index of the poll to vote for.
 		/// - `vote`: The vote configuration.
 		///
-		/// Weight: `O(R)` where R is the number of polls the voter has voted on.
+		/// Weight: `O(R)` where R is Max(voter's number of votes, their (possible) delegate's number of votes).
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::vote_new().max(T::WeightInfo::vote_existing()))]
 		pub fn vote(
@@ -332,7 +332,7 @@ pub mod pallet {
 		/// - `class`: The class of polls to unlock.
 		/// - `target`: The account to remove the lock on.
 		///
-		/// Weight: `O(R)` with R number of vote of target.
+		/// Weight: `O(R)` where R is the number of votes of the target.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::unlock())]
 		pub fn unlock(
@@ -374,8 +374,8 @@ pub mod pallet {
 		/// - `class`: Optional parameter, if given it indicates the class of the poll. For polls
 		///   which have finished or are cancelled, this must be `Some`.
 		///
-		/// Weight: `O(R + log R)` where R is the number of polls that `target` has voted on.
-		///   Weight is calculated for the maximum number of vote.
+		/// Weight: `O(R)` where R is Max(targets's number of votes, their (possible) delegate's number of votes).
+		///   Weight is calculated for the maximum number of votes.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::remove_vote())]
 		pub fn remove_vote(
@@ -401,8 +401,8 @@ pub mod pallet {
 		/// - `index`: The index of poll of the vote to be removed.
 		/// - `class`: The class of the poll.
 		///
-		/// Weight: `O(R + log R)` where R is the number of polls that `target` has voted on.
-		///   Weight is calculated for the maximum number of vote.
+		/// Weight: `O(R)` where R is Max(targets's number of votes, their (possible) delegate's number of votes).
+		///   Weight is calculated for the maximum number of votes
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::remove_other_vote())]
 		pub fn remove_other_vote(
@@ -774,7 +774,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let votes = &mut voting.votes;
 			let votes_accessed = (delegators_ongoing_votes.len() as u32, votes.len() as u32);
 
-			// For each of the delegate's votes.
+			// For all of the delegate's votes.
 			for VoteRecord { poll_index, maybe_vote, .. } in votes.iter() {
 				// If they have a standard vote recorded.
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
