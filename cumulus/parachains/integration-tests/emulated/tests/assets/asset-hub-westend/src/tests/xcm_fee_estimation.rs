@@ -416,7 +416,6 @@ fn usdt_fee_estimation_in_usdt_works() {
 	);
 
 	let beneficiary_id = PenpalBReceiver::get();
-	let assets: Assets = (usdt_location_on_penpal.clone(), amount_to_send).into();
 
 	// We get the delivery fees from the PenpalA closure.
 	let mut delivery_fees_amount = 0;
