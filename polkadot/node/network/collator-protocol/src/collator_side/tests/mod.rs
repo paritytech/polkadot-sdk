@@ -387,7 +387,6 @@ async fn expect_determine_validator_group(
 async fn distribute_collation_with_receipt(
 	virtual_overseer: &mut VirtualOverseer,
 	expected_connected: Vec<AuthorityDiscoveryId>,
-	test_state: &TestState,
 	candidate: CandidateReceipt,
 	pov: PoV,
 	parent_head_data_hash: Hash,
@@ -406,7 +405,6 @@ async fn distribute_collation_with_receipt(
 	.await;
 
 	check_connected_to_validators(virtual_overseer, expected_connected).await;
-	expect_determine_validator_group(virtual_overseer, test_state).await;
 	DistributeCollation { candidate, pov_block: pov }
 }
 
@@ -434,7 +432,6 @@ async fn distribute_collation(
 	distribute_collation_with_receipt(
 		virtual_overseer,
 		expected_connected,
-		test_state,
 		candidate,
 		pov_block,
 		parent_head_data_hash,

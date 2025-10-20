@@ -394,7 +394,6 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 				distribute_collation_with_receipt(
 					virtual_overseer,
 					test_state.current_group_validator_authority_ids(),
-					&test_state,
 					candidate,
 					pov,
 					parent_head_data_hash,
@@ -543,7 +542,6 @@ fn distribute_collation_up_to_limit() {
 				distribute_collation_with_receipt(
 					virtual_overseer,
 					test_state.current_group_validator_authority_ids(),
-					&test_state,
 					candidate,
 					pov,
 					parent_head_data_hash,
@@ -684,7 +682,6 @@ fn send_parent_head_data_for_elastic_scaling() {
 			distribute_collation_with_receipt(
 				&mut virtual_overseer,
 				expected_connected,
-				&test_state,
 				candidate.clone(),
 				pov_data.clone(),
 				phdh,
@@ -814,7 +811,6 @@ fn advertise_and_send_collation_by_hash() {
 				distribute_collation_with_receipt(
 					&mut virtual_overseer,
 					test_state.current_group_validator_authority_ids(),
-					&test_state,
 					candidate.clone(),
 					pov.clone(),
 					Hash::zero(),
