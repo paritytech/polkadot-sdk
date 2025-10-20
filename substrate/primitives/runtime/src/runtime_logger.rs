@@ -57,7 +57,14 @@ impl log::Log for RuntimeLogger {
 		let mut msg = alloc::string::String::default();
 		let _ = ::core::write!(&mut msg, "{}", record.args());
 
-		sp_io::logging::log(record.level().into(), record.target(), msg.as_bytes());
+		let file = record.file().unwrap_or_default();
+		let relative_file = if let Some(pos) = file.find("polkadot-sdk") {
+			&file[pos..]
+		} else {
+			file
+		};
+
+		sp_io::logging::log_with_location(record.level().into(), record.target(), msg.as_bytes(), relative_file, record.line().unwrap_or_default());
 	}
 
 	fn flush(&self) {}

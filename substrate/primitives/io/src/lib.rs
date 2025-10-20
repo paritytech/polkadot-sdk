@@ -1812,6 +1812,19 @@ pub trait Logging {
 		}
 	}
 
+	/// Same as `log`, but includes file and line number information.
+	fn log_with_location(
+		level: PassAs<RuntimeInterfaceLogLevel, u8>,
+		target: PassFatPointerAndRead<&str>,
+		message: PassFatPointerAndRead<&[u8]>,
+		file: PassFatPointerAndRead<&str>,
+		line: u32,
+	) {
+		if let Ok(message) = core::str::from_utf8(message) {
+			log::log!(target: target, log::Level::from(level), "{}:{} {}", file, line, message)
+		}
+	}
+
 	/// Returns the max log level used by the host.
 	fn max_level() -> ReturnAs<LogLevelFilter, u8> {
 		log::max_level().into()
