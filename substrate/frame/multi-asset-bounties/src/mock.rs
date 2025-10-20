@@ -493,8 +493,8 @@ pub fn create_child_bounty_with_curator() -> TestBounty {
 		RuntimeOrigin::signed(s.curator),
 		s.parent_bounty_id,
 		s.child_value,
+		s.metadata,
 		Some(s.child_curator),
-		s.metadata
 	));
 	s.child_bounty_id =
 		pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
