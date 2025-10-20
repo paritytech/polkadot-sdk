@@ -22,14 +22,13 @@ use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
 		traits::{Get, IdentityLookup, MaybeEquivalence, TryConvert},
-		BuildStorage, Permill, SaturatedConversion,
+		BuildStorage, SaturatedConversion,
 	},
 	traits::{
 		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Disabled, Everything,
 		Nothing, OriginTrait,
 	},
 	weights::WeightToFee as WeightToFeeT,
-	PalletId,
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
