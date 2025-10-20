@@ -1120,6 +1120,7 @@ fn expand_benchmark(
 				#pre_call
 				recording.start();
 				#post_call
+				#krate::__private::trigger_storage_root_size_estimation_xxx(#krate::__private::StateVersion::V1);
 				recording.stop();
 				if verify {
 					#(
