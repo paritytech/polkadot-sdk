@@ -37,6 +37,7 @@ use frame_support::{
 		fungible, Currency, Get, LockIdentifier, LockableCurrency, PollStatus, Polling,
 		ReservableCurrency, WithdrawReasons,
 	},
+	BoundedVec,
 };
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
@@ -374,7 +375,7 @@ pub mod pallet {
 		/// - `class`: Optional parameter, if given it indicates the class of the poll. For polls
 		///   which have finished or are cancelled, this must be `Some`.
 		///
-		/// Weight: `O(R)` where R is Max(targets's number of votes, their (possible) delegate's number of votes).
+		/// Weight: `O(R + log R)` where R is Max(targets's number of votes, their (possible) delegate's number of votes).
 		///   Weight is calculated for the maximum number of votes.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::remove_vote())]
@@ -401,7 +402,7 @@ pub mod pallet {
 		/// - `index`: The index of poll of the vote to be removed.
 		/// - `class`: The class of the poll.
 		///
-		/// Weight: `O(R)` where R is Max(targets's number of votes, their (possible) delegate's number of votes).
+		/// Weight: `O(R + log R)` where R is Max(targets's number of votes, their (possible) delegate's number of votes).
 		///   Weight is calculated for the maximum number of votes
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::remove_other_vote())]
@@ -759,65 +760,101 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Increase the amount delegated to `who` and update tallies accordingly.
-	///
-	/// Returns the number of (delegate, delegator) votes accessed in the process.
-	fn increase_upstream_delegation(
-		who: &T::AccountId,
-		class: &ClassOf<T, I>,
-		amount: Delegations<BalanceOf<T, I>>,
-		delegators_ongoing_votes: Vec<PollIndexOf<T, I>>,
-	) -> Result<(u32, u32), DispatchError> {
-		VotingFor::<T, I>::try_mutate(who, class, |voting| {
-			// Increase delegate's delegation counter.
-			voting.delegations = voting.delegations.saturating_add(amount);
+    ///
+    /// This implementation uses an O(R + S) linear merge, where R is the number of
+    /// delegator's votes and S is the number of delegate's votes.
+    ///
+    /// Returns the number of (delegator, delegate) votes accessed in the process.
+    fn increase_upstream_delegation(
+        who: &T::AccountId,
+        class: &ClassOf<T, I>,
+        amount: Delegations<BalanceOf<T, I>>,
+        delegators_ongoing_votes: Vec<PollIndexOf<T, I>>,
+    ) -> Result<(u32, u32), DispatchError> {
+        VotingFor::<T, I>::try_mutate(who, class, |voting| {
+            // Increase delegate's delegation counter
+            voting.delegations = voting.delegations.saturating_add(amount);
 
-			let votes = &mut voting.votes;
-			let votes_accessed = (delegators_ongoing_votes.len() as u32, votes.len() as u32);
+            let delegate_votes = core::mem::take(&mut voting.votes).into_inner();
+            let (r_len, s_len) = (delegators_ongoing_votes.len(), delegate_votes.len());
 
-			// For all of the delegate's votes.
-			for VoteRecord { poll_index, maybe_vote, .. } in votes.iter() {
-				// If they have a standard vote recorded.
-				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
-					T::Polls::access_poll(*poll_index, |poll_status| {
-						// And the poll is currently ongoing.
-						if let PollStatus::Ongoing(tally, _) = poll_status {
-							// Increase the tally by the delegated amount.
-							tally.increase(vote.aye, amount);
-						}
-					});
-				}
-			}
+			// First update all of delegates votes. Clawbacks will be added and adjusted next.
+            for VoteRecord { poll_index, maybe_vote, .. } in delegate_votes.iter() {
+                if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
+                    T::Polls::access_poll(*poll_index, |poll_status| {
+                        if let PollStatus::Ongoing(tally, _) = poll_status {
+                            tally.increase(vote.aye, amount);
+                        }
+                    });
+                }
+            }
 
-			// For each of the delegator's ongoing votes.
-			for poll_index in delegators_ongoing_votes {
-				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
-					// That appear in the delegate's voting history.
-					Ok(i) => {
-						// Add the clawback to the delegate.
-						votes[i].retracted_votes = votes[i].retracted_votes.saturating_add(amount);
-						// And reduce the tally by that amount if the delegate has voted standard.
-						if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
-							T::Polls::access_poll(poll_index, |poll_status| {
-								if let PollStatus::Ongoing(tally, _) = poll_status {
-									tally.reduce(vote.aye, amount);
-								}
-							});
-						}
-					},
-					// That don't appear in the delegate's voting history.
-					Err(i) => {
-						// Insert the vote data with no vote and the clawback amount.
-						let poll_vote =
-							VoteRecord { poll_index, maybe_vote: None, retracted_votes: amount };
-						votes
-							.try_insert(i, poll_vote)
-							.map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
-					},
-				}
-			}
-			Ok(votes_accessed)
-		})
-	}
+            // --- Linear Merge ---
+            let mut new_votes = Vec::with_capacity(r_len + s_len);
+            let mut r_iter = delegators_ongoing_votes.iter().peekable();
+            let mut s_iter = delegate_votes.iter().peekable();
+
+            // Iterate while both lists have items
+            while let (Some(&r_poll_index), Some(&s_vote_record)) = (r_iter.peek(), s_iter.peek()) {
+                if r_poll_index < &s_vote_record.poll_index {
+                    // Delegator vote not in delegate's list. Create new record.
+                    new_votes.push(VoteRecord {
+                        poll_index: *r_poll_index,
+                        maybe_vote: None,
+                        retracted_votes: amount,
+                    });
+                    r_iter.next(); // Consume delegator vote
+                } else if r_poll_index > &s_vote_record.poll_index {
+                    // Delegate vote not in delegator's list. Copy it.
+                    new_votes.push(s_vote_record.clone());
+                    s_iter.next(); // Consume delegate vote
+                } else {
+                    // Both have a vote for this poll.
+                    let mut matched_record = s_vote_record.clone();
+
+                    // Add the clawback amount.
+                    matched_record.retracted_votes =
+                        matched_record.retracted_votes.saturating_add(amount);
+
+                    // Apply the clawback to the tally.
+                    if let Some(AccountVote::Standard { vote, .. }) = matched_record.maybe_vote {
+                        T::Polls::access_poll(matched_record.poll_index, |poll_status| {
+                            if let PollStatus::Ongoing(tally, _) = poll_status {
+                                // Reduce the tally, counteracting the increase from earlier.
+                                tally.reduce(vote.aye, amount);
+                            }
+                        });
+                    }
+
+                    new_votes.push(matched_record);
+                    r_iter.next(); // Consume both
+                    s_iter.next();
+                }
+            }
+
+            // Exhaust the remaining items from which either iterator.
+            for r_poll_index in r_iter {
+                // Delegator-only votes left.
+                new_votes.push(VoteRecord {
+                    poll_index: *r_poll_index,
+                    maybe_vote: None,
+                    retracted_votes: amount,
+                });
+            }
+
+            for s_vote_record in s_iter {
+                // Delegate-only votes left.
+                new_votes.push(s_vote_record.clone());
+            }
+
+            // Replace the old, empty vote vec with the new merged vec.
+            voting.votes =
+                BoundedVec::try_from(new_votes).map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
+
+            // Return the original (R, S) lengths for the weight calculation
+            Ok((r_len as u32, s_len as u32))
+        })
+    }
 
 	/// Reduce the amount delegated to `who` and update tallies accordingly.
 	///
