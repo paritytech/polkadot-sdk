@@ -28,7 +28,7 @@ use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
 	gas::{GasMeter, Token},
-	storage::meter::{Diff, NestedMeter},
+	storage::meter::NestedMeter,
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, Pallet, PristineCode, StorageDeposit, Weight, LOG_TARGET,
@@ -44,7 +44,7 @@ use frame_support::{
 };
 use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256};
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, Saturating};
 
 /// Validated Vm module ready for execution.
 /// This data structure is immutable once created and stored.
@@ -109,9 +109,9 @@ pub struct CodeInfo<T: Config> {
 /// Calculate the deposit required for storing code and its metadata.
 pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
 	let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-	Diff { bytes_added, items_added: 2, ..Default::default() }
-		.update_contract::<T>(None)
-		.charge_or_zero()
+	T::DepositPerByte::get()
+		.saturating_mul(bytes_added.into())
+		.saturating_add(T::DepositPerItem::get().saturating_mul(2u32.into()))
 }
 
 impl ExportedFunction {

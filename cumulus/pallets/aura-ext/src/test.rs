@@ -175,7 +175,7 @@ mod test {
 	fn test_velocity() {
 		type Hook = FixedVelocityConsensusHook<Test, 6000, DEFAULT_TEST_VELOCITY, 1>;
 
-		new_test_ext(1).execute_with(|| {
+		new_test_ext(10).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
 			let (_, capacity) = Hook::on_state_proof(&state_proof);
 			assert_eq!(capacity, NonZeroU32::new(1).unwrap().into());
@@ -191,7 +191,7 @@ mod test {
 	fn test_velocity_2() {
 		type Hook = FixedVelocityConsensusHook<Test, 6000, DEFAULT_TEST_VELOCITY, 3>;
 
-		new_test_ext(1).execute_with(|| {
+		new_test_ext(10).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
 			let (_, capacity) = Hook::on_state_proof(&state_proof);
 			assert_eq!(capacity, NonZeroU32::new(3).unwrap().into());
@@ -208,7 +208,7 @@ mod test {
 	fn test_exceeding_velocity_limit() {
 		type Hook = FixedVelocityConsensusHook<Test, 6000, DEFAULT_TEST_VELOCITY, 1>;
 
-		new_test_ext(1).execute_with(|| {
+		new_test_ext(10).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
 			for authored in 0..=DEFAULT_TEST_VELOCITY + 1 {
 				Hook::on_state_proof(&state_proof);
@@ -228,25 +228,52 @@ mod test {
 	}
 
 	#[rstest]
+	#[case::short_para_slot_okay(2000, 30, 10)]
+	#[case::normal_para_slot_okay(6000, 10, 10)]
+	// Test boundaries for long parachain slots.
+	#[case::long_para_slot_okay(24000, 1, 7)]
 	#[should_panic(
-		expected = "too far in the future: parachain_slot=Slot(31), derived_from_relay_slot=Slot(30)"
+		expected = "must match relay-derived slot: parachain_slot=Slot(2), derived_from_relay_slot=Slot(1)"
 	)]
-	#[case::short_para_slot(2000, 31, 10)]
+	#[case::long_para_slot_mismatch(24000, 2, 7)]
+	#[case::long_para_slot_okay(24000, 2, 8)]
+	#[case::long_para_slot_okay(24000, 2, 9)]
+	#[case::long_para_slot_okay(24000, 2, 10)]
+	#[case::long_para_slot_okay(24000, 2, 11)]
 	#[should_panic(
-		expected = "too far in the future: parachain_slot=Slot(32), derived_from_relay_slot=Slot(30)"
+		expected = "must match relay-derived slot: parachain_slot=Slot(2), derived_from_relay_slot=Slot(3)"
 	)]
-	#[case::short_para_slot(2000, 32, 10)]
+	#[case::long_para_slot_mismatch(24000, 2, 12)]
+	#[case::long_para_slot_okay(24000, 3, 12)]
 	#[case::short_para_slot(2000, 30, 10)]
-	#[case::short_para_slot(2000, 33, 11)]
-	#[case::short_para_slot(2000, 29, 10)]
-	#[case::short_para_slot(2000, 1, 10)]
-	#[case::normal_para_slot(6000, 1, 10)]
-	#[case::normal_para_slot(6000, 9, 10)]
-	#[case::normal_para_slot(6000, 10, 10)]
 	#[should_panic(
-		expected = "too far in the future: parachain_slot=Slot(11), derived_from_relay_slot=Slot(10)"
+		expected = "must match relay-derived slot: parachain_slot=Slot(31), derived_from_relay_slot=Slot(30)"
 	)]
-	#[case::normal_para_slot(6000, 11, 10)]
+	#[case::short_para_slot_mismatch(2000, 31, 10)]
+	#[should_panic(
+		expected = "must match relay-derived slot: parachain_slot=Slot(32), derived_from_relay_slot=Slot(30)"
+	)]
+	#[case::short_para_slot_mismatch(2000, 32, 10)]
+	#[should_panic(
+		expected = "must match relay-derived slot: parachain_slot=Slot(29), derived_from_relay_slot=Slot(30)"
+	)]
+	#[case::short_para_slot_mismatch(2000, 29, 10)]
+	#[should_panic(
+		expected = "must match relay-derived slot: parachain_slot=Slot(1), derived_from_relay_slot=Slot(30)"
+	)]
+	#[case::short_para_slot_mismatch(2000, 1, 10)]
+	#[should_panic(
+		expected = "must match relay-derived slot: parachain_slot=Slot(1), derived_from_relay_slot=Slot(10)"
+	)]
+	#[case::normal_para_slot_mismatch(6000, 1, 10)]
+	#[should_panic(
+		expected = "must match relay-derived slot: parachain_slot=Slot(9), derived_from_relay_slot=Slot(10)"
+	)]
+	#[case::normal_para_slot_mismatch(6000, 9, 10)]
+	#[should_panic(
+		expected = "must match relay-derived slot: parachain_slot=Slot(11), derived_from_relay_slot=Slot(10)"
+	)]
+	#[case::normal_para_slot_mismatch(6000, 11, 10)]
 	fn test_para_slot_too_high(
 		#[case] para_slot_duration: u64,
 		#[case] para_slot: u64,
@@ -267,7 +294,7 @@ mod test {
 		const VELOCITY: u32 = 0;
 		type Hook = FixedVelocityConsensusHook<Test, 6000, VELOCITY, 1>;
 
-		new_test_ext(6).execute_with(|| {
+		new_test_ext(10).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
 			Hook::on_state_proof(&state_proof);
 		});
@@ -275,7 +302,7 @@ mod test {
 
 	#[test]
 	#[should_panic(
-		expected = "Parachain slot is too far in the future: parachain_slot=Slot(8), derived_from_relay_slot=Slot(5) velocity=2"
+		expected = "Parachain slot must match relay-derived slot: parachain_slot=Slot(8), derived_from_relay_slot=Slot(5) velocity=2"
 	)]
 	fn test_para_slot_calculated_from_slot_duration_2() {
 		// Note: In contrast to tests below, relay chain slot duration is 3000 here.
@@ -291,13 +318,15 @@ mod test {
 	fn test_velocity_resets_on_new_relay_slot() {
 		type Hook = FixedVelocityConsensusHook<Test, 6000, DEFAULT_TEST_VELOCITY, 1>;
 
-		new_test_ext(1).execute_with(|| {
+		new_test_ext(10).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
 			for authored in 0..=DEFAULT_TEST_VELOCITY {
 				Hook::on_state_proof(&state_proof);
 				assert_slot_info(10, authored + 1);
 			}
 
+			// Change parachain slot to match the new relay slot
+			pallet_aura::CurrentSlot::<Test>::put(Slot::from(11));
 			let state_proof = relay_chain_state_proof(11);
 			for authored in 0..=DEFAULT_TEST_VELOCITY {
 				Hook::on_state_proof(&state_proof);
@@ -313,11 +342,13 @@ mod test {
 	fn test_backward_relay_slot_not_tolerated() {
 		type Hook = FixedVelocityConsensusHook<Test, 6000, 2, 1>;
 
-		new_test_ext(1).execute_with(|| {
+		new_test_ext(10).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
 			Hook::on_state_proof(&state_proof);
 			assert_slot_info(10, 1);
 
+			// Change parachain slot to match what would be derived from relay slot 9
+			pallet_aura::CurrentSlot::<Test>::put(Slot::from(9));
 			let state_proof = relay_chain_state_proof(9);
 			Hook::on_state_proof(&state_proof);
 		});
