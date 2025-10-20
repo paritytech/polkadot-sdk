@@ -319,14 +319,14 @@ where
 				Some(slot) => slot,
 				None => {
 					tracing::debug!(
-								target: crate::LOG_TARGET,
-								unincluded_segment_len = parent.depth,
-								relay_parent = ?relay_parent,
-								relay_parent_num = %relay_parent_header.number(),
-								included_hash = ?included_header_hash,
-								included_num = %included_header.number(),
-								parent = ?parent_hash,
-								slot = ?para_slot.slot,
+						target: crate::LOG_TARGET,
+						unincluded_segment_len = parent.depth,
+						relay_parent = ?relay_parent,
+						relay_parent_num = %relay_parent_header.number(),
+						included_hash = ?included_header_hash,
+						included_num = %included_header.number(),
+						parent = ?parent_hash,
+						slot = ?para_slot.slot,
 						"Not building block."
 					);
 					if let Some(ref mut connection_helper) = maybe_connection_helper {
