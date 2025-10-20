@@ -8,3 +8,5 @@ doc:
 crates:
 - name: sc-network
   bump: major
+- name: sc-network-types
+  bump: minor
