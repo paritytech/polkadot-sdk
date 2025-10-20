@@ -20,5 +20,7 @@ doc:
     ### Open Question
     Is `executeAsAccount(bytes)` enough or do we also want to keep `executeAsAccount(bytes, uint64, uint64)` (which takes `Weight` as input), to match what we have for `execute`?
 crates:
+- name: pallet-multi-asset-bounties
+  bump: none
 - name: pallet-xcm-precompiles
   bump: major
