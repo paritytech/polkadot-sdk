@@ -19,7 +19,7 @@ codec = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
 
 frame-support = { workspace = true }
-frame-system = { workspace = true, default-features = true }
+frame-system = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-xcm = { workspace = true }
 
