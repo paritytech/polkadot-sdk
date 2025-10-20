@@ -5,6 +5,13 @@ pragma solidity ^0.8.30;
 address constant CONVICTION_VOTING_PRECOMPILE_ADDRESS = address(0xC0000);
 
 /// @title ConvictionVoting Precompile Interface
+/// @notice A higher-level interface for interacting with `pallet_conviction_voting` and querying referendum tallies.
+/// It forwards calls directly to the corresponding dispatchable functions,
+/// providing access to conviction voting functionalities.
+/// @dev Documentation:
+/// @dev - Accounts on Asset Hub: https://docs.polkadot.com/polkadot-protocol/smart-contract-basics/accounts/#accounts-on-asset-hub-smart-contracts
+/// @dev - OpenGov: https://wiki.polkadot.com/learn/learn-polkadot-opengov
+/// @dev - Voting in OpenGov: https://wiki.polkadot.com/learn/learn-polkadot-opengov/#voting-on-a-referendum
 interface IConvictionVoting {
 	/// @notice A value denoting the strength of conviction of a vote.
 	enum Conviction {
@@ -80,6 +87,11 @@ interface IConvictionVoting {
 	/// @param trackId The governance track identifier.
 	function undelegate(uint16 trackId) external;
 
+	/// @notice Unlock expired voting/delegation lock
+	/// @param trackId The trackId/track ID to unlock
+	/// @param target The account to unlock (can be yourself or others)
+	function unlock(uint16 trackId, address target) external;
+
 	/// @notice Get the current vote details for specific referendum of an account in a governance track
 	/// @param who The account to query
 	/// @param trackId The governance track to query
@@ -119,4 +131,14 @@ interface IConvictionVoting {
 		address who,
 		uint16 trackId
 	) external view returns (bytes32 target, uint128 balance, Conviction conviction);
+
+	/// @notice Get voting tally for an ongoing referendum
+	/// @param referendumIndex The index of the referendum to query.
+	/// @return exists Whether referendum exists and is ongoing
+	/// @return ayes Aye votes (post-conviction)
+	/// @return nays Nay votes (post-conviction)
+	/// @return support Aye votes (pre-conviction, for turnout calculation)
+	function getReferendumTally(
+		uint32 referendumIndex
+	) external view returns (bool exists, uint128 ayes, uint128 nays, uint128 support);
 }

@@ -5,6 +5,12 @@ pragma solidity ^0.8.30;
 address constant REFERENDA_PRECOMPILE_ADDRESS = address(0xB0000);
 
 /// @title Referenda Precompile Interface
+/// @notice A low-level interface for interacting with `pallet_referenda`.
+/// It forwards calls directly to the corresponding dispatchable functions,
+/// providing access to referendum submission and management.
+/// @dev Documentation:
+/// @dev - OpenGov: https://wiki.polkadot.com/learn/learn-polkadot-opengov
+/// @dev - SCALE codec: https://docs.polkadot.com/polkadot-protocol/parachain-basics/data-encoding
 interface IReferenda {
 	/// @notice When the referendum should be enacted.
 	enum Timing {
@@ -12,43 +18,6 @@ interface IReferenda {
 		AtBlock,
 		/// @custom:variant Enact after N blocks from approval
 		AfterBlock
-	}
-
-	/// @notice The origin of a referendum submission.
-	/// @dev This is an encoded representation of the origin type in Polkadot/Kusama governance. For extension, new types can be added as needed at the end of the enum.
-	enum GovernanceOrigin {
-		/// @custom:variant The origin with the highest level of privileges.
-		Root,
-		/// @custom:variant Origin commanded by the Fellowship whitelist some hash of a call and allow the call to be dispatched with the root origin.
-		WhitelistedCaller,
-		/// @custom:variant The Wish For Change track serves as a medium for gathering consensus on a proposed change.
-		WishForChange,
-		/// @custom:variant The origin for canceling slashes. This origin has the privilege to execute calls from the staking pallet and the Election Provider Multiphase Pallet.
-		StakingAdmin,
-		/// @custom:variant The origin for spending funds from the treasury. This origin has the privilege to execute calls from the Treasury pallet.
-		Treasurer,
-		/// @custom:variant This origin can force slot leases. This origin has the privilege to execute calls from the Slots pallet.
-		LeaseAdmin,
-		/// @custom:variant The origin for managing the composition of the fellowship.
-		FellowshipAdmin,
-		/// @custom:variant The origin managing the registrar and permissioned HRMP channel operations.
-		GeneralAdmin,
-		/// @custom:variant Origin for starting auctions.
-		AuctionAdmin,
-		/// @custom:variant This origin can cancel referenda.
-		ReferendumCanceller,
-		/// @custom:variant The origin can cancel an ongoing referendum and slash the deposits.
-		ReferendumKiller,
-		/// @custom:variant Origin for submitting small tips.
-		SmallTipper,
-		/// @custom:variant Origin for submitting big tips.
-		BigTipper,
-		/// @custom:variant Origin able to spend small amounts from the treasury.
-		SmallSpender,
-		/// @custom:variant Origin able to spend medium amounts from the treasury.
-		MediumSpender,
-		/// @custom:variant Origin able to spend large amounts from the treasury.
-		BigSpender
 	}
 
 	/// @notice Information about a referendum status.
@@ -83,14 +52,14 @@ interface IReferenda {
 
 	/// @notice Submit a referendum via preimage lookup (for large proposals).
 	/// @dev Requires prior call to `pallet_preimage::note_preimage()`
-	/// @param origin The origin of the proposal.
+	/// @param origin The SCALE-encoded `PalletsOrigin` origin of the proposal.
 	/// @param hash The hash of the referendum info to be looked up.
 	/// @param preimageLength The length of the preimage in bytes.
 	/// @param timing When the referendum should be enacted as defined in the `Timing` enum.
 	/// @param enactmentMoment If `timing` is `AtBlock`, the block number for enactment. If `timing` is `AfterBlock`, the number of blocks after which to enact.
 	/// @return referendumIndex The index of the newly created referendum.
 	function submitLookup(
-		GovernanceOrigin origin,
+		bytes calldata origin,
 		bytes32 hash,
 		uint32 preimageLength,
 		Timing timing,
@@ -98,13 +67,13 @@ interface IReferenda {
 	) external returns (uint32 referendumIndex);
 
 	/// @notice Submit a referendum inline (for small proposals).
-	/// @param origin The origin of the proposal.
+	/// @param origin The SCALE-encoded `PalletsOrigin` origin of the proposal.
 	/// @param proposal The proposal call data to be submitted inline.
 	/// @param timing When the referendum should be enacted as defined in the `Timing` enum.
 	/// @param enactmentMoment If `timing` is `AtBlock`, the block number for enactment. If `timing` is `AfterBlock`, the number of blocks after which to enact.
 	/// @return referendumIndex The index of the newly created referendum.
 	function submitInline(
-		GovernanceOrigin origin,
+		bytes calldata origin,
 		bytes calldata proposal,
 		Timing timing,
 		uint32 enactmentMoment
@@ -122,6 +91,18 @@ interface IReferenda {
 	/// @notice Clear metadata for a referendum and refund the metadata deposit.
 	/// @param referendumIndex The index of the referendum for which to clear metadata.
 	function clearMetadata(uint32 referendumIndex) external;
+
+	/// @notice Refund the submission deposit for a referendum.
+	/// @param referendumIndex The index of the referendum for which to refund the deposit.
+	/// @return refundAmount The amount refunded to the submitter.
+	function refundSubmissionDeposit(
+		uint32 referendumIndex
+	) external returns (uint128 refundAmount);
+
+	/// @notice Refund the decision deposit for a referendum.
+	/// @param referendumIndex The index of the referendum for which to refund the deposit.
+	/// @return refundAmount The amount refunded to the depositor.
+	function refundDecisionDeposit(uint32 referendumIndex) external returns (uint128 refundAmount);
 
 	/// @notice Get comprehensive referendum information
 	/// @param referendumIndex The index of the referendum to query.
@@ -151,16 +132,6 @@ interface IReferenda {
 			uint32 submissionBlock
 		);
 
-	/// @notice Get voting tally for an ongoing referendum
-	/// @param referendumIndex The index of the referendum to query.
-	/// @return exists Whether referendum exists and is ongoing
-	/// @return ayes Aye votes (post-conviction)
-	/// @return nays Nay votes (post-conviction)
-	/// @return support Aye votes (pre-conviction, for turnout calculation)
-	function getReferendumTally(
-		uint32 referendumIndex
-	) external view returns (bool exists, uint128 ayes, uint128 nays, uint128 support);
-
 	/// @notice Check if a referendum would pass if ended now
 	/// @param referendumIndex The referendum index
 	/// @return exists Whether the referendum exists
@@ -168,6 +139,11 @@ interface IReferenda {
 	function isReferendumPassing(
 		uint32 referendumIndex
 	) external view returns (bool exists, bool passing);
+
+	/// @notice Get the decision deposit left to be placed for a referendum
+	/// @param referendumIndex The index of the referendum to query.
+	/// @return The decision deposit amount required
+	function decisionDeposit(uint32 referendumIndex) external view returns (uint128);
 
 	/// @notice Get the submission deposit amount required for submitting a referendum
 	/// @return The submission deposit amount

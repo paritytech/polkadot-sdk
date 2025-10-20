@@ -20,7 +20,9 @@ tracing = { workspace = true }
 
 frame-support = { workspace = true }
 pallet-revive = { workspace = true }
+
 pallet-conviction-voting = { workspace = true }
+pallet-referenda = { workspace = true }
 
 [dev-dependencies]
 frame-system = { workspace = true, default-features = true }
@@ -39,6 +41,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-revive/std",
 	"pallet-conviction-voting/std",
+	"pallet-referenda/std",
 	"pallet-timestamp/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
@@ -50,6 +53,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -60,6 +64,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-referenda/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-conviction-voting/try-runtime",
 	"pallet-timestamp/try-runtime",
