@@ -267,7 +267,7 @@ impl<T: Config> Eras<T> {
 					updated_overview.own = exposure.own;
 				},
 				(true, true) | (false, true) => {
-					// no new exposure is added, nothing to do
+					// no new own exposure is added, nothing to do
 				},
 				(false, false) => {
 					debug_assert!(
@@ -292,6 +292,7 @@ impl<T: Config> Eras<T> {
 			//
 			// next step:
 			// * new-keys or updates in `ErasStakersPaged`
+			//
 			// we don't need the information about own stake anymore -- drop it.
 			exposure.total = exposure.total.saturating_sub(exposure.own);
 			exposure.own = Zero::zero();

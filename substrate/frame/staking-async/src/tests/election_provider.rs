@@ -290,6 +290,8 @@ fn less_than_needed_candidates_works() {
 }
 
 mod paged_exposures {
+	use crate::session_rotation::Rotator;
+
 	use super::*;
 
 	#[test]
@@ -337,7 +339,7 @@ mod paged_exposures {
 		assert_eq!(exposure_metadata.nominator_count, 19);
 	}
 
-	fn exposure_pages(who: AccountId, era: u32) -> Vec<(u32, (Balance, u32))> {
+	fn exposure_pages(era: u32, who: AccountId) -> Vec<(u32, (Balance, u32))> {
 		let mut res = ErasStakersPaged::<T>::iter_prefix((era, who))
 			.map(|(page, expo)| (page, (expo.page_total, expo.others.len() as u32)))
 			.collect::<Vec<_>>();
@@ -356,6 +358,20 @@ mod paged_exposures {
 		// Validator 5 has no own-stake, other-stake in first page only
 		// all other stakes are 250, and the same 101 account as it makes no difference.
 		ExtBuilder::default().exposures_page_size(1).build_and_execute(|| {
+			// roll 1 session such that we are in "planning more"
+			Session::roll_to_next_session();
+			assert_eq!(Rotator::<T>::planned_era(), 2);
+			assert_eq!(Rotator::<T>::active_era(), 1);
+			assert_eq!(ErasTotalStake::<T>::get(Rotator::<T>::planned_era()), 0);
+			assert_eq!(
+				ErasStakersOverview::<T>::iter_prefix(Rotator::<T>::planned_era()).count(),
+				0
+			);
+			assert_eq!(
+				ErasStakersPaged::<T>::iter_prefix((Rotator::<T>::planned_era(),)).count(),
+				0
+			);
+
 			// stuff that goes into first page
 			let exposures_page1 = bounded_vec![
 				// validator 1, own-stake and other stake
@@ -364,7 +380,7 @@ mod paged_exposures {
 					Exposure::<AccountId, Balance> {
 						total: 1000 + 250,
 						own: 1000,
-						others: vec![IndividualExposure { who: 101, value: 250 },]
+						others: vec![IndividualExposure { who: 101, value: 250 }]
 					}
 				),
 				// validator 2, other stake only
@@ -373,7 +389,7 @@ mod paged_exposures {
 					Exposure::<AccountId, Balance> {
 						total: 250,
 						own: 0,
-						others: vec![IndividualExposure { who: 101, value: 250 },]
+						others: vec![IndividualExposure { who: 101, value: 250 }]
 					}
 				),
 				// validator 3, part of other stake only
@@ -382,7 +398,7 @@ mod paged_exposures {
 					Exposure::<AccountId, Balance> {
 						total: 250,
 						own: 0,
-						others: vec![IndividualExposure { who: 101, value: 250 },]
+						others: vec![IndividualExposure { who: 101, value: 250 }]
 					}
 				),
 				// validator 4, nothing
@@ -392,11 +408,12 @@ mod paged_exposures {
 					Exposure::<AccountId, Balance> {
 						total: 250,
 						own: 0,
-						others: vec![IndividualExposure { who: 101, value: 250 },]
+						others: vec![IndividualExposure { who: 101, value: 250 }]
 					}
 				),
 			];
 
+			// stuff that goes into second page
 			let exposure_page2: BoundedExposuresOf<Test> = bounded_vec![
 				// validator 1, other stake only
 				(
@@ -404,7 +421,7 @@ mod paged_exposures {
 					Exposure::<AccountId, Balance> {
 						total: 250,
 						own: 0,
-						others: vec![IndividualExposure { who: 101, value: 250 },]
+						others: vec![IndividualExposure { who: 101, value: 250 }]
 					}
 				),
 				// validator 2, own-stake and other stake
@@ -413,7 +430,7 @@ mod paged_exposures {
 					Exposure::<AccountId, Balance> {
 						total: 1000 + 250,
 						own: 1000,
-						others: vec![IndividualExposure { who: 101, value: 250 },]
+						others: vec![IndividualExposure { who: 101, value: 250 }]
 					}
 				),
 				// validator 3, part of other stake only
@@ -422,7 +439,7 @@ mod paged_exposures {
 					Exposure::<AccountId, Balance> {
 						total: 250,
 						own: 0,
-						others: vec![IndividualExposure { who: 101, value: 250 },]
+						others: vec![IndividualExposure { who: 101, value: 250 }]
 					}
 				),
 				// validator 4, part of other stake only
@@ -431,7 +448,7 @@ mod paged_exposures {
 					Exposure::<AccountId, Balance> {
 						total: 250,
 						own: 0,
-						others: vec![IndividualExposure { who: 101, value: 250 },]
+						others: vec![IndividualExposure { who: 101, value: 250 }]
 					}
 				),
 				// validator 5, nothing
@@ -439,6 +456,7 @@ mod paged_exposures {
 
 			// our exposures are stored for this era.
 			let current_era = current_era();
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 0);
 
 			// insert page 1 of exposures
 			assert_eq!(
@@ -465,12 +483,15 @@ mod paged_exposures {
 				PagedExposureMetadata { total: 250, own: 0, nominator_count: 1, page_count: 1 },
 			);
 
+			// total stake after first page of exposures.
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 2000);
+
 			// details after first page of exposures.
-			assert_eq!(exposure_pages(1, current_era), vec![(0, (250, 1))]);
-			assert_eq!(exposure_pages(2, current_era), vec![(0, (250, 1))]);
-			assert_eq!(exposure_pages(3, current_era), vec![(0, (250, 1))]);
-			assert_eq!(exposure_pages(4, current_era), vec![]);
-			assert_eq!(exposure_pages(5, current_era), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 1), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 2), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 3), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 4), vec![]);
+			assert_eq!(exposure_pages(current_era, 5), vec![(0, (250, 1))]);
 
 			// insert page 2 of exposures
 			assert_eq!(
@@ -500,12 +521,15 @@ mod paged_exposures {
 				PagedExposureMetadata { total: 250, own: 0, nominator_count: 1, page_count: 1 },
 			);
 
+			// total stake after second page of exposures.
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 4000);
+
 			// details after second page of exposures.
-			assert_eq!(exposure_pages(1, current_era), vec![(0, (250, 1)), (1, (250, 1))]);
-			assert_eq!(exposure_pages(2, current_era), vec![(0, (250, 1)), (1, (250, 1))]);
-			assert_eq!(exposure_pages(3, current_era), vec![(0, (250, 1)), (1, (250, 1))]);
-			assert_eq!(exposure_pages(4, current_era), vec![(0, (250, 1))]);
-			assert_eq!(exposure_pages(5, current_era), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 1), vec![(0, (250, 1)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 2), vec![(0, (250, 1)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 3), vec![(0, (250, 1)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 4), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 5), vec![(0, (250, 1))]);
 		})
 	}
 
@@ -520,6 +544,20 @@ mod paged_exposures {
 		// Validator 5 has no own-stake, other-stake in first page only (2 + 0)
 		// all other stakes are 250, and the same 101 (or more) account as it makes no difference.
 		ExtBuilder::default().exposures_page_size(2).build_and_execute(|| {
+			// roll 1 session such that we are in "planning more"
+			Session::roll_to_next_session();
+			assert_eq!(Rotator::<T>::planned_era(), 2);
+			assert_eq!(Rotator::<T>::active_era(), 1);
+			assert_eq!(ErasTotalStake::<T>::get(Rotator::<T>::planned_era()), 0);
+			assert_eq!(
+				ErasStakersOverview::<T>::iter_prefix(Rotator::<T>::planned_era()).count(),
+				0
+			);
+			assert_eq!(
+				ErasStakersPaged::<T>::iter_prefix((Rotator::<T>::planned_era(),)).count(),
+				0
+			);
+
 			// stuff that goes into first page
 			let exposures_page1 = bounded_vec![
 				// validator 1, own-stake and other stake
@@ -654,12 +692,15 @@ mod paged_exposures {
 				PagedExposureMetadata { total: 500, own: 0, nominator_count: 2, page_count: 1 },
 			);
 
+			// total stake after first page of exposures.
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 3500);
+
 			// details after first page of exposures.
-			assert_eq!(exposure_pages(1, current_era), vec![(0, (500, 2)), (1, (250, 1))]);
-			assert_eq!(exposure_pages(2, current_era), vec![(0, (500, 2))]);
-			assert_eq!(exposure_pages(3, current_era), vec![(0, (500, 2)), (1, (250, 1))]);
-			assert_eq!(exposure_pages(4, current_era), vec![]);
-			assert_eq!(exposure_pages(5, current_era), vec![(0, (500, 2))]);
+			assert_eq!(exposure_pages(current_era, 1), vec![(0, (500, 2)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 2), vec![(0, (500, 2))]);
+			assert_eq!(exposure_pages(current_era, 3), vec![(0, (500, 2)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 4), vec![]);
+			assert_eq!(exposure_pages(current_era, 5), vec![(0, (500, 2))]);
 
 			// insert page 2 of exposures
 			assert_eq!(
@@ -689,18 +730,21 @@ mod paged_exposures {
 				PagedExposureMetadata { total: 500, own: 0, nominator_count: 2, page_count: 1 },
 			);
 
+			// total stake after second page of exposures.
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 6750);
+
 			// details after second page of exposures.
 			assert_eq!(
-				exposure_pages(1, current_era),
+				exposure_pages(current_era, 1),
 				vec![(0, (500, 2)), (1, (500, 2)), (2, (250, 1))]
 			);
 			assert_eq!(
-				exposure_pages(2, current_era),
+				exposure_pages(current_era, 2),
 				vec![(0, (500, 2)), (1, (500, 2)), (2, (250, 1))]
 			);
-			assert_eq!(exposure_pages(3, current_era), vec![(0, (500, 2)), (1, (500, 2))]);
-			assert_eq!(exposure_pages(4, current_era), vec![(0, (500, 2)), (1, (250, 1))]);
-			assert_eq!(exposure_pages(5, current_era), vec![(0, (500, 2))]);
+			assert_eq!(exposure_pages(current_era, 3), vec![(0, (500, 2)), (1, (500, 2))]);
+			assert_eq!(exposure_pages(current_era, 4), vec![(0, (500, 2)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 5), vec![(0, (500, 2))]);
 		})
 	}
 }
