@@ -7,4 +7,4 @@ doc:
     RSA network identity keys.
 crates:
 - name: sc-network
-  bump: patch
+  bump: major
