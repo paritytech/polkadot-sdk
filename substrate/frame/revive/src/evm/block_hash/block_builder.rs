@@ -345,139 +345,154 @@ mod test {
 
 	#[test]
 	fn ensure_identical_hashes() {
-		// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x161bd0f", true],"id":1}' -H "Content-Type: application/json" https://ethereum-rpc.publicnode.com | jq .result
-		const BLOCK_PATH: &str = "./test-assets/eth_block.json";
-		// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockReceipts","params":["0x161bd0f"],"id":1}' -H "Content-Type: application/json" https://ethereum-rpc.publicnode.com | jq .result
-		const BLOCK_RECEIPTS: &str = "./test-assets/eth_receipts.json";
+		// Test data files collected with ./test-assets/get_test_data.sh
+		let test_data = [
+			(
+				"./test-assets/block_0x161bd0f_ethereum-mainnet.json",
+				"./test-assets/receipts_0x161bd0f_ethereum-mainnet.json",
+			),
+			(
+				"./test-assets/block_0x151241d_ethereum-mainnet.json",
+				"./test-assets/receipts_0x151241d_ethereum-mainnet.json",
+			),
+			(
+				"./test-assets/block_0x874db3_ethereum-sepolia.json",
+				"./test-assets/receipts_0x874db3_ethereum-sepolia.json",
+			),
+		];
 
-		let json = std::fs::read_to_string(BLOCK_PATH).unwrap();
-		let block: Block = serde_json::from_str(&json).unwrap();
+		for (block_path, receipts_path) in test_data {
+			println!("\n=== Testing: {} ===", block_path);
 
-		let json = std::fs::read_to_string(BLOCK_RECEIPTS).unwrap();
-		let receipts: Vec<ReceiptInfo> = serde_json::from_str(&json).unwrap();
+			let json = std::fs::read_to_string(block_path).unwrap();
+			let block: Block = serde_json::from_str(&json).unwrap();
 
-		assert_eq!(block.header_hash(), receipts[0].block_hash);
+			let json = std::fs::read_to_string(receipts_path).unwrap();
+			let receipts: Vec<ReceiptInfo> = serde_json::from_str(&json).unwrap();
 
-		let tx = match &block.transactions {
-			HashesOrTransactionInfos::TransactionInfos(infos) => infos.clone(),
-			_ => panic!("Expected full tx body"),
-		};
+			assert_eq!(block.header_hash(), receipts[0].block_hash);
 
-		let encoded_tx: Vec<_> = tx
-			.clone()
-			.into_iter()
-			.map(|tx| tx.transaction_signed.signed_payload())
-			.collect();
+			let tx = match &block.transactions {
+				HashesOrTransactionInfos::TransactionInfos(infos) => infos.clone(),
+				_ => panic!("Expected full tx body"),
+			};
 
-		let transaction_details: Vec<_> = tx
-			.into_iter()
-			.zip(receipts.into_iter())
-			.map(|(tx_info, receipt_info)| {
-				if tx_info.transaction_index != receipt_info.transaction_index {
-					panic!("Transaction and receipt index do not match");
+			let encoded_tx: Vec<_> = tx
+				.clone()
+				.into_iter()
+				.map(|tx| tx.transaction_signed.signed_payload())
+				.collect();
+
+			let transaction_details: Vec<_> = tx
+				.into_iter()
+				.zip(receipts.into_iter())
+				.map(|(tx_info, receipt_info)| {
+					if tx_info.transaction_index != receipt_info.transaction_index {
+						panic!("Transaction and receipt index do not match");
+					}
+
+					let logs: Vec<_> = receipt_info
+						.logs
+						.into_iter()
+						.map(|log| (log.address, log.data.unwrap_or_default().0, log.topics))
+						.collect();
+
+					(
+						tx_info.transaction_signed.signed_payload(),
+						logs,
+						receipt_info.status.unwrap_or_default() == 1.into(),
+						receipt_info.gas_used.as_u64(),
+					)
+				})
+				.collect();
+
+			ExtBuilder::default().build().execute_with(|| {
+				// Build the ethereum block incrementally.
+				let mut incremental_block = EthereumBlockBuilder::<Test>::default();
+				for (signed, logs, success, gas_used) in transaction_details {
+					let mut log_size = 0;
+
+					let mut accumulate_receipt = AccumulateReceipt::new();
+					for (address, data, topics) in &logs {
+						let current_size = data.len() + topics.len() * 32 + 20;
+						log_size += current_size;
+						accumulate_receipt.add_log(address, data, topics);
+					}
+
+					incremental_block.process_transaction(
+						signed,
+						success,
+						gas_used.into(),
+						accumulate_receipt.encoding,
+						accumulate_receipt.bloom,
+					);
+
+					let ir = incremental_block.to_ir();
+					incremental_block = EthereumBlockBuilder::from_ir(ir);
+					println!(" Log size {:?}", log_size);
 				}
 
-				let logs: Vec<_> = receipt_info
-					.logs
-					.into_iter()
-					.map(|log| (log.address, log.data.unwrap_or_default().0, log.topics))
-					.collect();
+				// The block hash would differ here because we don't take into account
+				// the ommers and other fields from the substrate perspective.
+				// However, the state roots must be identical.
+				let built_block = incremental_block
+					.build(
+						block.number,
+						block.parent_hash,
+						block.timestamp,
+						block.miner,
+						Default::default(),
+					)
+					.0;
 
-				(
-					tx_info.transaction_signed.signed_payload(),
-					logs,
-					receipt_info.status.unwrap_or_default() == 1.into(),
-					receipt_info.gas_used.as_u64(),
-				)
-			})
-			.collect();
+				assert_eq!(built_block.gas_used, block.gas_used);
+				assert_eq!(built_block.logs_bloom, block.logs_bloom);
+				// We are using the tx root for state root.
+				assert_eq!(built_block.state_root, built_block.transactions_root);
 
-		ExtBuilder::default().build().execute_with(|| {
-			// Build the ethereum block incrementally.
-			let mut incremental_block = EthereumBlockBuilder::<Test>::default();
-			for (signed, logs, success, gas_used) in transaction_details {
-				let mut log_size = 0;
+				// Double check the receipts roots.
+				assert_eq!(built_block.receipts_root, block.receipts_root);
 
-				let mut accumulate_receipt = AccumulateReceipt::new();
-				for (address, data, topics) in &logs {
-					let current_size = data.len() + topics.len() * 32 + 20;
-					log_size += current_size;
-					accumulate_receipt.add_log(address, data, topics);
+				let manual_hash = manual_trie_root_compute(encoded_tx.clone());
+
+				let mut total_size = 0;
+				for enc in &encoded_tx {
+					total_size += enc.len();
 				}
+				println!("Total size used by transactions: {:?}", total_size);
 
-				incremental_block.process_transaction(
-					signed,
-					success,
-					gas_used.into(),
-					accumulate_receipt.encoding,
-					accumulate_receipt.bloom,
-				);
+				let mut builder = IncrementalHashBuilder::default();
+				let mut loaded = false;
+				for tx in encoded_tx.iter().skip(1) {
+					if builder.needs_first_value(BuilderPhase::ProcessingValue) {
+						loaded = true;
+						let first_tx = encoded_tx[0].clone();
+						builder.set_first_value(first_tx);
+					}
+					builder.add_value(tx.clone())
+				}
+				if !loaded {
+					// Not loaded, therefore the first value must be set now.
+					assert!(builder.needs_first_value(BuilderPhase::Build));
 
-				let ir = incremental_block.to_ir();
-				incremental_block = EthereumBlockBuilder::from_ir(ir);
-				println!(" Log size {:?}", log_size);
-			}
-
-			// The block hash would differ here because we don't take into account
-			// the ommers and other fields from the substrate perspective.
-			// However, the state roots must be identical.
-			let built_block = incremental_block
-				.build(
-					block.number,
-					block.parent_hash,
-					block.timestamp,
-					block.miner,
-					Default::default(),
-				)
-				.0;
-
-			assert_eq!(built_block.gas_used, block.gas_used);
-			assert_eq!(built_block.logs_bloom, block.logs_bloom);
-			// We are using the tx root for state root.
-			assert_eq!(built_block.state_root, built_block.transactions_root);
-
-			// Double check the receipts roots.
-			assert_eq!(built_block.receipts_root, block.receipts_root);
-
-			let manual_hash = manual_trie_root_compute(encoded_tx.clone());
-
-			let mut total_size = 0;
-			for enc in &encoded_tx {
-				total_size += enc.len();
-			}
-			println!("Total size used by transactions: {:?}", total_size);
-
-			let mut builder = IncrementalHashBuilder::default();
-			let mut loaded = false;
-			for tx in encoded_tx.iter().skip(1) {
-				if builder.needs_first_value(BuilderPhase::ProcessingValue) {
-					loaded = true;
 					let first_tx = encoded_tx[0].clone();
 					builder.set_first_value(first_tx);
 				}
-				builder.add_value(tx.clone())
-			}
-			if !loaded {
-				// Not loaded, therefore the first value must be set now.
-				assert!(builder.needs_first_value(BuilderPhase::Build));
 
-				let first_tx = encoded_tx[0].clone();
-				builder.set_first_value(first_tx);
-			}
+				let incremental_hash = builder.finish();
 
-			let incremental_hash = builder.finish();
+				println!("Incremental hash: {:?}", incremental_hash);
+				println!("Manual Hash: {:?}", manual_hash);
+				println!("Built block Hash: {:?}", built_block.transactions_root);
+				println!("Real Block Tx Hash: {:?}", block.transactions_root);
 
-			println!("Incremental hash: {:?}", incremental_hash);
-			println!("Manual Hash: {:?}", manual_hash);
-			println!("Built block Hash: {:?}", built_block.transactions_root);
-			println!("Real Block Tx Hash: {:?}", block.transactions_root);
+				assert_eq!(incremental_hash, block.transactions_root);
 
-			assert_eq!(incremental_hash, block.transactions_root);
-
-			// This double checks the compute logic.
-			assert_eq!(manual_hash, block.transactions_root);
-			// This ensures we can compute the same transaction root as Ethereum.
-			assert_eq!(block.transactions_root, built_block.transactions_root);
-		});
+				// This double checks the compute logic.
+				assert_eq!(manual_hash, block.transactions_root);
+				// This ensures we can compute the same transaction root as Ethereum.
+				assert_eq!(block.transactions_root, built_block.transactions_root);
+			});
+		}
 	}
 }
