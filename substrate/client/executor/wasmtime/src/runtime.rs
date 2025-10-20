@@ -222,6 +222,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 
 	let profiler = match std::env::var_os("WASMTIME_PROFILING_STRATEGY") {
 		Some(os_string) if os_string == "jitdump" => wasmtime::ProfilingStrategy::JitDump,
+		Some(os_string) if os_string == "perfmap" => wasmtime::ProfilingStrategy::PerfMap,
 		None => wasmtime::ProfilingStrategy::None,
 		Some(_) => {
 			// Remember if we have already logged a warning due to an unknown profiling strategy.

@@ -30,6 +30,9 @@ pub use std::{
 };
 pub use tracing;
 
+pub use cumulus_primitives_core::relay_chain::Slot;
+pub use sp_consensus_aura::AURA_ENGINE_ID;
+pub use sp_runtime::DigestItem;
 // Substrate
 pub use alloc::collections::vec_deque::VecDeque;
 pub use core::{cell::RefCell, fmt::Debug};
@@ -73,6 +76,7 @@ pub use cumulus_primitives_core::{
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+pub use pallet_aura;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
@@ -279,7 +283,10 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
-	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
+	type DigestProvider: Convert<
+		(BlockNumberFor<Self::Runtime>, BlockNumberFor<Self::Runtime>),
+		Digest,
+	>;
 	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
@@ -703,15 +710,28 @@ macro_rules! decl_test_parachains {
 						);
 
 						// Initialze `System`.
-						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
+						let digest = <Self as Parachain>::DigestProvider::convert((block_number, relay_block_number));
+						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 
 						// Process `on_initialize` for all pallets except `System`.
-						let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
+					// This must run BEFORE timestamp::set because pallet_aura's OnTimestampSet implementation
+					// checks that the timestamp slot matches CurrentSlot, and CurrentSlot is updated in on_initialize.
+					let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
 
-						// Process parachain inherents:
+					// Process parachain inherents:
 
-						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+						// We need to satisfy `pallet_timestamp::on_finalize`.
+						// The timestamp must match the relay chain slot since Aura uses the relay chain slot from the digest.
+					now: relay_block_number as u64 * slot_duration,
+					}.into();
+					$crate::assert_ok!(
+						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+					);
+
+					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
 						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
 						let (data, mut downward_messages, mut horizontal_messages) =
 							$crate::deconstruct_parachain_inherent_data(data);
@@ -727,14 +747,6 @@ macro_rules! decl_test_parachains {
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 
-						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
-						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
-							// We need to satisfy `pallet_timestamp::on_finalize`.
-							now: Zero::zero(),
-						}.into();
-						$crate::assert_ok!(
-							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
-						);
 						$crate::assert_ok!(
 							<Self as Parachain>::AdditionalInherentCode::on_new_block()
 						);

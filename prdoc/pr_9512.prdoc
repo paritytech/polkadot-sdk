@@ -1,0 +1,41 @@
+title: 'frame/revive: ETH block storage'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adjusts the RPC layer of pallet-revive to use Ethereum blocks from storage via runtime APIs and establishes proper Ethereum ↔ Substrate block hash mappings.
+
+    ## Key Changes
+
+    ### Block Hash Mapping Infrastructure
+    - **New database table**: `eth_to_substrate_blocks` maps Ethereum block hashes to Substrate block hashes and block numbers
+    - **Bidirectional lookups**: Support for both ETH→Substrate and Substrate→ETH hash resolution with backward compatibility fallbacks
+    - **Block pruning**: Updated to remove stale mappings alongside transaction and log data
+
+    ### Pallet Changes
+
+    - **Genesis block initialization**: Added `block_storage::on_finalize_build_eth_block()` call in `BuildGenesisConfig` to properly build and store block 0
+
+    ## Testing
+
+    - Added comprehensive tests for block hash mapping operations
+    - Ethereum vs Substrate hash resolution tests
+    - Fork handling in block pruning tests
+    - Log filtering with Ethereum block hash tests
+    - TransactionInfo deserialization from JSON Value tests
+
+    ## Implementation Details
+
+    The implementation uses a **runtime API approach** where the RPC layer queries the runtime for Ethereum blocks and hashes, which are then mapped to Substrate block hashes in the local SQLite database. This provides:
+
+    1. **Backward compatibility**: Falls back to treating hashes as Substrate hashes when no mapping exists
+    2. **Efficient lookups**: Database indices on both Ethereum and Substrate block hashes
+    3. **Automatic cleanup**: Block mappings are pruned alongside transaction and log data
+    4. **Genesis block handling**: Block 0 is built during genesis using the block storage infrastructure
+
+    Builds upon: https://github.com/paritytech/polkadot-sdk/pull/9418
+    Part of: https://github.com/paritytech/contract-issues/issues/139
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: minor

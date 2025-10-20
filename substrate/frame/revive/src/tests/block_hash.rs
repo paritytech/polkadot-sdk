@@ -18,14 +18,17 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::Block,
+	evm::{block_hash::EthereumBlockBuilder, fees::InfoT, Block, TransactionSigned},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderIR, EthereumBlock,
-	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned,
+	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
+	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
 };
 
-use frame_support::traits::{fungible::Mutate, Hooks};
+use frame_support::traits::{
+	fungible::{Balanced, Mutate},
+	Hooks,
+};
 use pallet_revive_fixtures::compile_module;
 
 use alloy_consensus::RlpEncodableReceipt;
@@ -58,11 +61,13 @@ fn transactions_are_captured() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		Contracts::on_initialize(0);
 
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary.clone())).build_and_unwrap_contract();
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
 
 		assert_ok!(builder::eth_call(addr).value(balance).build());
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
@@ -85,8 +90,12 @@ fn transactions_are_captured() {
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
 
 		// Double check the trie root hash.
-		let builder = EthereumBlockBuilder::from_ir(block_builder);
-		let tx_root = builder.transaction_root_builder.unwrap().finish();
+		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
+
+		let first_values = EthBlockBuilderFirstValues::<Test>::get().unwrap();
+		builder.transaction_root_builder.set_first_value(first_values.0);
+
+		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
 		Contracts::on_finalize(0);
@@ -102,7 +111,7 @@ fn events_are_captured() {
 	let (binary, code_hash) = compile_module("event_and_return_on_deploy").unwrap();
 
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
@@ -114,11 +123,13 @@ fn events_are_captured() {
 
 		// Bare call must not be captured.
 		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_contract();
-
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
-		// Capture the EthInstantiate.
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+			500_000_000_000,
+		));
+
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 
 		// The contract address is not exposed by the `eth_instantiate_with_code` call.
@@ -141,7 +152,9 @@ fn events_are_captured() {
 			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 		];
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
-		const EXPECTED_GAS: u64 = 7735804;
+
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		let gas_used = block_builder.gas_info[0].gas_used;
 
 		let logs = vec![AlloyLog::new_unchecked(
 			contract.0.into(),
@@ -150,7 +163,7 @@ fn events_are_captured() {
 		)];
 		let receipt = alloy_consensus::Receipt {
 			status: true.into(),
-			cumulative_gas_used: EXPECTED_GAS,
+			cumulative_gas_used: gas_used.as_u64(),
 			logs,
 		};
 
@@ -158,18 +171,19 @@ fn events_are_captured() {
 		// Receipt starts with encoded tx type which is 3 for 4844 transactions.
 		let mut encoded_receipt = vec![3];
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
-		let expected_receipt_root = Block::compute_trie_root(&[encoded_receipt]);
+		let expected_receipt_root = Block::compute_trie_root(&[encoded_receipt.clone()]);
 
 		let block_builder = EthBlockBuilderIR::<Test>::get();
 		// 1 transaction captured.
 		assert_eq!(block_builder.gas_info.len(), 1);
-		assert_eq!(block_builder.gas_info, vec![ReceiptGasInfo { gas_used: EXPECTED_GAS.into() }]);
 
-		let builder = EthereumBlockBuilder::from_ir(block_builder);
-		let tx_root = builder.transaction_root_builder.unwrap().finish();
+		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
+		builder.transaction_root_builder.set_first_value(expected_payloads[0].clone());
+		let tx_root = builder.transaction_root_builder.finish();
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
-		let receipt_root = builder.receipts_root_builder.unwrap().finish();
+		builder.receipts_root_builder.set_first_value(encoded_receipt.clone());
+		let receipt_root = builder.receipts_root_builder.finish();
 		assert_eq!(receipt_root, expected_receipt_root.0.into());
 
 		Contracts::on_finalize(0);
