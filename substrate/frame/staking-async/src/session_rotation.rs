@@ -233,8 +233,9 @@ impl<T: Config> Eras<T> {
 		mut exposure: Exposure<T::AccountId, BalanceOf<T>>,
 	) {
 		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
-		if cfg!(debug_assertions) {
-			// sanitize the exposure in case some test data is wrong.
+		if cfg!(debug_assertions) && cfg!(not(feature = "runtime-benchmarks")) {
+			// sanitize the exposure in case some test data from this pallet is wrong.
+			// ignore benchmarks as other pallets might do weird things.
 			let expected_total = exposure
 				.others
 				.iter()
