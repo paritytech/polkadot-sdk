@@ -214,12 +214,11 @@ pub fn new_partial(
 		.build(),
 	);
 
-	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
 		ImportQueueParams {
 			block_import: block_import.clone(),
 			client: client.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
+			create_inherent_data_providers: |_, slot_duration| async move {
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 				let slot =
