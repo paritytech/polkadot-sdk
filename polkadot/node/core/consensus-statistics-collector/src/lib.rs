@@ -88,7 +88,7 @@ impl PerSessionView {
 }
 
 struct View {
-    current_finalized_session_index: Option<SessionIndex>,
+    current_session: Option<SessionIndex>,
     roots: HashSet<Hash>,
     per_relay: HashMap<Hash, PerRelayView>,
     per_session: HashMap<SessionIndex, PerSessionView>,
@@ -99,7 +99,7 @@ struct View {
 impl View {
     fn new() -> Self {
         return View{
-            current_finalized_session_index: None,
+            current_session: None,
             roots: HashSet::new(),
             per_relay: HashMap::new(),
             per_session: HashMap::new(),
@@ -177,12 +177,15 @@ pub(crate) async fn run_iteration<Context>(
 
                     if let Some(ref h) = header {
                         let parent_hash = h.clone().parent_hash;
-                        if let Some(parent) = view.per_relay.get_mut(&parent_hash) {
+                        let parent_hash = if let Some(parent) = view.per_relay.get_mut(&parent_hash) {
                             parent.link_child(relay_hash.clone());
+                            Some(parent_hash)
                         } else {
                             view.roots.insert(relay_hash.clone());
-                        }
-                        view.per_relay.insert(relay_hash, PerRelayView::new(Some(parent_hash), session_idx));
+                            None
+                        };
+
+                        view.per_relay.insert(relay_hash, PerRelayView::new(parent_hash, session_idx));
                     } else {
                         view.roots.insert(relay_hash.clone());
                         view.per_relay.insert(relay_hash, PerRelayView::new(None, session_idx));
@@ -214,17 +217,20 @@ pub(crate) async fn run_iteration<Context>(
                     .map_err(JfyiError::OverseerCommunication)?
                     .map_err(JfyiError::RuntimeApiCallError)?;
 
-                let should_prune = match view.current_finalized_session_index {
+                let should_prune = match view.current_session {
                     Some(curr_session_idx) if  session_idx > curr_session_idx => true,
                     _ => false
                 };
 
-                if view.current_finalized_session_index.is_none() {
-                    view.current_finalized_session_index = Some(session_idx);
+                if view.current_session.is_none() {
+                    view.current_session = Some(session_idx);
                 }
 
                 if should_prune {
-                    view.current_finalized_session_index = Some(session_idx);
+                    let prev_session = view.current_session
+                        .replace(session_idx)
+                        .expect("current session should have been populate previously; qed.");
+
                     let finalized_hashes = prune_unfinalised_forks(view, fin_block_hash);
 
                     // finalized_hashes contains the hashes from the newest to the oldest
@@ -232,7 +238,7 @@ pub(crate) async fn run_iteration<Context>(
                     for hash in finalized_hashes.iter().rev() {
                         match view.per_relay.get(hash) {
                             Some(rb_view) => {
-                                if rb_view.session_index >= session_idx {
+                                if rb_view.session_index > prev_session {
                                     view.roots = HashSet::from_iter(vec![hash.clone()]);
                                     break
                                 }
@@ -339,7 +345,7 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
                 if parent_view.children.len() > 1 {
                     let filtered_set = parent_view.children
                         .iter()
-                        .filter(|&child_hash| child_hash.eq(&current_block_hash))
+                        .filter(|&child_hash| !child_hash.eq(&current_block_hash))
                         .cloned() // Clone the elements to own them in the new HashSet
                         .collect::<Vec<_>>();
 
@@ -381,7 +387,6 @@ fn prune_unfinalised_forks(view: &mut View, fin_block_hash: Hash) -> Vec<Hash> {
 
     for rb_hash in to_prune {
         view.per_relay.remove(&rb_hash);
-        view.roots.remove(&rb_hash);
     }
 
     retain_relay_hashes

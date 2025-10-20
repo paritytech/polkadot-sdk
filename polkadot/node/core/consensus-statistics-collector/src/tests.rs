@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::ptr::hash;
 use super::*;
 use assert_matches::assert_matches;
 use overseer::FromOrchestra;
@@ -74,6 +75,26 @@ async fn activate_leaf(
 	}
 }
 
+async fn finalize_block(
+	virtual_overseer: &mut VirtualOverseer,
+	finalized: (Hash, BlockNumber),
+	session_index: SessionIndex,
+) {
+	let fin_block_hash = finalized.0;
+	virtual_overseer
+		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, finalized.1)))
+		.await;
+
+	assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(hash, RuntimeApiRequest::SessionIndexForChild(tx))
+			) if hash == fin_block_hash => {
+				tx.send(Ok(session_index)).unwrap();
+			}
+		);
+}
+
 async fn candidate_approved(
 	virtual_overseer: &mut VirtualOverseer,
 	candidate_hash: CandidateHash,
@@ -131,8 +152,9 @@ approvals_stats_assertion!(assert_votes, votes);
 approvals_stats_assertion!(assert_no_shows, no_shows);
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
+	view: &mut View,
 	test: impl FnOnce(VirtualOverseer) -> T,
-) -> View {
+) {
 	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
@@ -140,10 +162,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let (mut context, virtual_overseer) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
-	let mut view = View::new();
-
 	let subsystem = async move {
-		if let Err(e) = run_iteration(&mut context, &mut view, &Metrics(None)).await {
+		if let Err(e) = run_iteration(&mut context, view, &Metrics(None)).await {
 			panic!("{:?}", e);
 		}
 
@@ -161,8 +181,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		},
 		subsystem,
 	));
-
-	view
 }
 
 #[test]
@@ -177,7 +195,8 @@ fn single_candidate_approved() {
         1,
     );
 
-    let view = test_harness(|mut virtual_overseer| async move {
+	let mut view = View::new();
+    test_harness(&mut view, |mut virtual_overseer| async move {
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf.clone(),
@@ -217,7 +236,8 @@ fn candidate_approved_for_different_forks() {
 	let rb_hash_fork_0 = Hash::from_low_u64_be(132);
 	let rb_hash_fork_1 = Hash::from_low_u64_be(231);
 
-	let view = test_harness(|mut virtual_overseer| async move {
+	let mut view = View::new();
+	test_harness(&mut view, |mut virtual_overseer| async move {
 		let leaf0 = new_leaf(
 			rb_hash_fork_0.clone(),
 			1,
@@ -278,7 +298,8 @@ fn candidate_approval_stats_with_no_shows() {
 	let rb_hash = Hash::from_low_u64_be(111);
 	let candidate_hash: CandidateHash = CandidateHash(Hash::from_low_u64_be(132));
 
-	let view = test_harness(|mut virtual_overseer| async move {
+	let mut view = View::new();
+	test_harness(&mut view, |mut virtual_overseer| async move {
 		let leaf1 = new_leaf(rb_hash.clone(), 1);
 		activate_leaf(
 			&mut virtual_overseer,
@@ -319,7 +340,8 @@ fn note_chunks_downloaded() {
 		(ValidatorIndex(1), 2),
 	];
 
-	let view = test_harness(|mut virtual_overseer| async move {
+	let mut view = View::new();
+	test_harness(&mut view, |mut virtual_overseer| async move {
 		virtual_overseer.send(FromOrchestra::Communication {
 			msg: ConsensusStatisticsCollectorMessage::ChunksDownloaded(
 				session_idx, candidate_hash.clone(), HashMap::from_iter(chunk_downloads.clone().into_iter()),
@@ -361,11 +383,18 @@ fn note_chunks_downloaded() {
 fn default_header() -> Header {
 	Header {
 		parent_hash: Hash::zero(),
-		number: 100500,
+		number: 1,
 		state_root: Hash::zero(),
 		extrinsics_root: Hash::zero(),
 		digest: Default::default(),
 	}
+}
+
+fn header_with_number_and_parent(block_number: BlockNumber, parent_hash: Hash) -> Header {
+	let mut header = default_header();
+	header.number = block_number;
+	header.parent_hash = parent_hash;
+	header
 }
 
 fn default_session_info(session_idx: SessionIndex) -> SessionInfo {
@@ -403,7 +432,8 @@ fn note_chunks_uploaded_to_active_validator() {
 
 	let candidate_hash: CandidateHash = CandidateHash(Hash::from_low_u64_be(132));
 
-	let view = test_harness(|mut virtual_overseer| async move {
+	let mut view = View::new();
+	test_harness(&mut view, |mut virtual_overseer| async move {
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf1,
@@ -437,4 +467,210 @@ fn note_chunks_uploaded_to_active_validator() {
 		candidate_hash, ValidatorIndex(0), 1);
 
 	assert_matches!(view.availability_chunks.get(&2).unwrap(), expected_av_chunks);
+}
+
+#[test]
+fn prune_unfinalized_forks() {
+	// testing pruning capabilities
+	// the pruning happens when a session is finalized
+	// means that all the collected data for the finalized session
+	// should be kept and the collected data that belongs to unfinalized
+	// should be pruned
+
+	// Building a "chain" with the following relay blocks (all in the same session)
+	// A -> B
+	// A -> C -> D
+
+	let hash_a = Hash::from_slice(&[00; 32]);
+	let hash_b = Hash::from_slice(&[01; 32]);
+	let hash_c = Hash::from_slice(&[02; 32]);
+	let hash_d = Hash::from_slice(&[03; 32]);
+	let session_zero: SessionIndex = 0;
+
+	let mut view = View::new();
+	test_harness(&mut view, |mut virtual_overseer| async move {
+		let leaf_a = new_leaf(hash_a.clone(), 1);
+		let leaf_a_header = default_header();
+
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf_a,
+			leaf_a_header,
+			session_zero,
+			Some(default_session_info(session_zero)),
+		).await;
+
+		let leaf_b = new_leaf(hash_b.clone(), 2);
+		let leaf_b_header = header_with_number_and_parent(2, hash_a.clone());
+
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf_b,
+			leaf_b_header,
+			session_zero,
+			None,
+		).await;
+
+		let leaf_c = new_leaf(hash_c.clone(), 2);
+		let leaf_c_header = header_with_number_and_parent(2, hash_a.clone());
+
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf_c,
+			leaf_c_header,
+			session_zero,
+			None,
+		).await;
+
+		let leaf_d = new_leaf(hash_d.clone(), 3);
+		let leaf_d_header = header_with_number_and_parent(3, hash_c.clone());
+
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf_d,
+			leaf_d_header,
+			session_zero,
+			None,
+		).await;
+
+		virtual_overseer
+	});
+
+	let expect = vec![
+		// relay node A should have 2 children (B, C)
+		(hash_a.clone(), (None, vec![hash_b.clone(), hash_c.clone()])),
+
+		//  relay node B should link to A and have no children
+		(hash_b.clone(), (Some(hash_a.clone()), vec![])),
+
+		//  relay node C should link to A and have 1 child (D)
+		(hash_c.clone(), (Some(hash_a.clone()), vec![hash_d.clone()])),
+
+		//  relay node D should link to C and have no children
+		(hash_d.clone(), (Some(hash_c.clone()), vec![])),
+	];
+
+	assert_eq!(view.current_session, None);
+	// relay node A should be the root
+	assert_roots_and_relay_views(
+		&view,
+		vec![hash_a],
+		expect.clone(),
+	);
+
+	// Finalizing block C should not affect as the session 0 still not finalized
+	test_harness(&mut view, |mut virtual_overseer| async move {
+		finalize_block(
+			&mut virtual_overseer,
+			(hash_c.clone(), 2),
+			session_zero).await;
+
+		virtual_overseer
+	});
+
+	assert_eq!(view.current_session, Some(0));
+	assert_roots_and_relay_views(
+		&view,
+		vec![hash_a],
+		expect.clone(),
+	);
+
+	// creating more 3 relay block (E, F, G), all in session 1
+	// A -> B
+	// A -> C -> D -> E -> F
+	//                E -> G
+
+	let hash_e = Hash::from_slice(&[04; 32]);
+	let hash_f = Hash::from_slice(&[05; 32]);
+	let hash_g = Hash::from_slice(&[06; 32]);
+	let session_one: SessionIndex = 1;
+
+	test_harness(&mut view, |mut virtual_overseer| async move {
+		let leaf_e = new_leaf(hash_e.clone(), 4);
+		let leaf_e_header = header_with_number_and_parent(4, hash_d.clone());
+
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf_e,
+			leaf_e_header,
+			session_one,
+			Some(default_session_info(session_one)),
+		).await;
+
+		let leaf_f = new_leaf(hash_f.clone(), 5);
+		let leaf_f_header = header_with_number_and_parent(5, hash_e.clone());
+
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf_f,
+			leaf_f_header,
+			session_one,
+			None,
+		).await;
+
+		let leaf_g = new_leaf(hash_g.clone(), 5);
+		let leaf_g_header = header_with_number_and_parent(5, hash_e.clone());
+
+		activate_leaf(
+			&mut virtual_overseer,
+			leaf_g,
+			leaf_g_header,
+			session_one,
+			None,
+		).await;
+
+		// finalizing relay block E
+		finalize_block(
+			&mut virtual_overseer,
+			(hash_e.clone(), 4),
+			session_one).await;
+
+		virtual_overseer
+	});
+
+	// Finalizing block E triggers the pruning mechanism
+	// as block E belongs to session 1 meaning that session 0
+	// is fully finalized
+	// - blocks E, F and G will remain.
+	// - blocks A, C and D will be placed in the per_session view
+	// as they belong to the finalized chain and are from the finalized session 0
+	// the node will keep the collected data from them in the per_session view.
+	// - block B will be simply pruned as it does not belong to the finalized chain
+	let expect = vec![
+		// relay node E should have 2 children (E, G)
+		(hash_e.clone(), (Some(hash_d), vec![hash_f, hash_g])),
+
+		// relay node F should link to E and have no children
+		(hash_f.clone(), (Some(hash_e), vec![])),
+
+		//  relay node G should link to E and have no children
+		(hash_g.clone(), (Some(hash_e), vec![])),
+	];
+
+	assert_eq!(view.current_session, Some(session_one));
+	// relay node A should be the root
+	assert_roots_and_relay_views(
+		&view,
+		vec![hash_e],
+		expect.clone(),
+	);
+}
+
+fn assert_roots_and_relay_views(
+	view: &View,
+	roots: Vec<Hash>,
+	relay_views: Vec<(Hash, (Option<Hash>, Vec<Hash>))>,
+) {
+	assert_eq!(view.roots, HashSet::from_iter(roots));
+	assert_eq!(view.per_relay.len(), relay_views.len());
+
+	for (rb_hash, checks) in relay_views.into_iter() {
+		let rb_view = view.per_relay.get(&rb_hash).unwrap();
+		assert_eq!(rb_view.parent_hash, checks.0);
+		assert_eq!(rb_view.children.len(), checks.1.len());
+
+		for child in checks.1.iter() {
+			assert!(rb_view.children.contains(child));
+		}
+	}
 }
