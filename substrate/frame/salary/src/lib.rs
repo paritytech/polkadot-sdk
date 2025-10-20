@@ -20,10 +20,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
+#[allow(unused_imports)]
 use frame::{
-	prelude::*,
+	prelude::{Task as FrameTask, *},
 	traits::tokens::{GetSalary, Pay, PaymentStatus},
 };
+use frame_system::offchain::CreateInherent;
+#[cfg(feature = "experimental")]
+use frame_system::offchain::SubmitTransaction;
+use scale_info::{prelude::vec, TypeInfo};
+
+#[cfg(feature = "experimental")]
+const LOG_TARGET: &str = "pallet-salary-tasks";
 
 #[cfg(test)]
 mod tests;
@@ -32,7 +40,7 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 
-pub use pallet::*;
+pub use pallet::{Task, *};
 pub use weights::WeightInfo;
 
 /// Payroll cycle.
@@ -82,7 +90,10 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config {
+	pub trait Config<I: 'static = ()>:
+		CreateInherent<frame_system::Call<Self>>
+		+ frame_system::Config<RuntimeTask: From<Task<Self, I>>>
+	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -232,13 +243,7 @@ pub mod pallet {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			status.cycle_start.saturating_accrue(cycle_period);
 			ensure!(now >= status.cycle_start, Error::<T, I>::NotYet);
-			status.cycle_index.saturating_inc();
-			status.budget = T::Budget::get();
-			status.total_registrations = Zero::zero();
-			status.total_unregistered_paid = Zero::zero();
-			Status::<T, I>::put(&status);
-
-			Self::deposit_event(Event::<T, I>::CycleStarted { index: status.cycle_index });
+			Self::do_bump_unchecked(&mut status);
 			Ok(Pays::No.into())
 		}
 
@@ -369,6 +374,49 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::tasks_experimental]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		#[pallet::task_list({
+			Pallet::<T, I>::salary_task_list()
+		})]
+		#[pallet::task_condition(|| {
+			let now = frame_system::Pallet::<T>::block_number();
+			let cycle_period = Pallet::<T, I>::cycle_period();
+			let Some(mut status) = Status::<T, I>::get() else { return false };
+			status.cycle_start.saturating_accrue(cycle_period);
+			now >= status.cycle_start
+		})]
+		#[pallet::task_weight(T::WeightInfo::bump_offchain())]
+		#[pallet::task_index(0)]
+		pub fn bump_offchain() -> DispatchResult {
+			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
+			status.cycle_start = frame_system::Pallet::<T>::block_number();
+			Pallet::<T, I>::do_bump_unchecked(&mut status);
+			Ok(())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "experimental")]
+		fn offchain_worker(_block_number: BlockNumberFor<T>) {
+			// Create a valid task
+			let task = Task::<T, I>::BumpOffchain {};
+			let call = frame_system::Call::<T>::do_task { task: task.into() };
+
+			// Submit the task as an unsigned transaction
+			let xt = <T as CreateInherent<frame_system::Call<T>>>::create_inherent(call.into());
+			let res = SubmitTransaction::<T, frame_system::Call<T>>::submit_transaction(xt);
+			match res {
+				Ok(_) => log::info!(target: LOG_TARGET, "Submitted the task."),
+				Err(e) => log::error!(target: LOG_TARGET, "Error submitting task: {:?}", e),
+			}
+		}
+
+		#[cfg(not(feature = "experimental"))]
+		fn offchain_worker(_block_number: BlockNumberFor<T>) {}
+	}
+
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		pub fn status() -> Option<StatusOf<T, I>> {
 			Status::<T, I>::get()
@@ -433,6 +481,33 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T, I>::Paid { who, beneficiary, amount: payout, id });
 			Ok(())
+		}
+
+		fn do_bump_unchecked(status: &mut StatusOf<T, I>) {
+			status.cycle_index.saturating_inc();
+			status.budget = T::Budget::get();
+			status.total_registrations = Zero::zero();
+			status.total_unregistered_paid = Zero::zero();
+			Status::<T, I>::put(status.clone());
+
+			Self::deposit_event(Event::<T, I>::CycleStarted { index: status.cycle_index });
+		}
+
+		fn salary_task_list() -> impl Iterator<Item = ()> {
+			if let Some(status) = Status::<T, I>::get() {
+				let now = frame_system::Pallet::<T>::block_number();
+				let cycle_period = Pallet::<T, I>::cycle_period();
+
+				// Check if the current block number is greater than or equal to the cycle start +
+				// period
+				if now >= status.cycle_start + cycle_period {
+					vec![()].into_iter() // Success: one task available, represented by `()`
+				} else {
+					vec![].into_iter() // Failure: no task available
+				}
+			} else {
+				vec![].into_iter() // No task available, as there is no status
+			}
 		}
 	}
 }

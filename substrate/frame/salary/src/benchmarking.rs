@@ -172,6 +172,22 @@ mod benchmarks {
 		assert!(!matches!(Claimant::<T, I>::get(&caller).unwrap().status, Attempted { .. }));
 	}
 
+	#[benchmark]
+	fn bump_offchain() {
+		let caller = whitelisted_caller();
+		ensure_member_with_salary::<T, I>(&caller);
+		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
+		System::<T>::set_block_number(System::<T>::block_number() + Salary::<T, I>::cycle_period());
+
+		#[block]
+		{
+			crate::Task::<T, I>::bump_offchain().unwrap();
+		}
+
+		assert_eq!(Salary::<T, I>::status().unwrap().cycle_index, 1u32.into());
+	}
+
 	impl_benchmark_test_suite! {
 		Salary,
 		crate::tests::unit::new_test_ext(),

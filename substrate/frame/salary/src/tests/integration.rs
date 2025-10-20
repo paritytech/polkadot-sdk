@@ -25,6 +25,8 @@ use pallet_ranked_collective::{EnsureRanked, Geometric};
 type Rank = u16;
 type Block = frame_system::mocking::MockBlock<Test>;
 
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
+
 construct_runtime!(
 	pub struct Test {
 		System: frame_system,
@@ -41,6 +43,23 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+}
+
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
 }
 
 pub struct MinRankOfClass<Delta>(PhantomData<Delta>);

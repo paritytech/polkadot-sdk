@@ -186,4 +186,16 @@ impl<T: frame_system::Config> pallet_salary::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// Storage: `Ambassador::Status` (r:1 w:1)
+	/// Proof: `AmbassadorSalary::Status` (`max_values`: Some(1), `max_size`: Some(56), added: 551, mode: `MaxEncodedLen`)
+	fn bump_offchain() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `258`
+		//  Estimated: `1541`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1541))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
