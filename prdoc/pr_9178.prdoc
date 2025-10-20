@@ -2,17 +2,10 @@ title: 'collator-protocol: cleanup connecting to backing group'
 doc:
 - audience: Node Dev
   description: |-
-    There are a few things wrong with the way we are handling connecting the validators in the backing group:
-    1. `validators_to_connect` returns only validators in groups we already have a block to advertise and the last backing groups we advertised something to,  that means that if our backing group  changes, but we don't have anything to advertise it will  continue to try to connect to the previous backing group and validator will log this and disconnect it immediately.
-    On the validator you will see`Declared as collator for unneeded para` and on the collator you will see Connect/Disconnect requests. This will continue every reconnect_timeout(4s from each active signal) until the collator advertises something to the new backing group. This is harmless, but it pollutes both the collator and the validator logs.
-
-    2. A collator connects only when it has something to advertise to its backing group, this is a bit too late and we can improve it by connecting the collators to the backing group immediately after they notice their assigned backing group.
-
-    3. Staying connected to the last backingroup we advertised something does not  work for elastic scaling because we have different backing groups and if the collator set is big enough that collators author just one block per group rotation, then we will always connect just when we have a candidate to advertise.
-
-    ## Fix:
-
-    Have collators always connect to the backing group they got assigned to and keep the connection open until backing group changes.  Also, try to connect when have something to advertise or on timeout to have more chances of being correctly connected.
+   
+    Have collators always connect to the backing group they got assigned to and keep the connection open 
+    until backing group changes. Also, try to connect when have something to advertise or on timeout to 
+    have more chances of being correctly connected.
 
 crates:
 - name: polkadot-collator-protocol
