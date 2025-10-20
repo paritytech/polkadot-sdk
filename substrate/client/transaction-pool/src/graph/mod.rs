@@ -32,10 +32,13 @@ mod pool;
 mod ready;
 mod rotator;
 pub(crate) mod tracked_map;
+mod transaction_tracker;
 mod validated_pool;
 
 pub mod base_pool;
 pub mod watcher;
+
+pub use transaction_tracker::TrackedTransactionStatus;
 
 pub use self::pool::{
 	BlockHash, ChainApi, ExtrinsicFor, ExtrinsicHash, NumberFor, Options, Pool, RawExtrinsicFor,

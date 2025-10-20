@@ -26,7 +26,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use sc_transaction_pool_api::{
-	ChainEvent, ImportNotificationStream, LocalTransactionFor, LocalTransactionPool,
+	BlockHash, ChainEvent, ImportNotificationStream, LocalTransactionFor, LocalTransactionPool,
 	MaintainedTransactionPool, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool,
 	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
@@ -145,6 +145,13 @@ where
 		timeout: std::time::Duration,
 	) -> ReadyIteratorFor<FullChainApi<Client, Block>> {
 		self.0.ready_at_with_timeout(at, timeout).await
+	}
+
+	async fn get_transaction_receipt(
+		&self,
+		hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		self.0.get_transaction_receipt(hash).await
 	}
 }
 

@@ -31,7 +31,7 @@ use jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscr
 use sc_rpc_api::check_if_safe;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
-	TransactionSource, TxHash, TxInvalidityReportMap,
+	TransactionReceipt, TransactionSource, TxHash, TxInvalidityReportMap,
 };
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -212,5 +212,16 @@ where
 		};
 
 		spawn_subscription_task(&self.executor, fut);
+	}
+
+	/// Get transaction receipt by hash
+	async fn transaction_receipt(
+		&self,
+		hash: TxHash<P>,
+	) -> std::result::Result<Option<TransactionReceipt<BlockHash<P>, TxHash<P>>>, Error> {
+		match self.pool.get_transaction_receipt(&hash).await {
+			Some(receipt) => Ok(Some(receipt)),
+			None => Ok(None),
+		}
 	}
 }

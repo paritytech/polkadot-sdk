@@ -65,6 +65,7 @@ use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
+	traits,
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
 	Saturating,
@@ -1143,6 +1144,19 @@ where
 	) -> ReadyIteratorFor<ChainApi> {
 		self.ready_at_with_timeout_internal(at, timeout).await
 	}
+
+	async fn get_transaction_receipt(
+		&self,
+		hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		// Delegate to the view store or most recent view
+		if let Some(most_recent_view) = self.view_store.most_recent_view.read().as_ref() {
+			// Use the validated pool's method to get receipt
+			most_recent_view.pool.validated_pool().get_transaction_receipt(hash)
+		} else {
+			None
+		}
+	}
 }
 
 impl<ChainApi, Block> sc_transaction_pool_api::LocalTransactionPool
@@ -2098,6 +2112,76 @@ where
 		);
 
 		pool
+	}
+}
+
+#[async_trait]
+impl<ChainApi, Block> graph::ChainApi for ForkAwareTxPool<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+	<Block as BlockT>::Hash: Unpin,
+{
+	type Block = ChainApi::Block;
+	type Error = ChainApi::Error;
+
+	async fn validate_transaction(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		source: TransactionSource,
+		uxt: ExtrinsicFor<Self>,
+		validation_priority: ValidateTransactionPriority,
+	) -> Result<sp_runtime::transaction_validity::TransactionValidity, Self::Error> {
+		self.api.validate_transaction(at, source, uxt, validation_priority).await
+	}
+
+	fn validate_transaction_blocking(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		source: TransactionSource,
+		uxt: ExtrinsicFor<Self>,
+	) -> Result<sp_runtime::transaction_validity::TransactionValidity, Self::Error> {
+		self.api.validate_transaction_blocking(at, source, uxt)
+	}
+
+	fn block_id_to_number(
+		&self,
+		at: &BlockId<Self::Block>,
+	) -> Result<Option<NumberFor<Self::Block>>, Self::Error> {
+		self.api.block_id_to_number(at)
+	}
+
+	fn block_id_to_hash(
+		&self,
+		at: &BlockId<Self::Block>,
+	) -> Result<Option<<Self::Block as BlockT>::Hash>, Self::Error> {
+		self.api.block_id_to_hash(at)
+	}
+
+	fn hash_and_length(&self, uxt: &RawExtrinsicFor<Self>) -> (ExtrinsicHash<Self>, usize) {
+		self.api.hash_and_length(uxt)
+	}
+
+	async fn block_body(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+	) -> Result<Option<Vec<<Self::Block as traits::Block>::Extrinsic>>, Self::Error> {
+		self.api.block_body(at).await
+	}
+
+	fn block_header(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+	) -> Result<Option<<Self::Block as BlockT>::Header>, Self::Error> {
+		self.api.block_header(at)
+	}
+
+	fn tree_route(
+		&self,
+		from: <Self::Block as BlockT>::Hash,
+		to: <Self::Block as BlockT>::Hash,
+	) -> Result<TreeRoute<Self::Block>, Self::Error> {
+		self.api.tree_route(from, to)
 	}
 }
 

@@ -40,9 +40,9 @@ use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
-	PoolStatus, TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor,
-	TxHash, TxInvalidityReportMap,
+	error::Error as TxPoolError, BlockHash, ChainEvent, ImportNotificationStream,
+	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
+	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -252,6 +252,16 @@ where
 			_ = futures_timer::Delay::new(timeout)=> self.ready()
 		}
 	}
+
+	/// Get transaction receipt for RPC
+	pub async fn get_transaction_receipt(
+		&self,
+		tx_hash: &graph::ExtrinsicHash<PoolApi>,
+	) -> Option<
+		sc_transaction_pool_api::TransactionReceipt<Block::Hash, graph::ExtrinsicHash<PoolApi>>,
+	> {
+		self.pool.get_transaction_receipt(tx_hash)
+	}
 }
 
 #[async_trait]
@@ -415,6 +425,13 @@ where
 		timeout: std::time::Duration,
 	) -> ReadyIteratorFor<PoolApi> {
 		self.ready_at_with_timeout_internal(at, timeout).await
+	}
+
+	async fn get_transaction_receipt(
+		&self,
+		hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		self.pool.get_transaction_receipt(hash)
 	}
 }
 
@@ -661,6 +678,29 @@ where
 			},
 		};
 
+		// Track transactions that were included in enacted blocks
+		for enacted_block in tree_route.enacted() {
+			if let Some(block_body) = api.block_body(enacted_block.hash).await.unwrap_or(None) {
+				let included_txs: Vec<_> = block_body
+					.into_iter()
+					.enumerate()
+					.filter_map(|(index, ext)| {
+						let tx_hash = pool.hash_of(&ext);
+						// Check if this transaction was in our pool
+						if self.ready_transaction(&tx_hash).is_some() {
+							Some((tx_hash, index))
+						} else {
+							None
+						}
+					})
+					.collect();
+
+				if !included_txs.is_empty() {
+					pool.on_block_imported(enacted_block.hash, enacted_block.number, included_txs);
+				}
+			}
+		}
+
 		let next_action = self.revalidation_strategy.lock().next(
 			hash_and_number.number,
 			Some(std::time::Duration::from_secs(60)),
@@ -811,14 +851,13 @@ where
 				"on-finalized enacted"
 			);
 
+			// Notify about finalized blocks
 			for hash in tree_route.iter().chain(std::iter::once(&hash)) {
-				if let Err(error) = self.pool.validated_pool().on_block_finalized(*hash).await {
-					warn!(
-						target: LOG_TARGET,
-						?hash,
-						?error,
-						"Error occurred while attempting to notify watchers about finalization"
-					);
+				if let Ok(Some(header)) = self.api.block_header(*hash) {
+					let block_number = *header.number();
+					self.pool.on_block_finalized(*hash, block_number);
+
+					self.pool.validated_pool().on_block_finalized(*hash, block_number);
 				}
 			}
 		}
