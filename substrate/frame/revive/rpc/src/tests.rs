@@ -34,7 +34,7 @@ use pallet_revive::{
 	create1,
 	evm::{
 		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
-		HashesOrTransactionInfos, TransactionInfo, H256, U256,
+		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, H256, U256,
 	},
 };
 use static_init::dynamic;
@@ -276,6 +276,7 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 			TransactionUnsigned::Transaction1559Unsigned(tx) => tx.chain_id = 42u32.into(),
 			TransactionUnsigned::Transaction2930Unsigned(tx) => tx.chain_id = 42u32.into(),
 			TransactionUnsigned::Transaction4844Unsigned(tx) => tx.chain_id = 42u32.into(),
+			TransactionUnsigned::Transaction7702Unsigned(tx) => tx.chain_id = 42u32.into(),
 		})
 		.send()
 		.await
