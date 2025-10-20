@@ -26,7 +26,7 @@ use crate::{
 			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
-		update_backing_group_connections, RelayParentData,
+		BackingGroupConnectionHelper, RelayParentData,
 	},
 	LOG_TARGET,
 };
@@ -50,7 +50,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
-use sp_core::{crypto::Pair, traits::SpawnNamed};
+use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
@@ -67,7 +67,6 @@ pub struct BuilderTaskParams<
 	CHP,
 	Proposer,
 	CS,
-	Spawner,
 > {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
@@ -108,38 +107,11 @@ pub struct BuilderTaskParams<
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
 	pub max_pov_percentage: Option<u32>,
-	/// Required for pre-connecting to backing groups task.
-	pub spawn_handle: Spawner,
-	/// Handle to the overseer for sending messages.
-	pub overseer_handle: cumulus_relay_chain_interface::OverseerHandle,
 }
 
 /// Run block-builder.
-pub fn run_block_builder<
-	Block,
-	P,
-	BI,
-	CIDP,
-	Client,
-	Backend,
-	RelayClient,
-	CHP,
-	Proposer,
-	CS,
-	Spawner,
->(
-	params: BuilderTaskParams<
-		Block,
-		BI,
-		CIDP,
-		Client,
-		Backend,
-		RelayClient,
-		CHP,
-		Proposer,
-		CS,
-		Spawner,
-	>,
+pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
+	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -165,7 +137,6 @@ where
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-	Spawner: SpawnNamed + Clone + 'static,
 {
 	async move {
 		tracing::info!(target: LOG_TARGET, "Starting slot-based block-builder task.");
@@ -185,8 +156,6 @@ where
 			para_backend,
 			slot_offset,
 			max_pov_percentage,
-			spawn_handle,
-			overseer_handle,
 		} = params;
 
 		let mut slot_timer = SlotTimer::<_, _, P>::new_with_offset(
@@ -210,7 +179,17 @@ where
 		};
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
-		let mut our_slot = None;
+
+		let mut maybe_connection_helper = relay_client
+			.overseer_handle()
+			.ok()
+			.map(|h| BackingGroupConnectionHelper::new(para_client.clone(), keystore.clone(), h.clone()))
+			.or_else(|| {
+				tracing::warn!(target: LOG_TARGET,
+					"Relay chain interface does not provide overseer handle. Backing group pre-connect is disabled.");
+				None
+			});
+
 		loop {
 			// We wait here until the next slot arrives.
 			if slot_timer.wait_until_next_slot().await.is_err() {
@@ -350,17 +329,9 @@ where
 								slot = ?para_slot.slot,
 						"Not building block."
 					);
-					our_slot = update_backing_group_connections::<_, _, P, _>(
-						&para_client,
-						&keystore,
-						&mut overseer_handle.clone(),
-						&spawn_handle,
-						best_hash,
-						para_slot_duration,
-						para_slot.slot,
-						our_slot,
-					)
-					.await;
+					if let Some(ref mut connection_helper) = maybe_connection_helper {
+						connection_helper.update::<Block, P>(para_slot.slot, parent_hash).await;
+					}
 					continue
 				},
 			};

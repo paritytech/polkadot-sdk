@@ -47,7 +47,7 @@ use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
 use crate::{
 	collator as collator_util,
-	collators::{claim_queue_at, update_backing_group_connections},
+	collators::{claim_queue_at, BackingGroupConnectionHelper},
 	export_pov_to_path,
 };
 use futures::prelude::*;
@@ -57,14 +57,14 @@ use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
-use sp_core::{crypto::Pair, traits::SpawnNamed};
+use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -100,13 +100,11 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
-	/// Required for pre-connecting to backing groups task.
-	pub spawner: Spawner,
 }
 
 /// Run async-backing-friendly Aura.
-pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
-	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
+pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
+	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -128,21 +126,17 @@ where
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	Spawner: SpawnNamed + Clone + 'static,
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	run_with_export::<_, P, _, _, _, _, _, _, _, _, _>(ParamsWithExport {
-		params,
-		export_pov: None,
-	})
+	run_with_export::<_, P, _, _, _, _, _, _, _, _>(ParamsWithExport { params, export_pov: None })
 }
 
 /// Parameters for [`run_with_export`].
-pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
+pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// The parameters.
-	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
+	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
 
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
@@ -152,7 +146,7 @@ pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, C
 ///
 /// This is exactly the same as [`run`], but it supports the optional export of each produced `POV`
 /// to the file system.
-pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
+pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
 	ParamsWithExport { mut params, export_pov }: ParamsWithExport<
 		BI,
 		CIDP,
@@ -162,7 +156,6 @@ pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Propos
 		CHP,
 		Proposer,
 		CS,
-		Spawner,
 	>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
@@ -185,7 +178,6 @@ where
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	Spawner: SpawnNamed + Clone + 'static,
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -227,7 +219,12 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let mut our_slot = None;
+		let mut connection_helper: BackingGroupConnectionHelper<Client> =
+			BackingGroupConnectionHelper::new(
+				params.para_client.clone(),
+				params.keystore.clone(),
+				params.overseer_handle.clone(),
+			);
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
@@ -306,7 +303,6 @@ where
 				);
 				Some((
 					slot_now,
-					slot_duration,
 					super::can_build_upon::<_, _, P>(
 						slot_now,
 						relay_slot,
@@ -334,19 +330,9 @@ where
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
 				let slot_claim = match can_build_upon(parent_hash) {
-					Some((current_slot, slot_duration, fut)) => match fut.await {
+					Some((current_slot, fut)) => match fut.await {
 						None => {
-							our_slot = update_backing_group_connections::<_, _, P, _>(
-								&params.para_client,
-								&params.keystore,
-								&mut params.overseer_handle.clone(),
-								&params.spawner,
-								parent_hash,
-								slot_duration,
-								current_slot,
-								our_slot,
-							)
-							.await;
+							connection_helper.update::<Block, P>(current_slot, parent_hash).await;
 							break
 						},
 						Some(c) => c,

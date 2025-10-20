@@ -213,10 +213,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
 
-	let overseer_handle = relay_client
-		.overseer_handle()
-		.expect("Relay chain interface should provide overseer handle");
-
 	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers,
 		block_import,
@@ -233,12 +229,10 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		relay_chain_slot_duration,
 		slot_offset,
 		max_pov_percentage,
-		spawn_handle: spawner.clone(),
-		overseer_handle,
 	};
 
 	let block_builder_fut =
-		run_block_builder::<Block, P, _, _, _, _, _, _, _, _, _>(block_builder_params);
+		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
 
 	spawner.spawn_blocking(
 		"slot-based-block-builder",

@@ -732,21 +732,22 @@ async fn update_validator_connections<Context>(
 	para_id: ParaId,
 	connect: bool,
 ) {
-	let cores_assigned = has_assigned_cores(implicit_view, per_relay_parent);
-	// If no cores are assigned to the para, we still need to send a ConnectToValidators request to
-	// the network bridge passing an empty list of validator ids. Otherwise, it will keep connecting
-	// to the last requested validators until a new request is issued.
-	let validator_ids = if cores_assigned {
-		list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id)
-	} else {
-		Vec::new()
-	};
+	gum::trace!(target: LOG_TARGET, ?para_id, ?connect, "update_validator_connections");
 
-	// ignore address resolution failure
-	// will reissue a new request on new collation
+	// Ignore address resolution failure, will reissue a new request on new collation.
 	let (failed, _) = oneshot::channel();
 
 	let msg = if connect {
+		let cores_assigned = has_assigned_cores(implicit_view, per_relay_parent);
+		// If no cores are assigned to the para, we still need to send a ConnectToValidators request
+		// to the network bridge passing an empty list of validator ids. Otherwise, it will keep
+		// connecting to the last requested validators until a new request is issued.
+		let validator_ids = if cores_assigned {
+			list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id)
+		} else {
+			Vec::new()
+		};
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?cores_assigned,
@@ -759,26 +760,17 @@ async fn update_validator_connections<Context>(
 			failed,
 		}
 	} else {
-		// Get all connected peer_ids on the Collation peer set
-		// This is just for logging purposes.
-		let connected_validator_peer_ids: Vec<_> = peer_ids.keys().cloned().collect();
-
-		if connected_validator_peer_ids.is_empty() {
+		if peer_ids.is_empty() {
 			return
 		}
 
 		gum::trace!(
 			target: LOG_TARGET,
-			?cores_assigned,
 			"Disconnecting from validators: {:?}",
-			connected_validator_peer_ids,
+			peer_ids.keys(),
 		);
+
 		// Disconnect from all connected validators on the `Collation` protocol.
-		NetworkBridgeTxMessage::ConnectToValidators {
-			validator_ids: vec![],
-			peer_set: PeerSet::Collation,
-			failed,
-		}
 		NetworkBridgeTxMessage::ConnectToValidators {
 			validator_ids: vec![],
 			peer_set: PeerSet::Collation,

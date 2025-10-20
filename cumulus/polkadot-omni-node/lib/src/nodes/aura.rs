@@ -716,13 +716,12 @@ where
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
 				max_pov_percentage: node_extra_args.max_pov_percentage,
-				spawner: task_manager.spawn_handle(),
 			},
 		};
 
 		let fut = async move {
 			wait_for_aura(client).await;
-			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
+			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(
 				params,
 			)
 			.await;
