@@ -1,6 +1,6 @@
 title: 'frame/revive: ETH block storage'
 doc:
-- audience: Node Dev
+- audience: Runtime Dev
   description: |-
     This PR adjusts the RPC layer of pallet-revive to use Ethereum blocks from storage via runtime APIs and establishes proper Ethereum ↔ Substrate block hash mappings.
 
@@ -36,6 +36,6 @@ doc:
     Part of: https://github.com/paritytech/contract-issues/issues/139
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: major
 - name: pallet-revive-eth-rpc
-  bump: patch
+  bump: minor
