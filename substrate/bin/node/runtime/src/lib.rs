@@ -53,7 +53,7 @@ use frame_support::{
 		fungible::{
 			Balanced, Credit, HoldConsideration, ItemOf, NativeFromLeft, NativeOrWithId, UnionOf,
 		},
-		honzon::{AuctionHandler, AuctionInfo, Change, OnNewBidResult},
+		honzon::{AuctionHandler, Change, OnNewBidResult},
 		tokens::{
 			imbalance::{ResolveAssetTo, ResolveTo},
 			nonfungibles_v2::Inspect,
@@ -2574,9 +2574,9 @@ impl pallet_meta_tx::Config for Runtime {
 }
 
 // Auction pallet configuration
-pub struct AuctionHandler;
+pub struct DummyAuctionHandler;
 
-impl AuctionHandler<AccountId, Balance, BlockNumber, u64> for AuctionHandler {
+impl AuctionHandler<AccountId, Balance, BlockNumber, u64> for DummyAuctionHandler {
 	fn on_new_bid(
 		_now: BlockNumber,
 		_id: u64,
@@ -2592,7 +2592,7 @@ impl AuctionHandler<AccountId, Balance, BlockNumber, u64> for AuctionHandler {
 impl pallet_auction::Config for Runtime {
 	type Balance = Balance;
 	type AuctionId = u64;
-	type Handler = AuctionHandler;
+	type Handler = DummyAuctionHandler;
 	type WeightInfo = ();
 }
 
