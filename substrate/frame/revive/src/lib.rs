@@ -359,7 +359,7 @@ pub mod pallet {
 			pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1, 2);
+			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -1827,10 +1827,14 @@ impl<T: Config> Pallet<T> {
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \
-			weight_limit={:?}: \
-			eth_gas={eth_gas:?})\
+			weight_limit={} \
+			total_weight={total_weight} \
+			max_weight={max_weight} \
+			weight_left={} \
+			eth_gas={eth_gas})\
 			",
 			dry_run.gas_required,
+			max_weight.saturating_sub(total_weight),
 
 		);
 		dry_run.eth_gas = eth_gas;
