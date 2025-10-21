@@ -178,7 +178,7 @@ pub fn process_transaction<T: Config>(
 // `EthereumBlockBuilder = 3 * (max size of transactions + max size of receipts)`
 // The maximum size of a transaction is limited by
 // `limits::MAX_TRANSACTION_PAYLOAD_SIZE`, while the maximum size of a receipt is
-// limited by `limits::PAYLOAD_BYTES`.
+// limited by `limits::EVENT_BYTES`.
 //
 // Similarly, this is the amount of pallet storage consumed by the
 // `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.

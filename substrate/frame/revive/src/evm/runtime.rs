@@ -37,7 +37,10 @@ use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::U256;
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
-	traits::{Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, TransactionExtension},
+	traits::{
+		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
+		TransactionExtension,
+	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug, Weight,
 };
@@ -108,6 +111,10 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
 
 	fn call(&self) -> &Self::Call {
 		self.0.call()
+	}
+
+	fn into_call(self) -> Self::Call {
+		self.0.into_call()
 	}
 }
 
@@ -218,10 +225,16 @@ where
 	E::Extension: Encode,
 {
 	fn from(extrinsic: UncheckedExtrinsic<Address, Signature, E>) -> Self {
-		Self::from_bytes(extrinsic.encode().as_slice()).expect(
-			"both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
-				raw Vec<u8> encoding; qed",
-		)
+		extrinsic.0.into()
+	}
+}
+
+impl<Address, Signature, E: EthExtra> LazyExtrinsic for UncheckedExtrinsic<Address, Signature, E>
+where
+	generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>: LazyExtrinsic,
+{
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
+		Ok(Self(LazyExtrinsic::decode_unprefixed(data)?))
 	}
 }
 
