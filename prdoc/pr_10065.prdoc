@@ -1,0 +1,9 @@
+title: eth-rpc add trace logs
+doc:
+- audience: Runtime Dev
+  description: 'Add extra tracing logs for estimate_gas and send_raw_transaction
+
+    '
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
