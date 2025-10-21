@@ -1667,7 +1667,8 @@ fn withdraw_and_deposit_erc20s() {
 	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
-	let initial_wnd_amount = 10_000_000_000_000u128;
+	let initial_wnd_amount = 100_000_000_000_000_000u128;
+	sp_tracing::init_for_tests();
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// Bring the revive account to life.
@@ -1688,7 +1689,7 @@ fn withdraw_and_deposit_erc20s() {
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
@@ -1696,7 +1697,7 @@ fn withdraw_and_deposit_erc20s() {
 		let sender_balance_before = <Balances as fungible::Inspect<_>>::balance(&sender);
 
 		let erc20_transfer_amount = 100u128;
-		let wnd_amount_for_fees = 1_000_000_000_000u128;
+		let wnd_amount_for_fees = 10_000_000_000_000u128;
 		// Actual XCM to execute locally.
 		let message = Xcm::<RuntimeCall>::builder()
 			.withdraw_asset((Parent, wnd_amount_for_fees))
@@ -1712,7 +1713,7 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(PolkadotXcm::execute(
 			RuntimeOrigin::signed(sender.clone()),
 			Box::new(VersionedXcm::V5(message)),
-			Weight::from_parts(2_500_000_000, 220_000),
+			Weight::from_parts(600_000_000_000, 15 * 1024 * 1024),
 		));
 
 		// Revive is not taking any fees.
@@ -1801,7 +1802,7 @@ fn smart_contract_not_erc20_will_error() {
 		let (code, _) = compile_module("dummy").unwrap();
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			.storage_deposit_limit(Balance::MAX)
 			.build_and_unwrap_contract();
 
@@ -1859,7 +1860,7 @@ fn smart_contract_does_not_return_bool_fails() {
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
@@ -1915,7 +1916,7 @@ fn expensive_erc20_runs_out_of_gas() {
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
-			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.gas_limit(Weight::from_parts(500_000_000_000, 10 * 1024 * 1024))
 			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();

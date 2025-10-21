@@ -290,6 +290,8 @@ fn less_than_needed_candidates_works() {
 }
 
 mod paged_exposures {
+	use crate::session_rotation::Rotator;
+
 	use super::*;
 
 	#[test]
@@ -337,137 +339,412 @@ mod paged_exposures {
 		assert_eq!(exposure_metadata.nominator_count, 19);
 	}
 
+	fn exposure_pages(era: u32, who: AccountId) -> Vec<(u32, (Balance, u32))> {
+		let mut res = ErasStakersPaged::<T>::iter_prefix((era, who))
+			.map(|(page, expo)| (page, (expo.page_total, expo.others.len() as u32)))
+			.collect::<Vec<_>>();
+		res.sort_by_key(|(page, _)| *page);
+		res
+	}
+
 	#[test]
-	fn store_stakers_info_elect_works() {
+	fn store_stakers_info_elect_works_page_size_1() {
+		// scenario:
+		// 2 page election. 5 validators involved.
+		// Validator 1 has own-stake in first page, other-stake in both pages.
+		// Validator 2 has own-stake in second page, other-stake in both pages
+		// Validator 3 has no own-stake, other-stake in both pages
+		// Validator 4 has no own-stake, other-stake in second page only
+		// Validator 5 has no own-stake, other-stake in first page only
+		// all other stakes are 250, and the same 101 account as it makes no difference.
+		ExtBuilder::default().exposures_page_size(1).build_and_execute(|| {
+			// roll 1 session such that we are in "planning more"
+			Session::roll_to_next_session();
+			assert_eq!(Rotator::<T>::planned_era(), 2);
+			assert_eq!(Rotator::<T>::active_era(), 1);
+			assert_eq!(ErasTotalStake::<T>::get(Rotator::<T>::planned_era()), 0);
+			assert_eq!(
+				ErasStakersOverview::<T>::iter_prefix(Rotator::<T>::planned_era()).count(),
+				0
+			);
+			assert_eq!(
+				ErasStakersPaged::<T>::iter_prefix((Rotator::<T>::planned_era(),)).count(),
+				0
+			);
+
+			// stuff that goes into first page
+			let exposures_page1 = bounded_vec![
+				// validator 1, own-stake and other stake
+				(
+					1,
+					Exposure::<AccountId, Balance> {
+						total: 1000 + 250,
+						own: 1000,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					}
+				),
+				// validator 2, other stake only
+				(
+					2,
+					Exposure::<AccountId, Balance> {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					}
+				),
+				// validator 3, part of other stake only
+				(
+					3,
+					Exposure::<AccountId, Balance> {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					}
+				),
+				// validator 4, nothing
+				// validator 5, part of other stake only
+				(
+					5,
+					Exposure::<AccountId, Balance> {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					}
+				),
+			];
+
+			// stuff that goes into second page
+			let exposure_page2: BoundedExposuresOf<Test> = bounded_vec![
+				// validator 1, other stake only
+				(
+					1,
+					Exposure::<AccountId, Balance> {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					}
+				),
+				// validator 2, own-stake and other stake
+				(
+					2,
+					Exposure::<AccountId, Balance> {
+						total: 1000 + 250,
+						own: 1000,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					}
+				),
+				// validator 3, part of other stake only
+				(
+					3,
+					Exposure::<AccountId, Balance> {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					}
+				),
+				// validator 4, part of other stake only
+				(
+					4,
+					Exposure::<AccountId, Balance> {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					}
+				),
+				// validator 5, nothing
+			];
+
+			// our exposures are stored for this era.
+			let current_era = current_era();
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 0);
+
+			// insert page 1 of exposures
+			assert_eq!(
+				EraElectionPlanner::<T>::store_stakers_info(exposures_page1, current_era).to_vec(),
+				vec![1, 2, 3, 5]
+			);
+
+			// overviews after inserting first page of exposures.
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &1).unwrap(),
+				PagedExposureMetadata { total: 1250, own: 1000, nominator_count: 1, page_count: 1 },
+			);
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &2).unwrap(),
+				PagedExposureMetadata { total: 250, own: 0, nominator_count: 1, page_count: 1 },
+			);
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &3).unwrap(),
+				PagedExposureMetadata { total: 250, own: 0, nominator_count: 1, page_count: 1 },
+			);
+			assert!(ErasStakersOverview::<T>::get(current_era, &4).is_none());
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &5).unwrap(),
+				PagedExposureMetadata { total: 250, own: 0, nominator_count: 1, page_count: 1 },
+			);
+
+			// total stake after first page of exposures.
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 2000);
+
+			// details after first page of exposures.
+			assert_eq!(exposure_pages(current_era, 1), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 2), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 3), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 4), vec![]);
+			assert_eq!(exposure_pages(current_era, 5), vec![(0, (250, 1))]);
+
+			// insert page 2 of exposures
+			assert_eq!(
+				EraElectionPlanner::<T>::store_stakers_info(exposure_page2, current_era).to_vec(),
+				vec![1, 2, 3, 4]
+			);
+
+			// overviews after inserting second page of exposures.
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &1).unwrap(),
+				PagedExposureMetadata { total: 1500, own: 1000, nominator_count: 2, page_count: 2 },
+			);
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &2).unwrap(),
+				PagedExposureMetadata { total: 1500, own: 1000, nominator_count: 2, page_count: 2 },
+			);
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &3).unwrap(),
+				PagedExposureMetadata { total: 500, own: 0, nominator_count: 2, page_count: 2 },
+			);
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &4).unwrap(),
+				PagedExposureMetadata { total: 250, own: 0, nominator_count: 1, page_count: 1 },
+			);
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &5).unwrap(),
+				PagedExposureMetadata { total: 250, own: 0, nominator_count: 1, page_count: 1 },
+			);
+
+			// total stake after second page of exposures.
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 4000);
+
+			// details after second page of exposures.
+			assert_eq!(exposure_pages(current_era, 1), vec![(0, (250, 1)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 2), vec![(0, (250, 1)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 3), vec![(0, (250, 1)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 4), vec![(0, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 5), vec![(0, (250, 1))]);
+		})
+	}
+
+	#[test]
+	fn store_stakers_info_elect_works_page_size_2() {
+		// scenario:
+		// 2 page election. 5 validators involved.
+		// Validator 1 has own-stake in first page, other-stake in both pages (3 + 2).
+		// Validator 2 has own-stake in second page, other-stake in both pages (2 + 3)
+		// Validator 3 has no own-stake, other-stake in both pages (3 + 1)
+		// Validator 4 has no own-stake, other-stake in second page only (0 + 3)
+		// Validator 5 has no own-stake, other-stake in first page only (2 + 0)
+		// all other stakes are 250, and the same 101 (or more) account as it makes no difference.
 		ExtBuilder::default().exposures_page_size(2).build_and_execute(|| {
-			assert_eq!(MaxExposurePageSize::get(), 2);
+			// roll 1 session such that we are in "planning more"
+			Session::roll_to_next_session();
+			assert_eq!(Rotator::<T>::planned_era(), 2);
+			assert_eq!(Rotator::<T>::active_era(), 1);
+			assert_eq!(ErasTotalStake::<T>::get(Rotator::<T>::planned_era()), 0);
+			assert_eq!(
+				ErasStakersOverview::<T>::iter_prefix(Rotator::<T>::planned_era()).count(),
+				0
+			);
+			assert_eq!(
+				ErasStakersPaged::<T>::iter_prefix((Rotator::<T>::planned_era(),)).count(),
+				0
+			);
 
-			let exposure_one = Exposure {
-				total: 1000 + 700,
-				own: 1000,
-				others: vec![
-					IndividualExposure { who: 101, value: 500 },
-					IndividualExposure { who: 102, value: 100 },
-					IndividualExposure { who: 103, value: 100 },
-				],
-			};
+			// stuff that goes into first page
+			let exposures_page1 = bounded_vec![
+				// validator 1, own-stake and other stake
+				(
+					1,
+					Exposure::<AccountId, Balance> {
+						total: 1000 + 750,
+						own: 1000,
+						others: vec![
+							IndividualExposure { who: 101, value: 250 },
+							IndividualExposure { who: 102, value: 250 },
+							IndividualExposure { who: 103, value: 250 },
+						]
+					}
+				),
+				// validator 2, other stake only
+				(
+					2,
+					Exposure::<AccountId, Balance> {
+						total: 500,
+						own: 0,
+						others: vec![
+							IndividualExposure { who: 101, value: 250 },
+							IndividualExposure { who: 102, value: 250 },
+						]
+					}
+				),
+				// validator 3, part of other stake only
+				(
+					3,
+					Exposure::<AccountId, Balance> {
+						total: 750,
+						own: 0,
+						others: vec![
+							IndividualExposure { who: 101, value: 250 },
+							IndividualExposure { who: 102, value: 250 },
+							IndividualExposure { who: 103, value: 250 }
+						]
+					}
+				),
+				// validator 4, nothing
+				// validator 5, all of other stake only
+				(
+					5,
+					Exposure::<AccountId, Balance> {
+						total: 500,
+						own: 0,
+						others: vec![
+							IndividualExposure { who: 101, value: 250 },
+							IndividualExposure { who: 102, value: 250 },
+						]
+					}
+				),
+			];
 
-			let exposure_two = Exposure {
-				total: 1000 + 1000,
-				own: 1000,
-				others: vec![
-					IndividualExposure { who: 104, value: 500 },
-					IndividualExposure { who: 105, value: 500 },
-				],
-			};
-
-			let exposure_three = Exposure {
-				total: 1000 + 500,
-				own: 1000,
-				others: vec![
-					IndividualExposure { who: 110, value: 250 },
-					IndividualExposure { who: 111, value: 250 },
-				],
-			};
-
-			let exposures_page_one = bounded_vec![(1, exposure_one), (2, exposure_two),];
-			let exposures_page_two = bounded_vec![(1, exposure_three),];
+			let exposure_page2: BoundedExposuresOf<Test> = bounded_vec![
+				// validator 1, other stake only
+				(
+					1,
+					Exposure::<AccountId, Balance> {
+						total: 500,
+						own: 0,
+						others: vec![
+							IndividualExposure { who: 104, value: 250 },
+							IndividualExposure { who: 105, value: 250 }
+						]
+					}
+				),
+				// validator 2, own-stake and other stake
+				(
+					2,
+					Exposure::<AccountId, Balance> {
+						total: 1000 + 750,
+						own: 1000,
+						others: vec![
+							IndividualExposure { who: 103, value: 250 },
+							IndividualExposure { who: 104, value: 250 },
+							IndividualExposure { who: 105, value: 250 },
+						]
+					}
+				),
+				// validator 3, part of other stake only
+				(
+					3,
+					Exposure::<AccountId, Balance> {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 103, value: 250 },]
+					}
+				),
+				// validator 4, all of other stake only
+				(
+					4,
+					Exposure::<AccountId, Balance> {
+						total: 750,
+						own: 0,
+						others: vec![
+							IndividualExposure { who: 101, value: 250 },
+							IndividualExposure { who: 102, value: 250 },
+							IndividualExposure { who: 103, value: 250 }
+						]
+					}
+				),
+				// validator 5, nothing
+			];
 
 			// our exposures are stored for this era.
 			let current_era = current_era();
 
-			// stores exposure page with exposures of validator 1 and 2, returns exposed validator
-			// account id.
+			// insert page 1 of exposures
 			assert_eq!(
-				EraElectionPlanner::<T>::store_stakers_info(exposures_page_one, current_era)
-					.to_vec(),
-				vec![1, 2]
+				EraElectionPlanner::<T>::store_stakers_info(exposures_page1, current_era).to_vec(),
+				vec![1, 2, 3, 5]
 			);
 
-			// Stakers overview OK for validator 1 and 2.
+			// overviews after inserting first page of exposures.
 			assert_eq!(
 				ErasStakersOverview::<T>::get(current_era, &1).unwrap(),
-				PagedExposureMetadata { total: 1700, own: 1000, nominator_count: 3, page_count: 2 },
+				PagedExposureMetadata { total: 1750, own: 1000, nominator_count: 3, page_count: 2 },
 			);
 			assert_eq!(
 				ErasStakersOverview::<T>::get(current_era, &2).unwrap(),
-				PagedExposureMetadata { total: 2000, own: 1000, nominator_count: 2, page_count: 1 },
+				PagedExposureMetadata { total: 500, own: 0, nominator_count: 2, page_count: 1 },
 			);
-
-			// stores exposure page with exposures of validator 1, returns exposed validator
-			// account id.
 			assert_eq!(
-				EraElectionPlanner::<T>::store_stakers_info(exposures_page_two, current_era)
-					.to_vec(),
-				vec![1]
+				ErasStakersOverview::<T>::get(current_era, &3).unwrap(),
+				PagedExposureMetadata { total: 750, own: 0, nominator_count: 3, page_count: 2 },
+			);
+			assert!(ErasStakersOverview::<T>::get(current_era, &4).is_none());
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &5).unwrap(),
+				PagedExposureMetadata { total: 500, own: 0, nominator_count: 2, page_count: 1 },
 			);
 
-			// Stakers overview OK for validator 1.
+			// total stake after first page of exposures.
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 3500);
+
+			// details after first page of exposures.
+			assert_eq!(exposure_pages(current_era, 1), vec![(0, (500, 2)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 2), vec![(0, (500, 2))]);
+			assert_eq!(exposure_pages(current_era, 3), vec![(0, (500, 2)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 4), vec![]);
+			assert_eq!(exposure_pages(current_era, 5), vec![(0, (500, 2))]);
+
+			// insert page 2 of exposures
+			assert_eq!(
+				EraElectionPlanner::<T>::store_stakers_info(exposure_page2, current_era).to_vec(),
+				vec![1, 2, 3, 4]
+			);
+
+			// overviews after inserting second page of exposures.
 			assert_eq!(
 				ErasStakersOverview::<T>::get(current_era, &1).unwrap(),
-				PagedExposureMetadata { total: 2200, own: 1000, nominator_count: 5, page_count: 3 },
-			);
-
-			// validator 1 has 3 paged exposures.
-			assert!(
-				ErasStakersPaged::<T>::iter_prefix_values((current_era, &1)).count() as u32 ==
-					Eras::<T>::exposure_page_count(current_era, &1) &&
-					Eras::<T>::exposure_page_count(current_era, &1) == 3
-			);
-			assert!(ErasStakersPaged::<T>::get((current_era, &1, 0)).is_some());
-			assert!(ErasStakersPaged::<T>::get((current_era, &1, 1)).is_some());
-			assert!(ErasStakersPaged::<T>::get((current_era, &1, 2)).is_some());
-			assert!(ErasStakersPaged::<T>::get((current_era, &1, 3)).is_none());
-
-			// validator 2 has 1 paged exposures.
-			assert!(ErasStakersPaged::<T>::get((current_era, &2, 0)).is_some());
-			assert!(ErasStakersPaged::<T>::get((current_era, &2, 1)).is_none());
-			assert_eq!(ErasStakersPaged::<T>::iter_prefix_values((current_era, &2)).count(), 1);
-
-			// exposures of validator 1 are the expected:
-			assert_eq!(
-				ErasStakersPaged::<T>::get((current_era, &1, 0)).unwrap(),
-				ExposurePage {
-					page_total: 600,
-					others: vec![
-						IndividualExposure { who: 101, value: 500 },
-						IndividualExposure { who: 102, value: 100 }
-					]
-				}
-				.into(),
+				PagedExposureMetadata { total: 2250, own: 1000, nominator_count: 5, page_count: 3 },
 			);
 			assert_eq!(
-				ErasStakersPaged::<T>::get((current_era, &1, 1)).unwrap(),
-				ExposurePage {
-					page_total: 350,
-					others: vec![
-						IndividualExposure { who: 103, value: 100 },
-						IndividualExposure { who: 110, value: 250 }
-					]
-				}
-				.into()
+				ErasStakersOverview::<T>::get(current_era, &2).unwrap(),
+				PagedExposureMetadata { total: 2250, own: 1000, nominator_count: 5, page_count: 3 },
 			);
 			assert_eq!(
-				ErasStakersPaged::<T>::get((current_era, &1, 2)).unwrap(),
-				ExposurePage {
-					page_total: 250,
-					others: vec![IndividualExposure { who: 111, value: 250 }]
-				}
-				.into()
+				ErasStakersOverview::<T>::get(current_era, &3).unwrap(),
+				PagedExposureMetadata { total: 1000, own: 0, nominator_count: 4, page_count: 2 },
+			);
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &4).unwrap(),
+				PagedExposureMetadata { total: 750, own: 0, nominator_count: 3, page_count: 2 },
+			);
+			assert_eq!(
+				ErasStakersOverview::<T>::get(current_era, &5).unwrap(),
+				PagedExposureMetadata { total: 500, own: 0, nominator_count: 2, page_count: 1 },
 			);
 
-			// exposures of validator 2.
+			// total stake after second page of exposures.
+			assert_eq!(ErasTotalStake::<T>::get(current_era), 6750);
+
+			// details after second page of exposures.
 			assert_eq!(
-				ErasStakersPaged::<T>::iter_prefix_values((current_era, &2)).collect::<Vec<_>>(),
-				vec![ExposurePage {
-					page_total: 1000,
-					others: vec![
-						IndividualExposure { who: 104, value: 500 },
-						IndividualExposure { who: 105, value: 500 }
-					]
-				}
-				.into()],
+				exposure_pages(current_era, 1),
+				vec![(0, (500, 2)), (1, (500, 2)), (2, (250, 1))]
 			);
+			assert_eq!(
+				exposure_pages(current_era, 2),
+				vec![(0, (500, 2)), (1, (500, 2)), (2, (250, 1))]
+			);
+			assert_eq!(exposure_pages(current_era, 3), vec![(0, (500, 2)), (1, (500, 2))]);
+			assert_eq!(exposure_pages(current_era, 4), vec![(0, (500, 2)), (1, (250, 1))]);
+			assert_eq!(exposure_pages(current_era, 5), vec![(0, (500, 2))]);
 		})
 	}
 }
