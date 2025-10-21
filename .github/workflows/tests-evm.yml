@@ -18,6 +18,47 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
+  differential-tests-revive-dev-node-revm:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout the Polkadot SDK
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Building the dependencies from the Polkadot SDK
+        run: forklift cargo build --locked --profile production -p pallet-revive-eth-rpc -p revive-dev-node
+      - name: Checkout the Differential Tests Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: paritytech/revive-differential-tests
+          ref: 48e7d691583d931fdfd6b647dc006501785c22b0
+          path: revive-differential-tests
+          submodules: recursive
+      - name: Installing Retester
+        run: forklift cargo install --locked --path revive-differential-tests/crates/core
+      - name: Creating a workdir for retester
+        run: mkdir workdir
+      - name: Downloading the compilation caches
+        run: curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/0xOmarA/revive-differential-tests-compiler-cache/releases/download/v1.0.0/cache.tar.gz"
+      - name: Decompressing the compilation caches
+        run: tar -zxf cache.tar.gz -C ./workdir
+      - name: Running the Differential Tests
+        run: |
+          retester test \
+            --test ./resolc-compiler-tests/fixtures/solidity/simple \
+            --test ./resolc-compiler-tests/fixtures/solidity/complex \
+            --test ./resolc-compiler-tests/fixtures/solidity/translated_semantic_tests \
+            --platform revive-dev-node-revm-solc \
+            --concurrency.number-of-nodes 10 \
+            --concurrency.number-of-threads 10 \
+            --concurrency.number-of-concurrent-tasks 50 \
+            --working-directory ./workdir \
+            --revive-dev-node.path ./target/production/revive-dev-node \
+            --eth-rpc.path ./target/production/eth-rpc
+
   evm-test-suite:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
