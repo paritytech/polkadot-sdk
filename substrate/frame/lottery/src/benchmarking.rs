@@ -60,7 +60,7 @@ mod benchmarks {
 	#[benchmark]
 	fn buy_ticket() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 		setup_lottery::<T>(false)?;
 		// force user to have a long vec of calls participating
 		let set_code_index: CallIndex = Lottery::<T>::call_to_index(
@@ -140,10 +140,10 @@ mod benchmarks {
 		setup_lottery::<T>(false)?;
 		let winner = account("winner", 0, 0);
 		// User needs more than min balance to get ticket
-		T::Currency::make_free_balance_be(&winner, T::Currency::minimum_balance() * 10u32.into());
+		T::Currency::set_balance(&winner, T::Currency::minimum_balance() * 10u32.into());
 		// Make sure lottery account has at least min balance too
 		let lottery_account = Lottery::<T>::account_id();
-		T::Currency::make_free_balance_be(
+		T::Currency::set_balance(
 			&lottery_account,
 			T::Currency::minimum_balance() * 10u32.into(),
 		);
@@ -151,7 +151,7 @@ mod benchmarks {
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
 		// Kill user account for worst case
-		T::Currency::make_free_balance_be(&winner, 0u32.into());
+		T::Currency::set_balance(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
 		assert!(!Lottery::<T>::pot().1.is_zero());
@@ -169,7 +169,7 @@ mod benchmarks {
 		assert!(crate::Lottery::<T>::get().is_none());
 		assert_eq!(TicketsCount::<T>::get(), 0);
 		assert_eq!(Lottery::<T>::pot().1, 0u32.into());
-		assert!(!T::Currency::free_balance(&winner).is_zero());
+		assert!(!T::Currency::reducible_balance(&winner, Preservation::Expendable, Fortitude::Polite).is_zero());
 
 		Ok(())
 	}
@@ -179,10 +179,10 @@ mod benchmarks {
 		setup_lottery::<T>(true)?;
 		let winner = account("winner", 0, 0);
 		// User needs more than min balance to get ticket
-		T::Currency::make_free_balance_be(&winner, T::Currency::minimum_balance() * 10u32.into());
+		T::Currency::set_balance(&winner, T::Currency::minimum_balance() * 10u32.into());
 		// Make sure lottery account has at least min balance too
 		let lottery_account = Lottery::<T>::account_id();
-		T::Currency::make_free_balance_be(
+		T::Currency::set_balance(
 			&lottery_account,
 			T::Currency::minimum_balance() * 10u32.into(),
 		);
@@ -190,7 +190,7 @@ mod benchmarks {
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
 		// Kill user account for worst case
-		T::Currency::make_free_balance_be(&winner, 0u32.into());
+		T::Currency::set_balance(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
 		assert!(!Lottery::<T>::pot().1.is_zero());
@@ -209,7 +209,7 @@ mod benchmarks {
 		assert_eq!(LotteryIndex::<T>::get(), 2);
 		assert_eq!(TicketsCount::<T>::get(), 0);
 		assert_eq!(Lottery::<T>::pot().1, 0u32.into());
-		assert!(!T::Currency::free_balance(&winner).is_zero());
+		assert!(!T::Currency::reducible_balance(&winner, Preservation::Expendable, Fortitude::Polite).is_zero());
 
 		Ok(())
 	}
