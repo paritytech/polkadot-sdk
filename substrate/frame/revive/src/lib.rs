@@ -1653,7 +1653,7 @@ impl<T: Config> Pallet<T> {
 
 		// we need to parse the weight from the transaction so that it is run
 		// using the exact weight limit passed by the eth wallet
-		let mut call_info = create_call::<T>(tx, None)
+		let mut call_info = create_call::<T>(tx, None, false)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		// the dry-run might leave out certain fields
