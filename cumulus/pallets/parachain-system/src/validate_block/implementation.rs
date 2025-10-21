@@ -32,7 +32,7 @@ use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
-	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT,
+	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
@@ -124,11 +124,11 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
 		.expect("Invalid parachain block data");
 
 	// Initialize hashmaps randomness.
-	sp_trie::add_extra_randomness(build_seed_from_head_data(
+	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
 		&block_data,
 		relay_parent_storage_root,
 	));
@@ -363,7 +363,7 @@ fn validate_validation_data(
 /// in the block data, to make sure the seed changes every block and that
 /// the user cannot find about it ahead of time.
 fn build_seed_from_head_data<B: BlockT>(
-	block_data: &ParachainBlockData<B>,
+	block_data: &ParachainBlockData<B::LazyBlock>,
 	relay_parent_storage_root: crate::relay_chain::Hash,
 ) -> [u8; 16] {
 	let mut bytes_to_hash = Vec::with_capacity(
