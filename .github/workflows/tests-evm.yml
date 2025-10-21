@@ -11,6 +11,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  pull-requests: write
+
 jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
@@ -58,6 +61,15 @@ jobs:
             --working-directory ./workdir \
             --revive-dev-node.path ./target/production/revive-dev-node \
             --eth-rpc.path ./target/production/eth-rpc
+      - name: Moving the report to the current directory
+        run: mv ./workdir/*.json report.json
+      - name: Creating a markdown report of the test execution
+        run: python3 ./scripts/process-differential-tests-report.py
+      - name: Posting the report as a comment on the PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: diff-tests-report
+          path: report.md
 
   evm-test-suite:
     needs: [preflight]
