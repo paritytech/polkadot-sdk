@@ -6238,6 +6238,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "erasure-coding"
+version = "0.1.0"
+source = "git+https://github.com/paritytech/erasure-coding#512e77472beb877fe0881a857623d54d97b82bc4"
+dependencies = [
+ "blake2b_simd",
+ "bounded-collections 0.1.9",
+ "parity-scale-codec",
+ "reed-solomon-simd",
+ "thiserror 1.0.65",
+]
+
+[[package]]
 name = "erasure_coding_fuzzer"
 version = "1.0.0"
 dependencies = [
@@ -15381,6 +15393,7 @@ name = "polkadot-erasure-coding"
 version = "7.0.0"
 dependencies = [
  "criterion",
+ "erasure-coding",
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-primitives",
@@ -18469,6 +18482,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "readme-rustdocifier"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08ad765b21a08b1a8e5cdce052719188a23772bcbefb3c439f0baaf62c56ceac"
+
+[[package]]
 name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18516,6 +18535,17 @@ dependencies = [
  "fs-err",
  "static_init",
  "thiserror 1.0.65",
+]
+
+[[package]]
+name = "reed-solomon-simd"
+version = "2.2.1"
+source = "git+https://github.com/ordian/reed-solomon-simd?branch=simd-feature#2e7136fc19f599d7f11f86d51c356482d71ef980"
+dependencies = [
+ "bytemuck",
+ "fixedbitset",
+ "once_cell",
+ "readme-rustdocifier",
 ]
 
 [[package]]

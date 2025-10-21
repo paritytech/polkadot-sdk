@@ -36,6 +36,9 @@ use thiserror::Error;
 
 use novelpoly::{CodeParams, WrappedShard};
 
+// Export v2 module
+pub mod v2;
+
 // we are limited to the field order of GF(2^16), which is 65536
 const MAX_VALIDATORS: usize = novelpoly::f2e16::FIELD_SIZE;
 
