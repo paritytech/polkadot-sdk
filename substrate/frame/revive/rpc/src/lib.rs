@@ -265,9 +265,9 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
-		// TODO: Provide better estimation
-		let gas_price = self.gas_price().await?;
-		Ok(Permill::from_percent(20).mul_ceil(gas_price))
+		// We do not support tips. Hence the recommended priority fee is
+		// always zero. The effective gas price will always be the base price.
+		Ok(Default::default())
 	}
 
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
