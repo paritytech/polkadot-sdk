@@ -1,0 +1,8 @@
+title: Fix utility::force_batch returning incorrect weights causing mismatch
+doc:
+- audience: Runtime Dev
+  description: |-
+    The returned weights from the `pallet_utility::force_batch` dispatch was using `batch` weights instead of the `force_batch` weight causing a invalid weight being returned. Now it returns the correct weight.
+crates:
+- name: pallet-utility
+  bump: patch

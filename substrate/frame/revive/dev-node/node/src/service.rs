@@ -168,7 +168,8 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		let pool = transaction_pool.clone();
 
 		Box::new(move |_| {
-			let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone() };
+			let deps =
+				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), consensus };
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
@@ -186,6 +187,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		sync_service,
 		config,
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: None,
 	})?;
 
 	let proposer = sc_basic_authorship::ProposerFactory::new(
