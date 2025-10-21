@@ -48,9 +48,9 @@ jobs:
       - name: Running the Differential Tests
         run: |
           retester test \
-            --test ./resolc-compiler-tests/fixtures/solidity/simple \
-            --test ./resolc-compiler-tests/fixtures/solidity/complex \
-            --test ./resolc-compiler-tests/fixtures/solidity/translated_semantic_tests \
+            --test ./revive-differential-tests/resolc-compiler-tests/fixtures/solidity/simple \
+            --test ./revive-differential-tests/resolc-compiler-tests/fixtures/solidity/complex \
+            --test ./revive-differential-tests/resolc-compiler-tests/fixtures/solidity/translated_semantic_tests \
             --platform revive-dev-node-revm-solc \
             --concurrency.number-of-nodes 10 \
             --concurrency.number-of-threads 10 \
