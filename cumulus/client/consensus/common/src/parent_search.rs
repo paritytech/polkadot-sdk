@@ -231,7 +231,7 @@ pub async fn find_potential_parents<B: BlockT>(
 }
 
 /// Fetch the included block from the relay chain.
-pub async fn fetch_included_from_relay_chain<B: BlockT>(
+async fn fetch_included_from_relay_chain<B: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<B>,
 	para_id: ParaId,

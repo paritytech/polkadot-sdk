@@ -31,9 +31,7 @@ use crate::{
 	LOG_TARGET,
 };
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{
-	self as consensus_common, fetch_included_from_relay_chain, ParachainBlockImportMarker,
-};
+use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
@@ -224,13 +222,9 @@ where
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
-			let Some((_, parent)) = crate::collators::find_parent(
-				relay_best_hash,
-				para_id,
-				&*para_backend,
-				&relay_client,
-			)
-			.await
+			let Some((included_header, parent)) =
+				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
+					.await
 			else {
 				continue
 			};
@@ -299,19 +293,7 @@ where
 				continue;
 			};
 
-			let Ok(Some((included_header, included_header_hash))) =
-				fetch_included_from_relay_chain(
-					&relay_client,
-					&*para_backend,
-					para_id,
-					relay_parent,
-				)
-				.await
-			else {
-				continue;
-			};
-
-			tracing::error!(target: crate::LOG_TARGET, "🔮 Cyon fetched included_header");
+			let included_header_hash = included_header.hash();
 
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
