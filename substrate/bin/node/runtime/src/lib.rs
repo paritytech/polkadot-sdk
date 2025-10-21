@@ -2575,7 +2575,7 @@ impl pallet_meta_tx::Config for Runtime {
 // Auction pallet configuration
 pub struct AuctionHandler;
 
-impl frame_support::traits::AuctionHandler<AccountId, Balance, BlockNumber, u64>
+impl frame_support::traits::honzon::AuctionHandler<AccountId, Balance, BlockNumber, u64>
 	for AuctionHandler
 {
 	fn on_new_bid(

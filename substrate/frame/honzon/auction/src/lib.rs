@@ -143,7 +143,7 @@ pub mod pallet {
 		/// The auction has not started yet.
 		AuctionNotStarted,
 		/// The bid was not accepted by the
-		/// [`AuctionHandler`](frame_support::traits::AuctionHandler) implementation.
+		/// [`AuctionHandler`] implementation.
 		BidNotAccepted,
 		/// The bid price is invalid. It might be lower than or equal to the
 		/// current highest bid, or it might be zero.
@@ -229,7 +229,7 @@ pub mod pallet {
 		///
 		/// This function allows a signed account to place a bid in an auction that has already
 		/// started. The bid amount must be higher than any existing bid and will be validated by
-		/// the [`AuctionHandler`](frame_support::traits::AuctionHandler) implementation.
+		/// the [`AuctionHandler`] implementation.
 		///
 		/// ## Errors
 		///
