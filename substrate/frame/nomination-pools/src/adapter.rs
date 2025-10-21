@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::*;
-use frame_support::traits::tokens::{Fortitude::Polite, Preservation::Expendable};
+use frame_support::traits::tokens::{Fortitude::{Polite, Force}, Precision, Precision::Exact, Preservation::Expendable};
 use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 
 /// Types of stake strategies.
@@ -221,8 +221,8 @@ pub trait StakeStrategy {
 		value: Self::Balance,
 	) -> DispatchResult;
 
-	/// Force withdraw funds from pool account.
-	fn force_withdraw(
+	/// Reap a member by force withdrawing and burning dust.
+	fn reap_member(
 		who: Member<Self::AccountId>,
 		pool_account: Pool<Self::AccountId>,
 		from_unlocking: Self::Balance,
@@ -360,13 +360,25 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
 	}
 
-	fn force_withdraw(
+	fn reap_member(
 		_who: Member<Self::AccountId>,
 		pool_account: Pool<Self::AccountId>,
 		from_unlocking: Self::Balance,
 		from_active: Self::Balance,
 	) -> DispatchResult {
-		Staking::force_withdraw(&pool_account.0, from_unlocking, from_active)
+		let total_amount = from_unlocking.saturating_add(from_active);
+		if total_amount.is_zero() {
+			return Ok(());
+		}
+		Staking::force_withdraw(&pool_account.0, from_unlocking, from_active)?;
+		T::Currency::burn_from(
+			&pool_account.0,
+			total_amount,
+			Expendable,
+			Exact,
+			Force,
+		)?;
+		Ok(())
 	}
 }
 
@@ -479,15 +491,27 @@ impl<
 		Delegation::migrate_delegation(pool.into(), delegator.into(), value)
 	}
 
-	fn force_withdraw(
+	fn reap_member(
 		who: Member<Self::AccountId>,
 		pool_account: Pool<Self::AccountId>,
 		from_unlocking: Self::Balance,
 		from_active: Self::Balance,
 	) -> DispatchResult {
 		let total_amount = from_active.saturating_add(from_unlocking);
+		if total_amount.is_zero() {
+			return Ok(());
+		}
+
 		Staking::force_withdraw(&pool_account.0, from_unlocking, from_active)?;
-		Delegation::withdraw_delegation(who.into(), pool_account.clone().into(), total_amount, 0)
+		Delegation::withdraw_delegation(who.clone().into(), pool_account.into(), total_amount, 0)?;
+		T::Currency::burn_from(
+			&who.0,
+			total_amount,
+			Expendable,
+			Exact,
+			Force,
+		)?;
+		Ok(())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

@@ -3253,6 +3253,103 @@ pub mod pallet {
 			Self::migrate_to_delegate_stake(pool_id)?;
 			Ok(Pays::No.into())
 		}
+
+		#[pallet::call_index(26)]
+		#[pallet::weight(T::WeightInfo::pool_migrate())] // TODO: generate weight
+		pub fn reap_member(
+			origin: OriginFor<T>,
+			member_account: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			let _caller = ensure_signed(origin);
+			let member_account = T::Lookup::lookup(member_account)?;
+
+			let (mut member, mut bonded_pool, mut reward_pool) =
+				Self::get_member_with_pools(&member_account)?;
+			let mut sub_pools =
+				SubPoolsStorage::<T>::get(member.pool_id).unwrap_or_default();
+			let bonded_account = bonded_pool.bonded_account();
+
+			let member_balance = member.total_balance();
+			ensure!(
+				member_balance < T::Currency::minimum_balance(),
+				Error::<T>::MinimumBondNotMet
+			);
+
+			// Depositor can only be reaped if pool is destroying or they are the last member
+			if member_account == bonded_pool.roles.depositor {
+				ensure!(
+					bonded_pool.state == PoolState::Destroying || bonded_pool.member_counter == 1,
+					Error::<T>::DoesNotHavePermission
+				);
+			}
+
+			let _ = Self::do_reward_payout(
+				&member_account,
+				&mut member,
+				&mut bonded_pool,
+				&mut reward_pool,
+			)?;
+
+			let mut withdrawn_from_unlocking: BalanceOf<T> = Zero::zero();
+			for (era, points) in member.unbonding_eras.iter() {
+				if points.is_zero() {
+					continue;
+				}
+				let balance = if let Some(pool) = sub_pools.with_era.get_mut(&era) {
+					let balance = pool.dissolve(*points);
+					if pool.points.is_zero() {
+						sub_pools.with_era.remove(&era);
+					}
+					balance
+				} else {
+					sub_pools.no_era.dissolve(*points)
+				};
+				withdrawn_from_unlocking =
+					withdrawn_from_unlocking.saturating_add(balance);
+			}
+
+			let active_points = member.active_points();
+			let withdrawn_from_active = bonded_pool.dissolve(active_points);
+
+			let total_withdrawn =
+				withdrawn_from_unlocking.saturating_add(withdrawn_from_active);
+			if !total_withdrawn.is_zero() {
+				T::StakeAdapter::reap_member(
+					Member::from(member_account.clone()),
+					Pool::from(bonded_account.clone()),
+					withdrawn_from_unlocking,
+					withdrawn_from_active,
+				)?;
+
+				TotalValueLocked::<T>::mutate(|tvl| {
+					tvl.defensive_saturating_reduce(total_withdrawn);
+				});
+			}
+
+			ClaimPermissions::<T>::remove(&member_account);
+			PoolMembers::<T>::remove(&member_account);
+
+			// Only dissolve pool if depositor is the last member
+			if member_account == bonded_pool.roles.depositor && bonded_pool.member_counter == 1 {
+				Pallet::<T>::dissolve_pool(bonded_pool);
+			} else {
+				SubPoolsStorage::<T>::insert(member.pool_id, sub_pools);
+				reward_pool.update_records(
+					member.pool_id,
+					bonded_pool.points,
+					bonded_pool.commission.current(),
+				)?;
+				bonded_pool.dec_members().put();
+				RewardPools::<T>::insert(member.pool_id, reward_pool);
+			}
+
+			Self::deposit_event(Event::<T>::MemberRemoved {
+				pool_id: member.pool_id,
+				member: member_account,
+				released_balance: total_withdrawn,
+			});
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]

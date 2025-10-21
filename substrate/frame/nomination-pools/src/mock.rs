@@ -243,6 +243,24 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn slash_reward_fraction() -> Perbill {
 		unimplemented!("method currently not used in testing")
 	}
+
+	fn force_withdraw(
+		stash: &Self::AccountId,
+		from_unlocking: Self::Balance,
+		from_active: Self::Balance,
+	) -> DispatchResult {
+		let total = from_unlocking.saturating_add(from_active);
+		if total.is_zero() {
+			return Ok(());
+		}
+
+		let mut bonded = BondedBalanceMap::get();
+		let entry = bonded.get_mut(stash).ok_or(DispatchError::Other("not bonded"))?;
+		*entry = entry.saturating_sub(total);
+		BondedBalanceMap::set(&bonded);
+
+		Ok(())
+	}
 }
 
 parameter_types! {
@@ -323,14 +341,22 @@ impl DelegationInterface for DelegateMock {
 		amount: Self::Balance,
 		_num_slashing_spans: u32,
 	) -> DispatchResult {
+		let id = delegator.get();
 		let mut delegators = DelegatorBalanceMap::get();
-		delegators.get_mut(&delegator.get()).map(|b| *b -= amount);
+		let mut new_balance = delegators.get(&id).copied().unwrap_or_default();
+		new_balance = new_balance.saturating_sub(amount);
+		if new_balance.is_zero() {
+			delegators.remove(&id);
+		} else {
+			delegators.insert(id, new_balance);
+		}
 		DelegatorBalanceMap::set(&delegators);
 
+		let agent_id = agent.get();
 		let mut agents = AgentBalanceMap::get();
-		agents.get_mut(&agent.get()).map(|(d, u, _)| {
-			*d -= amount;
-			*u -= amount;
+		agents.get_mut(&agent_id).map(|(delegated, unclaimed, _)| {
+			*delegated = delegated.saturating_sub(amount);
+			*unclaimed = unclaimed.saturating_sub(amount);
 		});
 		AgentBalanceMap::set(&agents);
 
