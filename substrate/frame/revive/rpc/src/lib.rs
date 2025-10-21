@@ -300,21 +300,29 @@ impl EthRpcServer for EthRpcServerImpl {
 		} else {
 			self.client.latest_block().await.hash()
 		};
-		Ok(self.client.receipts_count_per_ethereum_block(&block_hash).await.map(U256::from))
+
+		let Some(substrate_hash) = self.client.resolve_substrate_hash(&block_hash).await else {
+			return Ok(None);
+		};
+
+		Ok(self.client.receipts_count_per_block(&substrate_hash).await.map(U256::from))
 	}
 
 	async fn get_block_transaction_count_by_number(
 		&self,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<Option<U256>> {
-		let Some(block) = self
-			.get_block_by_number(block.unwrap_or_else(|| BlockTag::Latest.into()), false)
+		let substrate_hash = if let Some(block) = self
+			.client
+			.block_by_number_or_tag(&block.unwrap_or_else(|| BlockTag::Latest.into()))
 			.await?
-		else {
+		{
+			block.hash()
+		} else {
 			return Ok(None);
 		};
 
-		Ok(self.client.receipts_count_per_block(&block.hash).await.map(U256::from))
+		Ok(self.client.receipts_count_per_block(&substrate_hash).await.map(U256::from))
 	}
 
 	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults> {

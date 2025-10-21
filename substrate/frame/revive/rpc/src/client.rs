@@ -517,14 +517,6 @@ impl Client {
 		self.receipt_by_hash_and_index(&substrate_hash, transaction_index).await
 	}
 
-	/// Get receipts count per block by specified Ethereum block hash.
-	pub async fn receipts_count_per_ethereum_block(&self, ethereum_hash: &H256) -> Option<usize> {
-		// Fallback: use hash as Substrate hash if Ethereum hash cannot be resolved
-		let substrate_hash =
-			self.resolve_substrate_hash(ethereum_hash).await.unwrap_or(*ethereum_hash);
-		self.receipts_count_per_block(&substrate_hash).await
-	}
-
 	/// Get the system health.
 	pub async fn system_health(&self) -> Result<SystemHealth, ClientError> {
 		let health = self.rpc.system_health().await?;
