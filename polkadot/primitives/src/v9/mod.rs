@@ -1726,10 +1726,14 @@ pub mod node_features {
 		/// See [RFC-103](https://github.com/polkadot-fellows/RFCs/pull/103) for details.
 		/// Only enable if at least 2/3 of nodes support the feature.
 		CandidateReceiptV2 = 3,
+		/// Enables fast erasure coding for availability recovery.
+		/// This feature improves the performance of erasure coding operations
+		/// used in the availability and recovery subsystem.
+		FastErasureCoding = 4,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 4,
+		FirstUnassigned = 5,
 	}
 }
 
