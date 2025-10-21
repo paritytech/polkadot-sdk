@@ -70,7 +70,7 @@ pub mod genesis_config_presets {
 	use alloc::{vec, vec::Vec};
 	use serde_json::Value;
 
-	pub const ENDOWMENT: Balance = 1_001 * DOLLARS;
+	pub const ENDOWMENT: Balance = 1_000_000_001 * DOLLARS;
 
 	fn well_known_accounts() -> Vec<AccountId> {
 		Sr25519Keyring::well_known()
@@ -83,6 +83,18 @@ pub mod genesis_config_presets {
 				// subxt_signer::eth::dev::baltathar()
 				array_bytes::hex_n_into_unchecked(
 					"3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::charleth()
+				array_bytes::hex_n_into_unchecked(
+					"798d4ba9baf0064ec19eb4f0a1a45785ae9d6dfceeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::dorothy()
+				array_bytes::hex_n_into_unchecked(
+					"773539d4ac0e786233d90a233654ccee26a613d9eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::ethan()
+				array_bytes::hex_n_into_unchecked(
+					"ff64d3f6efe2317ee2807d223a0bdc4c0c49dfdbeeeeeeeeeeeeeeeeeeeeeeee",
 				),
 			])
 			.collect::<Vec<_>>()
