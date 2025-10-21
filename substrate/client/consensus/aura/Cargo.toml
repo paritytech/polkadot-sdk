@@ -46,6 +46,7 @@ sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-test = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }

@@ -342,8 +342,8 @@ where
 		+ UsageProvider<Block>
 		+ HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
-	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
-	P: Pair + 'static,
+	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static + Clone,
+	P: Pair + 'static + Clone,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
@@ -366,14 +366,53 @@ where
 	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
 }
 
-struct AuraBlockImport<Client, P: Pair, Block: BlockT, BI: BlockImport<Block>> {
+/// AuraBlockImport
+pub struct AuraBlockImport<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone> {
 	block_import: BI,
 	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
 }
 
+impl<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone> Clone
+	for AuraBlockImport<Client, P, Block, BI>
+{
+	fn clone(&self) -> Self {
+		Self {
+			block_import: self.block_import.clone(),
+			authorities_tracker: self.authorities_tracker.clone(),
+		}
+	}
+}
+
+impl<
+		Client: Sync + Send,
+		P: Pair + Clone,
+		Block: BlockT,
+		BI: BlockImport<Block> + Send + Sync + Clone,
+	> AuraBlockImport<Client, P, Block, BI>
+where
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>,
+	P::Public: Codec + Debug,
+	P::Signature: Codec,
+	Client::Api: AuraApi<Block, AuthorityId<P>>,
+{
+	/// Bla
+	pub fn new(
+		block_import: BI,
+		authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+	) -> Self {
+		AuraBlockImport { block_import, authorities_tracker }
+	}
+}
+
 #[async_trait::async_trait]
-impl<Client: Sync + Send, P: Pair, Block: BlockT, BI: BlockImport<Block> + Send + Sync>
-	BlockImport<Block> for AuraBlockImport<Client, P, Block, BI>
+impl<
+		Client: Sync + Send,
+		P: Pair + Clone,
+		Block: BlockT,
+		BI: BlockImport<Block> + Send + Sync + Clone,
+	> BlockImport<Block> for AuraBlockImport<Client, P, Block, BI>
 where
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
@@ -399,8 +438,10 @@ where
 		let with_state = block.with_state();
 		let post_header = block.post_header();
 
+		log::info!("Importing block with state {with_state}");
 		let res = self.block_import.import_block(block).await?;
 
+		log::info!(target: "skunert", "Importing block with state {with_state}");
 		if with_state {
 			self.authorities_tracker.import_from_runtime(&post_header).unwrap();
 		}

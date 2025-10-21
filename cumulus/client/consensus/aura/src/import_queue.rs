@@ -78,8 +78,9 @@ where
 		+ ParachainBlockImportMarker
 		+ Send
 		+ Sync
-		+ 'static,
-	P: Pair + 'static,
+		+ 'static
+		+ Clone,
+	P: Pair + 'static + Clone,
 	P::Public: Debug + Codec,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
