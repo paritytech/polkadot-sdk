@@ -64,7 +64,7 @@ jobs:
       - name: Moving the report to the current directory
         run: mv ./workdir/*.json report.json
       - name: Creating a markdown report of the test execution
-        run: python3 ./scripts/process-differential-tests-report.py
+        run: python3 ./.github/scripts/process-differential-tests-report.py
       - name: Posting the report as a comment on the PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
