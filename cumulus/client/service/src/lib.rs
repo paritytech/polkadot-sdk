@@ -509,6 +509,30 @@ where
 		SyncMode::Warp => {
 			log::debug!(target: LOG_TARGET_SYNC, "waiting for announce block...");
 
+			#[cfg(feature = "doppelganger")]
+			let target_block = if let Ok(zombie_target_header_path) = std::env::var("ZOMBIE_TARGET_HEADER_PATH") {
+				let header_content = tokio::fs::read_to_string(zombie_target_header_path).await.expect("env var ZOMBIE_TARGET_HEADER_PATH should be valid. qed");
+				let header: <Block as BlockT>::Header = serde_json::from_str(&header_content).unwrap();
+				log::info!(
+					"🪞 target parachain header #{} ({}) from path {:?}.",
+					header.number(),
+					header.hash(),
+					zombie_target_header_path
+				);
+				header
+			} else {
+				wait_for_finalized_para_head::<Block, _>(para_id, relay_chain_interface.clone())
+					.await
+					.inspect_err(|e| {
+						log::error!(
+							target: LOG_TARGET_SYNC,
+							"Unable to determine parachain target block {:?}",
+							e
+						);
+					})?;
+			}
+
+			#[cfg(not(feature = "doppelganger"))]
 			let target_block =
 				wait_for_finalized_para_head::<Block, _>(para_id, relay_chain_interface.clone())
 					.await
@@ -519,6 +543,7 @@ where
 							e
 						);
 					})?;
+			ZOMBIE_TARGET_HEADER_PATH
 			Some(WarpSyncConfig::WithTarget(target_block))
 		},
 		_ => None,
