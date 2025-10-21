@@ -6207,9 +6207,9 @@ dependencies = [
  "bp-header-chain",
  "finality-relay",
  "futures",
- "log",
  "num-traits",
  "relay-utils",
+ "tracing",
 ]
 
 [[package]]
@@ -6540,10 +6540,10 @@ dependencies = [
  "backoff",
  "bp-header-chain",
  "futures",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "relay-utils",
+ "tracing",
 ]
 
 [[package]]
@@ -10331,12 +10331,12 @@ dependencies = [
  "finality-relay",
  "futures",
  "hex",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "relay-utils",
  "sp-arithmetic",
  "sp-core 28.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -14428,10 +14428,10 @@ dependencies = [
  "async-trait",
  "bp-polkadot-core",
  "futures",
- "log",
  "relay-substrate-client",
  "relay-utils",
  "sp-core 28.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -18618,7 +18618,6 @@ dependencies = [
  "frame-support",
  "futures",
  "jsonrpsee",
- "log",
  "num-traits",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -18642,6 +18641,7 @@ dependencies = [
  "staging-xcm",
  "thiserror 1.0.65",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -18656,7 +18656,6 @@ dependencies = [
  "futures",
  "isahc",
  "jsonpath_lib",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "serde_json",
@@ -18667,6 +18666,7 @@ dependencies = [
  "thiserror 1.0.65",
  "time",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -24607,7 +24607,6 @@ dependencies = [
  "frame-system",
  "futures",
  "hex",
- "log",
  "messages-relay",
  "num-traits",
  "pallet-balances",
@@ -24627,6 +24626,7 @@ dependencies = [
  "sp-trie",
  "strum 0.26.3",
  "thiserror 1.0.65",
+ "tracing",
 ]
 
 [[package]]
