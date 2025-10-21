@@ -30,7 +30,7 @@ use core::mem;
 use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
-use sp_core::{H160, H256, U256};
+use sp_core::U256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{DispatchError, SaturatedConversion};
 
@@ -627,7 +627,7 @@ pub mod env {
 	#[stable]
 	fn gas_limit(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasLimit)?;
-		Ok(<E::T as frame_system::Config>::BlockWeights::get().max_block.ref_time())
+		Ok(self.ext.gas_limit())
 	}
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
@@ -698,7 +698,7 @@ pub mod env {
 			return Err(Error::<E::T>::TooManyTopics.into());
 		}
 
-		if data_len > self.ext.max_value_size() {
+		if data_len > limits::EVENT_BYTES {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
@@ -760,7 +760,7 @@ pub mod env {
 	#[stable]
 	fn block_author(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BlockAuthor)?;
-		let block_author = self.ext.block_author().unwrap_or(H160::zero());
+		let block_author = self.ext.block_author();
 
 		Ok(self.write_fixed_sandbox_output(
 			memory,
@@ -838,6 +838,18 @@ pub mod env {
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
 		Ok(self.ext.gas_left())
+	}
+
+	/// Reverts the execution without data and cedes all remaining gas.
+	///
+	/// See [`pallet_revive_uapi::HostFn::consume_all_gas`].
+	#[stable]
+	fn consume_all_gas(&mut self, memory: &mut M) -> Result<(), TrapReason> {
+		self.ext.gas_meter_mut().consume_all();
+		Err(TrapReason::Return(ReturnData {
+			flags: ReturnFlags::REVERT.bits(),
+			data: Default::default(),
+		}))
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores

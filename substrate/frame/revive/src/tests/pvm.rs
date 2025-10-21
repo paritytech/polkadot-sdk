@@ -62,7 +62,10 @@ use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::{Get, U256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, TokenError};
+use sp_runtime::{
+	testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, SaturatedConversion,
+	TokenError,
+};
 
 #[test]
 fn transfer_with_dust_works() {
@@ -433,15 +436,18 @@ fn deposit_event_max_value_limit() {
 			.native_value(30_000)
 			.build_and_unwrap_contract();
 
-		// Call contract with allowed storage value.
+		// Call contract with allowed event size.
 		assert_ok!(builder::call(addr)
-			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
-			.data(limits::PAYLOAD_BYTES.encode())
+			.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
+			.data(limits::EVENT_BYTES.encode())
 			.build());
 
-		// Call contract with too large a storage value.
+		// Call contract with too large a evene size
 		assert_err_ignore_postinfo!(
-			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
+			builder::call(addr)
+				.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
+				.data((limits::EVENT_BYTES + 1).encode())
+				.build(),
 			Error::<Test>::ValueTooLarge,
 		);
 	});
@@ -601,12 +607,12 @@ fn storage_max_value_limit() {
 		// Call contract with allowed storage value.
 		assert_ok!(builder::call(addr)
 			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
-			.data(limits::PAYLOAD_BYTES.encode())
+			.data(limits::STORAGE_BYTES.encode())
 			.build());
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
-			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
+			builder::call(addr).data((limits::STORAGE_BYTES + 1).encode()).build(),
 			Error::<Test>::ValueTooLarge,
 		);
 	});
@@ -3950,7 +3956,7 @@ fn gas_limit_api_works() {
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(
 			u64::from_le_bytes(received.data[..].try_into().unwrap()),
-			<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+			<Pallet<Test>>::evm_block_gas_limit().saturated_into::<u64>(),
 		);
 	});
 }
@@ -5113,5 +5119,43 @@ fn get_set_immutables_works() {
 		Pallet::<Test>::set_immutables(addr, BoundedVec::truncate_from(new_data.clone())).unwrap();
 		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
 		assert_eq!(immutable_data, new_data);
+	});
+}
+
+#[test]
+fn consume_all_gas_works() {
+	let (code, code_hash) = compile_module("consume_all_gas").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		assert_eq!(
+			builder::bare_instantiate(Code::Upload(code)).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 0 should consume all gas in deploy"
+		);
+		assert_ne!(
+			builder::bare_instantiate(Code::Existing(code_hash))
+				.evm_value(1.into())
+				.build()
+				.gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 1 should not consume all gas in deploy"
+		);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
+			.evm_value(2.into())
+			.build_and_unwrap_contract();
+
+		assert_eq!(
+			builder::bare_call(addr).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 0 should consume all gas"
+		);
+		assert_ne!(
+			builder::bare_call(addr).evm_value(1.into()).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 1 should not consume all gas"
+		);
 	});
 }
