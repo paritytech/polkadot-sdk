@@ -1228,6 +1228,7 @@ mod benchmarks {
 
 		Ok(())
 	}
+
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
