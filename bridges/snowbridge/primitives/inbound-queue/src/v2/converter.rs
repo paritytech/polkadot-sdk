@@ -7,7 +7,7 @@ use crate::{v2::LOG_TARGET, CallIndex};
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
 use frame_support::ensure;
-use snowbridge_core::TokenId;
+use snowbridge_core::{ParaId, TokenId};
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::MaybeConvert, MultiAddress};
@@ -18,8 +18,6 @@ use xcm::{
 };
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
-
-const MINIMUM_DEPOSIT: u128 = 1;
 
 /// Topic prefix used for generating unique identifiers for messages
 const INBOUND_QUEUE_TOPIC_PREFIX: &str = "SnowbridgeInboundQueueV2";
@@ -47,67 +45,78 @@ pub enum AssetTransfer {
 	ReserveWithdraw(Asset),
 }
 
+#[derive(Clone, RuntimeDebug, Encode)]
+pub struct CreateAssetCallInfo {
+	pub call: CallIndex,
+	pub deposit: u128,
+	pub min_balance: u128,
+}
+
+pub struct AssetHubUniversal<LocalNetwork, AssetHubParaId>(
+	PhantomData<(LocalNetwork, AssetHubParaId)>,
+);
+impl<LocalNetwork, AssetHubParaId> Get<InteriorLocation>
+	for AssetHubUniversal<LocalNetwork, AssetHubParaId>
+where
+	LocalNetwork: Get<NetworkId>,
+	AssetHubParaId: Get<ParaId>,
+{
+	fn get() -> InteriorLocation {
+		[GlobalConsensus(LocalNetwork::get()), Parachain(AssetHubParaId::get().into())].into()
+	}
+}
+
 /// Concrete implementation of `ConvertMessage`
 pub struct MessageToXcm<
 	CreateAssetCall,
-	CreateAssetDeposit,
 	EthereumNetwork,
-	InboundQueueLocation,
-	ConvertAssetId,
+	LocalNetwork,
 	GatewayProxyAddress,
-	EthereumUniversalLocation,
-	AssetHubFromEthereum,
-	AssetHubUniversalLocation,
+	InboundQueueLocation,
+	AssetHubParaId,
+	ConvertAssetId,
 	AccountId,
 > {
 	_phantom: PhantomData<(
 		CreateAssetCall,
-		CreateAssetDeposit,
 		EthereumNetwork,
-		InboundQueueLocation,
-		ConvertAssetId,
+		LocalNetwork,
 		GatewayProxyAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueLocation,
+		AssetHubParaId,
+		ConvertAssetId,
 		AccountId,
 	)>,
 }
 
 impl<
 		CreateAssetCall,
-		CreateAssetDeposit,
 		EthereumNetwork,
-		InboundQueueLocation,
-		ConvertAssetId,
+		LocalNetwork,
 		GatewayProxyAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueLocation,
+		AssetHubParaId,
+		ConvertAssetId,
 		AccountId,
 	>
 	MessageToXcm<
 		CreateAssetCall,
-		CreateAssetDeposit,
 		EthereumNetwork,
-		InboundQueueLocation,
-		ConvertAssetId,
+		LocalNetwork,
 		GatewayProxyAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueLocation,
+		AssetHubParaId,
+		ConvertAssetId,
 		AccountId,
 	>
 where
-	CreateAssetCall: Get<CallIndex>,
-	CreateAssetDeposit: Get<u128>,
+	CreateAssetCall: Get<CreateAssetCallInfo>,
 	EthereumNetwork: Get<NetworkId>,
-	InboundQueueLocation: Get<InteriorLocation>,
-	ConvertAssetId: MaybeConvert<TokenId, Location>,
+	LocalNetwork: Get<NetworkId>,
 	GatewayProxyAddress: Get<H160>,
-	EthereumUniversalLocation: Get<InteriorLocation>,
-	AssetHubFromEthereum: Get<Location>,
-	AssetHubUniversalLocation: Get<InteriorLocation>,
+	InboundQueueLocation: Get<InteriorLocation>,
+	AssetHubParaId: Get<ParaId>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 	AccountId: Into<[u8; 32]> + From<[u8; 32]> + Clone,
 {
 	/// Parse the message into an intermediate form, with all fields decoded
@@ -163,12 +172,21 @@ where
 					assets.push(AssetTransfer::ReserveDeposit(asset));
 				},
 				EthereumAsset::ForeignTokenERC20 { token_id, value } => {
-					let asset_loc = ConvertAssetId::maybe_convert(*token_id)
+					let asset_location = ConvertAssetId::maybe_convert(*token_id)
 						.ok_or(ConvertMessageError::InvalidAsset)?;
-					let reanchored_asset_loc = asset_loc
-						.reanchored(&AssetHubFromEthereum::get(), &EthereumUniversalLocation::get())
+					let asset_hub_from_ethereum: Location = Location::new(
+						1,
+						[
+							GlobalConsensus(LocalNetwork::get()),
+							Parachain(AssetHubParaId::get().into()),
+						],
+					);
+					let ethereum_universal: InteriorLocation =
+						[GlobalConsensus(EthereumNetwork::get())].into();
+					let reanchored_asset_location = asset_location
+						.reanchored(&asset_hub_from_ethereum, &ethereum_universal)
 						.map_err(|_| ConvertMessageError::CannotReanchor)?;
-					let asset: Asset = (reanchored_asset_loc, *value).into();
+					let asset: Asset = (reanchored_asset_location, *value).into();
 					assets.push(AssetTransfer::ReserveWithdraw(asset));
 				},
 			}
@@ -194,9 +212,10 @@ where
 	/// Get sovereign account of Ethereum on Asset Hub.
 	fn bridge_owner() -> Result<AccountId, ConvertMessageError> {
 		let account =
-			ExternalConsensusLocationsConverterFor::<AssetHubUniversalLocation, AccountId>::convert_location(
-				&Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
-			)
+			ExternalConsensusLocationsConverterFor::<
+				AssetHubUniversal<LocalNetwork, AssetHubParaId>,
+				AccountId,
+			>::convert_location(&Location::new(2, [GlobalConsensus(EthereumNetwork::get())]))
 			.ok_or(ConvertMessageError::CannotReanchor)?;
 
 		Ok(account)
@@ -212,12 +231,13 @@ where
 		claimer: Location,
 	) -> Result<Xcm<()>, ConvertMessageError> {
 		let dot_asset = Location::new(1, Here);
-		let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
+		let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetCall::get().deposit).into();
 
 		let eth_asset: xcm::prelude::Asset =
 			(Location::new(2, [GlobalConsensus(EthereumNetwork::get())]), eth_value).into();
 
-		let create_call_index: [u8; 2] = CreateAssetCall::get();
+		let create_call_index: [u8; 2] = CreateAssetCall::get().call;
+		let create_min_blance: u128 = CreateAssetCall::get().min_balance;
 
 		let asset_id = Location::new(
 			2,
@@ -230,6 +250,7 @@ where
 		match network {
 			super::message::Network::Polkadot => Ok(Self::make_create_asset_xcm_for_polkadot(
 				create_call_index,
+				create_min_blance,
 				asset_id,
 				bridge_owner,
 				dot_fee,
@@ -242,6 +263,7 @@ where
 	/// Construct the asset creation XCM for the Polkdot network.
 	fn make_create_asset_xcm_for_polkadot(
 		create_call_index: [u8; 2],
+		create_min_blance: u128,
 		asset_id: Location,
 		bridge_owner: AccountId,
 		dot_fee_asset: xcm::prelude::Asset,
@@ -270,7 +292,7 @@ where
 					create_call_index,
 					asset_id.clone(),
 					MultiAddress::<[u8; 32], ()>::Id(bridge_owner_bytes.into()),
-					MINIMUM_DEPOSIT,
+					create_min_blance,
 				)
 					.encode()
 					.into(),
@@ -301,39 +323,33 @@ where
 }
 
 impl<
-		CreateAssetCall,
-		CreateAssetDeposit,
+		CreateAsset,
 		EthereumNetwork,
-		InboundQueueLocation,
-		ConvertAssetId,
+		LocalNetwork,
 		GatewayProxyAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueLocation,
+		AssetHubParaId,
+		ConvertAssetId,
 		AccountId,
 	> ConvertMessage
 	for MessageToXcm<
-		CreateAssetCall,
-		CreateAssetDeposit,
+		CreateAsset,
 		EthereumNetwork,
-		InboundQueueLocation,
-		ConvertAssetId,
+		LocalNetwork,
 		GatewayProxyAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueLocation,
+		AssetHubParaId,
+		ConvertAssetId,
 		AccountId,
 	>
 where
-	CreateAssetCall: Get<CallIndex>,
-	CreateAssetDeposit: Get<u128>,
+	CreateAsset: Get<CreateAssetCallInfo>,
 	EthereumNetwork: Get<NetworkId>,
-	InboundQueueLocation: Get<InteriorLocation>,
-	ConvertAssetId: MaybeConvert<TokenId, Location>,
+	LocalNetwork: Get<NetworkId>,
 	GatewayProxyAddress: Get<H160>,
-	EthereumUniversalLocation: Get<InteriorLocation>,
-	AssetHubFromEthereum: Get<Location>,
-	AssetHubUniversalLocation: Get<InteriorLocation>,
+	InboundQueueLocation: Get<InteriorLocation>,
+	AssetHubParaId: Get<ParaId>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 	AccountId: Into<[u8; 32]> + From<[u8; 32]> + Clone,
 {
 	fn convert(message: Message) -> Result<Xcm<()>, ConvertMessageError> {
@@ -405,17 +421,19 @@ mod tests {
 	const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
 
 	parameter_types! {
-		pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 1 };
+		pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 1 };
+		pub const LocalNetwork: NetworkId = NetworkId::Polkadot;
 		pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 		pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
 		pub EthereumUniversalLocation: InteriorLocation =
 			[GlobalConsensus(EthereumNetwork::get())].into();
-		pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(Polkadot),Parachain(1000)]);
-		pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(Polkadot),Parachain(1000)].into();
-		pub const CreateAssetCall: [u8;2] = [53, 0];
+		pub AssetHubParaId: ParaId = 1000.into();
+		pub const CreateAssetCallIndex: [u8;2] = [53, 0];
 		pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
+		pub const CreateAssetMinBalance: u128 = 1;
 		pub EthereumLocation: Location = Location::new(2,EthereumUniversalLocation::get());
 		pub BridgeHubContext: InteriorLocation = [GlobalConsensus(Polkadot),Parachain(1002)].into();
+		pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateAssetDeposit::get(),min_balance: CreateAssetMinBalance::get()};
 	}
 
 	pub struct MockFailedTokenConvert;
@@ -427,27 +445,23 @@ mod tests {
 
 	type Converter = MessageToXcm<
 		CreateAssetCall,
-		CreateAssetDeposit,
 		EthereumNetwork,
-		InboundQueueLocation,
-		LocationIdConvert,
+		LocalNetwork,
 		GatewayAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueLocation,
+		AssetHubParaId,
+		LocationIdConvert,
 		[u8; 32],
 	>;
 
 	type ConverterFailing = MessageToXcm<
 		CreateAssetCall,
-		CreateAssetDeposit,
 		EthereumNetwork,
-		InboundQueueLocation,
-		MockFailedTokenConvert,
+		LocalNetwork,
 		GatewayAddress,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
+		InboundQueueLocation,
+		AssetHubParaId,
+		MockFailedTokenConvert,
 		[u8; 32],
 	>;
 
@@ -746,7 +760,7 @@ mod tests {
 
 			// actual claimer should default to Snowbridge sovereign account
 			let bridge_owner = ExternalConsensusLocationsConverterFor::<
-				AssetHubUniversalLocation,
+				AssetHubUniversal<LocalNetwork, AssetHubParaId>,
 				[u8; 32],
 			>::convert_location(&Location::new(
 				2,

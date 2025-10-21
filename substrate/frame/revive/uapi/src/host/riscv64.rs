@@ -48,7 +48,6 @@ mod sys {
 			key_ptr: *const u8,
 			value_ptr: *const u8,
 		) -> ReturnCode;
-		pub fn clear_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
 		pub fn get_storage(
 			flags: u32,
 			key_ptr: *const u8,
@@ -57,14 +56,6 @@ mod sys {
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
 		pub fn get_storage_or_zero(flags: u32, key_ptr: *const u8, out_ptr: *mut u8);
-		pub fn contains_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
-		pub fn take_storage(
-			flags: u32,
-			key_ptr: *const u8,
-			key_len: u32,
-			out_ptr: *mut u8,
-			out_len_ptr: *mut u32,
-		) -> ReturnCode;
 		pub fn call(
 			flags_and_callee: u64,
 			ref_time_limit: u64,
@@ -98,7 +89,6 @@ mod sys {
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_size(address_ptr: *const u8) -> u64;
 		pub fn address(out_ptr: *mut u8);
-		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn ref_time_left() -> u64;
 		pub fn get_immutable_data(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn set_immutable_data(ptr: *const u8, len: u32);
@@ -132,6 +122,7 @@ mod sys {
 		pub fn instantiation_nonce() -> u64;
 		pub fn return_data_size() -> u64;
 		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
+		pub fn consume_all_gas();
 	}
 }
 
@@ -387,10 +378,6 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::block_author(output.as_mut_ptr()) }
 	}
 
-	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {
-		unsafe { sys::weight_to_fee(ref_time_limit, proof_size_limit, output.as_mut_ptr()) };
-	}
-
 	fn hash_keccak_256(input: &[u8], output: &mut [u8; 32]) {
 		unsafe { sys::hash_keccak_256(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
 	}
@@ -429,7 +416,8 @@ impl HostFn for HostFnImpl {
 		extract_from_slice(output, output_len as usize);
 	}
 
-	fn ref_time_left() -> u64 {
+	fn gas_left() -> u64 {
+		// The name is only for historical reasons; it's the correct method.
 		unsafe { sys::ref_time_left() }
 	}
 
@@ -442,17 +430,9 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::call_data_copy(output.as_mut_ptr(), len, offset) };
 	}
 
-	#[unstable_hostfn]
-	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code = unsafe { sys::clear_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code =
-			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
+	fn consume_all_gas() -> ! {
+		unsafe { sys::consume_all_gas() }
+		unreachable!("consume_all_gas does not return");
 	}
 
 	#[unstable_hostfn]
@@ -476,24 +456,6 @@ impl HostFn for HostFnImpl {
 				message.as_ptr(),
 			)
 		};
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
-		let mut output_len = output.len() as u32;
-		let ret_code = {
-			unsafe {
-				sys::take_storage(
-					flags.bits(),
-					key.as_ptr(),
-					key.len() as u32,
-					output.as_mut_ptr(),
-					&mut output_len,
-				)
-			}
-		};
-		extract_from_slice(output, output_len as usize);
 		ret_code.into()
 	}
 
