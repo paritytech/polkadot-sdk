@@ -60,7 +60,7 @@ mod benchmarks {
 	#[benchmark]
 	fn buy_ticket() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10u32.into());
 		setup_lottery::<T>(false)?;
 		// force user to have a long vec of calls participating
 		let set_code_index: CallIndex = Lottery::<T>::call_to_index(
