@@ -242,48 +242,48 @@ pub trait InPoolTransaction {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionReceipt<BlockHash, TxHash> {
-    /// Current transaction status
-    pub status: TransactionStatusRpc,
-    /// Block hash where transaction is included (if any)
-    pub block_hash: Option<BlockHash>,
-    /// All emitted events from this transaction
-    pub events: Vec<TransactionStatus<TxHash, BlockHash>>,
-    /// Transaction hash
-    pub transaction_hash: TxHash,
-    /// When the transaction was submitted (milliseconds since epoch)
-    pub submitted_at: u64,
+	/// Current transaction status
+	pub status: TransactionStatusRpc,
+	/// Block hash where transaction is included (if any)
+	pub block_hash: Option<BlockHash>,
+	/// All emitted events from this transaction
+	pub events: Vec<TransactionStatus<TxHash, BlockHash>>,
+	/// Transaction hash
+	pub transaction_hash: TxHash,
+	/// When the transaction was submitted (milliseconds since epoch)
+	pub submitted_at: u64,
 }
 
 /// Simplified transaction status for RPC receipt
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TransactionStatusRpc {
-    /// Transaction is in the pool (either ready or future)
-    InPool,
-    /// Transaction is included in a block
-    IncludedInBlock,
-    /// Transaction is finalized
-    Finalized,
-    /// Transaction was dropped from the pool
-    Dropped,
-    /// Transaction was found to be invalid
-    Invalid,
+	/// Transaction is in the pool (either ready or future)
+	InPool,
+	/// Transaction is included in a block
+	IncludedInBlock,
+	/// Transaction is finalized
+	Finalized,
+	/// Transaction was dropped from the pool
+	Dropped,
+	/// Transaction was found to be invalid
+	Invalid,
 }
 
 impl<BlockHash, TxHash> From<&TransactionStatus<BlockHash, TxHash>> for TransactionStatusRpc {
-    fn from(status: &TransactionStatus<BlockHash, TxHash>) -> Self {
-        match status {
-            TransactionStatus::Ready => TransactionStatusRpc::InPool,
-            TransactionStatus::Future => TransactionStatusRpc::InPool,
-            TransactionStatus::Broadcast(_) => TransactionStatusRpc::InPool,
-            TransactionStatus::InBlock(_) => TransactionStatusRpc::IncludedInBlock,
-            TransactionStatus::Finalized(_) => TransactionStatusRpc::Finalized,
-            TransactionStatus::Usurped(_) => TransactionStatusRpc::Dropped,
-            TransactionStatus::Dropped => TransactionStatusRpc::Dropped,
-            TransactionStatus::Invalid => TransactionStatusRpc::Invalid,
-            TransactionStatus::Retracted(_) => TransactionStatusRpc::InPool,
-            TransactionStatus::FinalityTimeout(_) => TransactionStatusRpc::IncludedInBlock,
-        }
-    }
+	fn from(status: &TransactionStatus<BlockHash, TxHash>) -> Self {
+		match status {
+			TransactionStatus::Ready => TransactionStatusRpc::InPool,
+			TransactionStatus::Future => TransactionStatusRpc::InPool,
+			TransactionStatus::Broadcast(_) => TransactionStatusRpc::InPool,
+			TransactionStatus::InBlock(_) => TransactionStatusRpc::IncludedInBlock,
+			TransactionStatus::Finalized(_) => TransactionStatusRpc::Finalized,
+			TransactionStatus::Usurped(_) => TransactionStatusRpc::Dropped,
+			TransactionStatus::Dropped => TransactionStatusRpc::Dropped,
+			TransactionStatus::Invalid => TransactionStatusRpc::Invalid,
+			TransactionStatus::Retracted(_) => TransactionStatusRpc::InPool,
+			TransactionStatus::FinalityTimeout(_) => TransactionStatusRpc::IncludedInBlock,
+		}
+	}
 }
 
 /// Transaction pool interface.
@@ -397,10 +397,10 @@ pub trait TransactionPool: Send + Sync {
 	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 
 	/// Get transaction receipt by hash
-    async fn get_transaction_receipt(
-        &self,
-        hash: &Self::Hash,
-    ) -> Option<TransactionReceipt<BlockHash<Self>, Self::Hash>>;
+	async fn get_transaction_receipt(
+		&self,
+		hash: &Self::Hash,
+	) -> Option<TransactionReceipt<BlockHash<Self>, Self::Hash>>;
 }
 
 /// An iterator of ready transactions.

@@ -193,7 +193,7 @@ impl<Block: BlockT> TransactionTracker<Block> {
 
 			sc_transaction_pool_api::TransactionReceipt {
 				status: status_rpc,
-				block_hash: actual_block_hash.or(info.block_hash), 
+				block_hash: actual_block_hash.or(info.block_hash),
 				events: info.events.clone(),
 				transaction_hash: *tx_hash,
 				submitted_at: info.submitted_at.elapsed().as_millis() as u64,

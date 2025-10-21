@@ -311,4 +311,11 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		unimplemented!()
 	}
+
+	async fn get_transaction_receipt(
+		&self,
+		_hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		None
+	}
 }

@@ -187,4 +187,11 @@ impl TransactionPool for MiddlewarePool {
 	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		self.inner_pool.ready_at(at).await
 	}
+
+	async fn get_transaction_receipt(
+		&self,
+		hash: &Self::Hash,
+	) -> Option<sc_transaction_pool_api::TransactionReceipt<BlockHash<Self>, Self::Hash>> {
+		self.inner_pool.get_transaction_receipt(hash).await
+	}
 }
