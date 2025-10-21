@@ -1564,7 +1564,7 @@ fn process_out_of_view_collation(
 					"Collation wasn't advertised to any validator.",
 				)
 			} else {
-				gum::debug!(
+				gum::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					pov_hash = ?collation.pov.hash(),

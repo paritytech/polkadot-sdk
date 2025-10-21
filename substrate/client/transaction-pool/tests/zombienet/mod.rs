@@ -48,6 +48,7 @@ pub mod relaychain_rococo_local_network_spec {
 }
 
 mod yap_test;
+mod cyon_spawn_yap;
 
 /// Default time that we expect to need for a full run of current tests that send future and ready
 /// txs to parachain or relaychain networks.

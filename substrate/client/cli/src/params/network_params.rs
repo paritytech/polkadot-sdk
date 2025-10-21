@@ -209,20 +209,18 @@ impl NetworkParams {
 			if is_validator || is_dev {
 				vec![
 					Multiaddr::empty()
-						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port)),
 					Multiaddr::empty()
-						.with(Protocol::Ip4([0, 0, 0, 0].into()))
+						.with(Protocol::Ip4([127, 0, 0, 1].into()))
 						.with(Protocol::Tcp(port)),
 				]
 			} else {
 				vec![
 					Multiaddr::empty()
-						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port))
 						.with(Protocol::Ws(Cow::Borrowed("/"))),
 					Multiaddr::empty()
-						.with(Protocol::Ip4([0, 0, 0, 0].into()))
+						.with(Protocol::Ip4([127, 0, 0, 1].into()))
 						.with(Protocol::Tcp(port))
 						.with(Protocol::Ws(Cow::Borrowed("/"))),
 				]
