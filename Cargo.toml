@@ -241,6 +241,7 @@ members = [
 	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
+	"polkadot/xcm/pallet-xcm/precompiles",
 	"polkadot/xcm/procedural",
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
@@ -330,6 +331,7 @@ members = [
 	"substrate/frame/assets",
 	"substrate/frame/assets-freezer",
 	"substrate/frame/assets-holder",
+	"substrate/frame/assets/precompiles",
 	"substrate/frame/atomic-swap",
 	"substrate/frame/aura",
 	"substrate/frame/authority-discovery",
@@ -397,6 +399,7 @@ members = [
 	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/migrations",
 	"substrate/frame/mixnet",
+	"substrate/frame/multi-asset-bounties",
 	"substrate/frame/multisig",
 	"substrate/frame/nft-fractionalization",
 	"substrate/frame/nfts",
@@ -635,7 +638,11 @@ pallet-oracle-runtime-api = { path = "substrate/frame/honzon/oracle/runtime-api"
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
-alloy-core = { version = "1.1.0", default-features = false }
+alloy-consensus = { version = "1.0.24", default-features = false }
+alloy-core = { version = "1.2.1", default-features = false }
+alloy-primitives = { version = "1.2.1", default-features = false }
+alloy-rlp = { version = "0.3", default-features = false }
+alloy-trie = { version = "0.9.1", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
@@ -672,10 +679,7 @@ backoff = { version = "0.4" }
 backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
-ethereum-standards = { path = "substrate/primitives/ethereum-standards" }
-pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
-# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
-bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false }
+bip39 = { version = "2.2.0", default-features = false }
 bitflags = { version = "1.3.2" }
 bitvec = { version = "1.0.1", default-features = false }
 blake2 = { version = "0.10.4", default-features = false }
@@ -800,6 +804,7 @@ environmental = { version = "1.1.4", default-features = false }
 equivocation-detector = { path = "bridges/relays/equivocation" }
 ethabi = { version = "2.0.0", default-features = false, package = "ethabi-decode" }
 ethbloom = { version = "0.14.1", default-features = false }
+ethereum-standards = { path = "substrate/primitives/ethereum-standards" }
 ethereum-types = { version = "0.15.1", default-features = false }
 exit-future = { version = "0.2.0" }
 expander = { version = "2.0.0" }
@@ -903,7 +908,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.10.0", features = ["websocket"] }
+litep2p = { version = "0.11.0", features = ["rsa", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -941,6 +946,7 @@ num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
+pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
 pallet-asset-conversion-ops = { path = "substrate/frame/asset-conversion/ops", default-features = false }
@@ -951,6 +957,7 @@ pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx
 pallet-assets = { path = "substrate/frame/assets", default-features = false }
 pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
 pallet-assets-holder = { path = "substrate/frame/assets-holder", default-features = false }
+pallet-assets-precompiles = { path = "substrate/frame/assets/precompiles", default-features = false }
 pallet-atomic-swap = { default-features = false, path = "substrate/frame/atomic-swap" }
 pallet-aura = { path = "substrate/frame/aura", default-features = false }
 pallet-authority-discovery = { path = "substrate/frame/authority-discovery", default-features = false }
@@ -1013,6 +1020,7 @@ pallet-migrations = { path = "substrate/frame/migrations", default-features = fa
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
 pallet-mmr = { path = "substrate/frame/merkle-mountain-range", default-features = false }
+pallet-multi-asset-bounties = { path = "substrate/frame/multi-asset-bounties", default-features = false }
 pallet-multisig = { path = "substrate/frame/multisig", default-features = false }
 pallet-nft-fractionalization = { path = "substrate/frame/nft-fractionalization", default-features = false }
 pallet-nfts = { path = "substrate/frame/nfts", default-features = false }
@@ -1089,6 +1097,7 @@ pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
+pallet-xcm-precompiles = { path = "polkadot/xcm/pallet-xcm/precompiles", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
@@ -1177,6 +1186,7 @@ procfs = { version = "0.16.0" }
 prometheus = { version = "0.13.0", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
 prometheus-parse = { version = "0.2.2" }
+proptest = { version = "1" }
 prost = { version = "0.12.4" }
 prost-build = { version = "0.13.2" }
 pyroscope = { version = "0.5.8" }
@@ -1411,7 +1421,8 @@ syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
-test-case = { version = "3.3.1" }
+# pinned test-case to 3.3.1 because they support only the latest stable version of rust
+test-case = { version = "=3.3.1" }
 test-log = { version = "0.2.14" }
 test-pallet = { path = "substrate/frame/support/test/pallet", default-features = false, package = "frame-support-test-pallet" }
 test-parachain-adder = { path = "polkadot/parachain/test-parachains/adder" }
