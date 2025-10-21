@@ -169,56 +169,6 @@ async fn claim_queue_at(
 	}
 }
 
-/// Check if we should skip building a block because the relay parent would put us
-/// in an older session.
-///
-/// We fetch the best block and the child session indices for both the best block and
-/// the relay parent. If the relay parent's child session index is less than the best
-/// block's child session index, we skip building.
-async fn should_skip_building_block_due_to_relay_parent_in_old_session<Client>(
-	relay_client: &Client,
-	relay_best_hash: RelayHash,
-	relay_parent: RelayHash,
-) -> bool
-where
-	Client: RelayChainInterface,
-{
-	let Some(relay_parent_child_session_index) =
-		relay_client.session_index_for_child(relay_parent).await.ok()
-	else {
-		// Failed to fetch session index for child of relay parent, do not skip building
-		return false;
-	};
-
-	let Some(best_child_session_index) =
-		relay_client.session_index_for_child(relay_best_hash).await.ok()
-	else {
-		// Failed to fetch session index for child of best block, do not skip building
-		return false;
-	};
-
-	let should_skip = if relay_parent_child_session_index < best_child_session_index {
-		// Relay parent would put us in an older session → skip.
-		true
-	} else {
-		// Equal (current session) or greater (unexpected) → don't skip.
-		false
-	};
-
-	if should_skip {
-		tracing::trace!(
-			target: crate::LOG_TARGET,
-			?relay_best_hash,
-			?best_child_session_index,
-			?relay_parent,
-			?relay_parent_child_session_index,
-			"Relay parent would build into an older session; skipping."
-		);
-	}
-
-	should_skip
-}
-
 // Checks if we own the slot at the given block and whether there
 // is space in the unincluded segment.
 async fn can_build_upon<Block: BlockT, Client, P>(
