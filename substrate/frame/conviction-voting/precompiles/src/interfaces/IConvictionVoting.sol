@@ -79,9 +79,9 @@ interface IConvictionVoting {
 	/// @notice Delegate voting power to another account within a specific governance track.
 	/// @dev Applies the sender’s balance with the specified conviction multiplier.
 	/// @param trackId The governance track identifier.
-	/// @param to The substrate account to which voting power is delegated (32-byte bytes32). See https://docs.polkadot.com/polkadot-protocol/smart-contract-basics/accounts/#ethereum-to-polkadot-mapping.
+	/// @param to The account to which voting power is delegated. See "Accounts on Asset Hub" documentation for more information.
 	/// @param conviction Conviction level as defined in the `Conviction` enum.
-	function delegate(uint16 trackId, bytes32 to, Conviction conviction, uint128 balance) external;
+	function delegate(uint16 trackId, address to, Conviction conviction, uint128 balance) external;
 
 	/// @notice Remove any existing delegation within a governance track.
 	/// @param trackId The governance track identifier.
@@ -124,13 +124,13 @@ interface IConvictionVoting {
 	/// @dev Returns zero values if no delegation.
 	/// @param who The account to query
 	/// @param trackId The governance track to query
-	/// @return target The account to which voting power is delegated (32-byte bytes32). Is 0 when there is no delegation. See https://docs.polkadot.com/polkadot-protocol/smart-contract-basics/accounts/#polkadot-to-ethereum-mapping.
+	/// @return target The account to which voting power is delegated. See "Accounts on Asset Hub" documentation for more information.
 	/// @return balance The amount of tokens delegated (pre-conviction).
 	/// @return conviction The conviction level applied to the delegation as defined in the `Conviction` enum.
 	function getDelegation(
 		address who,
 		uint16 trackId
-	) external view returns (bytes32 target, uint128 balance, Conviction conviction);
+	) external view returns (address target, uint128 balance, Conviction conviction);
 
 	/// @notice Get voting tally for an ongoing referendum
 	/// @param referendumIndex The index of the referendum to query.
