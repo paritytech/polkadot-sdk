@@ -40,7 +40,9 @@ use pallet_revive::{
 use static_init::dynamic;
 use std::{sync::Arc, thread};
 use substrate_cli_test_utils::*;
-use subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, OnlineClient};
+use subxt::{
+	backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, tx::SubmittableTransaction, OnlineClient,
+};
 
 /// Create a websocket client with a 120s timeout.
 async fn ws_client_with_retry(url: &str) -> WsClient {
@@ -99,6 +101,10 @@ impl SharedResources {
 	async fn client() -> WsClient {
 		ws_client_with_retry("ws://localhost:45788").await
 	}
+
+	fn node_rpc_url() -> &'static str {
+		"ws://localhost:45789"
+	}
 }
 
 #[dynamic(lazy)]
@@ -112,6 +118,167 @@ macro_rules! unwrap_call_err(
 		}
 	}
 );
+
+// Helper functions
+/// Prepare multiple EVM transfer transactions with sequential nonces
+async fn prepare_evm_transactions<Client: EthRpcClient + Sync + Send>(
+	client: &Arc<Client>,
+	signer: Account,
+	recipient: pallet_revive::evm::Address,
+	amount: U256,
+	count: usize,
+) -> anyhow::Result<Vec<TransactionBuilder<Client>>> {
+	let mut nonce = client.get_transaction_count(signer.address(), BlockTag::Latest.into()).await?;
+
+	let mut transactions = Vec::new();
+	for i in 0..count {
+		let tx_builder = TransactionBuilder::new(client)
+			.signer(signer.clone())
+			.nonce(nonce)
+			.value(amount)
+			.to(recipient);
+
+		transactions.push(tx_builder);
+		println!("Prepared EVM transaction {}/{count} with nonce: {nonce:?}", i + 1);
+		nonce = nonce.saturating_add(U256::one());
+	}
+
+	Ok(transactions)
+}
+
+/// Prepare multiple Substrate transfer transactions with sequential nonces
+async fn prepare_substrate_transactions(
+	node_client: &OnlineClient<SrcChainConfig>,
+	signer: &subxt_signer::sr25519::Keypair,
+	count: usize,
+) -> anyhow::Result<Vec<SubmittableTransaction<SrcChainConfig, OnlineClient<SrcChainConfig>>>> {
+	let mut nonce = node_client.tx().account_nonce(&signer.public_key().into()).await?;
+	let mut substrate_txs = Vec::new();
+	for i in 0..count {
+		nonce += i as u64;
+		let remark_data = format!("Hello from test {}", i);
+		let call = subxt::dynamic::tx(
+			"System",
+			"remark",
+			vec![subxt::dynamic::Value::from_bytes(remark_data.as_bytes())],
+		);
+
+		let params = subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new()
+			.nonce(nonce)
+			.build();
+
+		let tx = node_client.tx().create_signed(&call, signer, params).await?;
+		substrate_txs.push(tx);
+		println!("Prepared substrate transaction {}/{count} with nonce: {nonce:?}", i + 1);
+	}
+	Ok(substrate_txs)
+}
+
+/// Submit multiple transactions and return them without waiting for receipts
+async fn submit_evm_transactions<Client: EthRpcClient + Sync + Send>(
+	transactions: Vec<TransactionBuilder<Client>>,
+) -> anyhow::Result<
+	Vec<(
+		H256,
+		pallet_revive::evm::GenericTransaction,
+		crate::example::SubmittedTransaction<Client>,
+	)>,
+> {
+	let mut submitted_txs = Vec::new();
+
+	for tx_builder in transactions {
+		let tx = tx_builder.send().await?;
+		let hash = tx.hash();
+		let generic_tx = tx.generic_transaction();
+		submitted_txs.push((hash, generic_tx, tx));
+	}
+
+	Ok(submitted_txs)
+}
+
+/// Wait for all submitted transactions to be included in blocks
+async fn wait_for_receipts<Client: EthRpcClient + Sync + Send>(
+	submitted_txs: Vec<(
+		H256,
+		pallet_revive::evm::GenericTransaction,
+		crate::example::SubmittedTransaction<Client>,
+	)>,
+) -> anyhow::Result<
+	Vec<(H256, pallet_revive::evm::GenericTransaction, pallet_revive::evm::ReceiptInfo)>,
+> {
+	let wait_futures: Vec<_> = submitted_txs
+		.into_iter()
+		.map(|(hash, generic_tx, tx)| async move {
+			let receipt = tx.wait_for_receipt().await?;
+			Ok::<_, anyhow::Error>((hash, generic_tx, receipt))
+		})
+		.collect();
+
+	let results = futures::future::join_all(wait_futures).await;
+	results.into_iter().collect()
+}
+
+/// Submit substrate transactions and return futures for waiting
+async fn submit_substrate_transactions(
+	substrate_txs: Vec<SubmittableTransaction<SrcChainConfig, OnlineClient<SrcChainConfig>>>,
+) -> Vec<impl std::future::Future<Output = Result<(), anyhow::Error>>> {
+	let mut futures = Vec::new();
+
+	for (i, tx) in substrate_txs.into_iter().enumerate() {
+		let fut = async move {
+			match tx.submit_and_watch().await {
+				Ok(mut progress) => {
+					println!("Substrate tx {i} submitted");
+					while let Some(status) = progress.next().await {
+						match status {
+							Ok(s) if s.as_in_block().is_some() || s.as_finalized().is_some() => {
+								println!("Substrate tx {i} included in block");
+								return Ok::<(), anyhow::Error>(());
+							},
+							Err(e) => return Err(anyhow::anyhow!("Substrate tx {i} error: {e}")),
+							_ => {},
+						}
+					}
+					Ok(())
+				},
+				Err(e) => Err(anyhow::anyhow!("Failed to submit substrate tx {i}: {e}")),
+			}
+		};
+		futures.push(fut);
+	}
+
+	futures
+}
+
+/// Verify that a single block contains the expected transactions
+/// Assumes all transactions are in the same block (typical for dev node)
+async fn assert_block_contains_transactions<Client: EthRpcClient + Sync>(
+	client: &Arc<Client>,
+	block_number: U256,
+	expected_tx_hashes: &[H256],
+) -> anyhow::Result<()> {
+	let block = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
+		.await?
+		.ok_or_else(|| anyhow::anyhow!("Block {block_number} should exist"))?;
+
+	let block_tx_hashes = match &block.transactions {
+		pallet_revive::evm::HashesOrTransactionInfos::Hashes(hashes) => hashes.clone(),
+		pallet_revive::evm::HashesOrTransactionInfos::TransactionInfos(infos) =>
+			infos.iter().map(|info| info.hash).collect(),
+	};
+
+	assert_eq!(expected_tx_hashes, block_tx_hashes);
+
+	println!(
+		"Block {} contains all {} expected transactions (total in block: {})",
+		block_number,
+		expected_tx_hashes.len(),
+		block_tx_hashes.len()
+	);
+
+	Ok(())
+}
 
 #[tokio::test]
 async fn transfer() -> anyhow::Result<()> {
@@ -304,7 +471,8 @@ async fn evm_blocks_should_match() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = std::sync::Arc::new(SharedResources::client().await);
 
-	let (node_client, node_rpc_client, _) = client::connect("ws://localhost:45789").await.unwrap();
+	let (node_client, node_rpc_client, _) =
+		client::connect(SharedResources::node_rpc_url()).await.unwrap();
 
 	// Deploy a contract to have some interesting blocks
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
@@ -491,6 +659,144 @@ async fn block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 
 		assert!(balance >= U256::zero(), "Balance should be retrievable with tag {tag:?}");
 	}
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = Arc::new(SharedResources::client().await);
+
+	let num_transactions = 5;
+	let alith = Account::default();
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let amount = U256::from(1_000_000_000_000_000_000u128);
+
+	// Prepare EVM transfer transactions
+	let transactions =
+		prepare_evm_transactions(&client, alith, ethan.address(), amount, num_transactions).await?;
+
+	// Submit all transactions synchronously first
+	let submitted_txs = submit_evm_transactions(transactions).await?;
+
+	// Wait for all receipts in parallel
+	let results = wait_for_receipts(submitted_txs).await?;
+
+	// Verify all transactions were successful and collect hashes
+	let mut tx_hashes = Vec::new();
+	let mut block_number = None;
+
+	for (i, (hash, _generic_tx, receipt)) in results.into_iter().enumerate() {
+		println!("Transaction {}: hash={hash:?}, block={}", i + 1, receipt.block_number);
+		assert_eq!(
+			receipt.status.unwrap_or(U256::zero()),
+			U256::one(),
+			"Transaction should be successful"
+		);
+
+		tx_hashes.push(hash);
+		match block_number {
+			None => block_number = Some(receipt.block_number),
+			Some(block_number) => assert_eq!(
+				block_number, receipt.block_number,
+				"All transactions are expected to be in one block, expected:{block_number:?} current:{:?}",
+				receipt.block_number
+			),
+		}
+	}
+
+	// Verify block contains all expected transactions
+	assert_block_contains_transactions(&client, block_number.unwrap(), &tx_hashes).await?;
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = Arc::new(SharedResources::client().await);
+
+	let num_evm_txs = 3;
+	let num_substrate_txs = 2;
+
+	let alith = Account::default();
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let amount = U256::from(500_000_000_000_000_000u128);
+
+	// Prepare EVM transactions
+	println!("Creating {num_evm_txs} EVM transfer transactions");
+	let evm_transactions =
+		prepare_evm_transactions(&client, alith, ethan.address(), amount, num_evm_txs).await?;
+
+	// Prepare substrate transactions (simple remarks)
+	println!("Creating {num_substrate_txs} substrate remark transactions");
+	let alice_signer = subxt_signer::sr25519::dev::alice();
+	let (node_client, _, _) = client::connect(SharedResources::node_rpc_url()).await.unwrap();
+
+	let substrate_txs =
+		prepare_substrate_transactions(&node_client, &alice_signer, num_substrate_txs).await?;
+
+	println!(
+		"Submitting {num_evm_txs} EVM and {num_substrate_txs} substrate transactions, then waiting in parallel"
+	);
+
+	// Submit EVM transactions
+	let evm_submitted = submit_evm_transactions(evm_transactions).await?;
+
+	// Submit substrate transactions
+	let substrate_futures = submit_substrate_transactions(substrate_txs).await;
+
+	// Wait for all transactions in parallel
+	let (evm_results, substrate_results) = tokio::join!(
+		wait_for_receipts(evm_submitted),
+		futures::future::join_all(substrate_futures)
+	);
+
+	// Handle results
+	let evm_results = evm_results?;
+	let substrate_success_count = substrate_results.iter().filter(|r| r.is_ok()).count();
+
+	println!(
+		"Completed {} EVM and {} substrate transactions ({} substrate failed)",
+		evm_results.len(),
+		substrate_success_count,
+		substrate_results.len() - substrate_success_count,
+	);
+
+	// Verify all EVM transactions were successful and collect hashes
+	let mut evm_tx_hashes = Vec::new();
+	let mut block_number = None;
+
+	for (i, (hash, _generic_tx, receipt)) in evm_results.into_iter().enumerate() {
+		println!("EVM Transaction {}: hash={hash:?}, block={}", i + 1, receipt.block_number);
+		assert_eq!(
+			receipt.status.unwrap_or(U256::zero()),
+			U256::one(),
+			"EVM transaction should be successful"
+		);
+
+		evm_tx_hashes.push(hash);
+		match block_number {
+			None => block_number = Some(receipt.block_number),
+			Some(block_number) => assert_eq!(
+				block_number, receipt.block_number,
+				"All transactions are expected to be in one block, expected:{block_number:?} current:{:?}",
+				receipt.block_number
+			),
+		}
+	}
+
+	// Report substrate transaction results
+	for (i, result) in substrate_results.iter().enumerate() {
+		match result {
+			Ok(_) => println!("Substrate transaction {} succeeded", i + 1),
+			Err(e) => println!("Substrate transaction {} failed: {}", i + 1, e),
+		}
+	}
+
+	// Verify block contains all expected EVM transactions (assuming single block for dev node)
+	assert_block_contains_transactions(&client, block_number.unwrap(), &evm_tx_hashes).await?;
 
 	Ok(())
 }
