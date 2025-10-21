@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.35.0"
+version = "0.37.0"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -2508,7 +2508,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2712,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -4513,7 +4513,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-service"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "async-channel 1.9.0",
  "cumulus-client-cli",
@@ -4862,7 +4862,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-inprocess-interface"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
@@ -4911,7 +4911,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -9061,7 +9061,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -10303,7 +10303,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
 ]
 
 [[package]]
@@ -10312,7 +10312,7 @@ version = "0.1.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "scale-info",
  "serde_json",
 ]
@@ -12207,7 +12207,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-block"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -12690,7 +12690,7 @@ name = "pallet-minimal-template"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "scale-info",
 ]
 
@@ -12793,7 +12793,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "40.0.0"
+version = "40.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -13225,7 +13225,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-root-offences"
-version = "39.0.0"
+version = "41.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -13433,7 +13433,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.4.2"
+version = "0.6.2"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13460,7 +13460,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-ah-client"
-version = "0.3.0"
+version = "0.5.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13480,7 +13480,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-parachain-runtime"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -13591,7 +13591,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-rc-client"
-version = "0.3.0"
+version = "0.5.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -13607,7 +13607,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-rc-runtime"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
@@ -13720,7 +13720,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-rc-runtime-constants"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
@@ -14163,7 +14163,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "serde",
  "substrate-prometheus-endpoint",
 ]
@@ -14178,7 +14178,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -14877,7 +14877,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "26.0.0"
+version = "28.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -15022,7 +15022,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-cli"
-version = "27.0.0"
+version = "29.0.0"
 dependencies = [
  "clap",
  "frame-benchmarking-cli",
@@ -15817,7 +15817,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node"
-version = "0.9.0"
+version = "0.11.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -15827,7 +15827,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.9.0"
+version = "0.11.0"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -16197,7 +16197,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2507.2.0"
+version = "2507.3.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -16622,7 +16622,7 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
  "rand 0.8.5",
@@ -16736,7 +16736,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "27.0.0"
+version = "29.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -17111,7 +17111,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-voter-bags"
-version = "26.0.0"
+version = "28.0.0"
 dependencies = [
  "clap",
  "generate-bags",
@@ -18514,7 +18514,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "jsonrpsee",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "revive-dev-runtime",
 ]
 
@@ -18524,7 +18524,7 @@ version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
  "parity-scale-codec",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "scale-info",
  "serde_json",
 ]
@@ -22011,7 +22011,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -22179,7 +22179,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -22216,7 +22216,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
@@ -24568,7 +24568,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 2507.2.0",
+ "polkadot-sdk 2507.3.0",
  "pretty_assertions",
  "rand 0.8.5",
  "regex",
@@ -27792,7 +27792,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "26.0.2"
+version = "28.0.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
