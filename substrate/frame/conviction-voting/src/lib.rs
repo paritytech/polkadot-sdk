@@ -278,8 +278,8 @@ pub mod pallet {
 		///
 		/// Emits `Delegated`.
 		///
-		/// Weight: `O(R)` where R is the number of polls the voter delegating to has
-		///   voted on. Weight is initially charged as if maximum votes, but is refunded later.
+		/// Weight: `O(R + S)` where R and S are the number of polls the delegate and delegator have
+		///   voted on, respectively. Weight is initially charged as if maximum votes, but is refunded later.
 		// NOTE: weight must cover an incorrect voting of origin with max votes, this is ensure
 		// because a valid delegation cover decoding a direct voting with max votes.
 		#[pallet::call_index(1)]
@@ -310,8 +310,8 @@ pub mod pallet {
 		///
 		/// Emits `Undelegated`.
 		///
-		/// Weight: `O(R)` where R is the number of polls the voter delegating to has
-		///   voted on. Weight is initially charged as if maximum votes, but is refunded later.
+		/// Weight: `O(R + S)` where R and S are the number of polls the delegate and delegator have
+		///   voted on, respectively. Weight is initially charged as if maximum votes, but is refunded later.
 		// NOTE: weight must cover an incorrect voting of origin with max votes, this is ensure
 		// because a valid delegation cover decoding a direct voting with max votes.
 		#[pallet::call_index(2)]
