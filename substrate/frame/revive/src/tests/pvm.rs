@@ -525,7 +525,7 @@ fn gas_syncs_work() {
 /// Check the `Nonce` storage item for more information.
 #[test]
 fn instantiate_unique_trie_id() {
-	let (binary, code_hash) = compile_module("self_destruct").unwrap();
+	let (binary, code_hash) = compile_module("self_destruct_by_precompile").unwrap();
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1024,7 +1024,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 
 #[test]
 fn can_self_destruct_while_live() {
-	let (binary, _code_hash) = compile_module("self_destruct").unwrap();
+	let (binary, _code_hash) = compile_module("self_destruct_by_precompile").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -1046,7 +1046,7 @@ fn can_self_destruct_while_live() {
 
 #[test]
 fn self_destruct_works() {
-	let (binary, code_hash) = compile_module("self_destruct").unwrap();
+	let (binary, code_hash) = compile_module("self_destruct_by_precompile").unwrap();
 	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
@@ -1140,9 +1140,9 @@ fn self_destruct_works() {
 }
 
 #[test]
-fn self_destruct2_does_not_delete_code() {
+fn self_destruct_by_syscall_does_not_delete_code() {
 	// Test EIP-6780 behavior where self-destruct does not delete the code.
-	let (binary, code_hash) = compile_module("self_destruct2").unwrap();
+	let (binary, code_hash) = compile_module("self_destruct_by_syscall").unwrap();
 	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
@@ -1206,9 +1206,10 @@ fn self_destruct2_does_not_delete_code() {
 }
 
 #[test]
-fn self_destruct2_works() {
+fn self_destruct_by_syscall_works() {
 	let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
-	let (selfdestruct_binary, selfdestruct_code_hash) = compile_module("self_destruct2").unwrap();
+	let (selfdestruct_binary, selfdestruct_code_hash) =
+		compile_module("self_destruct_by_syscall").unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1261,8 +1262,8 @@ fn self_destruct2_works() {
 }
 
 #[test]
-fn cannot_self_destruct_in_constructor() {
-	let (binary, _) = compile_module("self_destructing_constructor").unwrap();
+fn cannot_self_destruct_in_constructor_by_syscall() {
+	let (binary, _) = compile_module("self_destructing_constructor_by_syscall").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -1270,6 +1271,21 @@ fn cannot_self_destruct_in_constructor() {
 		assert_err_ignore_postinfo!(
 			builder::instantiate_with_code(binary).value(100_000).build(),
 			Error::<Test>::TerminatedInConstructor,
+		);
+	});
+}
+
+#[test]
+fn cannot_self_destruct_in_constructor_by_precompile() {
+	let (binary, _) = compile_module("self_destructing_constructor_by_precompile").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Fail to instantiate the BOB because the constructor calls seal_terminate.
+		// Error is ContractTrapped because precompile call fails.
+		assert_err_ignore_postinfo!(
+			builder::instantiate_with_code(binary).value(100_000).build(),
+			Error::<Test>::ContractTrapped,
 		);
 	});
 }
@@ -1493,7 +1509,7 @@ fn instantiate_return_code() {
 
 #[test]
 fn lazy_removal_works() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module("self_destruct_by_precompile").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1527,7 +1543,7 @@ fn lazy_removal_works() {
 
 #[test]
 fn lazy_batch_removal_works() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module("self_destruct_by_precompile").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1599,7 +1615,7 @@ fn gas_left_api_works() {
 
 #[test]
 fn lazy_removal_partial_remove_works() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module("self_destruct_by_precompile").unwrap();
 
 	// We create a contract with some extra keys above the weight limit
 	let extra_keys = 7u32;
@@ -1674,7 +1690,7 @@ fn lazy_removal_partial_remove_works() {
 
 #[test]
 fn lazy_removal_does_no_run_on_low_remaining_weight() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module("self_destruct_by_precompile").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1724,7 +1740,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 
 #[test]
 fn lazy_removal_does_not_use_all_weight() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module("self_destruct_by_precompile").unwrap();
 
 	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
@@ -1788,7 +1804,7 @@ fn lazy_removal_does_not_use_all_weight() {
 
 #[test]
 fn deletion_queue_ring_buffer_overflow() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module("self_destruct_by_precompile").unwrap();
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
 	// setup the deletion queue with custom counters
@@ -1842,7 +1858,7 @@ fn deletion_queue_ring_buffer_overflow() {
 }
 #[test]
 fn refcounter() {
-	let (binary, code_hash) = compile_module("self_destruct").unwrap();
+	let (binary, code_hash) = compile_module("self_destruct_by_precompile").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
