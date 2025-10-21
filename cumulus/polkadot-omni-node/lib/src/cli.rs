@@ -267,7 +267,7 @@ impl<Config: CliConfig> Cli<Config> {
 	}
 
 	/// Returns the dev seal mode if the node is in dev mode.
-	pub fn dev_mode(&self) -> Option<DevSealMode> {
+	pub(crate) fn dev_mode(&self) -> Option<DevSealMode> {
 		if self.instant_seal {
 			Some(DevSealMode::InstantSeal)
 		} else if let Some(dev_block_time) = self.dev_block_time {
