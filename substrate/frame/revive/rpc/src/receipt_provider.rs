@@ -578,6 +578,20 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(receipt)
 	}
 
+	/// Get the Substrate block hash and extrinsic index for the given transaction hash
+	pub async fn get_substrate_block_and_extrinsic_index(
+		&self,
+		transaction_hash: &H256,
+	) -> Option<(H256, usize)> {
+		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
+		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+		let ext_idx = self
+			.receipt_extractor
+			.get_block_extrinsic_index(&block, transaction_index)
+			.await?;
+		Some((block_hash, ext_idx))
+	}
+
 	/// Get the signed transaction for the given transaction hash.
 	pub async fn signed_tx_by_hash(&self, transaction_hash: &H256) -> Option<TransactionSigned> {
 		let transaction_hash = transaction_hash.as_ref();

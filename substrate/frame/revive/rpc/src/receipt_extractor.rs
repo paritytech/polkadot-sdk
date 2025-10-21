@@ -273,7 +273,7 @@ impl ReceiptExtractor {
 		// Process extrinsics in order while maintaining parallelism within buffer window
 		stream::iter(ext_iter)
 			.enumerate()
-			.map(|(idx, (ext, call, receipt))| async move {
+			.map(|(idx, (ext, call, receipt, _))| async move {
 				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt, idx)
 					.await
 					.inspect_err(|err| {
@@ -297,6 +297,7 @@ impl ReceiptExtractor {
 				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 				EthTransact,
 				ReceiptGasInfo,
+				usize,
 			),
 		>,
 		ClientError,
@@ -311,9 +312,10 @@ impl ReceiptExtractor {
 			.ok_or(ClientError::ReceiptDataNotFound)?;
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
-			.flat_map(|ext| {
+			.enumerate()
+			.flat_map(|(idx, ext)| {
 				let call = ext.as_extrinsic::<EthTransact>().ok()??;
-				Some((ext, call))
+				Some((ext, call, idx))
 			})
 			.collect();
 
@@ -330,7 +332,7 @@ impl ReceiptExtractor {
 			Ok(extrinsics
 				.into_iter()
 				.zip(receipt_data)
-				.map(|((extr, call), rec)| (extr, call, rec)))
+				.map(|((extr, call, idx), rec)| (extr, call, rec, idx)))
 		}
 	}
 
@@ -343,7 +345,7 @@ impl ReceiptExtractor {
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let ext_iter = self.get_block_extrinsics(block).await?;
 
-		let (ext, eth_call, receipt_gas_info) = ext_iter
+		let (ext, eth_call, receipt_gas_info, _) = ext_iter
 			.into_iter()
 			.nth(transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
@@ -364,6 +366,17 @@ impl ReceiptExtractor {
 			transaction_index,
 		)
 		.await
+	}
+
+	/// Extract index of the [`SubstrateBlock`] extrinsic indicated ty ETH transaction index
+	pub async fn get_block_extrinsic_index(
+		&self,
+		block: &SubstrateBlock,
+		transaction_index: usize,
+	) -> Option<usize> {
+		let ext_iter = self.get_block_extrinsics(&block).await.ok()?;
+		let (_, _, _, ext_idx) = ext_iter.into_iter().nth(transaction_index)?;
+		Some(ext_idx)
 	}
 
 	/// Get the Ethereum block hash for the Substrate block with specific hash.
