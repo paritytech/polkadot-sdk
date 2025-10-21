@@ -84,3 +84,4 @@ pub trait AuthorApi<Hash, BlockHash> {
 		hash: Hash,
 	) -> Result<Option<TransactionReceipt<BlockHash, Hash>>, Error>;
 }
+
