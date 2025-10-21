@@ -402,7 +402,7 @@ fn filtering_works() {
 		);
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
 		expect_events(vec![
-			BalancesEvent::<Test>::Unreserved { who: 1, amount: 5 }.into(),
+			ProxyEvent::ProxiesRemoved { delegator: 1 }.into(),
 			ProxyEvent::ProxyExecuted { result: Ok(()) }.into(),
 		]);
 	});
