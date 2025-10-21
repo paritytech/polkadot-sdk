@@ -270,8 +270,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			},
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
 				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
-				.saturating_add(Weight::from_all(
+				.saturating_add(Weight::from_parts(
 					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
+					0,
 				)),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
