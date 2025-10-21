@@ -140,7 +140,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::block_hash")
 	}
 
-	fn block_author(&self) -> Option<H160> {
+	fn block_author(&self) -> H160 {
 		panic!("MockExt::block_author")
 	}
 
@@ -150,10 +150,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn chain_id(&self) -> u64 {
 		panic!("MockExt::chain_id")
-	}
-
-	fn max_value_size(&self) -> u32 {
-		panic!("MockExt::max_value_size")
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
