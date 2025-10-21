@@ -3151,6 +3151,7 @@ pub trait Offchain {
 	/// If the value does not exist in the storage `None` will be returned.
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
+	#[version(1, register_only)]
 	fn local_storage_get(
 		&mut self,
 		kind: PassAs<StorageKind, u32>,
@@ -3349,6 +3350,7 @@ pub trait Offchain {
 	///
 	/// Returns a vector of pairs `(HeaderKey, HeaderValue)`.
 	/// NOTE: response headers have to be read before response body.
+	#[version(1, register_only)]
 	fn http_response_headers(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
