@@ -1455,7 +1455,7 @@ where
 					contract.clone(),
 				);
 			}
-			// destroy each contract registered for destruction
+			// End of the callstack: destroy scheduled contracts in line with EVM semantics.
 			let contracts_to_destroy = mem::take(&mut self.contracts_to_be_destroyed);
 			for (contract_address, (mut contract_info, beneficiary)) in contracts_to_destroy {
 				self.destroy_contract(&contract_address, &mut contract_info, &beneficiary);

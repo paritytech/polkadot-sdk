@@ -915,7 +915,8 @@ pub mod env {
 		}
 	}
 
-	/// Remove the calling account and transfer remaining **free** balance.
+	/// Remove the calling account and transfer remaining balance:
+	/// **total** balance if code is deleted from storage, else **free** balance only.
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
