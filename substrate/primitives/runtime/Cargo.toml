@@ -90,3 +90,8 @@ serde = [
 	"sp-core/serde",
 	"sp-weights/serde",
 ]
+
+# This feature adds BLS crypto primitives.
+# It should not be used in production since the implementation and interface may still
+# be subject to significant changes.
+bls-experimental = ["sp-core/bls-experimental", "sp-io/bls-experimental"]

@@ -2541,9 +2541,11 @@ mod tests {
 	use sp_core::{
 		crypto::{Pair, UncheckedFrom},
 		ecdsa, ed25519,
-		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+		proof_of_possession::ProofOfPossessionGenerator,
 		sr25519,
 	};
+	#[cfg(feature = "bls-experimental")]
+        use sp_core::{bls377, bls381};
 	use std::sync::Arc;
 
 	macro_rules! signature_verify_test {
@@ -2686,12 +2688,12 @@ mod tests {
 
 	#[cfg(feature = "bls-experimental")]
 	fn bls377_verify_works() {
-		signature_verify_test!(bls377)
+		signature_verify_test!(bls377);
 	}
 
 	#[cfg(feature = "bls-experimental")]
 	fn bls381_verify_works() {
-		signature_verify_test!(bls381)
+		signature_verify_test!(bls381);
 	}
 
 	pub struct Sr25519Key;
