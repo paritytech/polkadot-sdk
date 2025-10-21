@@ -224,7 +224,7 @@ pub struct Cli<Config: CliConfig> {
 
 /// Development sealing mode.
 #[derive(Debug, Clone, Copy)]
-pub enum DevSealMode {
+pub(crate) enum DevSealMode {
 	/// Produces blocks immediately upon receiving transactions.
 	InstantSeal,
 	/// Produces blocks at fixed time intervals.
