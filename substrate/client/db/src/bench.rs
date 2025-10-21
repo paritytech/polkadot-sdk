@@ -172,7 +172,7 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 				child_delta,
 				state_version,
 			);
-		state.genesis = transaction.clone().drain();
+		state.genesis = transaction.clone().drain().into_iter().collect();
 		state.genesis_root = root;
 		state.commit(root, transaction, Vec::new(), Vec::new())?;
 		state.record.take();
@@ -462,6 +462,27 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.borrow()
 			.as_ref()
 			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
+	}
+
+	fn trigger_storage_root_size_estimation<'a, 'b>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) {
+		self.state.borrow().as_ref().map_or(Default::default(), |s| {
+			s.trigger_storage_root_size_estimation(delta, state_version)
+		})
+	}
+
+	fn trigger_child_storage_root_size_estimation<'a, 'b>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) {
+		self.state.borrow().as_ref().map_or(Default::default(), |s| {
+			s.trigger_child_storage_root_size_estimation(child_info, delta, state_version)
+		})
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {

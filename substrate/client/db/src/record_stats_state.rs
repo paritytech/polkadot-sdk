@@ -201,6 +201,24 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 
+	fn trigger_storage_root_size_estimation<'a, 'b>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) {
+		self.state.trigger_storage_root_size_estimation(delta, state_version)
+	}
+
+	fn trigger_child_storage_root_size_estimation<'a, 'b>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) {
+		self.state
+			.trigger_child_storage_root_size_estimation(child_info, delta, state_version)
+	}
+
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
 		self.state.raw_iter(args).map(|inner| RawIter { inner })
 	}

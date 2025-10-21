@@ -20,7 +20,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 arbitrary = { features = ["derive"], optional = true, workspace = true }
 codec = { workspace = true }
 hash-db = { workspace = true }
+indexmap = { workspace = true, default-features = false }
 log = { workspace = true }
+nohash-hasher = { workspace = true, default-features = false }
 parking_lot = { optional = true, workspace = true, default-features = true }
 rand = { optional = true, workspace = true, default-features = true }
 smallvec = { workspace = true, default-features = true }
@@ -31,6 +33,7 @@ sp-trie = { workspace = true }
 thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 trie-db = { workspace = true }
+foldhash = { workspace = true, default-features = false }
 
 [dev-dependencies]
 arbitrary = { features = ["derive"], workspace = true }
@@ -39,14 +42,18 @@ assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 rand = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-tracing = { workspace = true }
 
 [features]
 default = ["std"]
 fuzzing = ["arbitrary"]
 std = [
 	"codec/std",
+	"foldhash/std",
 	"hash-db/std",
+	"indexmap/std",
 	"log/std",
+	"nohash-hasher/std",
 	"parking_lot",
 	"rand",
 	"sp-core/std",

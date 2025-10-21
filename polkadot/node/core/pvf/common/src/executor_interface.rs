@@ -330,6 +330,13 @@ impl sp_externalities::Externalities for ValidationExternalities {
 	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
 		panic!("get_read_and_written_keys: unsupported feature for parachain validation")
 	}
+
+	fn trigger_storage_root_size_estimation(
+		&mut self,
+		_state_version: sp_core::storage::StateVersion,
+	) {
+		panic!("trigger_storage_root_size_estimation: unsupported feature for parachain validation")
+	}
 }
 
 impl sp_externalities::ExtensionStore for ValidationExternalities {

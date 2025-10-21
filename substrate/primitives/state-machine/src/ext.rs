@@ -523,6 +523,18 @@ where
 		root.encode()
 	}
 
+	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion) {
+		let _guard = guard();
+
+		self.overlay.trigger_storage_root_size_estimation(self.backend, state_version);
+
+		trace!(
+			target: "state",
+			method = "TriggerStorageRootSizeEstimation",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+		);
+	}
+
 	fn child_storage_root(
 		&mut self,
 		child_info: &ChildInfo,
@@ -845,13 +857,15 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::InMemoryBackend;
+	use crate::{InMemoryBackend, TrieBackendBuilder};
 	use codec::{Decode, Encode};
 	use sp_core::{
 		map,
 		storage::{Storage, StorageChild},
 		Blake2Hasher,
 	};
+	use sp_tracing::info;
+	use sp_trie::recorder::Recorder;
 
 	type TestBackend = InMemoryBackend<Blake2Hasher>;
 	type TestExt<'a> = Ext<'a, Blake2Hasher, TestBackend>;
@@ -1077,5 +1091,237 @@ mod tests {
 		drop(append);
 
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
+	}
+
+	#[test]
+	//note: copied from: https://github.com/paritytech/polkadot-sdk/pull/6230/files#diff-aee4478254ac14c2c059e9e1a0eb5b2d3694872bfdce872416319959223de977R1115
+	fn calculating_storage_root_should_not_change_storage_proof() {
+		sp_tracing::try_init_simple();
+		let keys =
+			(0..100000u32)
+				.map(|i| (i.encode(), vec![i; 100].encode()))
+				.chain((0..1000u32).map(|i| {
+					let mut key = 1u32.encode();
+					key.extend(i.encode());
+					(key, vec![i; 100].encode())
+				}));
+
+		// info!("keys: {:#?}", keys.clone().map(|(k,v)| (hex::encode(k),
+		// hex::encode(v))).collect::<std::collections::HashMap<_,_>>());
+
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_info = &child_info;
+
+		let backend = (
+			Storage {
+				top: keys.clone().collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: keys.collect(),
+						child_info: child_info.to_owned(),
+					}
+				],
+				// children_default: Default::default(),
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		let recorder = Recorder::<Blake2Hasher>::default();
+
+		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+
+		let mut overlay = Default::default();
+		let mut ext = Ext::new(&mut overlay, &backend, None);
+
+		ext.place_storage(5000u32.encode(), Some(vec![30]));
+		ext.place_storage(100000u32.encode(), Some(vec![40]));
+
+		ext.place_storage(1u32.encode(), None);
+		ext.place_storage(6000u32.encode(), None);
+
+		ext.place_child_storage(child_info, 5000u32.encode(), Some(vec![30]));
+		ext.place_child_storage(child_info, 100000u32.encode(), Some(vec![40]));
+
+		ext.place_child_storage(child_info, 1u32.encode(), None);
+		ext.place_child_storage(child_info, 6000u32.encode(), None);
+
+		ext.trigger_storage_root_size_estimation(StateVersion::V1);
+		let size_before = recorder.estimate_encoded_size();
+
+		ext.storage_root(StateVersion::V1);
+		let size_after = recorder.estimate_encoded_size();
+
+		// TODO: https://github.com/paritytech/polkadot-sdk/issues/6020
+		// When the issue is fixed properly, `size_before == size_after`.
+		info!("size_before: {}, size_after:{}", size_before, size_after);
+		assert_eq!(size_before, size_after);
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_2() {
+		sp_tracing::try_init_simple();
+		let keys =
+			(0..100000u32)
+				.map(|i| (i.encode(), vec![i; 100].encode()))
+				.chain((0..1000u32).map(|i| {
+					let mut key = 1u32.encode();
+					key.extend(i.encode());
+					(key, vec![i; 100].encode())
+				}));
+
+		// info!("keys: {:#?}", keys.clone().map(|(k,v)| (hex::encode(k),
+		// hex::encode(v))).collect::<std::collections::HashMap<_,_>>());
+
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_info = &child_info;
+
+		let backend = (
+			Storage {
+				top: keys.clone().collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: keys.collect(),
+						child_info: child_info.to_owned(),
+					}
+				],
+				// children_default: Default::default(),
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		let recorder = Recorder::<Blake2Hasher>::default();
+
+		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+
+		let mut overlay = Default::default();
+		let mut ext = Ext::new(&mut overlay, &backend, None);
+
+		let key1 = 5000u32;
+		let key2 = 100000u32;
+		ext.storage_start_transaction();
+		ext.place_storage(key1.encode(), Some(vec![30]));
+		ext.place_storage(key2.encode(), Some(vec![40]));
+
+		ext.place_child_storage(child_info, key1.encode(), Some(vec![30]));
+		ext.place_child_storage(child_info, key2.encode(), Some(vec![40]));
+		let _ = ext.storage_commit_transaction();
+
+		ext.trigger_storage_root_size_estimation(StateVersion::V1);
+		let size_after_reading = recorder.estimate_encoded_size();
+
+		ext.storage_start_transaction();
+		ext.place_storage(key1.encode(), None);
+		ext.place_storage(key2.encode(), None);
+
+		ext.place_child_storage(child_info, key1.encode(), None);
+		ext.place_child_storage(child_info, key2.encode(), None);
+		let _ = ext.storage_commit_transaction();
+
+		ext.trigger_storage_root_size_estimation(StateVersion::V1);
+
+		let size_before = recorder.estimate_encoded_size();
+
+		ext.storage_root(StateVersion::V1);
+		let size_after = recorder.estimate_encoded_size();
+
+		// TODO: https://github.com/paritytech/polkadot-sdk/issues/6020
+		// When the issue is fixed properly, `size_before == size_after`.
+		info!(
+			"size_after_reading: {}, size_before: {}, size_after:{}",
+			size_after_reading, size_before, size_after
+		);
+		assert_eq!(size_before, size_after);
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_random() {
+		sp_tracing::try_init_simple();
+		let keys_count = 1000000u32;
+		let keys =
+			(0..keys_count)
+				.map(|i| (i.encode(), vec![i; 100].encode()))
+				.chain((0..10000u32).map(|i| {
+					let mut key = 1u32.encode();
+					key.extend(i.encode());
+					(key, vec![i; 100].encode())
+				}));
+
+		// info!("keys: {:#?}", keys.clone().map(|(k,v)| (hex::encode(k),
+		// hex::encode(v))).collect::<std::collections::HashMap<_,_>>());
+
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_info = &child_info;
+
+		let backend = (
+			Storage {
+				top: keys.clone().collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: keys.collect(),
+						child_info: child_info.to_owned(),
+					}
+				],
+				// children_default: Default::default(),
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		let max_keys_to_update = 10000;
+
+		for _ in 0..1000 {
+			let recorder = Recorder::<Blake2Hasher>::default();
+			let backend =
+				TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+
+			let mut overlay = Default::default();
+			let mut ext = Ext::new(&mut overlay, &backend, None);
+
+			let keys_to_update = rand::random::<u32>() % max_keys_to_update;
+			for _ in 0..keys_to_update {
+				let key = rand::random::<u32>() % keys_count;
+				let value = std::iter::repeat(rand::random::<u8>())
+					.take(rand::random::<usize>() % 255)
+					.collect::<Vec<_>>();
+				ext.place_storage(key.encode(), Some(value));
+			}
+
+			let keys_to_update = rand::random::<u32>() % max_keys_to_update;
+			for _ in 0..keys_to_update {
+				let key = rand::random::<u32>() % keys_count;
+				ext.place_storage(key.encode(), None);
+			}
+
+			let keys_to_update = rand::random::<u32>() % max_keys_to_update;
+			for _ in 0..keys_to_update {
+				let key = rand::random::<u32>() % keys_count;
+				let value = std::iter::repeat(rand::random::<u8>())
+					.take(rand::random::<usize>() % 255)
+					.collect::<Vec<_>>();
+				ext.place_child_storage(child_info, key.encode(), Some(value));
+			}
+
+			let keys_to_update = rand::random::<u32>() % max_keys_to_update;
+			for _ in 0..keys_to_update {
+				let key = rand::random::<u32>() % keys_count;
+				ext.place_child_storage(child_info, key.encode(), None);
+			}
+
+			ext.trigger_storage_root_size_estimation(StateVersion::V1);
+			let size_before = recorder.estimate_encoded_size();
+
+			ext.storage_root(StateVersion::V1);
+			let size_after = recorder.estimate_encoded_size();
+
+			// TODO: https://github.com/paritytech/polkadot-sdk/issues/6020
+			// When the issue is fixed properly, `size_before == size_after`.
+			info!(
+				"keys updated: {}, size_before: {}, size_after:{}",
+				keys_to_update, size_before, size_after
+			);
+			assert_eq!(size_before, size_after);
+		}
 	}
 }

@@ -21,10 +21,12 @@
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
-use sp_runtime_interface::runtime_interface;
+use sp_runtime_interface::{pass_by::PassAs, runtime_interface};
 
 #[cfg(feature = "std")]
 use sp_trie::proof_size_extension::ProofSizeExt;
+
+use sp_core::storage::StateVersion;
 
 pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 
@@ -34,6 +36,10 @@ pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 /// to return u64::MAX.
 #[runtime_interface]
 pub trait StorageProofSize {
+	fn trigger_storage_root_size_estimation(&mut self, state_version: PassAs<StateVersion, u8>) {
+		self.trigger_storage_root_size_estimation(state_version);
+	}
+
 	/// Returns the current storage proof size.
 	fn storage_proof_size(&mut self) -> u64 {
 		self.extension::<ProofSizeExt>()

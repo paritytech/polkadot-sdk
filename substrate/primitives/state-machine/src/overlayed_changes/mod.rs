@@ -19,6 +19,7 @@
 
 mod changeset;
 mod offchain;
+mod xxx;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
@@ -108,6 +109,9 @@ pub struct OverlayedChanges<H: Hasher> {
 	///
 	/// This transaction can be applied to the backend to persist the state changes.
 	storage_transaction_cache: Option<StorageTransactionCache<H>>,
+
+	// todo: better name
+	storage_transaction_cache2_flag: Option<()>,
 }
 
 impl<H: Hasher> Default for OverlayedChanges<H> {
@@ -120,6 +124,7 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
+			storage_transaction_cache2_flag: None,
 		}
 	}
 }
@@ -134,6 +139,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
+			storage_transaction_cache2_flag: self.storage_transaction_cache2_flag.clone(),
 		}
 	}
 }
@@ -302,6 +308,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// `storage_transaction_cache`.
 	fn mark_dirty(&mut self) {
 		self.storage_transaction_cache = None;
+		self.storage_transaction_cache2_flag = None;
 	}
 
 	/// Returns a double-Option: None if the key is unknown (i.e. and the query should be referred
@@ -334,6 +341,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 		element: StorageValue,
 		init: impl Fn() -> StorageValue,
 	) {
+		//todo: not sure?
+		self.mark_dirty();
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = element.len() as u64;
 		self.stats.tally_write_overlay(size_write);
@@ -579,7 +588,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		state_version: StateVersion,
 	) -> Result<StorageChanges<H>, DefaultError>
 	where
-		H::Out: Ord + Encode + 'static,
+		H::Out: Ord + Encode + 'static + codec::Codec,
 	{
 		let (transaction, transaction_storage_root) = match self.storage_transaction_cache.take() {
 			Some(cache) => cache.into_inner(),
@@ -653,6 +662,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 		if let Some(cache) = &self.storage_transaction_cache {
 			return (cache.transaction_storage_root, true)
 		}
+		#[cfg(feature = "std")]
+		let start = std::time::Instant::now();
 
 		let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
 
@@ -666,7 +677,66 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.storage_transaction_cache =
 			Some(StorageTransactionCache { transaction, transaction_storage_root: root });
 
+		#[cfg(feature = "std")]
+		{
+			crate::debug!(target: "durations", "storage_root: duration={:?}", start.elapsed());
+			// let snapshot = self.top.storage_root_snaphost_delta_keys2();
+			// crate::debug!(target: "durations", "storage_root: duration={:?} snaphost_len:{}", start.elapsed(),snapshot.len());
+			// crate::debug!(target: "durations", "storage_root: snapshot:{:?}", snapshot.iter().map(|k| hex::encode(k.1)).collect::<Vec<_>>());
+		}
+
 		(root, false)
+	}
+
+	/// Updates the recorder's proof size by recording trie nodes using `backend` and all changes
+	/// as seen by the current transaction.
+	pub fn trigger_storage_root_size_estimation<B: Backend<H>>(
+		&mut self,
+		backend: &B,
+		state_version: StateVersion,
+	) where
+		H::Out: Ord + Encode + codec::Codec,
+	{
+		if self.storage_transaction_cache2_flag.is_some() {
+			crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (cache)");
+			return;
+		}
+		#[cfg(feature = "std")]
+		let start = std::time::Instant::now();
+
+		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (non-cache)");
+
+		let snapshot = self.top.storage_root_snaphost_delta_keys2();
+
+		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation snapshot: {:?}", snapshot);
+		let snapshot_len = snapshot.len();
+
+		{
+			let delta = self
+				.top
+				.changes_mut2(&snapshot)
+				.into_iter()
+				.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
+
+			let child_delta = self.children.values_mut().map(|v| {
+				let child_snapshot = v.0.storage_root_snaphost_delta_keys2();
+				(
+					&v.1,
+					v.0.changes_mut2(&child_snapshot)
+						.into_iter()
+						.map(|(k, v)| (&k[..], v.map(|v| &v[..]))),
+				)
+			});
+
+			backend.trigger_storage_root_size_estimation_full(delta, child_delta, state_version);
+
+			self.storage_transaction_cache2_flag = Some(());
+		};
+
+		#[cfg(feature = "std")]
+		{
+			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={}", start.elapsed(), snapshot_len);
+		}
 	}
 
 	/// Generate the child storage root using `backend` and all child changes
@@ -983,6 +1053,7 @@ mod tests {
 
 	#[test]
 	fn overlayed_storage_root_works() {
+		// tracing::try_init_simple();
 		let state_version = StateVersion::default();
 		let initial: BTreeMap<_, _> = vec![
 			(b"doe".to_vec(), b"reindeer".to_vec()),

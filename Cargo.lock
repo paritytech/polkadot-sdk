@@ -1803,7 +1803,7 @@ name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
  "array-bytes 6.2.2",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "log",
  "parity-scale-codec",
  "sp-core 28.0.0",
@@ -2306,7 +2306,7 @@ version = "0.7.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "hex-literal",
  "impl-trait-for-tuples",
  "num-traits",
@@ -2320,7 +2320,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
 ]
 
 [[package]]
@@ -4541,7 +4541,7 @@ dependencies = [
  "sp-version",
  "staging-xcm",
  "staging-xcm-builder",
- "trie-db",
+ "trie-db 0.31.0",
  "trie-standardmap",
 ]
 
@@ -7177,6 +7177,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
+name = "fxprof-processed-profile"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27d12c0aed7f1e24276a241aadc4cb8ea9f83000f34bc062b7cc2d51e3b0fabd"
+dependencies = [
+ "bitflags 2.6.0",
+ "debugid",
+ "fxhash",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "generate-bags"
 version = "28.0.0"
 dependencies = [
@@ -7521,6 +7543,11 @@ name = "hash-db"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e7d7786361d7425ae2fe4f9e407eb0efaa0840f5212d109cc018c40c35c6ab4"
+
+[[package]]
+name = "hash-db"
+version = "0.16.0"
+source = "git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop#6338efa9093d533e06d912565023bf7a33a14060"
 
 [[package]]
 name = "hash256-std-hasher"
@@ -8510,6 +8537,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 
 [[package]]
+name = "ittapi"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b996fe614c41395cdaedf3cf408a9534851090959d90d54a535f675550b64b1"
+dependencies = [
+ "anyhow",
+ "ittapi-sys",
+ "log",
+]
+
+[[package]]
+name = "ittapi-sys"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52f5385394064fa2c886205dba02598013ce83d3e92d33dbdc0c52fe0e7bf4fc"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "jam-codec"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8844,7 +8891,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19ea4653859ca2266a86419d3f592d3f22e7a854b482f99180d2498507902048"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash256-std-hasher",
  "tiny-keccak",
 ]
@@ -10010,7 +10057,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e300c54e3239a86f9c61cc63ab0f03862eb40b1c6e065dc6fd6ceaeff6da93d"
 dependencies = [
  "foldhash",
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hashbrown 0.15.3",
+]
+
+[[package]]
+name = "memory-db"
+version = "0.34.0"
+source = "git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop#6338efa9093d533e06d912565023bf7a33a14060"
+dependencies = [
+ "foldhash",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "hashbrown 0.15.3",
 ]
 
@@ -10532,7 +10589,7 @@ dependencies = [
  "derive_more 0.99.17",
  "fs_extra",
  "futures",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-rocksdb",
@@ -19031,6 +19088,7 @@ dependencies = [
  "sp-state-machine",
  "sp-trie",
  "substrate-test-runtime-client",
+ "tracing",
 ]
 
 [[package]]
@@ -19151,7 +19209,7 @@ version = "0.35.0"
 dependencies = [
  "array-bytes 6.2.2",
  "criterion",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-memorydb",
@@ -22225,7 +22283,7 @@ name = "sp-api"
 version = "26.0.0"
 dependencies = [
  "docify",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -22499,7 +22557,7 @@ dependencies = [
  "dyn-clone",
  "ed25519-zebra",
  "futures",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "hash256-std-hasher",
  "impl-serde",
  "itertools 0.11.0",
@@ -22548,7 +22606,7 @@ dependencies = [
  "dyn-clonable",
  "ed25519-zebra",
  "futures",
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash256-std-hasher",
  "impl-serde",
  "itertools 0.11.0",
@@ -23042,8 +23100,11 @@ dependencies = [
  "arbitrary",
  "array-bytes 6.2.2",
  "assert_matches",
- "hash-db",
+ "foldhash",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
+ "indexmap",
  "log",
+ "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "pretty_assertions",
@@ -23053,10 +23114,11 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-panic-handler",
  "sp-runtime",
+ "sp-tracing 16.0.0",
  "sp-trie",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
 ]
 
 [[package]]
@@ -23191,9 +23253,9 @@ dependencies = [
  "array-bytes 6.2.2",
  "criterion",
  "foldhash",
- "hash-db",
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "hashbrown 0.15.3",
- "memory-db",
+ "memory-db 0.34.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -23207,8 +23269,8 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "trie-bench",
- "trie-db",
- "trie-root",
+ "trie-db 0.31.0",
+ "trie-root 0.18.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "trie-standardmap",
 ]
 
@@ -24017,7 +24079,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-trie",
- "trie-db",
+ "trie-db 0.31.0",
 ]
 
 [[package]]
@@ -24096,7 +24158,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
 ]
 
 [[package]]
@@ -25614,12 +25676,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "972be214c558b1a5550d34c8c7e55a284f6439cefc51226d6ffbfc152de5cc58"
 dependencies = [
  "criterion",
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "keccak-hasher",
- "memory-db",
+ "memory-db 0.34.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-scale-codec",
- "trie-db",
- "trie-root",
+ "trie-db 0.30.0",
+ "trie-root 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "trie-standardmap",
 ]
 
@@ -25629,7 +25691,18 @@ version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c0670ab45a6b7002c7df369fee950a27cf29ae0474343fd3a15aa15f691e7a6"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log",
+ "rustc-hex",
+ "smallvec",
+]
+
+[[package]]
+name = "trie-db"
+version = "0.31.0"
+source = "git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop#6338efa9093d533e06d912565023bf7a33a14060"
+dependencies = [
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
  "log",
  "rustc-hex",
  "smallvec",
@@ -25641,7 +25714,15 @@ version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4ed310ef5ab98f5fa467900ed906cb9232dd5376597e00fd4cba2a449d06c0b"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "trie-root"
+version = "0.18.0"
+source = "git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop#6338efa9093d533e06d912565023bf7a33a14060"
+dependencies = [
+ "hash-db 0.16.0 (git+https://github.com/paritytech/trie?branch=mku-no-commit-on-drop)",
 ]
 
 [[package]]
@@ -25650,7 +25731,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "684aafb332fae6f83d7fe10b3fbfdbe39a1b3234c4e2a618f030815838519516"
 dependencies = [
- "hash-db",
+ "hash-db 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "keccak-hasher",
 ]
 
@@ -26427,9 +26508,11 @@ dependencies = [
  "bumpalo",
  "cc",
  "cfg-if",
+ "fxprof-processed-profile",
  "gimli 0.31.1",
  "hashbrown 0.15.3",
  "indexmap",
+ "ittapi",
  "libc",
  "log",
  "mach2",
@@ -26442,6 +26525,7 @@ dependencies = [
  "rustix 1.0.8",
  "serde",
  "serde_derive",
+ "serde_json",
  "smallvec",
  "target-lexicon",
  "wasmparser",
@@ -26450,6 +26534,7 @@ dependencies = [
  "wasmtime-internal-cache",
  "wasmtime-internal-cranelift",
  "wasmtime-internal-fiber",
+ "wasmtime-internal-jit-debug",
  "wasmtime-internal-jit-icache-coherence",
  "wasmtime-internal-math",
  "wasmtime-internal-slab",
@@ -26554,6 +26639,18 @@ dependencies = [
  "wasmtime-internal-asm-macros",
  "wasmtime-internal-versioned-export-macros",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "wasmtime-internal-jit-debug"
+version = "35.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61d8693995ab3df48e88777b6ee3b2f441f2c4f895ab938996cdac3db26f256c"
+dependencies = [
+ "cc",
+ "object 0.36.7",
+ "rustix 1.0.8",
+ "wasmtime-internal-versioned-export-macros",
 ]
 
 [[package]]

@@ -37,7 +37,9 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf, TransactionExtension},
+	traits::{
+		DispatchInfoOf, Dispatchable, Get, Implication, PostDispatchInfoOf, TransactionExtension,
+	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 	DispatchResult,
 };
@@ -199,6 +201,10 @@ where
 			// We have no proof size information, there is nothing we can do.
 			return Ok(inner_refund);
 		};
+
+		cumulus_primitives_storage_weight_reclaim::trigger_storage_root_size_estimation(
+			T::Version::get().state_version()
+		);
 
 		let Some(proof_size_after_dispatch) = get_proof_size().defensive_proof(
 			"Proof recording enabled during prepare, now disabled. This should not happen.",

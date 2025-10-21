@@ -845,7 +845,9 @@ governor = { version = "0.6.0" }
 gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum" }
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro" }
 handlebars = { version = "5.1.0" }
-hash-db = { version = "0.16.0", default-features = false }
+hash-db = { version = "0.16.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
+# hash-db = { version = "0.16.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/hash-db" }
+# hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = "0.15.3"
 hex = { version = "0.4.3", default-features = false }
@@ -869,7 +871,7 @@ hyper-rustls = { version = "0.27.3", default-features = false, features = [
 hyper-util = { version = "0.1.5", default-features = false }
 impl-serde = { version = "0.5.0", default-features = false }
 impl-trait-for-tuples = { version = "0.2.2" }
-indexmap = { version = "2.7.1" }
+indexmap = { version = "2.7.1", default-features = false }
 indicatif = { version = "0.17.7" }
 integer-sqrt = { version = "0.1.2" }
 ip_network = { version = "0.4.1" }
@@ -903,7 +905,9 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.34.0", default-features = false }
+memory-db = { version = "0.34.0", default-features = false,  git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
+# memory-db = { version = "0.34.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/memory-db" }
+# memory-db = { version = "0.34.0", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -926,7 +930,7 @@ node-inspect = { path = "substrate/bin/node/inspect", default-features = false, 
 node-primitives = { path = "substrate/bin/node/primitives", default-features = false }
 node-rpc = { path = "substrate/bin/node/rpc" }
 node-testing = { path = "substrate/bin/node/testing" }
-nohash-hasher = { version = "0.2.0" }
+nohash-hasher = { version = "0.2.0", default-features = false  }
 novelpoly = { version = "2.0.0", package = "reed-solomon-novelpoly" }
 num-bigint = { version = "0.4.3", default-features = false }
 num-format = { version = "0.4.3" }
@@ -1438,8 +1442,12 @@ tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
 trie-bench = { version = "0.42.0" }
-trie-db = { version = "0.30.0", default-features = false }
-trie-root = { version = "0.18.0", default-features = false }
+trie-db = { version = "0.31.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
+# trie-db = { version = "0.31.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/trie-db" }
+# trie-db = { version = "0.30.0", default-features = false }
+trie-root = { version = "0.18.0", default-features = false, git = "https://github.com/paritytech/trie", branch = "mku-no-commit-on-drop" }
+# trie-root = { version = "0.18.0", default-features = false, path = "/home/miszka/parity/23-pov-reclaim/trie-upstream/trie-root" }
+# trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
@@ -1503,6 +1511,9 @@ debug = 1               # debug symbols are useful for profilers
 debug-assertions = true
 inherits = "release"
 overflow-checks = true
+
+[profile.bench]
+debug = true
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates
 # that are suspected to be CPU-intensive, and that are unlikely to require debugging (as some of

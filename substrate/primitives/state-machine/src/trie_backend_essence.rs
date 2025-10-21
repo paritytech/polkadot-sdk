@@ -33,18 +33,18 @@ use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 use sp_trie::{
-	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
-	read_child_trie_first_descendant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descendant_value, read_trie_value,
+	child_delta_trie_root, child_read_trie_keys_from_delta, child_remove_trie_keys_from_delta,
+	delta_trie_root, empty_child_trie_root, read_child_trie_first_descendant_value,
+	read_child_trie_hash, read_child_trie_value, read_trie_first_descendant_value,
+	read_trie_keys_from_delta, read_trie_value, remove_trie_keys_from_delta,
 	trie_types::{TrieDBBuilder, TrieError},
-	DBValue, KeySpacedDB, MerkleValue, NodeCodec, PrefixedMemoryDB, RandomState, Trie, TrieCache,
-	TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
+	DBValue, KeySpacedDB, LayoutV1 as Layout, MerkleValue, NodeCodec, PrefixedMemoryDB,
+	RandomState, Trie, TrieCache, TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
 };
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 // In this module, we only use layout for read operation and empty root,
 // where V1 and V0 are equivalent.
-use sp_trie::LayoutV1 as Layout;
 
 #[cfg(not(feature = "std"))]
 macro_rules! format {
@@ -656,6 +656,86 @@ where
 		(root, write_overlay)
 	}
 
+	/// Updates the recorder's proof size by recording trie nodes for a given delta.
+	///
+	/// This function performs two operations to ensure accurate proof size calculation:
+	/// 1. Reads all keys that will be inserted or updated (those with `Some` values in the delta)
+	/// 2. Removes/touches all keys that will be deleted (those with `None` values in the delta)
+	/// All accessed trie nodes are recorded by the recorder, enabling accurate proof size
+	/// estimation for block production and validation.
+	///
+	/// Note: This function does not modify the actual storage state - it only reads and records
+	/// the trie nodes that would be affected by the given delta for proof size estimation.
+	pub fn trigger_storage_root_size_estimation<'a, 'b>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) {
+		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
+		let backend_storage = &self.backend_storage();
+		let mut eph = Ephemeral::new(backend_storage, &mut write_overlay);
+
+		let mut delta = delta.into_iter().collect::<Vec<_>>();
+		delta.sort();
+
+		let (keys_to_be_read, keys_to_be_removed): (Vec<_>, Vec<_>) =
+			delta.into_iter().partition(|(_, v)| v.is_some());
+
+		self.with_recorder_and_cache(None, |recorder, cache| {
+			let res = {
+				match state_version {
+					StateVersion::V0 =>
+						read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
+							&eph,
+							self.root,
+							keys_to_be_read,
+							recorder,
+							cache,
+						),
+					StateVersion::V1 =>
+						read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+							&eph,
+							self.root,
+							keys_to_be_read,
+							recorder,
+							cache,
+						),
+				}
+			};
+
+			let _ = res.inspect_err(|e| {
+				warn!(target: "trie", "Failed to read delta keys from trie: {}", e);
+			});
+		});
+
+		self.with_recorder_and_cache(None, |recorder, cache| {
+			let res = {
+				match state_version {
+					StateVersion::V0 =>
+						remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
+							&mut eph,
+							self.root,
+							keys_to_be_removed,
+							recorder,
+							cache,
+						),
+					StateVersion::V1 =>
+						remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+							&mut eph,
+							self.root,
+							keys_to_be_removed,
+							recorder,
+							cache,
+						),
+				}
+			};
+
+			let _ = res.inspect_err(|e| {
+				warn!(target: "trie", "Failed to remove delta keys from trie: {}", e);
+			});
+		});
+	}
+
 	/// Returns the child storage root for the child trie `child_info` after applying the given
 	/// `delta`.
 	pub fn child_storage_root<'a>(
@@ -711,6 +791,80 @@ where
 		let is_default = new_child_root == default_root;
 
 		(new_child_root, is_default, write_overlay)
+	}
+
+	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
+	///
+	/// Refer to [`trigger_storage_root_size_estimation`] for more details.
+	pub fn trigger_child_storage_root_size_estimation<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) {
+		let default_root = match child_info.child_type() {
+			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
+		};
+		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
+		let child_root = match self.child_root(child_info) {
+			Ok(Some(hash)) => hash,
+			Ok(None) => default_root,
+			Err(e) => {
+				warn!(target: "trie", "Failed to read child storage root: {}", e);
+				default_root
+			},
+		};
+		let mut eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
+
+		let mut delta = delta.into_iter().collect::<Vec<_>>();
+		delta.sort();
+
+		let (keys_to_be_read, keys_to_be_removed): (Vec<_>, Vec<_>) =
+			delta.into_iter().partition(|(_, v)| v.is_some());
+
+		let _ =
+			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
+				StateVersion::V0 =>
+					child_read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+						child_info.keyspace(),
+						&eph,
+						child_root,
+						keys_to_be_read,
+						recorder,
+						cache,
+					),
+				StateVersion::V1 =>
+					child_read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+						child_info.keyspace(),
+						&eph,
+						child_root,
+						keys_to_be_read,
+						recorder,
+						cache,
+					),
+			});
+
+		let _ =
+			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
+				StateVersion::V0 =>
+					child_remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+						child_info.keyspace(),
+						&mut eph,
+						child_root,
+						keys_to_be_removed,
+						recorder,
+						cache,
+					),
+				StateVersion::V1 =>
+					child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+						child_info.keyspace(),
+						&mut eph,
+						child_root,
+						keys_to_be_removed,
+						recorder,
+						cache,
+					),
+			});
 	}
 }
 
