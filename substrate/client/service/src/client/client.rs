@@ -86,6 +86,7 @@ use std::{
 };
 use sp_trie::get_trie_node_children;
 use sp_trie::ClientProof;
+use sp_trie::HashDBT;
 use sp_trie::TrieNodeChild;
 use sp_trie::TrieNodeChildKind;
 use codec::Encode;
@@ -1447,19 +1448,21 @@ where
 			}
 		});
 		while let Some(node) = leaf_iter.next().transpose()? {
-			let mut result = vec![];
+			let mut db = sp_trie::MemoryDB::<HashingFor<Block>>::default();
 			let mut stack = vec![node.clone()];
 			while let Some(node) = stack.pop() {
 				if let Some((encoded, child_nodes)) = load(&node)? {
 					size += encoded.len();
-					result.push(encoded.clone());
-					if size >= size_limit {
+					db.emplace(node.hash, node.prefix.as_prefix(), encoded.clone());
+					// `encode_compact_raw` expects hashed value to be present
+					let has_hashed_value = child_nodes.iter().flatten().any(|child_node| child_node.kind == TrieNodeChildKind::Value);
+					if size >= size_limit && !has_hashed_value {
 						break;
 					}
-					stack.extend(child_nodes.into_iter().flatten());
+					stack.extend(child_nodes.into_iter().flatten().rev());
 				}
 			}
-			results.encoded_nodes.push(StorageProof::new(result).into_compact_proof::<HashingFor<Block>>(node.hash).map_err(|e| sp_blockchain::Error::Proposal(e.to_string()))?.encode());
+			results.encoded_nodes.push(sp_trie::encode_compact_raw::<sp_trie::LayoutV1<HashingFor<Block>>, _>(&db, &node.hash).map_err(|e| sp_blockchain::Error::Proposal(e.to_string()))?.encode());
 			if size >= size_limit {
 				break;
 			}

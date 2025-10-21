@@ -282,7 +282,7 @@ where
 			},
 			state: HashMap::default(),
 			tree: Tree::Unknown(TrieNodeChild::root(state_root)),
-			paths: Paths::<B>::from_iter([(state_root, vec![])]),
+			paths: Paths::<B>::from_iter([(state_root, vec![vec![]])]),
 		}
 	}
 
@@ -397,10 +397,9 @@ where
 					},
 				};
 				let mut db = MemoryDB::<HashingFor<B>>::default();
-				let root = match sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
+				let root = match sp_trie::decode_compact_raw::<sp_trie::LayoutV0<HashingFor<B>>, _, _>(
 					&mut db,
 					proof.iter_compact_encoded_nodes(),
-					None,
 				) {
 					Ok(root) => root,
 					Err(e) => {

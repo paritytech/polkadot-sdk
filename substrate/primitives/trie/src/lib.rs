@@ -66,7 +66,7 @@ pub use node_codec::NodeCodec;
 pub use storage_proof::{CompactProof, StorageProof, StorageProofError};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
-pub use trie_codec::{decode_compact, encode_compact, Error as CompactProofError};
+pub use trie_codec::{decode_compact, decode_compact_raw, encode_compact, encode_compact_raw, Error as CompactProofError};
 use trie_db::proof::{generate_proof, verify_proof};
 /// Various re-exports from the `trie-db` crate.
 pub use trie_db::{

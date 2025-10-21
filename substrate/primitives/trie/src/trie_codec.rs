@@ -141,6 +141,20 @@ where
 	Ok(top_root)
 }
 
+pub fn decode_compact_raw<'a, L, DB, I>(
+	db: &mut DB,
+	encoded: I,
+) -> Result<TrieHash<L>, Error<TrieHash<L>, CError<L>>>
+where
+	L: TrieConfiguration,
+	DB: HashDBT<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+	I: IntoIterator<Item = &'a [u8]>,
+{
+	let mut nodes_iter = encoded.into_iter();
+	let (top_root, _nb_used) = trie_db::decode_compact_from_iter::<L, _, _>(db, &mut nodes_iter)?;
+	Ok(top_root)
+}
+
 /// Encode a compact proof.
 ///
 /// Takes as input all full encoded node from the proof, and
@@ -202,6 +216,19 @@ where
 		compact_proof.extend(child_proof);
 	}
 
+	Ok(CompactProof { encoded_nodes: compact_proof })
+}
+
+pub fn encode_compact_raw<L, DB>(
+	partial_db: &DB,
+	root: &TrieHash<L>,
+) -> Result<CompactProof, Error<TrieHash<L>, CError<L>>>
+where
+	L: TrieConfiguration,
+	DB: HashDBT<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let trie = crate::TrieDBBuilder::<L>::new(partial_db, root).build();
+	let compact_proof = trie_db::encode_compact::<L>(&trie)?;
 	Ok(CompactProof { encoded_nodes: compact_proof })
 }
 
