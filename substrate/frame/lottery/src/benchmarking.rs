@@ -143,10 +143,7 @@ mod benchmarks {
 		T::Currency::set_balance(&winner, T::Currency::minimum_balance() * 10u32.into());
 		// Make sure lottery account has at least min balance too
 		let lottery_account = Lottery::<T>::account_id();
-		T::Currency::set_balance(
-			&lottery_account,
-			T::Currency::minimum_balance() * 10u32.into(),
-		);
+		T::Currency::set_balance(&lottery_account, T::Currency::minimum_balance() * 10u32.into());
 		// Buy a ticket
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
@@ -169,7 +166,12 @@ mod benchmarks {
 		assert!(crate::Lottery::<T>::get().is_none());
 		assert_eq!(TicketsCount::<T>::get(), 0);
 		assert_eq!(Lottery::<T>::pot().1, 0u32.into());
-		assert!(!T::Currency::reducible_balance(&winner, Preservation::Expendable, Fortitude::Polite).is_zero());
+		assert!(!T::Currency::reducible_balance(
+			&winner,
+			Preservation::Expendable,
+			Fortitude::Polite
+		)
+		.is_zero());
 
 		Ok(())
 	}
@@ -182,10 +184,7 @@ mod benchmarks {
 		T::Currency::set_balance(&winner, T::Currency::minimum_balance() * 10u32.into());
 		// Make sure lottery account has at least min balance too
 		let lottery_account = Lottery::<T>::account_id();
-		T::Currency::set_balance(
-			&lottery_account,
-			T::Currency::minimum_balance() * 10u32.into(),
-		);
+		T::Currency::set_balance(&lottery_account, T::Currency::minimum_balance() * 10u32.into());
 		// Buy a ticket
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
@@ -209,7 +208,12 @@ mod benchmarks {
 		assert_eq!(LotteryIndex::<T>::get(), 2);
 		assert_eq!(TicketsCount::<T>::get(), 0);
 		assert_eq!(Lottery::<T>::pot().1, 0u32.into());
-		assert!(!T::Currency::reducible_balance(&winner, Preservation::Expendable, Fortitude::Polite).is_zero());
+		assert!(!T::Currency::reducible_balance(
+			&winner,
+			Preservation::Expendable,
+			Fortitude::Polite
+		)
+		.is_zero());
 
 		Ok(())
 	}

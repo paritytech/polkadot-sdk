@@ -64,9 +64,10 @@ use frame_support::{
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
 	traits::{
-		tokens::{Fortitude, Preservation},
 		fungible::{Inspect, Mutate},
-		Get, Randomness},
+		tokens::{Fortitude, Preservation},
+		Get, Randomness,
+	},
 	PalletId,
 };
 pub use pallet::*;
@@ -144,8 +145,7 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>;
 
 		/// The currency trait.
-		type Currency: Inspect<Self::AccountId>
-			+ Mutate<Self::AccountId>;
+		type Currency: Inspect<Self::AccountId> + Mutate<Self::AccountId>;
 
 		/// Something that provides randomness in the runtime.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -375,8 +375,7 @@ pub mod pallet {
 			// Make sure pot exists.
 			let lottery_account = Self::account_id();
 			if T::Currency::total_balance(&lottery_account).is_zero() {
-				let _ =
-					T::Currency::mint_into(&lottery_account, T::Currency::minimum_balance());
+				let _ = T::Currency::mint_into(&lottery_account, T::Currency::minimum_balance());
 			}
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())
@@ -471,7 +470,12 @@ impl<T: Config> Pallet<T> {
 				}
 				participating_calls.try_push(call_index).map_err(|_| Error::<T>::TooManyCalls)?;
 				// Check user has enough funds and send it to the Lottery account.
-				T::Currency::transfer(caller, &Self::account_id(), config.price, Preservation::Preserve)?;
+				T::Currency::transfer(
+					caller,
+					&Self::account_id(),
+					config.price,
+					Preservation::Preserve,
+				)?;
 				// Create a new ticket.
 				TicketsCount::<T>::put(new_ticket_count);
 				Tickets::<T>::insert(ticket_count, caller.clone());

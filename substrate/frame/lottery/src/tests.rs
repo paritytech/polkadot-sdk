@@ -53,14 +53,20 @@ fn basic_end_to_end_works() {
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), price, length, delay, true));
 		assert!(crate::Lottery::<Test>::get().is_some());
 
-		assert_eq!(Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite), 100);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			100
+		);
 		let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
 			dest: 2,
 			value: 20,
 		}));
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
 		// 20 from the transfer, 10 from buying a ticket
-		assert_eq!(Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite), 100 - 20 - 10);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			100 - 20 - 10
+		);
 		assert_eq!(Participants::<Test>::get(&1).1.len(), 1);
 		assert_eq!(TicketsCount::<Test>::get(), 1);
 		// 1 owns the 0 ticket
@@ -81,7 +87,10 @@ fn basic_end_to_end_works() {
 		// Go to payout
 		System::run_to_block::<AllPalletsWithSystem>(25);
 		// User 1 wins
-		assert_eq!(Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite), 70 + 40);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			70 + 40
+		);
 		// Lottery is reset and restarted
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 		assert_eq!(LotteryIndex::<Test>::get(), 2);
@@ -210,7 +219,10 @@ fn buy_ticket_works_as_simple_passthrough() {
 		}));
 		// This is just a basic transfer then
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
-		assert_eq!(Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite), 100 - 20);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			100 - 20
+		);
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 
 		// Lottery is set up, but too expensive to enter, so `do_buy_ticket` fails.
@@ -223,7 +235,10 @@ fn buy_ticket_works_as_simple_passthrough() {
 		// Ticket price of 60 would kill the user's account
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), 60, 10, 5, false));
 		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
-		assert_eq!(Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite), 100 - 20 - 20);
+		assert_eq!(
+			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
+			100 - 20 - 20
+		);
 		assert_eq!(TicketsCount::<Test>::get(), 0);
 
 		// If call would fail, the whole thing still fails the same
@@ -419,9 +434,23 @@ fn start_lottery_will_create_account() {
 		let length = 20;
 		let delay = 5;
 
-		assert_eq!(Balances::reducible_balance(&Lottery::account_id(), Preservation::Expendable, Fortitude::Polite), 0);
+		assert_eq!(
+			Balances::reducible_balance(
+				&Lottery::account_id(),
+				Preservation::Expendable,
+				Fortitude::Polite
+			),
+			0
+		);
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), price, length, delay, false));
-		assert_eq!(Balances::reducible_balance(&Lottery::account_id(), Preservation::Expendable, Fortitude::Polite), 1);
+		assert_eq!(
+			Balances::reducible_balance(
+				&Lottery::account_id(),
+				Preservation::Expendable,
+				Fortitude::Polite
+			),
+			1
+		);
 	});
 }
 
