@@ -1040,7 +1040,6 @@ fn can_self_destruct_while_live() {
 		// New behavior: termination while on the stack is allowed, so expect success.
 		assert_ok!(builder::call(addr).data(vec![0]).build());
 
-		// Contract should be removed.
 		assert!(get_contract_checked(&addr).is_none(), "contract should have been destroyed");
 	});
 }
