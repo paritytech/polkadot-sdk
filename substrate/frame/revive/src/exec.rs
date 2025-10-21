@@ -211,7 +211,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// Contract is deleted only if it was created in the same call stack.
 	///
 	/// This function will fail if called from constructor.
-	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
+	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Returns the code hash of the contract being executed.
 	#[allow(dead_code)]
@@ -1456,9 +1456,8 @@ where
 			}
 			// destroy each contract registered for destruction
 			let contracts_to_destroy = mem::take(&mut self.contracts_to_be_destroyed);
-			for (contract_address, (contract_info, beneficiary)) in contracts_to_destroy {
-				let _code_removed =
-					self.destroy_contract(&contract_address, &contract_info, &beneficiary);
+			for (contract_address, (mut contract_info, beneficiary)) in contracts_to_destroy {
+				self.destroy_contract(&contract_address, &mut contract_info, &beneficiary);
 			}
 		}
 	}
@@ -1678,28 +1677,21 @@ where
 	fn destroy_contract(
 		&mut self,
 		contract_address: &H160,
-		contract_info: &ContractInfo<T>,
+		contract_info: &mut ContractInfo<T>,
 		beneficiary_address: &H160,
-	) -> CodeRemoved {
+	) {
 		let contract_account = T::AddressMapper::to_account_id(contract_address);
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
 		// Only allow storage to be removed if the contract was created in the current tx.
 		let delete_code = self.contracts_created.contains(&contract_account);
 
-		// Create a nested storage meter and terminate the contract's storage.
-		let mut nested = self.storage_meter.nested(BalanceOf::<T>::max_value());
-		nested.terminate(contract_info, beneficiary_account.clone(), delete_code);
-		let mut info = Some(contract_info.clone());
-		self.storage_meter
-			.absorb(mem::take(&mut nested), &contract_account, info.as_mut());
-
+		self.storage_meter.terminate_absorb(contract_account, contract_info, beneficiary_account.clone(), delete_code);
+		
 		if delete_code {
 			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered for storage deletion.");
-			CodeRemoved::Yes
 		} else {
 			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} NOT registered for storage deletion.");
-			CodeRemoved::No
 		}
 	}
 
@@ -1756,7 +1748,7 @@ where
 		}
 	}
 
-	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		let (account_id, contract_address, contract_info) = {
 			let frame = self.top_frame_mut();
 			if frame.entry_point == ExportedFunction::Constructor {
@@ -2232,9 +2224,6 @@ where
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
-		if matches!(self.caller(), Origin::<T>::Root) {
-			return Err(DispatchError::RootNotAllowed);
-		}
 		let account_id = self.caller().account_id()?.clone();
 		let caller_address = T::AddressMapper::to_address(&account_id);
 		{

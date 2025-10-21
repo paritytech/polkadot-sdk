@@ -313,6 +313,20 @@ where
 		}
 	}
 
+	pub fn terminate_absorb(
+		&mut self,
+		contract_account: T::AccountId,
+		contract_info: &mut ContractInfo<T>,
+		beneficiary: T::AccountId,
+		delete_code: bool,
+	) {
+		use sp_runtime::traits::Bounded;
+		// Create a nested storage meter and terminate the contract's storage.
+		let mut nested = self.nested(BalanceOf::<T>::max_value());
+		nested.terminate(contract_info, beneficiary.clone(), delete_code);
+		self.absorb(core::mem::take(&mut nested), &contract_account, Some(contract_info));
+	}
+	
 	/// Record a charge that has taken place externally.
 	///
 	/// This will not perform a charge. It just records it to reflect it in the
@@ -455,7 +469,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// This will manipulate the meter so that all storage deposit accumulated in
 	/// `contract_info` will be refunded to the `origin` of the meter. And the free
 	/// (`reducible_balance`) will be sent to the `beneficiary`.
-	pub fn terminate(
+	fn terminate(
 		&mut self,
 		info: &ContractInfo<T>,
 		beneficiary: T::AccountId,
@@ -553,7 +567,7 @@ fn terminate<T: Config>(
 		beneficiary: &T::AccountId,
 		delete_code: &bool,
 	) -> Result<(), DispatchError> {
-		if *delete_code {
+		let balance = if *delete_code {
 			// Clean up on-chain storage
 			let contract_address = T::AddressMapper::to_address(contract);
 			let contract_info = AccountInfo::<T>::load_contract(&contract_address)
@@ -568,17 +582,13 @@ fn terminate<T: Config>(
 			System::<T>::dec_consumers(&contract);
 
 			// Whatever is left in the contract is sent to the termination beneficiary.
-			let balance = T::Currency::total_balance(&contract);
-			if !balance.is_zero() {
-				T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
-			}
+			T::Currency::total_balance(&contract)
 		} else {
 			// Whatever is left in the contract is sent to the termination beneficiary.
-			let balance =
-				T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite);
-			if !balance.is_zero() {
-				T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
-			}
+			T::Currency::reducible_balance(&contract, Preservation::Expendable, Polite)
+		};
+		if !balance.is_zero() {
+			T::Currency::transfer(&contract, &beneficiary, balance, Preservation::Expendable)?;
 		}
 
 		Ok(())

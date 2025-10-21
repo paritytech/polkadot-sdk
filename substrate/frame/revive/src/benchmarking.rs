@@ -1261,7 +1261,7 @@ mod benchmarks {
 		assert!(PristineCode::<T>::get(code_hash).is_none());
 
 		// Check that the balance has been transferred away
-		let balance = <T as Config>::Currency::balance(&instance.account_id);
+		let balance = <T as Config>::Currency::total_balance(&instance.account_id);
 		assert_eq!(balance, 0u32.into());
 
 		// Check that the beneficiary received the balance

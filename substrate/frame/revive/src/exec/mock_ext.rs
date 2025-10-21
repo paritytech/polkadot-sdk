@@ -270,8 +270,8 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::terminate")
+	fn terminate_if_same_tx(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::terminate_if_same_tx")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {

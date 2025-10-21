@@ -921,7 +921,7 @@ pub mod env {
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
 		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
-		if matches!(self.ext.terminate(&beneficiary)?, crate::CodeRemoved::No) {
+		if matches!(self.ext.terminate_if_same_tx(&beneficiary)?, crate::CodeRemoved::No) {
 			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
 		}
 		Err(TrapReason::Termination)
