@@ -1686,8 +1686,13 @@ where
 		// Only allow storage to be removed if the contract was created in the current tx.
 		let delete_code = self.contracts_created.contains(&contract_account);
 
-		self.storage_meter.terminate_absorb(contract_account, contract_info, beneficiary_account.clone(), delete_code);
-		
+		self.storage_meter.terminate_absorb(
+			contract_account,
+			contract_info,
+			beneficiary_account.clone(),
+			delete_code,
+		);
+
 		if delete_code {
 			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered for storage deletion.");
 		} else {

@@ -326,7 +326,7 @@ where
 		nested.terminate(contract_info, beneficiary.clone(), delete_code);
 		self.absorb(core::mem::take(&mut nested), &contract_account, Some(contract_info));
 	}
-	
+
 	/// Record a charge that has taken place externally.
 	///
 	/// This will not perform a charge. It just records it to reflect it in the
@@ -469,12 +469,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// This will manipulate the meter so that all storage deposit accumulated in
 	/// `contract_info` will be refunded to the `origin` of the meter. And the free
 	/// (`reducible_balance`) will be sent to the `beneficiary`.
-	fn terminate(
-		&mut self,
-		info: &ContractInfo<T>,
-		beneficiary: T::AccountId,
-		delete_code: bool,
-	) {
+	fn terminate(&mut self, info: &ContractInfo<T>, beneficiary: T::AccountId, delete_code: bool) {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
 		let deposit = if delete_code { info.total_deposit() } else { BalanceOf::<T>::zero() };
 		self.own_contribution = Contribution::Terminated {
