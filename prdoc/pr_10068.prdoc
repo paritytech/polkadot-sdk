@@ -1,7 +1,7 @@
 title: '[stable2509] Bump Westend AH spec_version to 1_020_004'
 doc:
-- audience: Todo
-  description: null
+- audience: Runtime User
+  description: Prdoc to pass semver check. Will be deleted.
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: none
