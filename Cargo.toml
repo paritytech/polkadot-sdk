@@ -400,6 +400,7 @@ members = [
 	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/migrations",
 	"substrate/frame/mixnet",
+	"substrate/frame/multi-asset-bounties",
 	"substrate/frame/multisig",
 	"substrate/frame/nft-fractionalization",
 	"substrate/frame/nfts",
@@ -908,7 +909,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.10.0", features = ["websocket"] }
+litep2p = { version = "0.11.0", features = ["rsa", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -1020,6 +1021,7 @@ pallet-migrations = { path = "substrate/frame/migrations", default-features = fa
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
 pallet-mmr = { path = "substrate/frame/merkle-mountain-range", default-features = false }
+pallet-multi-asset-bounties = { path = "substrate/frame/multi-asset-bounties", default-features = false }
 pallet-multisig = { path = "substrate/frame/multisig", default-features = false }
 pallet-nft-fractionalization = { path = "substrate/frame/nft-fractionalization", default-features = false }
 pallet-nfts = { path = "substrate/frame/nfts", default-features = false }
