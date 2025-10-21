@@ -16,5 +16,6 @@
 // limitations under the License.
 
 //! Traits related to honzon protocol
-pub mod auction;
+mod auction;
+
 pub use auction::*;

@@ -80,7 +80,7 @@
 use codec::MaxEncodedLen;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Auction, AuctionHandler, AuctionInfo, Change},
+	traits::honzon::{Auction, AuctionHandler, AuctionInfo, Change},
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use sp_runtime::{

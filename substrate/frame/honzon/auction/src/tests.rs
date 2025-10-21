@@ -22,7 +22,7 @@
 use super::*;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Auction, AuctionInfo},
+	traits::honzon::{Auction, AuctionInfo},
 };
 use mock::*;
 

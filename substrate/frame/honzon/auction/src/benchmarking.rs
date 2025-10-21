@@ -25,7 +25,7 @@
 use super::*;
 use crate::Pallet as AuctionModule;
 use frame_benchmarking::v2::*;
-use frame_support::traits::{Auction, AuctionInfo};
+use frame_support::traits::honzon::{Auction, AuctionInfo};
 use frame_system::{Pallet as System, RawOrigin};
 
 #[benchmarks]

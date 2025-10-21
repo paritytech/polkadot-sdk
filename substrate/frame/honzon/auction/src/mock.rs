@@ -22,7 +22,7 @@
 use super::*;
 use frame_support::{
 	construct_runtime, derive_impl,
-	traits::{AuctionHandler, Change, OnNewBidResult},
+	traits::honzon::{AuctionHandler, Change, OnNewBidResult},
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
