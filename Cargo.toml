@@ -697,10 +697,10 @@ bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-featur
 bp-xcm-bridge-hub-router = { path = "bridges/primitives/xcm-bridge-hub-router", default-features = false, version = "0.19.0" }
 bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false, version = "0.15.0" }
 bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo", version = "0.1.0" }
-bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.22.0" }
+bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.22.1" }
 bridge-hub-test-utils = { path = "cumulus/parachains/runtimes/bridge-hubs/test-utils", default-features = false }
 bridge-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend", version = "0.1.0" }
-bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", version = "0.19.0" }
+bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", version = "0.19.1" }
 bridge-runtime-common = { path = "bridges/bin/runtime-common", default-features = false, version = "0.23.0" }
 bs58 = { version = "0.5.1", default-features = false }
 build-helper = { version = "0.1.1" }
@@ -1050,7 +1050,7 @@ pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", def
 revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
 revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime", version = "0.1.0" }
 # TODO: remove the reward stuff as they are not needed here
-pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false, version = "0.6.1" }
+pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false, version = "0.6.2" }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false, version = "0.5.0" }
 pallet-staking-async-parachain-runtime = { path = "substrate/frame/staking-async/runtimes/parachain" }
 pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false, version = "0.5.0" }
@@ -1289,7 +1289,7 @@ slotmap = { version = "1.0" }
 smallvec = { version = "1.11.0", default-features = false }
 smoldot = { version = "0.11.0", default-features = false }
 smoldot-light = { version = "0.9.0", default-features = false }
-snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", default-features = false, version = "0.15.0" }
+snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", default-features = false, version = "0.15.1" }
 snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false, version = "0.15.0" }
 snowbridge-ethereum = { path = "bridges/snowbridge/primitives/ethereum", default-features = false, version = "0.14.0" }
 snowbridge-inbound-queue-primitives = { path = "bridges/snowbridge/primitives/inbound-queue", default-features = false, version = "0.4.0" }
@@ -1297,9 +1297,9 @@ snowbridge-merkle-tree = { path = "bridges/snowbridge/primitives/merkle-tree", d
 snowbridge-outbound-queue-primitives = { path = "bridges/snowbridge/primitives/outbound-queue", default-features = false, version = "0.4.0" }
 snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.15.0" }
 snowbridge-outbound-queue-v2-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue-v2/runtime-api", default-features = false, version = "0.4.0" }
-snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.15.0" }
+snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.15.1" }
 snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallets/ethereum-client/fixtures", default-features = false, version = "0.23.0" }
-snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.15.0" }
+snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.15.1" }
 snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false, version = "0.23.0" }
 snowbridge-pallet-inbound-queue-v2 = { path = "bridges/snowbridge/pallets/inbound-queue-v2", default-features = false, version = "0.4.0" }
 snowbridge-pallet-inbound-queue-v2-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue-v2/fixtures", default-features = false, version = "0.4.0" }

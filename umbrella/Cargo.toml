@@ -1811,7 +1811,7 @@ version = "42.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async"
-version = "0.6.1"
+version = "0.6.2"
 
 [dependencies.pallet-staking-async-ah-client]
 default-features = false
