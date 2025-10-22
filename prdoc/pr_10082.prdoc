@@ -6,4 +6,4 @@ crates:
 - name: polkadot-approval-distribution
   bump: patch
 - name: polkadot-node-primitives
-  bump: patch
+  bump: minor
