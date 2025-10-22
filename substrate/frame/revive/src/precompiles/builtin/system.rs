@@ -44,6 +44,8 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
 		match input {
+			ISystemCalls::terminate(ISystem::terminateCall { .. }) if env.is_read_only() =>
+				Err(LibError::<T>::StateChangeDenied.into()),
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
@@ -87,9 +89,6 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let proof_size = env.gas_meter().gas_left().proof_size();
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
-			},
-			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) if env.is_read_only() => {
-					return Err(LibError::<T>::StateChangeDenied.into());
 			},
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
 				// no need to adjust gas because this always deletes code
