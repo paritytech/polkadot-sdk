@@ -102,7 +102,7 @@ pub mod system_parachain {
 	use xcm_builder::IsChildSystemParachain;
 
 	/// Network's Asset Hub parachain ID.
-	pub const ASSET_HUB_ID: u32 = 1000;
+	pub const ASSET_HUB_ID: u32 = 1100;
 	/// Collectives parachain ID.
 	pub const COLLECTIVES_ID: u32 = 1001;
 	/// BridgeHub parachain ID.

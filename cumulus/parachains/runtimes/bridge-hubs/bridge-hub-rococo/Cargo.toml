@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-rococo-runtime"
-version = "0.22.0"
+version = "0.22.1"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo's BridgeHub parachain runtime"

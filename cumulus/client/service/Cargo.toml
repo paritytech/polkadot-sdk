@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-service"
-version = "0.27.0"
+version = "0.29.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common functions used to assemble the components of a parachain node."

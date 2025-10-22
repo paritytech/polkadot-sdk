@@ -1,0 +1,14 @@
+title: Adjust statement store configs to hold more data
+doc:
+- audience: Node Operator
+  description: |-
+    # Description
+
+    This PR adjusts the statement store configuration, hardcoded in the networking component of the store, to enable the store to hold greater amounts of data, 2GiB worth of statement data to be exact.
+
+    Moreover, the networking config is adjusted to be able to process significantly more statements, as well as preventing the store from gossiping indefinitely after the LRU cache reaches capacity.
+crates:
+- name: sc-network-statement
+  bump: patch
+- name: sc-statement-store
+  bump: minor
