@@ -775,15 +775,6 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-<<<<<<< HEAD
-		for h in self.index.read().entries.keys() {
-			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
-			if let Some(encoded) = encoded {
-				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-					let hash = statement.hash();
-					result.push((hash, statement));
-				}
-=======
 		for hash in index.entries.keys().cloned() {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
@@ -809,7 +800,6 @@ impl StatementStore for Store {
 			};
 			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
 				result.push((hash, statement));
->>>>>>> b21cbb58 (Improve statement-store gossiping performance (#9912))
 			}
 		}
 		Ok(result)
