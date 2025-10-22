@@ -426,6 +426,7 @@ mod test {
 			let built_block = incremental_block
 				.build(
 					block.number,
+					block.base_fee_per_gas,
 					block.parent_hash,
 					block.timestamp,
 					block.miner,
