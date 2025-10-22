@@ -20,6 +20,7 @@ use crate::{
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
 	Config, H160,
+	Error as LibError,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -89,6 +90,9 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				Ok(res.abi_encode())
 			},
 			ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
+				if env.is_read_only() {
+					return Err(LibError::<T>::StateChangeDenied.into());
+				}
 				// no need to adjust gas because this always deletes code
 				env.gas_meter_mut().charge(RuntimeCosts::Terminate { code_removed: true })?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
