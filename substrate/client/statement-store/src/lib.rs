@@ -83,6 +83,10 @@ pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
 /// The maximum amount of data the statement store can hold, regardless of the number of
 /// statements from which the data originates.
 pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
+/// The maximum size of a single statement in bytes.
+/// Accounts for the 1-byte vector length prefix when statements are gossiped as `Vec<Statement>`.
+pub const MAX_STATEMENT_SIZE: usize =
+	sc_network_statement::config::MAX_STATEMENT_NOTIFICATION_SIZE as usize - 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -860,6 +864,18 @@ impl StatementStore for Store {
 	/// Submit a statement to the store. Validates the statement and returns validation result.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
 		let hash = statement.hash();
+		let encoded_size = statement.encoded_size();
+		if encoded_size > MAX_STATEMENT_SIZE {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement is too big for propogation: {:?} ({}/{} bytes)",
+				HexDisplay::from(&hash),
+				statement.encoded_size(),
+				MAX_STATEMENT_SIZE
+			);
+			return SubmitResult::Ignored
+		}
+
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired =>
 				if !source.can_be_resubmitted() {
@@ -1049,6 +1065,7 @@ mod tests {
 									Some(a) if a == account(2) => (2, 1000),
 									Some(a) if a == account(3) => (3, 1000),
 									Some(a) if a == account(4) => (4, 1000),
+									Some(a) if a == account(42) => (42, 42 * crate::MAX_STATEMENT_SIZE as u32),
 									_ => (2, 2000),
 								};
 								Ok(ValidStatement{ max_count, max_size })
@@ -1319,6 +1336,28 @@ mod tests {
 			store.statements().unwrap().into_iter().map(|(hash, _)| hash).collect();
 		statements.sort();
 		assert_eq!(expected_statements, statements);
+	}
+
+	#[test]
+	fn max_statement_size_for_gossiping() {
+		let (store, _temp) = test_store();
+		store.index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
+
+		assert_eq!(
+			store.submit(
+				statement(42, 1, Some(1), crate::MAX_STATEMENT_SIZE - 500),
+				StatementSource::Local
+			),
+			SubmitResult::New(NetworkPriority::High)
+		);
+
+		assert_eq!(
+			store.submit(
+				statement(42, 2, Some(1), 2 * crate::MAX_STATEMENT_SIZE),
+				StatementSource::Local
+			),
+			SubmitResult::Ignored
+		);
 	}
 
 	#[test]
