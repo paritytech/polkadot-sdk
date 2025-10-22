@@ -56,7 +56,7 @@ pub mod slot_based;
 // sanity check.
 const PARENT_SEARCH_DEPTH: usize = 40;
 
-// Helper to pre-connect to the backing group we got assigned to and keep the connection 
+// Helper to pre-connect to the backing group we got assigned to and keep the connection
 // open until backing group changes or own slot ends.
 struct BackingGroupConnectionHelper<Client> {
 	client: std::sync::Arc<Client>,
