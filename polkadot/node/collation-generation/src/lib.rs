@@ -44,7 +44,7 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
+	request_claim_queue, request_node_features, request_persisted_validation_data, request_session_index_for_child,
 	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
@@ -213,9 +213,10 @@ impl CollationGenerationSubsystem {
 		let session_info =
 			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
 		
-		// TODO: Get node_features from runtime API
-		// For now, use empty NodeFeatures (all features disabled, will use v1)
-		let node_features = NodeFeatures::new();
+		// Get node_features from runtime API
+		let node_features = request_node_features(relay_parent, session_index, ctx.sender())
+			.await
+			.await??;
 		
 		let collation = PreparedCollation {
 			collation,
@@ -430,9 +431,10 @@ impl CollationGenerationSubsystem {
 
 					// Distribute the collation.
 					let parent_head = collation.head_data.clone();
-					// TODO: Get node_features from runtime API
-					// For now, use empty NodeFeatures (all features disabled, will use v1)
-					let node_features = NodeFeatures::new();
+					// Get node_features from runtime API
+					let node_features = request_node_features(relay_parent, session_index, &mut task_sender)
+						.await
+						.await??;
 					
 					if let Err(err) = construct_and_distribute_receipt(
 						PreparedCollation {
