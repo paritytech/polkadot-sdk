@@ -21011,6 +21011,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-keystore",
+ "sc-network-statement",
  "sp-api",
  "sp-blockchain",
  "sp-core 28.0.0",
@@ -23515,6 +23516,7 @@ name = "sp-runtime"
 version = "31.0.1"
 dependencies = [
  "binary-merkle-tree",
+ "bytes",
  "docify",
  "either",
  "hash256-std-hasher",
