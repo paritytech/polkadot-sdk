@@ -54,6 +54,12 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 		use IStorage::IStorageCalls;
 		let max_size = limits::STORAGE_BYTES;
 		match input {
+			IStorageCalls::clearStorage(_) | IStorageCalls::takeStorage(_)
+				if env.is_read_only() =>
+			{
+				Err(Error::Error(crate::Error::<Self::T>::StateChangeDenied.into()))
+			},
+
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)
 					.map_err(|_| Error::Revert("invalid storage flag".into()))?;
