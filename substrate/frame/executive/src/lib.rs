@@ -134,7 +134,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	generic::Digest,
 	traits::{
-		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, NumberFor, One,
+		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, LazyBlock, NumberFor, One,
 		ValidateUnsigned, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
@@ -161,6 +161,7 @@ pub type OriginOf<E, C> = <CallOf<E, C> as Dispatchable>::RuntimeOrigin;
 
 #[derive(PartialEq)]
 pub enum ExecutiveError {
+	UnableToDecodeExtrinsic,
 	InvalidInherentPosition(usize),
 	OnlyInherentsAllowed,
 	ApplyExtrinsic(TransactionValidityError),
@@ -170,6 +171,8 @@ pub enum ExecutiveError {
 impl core::fmt::Debug for ExecutiveError {
 	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
+			ExecutiveError::UnableToDecodeExtrinsic =>
+				write!(fmt, "The extrinsic could not be decoded correctly"),
 			ExecutiveError::InvalidInherentPosition(i) =>
 				write!(fmt, "Invalid inherent position for extrinsic at index {}", i),
 			ExecutiveError::OnlyInherentsAllowed =>
@@ -248,7 +251,7 @@ where
 	OriginOf<Block::Extrinsic, Context>: From<Option<System::AccountId>>,
 	UnsignedValidator: ValidateUnsigned<Call = CallOf<Block::Extrinsic, Context>>,
 {
-	fn execute_block(block: Block) {
+	fn execute_block(block: Block::LazyBlock) {
 		Executive::<
 			System,
 			Block,
@@ -301,7 +304,7 @@ where
 	///
 	/// Should only be used for testing ONLY.
 	pub fn try_execute_block(
-		block: Block,
+		block: Block::LazyBlock,
 		state_root_check: bool,
 		signature_check: bool,
 		select: frame_try_runtime::TryStateSelect,
@@ -316,8 +319,7 @@ where
 		);
 
 		let mode = Self::initialize_block(block.header());
-		Self::initial_checks(&block);
-		let (header, extrinsics) = block.deconstruct();
+		Self::initial_checks(block.header());
 
 		// Apply extrinsics:
 		let signature_check = if signature_check {
@@ -325,7 +327,7 @@ where
 		} else {
 			Block::Extrinsic::unchecked_into_checked_i_know_what_i_am_doing
 		};
-		Self::apply_extrinsics(mode, extrinsics.into_iter(), |uxt, is_inherent| {
+		Self::apply_extrinsics(mode, block.extrinsics(), |uxt, is_inherent| {
 			Self::do_apply_extrinsic(uxt, is_inherent, signature_check)
 		})?;
 
@@ -338,6 +340,7 @@ where
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
 		<System as frame_system::Config>::PostTransactions::post_transactions();
 
+		let header = block.header();
 		Self::on_idle_hook(*header.number());
 		Self::on_finalize_hook(*header.number());
 
@@ -627,9 +630,8 @@ where
 		last.map(|v| v.was_upgraded(&current)).unwrap_or(true)
 	}
 
-	fn initial_checks(block: &Block) {
+	fn initial_checks(header: &Block::Header) {
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "initial_checks");
-		let header = block.header();
 
 		// Check that `parent_hash` is correct.
 		let n = *header.number();
@@ -642,18 +644,18 @@ where
 	}
 
 	/// Actually execute all transitions for `block`.
-	pub fn execute_block(block: Block) {
+	pub fn execute_block(block: Block::LazyBlock) {
 		sp_io::init_tracing();
 		sp_tracing::within_span! {
 			sp_tracing::info_span!("execute_block", ?block);
 			// Execute `on_runtime_upgrade` and `on_initialize`.
 			let mode = Self::initialize_block(block.header());
-			Self::initial_checks(&block);
+			Self::initial_checks(block.header());
 
-			let (header, extrinsics) = block.deconstruct();
+			let extrinsics = block.extrinsics();
 			if let Err(e) = Self::apply_extrinsics(
 				mode,
-				extrinsics.into_iter(),
+				extrinsics,
 				|uxt, is_inherent| {
 					Self::do_apply_extrinsic(uxt, is_inherent, Block::Extrinsic::check)
 				}
@@ -669,6 +671,7 @@ where
 			<frame_system::Pallet<System>>::note_finished_extrinsics();
 			<System as frame_system::Config>::PostTransactions::post_transactions();
 
+			let header = block.header();
 			Self::on_idle_hook(*header.number());
 			Self::on_finalize_hook(*header.number());
 			Self::final_checks(&header);
@@ -697,11 +700,12 @@ where
 	/// Execute given extrinsics.
 	fn apply_extrinsics(
 		mode: ExtrinsicInclusionMode,
-		extrinsics: impl Iterator<Item = Block::Extrinsic>,
+		extrinsics: impl Iterator<Item = Result<Block::Extrinsic, codec::Error>>,
 		mut apply_extrinsic: impl FnMut(Block::Extrinsic, bool) -> ApplyExtrinsicResult,
 	) -> Result<(), ExecutiveError> {
 		let mut first_non_inherent_idx = 0;
-		for (idx, uxt) in extrinsics.into_iter().enumerate() {
+		for (idx, maybe_uxt) in extrinsics.into_iter().enumerate() {
+			let uxt = maybe_uxt.map_err(|_| ExecutiveError::UnableToDecodeExtrinsic)?;
 			let is_inherent = System::is_inherent(&uxt);
 			if is_inherent {
 				// Check if inherents are first
