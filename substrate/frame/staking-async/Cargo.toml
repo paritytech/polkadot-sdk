@@ -36,14 +36,14 @@ sp-staking = { features = ["serde"], workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 env_logger = { workspace = true }
-frame-benchmarking = { default-features = true, path = "../benchmarking" }
-frame-support = { features = ["experimental"], default-features = true, path = "../support" }
+frame-benchmarking = { default-features = true, workspace = true }
+frame-support = { features = ["experimental"], default-features = true, workspace = true }
 log = { workspace = true }
-pallet-bags-list = { default-features = true, path = "../bags-list" }
-pallet-balances = { default-features = true, path = "../balances" }
+pallet-bags-list = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
 rand_chacha = { workspace = true, default-features = true }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-substrate-test-utils = { path = "../../test-utils" }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
