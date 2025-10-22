@@ -539,6 +539,10 @@ pub use pallet_mixnet;
 #[cfg(feature = "pallet-mmr")]
 pub use pallet_mmr;
 
+/// FRAME pallet to manage multi-asset and cross-chain bounties.
+#[cfg(feature = "pallet-multi-asset-bounties")]
+pub use pallet_multi_asset_bounties;
+
 /// FRAME multi-signature dispatch pallet.
 #[cfg(feature = "pallet-multisig")]
 pub use pallet_multisig;
@@ -802,6 +806,10 @@ pub use pallet_xcm_bridge_hub;
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]
 pub use pallet_xcm_bridge_hub_router;
+
+/// Provides precompiles for `pallet-xcm`.
+#[cfg(feature = "pallet-xcm-precompiles")]
+pub use pallet_xcm_precompiles;
 
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]

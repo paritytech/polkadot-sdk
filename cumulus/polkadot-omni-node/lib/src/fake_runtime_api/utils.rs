@@ -34,7 +34,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
-				fn execute_block(_: $block) {
+				fn execute_block(_: <$block as BlockT>::LazyBlock) {
 					unimplemented!()
 				}
 
@@ -100,7 +100,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn check_inherents(
-					_: $block,
+					_: <$block as BlockT>::LazyBlock,
 					_: sp_inherents::InherentData
 				) -> sp_inherents::CheckInherentsResult {
 					unimplemented!()
@@ -183,7 +183,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn execute_block(
-					_: $block,
+					_: <$block as BlockT>::LazyBlock,
 					_: bool,
 					_: bool,
 					_: frame_try_runtime::TryStateSelect,

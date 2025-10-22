@@ -83,6 +83,10 @@ pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
 /// The maximum amount of data the statement store can hold, regardless of the number of
 /// statements from which the data originates.
 pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
+/// The maximum size of a single statement in bytes.
+/// Accounts for the 1-byte vector length prefix when statements are gossiped as `Vec<Statement>`.
+pub const MAX_STATEMENT_SIZE: usize =
+	sc_network_statement::config::MAX_STATEMENT_NOTIFICATION_SIZE as usize - 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -155,6 +159,7 @@ impl Default for Options {
 
 #[derive(Default)]
 struct Index {
+	recent: HashSet<Hash>,
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
@@ -243,6 +248,7 @@ impl Index {
 		}
 		let priority = Priority(statement.priority().unwrap_or(0));
 		self.entries.insert(hash, (account, priority, statement.data_len()));
+		self.recent.insert(hash);
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -324,6 +330,10 @@ impl Index {
 		purged
 	}
 
+	fn take_recent(&mut self) -> HashSet<Hash> {
+		std::mem::take(&mut self.recent)
+	}
+
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
 		if let Some((account, priority, len)) = self.entries.remove(hash) {
 			self.total_size -= len;
@@ -347,6 +357,7 @@ impl Index {
 					}
 				}
 			}
+			let _ = self.recent.remove(hash);
 			self.expired.insert(*hash, current_time);
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
 				self.accounts.entry(account)
@@ -768,13 +779,31 @@ impl StatementStore for Store {
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let index = self.index.read();
 		let mut result = Vec::with_capacity(index.entries.len());
-		for h in index.entries.keys() {
-			let encoded = self.db.get(col::STATEMENTS, h).map_err(|e| Error::Db(e.to_string()))?;
-			if let Some(encoded) = encoded {
-				if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-					let hash = statement.hash();
-					result.push((hash, statement));
-				}
+		for hash in index.entries.keys().cloned() {
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				continue
+			};
+			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				result.push((hash, statement));
+			}
+		}
+		Ok(result)
+	}
+
+	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
+		let mut index = self.index.write();
+		let recent = index.take_recent();
+		let mut result = Vec::with_capacity(recent.len());
+		for hash in recent {
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				continue
+			};
+			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+				result.push((hash, statement));
 			}
 		}
 		Ok(result)
@@ -809,6 +838,10 @@ impl StatementStore for Store {
 				},
 			},
 		)
+	}
+
+	fn has_statement(&self, hash: &Hash) -> bool {
+		self.index.read().entries.contains_key(hash)
 	}
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
@@ -861,6 +894,18 @@ impl StatementStore for Store {
 	/// Submit a statement to the store. Validates the statement and returns validation result.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
 		let hash = statement.hash();
+		let encoded_size = statement.encoded_size();
+		if encoded_size > MAX_STATEMENT_SIZE {
+			log::debug!(
+				target: LOG_TARGET,
+				"Statement is too big for propogation: {:?} ({}/{} bytes)",
+				HexDisplay::from(&hash),
+				statement.encoded_size(),
+				MAX_STATEMENT_SIZE
+			);
+			return SubmitResult::Ignored
+		}
+
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired =>
 				if !source.can_be_resubmitted() {
@@ -1050,6 +1095,7 @@ mod tests {
 									Some(a) if a == account(2) => (2, 1000),
 									Some(a) if a == account(3) => (3, 1000),
 									Some(a) if a == account(4) => (4, 1000),
+									Some(a) if a == account(42) => (42, 42 * crate::MAX_STATEMENT_SIZE as u32),
 									_ => (2, 2000),
 								};
 								Ok(ValidStatement{ max_count, max_size })
@@ -1216,6 +1262,40 @@ mod tests {
 	}
 
 	#[test]
+	fn take_recent_statements_clears_index() {
+		let (store, _temp) = test_store();
+		let statement0 = signed_statement(0);
+		let statement1 = signed_statement(1);
+		let statement2 = signed_statement(2);
+		let statement3 = signed_statement(3);
+
+		let _ = store.submit(statement0.clone(), StatementSource::Local);
+		let _ = store.submit(statement1.clone(), StatementSource::Local);
+		let _ = store.submit(statement2.clone(), StatementSource::Local);
+
+		let recent1 = store.take_recent_statements().unwrap();
+		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) = recent1.into_iter().unzip();
+		let expected1 = vec![statement0, statement1, statement2];
+		assert!(expected1.iter().all(|s| recent1_hashes.contains(&s.hash())));
+		assert!(expected1.iter().all(|s| recent1_statements.contains(s)));
+
+		// Recent statements are cleared.
+		let recent2 = store.take_recent_statements().unwrap();
+		assert_eq!(recent2.len(), 0);
+
+		store.submit(statement3.clone(), StatementSource::Network);
+
+		let recent3 = store.take_recent_statements().unwrap();
+		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) = recent3.into_iter().unzip();
+		let expected3 = vec![statement3];
+		assert!(expected3.iter().all(|s| recent3_hashes.contains(&s.hash())));
+		assert!(expected3.iter().all(|s| recent3_statements.contains(s)));
+
+		// Recent statements are cleared, but statements remain in the store.
+		assert_eq!(store.statements().unwrap().len(), 4);
+	}
+
+	#[test]
 	fn search_by_topic_and_key() {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
@@ -1320,6 +1400,28 @@ mod tests {
 			store.statements().unwrap().into_iter().map(|(hash, _)| hash).collect();
 		statements.sort();
 		assert_eq!(expected_statements, statements);
+	}
+
+	#[test]
+	fn max_statement_size_for_gossiping() {
+		let (store, _temp) = test_store();
+		store.index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
+
+		assert_eq!(
+			store.submit(
+				statement(42, 1, Some(1), crate::MAX_STATEMENT_SIZE - 500),
+				StatementSource::Local
+			),
+			SubmitResult::New(NetworkPriority::High)
+		);
+
+		assert_eq!(
+			store.submit(
+				statement(42, 2, Some(1), 2 * crate::MAX_STATEMENT_SIZE),
+				StatementSource::Local
+			),
+			SubmitResult::Ignored
+		);
 	}
 
 	#[test]
