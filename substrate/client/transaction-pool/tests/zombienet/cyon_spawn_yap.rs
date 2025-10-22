@@ -91,7 +91,7 @@ async fn cyon_spawn_yap() -> Result<(), anyhow::Error> {
 						"--pool-limit=2500000".into(),
 						"--pool-kbytes=4048000".into(),
 						"--pool-type=fork-aware".into(),
-						("-lparachain=off,parachain::collator-protocol=warn,aura=off,aura::cumulus=error,txpool=off,txpoolstat=off").into(),
+						("-lparachain=off,parachain::collator-protocol=warn,aura=off,aura::cumulus=trace,txpool=off,txpoolstat=off").into(),
 					])
 					.with_collator(|n| n.with_name("dave").with_rpc_port(9944))
 			})
