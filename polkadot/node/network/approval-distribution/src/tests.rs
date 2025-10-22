@@ -4845,3 +4845,94 @@ fn subsystem_accepts_tranche0_duplicate_assignments() {
 		},
 	);
 }
+
+#[test]
+fn test_empty_bitfield_gets_rejected_early() {
+	let peers = make_peers_and_authority_ids(15);
+	let peer_a = peers.get(0).unwrap().0;
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+	let candidate_hash = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
+
+	let _ = test_harness(
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
+		Arc::new(SystemClock {}),
+		state_without_reputation_delay(),
+		|mut virtual_overseer| async move {
+			let overseer = &mut virtual_overseer;
+
+			// Setup peer
+			setup_peer_with_view(overseer, &peer_a, view![hash], ValidationVersion::V3).await;
+
+			let mut keystore = LocalKeystore::in_memory();
+			let session = dummy_session_info_valid(1, &mut keystore, 1);
+
+			// Setup block with one candidate
+			let meta = BlockApprovalMeta {
+				hash,
+				parent_hash,
+				number: 1,
+				candidates: vec![(candidate_hash, 0.into(), 0.into())],
+				slot: 1.into(),
+				session: 1,
+				vrf_story: RelayVRFStory(Default::default()),
+			};
+			overseer_send(overseer, ApprovalDistributionMessage::NewBlocks(vec![meta])).await;
+
+			// Setup gossip topology
+			let peers_with_optional_peer_id = peers
+				.iter()
+				.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+				.collect_vec();
+			setup_gossip_topology(
+				overseer,
+				make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
+			)
+			.await;
+
+			// Send assignment first
+			let validator_index = ValidatorIndex(0);
+			let candidate_index = 0u32;
+			let cert = fake_assignment_cert_v2(hash, validator_index, CoreIndex(0).into());
+			let assignments = vec![(cert.clone(), candidate_index.into())];
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments);
+			send_message_from_peer_v3(overseer, &peer_a, msg).await;
+			provide_session(overseer, session.clone()).await;
+
+			// Should receive the assignment
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::ApprovalVoting(ApprovalVotingMessage::ImportAssignment(_, _))
+			);
+			expect_reputation_change(overseer, &peer_a, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+			// Create an approval with empty candidate_indices is rejected early
+			let mut candidate_indices: CandidateBitfield = vec![0].try_into().unwrap();
+			candidate_indices.inner_mut().clear();
+
+			let normal_approval = IndirectSignedApprovalVoteV2 {
+				block_hash: hash,
+				candidate_indices: candidate_indices.clone(),
+				validator: validator_index,
+				signature: signature_for(
+					&keystore,
+					&session,
+					vec![candidate_hash],
+					validator_index,
+				),
+			};
+
+			let approval_to_send = normal_approval;
+
+			// Send the approval
+			let msg =
+				protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval_to_send.clone()]);
+			send_message_from_peer_v3(overseer, &peer_a, msg).await;
+
+			// Expect rejection due to invalid message
+			expect_reputation_change(overseer, &peer_a, COST_INVALID_MESSAGE).await;
+
+			virtual_overseer
+		},
+	);
+}
