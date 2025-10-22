@@ -272,9 +272,8 @@ impl ReceiptExtractor {
 
 		// Process extrinsics in order while maintaining parallelism within buffer window
 		stream::iter(ext_iter)
-			.enumerate()
-			.map(|(idx, (ext, call, receipt))| async move {
-				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt, idx)
+			.map(|(ext, call, receipt, ext_idx)| async move {
+				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt, ext_idx)
 					.await
 					.inspect_err(|err| {
 						log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
@@ -298,6 +297,7 @@ impl ReceiptExtractor {
 				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 				EthTransact,
 				ReceiptGasInfo,
+				usize,
 			),
 		>,
 		ClientError,
@@ -345,9 +345,9 @@ impl ReceiptExtractor {
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let ext_iter = self.get_block_extrinsics(block).await?;
 
-		let (ext, eth_call, receipt_gas_info) = ext_iter
+		let (ext, eth_call, receipt_gas_info, _) = ext_iter
 			.into_iter()
-			.nth(transaction_index)
+			.find(|(_, _, _, ext_idx)| *ext_idx == transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
 		let substrate_block_number = block.number() as u64;
