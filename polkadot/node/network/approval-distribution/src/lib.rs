@@ -685,6 +685,8 @@ enum InvalidAssignmentError {
 enum InvalidVoteError {
 	// The candidate index was out of bounds.
 	CandidateIndexOutOfBounds,
+	// The candidate hash was not found in the block's candidate list.
+	CandidateHashNotFound,
 	// The validator index was out of bounds.
 	ValidatorIndexOutOfBounds,
 	// The signature of the vote was invalid.
@@ -2040,7 +2042,7 @@ impl State {
 		))
 		.check_signature(
 			&pubkey,
-			*candidate_hashes.first().unwrap(),
+			*candidate_hashes.first().ok_or(InvalidVoteError::CandidateHashNotFound)?,
 			entry.session,
 			&vote.signature,
 		)
@@ -2416,10 +2418,22 @@ impl State {
 	) -> Vec<IndirectSignedApprovalVoteV2> {
 		let mut sanitized_approvals = Vec::new();
 		for approval in approval.into_iter() {
-			if approval.candidate_indices.len() as usize > MAX_BITFIELD_SIZE {
+			let has_no_approved_candidates = approval.candidate_indices.first_one().is_none();
+			if approval.candidate_indices.len() as usize > MAX_BITFIELD_SIZE ||
+				has_no_approved_candidates
+			{
 				// Punish the peer for the invalid message.
-				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
-					.await;
+				modify_reputation(
+					&mut self.reputation,
+					sender,
+					peer_id,
+					if has_no_approved_candidates {
+						COST_INVALID_MESSAGE
+					} else {
+						COST_OVERSIZED_BITFIELD
+					},
+				)
+				.await;
 				gum::debug!(
 					target: LOG_TARGET,
 					block_hash = ?approval.block_hash,
