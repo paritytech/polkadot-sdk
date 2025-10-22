@@ -1045,7 +1045,7 @@ fn can_self_destruct_while_live() {
 }
 
 #[test]
-fn self_destruct_works() {
+fn self_destruct_by_precompile_works() {
 	let (binary, code_hash) = compile_module("self_destruct_by_precompile").unwrap();
 	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1136,6 +1136,45 @@ fn self_destruct_works() {
 				},
 			],
 		);
+	});
+}
+
+#[test]
+fn cannot_self_destruct_by_syscall_in_static_context() {
+
+	use pallet_revive_fixtures::{compile_module_with_type, Caller, FixtureType};
+	use alloy_core::sol_types::SolCall;
+	
+	let (binary, _) = compile_module("self_destruct_by_syscall").unwrap();
+	let (caller_binary, _) = compile_module_with_type("Caller", FixtureType::Resolc).unwrap();
+
+	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+
+		let initial_contract_balance = 100_000;
+
+		// Instantiate the BOB contract.
+		let Contract { addr: callee_addr, .. } = builder::bare_instantiate(Code::Upload(binary))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
+		
+		let Contract { addr: caller_addr, .. } = builder::bare_instantiate(Code::Upload(caller_binary))
+			.build_and_unwrap_contract();
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::staticCallCall {
+					_callee: callee_addr.0.into(),
+					_data: vec![].into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build();
+		let result = result.result.unwrap();
+		println!("result: {:?}", result);
+		let result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+		assert!(!result.success);
 	});
 }
 

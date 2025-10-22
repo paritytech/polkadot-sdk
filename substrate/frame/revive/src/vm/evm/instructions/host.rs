@@ -255,7 +255,7 @@ pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> Con
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
-	let ([], beneficiary) = interpreter.stack.popn_top()?;
+	let [beneficiary] = interpreter.stack.popn()?;
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::Terminate { code_removed: true })?;
 	let dispatch_result = interpreter.ext.terminate_if_same_tx(&beneficiary.into_address());
 

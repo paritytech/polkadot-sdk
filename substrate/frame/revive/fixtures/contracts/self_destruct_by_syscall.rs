@@ -29,7 +29,6 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	// Call the system terminate precompile
 	const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
 	api::terminate(&DJANGO_FALLBACK);
 }

@@ -1694,11 +1694,7 @@ where
 			delete_code,
 		);
 
-		if delete_code {
-			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered for storage deletion.");
-		} else {
-			log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} NOT registered for storage deletion.");
-		}
+		log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
 	}
 
 	/// Returns true if the current context has contract info.
