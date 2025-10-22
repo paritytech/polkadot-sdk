@@ -2048,9 +2048,9 @@ to = "0.1.0"
 [[crate]]
 # substrate/client/consensus/aura
 name = "sc-consensus-aura"
-from = "0.52.0"
-to = "0.53.0"
-bump = "major"
+from = "0.53.0"
+to = "0.53.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -4004,9 +4004,9 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/consensus/aura
 name = "cumulus-client-consensus-aura"
-from = "0.25.0"
-to = "0.26.0"
-bump = "major"
+from = "0.26.0"
+to = "0.26.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
