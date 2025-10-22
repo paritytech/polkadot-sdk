@@ -1955,12 +1955,27 @@ impl<T: Config> Pallet<T> {
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_pvm_code(
-			origin,
-			code,
-			storage_deposit_limit,
-			&ExecConfig::new_substrate_tx(),
-		)?;
+
+		let result = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+			Self::try_upload_pvm_code(
+				origin,
+				code,
+				storage_deposit_limit,
+				&ExecConfig::new_substrate_tx(),
+			)
+		} else {
+			if !T::AllowEVMBytecode::get() {
+				return Err(<Error<T>>::CodeRejected.into());
+			}
+			Self::try_upload_evm_code(
+				origin,
+				code,
+				storage_deposit_limit,
+				&ExecConfig::new_eth_tx(Self::evm_gas_price()),
+			)
+		};
+
+		let (module, deposit) = result?;
 		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
 	}
 
@@ -2072,6 +2087,20 @@ impl<T: Config> Pallet<T> {
 		exec_config: &ExecConfig,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = ContractBlob::from_pvm_code(code, origin)?;
+		let deposit = module.store_code(exec_config, None)?;
+		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
+		Ok((module, deposit))
+	}
+
+	/// Uploads new EVM code and returns the Vm binary contract blob and deposit amount collected.
+	/// TODO: consider merging with `try_upload_pvm_code`
+	fn try_upload_evm_code(
+		origin: T::AccountId,
+		code: Vec<u8>,
+		storage_deposit_limit: BalanceOf<T>,
+		exec_config: &ExecConfig,
+	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
+		let mut module: ContractBlob<T> = ContractBlob::from_evm_runtime_code(code, origin)?;
 		let deposit = module.store_code(exec_config, None)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))

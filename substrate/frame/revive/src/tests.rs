@@ -489,7 +489,7 @@ impl ExtBuilder {
 	}
 }
 
-fn initialize_block(number: u64) {
+pub fn initialize_block(number: u64) {
 	System::reset_events();
 	System::initialize(&number, &[0u8; 32].into(), &Default::default());
 }

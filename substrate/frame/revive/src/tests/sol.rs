@@ -20,13 +20,15 @@ use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
-		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		ExtBuilder, Test,
+		test_utils::{contract_base_deposit, ensure_stored, expected_deposit, get_contract},
+		Contracts, ExtBuilder, initialize_block, RuntimeOrigin, Test,
 	},
 	Code, Config, PristineCode,
+	evm::fees::InfoT,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
-use frame_support::traits::fungible::Mutate;
+use frame_support::assert_ok;
+use frame_support::traits::fungible::{Balanced, Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
 
@@ -155,5 +157,31 @@ fn basic_evm_flow_tracing_works() {
 				..Default::default()
 			},
 		);
+	});
+}
+
+#[test]
+fn upload_and_remove_code_works_for_evm() {
+	let storage_deposit_limit = 1000u64;
+	let (code, code_hash) = compile_module_with_type("dummy", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let amount = <Test as Config>::Currency::issue(5_000_000_000);
+		<Test as Config>::FeeInfo::deposit_txfee(amount);
+
+		// Drop previous events
+		initialize_block(2);
+
+		// Ensure the code is not already stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+
+		// Upload the code.
+		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), code, storage_deposit_limit));
+
+		// Ensure the contract was stored and get expected deposit amount to be reserved.
+		expected_deposit(ensure_stored(code_hash));
+
+		// Now remove the code.
+		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
 	});
 }
