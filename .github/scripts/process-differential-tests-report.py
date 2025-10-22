@@ -32,24 +32,36 @@ class CaseReport(typing.TypedDict):
     status: "CaseStatus"
 
 
-class CaseStatus(typing.TypedDict):
-    status: typing.Union[
-        typing.Literal["Succeeded"], typing.Literal["Failed"], typing.Literal["Ignored"]
-    ]
-    reason: typing.Optional[str]
-    steps_executed: typing.Optional[int]
+class CaseStatusSuccess(typing.TypedDict):
+    status: typing.Literal["Succeeded"]
+    steps_executed: int
 
 
-type TestSpecifier = str
+class CaseStatusFailure(typing.TypedDict):
+    status: typing.Literal["Failed"]
+    reason: str
+
+
+class CaseStatusIgnored(typing.TypedDict):
+    status: typing.Literal["Ignored"]
+    reason: str
+
+
+CaseStatus: typing.TypeAlias = typing.Union[
+    CaseStatusSuccess, CaseStatusFailure, CaseStatusIgnored
+]
+"""A union type of all of the possible statuses that could be reported for a case."""
+
+TestSpecifier: typing.TypeAlias = str
 """A test specifier string. For example resolc-compiler-tests/fixtures/solidity/test.json::0::Y+"""
 
-type ModeString = str
+ModeString: typing.TypeAlias = str
 """The mode string. For example Y+ >=0.8.13"""
 
-type MetadataFilePathString = str
+MetadataFilePathString: typing.TypeAlias = str
 """The path to a metadata file. For example resolc-compiler-tests/fixtures/solidity/test.json"""
 
-type CaseIdxString = str
+CaseIdxString: typing.TypeAlias = str
 """The index of a case as a string. For example '0'"""
 
 
@@ -182,9 +194,7 @@ def main() -> None:
                 if status["status"] != "Failed":
                     continue
 
-                failure_reason: str = typing.cast(str, status["reason"]).replace(
-                    "\n", " "
-                )
+                failure_reason: str = status["reason"].replace("\n", " ")
 
                 note: str = ""
                 modes_where_this_case_succeeded: set[ModeString] = (
