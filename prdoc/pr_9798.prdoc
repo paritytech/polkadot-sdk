@@ -2,8 +2,8 @@ title: Introduce unapplied_slashes_v2 Runtime API
 doc:
 - audience: Runtime Dev
   description: |-
-    Adds a new unapplied_slashes_v2 but keeps old unapplied_slashes
-    API and type for backwards compat.
+    Adds a new unapplied_slashes_v2 runtime API in v15 but keeps
+    old unapplied_slashes API and type for backwards compat.
 crates:
 - name: polkadot-node-core-runtime-api
   bump: patch
