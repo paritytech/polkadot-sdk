@@ -369,6 +369,17 @@ impl ReceiptExtractor {
 		.await
 	}
 
+	/// Extract index of the [`SubstrateBlock`] extrinsic indicated ty ETH transaction index
+	pub async fn get_block_extrinsic_index(
+		&self,
+		block: &SubstrateBlock,
+		transaction_index: usize,
+	) -> Option<usize> {
+		let ext_iter = self.get_block_extrinsics(&block).await.ok()?;
+		let (_, _, _, ext_idx) = ext_iter.into_iter().nth(transaction_index)?;
+		Some(ext_idx)
+	}
+
 	/// Get the Ethereum block hash for the Substrate block with specific hash.
 	pub async fn get_ethereum_block_hash(
 		&self,

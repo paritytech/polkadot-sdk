@@ -637,27 +637,19 @@ impl Client {
 		}
 
 		let block_hash = self.block_hash_for_tag(at.into()).await?;
+		let block = self.tracing_block(block_hash).await?;
+		let parent_hash = block.header().parent_hash;
+		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
+		let traces = runtime_api.trace_block(block, config.clone()).await?;
 
-		// Get the SubstrateBlock to build the extrinsic index mapping
-		let substrate_block =
-			self.block_by_hash(&block_hash).await?.ok_or(ClientError::BlockNotFound)?;
-
-		let mut ext_to_tx_mapping = self
+		let mut hashes = self
 			.receipt_provider
-			.get_block_extrinsic_to_transaction_mapping(&substrate_block)
+			.block_transaction_hashes(&block_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		// Get the tracing block for runtime API
-		let tracing_block = self.tracing_block(block_hash).await?;
-		let parent_hash = tracing_block.header().parent_hash;
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
-		let traces = runtime_api.trace_block(tracing_block, config.clone()).await?;
-
-		// Map traces using substrate extrinsic indices
-		let traces = traces.into_iter().filter_map(|(extrinsic_index, trace)| {
-			let tx_hash = ext_to_tx_mapping.remove(&(extrinsic_index as usize))?;
-			Some(TransactionTrace { tx_hash, trace })
+		let traces = traces.into_iter().filter_map(|(index, trace)| {
+			Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
 		});
 
 		Ok(traces.collect())
