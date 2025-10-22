@@ -20669,7 +20669,12 @@ dependencies = [
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-keystore",
+<<<<<<< HEAD
  "sp-api 38.0.0",
+=======
+ "sc-network-statement",
+ "sp-api",
+>>>>>>> de740e18 (Limit the size of the statement for further gossiping (#9965))
  "sp-blockchain",
  "sp-core 38.0.0",
  "sp-runtime 43.0.0",

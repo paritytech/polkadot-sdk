@@ -27,7 +27,11 @@ pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis
 pub(crate) const MAX_KNOWN_STATEMENTS: usize = 4 * 1024 * 1024;
 
 /// Maximum allowed size for a statement notification.
+<<<<<<< HEAD
 pub(crate) const MAX_STATEMENT_SIZE: u64 = 256 * 1024;
+=======
+pub const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
+>>>>>>> de740e18 (Limit the size of the statement for further gossiping (#9965))
 
 /// Maximum number of statement validation request we keep at any moment.
 pub(crate) const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;
