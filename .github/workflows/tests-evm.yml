@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: paritytech/revive-differential-tests
-          ref: 48e7d691583d931fdfd6b647dc006501785c22b0
+          ref: f1a911545ef0cfc1e1bfa5c91fc4d6194a273c52
           path: revive-differential-tests
           submodules: recursive
       - name: Installing Retester
@@ -69,6 +69,7 @@ jobs:
           python3 ./.github/scripts/process-differential-tests-report.py
       - name: Posting the report as a comment on the PR
         uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'T7-smart_contracts') }}
         with:
           header: diff-tests-report
           path: report.md
