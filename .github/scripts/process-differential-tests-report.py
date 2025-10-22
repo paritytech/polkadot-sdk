@@ -47,21 +47,19 @@ class CaseStatusIgnored(typing.TypedDict):
     reason: str
 
 
-CaseStatus: typing.TypeAlias = typing.Union[
-    CaseStatusSuccess, CaseStatusFailure, CaseStatusIgnored
-]
+CaseStatus = typing.Union[CaseStatusSuccess, CaseStatusFailure, CaseStatusIgnored]
 """A union type of all of the possible statuses that could be reported for a case."""
 
-TestSpecifier: typing.TypeAlias = str
+TestSpecifier = str
 """A test specifier string. For example resolc-compiler-tests/fixtures/solidity/test.json::0::Y+"""
 
-ModeString: typing.TypeAlias = str
+ModeString = str
 """The mode string. For example Y+ >=0.8.13"""
 
-MetadataFilePathString: typing.TypeAlias = str
+MetadataFilePathString = str
 """The path to a metadata file. For example resolc-compiler-tests/fixtures/solidity/test.json"""
 
-CaseIdxString: typing.TypeAlias = str
+CaseIdxString = str
 """The index of a case as a string. For example '0'"""
 
 
