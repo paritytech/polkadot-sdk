@@ -123,13 +123,6 @@ jobs:
           echo "== Running evm tests =="
           START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task test:evm
 
-      - name: Collect tests results
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: evm-test-suite-${{ github.sha }}
-          path: evm-test-suite/test-logs/matter-labs-tests.log
-
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest
     name: All test misc tests passed
