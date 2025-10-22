@@ -67,7 +67,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	node_features, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
-	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex,
+	CoreIndex, GroupIndex, Hash, NodeFeatures, SessionIndex, ValidatorIndex,
 };
 
 mod error;
@@ -156,10 +156,11 @@ enum ErasureTask {
 		usize,
 		BTreeMap<ChunkIndex, Vec<u8>>,
 		oneshot::Sender<std::result::Result<AvailableData, ErasureEncodingError>>,
+		NodeFeatures,
 	),
 	/// Re-encode `AvailableData` into erasure chunks in order to verify the provided root hash of
 	/// the Merkle tree.
-	Reencode(usize, Hash, AvailableData, oneshot::Sender<Option<AvailableData>>),
+	Reencode(usize, Hash, AvailableData, oneshot::Sender<Option<AvailableData>>, NodeFeatures),
 }
 
 /// Re-encode the data into erasure chunks in order to verify
@@ -192,6 +193,36 @@ fn reconstructed_data_matches_root(
 				target: LOG_TARGET,
 				err = ?e,
 				"Failed to obtain chunks",
+			);
+			return false
+		},
+	};
+
+	let branches = branches(&chunks);
+
+	branches.root() == *expected_root
+}
+
+fn reconstructed_data_matches_root_feature_aware(
+	n_validators: usize,
+	expected_root: &Hash,
+	data: &AvailableData,
+	metrics: &Metrics,
+	node_features: &NodeFeatures,
+) -> bool {
+	let _timer = metrics.time_reencode_chunks();
+
+	let chunks = match polkadot_erasure_coding::feature_aware::obtain_chunks_feature_aware(
+		n_validators, 
+		data, 
+		node_features
+	) {
+		Ok(chunks) => chunks,
+		Err(e) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				err = ?e,
+				"Failed to obtain chunks with feature-aware encoding",
 			);
 			return false
 		},
@@ -880,8 +911,8 @@ async fn erasure_task_thread(
 ) {
 	loop {
 		match ingress.next().await {
-			Some(ErasureTask::Reconstruct(n_validators, chunks, sender)) => {
-				let _ = sender.send(polkadot_erasure_coding::reconstruct_v1(
+			Some(ErasureTask::Reconstruct(n_validators, chunks, sender, node_features)) => {
+				let result = polkadot_erasure_coding::feature_aware::reconstruct_feature_aware(
 					n_validators,
 					chunks.iter().map(|(c_index, chunk)| {
 						(
@@ -890,16 +921,19 @@ async fn erasure_task_thread(
 								.expect("usize is at least u32 bytes on all modern targets."),
 						)
 					}),
-				));
+					&node_features,
+				);
+				let _ = sender.send(result);
 			},
-			Some(ErasureTask::Reencode(n_validators, root, available_data, sender)) => {
+			Some(ErasureTask::Reencode(n_validators, root, available_data, sender, node_features)) => {
 				let metrics = metrics.clone();
 
-				let maybe_data = if reconstructed_data_matches_root(
+				let maybe_data = if reconstructed_data_matches_root_feature_aware(
 					n_validators,
 					&root,
 					&available_data,
 					&metrics,
+					&node_features,
 				) {
 					Some(available_data)
 				} else {

@@ -39,6 +39,9 @@ use novelpoly::{CodeParams, WrappedShard};
 // Export v2 module
 pub mod v2;
 
+// Re-export NodeFeatures and node_features for convenience
+pub use polkadot_primitives::v9::{NodeFeatures, node_features};
+
 // we are limited to the field order of GF(2^16), which is 65536
 const MAX_VALIDATORS: usize = novelpoly::f2e16::FIELD_SIZE;
 
@@ -449,6 +452,59 @@ mod tests {
 	fn roundtrip_proof_encoding() {
 		for i in 2..16 {
 			generate_trie_and_generate_proofs(i);
+		}
+	}
+}
+
+/// Helper functions for feature-aware erasure coding
+pub mod feature_aware {
+	use super::*;
+	use polkadot_node_primitives::AvailableData;
+	
+	/// Check if FastErasureCoding feature is enabled in node features
+	pub fn is_fast_erasure_coding_enabled(node_features: &NodeFeatures) -> bool {
+		node_features.get(node_features::FeatureIndex::FastErasureCoding as u8 as usize).is_some()
+	}
+	
+	/// Obtain erasure-coded chunks with feature-aware version selection
+	pub fn obtain_chunks_feature_aware(
+		n_validators: usize, 
+		data: &AvailableData, 
+		node_features: &NodeFeatures
+	) -> Result<Vec<Vec<u8>>, Error> {
+		if is_fast_erasure_coding_enabled(node_features) {
+			v2::obtain_chunks_v2(n_validators, data)
+		} else {
+			obtain_chunks_v1(n_validators, data)
+		}
+	}
+	
+	/// Reconstruct available data with feature-aware version selection
+	pub fn reconstruct_feature_aware<'a, I: 'a>(
+		n_validators: usize, 
+		chunks: I, 
+		node_features: &NodeFeatures
+	) -> Result<AvailableData, Error>
+	where
+		I: IntoIterator<Item = (&'a [u8], usize)>,
+	{
+		if is_fast_erasure_coding_enabled(node_features) {
+			v2::reconstruct_v2(n_validators, chunks)
+		} else {
+			reconstruct_v1(n_validators, chunks)
+		}
+	}
+	
+	/// Reconstruct from systematic chunks with feature-aware version selection
+	pub fn reconstruct_from_systematic_feature_aware(
+		n_validators: usize,
+		chunks: Vec<Vec<u8>>,
+		node_features: &NodeFeatures,
+	) -> Result<AvailableData, Error> {
+		if is_fast_erasure_coding_enabled(node_features) {
+			v2::reconstruct_from_systematic_v2(n_validators, chunks)
+		} else {
+			reconstruct_from_systematic_v1(n_validators, chunks)
 		}
 	}
 }
