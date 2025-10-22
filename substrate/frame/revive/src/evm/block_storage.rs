@@ -76,6 +76,7 @@ pub fn on_initialize<T: Config>() {
 pub fn on_finalize_build_eth_block<T: Config>(
 	block_author: H160,
 	eth_block_num: U256,
+	eth_block_base_fee: U256,
 	gas_limit: U256,
 	timestamp: U256,
 ) {
@@ -91,6 +92,7 @@ pub fn on_finalize_build_eth_block<T: Config>(
 	// Load the first values if not already loaded.
 	let (block, receipt_data) = EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build(
 		eth_block_num,
+		eth_block_base_fee,
 		parent_hash,
 		timestamp,
 		block_author,
@@ -178,7 +180,7 @@ pub fn process_transaction<T: Config>(
 // `EthereumBlockBuilder = 3 * (max size of transactions + max size of receipts)`
 // The maximum size of a transaction is limited by
 // `limits::MAX_TRANSACTION_PAYLOAD_SIZE`, while the maximum size of a receipt is
-// limited by `limits::PAYLOAD_BYTES`.
+// limited by `limits::EVENT_BYTES`.
 //
 // Similarly, this is the amount of pallet storage consumed by the
 // `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.

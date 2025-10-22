@@ -436,17 +436,17 @@ fn deposit_event_max_value_limit() {
 			.native_value(30_000)
 			.build_and_unwrap_contract();
 
-		// Call contract with allowed storage value.
+		// Call contract with allowed event size.
 		assert_ok!(builder::call(addr)
 			.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
-			.data(limits::PAYLOAD_BYTES.encode())
+			.data(limits::EVENT_BYTES.encode())
 			.build());
 
-		// Call contract with too large a storage value.
+		// Call contract with too large a evene size
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
 				.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
-				.data((limits::PAYLOAD_BYTES + 1).encode())
+				.data((limits::EVENT_BYTES + 1).encode())
 				.build(),
 			Error::<Test>::ValueTooLarge,
 		);
@@ -607,12 +607,12 @@ fn storage_max_value_limit() {
 		// Call contract with allowed storage value.
 		assert_ok!(builder::call(addr)
 			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
-			.data(limits::PAYLOAD_BYTES.encode())
+			.data(limits::STORAGE_BYTES.encode())
 			.build());
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
-			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
+			builder::call(addr).data((limits::STORAGE_BYTES + 1).encode()).build(),
 			Error::<Test>::ValueTooLarge,
 		);
 	});
@@ -2984,7 +2984,7 @@ fn block_hash_works() {
 
 		// The genesis config sets to the block number to 1
 		let block_hash =
-			hex_literal::hex!("9c168f4b2c0c091bfb4c475f38c55fc1a0c23660df998fb69d9d7f6d686d4eb2");
+			hex_literal::hex!("b9be84fb00044994dff6b62393b4c8aa8191717c5ea046f270bd2695524e9f85");
 		frame_system::BlockHash::<Test>::insert(
 			&crate::BlockNumberFor::<Test>::from(0u32),
 			<Test as frame_system::Config>::Hash::from(&block_hash),

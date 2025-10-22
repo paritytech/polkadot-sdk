@@ -273,7 +273,7 @@ impl ReceiptExtractor {
 		// Process extrinsics in order while maintaining parallelism within buffer window
 		stream::iter(ext_iter)
 			.enumerate()
-			.map(|(idx, (ext, call, receipt))| async move {
+			.map(|(idx, (ext, call, receipt, _))| async move {
 				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt, idx)
 					.await
 					.inspect_err(|err| {
@@ -287,8 +287,9 @@ impl ReceiptExtractor {
 			.collect::<Result<Vec<_>, _>>()
 	}
 
-	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info.
-	async fn get_block_extrinsics(
+	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info and
+	/// extrinsic index
+	pub(crate) async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<
@@ -297,6 +298,7 @@ impl ReceiptExtractor {
 				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 				EthTransact,
 				ReceiptGasInfo,
+				usize,
 			),
 		>,
 		ClientError,
@@ -311,9 +313,10 @@ impl ReceiptExtractor {
 			.ok_or(ClientError::ReceiptDataNotFound)?;
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
-			.flat_map(|ext| {
+			.enumerate()
+			.flat_map(|(ext_idx, ext)| {
 				let call = ext.as_extrinsic::<EthTransact>().ok()??;
-				Some((ext, call))
+				Some((ext, call, ext_idx))
 			})
 			.collect();
 
@@ -330,7 +333,7 @@ impl ReceiptExtractor {
 			Ok(extrinsics
 				.into_iter()
 				.zip(receipt_data)
-				.map(|((extr, call), rec)| (extr, call, rec)))
+				.map(|((extr, call, ext_idx), rec)| (extr, call, rec, ext_idx)))
 		}
 	}
 
@@ -343,7 +346,7 @@ impl ReceiptExtractor {
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let ext_iter = self.get_block_extrinsics(block).await?;
 
-		let (ext, eth_call, receipt_gas_info) = ext_iter
+		let (ext, eth_call, receipt_gas_info, _) = ext_iter
 			.into_iter()
 			.nth(transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;

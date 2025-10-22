@@ -525,10 +525,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Return all transaction hashes for the given block hash.
-	pub async fn block_transaction_hashes(
-		&self,
-		block_hash: &H256,
-	) -> Option<HashMap<usize, H256>> {
+	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<usize, H256>> {
 		let block_hash = block_hash.as_ref();
 		let rows = query!(
 			r#"
@@ -576,6 +573,45 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.await
 			.ok()?;
 		Some(receipt)
+	}
+
+	/// Get the Substrate block hash and extrinsic index for the given transaction hash
+	pub async fn get_substrate_block_and_extrinsic_index(
+		&self,
+		transaction_hash: &H256,
+	) -> Option<(H256, usize)> {
+		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
+		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+
+		// For single-transaction lookup, directly fetch the extrinsic at the transaction_index
+		// This is more efficient than building a full block mapping
+		let extrinsics = self.receipt_extractor.get_block_extrinsics(&block).await.ok()?;
+		let (_, _, _, ext_idx) = extrinsics.into_iter().nth(transaction_index)?;
+
+		Some((block_hash, ext_idx))
+	}
+
+	/// Get a mapping from substrate extrinsic index to transaction hash for all transactions in a
+	/// block.
+	pub async fn get_block_extrinsic_to_transaction_mapping(
+		&self,
+		block: &SubstrateBlock,
+	) -> Option<HashMap<usize, H256>> {
+		let block_hash = block.hash();
+
+		let mut tx_hashes = self.block_transaction_hashes(&block_hash).await?;
+
+		let extrinsics = self.receipt_extractor.get_block_extrinsics(block).await.ok()?;
+
+		// Build mapping: substrate_extrinsic_index -> transaction_hash
+		let mut mapping = HashMap::new();
+		for (tx_index, (_, _, _, extrinsic_index)) in extrinsics.enumerate() {
+			if let Some(tx_hash) = tx_hashes.remove(&tx_index) {
+				mapping.insert(extrinsic_index, tx_hash);
+			}
+		}
+
+		Some(mapping)
 	}
 
 	/// Get the signed transaction for the given transaction hash.

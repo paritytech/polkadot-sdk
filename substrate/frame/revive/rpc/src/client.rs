@@ -442,14 +442,14 @@ impl Client {
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<(), ClientError> {
+	) -> Result<H256, ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
 		let hash: H256 = self
 			.rpc_client
 			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
 			.await?;
 		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
-		Ok(())
+		Ok(hash)
 	}
 
 	/// Get an EVM transaction receipt by hash.
@@ -515,14 +515,6 @@ impl Client {
 		let substrate_hash =
 			self.resolve_substrate_hash(ethereum_hash).await.unwrap_or(*ethereum_hash);
 		self.receipt_by_hash_and_index(&substrate_hash, transaction_index).await
-	}
-
-	/// Get receipts count per block by specified Ethereum block hash.
-	pub async fn receipts_count_per_ethereum_block(&self, ethereum_hash: &H256) -> Option<usize> {
-		// Fallback: use hash as Substrate hash if Ethereum hash cannot be resolved
-		let substrate_hash =
-			self.resolve_substrate_hash(ethereum_hash).await.unwrap_or(*ethereum_hash);
-		self.receipts_count_per_block(&substrate_hash).await
 	}
 
 	/// Get the system health.
@@ -645,19 +637,27 @@ impl Client {
 		}
 
 		let block_hash = self.block_hash_for_tag(at.into()).await?;
-		let block = self.tracing_block(block_hash).await?;
-		let parent_hash = block.header().parent_hash;
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
-		let traces = runtime_api.trace_block(block, config.clone()).await?;
 
-		let mut hashes = self
+		// Get the SubstrateBlock to build the extrinsic index mapping
+		let substrate_block =
+			self.block_by_hash(&block_hash).await?.ok_or(ClientError::BlockNotFound)?;
+
+		let mut ext_to_tx_mapping = self
 			.receipt_provider
-			.block_transaction_hashes(&block_hash)
+			.get_block_extrinsic_to_transaction_mapping(&substrate_block)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let traces = traces.into_iter().filter_map(|(index, trace)| {
-			Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
+		// Get the tracing block for runtime API
+		let tracing_block = self.tracing_block(block_hash).await?;
+		let parent_hash = tracing_block.header().parent_hash;
+		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
+		let traces = runtime_api.trace_block(tracing_block, config.clone()).await?;
+
+		// Map traces using substrate extrinsic indices
+		let traces = traces.into_iter().filter_map(|(extrinsic_index, trace)| {
+			let tx_hash = ext_to_tx_mapping.remove(&(extrinsic_index as usize))?;
+			Some(TransactionTrace { tx_hash, trace })
 		});
 
 		Ok(traces.collect())
@@ -669,17 +669,17 @@ impl Client {
 		transaction_hash: H256,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
-		let ReceiptInfo { block_hash, transaction_index, .. } = self
+		let (substrate_hash, extrinsic_index) = self
 			.receipt_provider
-			.receipt_by_hash(&transaction_hash)
+			.get_substrate_block_and_extrinsic_index(&transaction_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let block = self.tracing_block(block_hash).await?;
+		let block = self.tracing_block(substrate_hash).await?;
 		let parent_hash = block.header.parent_hash;
 		let runtime_api = self.runtime_api(parent_hash);
 
-		runtime_api.trace_tx(block, transaction_index.as_u32(), config.clone()).await
+		runtime_api.trace_tx(block, extrinsic_index as u32, config.clone()).await
 	}
 
 	/// Get the transaction traces for the given block.
