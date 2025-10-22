@@ -1594,9 +1594,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/ranked-collective
 name = "pallet-ranked-collective"
-from = "42.0.0"
-to = "43.0.0"
-bump = "major"
+from = "43.0.0"
+to = "43.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
