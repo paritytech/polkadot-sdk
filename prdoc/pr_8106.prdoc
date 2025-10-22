@@ -25,7 +25,7 @@ doc:
     By using the `AggregateMessageOrigin`, you can verify whether a message comes from a parachain, from Snowbridge itself, or from a custom origin. This is especially relevant in solo chain contexts, where you might not rely on the parachain assumptions but still want to leverage a robust bridging framework.
 crates:
 - name: snowbridge-pallet-outbound-queue-v2
-  bump: patch
+  bump: major
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: xcm-emulator
