@@ -1,0 +1,9 @@
+title: 'txpool: fix tx removal from unlocks set'
+doc:
+- audience: Node Dev 
+  description: |-
+    Now removing a tx subtree will correctly remove it from the transactions that would unlock it. 
+
+crates:
+- name: sc-transaction-pool
+  bump: major

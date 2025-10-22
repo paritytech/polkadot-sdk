@@ -1,0 +1,44 @@
+title: '[FRAME] Omni bencher fixes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changes:
+    - Add `--pallets` option to selectively run multiple pallets. In the past we only had `--pallet` to run a single one.
+    - Add `--exclude-extrinsics [pallet::extrinsic]` to add (Pallet,Extrinsic) tuples that should be excluded.
+    - Fix storage overlay reversion *before* the benchmark runs.
+    - Test root hash for V2 benchmarks to be deterministic
+    - <s>Changed DB reps to 1 for speedup since it should not be needed to run multiple times. (TODO test)</s>
+
+    Checked that it fixes the Kusama benchmark issue when [patching](https://github.com/ggwpez/substrate-scripts/blob/master/diener.py) to a fixed stable2412 fork:
+
+    (before)
+    ```pre
+    The following 5 benchmarks failed:
+    - pallet_nomination_pools::apply_slash_fail
+    - pallet_nomination_pools::migrate_delegation
+    - pallet_nomination_pools::pool_migrate
+    - pallet_offences::report_offence_babe
+    - pallet_offences::report_offence_grandpa
+    Error: Input("5 benchmarks failed")
+    ```
+
+    (after)
+    ```pre
+    The following 1 benchmarks failed:
+    - pallet_nomination_pools::apply_slash_fail
+    Error: Input("1 benchmarks failed")
+    ```
+    This one needs fixing but is not breaking the other ones anymore.
+crates:
+- name: frame-benchmarking-cli
+  bump: major
+- name: frame-support-procedural
+  bump: patch
+- name: frame-benchmarking-pallet-pov
+  bump: patch
+- name: frame-benchmarking
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: frame-omni-bencher
+  bump: minor

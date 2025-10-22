@@ -1,0 +1,7 @@
+title: Allow RelaychainDataProvider set_block_number to be used in tests
+doc:
+- audience: Runtime Dev
+  description: "`set_block_number` in the `RelaychainDataProvider` trait can now be used in tests. Previously this was only included with the `runtime-benchmarks` feature."
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: minor

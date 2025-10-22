@@ -93,12 +93,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{FullCodec, MaxEncodedLen};
+use core::{cmp::Reverse, fmt::Debug};
 use frame_support::{
 	ensure,
 	traits::{ChangeMembers, Currency, Get, InitializeMembers, ReservableCurrency},
@@ -106,7 +112,6 @@ use frame_support::{
 };
 pub use pallet::*;
 use sp_runtime::traits::{AtLeast32Bit, StaticLookup, Zero};
-use sp_std::{fmt::Debug, prelude::*};
 
 type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -158,6 +163,7 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 

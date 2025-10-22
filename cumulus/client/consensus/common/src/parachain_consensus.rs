@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,12 +9,13 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use cumulus_relay_chain_streams::{finalized_heads, new_best_heads};
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, Finalizer, UsageProvider,
 };
@@ -24,12 +26,12 @@ use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_client_pov_recovery::{RecoveryKind, RecoveryRequest};
-use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{Hash as PHash, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::Id as ParaId;
 
 use codec::Decode;
-use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, Stream, StreamExt};
+use futures::{channel::mpsc::Sender, pin_mut, select, FutureExt, StreamExt};
 
 use std::sync::Arc;
 
@@ -119,7 +121,7 @@ where
 		select! {
 			fin = finalized_heads.next() => {
 				match fin {
-					Some(finalized_head) =>
+					Some((finalized_head, _)) =>
 						handle_new_finalized_head(&parachain, finalized_head, &mut last_seen_finalized_hashes),
 					None => {
 						tracing::debug!(target: LOG_TARGET, "Stopping following finalized head.");
@@ -375,68 +377,66 @@ async fn handle_new_best_parachain_head<Block, P>(
 			target: LOG_TARGET,
 			block_hash = ?hash,
 			"Skipping set new best block, because block is already the best.",
-		)
-	} else {
-		// Make sure the block is already known or otherwise we skip setting new best.
-		match parachain.block_status(hash) {
-			Ok(BlockStatus::InChainWithState) => {
-				unset_best_header.take();
-				tracing::debug!(
-					target: LOG_TARGET,
-					?hash,
-					"Importing block as new best for parachain.",
-				);
-				import_block_as_new_best(hash, parachain_head, parachain).await;
-			},
-			Ok(BlockStatus::InChainPruned) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					block_hash = ?hash,
-					"Trying to set pruned block as new best!",
-				);
-			},
-			Ok(BlockStatus::Unknown) => {
-				*unset_best_header = Some(parachain_head);
+		);
+		return;
+	}
 
-				tracing::debug!(
-					target: LOG_TARGET,
-					block_hash = ?hash,
-					"Parachain block not yet imported, waiting for import to enact as best block.",
-				);
+	// Make sure the block is already known or otherwise we skip setting new best.
+	match parachain.block_status(hash) {
+		Ok(BlockStatus::InChainWithState) => {
+			unset_best_header.take();
+			tracing::debug!(
+				target: LOG_TARGET,
+				included = ?hash,
+				"Importing block as new best for parachain.",
+			);
+			import_block_as_new_best(hash, parachain_head, parachain).await;
+		},
+		Ok(BlockStatus::InChainPruned) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				block_hash = ?hash,
+				"Trying to set pruned block as new best!",
+			);
+		},
+		Ok(BlockStatus::Unknown) => {
+			*unset_best_header = Some(parachain_head);
 
-				if let Some(ref mut recovery_chan_tx) = recovery_chan_tx {
-					// Best effort channel to actively encourage block recovery.
-					// An error here is not fatal; the relay chain continuously re-announces
-					// the best block, thus we will have other opportunities to retry.
-					let req = RecoveryRequest { hash, kind: RecoveryKind::Full };
-					if let Err(err) = recovery_chan_tx.try_send(req) {
-						tracing::warn!(
-							target: LOG_TARGET,
-							block_hash = ?hash,
-							error = ?err,
-							"Unable to notify block recovery subsystem"
-						)
-					}
+			tracing::debug!(
+				target: LOG_TARGET,
+				block_hash = ?hash,
+				"Parachain block not yet imported, waiting for import to enact as best block.",
+			);
+
+			if let Some(ref mut recovery_chan_tx) = recovery_chan_tx {
+				// Best effort channel to actively encourage block recovery.
+				// An error here is not fatal; the relay chain continuously re-announces
+				// the best block, thus we will have other opportunities to retry.
+				let req = RecoveryRequest { hash, kind: RecoveryKind::Full };
+				if let Err(err) = recovery_chan_tx.try_send(req) {
+					tracing::warn!(
+						target: LOG_TARGET,
+						block_hash = ?hash,
+						error = ?err,
+						"Unable to notify block recovery subsystem"
+					)
 				}
-			},
-			Err(e) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					block_hash = ?hash,
-					error = ?e,
-					"Failed to get block status of block.",
-				);
-			},
-			_ => {},
-		}
+			}
+		},
+		Err(e) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				block_hash = ?hash,
+				error = ?e,
+				"Failed to get block status of block.",
+			);
+		},
+		_ => {},
 	}
 }
 
-async fn import_block_as_new_best<Block, P>(
-	hash: Block::Hash,
-	header: Block::Header,
-	mut parachain: &P,
-) where
+async fn import_block_as_new_best<Block, P>(hash: Block::Hash, header: Block::Header, parachain: &P)
+where
 	Block: BlockT,
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
 	for<'a> &'a P: BlockImport<Block>,
@@ -466,44 +466,4 @@ async fn import_block_as_new_best<Block, P>(
 			"Failed to set new best block.",
 		);
 	}
-}
-
-/// Returns a stream that will yield best heads for the given `para_id`.
-async fn new_best_heads(
-	relay_chain: impl RelayChainInterface + Clone,
-	para_id: ParaId,
-) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
-	let new_best_notification_stream =
-		relay_chain.new_best_notification_stream().await?.filter_map(move |n| {
-			let relay_chain = relay_chain.clone();
-			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
-		});
-
-	Ok(new_best_notification_stream)
-}
-
-/// Returns a stream that will yield finalized heads for the given `para_id`.
-async fn finalized_heads(
-	relay_chain: impl RelayChainInterface + Clone,
-	para_id: ParaId,
-) -> RelayChainResult<impl Stream<Item = Vec<u8>>> {
-	let finality_notification_stream =
-		relay_chain.finality_notification_stream().await?.filter_map(move |n| {
-			let relay_chain = relay_chain.clone();
-			async move { parachain_head_at(&relay_chain, n.hash(), para_id).await.ok().flatten() }
-		});
-
-	Ok(finality_notification_stream)
-}
-
-/// Returns head of the parachain at the given relay chain block.
-async fn parachain_head_at(
-	relay_chain: &impl RelayChainInterface,
-	at: PHash,
-	para_id: ParaId,
-) -> RelayChainResult<Option<Vec<u8>>> {
-	relay_chain
-		.persisted_validation_data(at, para_id, OccupiedCoreAssumption::TimedOut)
-		.await
-		.map(|s| s.map(|s| s.parent_head.0))
 }

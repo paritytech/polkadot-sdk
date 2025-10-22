@@ -1,7 +1,7 @@
 # this image is built on top of existing Zombienet image
 ARG ZOMBIENET_IMAGE
 # this image uses substrate-relay image built elsewhere
-ARG SUBSTRATE_RELAY_IMAGE=docker.io/paritytech/substrate-relay:v1.5.0
+ARG SUBSTRATE_RELAY_IMAGE=docker.io/paritytech/substrate-relay:v1.8.0
 
 # metadata
 ARG VCS_REF
@@ -48,8 +48,9 @@ RUN set -eux; \
 	cd /home/nonroot/bridges-polkadot-sdk/bridges/testing/framework/utils/generate_hex_encoded_call; \
 	npm install
 
+# use the non-root user
+USER node
 # check if executable works in this container
-USER nonroot
 RUN /usr/local/bin/polkadot --version
 RUN /usr/local/bin/polkadot-parachain --version
 RUN /usr/local/bin/substrate-relay --version

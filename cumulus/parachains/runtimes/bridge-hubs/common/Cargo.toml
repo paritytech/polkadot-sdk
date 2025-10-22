@@ -5,18 +5,25 @@ authors.workspace = true
 edition.workspace = true
 description = "Bridge hub common utilities"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
-cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
+codec = { features = ["derive"], workspace = true }
+cumulus-primitives-core = { workspace = true }
+frame-support = { workspace = true }
+pallet-message-queue = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+snowbridge-core = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
 [features]
 default = ["std"]
@@ -30,13 +37,17 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

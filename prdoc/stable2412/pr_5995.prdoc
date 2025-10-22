@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Use frame umbrella crate in pallet-proxy and pallet-multisig
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Extends the FRAME umbrella crate and uses it in pallet-proxy and pallet-multisig.
+      Migrates benchmarking from v1 to v2 for pallet-proxy and pallet-multisig.
+      Allows CI to pick the umbrella crate weights template to run benchmarks.
+
+crates:
+  - name: pallet-multisig
+    bump: minor
+  - name: pallet-proxy
+    bump: minor
+  - name: polkadot-sdk-frame
+    bump: major
+  - name: pallet-migrations
+    bump: patch

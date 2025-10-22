@@ -31,18 +31,6 @@ use fatality::Nested;
 #[fatality::fatality(splitable)]
 pub enum Error {
 	#[fatal]
-	#[error("SubsystemError::Context error: {0}")]
-	SubsystemContext(String),
-
-	#[fatal]
-	#[error("Spawning a task failed: {0}")]
-	SpawnFailed(SubsystemError),
-
-	#[fatal]
-	#[error("Participation worker receiver exhausted.")]
-	ParticipationWorkerReceiverExhausted,
-
-	#[fatal]
 	#[error("Receiving message from overseer failed: {0}")]
 	SubsystemReceive(#[source] SubsystemError),
 
@@ -54,9 +42,6 @@ pub enum Error {
 
 	#[error(transparent)]
 	ChainApi(#[from] ChainApiError),
-
-	#[error(transparent)]
-	Subsystem(SubsystemError),
 
 	#[error("Request to chain API subsystem dropped")]
 	ChainApiRequestCanceled(oneshot::Canceled),

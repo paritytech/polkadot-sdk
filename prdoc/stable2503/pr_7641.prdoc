@@ -1,0 +1,10 @@
+title: 'XCM: Process PayFees only once'
+doc:
+- audience: Runtime Dev
+  description: "The `PayFees` instruction should only ever be used once. If it's used\
+    \ more than once, it's just a noop.\r\n"
+crates:
+- name: staging-xcm-executor
+  bump: patch
+- name: staging-xcm
+  bump: patch

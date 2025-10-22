@@ -18,24 +18,26 @@
 //! Election provider support pallet benchmarking.
 //! This is separated into its own crate to avoid bloating the size of the runtime.
 
+use alloc::vec::Vec;
 use codec::Decode;
-use frame_benchmarking::v1::benchmarks;
+use frame_benchmarking::v2::*;
 use frame_election_provider_support::{NposSolver, PhragMMS, SequentialPhragmen};
-use sp_std::vec::Vec;
-
-pub struct Pallet<T: Config>(frame_system::Pallet<T>);
-pub trait Config: frame_system::Config {}
+use sp_runtime::Perbill;
 
 const VOTERS: [u32; 2] = [1_000, 2_000];
 const TARGETS: [u32; 2] = [500, 1_000];
 const VOTES_PER_VOTER: [u32; 2] = [5, 16];
-
 const SEED: u32 = 999;
+
+pub trait Config: frame_system::Config {}
+
+pub struct Pallet<T: Config>(frame_system::Pallet<T>);
+
 fn set_up_voters_targets<AccountId: Decode + Clone>(
 	voters_len: u32,
 	targets_len: u32,
 	degree: usize,
-) -> (Vec<(AccountId, u64, impl IntoIterator<Item = AccountId>)>, Vec<AccountId>) {
+) -> (Vec<(AccountId, u64, impl Clone + IntoIterator<Item = AccountId>)>, Vec<AccountId>) {
 	// fill targets.
 	let mut targets = (0..targets_len)
 		.map(|i| frame_benchmarking::account::<AccountId>("Target", i, SEED))
@@ -54,36 +56,47 @@ fn set_up_voters_targets<AccountId: Decode + Clone>(
 	(voters, targets)
 }
 
-benchmarks! {
-	phragmen {
-		// number of votes in snapshot.
-		let v in (VOTERS[0]) .. VOTERS[1];
-		// number of targets in snapshot.
-		let t in (TARGETS[0]) .. TARGETS[1];
-		// number of votes per voter (ie the degree).
-		let d in (VOTES_PER_VOTER[0]) .. VOTES_PER_VOTER[1];
+#[benchmarks]
+mod benchmarks {
+	use super::*;
 
-		let (voters, targets) = set_up_voters_targets::<T::AccountId>(v, t, d as usize);
-	}: {
-		assert!(
-			SequentialPhragmen::<T::AccountId, sp_runtime::Perbill>
-				::solve(d as usize, targets, voters).is_ok()
-		);
+	#[benchmark]
+	fn phragmen(
+		// Number of votes in snapshot.
+		v: Linear<{ VOTERS[0] }, { VOTERS[1] }>,
+		// Number of targets in snapshot.
+		t: Linear<{ TARGETS[0] }, { TARGETS[1] }>,
+		// Number of votes per voter (ie the degree).
+		d: Linear<{ VOTES_PER_VOTER[0] }, { VOTES_PER_VOTER[1] }>,
+	) {
+		let (voters, targets) = set_up_voters_targets::<T::AccountId>(v, t, d as _);
+		let result;
+
+		#[block]
+		{
+			result = SequentialPhragmen::<T::AccountId, Perbill>::solve(d as _, targets, voters);
+		}
+
+		assert!(result.is_ok());
 	}
 
-	phragmms {
-		// number of votes in snapshot.
-		let v in (VOTERS[0]) .. VOTERS[1];
-		// number of targets in snapshot.
-		let t in (TARGETS[0]) .. TARGETS[1];
-		// number of votes per voter (ie the degree).
-		let d in (VOTES_PER_VOTER[0]) .. VOTES_PER_VOTER[1];
+	#[benchmark]
+	fn phragmms(
+		// Number of votes in snapshot.
+		v: Linear<{ VOTERS[0] }, { VOTERS[1] }>,
+		// Number of targets in snapshot.
+		t: Linear<{ TARGETS[0] }, { TARGETS[1] }>,
+		// Number of votes per voter (ie the degree).
+		d: Linear<{ VOTES_PER_VOTER[0] }, { VOTES_PER_VOTER[1] }>,
+	) {
+		let (voters, targets) = set_up_voters_targets::<T::AccountId>(v, t, d as _);
+		let result;
 
-		let (voters, targets) = set_up_voters_targets::<T::AccountId>(v, t, d as usize);
-	}: {
-		assert!(
-			PhragMMS::<T::AccountId, sp_runtime::Perbill>
-				::solve(d as usize, targets, voters).is_ok()
-		);
+		#[block]
+		{
+			result = PhragMMS::<T::AccountId, Perbill>::solve(d as _, targets, voters);
+		}
+
+		assert!(result.is_ok());
 	}
 }

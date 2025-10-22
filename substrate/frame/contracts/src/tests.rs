@@ -399,6 +399,7 @@ impl pallet_proxy::Config for Test {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 impl pallet_dummy::Config for Test {}
@@ -411,6 +412,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static MaxDelegateDependencies: u32 = 32;
+	pub static MaxTransientStorageSize: u32 = 4 * 1024;
 
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 	// We need this one set high enough for running benchmarks.
@@ -458,7 +460,7 @@ parameter_types! {
 	pub static InstantiateAccount: Option<<Test as frame_system::Config>::AccountId> = None;
 }
 
-pub struct EnsureAccount<T, A>(sp_std::marker::PhantomData<(T, A)>);
+pub struct EnsureAccount<T, A>(core::marker::PhantomData<(T, A)>);
 impl<T: Config, A: sp_core::Get<Option<crate::AccountIdOf<T>>>>
 	EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureAccount<T, A>
 where
@@ -504,6 +506,7 @@ impl Config for Test {
 	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
+	type MaxTransientStorageSize = MaxTransientStorageSize;
 	type Debug = TestDebug;
 }
 
@@ -547,12 +550,10 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		use env_logger::{Builder, Env};
-		let env = Env::new().default_filter_or("runtime=debug");
-		let _ = Builder::from_env(env).is_test(true).try_init();
+		sp_tracing::try_init_simple();
 		self.set_associated_consts();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		pallet_balances::GenesisConfig::<Test> { balances: vec![] }
+		pallet_balances::GenesisConfig::<Test> { balances: vec![], ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
@@ -588,7 +589,7 @@ struct ExtensionInput<'a> {
 
 impl<'a> ExtensionInput<'a> {
 	fn to_vec(&self) -> Vec<u8> {
-		((self.extension_id as u32) << 16 | (self.func_id as u32))
+		(((self.extension_id as u32) << 16) | (self.func_id as u32))
 			.to_le_bytes()
 			.iter()
 			.chain(self.extra)
@@ -764,6 +765,18 @@ fn instantiate_and_call_and_deposit_event() {
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE,
 						contract: addr.clone()
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 100,
 					}),
 					topics: vec![],
 				},
@@ -963,6 +976,68 @@ fn storage_max_value_limit() {
 }
 
 #[test]
+fn transient_storage_work() {
+	let (code, _code_hash) = compile_module::<Test>("transient_storage").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		builder::bare_call(addr).build_and_unwrap_result();
+	});
+}
+
+#[test]
+fn transient_storage_limit_in_call() {
+	let (wasm_caller, _code_hash_caller) =
+		compile_module::<Test>("create_transient_storage_and_call").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("set_transient_storage").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+
+		// Create both contracts: Constructors do nothing.
+		let addr_caller = builder::bare_instantiate(Code::Upload(wasm_caller))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+		let addr_callee = builder::bare_instantiate(Code::Upload(wasm_callee))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		let storage_value_size = 1000;
+		MaxTransientStorageSize::set(4 * 1024);
+		// Call contracts with storage values within the limit.
+		// Caller and Callee contracts each set a transient storage value of size 1000.
+		assert_ok!(builder::call(addr_caller.clone())
+			.data((storage_value_size, storage_value_size, &addr_callee).encode())
+			.build(),);
+
+		MaxTransientStorageSize::set(512);
+		// Call a contract with a storage value that is too large.
+		// Limit exceeded in the caller contract.
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller.clone())
+				.data((storage_value_size, storage_value_size, &addr_callee).encode())
+				.build(),
+			<Error<Test>>::OutOfTransientStorage,
+		);
+
+		MaxTransientStorageSize::set(1536);
+		// Call a contract with a storage value that is too large.
+		// Limit exceeded in the callee contract.
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller)
+				.data((storage_value_size, storage_value_size, &addr_callee).encode())
+				.build(),
+			<Error<Test>>::ContractTrapped
+		);
+	});
+}
+
+#[test]
 fn deploy_and_call_other_contract() {
 	let (caller_wasm, _caller_code_hash) = compile_module::<Test>("caller_contract").unwrap();
 	let (callee_wasm, callee_code_hash) = compile_module::<Test>("return_with_data").unwrap();
@@ -1059,6 +1134,18 @@ fn deploy_and_call_other_contract() {
 					event: RuntimeEvent::Contracts(crate::Event::Called {
 						caller: Origin::from_account_id(ALICE),
 						contract: caller_addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: callee_addr.clone(),
+						transferred: 100,
 					}),
 					topics: vec![],
 				},
@@ -1304,6 +1391,18 @@ fn self_destruct_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Called {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: addr.clone(),
+						dest: ALICE,
+						amount: 100,
 					}),
 					topics: vec![],
 				},
@@ -2497,15 +2596,28 @@ fn upload_code_works() {
 
 		assert_eq!(
 			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-					code_hash,
-					deposit_held: deposit_expected,
-					uploader: ALICE
-				}),
-				topics: vec![],
-			},]
+			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
+						code_hash,
+						deposit_held: deposit_expected,
+						uploader: ALICE
+					}),
+					topics: vec![],
+				},
+			]
 		);
 	});
 }
@@ -2587,10 +2699,32 @@ fn remove_code_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
 						code_hash,
 						deposit_held: deposit_expected,
 						uploader: ALICE
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Released {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
 					}),
 					topics: vec![],
 				},
@@ -2634,15 +2768,28 @@ fn remove_code_wrong_origin() {
 
 		assert_eq!(
 			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-					code_hash,
-					deposit_held: deposit_expected,
-					uploader: ALICE
-				}),
-				topics: vec![],
-			},]
+			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
+						code_hash,
+						deposit_held: deposit_expected,
+						uploader: ALICE
+					}),
+					topics: vec![],
+				},
+			]
 		);
 	});
 }
@@ -2715,6 +2862,17 @@ fn instantiate_with_zero_balance_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
 						code_hash,
 						deposit_held: deposit_expected,
@@ -2751,6 +2909,18 @@ fn instantiate_with_zero_balance_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE,
 						contract: addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 100,
 					}),
 					topics: vec![],
 				},
@@ -2800,6 +2970,17 @@ fn instantiate_with_below_existential_deposit_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
 						code_hash,
 						deposit_held: deposit_expected,
@@ -2845,6 +3026,18 @@ fn instantiate_with_below_existential_deposit_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE,
 						contract: addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 100,
 					}),
 					topics: vec![],
 				},
@@ -2922,6 +3115,18 @@ fn storage_deposit_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 6004,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(
 						pallet_contracts::Event::StorageDepositTransferredAndHeld {
 							from: ALICE,
@@ -2941,6 +3146,18 @@ fn storage_deposit_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 900,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(
 						pallet_contracts::Event::StorageDepositTransferredAndHeld {
 							from: ALICE,
@@ -2955,6 +3172,18 @@ fn storage_deposit_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Called {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: addr.clone(),
+						dest: ALICE,
+						amount: 3899,
 					}),
 					topics: vec![],
 				},

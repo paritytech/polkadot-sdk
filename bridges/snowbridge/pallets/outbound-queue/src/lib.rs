@@ -7,14 +7,14 @@
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
 //! via the `snowbridge-pallet-system`:
 //!
-//! 1. `snowbridge_router_primitives::outbound::EthereumBlobExporter::deliver`
+//! 1. `snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter::deliver`
 //! 2. `snowbridge_pallet_system::Pallet::send`
 //!
 //! The message submission pipeline works like this:
 //! 1. The message is first validated via the implementation for
-//!    [`snowbridge_core::outbound::SendMessage::validate`]
+//!    [`snowbridge_outbound_queue_primitives::v1::SendMessage::validate`]
 //! 2. The message is then enqueued for later processing via the implementation for
-//!    [`snowbridge_core::outbound::SendMessage::deliver`]
+//!    [`snowbridge_outbound_queue_primitives::v1::SendMessage::deliver`]
 //! 3. The underlying message queue is implemented by [`Config::MessageQueue`]
 //! 4. The message queue delivers messages back to this pallet via the implementation for
 //!    [`frame_support::traits::ProcessMessage::process_message`]
@@ -110,12 +110,11 @@ use frame_support::{
 	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::{
-	outbound::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS},
-	BasicOperatingMode, ChannelId,
+use snowbridge_core::{BasicOperatingMode, ChannelId};
+use snowbridge_merkle_tree::merkle_root;
+use snowbridge_outbound_queue_primitives::v1::{
+	Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS,
 };
-use snowbridge_outbound_queue_merkle_tree::merkle_root;
-pub use snowbridge_outbound_queue_merkle_tree::MerkleProof;
 use sp_core::{H256, U256};
 use sp_runtime::{
 	traits::{CheckedDiv, Hash},
@@ -140,6 +139,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type Hashing: Hash<Output = H256>;

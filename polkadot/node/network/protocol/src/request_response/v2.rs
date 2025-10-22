@@ -20,12 +20,12 @@ use codec::{Decode, Encode};
 
 use polkadot_node_primitives::ErasureChunk;
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceipt, Hash, Id as ParaId, PersistedValidationData,
-	UncheckedSignedStatement, ValidatorIndex,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Id as ParaId,
+	PersistedValidationData, UncheckedSignedStatement, ValidatorIndex,
 };
 
 use super::{v1, IsRequest, Protocol};
-use crate::v2::StatementFilter;
+use crate::v3::StatementFilter;
 
 /// Request a candidate with statements.
 #[derive(Debug, Clone, Encode, Decode)]

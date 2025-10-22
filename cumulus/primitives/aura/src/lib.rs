@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Core primitives for Aura in Cumulus.
 //!
@@ -34,10 +34,14 @@ sp_api::decl_runtime_apis! {
 	/// When the unincluded segment is short, Aura chains will allow authors to create multiple
 	/// blocks per slot in order to build a backlog. When it is saturated, this API will limit
 	/// the amount of blocks that can be created.
+	///
+	/// Changes:
+	/// - Version 2: Update to `can_build_upon` to take a relay chain `Slot` instead of a parachain `Slot`.
+	#[api_version(2)]
 	pub trait AuraUnincludedSegmentApi {
 		/// Whether it is legal to extend the chain, assuming the given block is the most
 		/// recently included one as-of the relay parent that will be built against, and
-		/// the given slot.
+		/// the given relay chain slot.
 		///
 		/// This should be consistent with the logic the runtime uses when validating blocks to
 		/// avoid issues.

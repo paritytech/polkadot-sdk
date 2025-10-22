@@ -1,0 +1,17 @@
+title: 'cumulus: bump PARENT_SEARCH_DEPTH to allow for 12-core elastic scaling'
+doc:
+- audience: Node Dev
+  description: |
+    Bumps the PARENT_SEARCH_DEPTH constant to a larger value (30).
+    This is a node-side limit that restricts the number of allowed pending availability candidates when choosing the parent parablock during authoring.
+    This limit is rather redundant, as the parachain runtime already restricts the unincluded segment length to the configured value in the
+    FixedVelocityConsensusHook.
+    For 12 cores, a value of 24 should be enough, but bumped it to 30 to have some extra buffer.
+
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-test-runtime
+  bump: minor
+- name: cumulus-test-service
+  bump: minor

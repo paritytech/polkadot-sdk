@@ -26,13 +26,14 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	node_features, AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex,
-	GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex,
-	SessionInfo, ValidatorIndex,
+	node_features, ApprovalVotingParams, AsyncBackingParams, CandidateEvent,
+	CandidateReceiptV2 as CandidateReceipt, CoreIndex, CoreState, GroupIndex, GroupRotationInfo,
+	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
+	ValidationCode, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 
@@ -45,11 +46,13 @@ pub struct RuntimeApiState {
 	node_features: NodeFeatures,
 	// Candidate hashes per block
 	candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
-	// Included candidates per bock
-	included_candidates: HashMap<H256, Vec<CandidateEvent>>,
+	// Candidate events per block
+	candidate_events: HashMap<H256, Vec<CandidateEvent>>,
 	babe_epoch: Option<BabeEpoch>,
 	// The session child index,
 	session_index: SessionIndex,
+	// The claim queue
+	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 }
 
 #[derive(Clone)]
@@ -73,22 +76,41 @@ impl MockRuntimeApi {
 		config: TestConfiguration,
 		authorities: TestAuthorities,
 		candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
-		included_candidates: HashMap<H256, Vec<CandidateEvent>>,
+		candidate_events: HashMap<H256, Vec<CandidateEvent>>,
 		babe_epoch: Option<BabeEpoch>,
 		session_index: SessionIndex,
 		core_state: MockRuntimeApiCoreState,
 	) -> MockRuntimeApi {
 		// Enable chunk mapping feature to make systematic av-recovery possible.
-		let node_features = node_features_with_chunk_mapping_enabled();
+		let node_features = default_node_features();
+		let validator_group_count =
+			session_info_for_peers(&config, &authorities).validator_groups.len();
+
+		// Each para gets one core assigned and there is only one candidate per
+		// parachain per relay chain block (no elastic scaling).
+		let claim_queue = candidate_hashes
+			.iter()
+			.next()
+			.expect("Candidates are generated at test start")
+			.1
+			.iter()
+			.enumerate()
+			.map(|(index, candidate_receipt)| {
+				// Ensure test breaks if badly configured.
+				assert!(index < validator_group_count);
+				(CoreIndex(index as u32), vec![candidate_receipt.descriptor.para_id()].into())
+			})
+			.collect();
 
 		Self {
 			state: RuntimeApiState {
 				authorities,
 				candidate_hashes,
-				included_candidates,
+				candidate_events,
 				babe_epoch,
 				session_index,
 				node_features,
+				claim_queue,
 			},
 			config,
 			core_state,
@@ -163,7 +185,7 @@ impl MockRuntimeApi {
 							request,
 							RuntimeApiRequest::CandidateEvents(sender),
 						) => {
-							let candidate_events = self.state.included_candidates.get(&request);
+							let candidate_events = self.state.candidate_events.get(&request);
 							let _ = sender.send(Ok(candidate_events.cloned().unwrap_or_default()));
 						},
 						RuntimeApiMessage::Request(
@@ -288,6 +310,38 @@ impl MockRuntimeApi {
 							};
 							tx.send(Ok((groups, group_rotation_info))).unwrap();
 						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ValidationCodeByHash(hash, tx),
+						) => {
+							gum::debug!(target: LOG_TARGET, "ValidationCodeByHash: {:?}", hash);
+							let validation_code = ValidationCode(Vec::new());
+							if let Err(err) = tx.send(Ok(Some(validation_code))) {
+								gum::error!(target: LOG_TARGET, ?err, "validation code wasn't received");
+							}
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ApprovalVotingParams(_, tx),
+						) =>
+							if let Err(err) = tx.send(Ok(ApprovalVotingParams::default())) {
+								gum::error!(target: LOG_TARGET, ?err, "Voting params weren't received");
+							},
+						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::ClaimQueue(tx)) => {
+							tx.send(Ok(self.state.claim_queue.clone())).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::FetchOnChainVotes(tx),
+						) => {
+							tx.send(Ok(None)).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::UnappliedSlashes(tx),
+						) => {
+							tx.send(Ok(vec![])).unwrap();
+						},
 						// Long term TODO: implement more as needed.
 						message => {
 							unimplemented!("Unexpected runtime-api message: {:?}", message)
@@ -299,9 +353,12 @@ impl MockRuntimeApi {
 	}
 }
 
-pub fn node_features_with_chunk_mapping_enabled() -> NodeFeatures {
+pub fn default_node_features() -> NodeFeatures {
 	let mut node_features = NodeFeatures::new();
-	node_features.resize(node_features::FeatureIndex::AvailabilityChunkMapping as usize + 1, false);
+	node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize, false);
 	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
+	node_features.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
+	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
+
 	node_features
 }

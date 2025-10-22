@@ -20,12 +20,11 @@
 //! An equivalent of `sp_io::TestExternalities` that can load its state from a remote substrate
 //! based chain, or a local state snapshot file.
 
+mod logging;
+
 use codec::{Compact, Decode, Encode};
 use indicatif::{ProgressBar, ProgressStyle};
-use jsonrpsee::{
-	core::params::ArrayParams,
-	http_client::{HttpClient, HttpClientBuilder},
-};
+use jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
@@ -40,7 +39,6 @@ use sp_runtime::{
 	StateVersion,
 };
 use sp_state_machine::TestExternalities;
-use spinners::{Spinner, Spinners};
 use std::{
 	cmp::{max, min},
 	fs,
@@ -52,13 +50,15 @@ use std::{
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
 use tokio_retry::{strategy::FixedInterval, Retry};
 
+type Result<T, E = &'static str> = std::result::Result<T, E>;
+
 type KeyValue = (StorageKey, StorageData);
 type TopKeyValues = Vec<KeyValue>;
 type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
 type SnapshotVersion = Compact<u16>;
 
 const LOG_TARGET: &str = "remote-ext";
-const DEFAULT_HTTP_ENDPOINT: &str = "https://polkadot-try-runtime-node.parity-chains.parity.io:443";
+const DEFAULT_HTTP_ENDPOINT: &str = "https://try-runtime.polkadot.io:443";
 const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
 
 /// The snapshot that we store on disk.
@@ -90,7 +90,7 @@ impl<B: BlockT> Snapshot<B> {
 		}
 	}
 
-	fn load(path: &PathBuf) -> Result<Snapshot<B>, &'static str> {
+	fn load(path: &PathBuf) -> Result<Snapshot<B>> {
 		let bytes = fs::read(path).map_err(|_| "fs::read failed.")?;
 		// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
 		// check that first, before proceeding to decode the rest of the snapshot.
@@ -171,9 +171,9 @@ impl Transport {
 	}
 
 	// Build an HttpClient from a URI.
-	async fn init(&mut self) -> Result<(), &'static str> {
+	async fn init(&mut self) -> Result<()> {
 		if let Self::Uri(uri) = self {
-			log::debug!(target: LOG_TARGET, "initializing remote client to {:?}", uri);
+			debug!(target: LOG_TARGET, "initializing remote client to {uri:?}");
 
 			// If we have a ws uri, try to convert it to an http uri.
 			// We use an HTTP client rather than WS because WS starts to choke with "accumulated
@@ -181,22 +181,22 @@ impl Transport {
 			// from a node running a default configuration.
 			let uri = if uri.starts_with("ws://") {
 				let uri = uri.replace("ws://", "http://");
-				log::info!(target: LOG_TARGET, "replacing ws:// in uri with http://: {:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)", uri);
+				info!(target: LOG_TARGET, "replacing ws:// in uri with http://: {uri:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)");
 				uri
 			} else if uri.starts_with("wss://") {
 				let uri = uri.replace("wss://", "https://");
-				log::info!(target: LOG_TARGET, "replacing wss:// in uri with https://: {:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)", uri);
+				info!(target: LOG_TARGET, "replacing wss:// in uri with https://: {uri:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)");
 				uri
 			} else {
 				uri.clone()
 			};
-			let http_client = HttpClientBuilder::default()
+			let http_client = HttpClient::builder()
 				.max_request_size(u32::MAX)
 				.max_response_size(u32::MAX)
 				.request_timeout(std::time::Duration::from_secs(60 * 5))
 				.build(uri)
 				.map_err(|e| {
-					log::error!(target: LOG_TARGET, "error: {:?}", e);
+					error!(target: LOG_TARGET, "error: {e:?}");
 					"failed to build http client"
 				})?;
 
@@ -367,23 +367,23 @@ where
 		&self,
 		key: StorageKey,
 		maybe_at: Option<B::Hash>,
-	) -> Result<Option<StorageData>, &'static str> {
+	) -> Result<Option<StorageData>> {
 		trace!(target: LOG_TARGET, "rpc: get_storage");
 		self.as_online().rpc_client().storage(key, maybe_at).await.map_err(|e| {
-			error!(target: LOG_TARGET, "Error = {:?}", e);
+			error!(target: LOG_TARGET, "Error = {e:?}");
 			"rpc get_storage failed."
 		})
 	}
 
 	/// Get the latest finalized head.
-	async fn rpc_get_head(&self) -> Result<B::Hash, &'static str> {
+	async fn rpc_get_head(&self) -> Result<B::Hash> {
 		trace!(target: LOG_TARGET, "rpc: finalized_head");
 
 		// sadly this pretty much unreadable...
 		ChainApi::<(), _, B::Header, ()>::finalized_head(self.as_online().rpc_client())
 			.await
 			.map_err(|e| {
-				error!(target: LOG_TARGET, "Error = {:?}", e);
+				error!(target: LOG_TARGET, "Error = {e:?}");
 				"rpc finalized_head failed."
 			})
 	}
@@ -393,13 +393,13 @@ where
 		prefix: Option<StorageKey>,
 		start_key: Option<StorageKey>,
 		at: B::Hash,
-	) -> Result<Vec<StorageKey>, &'static str> {
+	) -> Result<Vec<StorageKey>> {
 		self.as_online()
 			.rpc_client()
 			.storage_keys_paged(prefix, Self::DEFAULT_KEY_DOWNLOAD_PAGE, start_key, Some(at))
 			.await
 			.map_err(|e| {
-				error!(target: LOG_TARGET, "Error = {:?}", e);
+				error!(target: LOG_TARGET, "Error = {e:?}");
 				"rpc get_keys failed"
 			})
 	}
@@ -410,7 +410,7 @@ where
 		prefix: &StorageKey,
 		block: B::Hash,
 		parallel: usize,
-	) -> Result<Vec<StorageKey>, &'static str> {
+	) -> Result<Vec<StorageKey>> {
 		/// Divide the workload and return the start key of each chunks. Guaranteed to return a
 		/// non-empty list.
 		fn gen_start_keys(prefix: &StorageKey) -> Vec<StorageKey> {
@@ -494,7 +494,7 @@ where
 		block: B::Hash,
 		start_key: Option<&StorageKey>,
 		end_key: Option<&StorageKey>,
-	) -> Result<Vec<StorageKey>, &'static str> {
+	) -> Result<Vec<StorageKey>> {
 		let mut last_key: Option<&StorageKey> = start_key;
 		let mut keys: Vec<StorageKey> = vec![];
 
@@ -521,11 +521,11 @@ where
 			// scraping out of range or no more matches,
 			// we are done either way
 			if page_len < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
-				log::debug!(target: LOG_TARGET, "last page received: {}", page_len);
+				debug!(target: LOG_TARGET, "last page received: {page_len}");
 				break
 			}
 
-			log::debug!(
+			debug!(
 				target: LOG_TARGET,
 				"new total = {}, full page received: {}",
 				keys.len(),
@@ -592,11 +592,10 @@ where
 		let total_payloads = payloads.len();
 
 		while start_index < total_payloads {
-			log::debug!(
+			debug!(
 				target: LOG_TARGET,
-				"Remaining payloads: {} Batch request size: {}",
+				"Remaining payloads: {} Batch request size: {batch_size}",
 				total_payloads - start_index,
-				batch_size,
 			);
 
 			let end_index = usize::min(start_index + batch_size, total_payloads);
@@ -623,18 +622,16 @@ where
 
 					retries += 1;
 					let failure_log = format!(
-						"Batch request failed ({}/{} retries). Error: {}",
-						retries,
-						Self::MAX_RETRIES,
-						e
+						"Batch request failed ({retries}/{} retries). Error: {e}",
+						Self::MAX_RETRIES
 					);
 					// after 2 subsequent failures something very wrong is happening. log a warning
 					// and reset the batch size down to 1.
 					if retries >= 2 {
-						log::warn!("{}", failure_log);
+						warn!("{failure_log}");
 						batch_size = 1;
 					} else {
-						log::debug!("{}", failure_log);
+						debug!("{failure_log}");
 						// Decrease batch size by DECREASE_FACTOR
 						batch_size =
 							(batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize;
@@ -658,13 +655,11 @@ where
 				)
 			};
 
-			log::debug!(
+			debug!(
 				target: LOG_TARGET,
-				"Request duration: {:?} Target duration: {:?} Last batch size: {} Next batch size: {}",
-				request_duration,
+				"Request duration: {request_duration:?} Target duration: {:?} Last batch size: {} Next batch size: {batch_size}",
 				Self::REQUEST_DURATION_TARGET,
 				end_index - start_index,
-				batch_size
 			);
 
 			let batch_response_len = batch_response.len();
@@ -692,21 +687,24 @@ where
 		prefix: StorageKey,
 		at: B::Hash,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
-	) -> Result<Vec<KeyValue>, &'static str> {
-		let start = Instant::now();
-		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
-		// TODO We could start downloading when having collected the first batch of keys
-		// https://github.com/paritytech/polkadot-sdk/issues/2494
-		let keys = self
-			.rpc_get_keys_parallel(&prefix, at, Self::PARALLEL_REQUESTS)
-			.await?
-			.into_iter()
-			.collect::<Vec<_>>();
-		sp.stop_with_message(format!(
-			"✅ Found {} keys ({:.2}s)",
-			keys.len(),
-			start.elapsed().as_secs_f32()
-		));
+	) -> Result<Vec<KeyValue>> {
+		let keys = logging::with_elapsed_async(
+			|| async {
+				// TODO: We could start downloading when having collected the first batch of keys.
+				// https://github.com/paritytech/polkadot-sdk/issues/2494
+				let keys = self
+					.rpc_get_keys_parallel(&prefix, at, Self::PARALLEL_REQUESTS)
+					.await?
+					.into_iter()
+					.collect::<Vec<_>>();
+
+				Ok(keys)
+			},
+			"Scraping keys...",
+			|keys| format!("Found {} keys", keys.len()),
+		)
+		.await?;
+
 		if keys.is_empty() {
 			return Ok(Default::default())
 		}
@@ -738,7 +736,7 @@ where
 		let storage_data = match storage_data_result {
 			Ok(storage_data) => storage_data.into_iter().flatten().collect::<Vec<_>>(),
 			Err(e) => {
-				log::error!(target: LOG_TARGET, "Error while getting storage data: {}", e);
+				error!(target: LOG_TARGET, "Error while getting storage data: {e}");
 				return Err("Error while getting storage data")
 			},
 		};
@@ -754,27 +752,31 @@ where
 			.map(|(key, maybe_value)| match maybe_value {
 				Some(data) => (key.clone(), data),
 				None => {
-					log::warn!(target: LOG_TARGET, "key {:?} had none corresponding value.", &key);
+					warn!(target: LOG_TARGET, "key {key:?} had none corresponding value.");
 					let data = StorageData(vec![]);
 					(key.clone(), data)
 				},
 			})
 			.collect::<Vec<_>>();
 
-		let mut sp = Spinner::with_timer(Spinners::Dots, "Inserting keys into DB...".into());
-		let start = Instant::now();
-		pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
-			// Don't insert the child keys here, they need to be inserted separately with all their
-			// data in the load_child_remote function.
-			match is_default_child_storage_key(&k.0) {
-				true => None,
-				false => Some((k.0, v.0)),
-			}
-		}));
-		sp.stop_with_message(format!(
-			"✅ Inserted keys into DB ({:.2}s)",
-			start.elapsed().as_secs_f32()
-		));
+		logging::with_elapsed(
+			|| {
+				pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
+					// Don't insert the child keys here, they need to be inserted separately with
+					// all their data in the load_child_remote function.
+					match is_default_child_storage_key(&k.0) {
+						true => None,
+						false => Some((k.0, v.0)),
+					}
+				}));
+
+				Ok(())
+			},
+			"Inserting keys into DB...",
+			|_| "Inserted keys into DB".into(),
+		)
+		.expect("must succeed; qed");
+
 		Ok(key_values)
 	}
 
@@ -784,7 +786,7 @@ where
 		prefixed_top_key: &StorageKey,
 		child_keys: Vec<StorageKey>,
 		at: B::Hash,
-	) -> Result<Vec<KeyValue>, &'static str> {
+	) -> Result<Vec<KeyValue>> {
 		let child_keys_len = child_keys.len();
 
 		let payloads = child_keys
@@ -806,7 +808,7 @@ where
 			match Self::get_storage_data_dynamic_batch_size(client, payloads, &bar).await {
 				Ok(storage_data) => storage_data,
 				Err(e) => {
-					log::error!(target: LOG_TARGET, "batch processing failed: {:?}", e);
+					error!(target: LOG_TARGET, "batch processing failed: {e:?}");
 					return Err("batch processing failed")
 				},
 			};
@@ -819,7 +821,7 @@ where
 			.map(|(key, maybe_value)| match maybe_value {
 				Some(v) => (key.clone(), v),
 				None => {
-					log::warn!(target: LOG_TARGET, "key {:?} had no corresponding value.", &key);
+					warn!(target: LOG_TARGET, "key {key:?} had no corresponding value.");
 					(key.clone(), StorageData(vec![]))
 				},
 			})
@@ -831,7 +833,7 @@ where
 		prefixed_top_key: &StorageKey,
 		child_prefix: StorageKey,
 		at: B::Hash,
-	) -> Result<Vec<StorageKey>, &'static str> {
+	) -> Result<Vec<StorageKey>> {
 		let retry_strategy =
 			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
 		let mut all_child_keys = Vec::new();
@@ -853,7 +855,7 @@ where
 			let child_keys = Retry::spawn(retry_strategy.clone(), get_child_keys_closure)
 				.await
 				.map_err(|e| {
-					error!(target: LOG_TARGET, "Error = {:?}", e);
+					error!(target: LOG_TARGET, "Error = {e:?}");
 					"rpc child_get_keys failed."
 				})?;
 
@@ -899,7 +901,7 @@ where
 		&self,
 		top_kv: &[KeyValue],
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
-	) -> Result<ChildKeyValues, &'static str> {
+	) -> Result<ChildKeyValues> {
 		let child_roots = top_kv
 			.iter()
 			.filter(|(k, _)| is_default_child_storage_key(k.as_ref()))
@@ -907,7 +909,7 @@ where
 			.collect::<Vec<_>>();
 
 		if child_roots.is_empty() {
-			info!(target: LOG_TARGET, "👩‍👦 no child roots found to scrape",);
+			info!(target: LOG_TARGET, "👩‍👦 no child roots found to scrape");
 			return Ok(Default::default())
 		}
 
@@ -933,7 +935,7 @@ where
 			let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
 				Some((ChildType::ParentKeyId, storage_key)) => storage_key,
 				None => {
-					log::error!(target: LOG_TARGET, "invalid key: {:?}", prefixed_top_key);
+					error!(target: LOG_TARGET, "invalid key: {prefixed_top_key:?}");
 					return Err("Invalid child key")
 				},
 			};
@@ -957,13 +959,13 @@ where
 	async fn load_top_remote(
 		&self,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
-	) -> Result<TopKeyValues, &'static str> {
+	) -> Result<TopKeyValues> {
 		let config = self.as_online();
 		let at = self
 			.as_online()
 			.at
 			.expect("online config must be initialized by this point; qed.");
-		log::info!(target: LOG_TARGET, "scraping key-pairs from remote at block height {:?}", at);
+		info!(target: LOG_TARGET, "scraping key-pairs from remote at block height {at:?}");
 
 		let mut keys_and_values = Vec::new();
 		for prefix in &config.hashed_prefixes {
@@ -971,7 +973,7 @@ where
 			let additional_key_values =
 				self.rpc_get_pairs(StorageKey(prefix.to_vec()), at, pending_ext).await?;
 			let elapsed = now.elapsed();
-			log::info!(
+			info!(
 				target: LOG_TARGET,
 				"adding data for hashed prefix: {:?}, took {:.2}s",
 				HexDisplay::from(prefix),
@@ -982,7 +984,7 @@ where
 
 		for key in &config.hashed_keys {
 			let key = StorageKey(key.to_vec());
-			log::info!(
+			info!(
 				target: LOG_TARGET,
 				"adding data for hashed key: {:?}",
 				HexDisplay::from(&key)
@@ -993,7 +995,7 @@ where
 					keys_and_values.push((key, value));
 				},
 				None => {
-					log::warn!(
+					warn!(
 						target: LOG_TARGET,
 						"no data found for hashed key: {:?}",
 						HexDisplay::from(&key)
@@ -1008,17 +1010,16 @@ where
 	/// The entry point of execution, if `mode` is online.
 	///
 	/// initializes the remote client in `transport`, and sets the `at` field, if not specified.
-	async fn init_remote_client(&mut self) -> Result<(), &'static str> {
+	async fn init_remote_client(&mut self) -> Result<()> {
 		// First, initialize the http client.
 		self.as_online_mut().transport.init().await?;
 
 		// Then, if `at` is not set, set it.
 		if self.as_online().at.is_none() {
 			let at = self.rpc_get_head().await?;
-			log::info!(
+			info!(
 				target: LOG_TARGET,
-				"since no at is provided, setting it to latest finalized head, {:?}",
-				at
+				"since no at is provided, setting it to latest finalized head, {at:?}",
 			);
 			self.as_online_mut().at = Some(at);
 		}
@@ -1043,7 +1044,7 @@ where
 			.filter(|p| *p != DEFAULT_CHILD_STORAGE_KEY_PREFIX)
 			.count() == 0
 		{
-			log::info!(
+			info!(
 				target: LOG_TARGET,
 				"since no prefix is filtered, the data for all pallets will be downloaded"
 			);
@@ -1053,7 +1054,7 @@ where
 		Ok(())
 	}
 
-	async fn load_header(&self) -> Result<B::Header, &'static str> {
+	async fn load_header(&self) -> Result<B::Header> {
 		let retry_strategy =
 			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
 		let get_header_closure = || {
@@ -1072,14 +1073,12 @@ where
 	/// `load_child_remote`.
 	///
 	/// Must be called after `init_remote_client`.
-	async fn load_remote_and_maybe_save(
-		&mut self,
-	) -> Result<TestExternalities<HashingFor<B>>, &'static str> {
+	async fn load_remote_and_maybe_save(&mut self) -> Result<TestExternalities<HashingFor<B>>> {
 		let state_version =
 			StateApi::<B::Hash>::runtime_version(self.as_online().rpc_client(), None)
 				.await
 				.map_err(|e| {
-					error!(target: LOG_TARGET, "Error = {:?}", e);
+					error!(target: LOG_TARGET, "Error = {e:?}");
 					"rpc runtime_version failed."
 				})
 				.map(|v| v.state_version())?;
@@ -1103,11 +1102,10 @@ where
 				self.load_header().await?,
 			);
 			let encoded = snapshot.encode();
-			log::info!(
+			info!(
 				target: LOG_TARGET,
-				"writing snapshot of {} bytes to {:?}",
+				"writing snapshot of {} bytes to {path:?}",
 				encoded.len(),
-				path
 			);
 			std::fs::write(path, encoded).map_err(|_| "fs::write failed")?;
 
@@ -1122,33 +1120,35 @@ where
 		Ok(pending_ext)
 	}
 
-	async fn do_load_remote(&mut self) -> Result<RemoteExternalities<B>, &'static str> {
+	async fn do_load_remote(&mut self) -> Result<RemoteExternalities<B>> {
 		self.init_remote_client().await?;
 		let inner_ext = self.load_remote_and_maybe_save().await?;
 		Ok(RemoteExternalities { header: self.load_header().await?, inner_ext })
 	}
 
-	fn do_load_offline(
-		&mut self,
-		config: OfflineConfig,
-	) -> Result<RemoteExternalities<B>, &'static str> {
-		let mut sp = Spinner::with_timer(Spinners::Dots, "Loading snapshot...".into());
-		let start = Instant::now();
-		info!(target: LOG_TARGET, "Loading snapshot from {:?}", &config.state_snapshot.path);
-		let Snapshot { snapshot_version: _, header, state_version, raw_storage, storage_root } =
-			Snapshot::<B>::load(&config.state_snapshot.path)?;
+	fn do_load_offline(&mut self, config: OfflineConfig) -> Result<RemoteExternalities<B>> {
+		let (header, inner_ext) = logging::with_elapsed(
+			|| {
+				info!(target: LOG_TARGET, "Loading snapshot from {:?}", &config.state_snapshot.path);
 
-		let inner_ext = TestExternalities::from_raw_snapshot(
-			raw_storage,
-			storage_root,
-			self.overwrite_state_version.unwrap_or(state_version),
-		);
-		sp.stop_with_message(format!("✅ Loaded snapshot ({:.2}s)", start.elapsed().as_secs_f32()));
+				let Snapshot { header, state_version, raw_storage, storage_root, .. } =
+					Snapshot::<B>::load(&config.state_snapshot.path)?;
+				let inner_ext = TestExternalities::from_raw_snapshot(
+					raw_storage,
+					storage_root,
+					self.overwrite_state_version.unwrap_or(state_version),
+				);
+
+				Ok((header, inner_ext))
+			},
+			"Loading snapshot...",
+			|_| "Loaded snapshot".into(),
+		)?;
 
 		Ok(RemoteExternalities { inner_ext, header })
 	}
 
-	pub(crate) async fn pre_build(mut self) -> Result<RemoteExternalities<B>, &'static str> {
+	pub(crate) async fn pre_build(mut self) -> Result<RemoteExternalities<B>> {
 		let mut ext = match self.mode.clone() {
 			Mode::Offline(config) => self.do_load_offline(config)?,
 			Mode::Online(_) => self.do_load_remote().await?,
@@ -1162,7 +1162,7 @@ where
 
 		// inject manual key values.
 		if !self.hashed_key_values.is_empty() {
-			log::info!(
+			info!(
 				target: LOG_TARGET,
 				"extending externalities with {} manually injected key-values",
 				self.hashed_key_values.len()
@@ -1172,7 +1172,7 @@ where
 
 		// exclude manual key values.
 		if !self.hashed_blacklist.is_empty() {
-			log::info!(
+			info!(
 				target: LOG_TARGET,
 				"excluding externalities from {} keys",
 				self.hashed_blacklist.len()
@@ -1224,7 +1224,7 @@ where
 		self
 	}
 
-	pub async fn build(self) -> Result<RemoteExternalities<B>, &'static str> {
+	pub async fn build(self) -> Result<RemoteExternalities<B>> {
 		let mut ext = self.pre_build().await?;
 		ext.commit_all().unwrap();
 
@@ -1242,8 +1242,9 @@ where
 #[cfg(test)]
 mod test_prelude {
 	pub(crate) use super::*;
-	pub(crate) use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper, H256 as Hash};
-	pub(crate) type Block = RawBlock<ExtrinsicWrapper<Hash>>;
+	pub(crate) use sp_runtime::testing::{Block as RawBlock, MockCallU64};
+	pub(crate) type UncheckedXt = sp_runtime::testing::TestXt<MockCallU64, ()>;
+	pub(crate) type Block = RawBlock<UncheckedXt>;
 
 	pub(crate) fn init_logger() {
 		sp_tracing::try_init_simple();

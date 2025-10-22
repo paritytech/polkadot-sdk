@@ -1,34 +1,37 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
+	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmOverRococoBulletin,
+	XcmpQueue,
 };
-use bp_messages::LaneId;
-use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::ChainId;
+
+use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
-	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{
+		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, Contains, Equals,
+		Everything, LinearStoragePrice, Nothing,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
-use pallet_xcm::XcmPassthrough;
+use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::{
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
@@ -38,31 +41,31 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_runtime_common::XcmExportFeeToSibling;
-use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
-use sp_std::marker::PhantomData;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_builder::{
-	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
+	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
-	FrameTransactionalProcessor, FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeToAccount,
+	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
+	FrameTransactionalProcessor, FungibleAdapter, HandleFee, HashedDescription, IsConcrete,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{
-	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset},
+	traits::{FeeManager, FeeReason, FeeReason::Export},
 	XcmExecutor,
 };
 
 parameter_types! {
+	pub const RootLocation: Location = Location::here();
 	pub const TokenLocation: Location = Location::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub RelayNetwork: NetworkId = NetworkId::Rococo;
+	pub RelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
@@ -70,6 +73,7 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub SiblingPeople: Location = (Parent, Parachain(rococo_runtime_constants::system_parachain::PEOPLE_ID)).into();
+	pub AssetHubRococoLocation: Location = Location::new(1, [Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)]);
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -82,6 +86,10 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
+	// Foreign locations alias into accounts according to a hash of their standard description.
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+	// Different global consensus locations sovereign accounts.
+	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
 
 /// Means for transacting the native currency on this chain.
@@ -131,7 +139,7 @@ impl Contains<Location> for ParentOrParentsPlurality {
 
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		DenyReserveTransferToRelayChain,
+		DenyRecursively<DenyReserveTransferToRelayChain>,
 		(
 			// Allow local users to buy weight credit.
 			TakeWeightCredit,
@@ -148,6 +156,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
 						Equals<SiblingPeople>,
+						Equals<AssetHubRococoLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
@@ -165,6 +174,7 @@ pub type Barrier = TrailingSetTopicAsId<
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (
+	Equals<RootLocation>,
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 	Equals<RelayTreasuryLocation>,
 );
@@ -173,10 +183,17 @@ pub type WaivedLocations = (
 /// - NativeToken with the parent Relay Chain and sibling parachains.
 pub type TrustedTeleporters = ConcreteAssetFromSystem<TokenLocation>;
 
+/// Defines origin aliasing rules for this chain.
+///
+/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
+/// - Allow origins explicitly authorized by the alias target location.
+pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = PolkadotXcm;
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// BridgeHub does not recognize a reserve location for any asset. Users must teleport Native
@@ -205,36 +222,19 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeeManagerFromComponentsBridgeHub<
+	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		(
-			XcmExportFeeToRelayerRewardAccounts<
-				Self::AssetTransactor,
-				crate::bridge_to_westend_config::WestendGlobalConsensusNetwork,
-				crate::bridge_to_westend_config::AssetHubWestendParaId,
-				crate::bridge_to_westend_config::BridgeHubWestendChainId,
-				crate::bridge_to_westend_config::AssetHubRococoToAssetHubWestendMessagesLane,
-			>,
-			XcmExportFeeToSibling<
-				bp_rococo::Balance,
-				AccountId,
-				TokenLocation,
-				EthereumNetwork,
-				Self::AssetTransactor,
-				crate::EthereumOutboundQueue,
-			>,
-			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
-		),
+		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = (
-		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
-		crate::bridge_to_bulletin_config::ToRococoBulletinHaulBlobExporter,
+		XcmOverBridgeHubWestend,
+		XcmOverRococoBulletin,
 		crate::bridge_to_ethereum_config::SnowbridgeExporter,
 	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
+	type Aliasers = TrustedAliasers;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
@@ -245,8 +245,8 @@ impl xcm_executor::Config for XcmConfig {
 pub type PriceForParentDelivery =
 	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
-/// Converts a local signed origin into an XCM location.
-/// Forms the basis for local origins sending/executing XCMs.
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
 /// The means for routing XCM messages which are not for local execution into the right message
@@ -257,6 +257,12 @@ pub type XcmRouter = WithUniqueTopic<(
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;
+
+parameter_types! {
+	pub const DepositPerItem: Balance = crate::deposit(1, 0);
+	pub const DepositPerByte: Balance = crate::deposit(0, 1);
+	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -288,100 +294,18 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	// xcm_executor::Config::Aliasers also uses pallet_xcm::AuthorizedAliasers.
+	type AuthorizedAliasConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		AuthorizeAliasHoldReason,
+		LinearStoragePrice<DepositPerItem, DepositPerByte, Balance>,
+	>;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-/// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
-/// into the accounts that are used for paying the relayer rewards.
-/// Burns the fees in case of a failure.
-pub struct XcmExportFeeToRelayerRewardAccounts<
-	AssetTransactor,
-	DestNetwork,
-	DestParaId,
-	DestBridgedChainId,
-	BridgeLaneId,
->(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)>);
-
-impl<
-		AssetTransactor: TransactAsset,
-		DestNetwork: Get<NetworkId>,
-		DestParaId: Get<cumulus_primitives_core::ParaId>,
-		DestBridgedChainId: Get<ChainId>,
-		BridgeLaneId: Get<LaneId>,
-	> HandleFee
-	for XcmExportFeeToRelayerRewardAccounts<
-		AssetTransactor,
-		DestNetwork,
-		DestParaId,
-		DestBridgedChainId,
-		BridgeLaneId,
-	>
-{
-	fn handle_fee(fee: Assets, maybe_context: Option<&XcmContext>, reason: FeeReason) -> Assets {
-		if matches!(reason, FeeReason::Export { network: bridged_network, destination }
-				if bridged_network == DestNetwork::get() &&
-					destination == [Parachain(DestParaId::get().into())])
-		{
-			// We have 2 relayer rewards accounts:
-			// - the SA of the source parachain on this BH: this pays the relayers for delivering
-			//   Source para -> Target Para message delivery confirmations
-			// - the SA of the destination parachain on this BH: this pays the relayers for
-			//   delivering Target para -> Source Para messages
-			// We split the `ExportMessage` fee between these 2 accounts.
-			let source_para_account = PayRewardFromAccount::<
-				pallet_balances::Pallet<Runtime>,
-				AccountId,
-			>::rewards_account(RewardsAccountParams::new(
-				BridgeLaneId::get(),
-				DestBridgedChainId::get(),
-				RewardsAccountOwner::ThisChain,
-			));
-
-			let dest_para_account = PayRewardFromAccount::<
-				pallet_balances::Pallet<Runtime>,
-				AccountId,
-			>::rewards_account(RewardsAccountParams::new(
-				BridgeLaneId::get(),
-				DestBridgedChainId::get(),
-				RewardsAccountOwner::BridgedChain,
-			));
-
-			for asset in fee.into_inner() {
-				match asset.fun {
-					Fungible(total_fee) => {
-						let source_fee = total_fee / 2;
-						deposit_or_burn_fee::<AssetTransactor, _>(
-							Asset { id: asset.id.clone(), fun: Fungible(source_fee) }.into(),
-							maybe_context,
-							source_para_account.clone(),
-						);
-
-						let dest_fee = total_fee - source_fee;
-						deposit_or_burn_fee::<AssetTransactor, _>(
-							Asset { id: asset.id, fun: Fungible(dest_fee) }.into(),
-							maybe_context,
-							dest_para_account.clone(),
-						);
-					},
-					NonFungible(_) => {
-						deposit_or_burn_fee::<AssetTransactor, _>(
-							asset.into(),
-							maybe_context,
-							source_para_account.clone(),
-						);
-					},
-				}
-			}
-
-			return Assets::new()
-		}
-
-		fee
-	}
 }
 
 pub struct XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, HandleFee>(
@@ -393,7 +317,9 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 	fn is_waived(origin: Option<&Location>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
 		if let Export { network, destination: Here } = fee_reason {
-			return !(network == EthereumNetwork::get())
+			if network == EthereumNetwork::get().into() {
+				return false
+			}
 		}
 		WaivedLocations::contains(loc)
 	}

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,13 +9,17 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{collections::BTreeMap, pin::Pin, sync::Arc};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	pin::Pin,
+	sync::Arc,
+};
 
 use futures::Stream;
 use polkadot_overseer::prometheus::PrometheusError;
@@ -22,15 +27,16 @@ use sc_client_api::StorageProof;
 use sp_version::RuntimeVersion;
 
 use async_trait::async_trait;
-use codec::Error as CodecError;
+use codec::{Decode, Encode, Error as CodecError};
 use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
-use cumulus_primitives_core::relay_chain::BlockId;
+use cumulus_primitives_core::relay_chain::{BlockId, CandidateEvent, Hash as RelayHash};
 pub use cumulus_primitives_core::{
 	relay_chain::{
-		CommittedCandidateReceipt, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
+		CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -116,6 +122,14 @@ pub trait RelayChainInterface: Send + Sync {
 
 	/// Get the hash of the finalized block.
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash>;
+
+	/// Call an arbitrary runtime api. The input and output are SCALE-encoded.
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>>;
 
 	/// Returns the whole contents of the downward message queue for the parachain we are collating
 	/// for.
@@ -217,6 +231,25 @@ pub trait RelayChainInterface: Send + Sync {
 
 	/// Get the runtime version of the relay chain.
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion>;
+
+	/// Yields information on all availability cores as relevant to the child block.
+	///
+	/// Cores are either free, scheduled or occupied. Free cores can have paras assigned to them.
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>>;
+
+	/// Fetch the claim queue.
+	async fn claim_queue(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>>;
+
+	/// Fetch the scheduling lookahead value.
+	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32>;
+
+	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>>;
 }
 
 #[async_trait]
@@ -288,6 +321,15 @@ where
 		(**self).finalized_block_hash().await
 	}
 
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		(**self).call_runtime_api(method_name, hash, payload).await
+	}
+
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		(**self).is_major_syncing().await
 	}
@@ -337,6 +379,13 @@ where
 			.await
 	}
 
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		(**self).availability_cores(relay_parent).await
+	}
+
 	async fn candidates_pending_availability(
 		&self,
 		block_id: PHash,
@@ -348,4 +397,35 @@ where
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
 		(**self).version(relay_parent).await
 	}
+
+	async fn claim_queue(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		(**self).claim_queue(relay_parent).await
+	}
+
+	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32> {
+		(**self).scheduling_lookahead(relay_parent).await
+	}
+
+	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		(**self).candidate_events(at).await
+	}
+}
+
+/// Helper function to call an arbitrary runtime API using a `RelayChainInterface` client.
+/// Unlike the trait method, this function can be generic, so it handles the encoding of input and
+/// output params.
+pub async fn call_runtime_api<R>(
+	client: &(impl RelayChainInterface + ?Sized),
+	method_name: &'static str,
+	hash: RelayHash,
+	payload: impl Encode,
+) -> RelayChainResult<R>
+where
+	R: Decode,
+{
+	let res = client.call_runtime_api(method_name, hash, &payload.encode()).await?;
+	Decode::decode(&mut &*res).map_err(Into::into)
 }

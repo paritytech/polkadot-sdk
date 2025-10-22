@@ -26,6 +26,7 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
+use codec::{Decode, Encode};
 use nix::{
 	errno::Errno,
 	sys::{
@@ -35,22 +36,17 @@ use nix::{
 	unistd::{ForkResult, Pid},
 };
 use polkadot_node_core_pvf_common::{
-	executor_interface::{prepare, prevalidate},
-	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
-};
-
-use codec::{Decode, Encode};
-use polkadot_node_core_pvf_common::{
+	compute_checksum,
 	error::{PrepareError, PrepareWorkerResult},
-	executor_interface::create_runtime_from_artifact_bytes,
+	executor_interface::{create_runtime_from_artifact_bytes, prepare, prevalidate},
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
-		cpu_time_monitor_loop, get_total_cpu_usage, recv_child_response, run_worker, send_result,
-		stringify_errno, stringify_panic_payload,
+		cpu_time_monitor_loop, get_total_cpu_usage, pipe2_cloexec, recv_child_response, run_worker,
+		send_result, stringify_errno, stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
-		WorkerKind,
+		PipeFd, WorkerInfo, WorkerKind,
 	},
 	worker_dir, ProcessTime,
 };
@@ -103,6 +99,12 @@ impl AsRef<[u8]> for CompiledArtifact {
 	fn as_ref(&self) -> &[u8] {
 		self.0.as_slice()
 	}
+}
+
+#[derive(Encode, Decode)]
+pub struct PrepareOutcome {
+	pub compiled_artifact: CompiledArtifact,
+	pub observed_wasm_code_len: u32,
 }
 
 /// Get a worker request.
@@ -294,14 +296,25 @@ pub fn worker_entrypoint(
 	);
 }
 
-fn prepare_artifact(pvf: PvfPrepData) -> Result<CompiledArtifact, PrepareError> {
-	let blob = match prevalidate(&pvf.code()) {
+fn prepare_artifact(pvf: PvfPrepData) -> Result<PrepareOutcome, PrepareError> {
+	let maybe_compressed_code = pvf.maybe_compressed_code();
+	let raw_validation_code = sp_maybe_compressed_blob::decompress(
+		&maybe_compressed_code,
+		pvf.validation_code_bomb_limit() as usize,
+	)
+	.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
+	let observed_wasm_code_len = raw_validation_code.len() as u32;
+
+	let blob = match prevalidate(&raw_validation_code) {
 		Err(err) => return Err(PrepareError::Prevalidation(format!("{:?}", err))),
 		Ok(b) => b,
 	};
 
 	match prepare(blob, &pvf.executor_params()) {
-		Ok(compiled_artifact) => Ok(CompiledArtifact::new(compiled_artifact)),
+		Ok(compiled_artifact) => Ok(PrepareOutcome {
+			compiled_artifact: CompiledArtifact::new(compiled_artifact),
+			observed_wasm_code_len,
+		}),
 		Err(err) => Err(PrepareError::Preparation(format!("{:?}", err))),
 	}
 }
@@ -322,6 +335,7 @@ fn runtime_construction_check(
 struct JobResponse {
 	artifact: CompiledArtifact,
 	memory_stats: MemoryStats,
+	observed_wasm_code_len: u32,
 }
 
 #[cfg(target_os = "linux")]
@@ -500,11 +514,11 @@ fn handle_child_process(
 		"prepare worker",
 		move || {
 			#[allow(unused_mut)]
-			let mut result = prepare_artifact(pvf);
+			let mut result = prepare_artifact(pvf).map(|o| (o,));
 
 			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
 			#[cfg(target_os = "linux")]
-			let mut result = result.map(|artifact| (artifact, get_max_rss_thread()));
+			let mut result = result.map(|outcome| (outcome.0, get_max_rss_thread()));
 
 			// If we are pre-checking, check for runtime construction errors.
 			//
@@ -513,7 +527,10 @@ fn handle_child_process(
 			// anyway.
 			if let PrepareJobKind::Prechecking = prepare_job_kind {
 				result = result.and_then(|output| {
-					runtime_construction_check(output.0.as_ref(), &executor_params)?;
+					runtime_construction_check(
+						output.0.compiled_artifact.as_ref(),
+						&executor_params,
+					)?;
 					Ok(output)
 				});
 			}
@@ -553,9 +570,9 @@ fn handle_child_process(
 				Ok(ok) => {
 					cfg_if::cfg_if! {
 						if #[cfg(target_os = "linux")] {
-							let (artifact, max_rss) = ok;
+							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len }, max_rss) = ok;
 						} else {
-							let artifact = ok;
+							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len },) = ok;
 						}
 					}
 
@@ -574,7 +591,11 @@ fn handle_child_process(
 						peak_tracked_alloc: if peak_alloc > 0 { peak_alloc as u64 } else { 0u64 },
 					};
 
-					Ok(JobResponse { artifact, memory_stats })
+					Ok(JobResponse {
+						artifact: compiled_artifact,
+						observed_wasm_code_len,
+						memory_stats,
+					})
 				},
 			}
 		},
@@ -665,7 +686,7 @@ fn handle_parent_process(
 
 			match result {
 				Err(err) => Err(err),
-				Ok(JobResponse { artifact, memory_stats }) => {
+				Ok(JobResponse { artifact, memory_stats, observed_wasm_code_len }) => {
 					// The exit status should have been zero if no error occurred.
 					if exit_status != 0 {
 						return Err(PrepareError::JobError(format!(
@@ -693,10 +714,14 @@ fn handle_parent_process(
 						return Err(PrepareError::IoErr(err.to_string()))
 					};
 
-					let checksum = blake3::hash(&artifact.as_ref()).to_hex().to_string();
+					let checksum = compute_checksum(&artifact.as_ref());
 					Ok(PrepareWorkerSuccess {
 						checksum,
-						stats: PrepareStats { memory_stats, cpu_time_elapsed: cpu_tv },
+						stats: PrepareStats {
+							memory_stats,
+							cpu_time_elapsed: cpu_tv,
+							observed_wasm_code_len,
+						},
 					})
 				},
 			}

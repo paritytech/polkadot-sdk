@@ -1,0 +1,9 @@
+title: 'BEEFY: adjust equivocation slash fraction'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Use 50% slash fraction for fork voting and future block voting (in accordance with the https://eprint.iacr.org/2025/057.pdf paper).
+    In order to account for the possible risk of accidental/non-malicious double voting, keep the current formula for double voting proof.
+crates:
+- name: pallet-beefy
+  bump: patch

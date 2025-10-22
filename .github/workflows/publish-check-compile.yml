@@ -1,0 +1,90 @@
+name: Check publish build
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  preflight:
+    needs: isdraft
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  check-publish-compile:
+    timeout-minutes: 90
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-D warnings"
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4.1.7
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: install parity-publish
+        run: |
+          cargo install parity-publish@0.10.6 --locked -q
+
+      - name: set current PR's prdoc name in a variable
+        env:
+          GITHUB_PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          echo "CURRENT_PRDOC=pr_${GITHUB_PR_NUM}.prdoc" >> $GITHUB_ENV
+
+      - name: parity-publish update plan w/o current prdoc
+        run: |
+          if [ -f prdoc/$CURRENT_PRDOC ]; then
+            mv prdoc/$CURRENT_PRDOC .
+          fi
+          parity-publish --color always plan --skip-check --prdoc prdoc/
+
+      # The code base is not in master's state (due to commits brought by the
+      # current PR), but we're interested in all master's prdocs to be applied
+      # as if master is a stable branch, and in next steps we're following up with
+      # a patch release of all crates based on some newly added prdocs
+      # (meaning only the current prdoc).
+      - name: parity-publish apply plan on the code state prior to current prdoc
+        run: parity-publish --color always apply --registry
+
+      - name: move all prdocs except current one to unstable dir
+        run: |
+          if [ -f $CURRENT_PRDOC ]; then
+            mkdir prdoc/unstable
+            mv prdoc/pr_*.prdoc prdoc/unstable
+            mv $CURRENT_PRDOC prdoc
+          fi
+
+      - name: parity-publish update plan just for PR's prdoc
+        run: |
+          if [ -f "prdoc/$CURRENT_PRDOC" ]; then
+            parity-publish --color always plan --skip-check --prdoc prdoc/
+          fi
+
+      - name: parity-publish apply plan
+        run: |
+          if [ -f "prdoc/$CURRENT_PRDOC" ]; then
+            parity-publish --color always apply --registry
+          fi
+
+      - name: parity-publish check compile
+        run: |
+          packages="$(parity-publish apply --print)"
+
+          if [ -n "$packages" ]; then
+            cargo --color always check $(printf -- '-p %s ' $packages)
+          fi

@@ -1,6 +1,6 @@
 //! # FRAME Accounts
 //!
-//! //! 🚧 Work In Progress 🚧
+//! 🚧 Work In Progress 🚧
 //!
 //! How `frame_system` handles accountIds. Nonce. Consumers and Providers, reference counting.
 

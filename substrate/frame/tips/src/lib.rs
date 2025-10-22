@@ -60,12 +60,14 @@ mod tests;
 pub mod migrations;
 pub mod weights;
 
+extern crate alloc;
+
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
 	Percent, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
@@ -133,6 +135,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -169,6 +172,9 @@ pub mod pallet {
 		/// update weights file when altering this method.
 		type Tippers: SortedMembers<Self::AccountId> + ContainsLengthBound;
 
+		/// Handler for the unbalanced decrease when slashing for a removed tip.
+		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -177,7 +183,6 @@ pub mod pallet {
 	/// This has the insecure enumerable hash function since the key itself is already
 	/// guaranteed to be a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn tips)]
 	pub type Tips<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -189,7 +194,6 @@ pub mod pallet {
 	/// Simple preimage lookup from the reason's hash to the original data. Again, has an
 	/// insecure enumerable hash since the key is guaranteed to be the result of a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn reasons)]
 	pub type Reasons<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, Vec<u8>, OptionQuery>;
 
@@ -489,6 +493,18 @@ pub mod pallet {
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Add public immutables and private mutables.
 
+	/// Access tips storage from outside
+	pub fn tips(
+		hash: T::Hash,
+	) -> Option<OpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>> {
+		Tips::<T, I>::get(hash)
+	}
+
+	/// Access reasons storage from outside
+	pub fn reasons(hash: T::Hash) -> Option<Vec<u8>> {
+		Reasons::<T, I>::get(hash)
+	}
+
 	/// The account ID of the treasury pot.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
@@ -511,7 +527,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Err(pos) => tip.tips.insert(pos, (tipper, tip_value)),
 		}
 		Self::retain_active_tips(&mut tip.tips);
-		let threshold = (T::Tippers::count() + 1) / 2;
+		let threshold = T::Tippers::count().div_ceil(2);
 		if tip.tips.len() >= threshold && tip.closes.is_none() {
 			tip.closes = Some(frame_system::Pallet::<T>::block_number() + T::TipCountdown::get());
 			true

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Bridge definitions that can be used by multiple BridgeHub flavors.
 //! All configurations here should be dedicated to a single chain; in other words, we don't need two
@@ -21,14 +21,10 @@
 //! For example, the messaging pallet needs to know the sending and receiving chains, but the
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
-use super::{
-	weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent, RuntimeOrigin,
-};
+use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
-use bp_runtime::UnderlyingChainProvider;
-use bridge_runtime_common::messages::ThisChainWithMessages;
+use bp_relayers::RewardsAccountParams;
 use frame_support::{parameter_types, traits::ConstU32};
-use sp_runtime::RuntimeDebug;
 
 parameter_types! {
 	pub const RelayChainHeadersToKeep: u32 = 1024;
@@ -66,14 +62,21 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_westend::BridgeHubWestend>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
+	type OnNewHead = ();
 }
 
 /// Allows collect and claim rewards for relayers
-impl pallet_bridge_relayers::Config for Runtime {
+pub type RelayersForLegacyLaneIdsMessagesInstance = ();
+impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = Balance;
-	type PaymentProcedure =
-		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+	type RewardBalance = Balance;
+	type Reward = RewardsAccountParams<bp_messages::LegacyLaneId>;
+	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
+		pallet_balances::Pallet<Runtime>,
+		AccountId,
+		bp_messages::LegacyLaneId,
+		Self::RewardBalance,
+	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
 		BlockNumber,
@@ -82,7 +85,32 @@ impl pallet_bridge_relayers::Config for Runtime {
 		RequiredStakeForStakeAndSlash,
 		RelayerStakeLease,
 	>;
-	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+	type Balance = Balance;
+	type WeightInfo = weights::pallet_bridge_relayers_legacy::WeightInfo<Runtime>;
+}
+
+/// Allows collect and claim rewards for relayers
+pub type RelayersForPermissionlessLanesInstance = pallet_bridge_relayers::Instance2;
+impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RewardBalance = Balance;
+	type Reward = RewardsAccountParams<bp_messages::HashedLaneId>;
+	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
+		pallet_balances::Pallet<Runtime>,
+		AccountId,
+		bp_messages::HashedLaneId,
+		Self::RewardBalance,
+	>;
+	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
+		AccountId,
+		BlockNumber,
+		Balances,
+		RelayerStakeReserveId,
+		RequiredStakeForStakeAndSlash,
+		RelayerStakeLease,
+	>;
+	type Balance = Balance;
+	type WeightInfo = weights::pallet_bridge_relayers_permissionless_lanes::WeightInfo<Runtime>;
 }
 
 /// Add GRANDPA bridge pallet to track Rococo Bulletin chain.
@@ -102,16 +130,4 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoBulletinInstance> for Runt
 	// In practice, however, GRANDPA pallet works the same way for all bridged chains, so
 	// weights are also the same for both bridges.
 	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
-}
-
-/// BridgeHubRococo chain from message lane point of view.
-#[derive(RuntimeDebug, Clone, Copy)]
-pub struct BridgeHubRococo;
-
-impl UnderlyingChainProvider for BridgeHubRococo {
-	type Chain = bp_bridge_hub_rococo::BridgeHubRococo;
-}
-
-impl ThisChainWithMessages for BridgeHubRococo {
-	type RuntimeOrigin = RuntimeOrigin;
 }

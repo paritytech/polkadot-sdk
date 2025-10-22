@@ -117,6 +117,7 @@ impl pallet_ranked_collective::Config<AmbassadorCollectiveInstance> for Runtime 
 	type MinRankOfClass = sp_runtime::traits::Identity;
 	type MemberSwappedHandler = (crate::AmbassadorCore, crate::AmbassadorSalary);
 	type VoteWeight = pallet_ranked_collective::Linear;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (crate::AmbassadorCore, crate::AmbassadorSalary);
 }
@@ -153,6 +154,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = tracks::TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -219,8 +221,9 @@ impl pallet_core_fellowship::Config<AmbassadorCoreInstance> for Runtime {
 	>;
 	type ApproveOrigin = PromoteOrigin;
 	type PromoteOrigin = PromoteOrigin;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
 }
 
 pub type AmbassadorSalaryInstance = pallet_salary::Instance2;

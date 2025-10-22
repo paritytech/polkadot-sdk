@@ -237,23 +237,52 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
-# Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
+# Fetch deb package from S3. Assumes the ENV are set:
 # - RELEASE_ID
 # - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot
-fetch_release_artifacts_from_s3() {
-  echo "Version    : $VERSION"
+fetch_debian_package_from_s3() {
+  BINARY=$1
+  echo "Version    : $NODE_VERSION"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
+  echo "Tag        : $VERSION"
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
   URL_BASE=$(get_s3_url_base $BINARY)
   echo "URL_BASE=$URL_BASE"
 
-  URL_BINARY=$URL_BASE/$VERSION/$BINARY
-  URL_SHA=$URL_BASE/$VERSION/$BINARY.sha256
-  URL_ASC=$URL_BASE/$VERSION/$BINARY.asc
+  URL=$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}_amd64.deb
+
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  echo "Fetching deb package..."
+
+  echo "Fetching %s" "$URL"
+  curl --progress-bar -LO "$URL" || echo "Missing $URL"
+
+  pwd
+  ls -al --color
+  popd > /dev/null
+
+}
+
+# Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
+# inputs: binary (polkadot), target(aarch64-apple-darwin)
+fetch_release_artifacts_from_s3() {
+  BINARY=$1
+  TARGET=$2
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${TARGET}/${BINARY}"}
+  echo "OUTPUT_DIR : $OUTPUT_DIR"
+
+  URL_BASE=$(get_s3_url_base $BINARY)
+  echo "URL_BASE=$URL_BASE"
+
+  URL_BINARY=$URL_BASE/$VERSION/$TARGET/$BINARY
+  URL_SHA=$URL_BASE/$VERSION/$TARGET/$BINARY.sha256
+  URL_ASC=$URL_BASE/$VERSION/$TARGET/$BINARY.asc
 
   # Fetch artifacts
   mkdir -p "$OUTPUT_DIR"
@@ -268,7 +297,6 @@ fetch_release_artifacts_from_s3() {
   pwd
   ls -al --color
   popd > /dev/null
-
 }
 
 # Pass the name of the binary as input, it will
@@ -276,15 +304,26 @@ fetch_release_artifacts_from_s3() {
 function get_s3_url_base() {
     name=$1
     case $name in
-    polkadot | polkadot-execute-worker | polkadot-prepare-worker | staking-miner)
+      polkadot | polkadot-execute-worker | polkadot-prepare-worker )
         printf "https://releases.parity.io/polkadot"
         ;;
 
-    polkadot-parachain)
-        printf "https://releases.parity.io/cumulus"
+      polkadot-parachain)
+        printf "https://releases.parity.io/polkadot-parachain"
         ;;
 
-    *)
+      polkadot-omni-node)
+        printf "https://releases.parity.io/polkadot-omni-node"
+        ;;
+
+      chain-spec-builder)
+        printf "https://releases.parity.io/chain-spec-builder"
+        ;;
+
+      frame-omni-bencher)
+        printf "https://releases.parity.io/frame-omni-bencher"
+        ;;
+      *)
         printf "UNSUPPORTED BINARY $name"
         exit 1
         ;;
@@ -299,22 +338,24 @@ function check_sha256() {
 }
 
 # Import GPG keys of the release team members
-# This is done in parallel as it can take a while sometimes
 function import_gpg_keys() {
-  GPG_KEYSERVER=${GPG_KEYSERVER:-"keyserver.ubuntu.com"}
+  GPG_KEYSERVER=${GPG_KEYSERVER:-"hkps://keyserver.ubuntu.com"}
   SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
   EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
   MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
+  PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
+  PARITY_RELEASES_SIGN_COMMITS="D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
-  echo "Importing GPG keys from $GPG_KEYSERVER in parallel"
-  for key in $SEC $EGOR $MORGAN; do
+  echo "Importing GPG keys from $GPG_KEYSERVER"
+  for key in $SEC $EGOR $MORGAN $PARITY_RELEASES $PARITY_RELEASES_SIGN_COMMITS; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
       echo -e "5\ny\n" | gpg --no-tty --command-fd 0 --expert --edit-key $key trust;
-    ) &
+    )
   done
   wait
+  gpg -k
 }
 
 # Check the GPG signature for a given binary
@@ -403,14 +444,10 @@ function find_runtimes() {
 # output: none
 filter_version_from_input() {
   version=$1
-  regex="(^v[0-9]+\.[0-9]+\.[0-9]+)$|(^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+)$"
+  regex="^(v)?[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$"
 
   if [[ $version =~ $regex ]]; then
-      if [ -n "${BASH_REMATCH[1]}" ]; then
-          echo "${BASH_REMATCH[1]}"
-      elif [ -n "${BASH_REMATCH[2]}" ]; then
-          echo "${BASH_REMATCH[2]}"
-      fi
+      echo $version
   else
       echo "Invalid version: $version"
       exit 1
@@ -443,4 +480,77 @@ get_latest_release_tag() {
     TOKEN="Authorization: Bearer $GITHUB_TOKEN"
     latest_release_tag=$(curl -s -H "$TOKEN" $api_base/paritytech/polkadot-sdk/releases/latest | jq -r '.tag_name')
     printf $latest_release_tag
+}
+
+function get_polkadot_node_version_from_code() {
+   # list all the files with node version
+  git grep -e "\(NODE_VERSION[^=]*= \)\".*\"" |
+  # fetch only the one we need
+  grep  "primitives/src/lib.rs:" |
+  # Print only the version
+  awk '{ print $7 }' |
+  # Remove the quotes
+  sed 's/"//g' |
+  # Remove the semicolon
+  sed 's/;//g'
+}
+
+validate_stable_tag() {
+    tag="$1"
+    pattern="^(polkadot-)?stable[0-9]{4}(-[0-9]+)?(-rc[0-9]+)?$"
+
+    if [[ $tag =~ $pattern ]]; then
+        echo $tag
+    else
+        echo "The input '$tag' does not match the pattern."
+        exit 1
+    fi
+}
+
+# Prepare docker stable tag form the polkadot stable tag
+#
+# input: tag (polkaodot-stableYYMM(-X) or polkadot-stableYYMM(-X)-rcX)
+# output: stableYYMM(-X) or stableYYMM(-X)-rcX
+prepare_docker_stable_tag() {
+  tag="$1"
+  if [[ "$tag" =~ stable[0-9]{4}(-[0-9]+)?(-rc[0-9]+)? ]]; then
+      echo "${BASH_REMATCH[0]}"
+  else
+      echo "Tag is invalid: $tag"
+      exit 1
+  fi
+}
+
+# Parse names of the branches from the github labels based on the pattern
+#
+# input: labels (array of lables like ("A3-backport" "RO-silent" "A4-backport-stable2407" "A4-backport-stable2503"))
+# output: BRANCHES (array of the branch names)
+parse_branch_names_from_backport_labels() {
+  labels="$1"
+  BRANCHES=""
+
+  for label in $labels; do
+    if [[ "$label" =~ ^A4-backport-(stable|unstable)[0-9]{4}$ ]]; then
+      branch_name=$(sed 's/A4-backport-//' <<< "$label")
+      BRANCHES+=" ${branch_name}"
+    fi
+  done
+
+  BRANCHES=$(echo "$BRANCHES" | sed 's/^ *//')
+  echo "$BRANCHES"
+}
+
+# Extract the PR number from the PR title
+#
+# input: PR_TITLE
+# output: PR_NUMBER or exit 1 if the PR title does not contain the PR number
+extract_pr_number_from_pr_title() {
+  PR_TITLE=$1
+  if [[ "$PR_TITLE" =~ \#([0-9]+) ]]; then
+    PR_NUMBER="${BASH_REMATCH[1]}"
+  else
+    echo "⚠️ The PR title does not contain original PR number. PR title should be in form: [stableBranchName] Backport #originalPRNumber"
+    exit 1
+  fi
+  echo $PR_NUMBER
 }

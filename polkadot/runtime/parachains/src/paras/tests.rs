@@ -15,17 +15,22 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_support::{assert_err, assert_ok, assert_storage_noop};
-use polkadot_primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, assert_storage_noop, traits::UnfilteredDispatchable,
+};
+use polkadot_primitives::{BlockNumber, SchedulerParams, PARACHAIN_KEY_TYPE_ID};
 use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 use sc_keystore::LocalKeystore;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
+use sp_runtime::TokenError;
 use std::sync::Arc;
 
 use crate::{
 	configuration::HostConfiguration,
-	mock::{new_test_ext, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, System, Test},
+	mock::{
+		new_test_ext, Balances, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, System, Test,
+	},
 	paras,
 };
 
@@ -940,6 +945,11 @@ fn full_parachain_cleanup_storage() {
 		run_to_block(7, None);
 		assert_eq!(frame_system::Pallet::<Test>::block_number(), 7);
 		Paras::note_new_head(para_id, Default::default(), expected_at);
+		AuthorizedCodeHash::<Test>::insert(
+			&para_id,
+			AuthorizedCodeHashAndExpiry::from((ValidationCode(vec![7]).hash(), 1000)),
+		);
+		assert!(AuthorizedCodeHash::<Test>::get(&para_id).is_some());
 
 		assert_ok!(Paras::schedule_para_cleanup(para_id));
 
@@ -963,6 +973,7 @@ fn full_parachain_cleanup_storage() {
 		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
 		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
 		assert!(Paras::current_code(&para_id).is_none());
+		assert!(AuthorizedCodeHash::<Test>::get(&para_id).is_none());
 
 		// run to do the final cleanup
 		let cleaned_up_at = 8 + code_retention_period + 1;
@@ -2012,4 +2023,352 @@ fn parachains_cache_preserves_order() {
 		// In order after removal
 		assert_eq!(Parachains::<Test>::get(), vec![a, c]);
 	});
+}
+
+#[test]
+fn remove_upgrade_cooldown_works() {
+	let code_retention_period = 10;
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = test_validation_code_1();
+	let paras = vec![(
+		0u32.into(),
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				code_retention_period,
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		check_code_is_stored(&original_code);
+
+		let para_id = ParaId::from(0);
+		let new_code = test_validation_code_2();
+
+		// Wait for at least one session change to set active validators.
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+		assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
+
+		// this parablock is in the context of block 1.
+		let expected_at = 1 + validation_upgrade_delay;
+		let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
+		// `set_go_ahead` parameter set to `false` which prevents signaling the parachain
+		// with the `GoAhead` signal.
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		);
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+		assert!(FutureCodeUpgradesAt::<Test>::get().iter().any(|(id, _)| *id == para_id));
+
+		// Going to the expected block triggers the upgrade directly.
+		run_to_block(expected_at, None);
+
+		// Reporting a head doesn't change anything.
+		Paras::note_new_head(para_id, Default::default(), expected_at - 1);
+
+		assert_eq!(
+			paras::PastCodeMeta::<Test>::get(&para_id).most_recent_change(),
+			Some(expected_at)
+		);
+		assert_eq!(PastCodeHash::<Test>::get(&(para_id, expected_at)), Some(original_code.hash()));
+		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
+		assert!(FutureCodeUpgradesAt::<Test>::get().iter().all(|(id, _)| *id != para_id));
+		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
+		assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
+		assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
+		assert_eq!(
+			UpgradeRestrictionSignal::<Test>::get(&para_id),
+			Some(UpgradeRestriction::Present),
+		);
+		assert_eq!(UpgradeCooldowns::<Test>::get(), vec![(para_id, next_possible_upgrade_at)]);
+		check_code_is_stored(&original_code);
+		check_code_is_stored(&new_code);
+
+		assert_noop!(
+			Call::<Test>::remove_upgrade_cooldown { para: para_id }
+				.dispatch_bypass_filter(RuntimeOrigin::signed(1)),
+			DispatchError::Token(TokenError::FundsUnavailable)
+		);
+
+		Balances::force_set_balance(RuntimeOrigin::root(), 1, 10000).unwrap();
+		let issuance = Balances::total_issuance();
+
+		assert_ok!(Call::<Test>::remove_upgrade_cooldown { para: para_id }
+			.dispatch_bypass_filter(RuntimeOrigin::signed(1)));
+
+		let expected_issuance = issuance -
+			Pallet::<Test>::calculate_remove_upgrade_cooldown_cost(next_possible_upgrade_at);
+		// Check that we burned the funds
+		assert_eq!(expected_issuance, Balances::total_issuance());
+
+		{
+			assert!(UpgradeRestrictionSignal::<Test>::get(&para_id).is_none());
+			assert!(UpgradeCooldowns::<Test>::get().is_empty());
+		}
+	});
+}
+
+#[test]
+fn force_set_current_code_works() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let code_1 = ValidationCode(vec![1]);
+		let code_1_hash = code_1.hash();
+
+		// check before
+		assert!(CurrentCodeHash::<Test>::get(para_a).is_none());
+		check_code_is_not_stored(&code_1);
+
+		// non-root user cannot execute
+		assert_err!(
+			Paras::force_set_current_code(RuntimeOrigin::signed(1), para_a, code_1.clone()),
+			DispatchError::BadOrigin,
+		);
+		// root can execute
+		assert_ok!(Paras::force_set_current_code(RuntimeOrigin::root(), para_a, code_1.clone()));
+
+		// check after
+		assert_eq!(CurrentCodeHash::<Test>::get(para_a), Some(code_1_hash));
+		check_code_is_stored(&code_1);
+	})
+}
+
+#[test]
+fn authorize_force_set_current_code_hash_works() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let para_b = ParaId::from(222);
+		let code_1 = ValidationCode(vec![1]);
+		let code_2 = ValidationCode(vec![2]);
+		let code_1_hash = code_1.hash();
+		let code_2_hash = code_2.hash();
+		let valid_period = 143;
+
+		// check before
+		assert_eq!(AuthorizedCodeHash::<Test>::iter().count(), 0);
+
+		// non-root user cannot authorize
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::signed(1),
+				para_a,
+				code_1_hash,
+				valid_period,
+			),
+			DispatchError::BadOrigin,
+		);
+
+		// para not registered
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::Onboarding);
+		assert!(!Paras::is_valid_para(para_a));
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::root(),
+				para_a,
+				code_1_hash,
+				valid_period
+			),
+			Error::<Test>::NotRegistered,
+		);
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::OffboardingParachain);
+		assert!(!Paras::is_valid_para(para_a));
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::root(),
+				para_a,
+				code_1_hash,
+				valid_period
+			),
+			Error::<Test>::NotRegistered,
+		);
+
+		// root can authorize for registered para
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::Parachain);
+		assert!(Paras::is_valid_para(para_a));
+		System::set_block_number(1);
+		assert_ok!(Paras::authorize_force_set_current_code_hash(
+			RuntimeOrigin::root(),
+			para_a,
+			code_1_hash,
+			valid_period
+		));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_1_hash, 1 + valid_period).into())
+		);
+		ParaLifecycles::<Test>::insert(&para_b, ParaLifecycle::Parachain);
+		assert!(Paras::is_valid_para(para_b));
+		System::set_block_number(5);
+		assert_ok!(Paras::authorize_force_set_current_code_hash(
+			RuntimeOrigin::root(),
+			para_b,
+			code_2_hash,
+			valid_period,
+		));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_b),
+			Some((code_2_hash, 5 + valid_period).into())
+		);
+		assert_eq!(AuthorizedCodeHash::<Test>::iter().count(), 2);
+
+		// request for the same para is overwritten
+		assert_ok!(Paras::authorize_force_set_current_code_hash(
+			RuntimeOrigin::root(),
+			para_a,
+			code_1_hash,
+			valid_period
+		));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_1_hash, 5 + valid_period).into())
+		);
+		assert_ok!(Paras::authorize_force_set_current_code_hash(
+			RuntimeOrigin::root(),
+			para_a,
+			code_2_hash,
+			valid_period
+		));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_2_hash, 5 + valid_period).into())
+		);
+	})
+}
+
+#[test]
+fn apply_authorized_force_set_current_code_works() {
+	let apply_code = |origin,
+	                  para: ParaId,
+	                  code: ValidationCode|
+	 -> (Result<_, _>, DispatchResultWithPostInfo) {
+		let call = Call::apply_authorized_force_set_current_code { para, new_code: code.clone() };
+		let validate_unsigned =
+			<Paras as ValidateUnsigned>::validate_unsigned(TransactionSource::InBlock, &call)
+				.map(|_| ());
+
+		let dispatch_result = Paras::apply_authorized_force_set_current_code(origin, para, code);
+
+		(validate_unsigned, dispatch_result)
+	};
+
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let code_1 = ValidationCode(vec![1]);
+		let code_2 = ValidationCode(vec![2]);
+		let code_1_hash = code_1.hash();
+		let valid_period = 143;
+
+		// check before
+		assert_eq!(AuthorizedCodeHash::<Test>::iter().count(), 0);
+
+		// cannot apply code when nothing authorized
+		assert_eq!(
+			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone()),
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::NothingAuthorized.into())
+			),
+		);
+
+		// authorize
+		System::set_block_number(5);
+		AuthorizedCodeHash::<Test>::insert(
+			&para_a,
+			AuthorizedCodeHashAndExpiry::from((code_1_hash, valid_period + 5)),
+		);
+
+		// cannot apply unauthorized code_2
+		assert_eq!(
+			apply_code(RuntimeOrigin::signed(1), para_a, code_2.clone()),
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::Unauthorized.into())
+			),
+		);
+
+		// cannot apply obsolete authorization
+		frame_system::Pallet::<Test>::set_block_number(valid_period + 5 + 10);
+		assert_eq!(
+			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone(),),
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::InvalidBlockNumber.into())
+			),
+		);
+		frame_system::Pallet::<Test>::set_block_number(5);
+
+		// ok - can apply authorized code
+		let (validate_unsigned, dispatch_result) =
+			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone());
+		assert_ok!(validate_unsigned);
+		assert_ok!(dispatch_result);
+
+		// check for removed
+		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
+
+		// cannot apply previously authorized code again
+		assert_eq!(
+			apply_code(RuntimeOrigin::signed(1), para_a, code_1,),
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::NothingAuthorized.into())
+			),
+		);
+	})
+}
+
+#[test]
+fn prune_expired_authorizations_works() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let para_b = ParaId::from(123);
+		let code_1 = ValidationCode(vec![1]);
+		let code_1_hash = code_1.hash();
+
+		// add authorizations
+		AuthorizedCodeHash::<Test>::insert(
+			&para_a,
+			AuthorizedCodeHashAndExpiry::from((code_1_hash, 201)),
+		);
+		AuthorizedCodeHash::<Test>::insert(
+			&para_b,
+			AuthorizedCodeHashAndExpiry::from((code_1_hash, 202)),
+		);
+
+		// nothing prunned at 200
+		let _ = Paras::prune_expired_authorizations(200);
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_1_hash, 201).into()));
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_1_hash, 202).into()));
+
+		// pruned at 201
+		let _ = Paras::prune_expired_authorizations(201);
+		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_1_hash, 202).into()));
+
+		// pruned at 203
+		let _ = Paras::prune_expired_authorizations(203);
+		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
+		assert!(AuthorizedCodeHash::<Test>::get(&para_b).is_none());
+	})
 }

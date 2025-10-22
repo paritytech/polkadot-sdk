@@ -15,12 +15,14 @@
 
 pub use asset_hub_rococo_emulated_chain;
 pub use bridge_hub_rococo_emulated_chain;
+pub use coretime_rococo_emulated_chain;
 pub use penpal_emulated_chain;
 pub use people_rococo_emulated_chain;
 pub use rococo_emulated_chain;
 
 use asset_hub_rococo_emulated_chain::AssetHubRococo;
 use bridge_hub_rococo_emulated_chain::BridgeHubRococo;
+use coretime_rococo_emulated_chain::CoretimeRococo;
 use penpal_emulated_chain::{PenpalA, PenpalB};
 use people_rococo_emulated_chain::PeopleRococo;
 use rococo_emulated_chain::Rococo;
@@ -37,6 +39,7 @@ decl_test_networks! {
 		parachains = vec![
 			AssetHubRococo,
 			BridgeHubRococo,
+			CoretimeRococo,
 			PenpalA,
 			PenpalB,
 			PeopleRococo,
@@ -49,6 +52,7 @@ decl_test_sender_receiver_accounts_parameter_types! {
 	RococoRelay { sender: ALICE, receiver: BOB },
 	AssetHubRococoPara { sender: ALICE, receiver: BOB },
 	BridgeHubRococoPara { sender: ALICE, receiver: BOB },
+	CoretimeRococoPara { sender: ALICE, receiver: BOB },
 	PenpalAPara { sender: ALICE, receiver: BOB },
 	PenpalBPara { sender: ALICE, receiver: BOB },
 	PeopleRococoPara { sender: ALICE, receiver: BOB }

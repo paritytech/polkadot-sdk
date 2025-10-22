@@ -81,11 +81,11 @@
 //! In your pallet you will only have to use [`with_context`], because as described above
 //! [`run_in_context`] will be handled by FRAME for you.
 
-use sp_std::{
-	any::{Any, TypeId},
+use alloc::{
 	boxed::Box,
 	collections::btree_map::{BTreeMap, Entry},
 };
+use core::any::{Any, TypeId};
 
 environmental::environmental!(DISPATCH_CONTEXT: BTreeMap<TypeId, Box<dyn Any>>);
 
@@ -140,7 +140,7 @@ impl<T> Value<'_, T> {
 
 /// Runs the given `callback` in the dispatch context and gives access to some user defined value.
 ///
-/// Passes the a mutable reference of [`Value`] to the callback. The value will be of type `T` and
+/// Passes a mutable reference of [`Value`] to the callback. The value will be of type `T` and
 /// is identified using the [`TypeId`] of `T`. This means that `T` should be some unique type to
 /// make the value unique. If no value is set yet [`Value::get()`] and [`Value::get_mut()`] will
 /// return `None`. It is totally valid to have some `T` that is shared between different callers to
@@ -158,7 +158,7 @@ pub fn with_context<T: 'static, R>(callback: impl FnOnce(&mut Value<T>) -> R) ->
 			if value.is_none() {
 				log::error!(
 					"Failed to downcast value for type {} in dispatch context!",
-					sp_std::any::type_name::<T>(),
+					core::any::type_name::<T>(),
 				);
 			}
 

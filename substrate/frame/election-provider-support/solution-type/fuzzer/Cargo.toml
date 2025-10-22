@@ -4,7 +4,7 @@ version = "2.0.0-alpha.5"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Fuzzer for phragmén solution type implementation."
 publish = false
@@ -15,21 +15,17 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
-honggfuzz = "0.5"
-rand = { version = "0.8", features = ["small_rng", "std"] }
-
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-election-provider-solution-type = { path = ".." }
-frame-election-provider-support = { path = "../.." }
-sp-arithmetic = { path = "../../../../primitives/arithmetic" }
-sp-runtime = { path = "../../../../primitives/runtime" }
-# used by generate_solution_type:
-sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false }
-frame-support = { path = "../../../support" }
-
 [[bin]]
 name = "compact"
 path = "src/compact.rs"
+
+[dependencies]
+honggfuzz = { workspace = true }
+
+codec = { features = ["derive"], workspace = true }
+frame-election-provider-solution-type = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+# used by generate_solution_type:
+frame-support = { workspace = true, default-features = true }

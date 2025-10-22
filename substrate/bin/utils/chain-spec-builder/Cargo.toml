@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = true
 description = "Utility for building chain-specification files for Substrate-based runtimes based on `sp-genesis-builder`"
@@ -21,11 +21,25 @@ path = "bin/main.rs"
 name = "chain-spec-builder"
 
 [lib]
-crate-type = ["rlib"]
+# Docs tests are not needed since the code samples that would be executed
+# are exercised already in the context of unit/integration tests, by virtue
+# of using a combination of encapsulation in functions + `docify::export`.
+# This is a practice we should use for new code samples if any.
+doctest = false
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
-log = { workspace = true, default-features = true }
-sc-chain-spec = { path = "../../../client/chain-spec", features = ["clap"] }
+clap = { features = ["derive"], workspace = true }
+docify = { workspace = true }
+sc-chain-spec = { features = ["clap"], workspace = true, default-features = true }
+serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-tracing = { path = "../../../primitives/tracing" }
+sp-tracing = { workspace = true, default-features = true }
+
+[dev-dependencies]
+cmd_lib = { workspace = true }
+pretty_assertions = { workspace = true }
+substrate-test-runtime = { workspace = true }
+
+[features]
+# `cargo build --feature=generate-readme` updates the `README.md` file.
+generate-readme = []

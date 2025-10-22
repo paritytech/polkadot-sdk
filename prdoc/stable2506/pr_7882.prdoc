@@ -1,0 +1,11 @@
+title: add poke_deposit extrinsic to pallet-recovery
+doc:
+- audience: Runtime Dev
+  description: This PR adds a new extrinsic `poke_deposit` to `pallet-recovery`. This extrinsic will be used to re-adjust the deposits made in the pallet.
+crates:
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-recovery
+  bump: major

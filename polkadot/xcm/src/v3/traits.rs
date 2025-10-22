@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -16,24 +16,34 @@
 
 //! Cross-Consensus Message format data structures.
 
-use crate::v2::Error as OldError;
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::v5::Error as NewError;
 use core::result;
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
-
-use super::*;
 
 // A simple trait to get the weight of some object.
 pub trait GetWeight<W> {
 	fn weight(&self) -> sp_weights::Weight;
 }
 
+use super::*;
+
 /// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
 /// they will retain the same index over time.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[derive(
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Error {
@@ -166,25 +176,17 @@ pub enum Error {
 	ExceedsStackLimit,
 }
 
-impl MaxEncodedLen for Error {
-	fn max_encoded_len() -> usize {
-		// TODO: max_encoded_len doesn't quite work here as it tries to take notice of the fields
-		// marked `codec(skip)`. We can hard-code it with the right answer for now.
-		1
-	}
-}
-
-impl TryFrom<OldError> for Error {
+impl TryFrom<NewError> for Error {
 	type Error = ();
-	fn try_from(old_error: OldError) -> result::Result<Error, ()> {
-		use OldError::*;
-		Ok(match old_error {
+	fn try_from(new_error: NewError) -> result::Result<Error, ()> {
+		use NewError::*;
+		Ok(match new_error {
 			Overflow => Self::Overflow,
 			Unimplemented => Self::Unimplemented,
 			UntrustedReserveLocation => Self::UntrustedReserveLocation,
 			UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
-			MultiLocationFull => Self::LocationFull,
-			MultiLocationNotInvertible => Self::LocationNotInvertible,
+			LocationFull => Self::LocationFull,
+			LocationNotInvertible => Self::LocationNotInvertible,
 			BadOrigin => Self::BadOrigin,
 			InvalidLocation => Self::InvalidLocation,
 			AssetNotFound => Self::AssetNotFound,
@@ -201,6 +203,19 @@ impl TryFrom<OldError> for Error {
 			NotHoldingFees => Self::NotHoldingFees,
 			TooExpensive => Self::TooExpensive,
 			Trap(i) => Self::Trap(i),
+			ExpectationFalse => Self::ExpectationFalse,
+			PalletNotFound => Self::PalletNotFound,
+			NameMismatch => Self::NameMismatch,
+			VersionIncompatible => Self::VersionIncompatible,
+			HoldingWouldOverflow => Self::HoldingWouldOverflow,
+			ExportError => Self::ExportError,
+			ReanchorFailed => Self::ReanchorFailed,
+			NoDeal => Self::NoDeal,
+			FeesNotMet => Self::FeesNotMet,
+			LockError => Self::LockError,
+			NoPermission => Self::NoPermission,
+			Unanchored => Self::Unanchored,
+			NotDepositable => Self::NotDepositable,
 			_ => return Err(()),
 		})
 	}
@@ -303,12 +318,11 @@ pub trait ExecuteXcm<Call> {
 		weight_limit: Weight,
 	) -> Outcome {
 		let origin = origin.into();
-		log::debug!(
+		tracing::trace!(
 			target: "xcm::execute_xcm",
-			"origin: {:?}, message: {:?}, weight_limit: {:?}",
-			origin,
-			message,
-			weight_limit,
+			?origin,
+			?message,
+			?weight_limit,
 		);
 		Self::execute_xcm_in_credit(origin, message, hash, weight_limit, Weight::zero())
 	}
@@ -367,7 +381,9 @@ impl<C> ExecuteXcm<C> for () {
 }
 
 /// Error result value when attempting to send an XCM message.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, scale_info::TypeInfo,
+)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum SendError {
 	/// The message and destination combination was not recognized as being reachable.
@@ -535,13 +551,13 @@ impl SendXcm for Tuple {
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 pub fn validate_send<T: SendXcm>(dest: MultiLocation, msg: Xcm<()>) -> SendResult<T::Ticket> {
 	T::validate(&mut Some(dest), &mut Some(msg))
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 ///
 /// Returns either `Ok` with the price of the delivery, or `Err` with the reason why the message
 /// could not be sent.

@@ -75,12 +75,12 @@
 //!
 //! ### Malicious Recovery Attempts
 //!
-//! Initializing a the recovery process for a recoverable account is open and
+//! Initializing the recovery process for a recoverable account is open and
 //! permissionless. However, the recovery deposit is an economic deterrent that
 //! should disincentivize would-be attackers from trying to maliciously recover
 //! accounts.
 //!
-//! The recovery deposit can always be claimed by the account which is trying to
+//! The recovery deposit can always be claimed by the account which is trying
 //! to be recovered. In the case of a malicious recovery attempt, the account
 //! owner who still has access to their account can claim the deposit and
 //! essentially punish the malicious user.
@@ -150,18 +150,13 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion, StaticLookup},
-	RuntimeDebug,
-};
-use sp_std::prelude::*;
+extern crate alloc;
 
-use frame_support::{
-	dispatch::{GetDispatchInfo, PostDispatchInfo},
-	traits::{BalanceStatus, Currency, ReservableCurrency},
-	BoundedVec,
+use alloc::{boxed::Box, vec::Vec};
+
+use frame::{
+	prelude::*,
+	traits::{Currency, ReservableCurrency},
 };
 
 pub use pallet::*;
@@ -176,22 +171,24 @@ mod mock;
 mod tests;
 pub mod weights;
 
-type BalanceOf<T> =
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-type FriendsOf<T> = BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type BlockNumberFromProviderOf<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+pub type FriendsOf<T> =
+	BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
 
 /// An active recovery process.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 	/// The block number when the recovery process started.
-	created: BlockNumber,
+	pub created: BlockNumber,
 	/// The amount held in reserve of the `depositor`,
-	/// To be returned once this recovery process is closed.
-	deposit: Balance,
+	/// to be returned once this recovery process is closed.
+	pub deposit: Balance,
 	/// The friends which have vouched so far. Always sorted.
-	friends: Friends,
+	pub friends: Friends,
 }
 
 /// Configuration for recovering an account.
@@ -199,22 +196,38 @@ pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	/// The minimum number of blocks since the start of the recovery process before the account
 	/// can be recovered.
-	delay_period: BlockNumber,
+	pub delay_period: BlockNumber,
 	/// The amount held in reserve of the `depositor`,
 	/// to be returned once this configuration is removed.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// The list of friends which can help recover an account. Always sorted.
-	friends: Friends,
+	pub friends: Friends,
 	/// The number of approving friends needed to recover an account.
-	threshold: u16,
+	pub threshold: u16,
 }
 
-#[frame_support::pallet]
+/// The type of deposit
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+)]
+pub enum DepositKind<T: Config> {
+	/// Recovery configuration deposit
+	RecoveryConfig,
+	/// Active recovery deposit for an account
+	ActiveRecoveryFor(<T as frame_system::Config>::AccountId),
+}
+
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	use sp_runtime::ArithmeticError;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -223,6 +236,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -233,6 +247,30 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
+
+		/// Query the current block number.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks.
+		/// Can be configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// There is currently no migration provided to "hot-swap" block number providers and it may
+		/// result in undefined behavior when doing so. Parachains are therefore best off setting
+		/// this to their local block number provider if they have the pallet already deployed.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains: `frame_system::Pallet`
+		/// - Parachains that may produce blocks sparingly or only when needed (on-demand):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - Parachains with a reliably block production rate (PLO or bulk-coretime):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
+		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -292,6 +330,13 @@ pub mod pallet {
 		AccountRecovered { lost_account: T::AccountId, rescuer_account: T::AccountId },
 		/// A recovery process has been removed for an account.
 		RecoveryRemoved { lost_account: T::AccountId },
+		/// A deposit has been updated.
+		DepositPoked {
+			who: T::AccountId,
+			kind: DepositKind<T>,
+			old_deposit: BalanceOf<T>,
+			new_deposit: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -337,7 +382,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		RecoveryConfig<BlockNumberFor<T>, BalanceOf<T>, FriendsOf<T>>,
+		RecoveryConfig<BlockNumberFromProviderOf<T>, BalanceOf<T>, FriendsOf<T>>,
 	>;
 
 	/// Active recovery attempts.
@@ -352,7 +397,7 @@ pub mod pallet {
 		T::AccountId,
 		Twox64Concat,
 		T::AccountId,
-		ActiveRecovery<BlockNumberFor<T>, BalanceOf<T>, FriendsOf<T>>,
+		ActiveRecovery<BlockNumberFromProviderOf<T>, BalanceOf<T>, FriendsOf<T>>,
 	>;
 
 	/// The list of allowed proxy accounts.
@@ -376,7 +421,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				T::WeightInfo::as_recovered().saturating_add(dispatch_info.weight),
+				T::WeightInfo::as_recovered().saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)})]
 		pub fn as_recovered(
@@ -394,7 +439,7 @@ pub mod pallet {
 				.map_err(|e| e.error)
 		}
 
-		/// Allow ROOT to bypass the recovery process and set an a rescuer account
+		/// Allow ROOT to bypass the recovery process and set a rescuer account
 		/// for a lost account directly.
 		///
 		/// The dispatch origin for this call must be _ROOT_.
@@ -443,7 +488,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			friends: Vec<T::AccountId>,
 			threshold: u16,
-			delay_period: BlockNumberFor<T>,
+			delay_period: BlockNumberFromProviderOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// Check account is not already set up for recovery
@@ -455,13 +500,8 @@ pub mod pallet {
 			let bounded_friends: FriendsOf<T> =
 				friends.try_into().map_err(|_| Error::<T>::MaxFriends)?;
 			ensure!(Self::is_sorted_and_unique(&bounded_friends), Error::<T>::NotSorted);
-			// Total deposit is base fee + number of friends * factor fee
-			let friend_deposit = T::FriendDepositFactor::get()
-				.checked_mul(&bounded_friends.len().saturated_into())
-				.ok_or(ArithmeticError::Overflow)?;
-			let total_deposit = T::ConfigDepositBase::get()
-				.checked_add(&friend_deposit)
-				.ok_or(ArithmeticError::Overflow)?;
+			// Calculate total deposit required
+			let total_deposit = Self::get_recovery_config_deposit(bounded_friends.len())?;
 			// Reserve the deposit
 			T::Currency::reserve(&who, total_deposit)?;
 			// Create the recovery configuration
@@ -509,7 +549,7 @@ pub mod pallet {
 			T::Currency::reserve(&who, recovery_deposit)?;
 			// Create an active recovery status
 			let recovery_status = ActiveRecovery {
-				created: <frame_system::Pallet<T>>::block_number(),
+				created: T::BlockNumberProvider::current_block_number(),
 				deposit: recovery_deposit,
 				friends: Default::default(),
 			};
@@ -594,7 +634,7 @@ pub mod pallet {
 				Self::active_recovery(&account, &who).ok_or(Error::<T>::NotStarted)?;
 			ensure!(!Proxy::<T>::contains_key(&who), Error::<T>::AlreadyProxy);
 			// Make sure the delay period has passed
-			let current_block_number = <frame_system::Pallet<T>>::block_number();
+			let current_block_number = T::BlockNumberProvider::current_block_number();
 			let recoverable_block_number = active_recovery
 				.created
 				.checked_add(&recovery_config.delay_period)
@@ -702,6 +742,50 @@ pub mod pallet {
 			frame_system::Pallet::<T>::dec_consumers(&who);
 			Ok(())
 		}
+
+		/// Poke deposits for recovery configurations and / or active recoveries.
+		///
+		/// This can be used by accounts to possibly lower their locked amount.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// Parameters:
+		/// - `maybe_account`: Optional recoverable account for which you have an active recovery
+		/// and want to adjust the deposit for the active recovery.
+		///
+		/// This function checks both recovery configuration deposit and active recovery deposits
+		/// of the caller:
+		/// - If the caller has created a recovery configuration, checks and adjusts its deposit
+		/// - If the caller has initiated any active recoveries, and provides the account in
+		/// `maybe_account`, checks and adjusts those deposits
+		///
+		/// If any deposit is updated, the difference will be reserved/unreserved from the caller's
+		/// account.
+		///
+		/// The transaction is made free if any deposit is updated and paid otherwise.
+		///
+		/// Emits `DepositPoked` if any deposit is updated.
+		/// Multiple events may be emitted in case both types of deposits are updated.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::poke_deposit(T::MaxFriends::get()))]
+		pub fn poke_deposit(
+			origin: OriginFor<T>,
+			maybe_account: Option<AccountIdLookupOf<T>>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let mut deposit_updated = false;
+
+			// Check and update recovery config deposit
+			deposit_updated |= Self::poke_recovery_config_deposit(&who)?;
+
+			// Check and update active recovery deposit
+			if let Some(lost_account) = maybe_account {
+				let lost_account = T::Lookup::lookup(lost_account)?;
+				deposit_updated |= Self::poke_active_recovery_deposit(&who, &lost_account)?;
+			}
+
+			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
+		}
 	}
 }
 
@@ -714,5 +798,97 @@ impl<T: Config> Pallet<T> {
 	/// Check that a user is a friend in the friends list.
 	fn is_friend(friends: &Vec<T::AccountId>, friend: &T::AccountId) -> bool {
 		friends.binary_search(&friend).is_ok()
+	}
+
+	/// Helper function to calculate recovery config deposit
+	/// Total deposit is base fee + number of friends * factor fee
+	fn get_recovery_config_deposit(friends_count: usize) -> Result<BalanceOf<T>, DispatchError> {
+		let friend_deposit = T::FriendDepositFactor::get()
+			.checked_mul(&friends_count.saturated_into())
+			.ok_or(ArithmeticError::Overflow)?;
+		T::ConfigDepositBase::get()
+			.checked_add(&friend_deposit)
+			.ok_or(ArithmeticError::Overflow.into())
+	}
+
+	/// Helper function to poke the deposit reserved for creating a recovery config
+	fn poke_recovery_config_deposit(who: &T::AccountId) -> Result<bool, DispatchError> {
+		<Recoverable<T>>::try_mutate(&who, |maybe_config| -> Result<bool, DispatchError> {
+			let Some(config) = maybe_config.as_mut() else { return Ok(false) };
+			let old_deposit = config.deposit;
+			let new_deposit = Self::get_recovery_config_deposit(config.friends.len())?;
+
+			if old_deposit == new_deposit {
+				return Ok(false);
+			}
+
+			if new_deposit > old_deposit {
+				let extra = new_deposit.saturating_sub(old_deposit);
+				T::Currency::reserve(&who, extra)?;
+			} else {
+				let excess = old_deposit.saturating_sub(new_deposit);
+				let remaining_unreserved = T::Currency::unreserve(&who, excess);
+				if !remaining_unreserved.is_zero() {
+					defensive!(
+						"Failed to unreserve full amount. (Requested, Actual)",
+						(excess, excess.saturating_sub(remaining_unreserved))
+					);
+				}
+			}
+			config.deposit = new_deposit;
+
+			Self::deposit_event(Event::<T>::DepositPoked {
+				who: who.clone(),
+				kind: DepositKind::RecoveryConfig,
+				old_deposit,
+				new_deposit,
+			});
+			Ok(true)
+		})
+	}
+
+	/// Helper function to poke the deposit reserved for an active recovery
+	fn poke_active_recovery_deposit(
+		who: &T::AccountId,
+		lost_account: &T::AccountId,
+	) -> Result<bool, DispatchError> {
+		let new_deposit = T::RecoveryDeposit::get();
+		<ActiveRecoveries<T>>::try_mutate(
+			lost_account,
+			who,
+			|maybe_recovery| -> Result<bool, DispatchError> {
+				let recovery = maybe_recovery.as_mut().ok_or(Error::<T>::NotStarted)?;
+				let old_deposit = recovery.deposit;
+
+				// Skip if deposit hasn't changed
+				if recovery.deposit == new_deposit {
+					return Ok(false);
+				}
+
+				// Update deposit
+				if new_deposit > old_deposit {
+					let extra = new_deposit.saturating_sub(old_deposit);
+					T::Currency::reserve(who, extra)?;
+				} else {
+					let excess = old_deposit.saturating_sub(new_deposit);
+					let remaining_unreserved = T::Currency::unreserve(who, excess);
+					if !remaining_unreserved.is_zero() {
+						defensive!(
+							"Failed to unreserve full amount. (Requested, Actual)",
+							(excess, excess.saturating_sub(remaining_unreserved))
+						);
+					}
+				}
+				recovery.deposit = new_deposit;
+
+				Self::deposit_event(Event::<T>::DepositPoked {
+					who: who.clone(),
+					kind: DepositKind::ActiveRecoveryFor(lost_account.clone()),
+					old_deposit,
+					new_deposit,
+				});
+				Ok(true)
+			},
+		)
 	}
 }

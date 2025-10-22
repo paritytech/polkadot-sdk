@@ -4,10 +4,6 @@ name: Release - Publish Docker Image
 # It builds and published releases and rc candidates.
 
 on:
-  #TODO: activate automated run later
-  # release:
-  #  types:
-  #    - published
   workflow_dispatch:
     inputs:
       image_type:
@@ -26,18 +22,9 @@ on:
         type: choice
         options:
           - polkadot
+          - polkadot-omni-node
           - polkadot-parachain
           - chain-spec-builder
-
-      release_id:
-        description: |
-          Release ID.
-          You can find it using the command:
-          curl -s \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/$OWNER/$REPO/releases | \
-            jq '.[] | { name: .name, id: .id }'
-        required: true
-        type: number
 
       registry:
         description: Container registry
@@ -45,7 +32,7 @@ on:
         type: string
         default: docker.io
 
-      # The owner is often the same than the Docker Hub username but does ont have to be.
+      # The owner is often the same as the Docker Hub username but does ont have to be.
       # In our case, it is not.
       owner:
         description: Owner of the container image repo
@@ -54,8 +41,12 @@ on:
         default: parity
 
       version:
-        description: version to build/release
+        description: Version of the polkadot node release in format v1.16.0 or v1.16.0-rc1
         default: v0.9.18
+        required: true
+
+      stable_tag:
+        description: Tag matching the actual stable release version in the format polkadot-stableYYMM(-rcX) or polkadot-stableYYMM-X(-rcX) for patch releases
         required: true
 
 permissions:
@@ -71,71 +62,81 @@ env:
   # EVENT_ACTION: ${{ github.event.action }}
   EVENT_NAME: ${{ github.event_name }}
   IMAGE_TYPE: ${{ inputs.image_type }}
-  VERSION: ${{ inputs.version }}
 
 jobs:
-  fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
-    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
+  check-synchronization:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    secrets:
+      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
+
+  validate-inputs:
+    needs: [check-synchronization]
+    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.validate_inputs.outputs.VERSION }}
+      stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      #TODO: this step will be needed when automated triggering will work
-        #this step runs only if the workflow is triggered automatically when new release is published
-        # if: ${{ env.EVENT_NAME == 'release' && env.EVENT_ACTION != '' && env.EVENT_ACTION == 'published' }}
-        # run: |
-        #   mkdir -p release-artifacts && cd release-artifacts
-
-        #   for f in $BINARY $BINARY.asc $BINARY.sha256; do
-        #     URL="https://github.com/${{ github.event.repository.full_name }}/releases/download/${{ github.event.release.tag_name }}/$f"
-        #     echo " - Fetching $f from $URL"
-        #     wget "$URL" -O "$f"
-        #   done
-        #   chmod a+x $BINARY
-        #   ls -al
-
-      - name: Fetch rc artifacts or release artifacts from s3 based on version
-        #this step runs only if the workflow is triggered manually
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'chain-spec-builder'}}
+      - name: Validate inputs
+        id: validate_inputs
         run: |
           . ./.github/scripts/common/lib.sh
 
           VERSION=$(filter_version_from_input "${{ inputs.version }}")
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
-          fetch_release_artifacts_from_s3
+          STABLE_TAG=$(validate_stable_tag ${{ inputs.stable_tag }})
+          echo "stable_tag=${STABLE_TAG}" >> $GITHUB_OUTPUT
 
-      - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
-        #this step runs only if the workflow is triggered manually and only for chain-spec-builder
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary == 'chain-spec-builder' }}
+  fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
+    if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
+    runs-on: ubuntu-latest
+    needs: [ validate-inputs ]
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Fetch rc artifacts or release artifacts from s3 based on version
+        # if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'polkadot-omni-node' && inputs.binary != 'chain-spec-builder'}}
         run: |
           . ./.github/scripts/common/lib.sh
-          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
-          fetch_release_artifacts
+
+          VERSION="${{ needs.validate-inputs.outputs.stable_tag }}"
+          if [[ ${{ inputs.binary }} == 'polkadot' ]]; then
+            bins=(polkadot polkadot-prepare-worker polkadot-execute-worker)
+            for bin in "${bins[@]}"; do
+              fetch_release_artifacts_from_s3 $bin x86_64-unknown-linux-gnu
+            done
+          else
+            fetch_release_artifacts_from_s3 $BINARY x86_64-unknown-linux-gnu
+          fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-artifacts
-          path: release-artifacts/${{ env.BINARY }}/**/*
+          path: release-artifacts/x86_64-unknown-linux-gnu/${{ env.BINARY }}/**/*
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
-    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
+    if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
-    needs: fetch-artifacts
+    needs: [ fetch-artifacts, validate-inputs ]
     environment: release
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Download artifacts
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
 
       - name: Check sha256 ${{ env.BINARY }}
-        if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
+        # if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
         working-directory: release-artifacts
         run: |
           . ../.github/scripts/common/lib.sh
@@ -144,7 +145,7 @@ jobs:
           check_sha256 $BINARY && echo "OK" || echo "ERR"
 
       - name: Check GPG ${{ env.BINARY }}
-        if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
+        # if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
         working-directory: release-artifacts
         run: |
           . ../.github/scripts/common/lib.sh
@@ -152,36 +153,44 @@ jobs:
           check_gpg $BINARY
 
       - name: Fetch rc commit and tag
+        working-directory: release-artifacts
         if: ${{ env.IMAGE_TYPE == 'rc' }}
         id: fetch_rc_refs
+        shell: bash
         run: |
-          . ./.github/scripts/common/lib.sh
-
-          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
-          release=release-$RELEASE_ID && \
-          echo "release=${release}" >> $GITHUB_OUTPUT
+          . ../.github/scripts/common/lib.sh
 
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
-
-          tag=$(git name-rev --tags --name-only $(git rev-parse HEAD)) && \
-          [ "${tag}" != "undefined" ] && echo "tag=${tag}" >> $GITHUB_OUTPUT || \
-          echo "No tag, doing without"
+          echo "release=$(echo ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
+          echo "tag=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
 
       - name: Fetch release tags
         working-directory: release-artifacts
         if: ${{ env.IMAGE_TYPE == 'release'}}
         id: fetch_release_refs
+        shell: bash
         run: |
-          chmod a+rx $BINARY
-          [[ $BINARY != 'chain-spec-builder' ]] && VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+          . ../.github/scripts/common/lib.sh
 
-          release=$( echo $VERSION | cut -f1 -d- )
           echo "tag=latest" >> $GITHUB_OUTPUT
-          echo "release=${release}" >> $GITHUB_OUTPUT
+          echo "release=$(echo ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
+          echo "stable=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
 
-      - name: Build Injected Container image for polkadot rc or chain-spec-builder
-        if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
+      - name: Build Injected Container image for polkadot rc
+        if: ${{ env.BINARY == 'polkadot' }}
+        env:
+          ARTIFACTS_FOLDER: release-artifacts
+          IMAGE_NAME: ${{ env.BINARY }}
+          OWNER: ${{ env.DOCKER_OWNER }}
+          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+        run: |
+          ls -al
+          echo "Building container for $BINARY"
+          ./docker/scripts/polkadot/build-injected.sh $ARTIFACTS_FOLDER
+
+      - name: Build Injected Container image for polkadot-omni-node/chain-spec-builder
+        if: ${{ env.BINARY == 'polkadot-omni-node' || env.BINARY == 'chain-spec-builder' }}
         env:
           ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
@@ -208,8 +217,16 @@ jobs:
           echo "Building container for $BINARY"
           ./docker/scripts/build-injected.sh
 
-      - name: Login to Dockerhub
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      - name: Login to Dockerhub to publish polkadot
+        if: ${{ env.BINARY == 'polkadot' }}
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}
+
+      - name: Login to Dockerhub to publish polkadot-omni-node/polkadot-parachain/chain-spec-builder
+        if: ${{ env.BINARY == 'polkadot-omni-node' || env.BINARY == 'polkadot-parachain' || env.BINARY == 'chain-spec-builder' }}
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           username: ${{ secrets.CUMULUS_DOCKERHUB_USERNAME }}
           password: ${{ secrets.CUMULUS_DOCKERHUB_TOKEN }}
@@ -244,6 +261,8 @@ jobs:
       - name: Get version
         id: fetch-latest-apt
         run: |
+          gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
+          gpg --export 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE > /usr/share/keyrings/parity.gpg
           apt update
           apt show polkadot
           version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
@@ -256,25 +275,25 @@ jobs:
   build-polkadot-release-container: # this job will be triggered for polkadot release build
     if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
     runs-on: ubuntu-latest
-    needs: fetch-latest-debian-package-version
+    needs: [ fetch-latest-debian-package-version, validate-inputs ]
     environment: release
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Cache Docker layers
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-         path: /tmp/.buildx-cache
-         key: ${{ runner.os }}-buildx-${{ github.sha }}
-         restore-keys: |
-           ${{ runner.os }}-buildx-
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
       - name: Login to Docker Hub
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
           password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}
@@ -282,18 +301,21 @@ jobs:
       - name: Fetch values
         id: fetch-data
         run: |
+          . ./.github/scripts/common/lib.sh
           date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
           echo "date=$date" >> $GITHUB_OUTPUT
+          echo "stable=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
 
       - name: Build and push
         id:   docker_build
-        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 #  v5.1.0
+        uses: docker/build-push-action@5e99dacf67635c4f273e532b9266ddb609b3025a #  v6.9.0
         with:
           push: true
           file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
           # TODO: The owner should be used below but buildx does not resolve the VARs
           # TODO: It would be good to get rid of this GHA that we don't really need.
           tags: |
+            parity/polkadot:${{ steps.fetch-data.outputs.stable }}
             parity/polkadot:latest
             parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_container_tag }}
           build-args: |

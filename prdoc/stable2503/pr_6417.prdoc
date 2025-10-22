@@ -1,0 +1,9 @@
+title: fix prospective-parachains best backable chain reversion bug
+doc:
+  - audience: Node Dev
+    description: |
+      Fixes a bug in the prospective-parachains subsystem that prevented proper best backable chain reorg.
+
+crates:
+- name: polkadot-node-core-prospective-parachains
+  bump: patch

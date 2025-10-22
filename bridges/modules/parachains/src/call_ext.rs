@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Config, GrandpaPalletOf, Pallet, RelayBlockHash, RelayBlockNumber};
+use crate::{Config, GrandpaPalletOf, Pallet, RelayBlockNumber};
 use bp_header_chain::HeaderChain;
-use bp_parachains::BestParaHeadHash;
-use bp_polkadot_core::parachains::{ParaHash, ParaId};
+use bp_parachains::{BestParaHeadHash, SubmitParachainHeadsInfo};
 use bp_runtime::{HeaderId, OwnedBridgeModule};
 use frame_support::{
 	dispatch::CallableCallFor,
@@ -29,21 +28,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug,
 };
-
-/// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
-#[derive(PartialEq, RuntimeDebug)]
-pub struct SubmitParachainHeadsInfo {
-	/// Number and hash of the finalized relay block that has been used to prove parachain
-	/// finality.
-	pub at_relay_block: HeaderId<RelayBlockHash, RelayBlockNumber>,
-	/// Parachain identifier.
-	pub para_id: ParaId,
-	/// Hash of the bundled parachain head.
-	pub para_head_hash: ParaHash,
-	/// If `true`, then the call must be free (assuming that everything else is valid) to
-	/// be treated as valid.
-	pub is_free_execution_expected: bool,
-}
 
 /// Verified `SubmitParachainHeadsInfo`.
 #[derive(PartialEq, RuntimeDebug)]
@@ -77,11 +61,10 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 		// reject if no more free slots remaining in the block
 		if !SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::has_free_header_slots()
 		{
-			log::trace!(
+			tracing::trace!(
 				target: crate::LOG_TARGET,
-				"The free parachain {:?} head can't be updated: no more free slots \
-				left in the block.",
-				update.para_id,
+				para_id=?update.para_id,
+				"The free parachain head can't be updated: no more free slots left in the block."
 			);
 
 			return Err(InvalidTransaction::Call.into());
@@ -96,13 +79,12 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 
 		// reject if we are importing parachain headers too often
 		if improved_by < free_headers_interval {
-			log::trace!(
+			tracing::trace!(
 				target: crate::LOG_TARGET,
-				"The free parachain {:?} head can't be updated: it improves previous
-				best head by {} while at least {} is expected.",
-				update.para_id,
-				improved_by,
-				free_headers_interval,
+				para_id=?update.para_id,
+				%improved_by,
+				"The free parachain head can't be updated: it improves previous
+				best head while at least {free_headers_interval} is expected."
 			);
 
 			return Err(InvalidTransaction::Stale.into());
@@ -126,11 +108,11 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 				{
 					Some(improved_by) if improved_by > Zero::zero() => improved_by,
 					_ => {
-						log::trace!(
+						tracing::trace!(
 							target: crate::LOG_TARGET,
-							"The parachain head can't be updated. The parachain head for {:?} \
+							para_id=?update.para_id,
+							"The parachain head can't be updated. The parachain head \
 								was already updated at better relay chain block {} >= {}.",
-							update.para_id,
 							stored_best_head.best_head_hash.at_relay_block_number,
 							update.at_relay_block.0
 						);
@@ -139,12 +121,12 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 				};
 
 				if stored_best_head.best_head_hash.head_hash == update.para_head_hash {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
-						"The parachain head can't be updated. The parachain head hash for {:?} \
-						was already updated to {} at block {} < {}.",
-						update.para_id,
-						update.para_head_hash,
+						para_id=?update.para_id,
+						para_head_hash=%update.para_head_hash,
+						"The parachain head can't be updated. The parachain head hash \
+						was already updated at block {} < {}.",
 						stored_best_head.best_head_hash.at_relay_block_number,
 						update.at_relay_block.0
 					);
@@ -159,13 +141,12 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 		// let's check if our chain had no reorgs and we still know the relay chain header
 		// used to craft the proof
 		if GrandpaPalletOf::<T, I>::finalized_header_state_root(update.at_relay_block.1).is_none() {
-			log::trace!(
+			tracing::trace!(
 				target: crate::LOG_TARGET,
-				"The parachain {:?} head can't be updated. Relay chain header {}/{} used to create \
-				parachain proof is missing from the storage.",
-				update.para_id,
-				update.at_relay_block.0,
-				update.at_relay_block.1,
+				para_id=?update.para_id,
+				at_relay_block=?update.at_relay_block,
+				"The parachain head can't be updated. Relay chain header used to create \
+				parachain proof is missing from the storage."
 			);
 
 			return Err(InvalidTransaction::Call.into())
@@ -289,7 +270,7 @@ mod tests {
 		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads_ex {
 			at_relay_block: (num, [num as u8; 32].into()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: false,
 		})
 		.check_obsolete_submit_parachain_heads()
@@ -303,7 +284,7 @@ mod tests {
 		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads_ex {
 			at_relay_block: (num, [num as u8; 32].into()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: true,
 		})
 		.check_obsolete_submit_parachain_heads()

@@ -11,23 +11,20 @@ publish = false
 workspace = true
 
 [dependencies]
-
 # Substrate
-sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
-sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false }
-sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false }
-sp-consensus-beefy = { path = "../../../../../../../substrate/primitives/consensus/beefy" }
-sc-consensus-grandpa = { path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
-pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false }
+pallet-staking = { workspace = true }
+sc-consensus-grandpa = { workspace = true }
+sp-authority-discovery = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sp-consensus-beefy = { workspace = true, default-features = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Polkadot
-polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false }
-westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false }
-westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
-xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
-xcm-fee-payment-runtime-api = { path = "../../../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
+polkadot-primitives = { workspace = true }
+westend-runtime = { workspace = true, default-features = true }
+westend-runtime-constants = { workspace = true }
 
 # Cumulus
-parachains-common = { path = "../../../../../common" }
-emulated-integration-tests-common = { path = "../../../common", default-features = false }
+emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }

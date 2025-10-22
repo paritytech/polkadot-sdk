@@ -17,10 +17,10 @@
 
 //! Hash utilities.
 
+use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};
 use sp_io::hashing::{blake2_128, blake2_256, twox_128, twox_256, twox_64};
 use sp_metadata_ir as metadata_ir;
-use sp_std::prelude::Vec;
 
 // This trait must be kept coherent with frame-support-procedural HasherKind usage
 pub trait Hashable: Sized {

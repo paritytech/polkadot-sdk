@@ -1,58 +1,61 @@
 [package]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.7.0"
+version = "0.7.1"
 authors.workspace = true
 edition.workspace = true
 description = "Pallet to queue outbound and inbound XCMP messages."
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"], default-features = false }
-log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-message-queue = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Polkadot
-polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false }
-polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
+polkadot-runtime-common = { workspace = true }
+polkadot-runtime-parachains = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-primitives-core = { workspace = true }
 
+# Optional import for weight accuracy testing
+approx = { workspace = true }
 # Optional import for benchmarking
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-bounded-collections = { version = "0.2.0", default-features = false }
+bounded-collections = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 # Bridges
-bp-xcm-bridge-hub-router = { path = "../../../bridges/primitives/xcm-bridge-hub-router", default-features = false, optional = true }
+bp-xcm-bridge-hub-router = { optional = true, workspace = true }
 
 [dev-dependencies]
-
 # Substrate
-sp-core = { path = "../../../substrate/primitives/core" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
-frame-support = { path = "../../../substrate/frame/support", features = ["experimental"] }
+frame-support = { features = ["experimental"], workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system" }
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
+	"approx/std",
 	"bounded-collections/std",
 	"bp-xcm-bridge-hub-router?/std",
 	"codec/std",
@@ -60,7 +63,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
@@ -68,12 +70,11 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
@@ -87,6 +88,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",

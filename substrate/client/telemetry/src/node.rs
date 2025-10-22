@@ -18,7 +18,13 @@
 
 use crate::TelemetryPayload;
 use futures::{channel::mpsc, prelude::*};
-use libp2p::{core::transport::Transport, Multiaddr};
+use libp2p::{
+	core::{
+		transport::{DialOpts, PortUse, Transport},
+		Endpoint,
+	},
+	Multiaddr,
+};
 use rand::Rng as _;
 use std::{
 	fmt, mem,
@@ -229,7 +235,10 @@ where
 				},
 				NodeSocket::ReconnectNow => {
 					let addr = self.addr.clone();
-					match self.transport.dial(addr) {
+					match self
+						.transport
+						.dial(addr, DialOpts { role: Endpoint::Dialer, port_use: PortUse::New })
+					{
 						Ok(d) => {
 							log::trace!(target: "telemetry", "Re-dialing {}", self.addr);
 							socket = NodeSocket::Dialing(d);

@@ -18,18 +18,19 @@
 //! The crate's tests.
 
 use super::*;
-use crate as pallet_referenda;
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::{self as pallet_referenda, types::Track};
+use alloc::borrow::Cow;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
-		SortedMembers,
 	},
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{
+	str_array as s,
 	traits::{BlakeTwo256, Hash},
 	BuildStorage, DispatchResult, Perbill,
 };
@@ -82,6 +83,7 @@ impl pallet_scheduler::Config for Test {
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
@@ -98,25 +100,18 @@ ord_parameter_types! {
 	pub const Five: u64 = 5;
 	pub const Six: u64 = 6;
 }
-pub struct OneToFive;
-impl SortedMembers<u64> for OneToFive {
-	fn sorted_members() -> Vec<u64> {
-		vec![1, 2, 3, 4, 5]
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn add(_m: &u64) {}
-}
 
 pub struct TestTracksInfo;
 impl TracksInfo<u64, u64> for TestTracksInfo {
 	type Id = u8;
 	type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
-	fn tracks() -> &'static [(Self::Id, TrackInfo<u64, u64>)] {
-		static DATA: [(u8, TrackInfo<u64, u64>); 2] = [
-			(
-				0u8,
-				TrackInfo {
-					name: "root",
+
+	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, u64, u64>>> {
+		static DATA: [Track<u8, u64, u64>; 3] = [
+			Track {
+				id: 0u8,
+				info: TrackInfo {
+					name: s("root"),
 					max_deciding: 1,
 					decision_deposit: 10,
 					prepare_period: 4,
@@ -134,11 +129,11 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				1u8,
-				TrackInfo {
-					name: "none",
+			},
+			Track {
+				id: 1u8,
+				info: TrackInfo {
+					name: s("none"),
 					max_deciding: 3,
 					decision_deposit: 1,
 					prepare_period: 2,
@@ -156,15 +151,38 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
+			},
+			Track {
+				id: 2u8,
+				info: TrackInfo {
+					name: s("none"),
+					max_deciding: 3,
+					decision_deposit: 1,
+					prepare_period: 2,
+					decision_period: 2,
+					confirm_period: 1,
+					min_enactment_period: 0,
+					min_approval: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(95),
+						ceil: Perbill::from_percent(100),
+					},
+					min_support: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(90),
+						ceil: Perbill::from_percent(100),
+					},
+				},
+			},
 		];
-		&DATA[..]
+		DATA.iter().map(Cow::Borrowed)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
 		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
 			match system_origin {
 				frame_system::RawOrigin::Root => Ok(0),
 				frame_system::RawOrigin::None => Ok(1),
+				frame_system::RawOrigin::Signed(1) => Ok(2),
 				_ => Err(()),
 			}
 		} else {
@@ -172,7 +190,6 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 		}
 	}
 }
-impl_tracksinfo_get!(TestTracksInfo, u64, u64);
 
 impl Config for Test {
 	type WeightInfo = ();
@@ -192,6 +209,7 @@ impl Config for Test {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 pub struct ExtBuilder {}
 
@@ -205,7 +223,7 @@ impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let balances = vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100), (6, 100)];
-		pallet_balances::GenesisConfig::<Test> { balances }
+		pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
@@ -221,7 +239,9 @@ impl ExtBuilder {
 	}
 }
 
-#[derive(Encode, Debug, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(
+	Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen,
+)]
 pub struct Tally {
 	pub ayes: u32,
 	pub nays: u32,

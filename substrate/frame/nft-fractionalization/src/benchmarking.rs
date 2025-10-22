@@ -20,19 +20,14 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::{benchmarks, whitelisted_caller};
-use frame_support::{
-	assert_ok,
-	traits::{
-		fungible::{Inspect as InspectFungible, Mutate as MutateFungible},
-		tokens::nonfungibles_v2::{Create, Mutate},
-		Get,
-	},
-};
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin as SystemOrigin};
+use frame::benchmarking::prelude::*;
+
+use frame::deps::frame_support::assert_ok;
+use fungible::{Inspect as InspectFungible, Mutate as MutateFungible};
+use nonfungibles_v2::{Create, Mutate};
+
+use frame_system::RawOrigin as SystemOrigin;
 use pallet_nfts::{CollectionConfig, CollectionSettings, ItemConfig, MintSettings};
-use sp_runtime::traits::StaticLookup;
-use sp_std::prelude::*;
 
 use crate::Pallet as NftFractionalization;
 
@@ -78,20 +73,37 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event);
 }
 
-benchmarks! {
-	where_clause {
-		where
-			T::Nfts: Create<T::AccountId, CollectionConfig<BalanceOf<T>, frame_system::pallet_prelude::BlockNumberFor::<T>, T::NftCollectionId>>
-				+ Mutate<T::AccountId, ItemConfig>,
-	}
+#[benchmarks(
+	where
+		T::Nfts:
+			Create<
+				T::AccountId,
+				CollectionConfig<BalanceOf<T>,
+				frame_system::pallet_prelude::BlockNumberFor::<T>,
+				T::NftCollectionId>
+			>
+			+ Mutate<T::AccountId, ItemConfig>,
+)]
+mod benchmarks {
+	use super::*;
 
-	fractionalize {
+	#[benchmark]
+	fn fractionalize() {
 		let asset = T::BenchmarkHelper::asset(0);
 		let collection = T::BenchmarkHelper::collection(0);
 		let nft = T::BenchmarkHelper::nft(0);
 		let (caller, caller_lookup) = mint_nft::<T>(nft);
-	}: _(SystemOrigin::Signed(caller.clone()), collection, nft, asset.clone(), caller_lookup, 1000u32.into())
-	verify {
+
+		#[extrinsic_call]
+		_(
+			SystemOrigin::Signed(caller.clone()),
+			collection,
+			nft,
+			asset.clone(),
+			caller_lookup,
+			1000u32.into(),
+		);
+
 		assert_last_event::<T>(
 			Event::NftFractionalized {
 				nft_collection: collection,
@@ -99,34 +111,39 @@ benchmarks! {
 				fractions: 1000u32.into(),
 				asset,
 				beneficiary: caller,
-			}.into()
+			}
+			.into(),
 		);
 	}
 
-	unify {
+	#[benchmark]
+	fn unify() {
 		let asset = T::BenchmarkHelper::asset(0);
 		let collection = T::BenchmarkHelper::collection(0);
 		let nft = T::BenchmarkHelper::nft(0);
 		let (caller, caller_lookup) = mint_nft::<T>(nft);
-		NftFractionalization::<T>::fractionalize(
+
+		assert_ok!(NftFractionalization::<T>::fractionalize(
 			SystemOrigin::Signed(caller.clone()).into(),
 			collection,
 			nft,
 			asset.clone(),
 			caller_lookup.clone(),
 			1000u32.into(),
-		)?;
-	}: _(SystemOrigin::Signed(caller.clone()), collection, nft, asset.clone(), caller_lookup)
-	verify {
+		));
+
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(caller.clone()), collection, nft, asset.clone(), caller_lookup);
+
 		assert_last_event::<T>(
-			Event::NftUnified {
-				nft_collection: collection,
-				nft,
-				asset,
-				beneficiary: caller,
-			}.into()
+			Event::NftUnified { nft_collection: collection, nft, asset, beneficiary: caller }
+				.into(),
 		);
 	}
 
-	impl_benchmark_test_suite!(NftFractionalization, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(
+		NftFractionalization,
+		crate::mock::new_test_ext(),
+		crate::mock::Test
+	);
 }

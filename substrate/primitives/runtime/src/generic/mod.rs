@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Generic implementations of [`crate::traits::Header`], [`crate::traits::Block`] and
-//! [`crate::traits::Extrinsic`].
+//! [`crate::traits::ExtrinsicLike`].
 
 mod block;
 mod checked_extrinsic;
@@ -28,10 +28,13 @@ mod tests;
 mod unchecked_extrinsic;
 
 pub use self::{
-	block::{Block, BlockId, SignedBlock},
-	checked_extrinsic::CheckedExtrinsic,
+	block::{Block, BlockId, LazyBlock, SignedBlock},
+	checked_extrinsic::{CheckedExtrinsic, ExtrinsicFormat},
 	digest::{Digest, DigestItem, DigestItemRef, OpaqueDigestItemId},
 	era::{Era, Phase},
 	header::Header,
-	unchecked_extrinsic::{SignedPayload, UncheckedExtrinsic},
+	unchecked_extrinsic::{
+		ExtensionVersion, Preamble, SignedPayload, UncheckedExtrinsic, EXTRINSIC_FORMAT_VERSION,
+	},
 };
+pub use unchecked_extrinsic::UncheckedSignaturePayload;

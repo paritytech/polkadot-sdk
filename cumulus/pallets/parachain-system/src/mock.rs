@@ -1,18 +1,18 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Test setup and helpers.
 
@@ -20,7 +20,9 @@
 
 use super::*;
 
+use alloc::collections::vec_deque::VecDeque;
 use codec::Encode;
+use core::num::NonZeroU32;
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage,
 	InboundHrmpMessage, PersistedValidationData,
@@ -35,9 +37,9 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::{limits::BlockWeights, pallet_prelude::BlockNumberFor, RawOrigin};
+use sp_core::ConstU32;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage};
-use sp_std::{collections::vec_deque::VecDeque, num::NonZeroU32};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 
@@ -48,23 +50,25 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test {
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		ParachainSystem: parachain_system::{Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned},
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		ParachainSystem: parachain_system,
+		MessageQueue: pallet_message_queue,
 	}
 );
 
 parameter_types! {
 	pub Version: RuntimeVersion = RuntimeVersion {
-		spec_name: sp_version::create_runtime_str!("test"),
-		impl_name: sp_version::create_runtime_str!("system-test"),
+		spec_name: alloc::borrow::Cow::Borrowed("test"),
+		impl_name: alloc::borrow::Cow::Borrowed("system-test"),
 		authoring_version: 1,
 		spec_version: 1,
 		impl_version: 1,
 		apis: sp_version::create_apis_vec!([]),
 		transaction_version: 1,
-		state_version: 1,
+		system_version: 1,
 	};
+	pub RuntimeBlockWeights: BlockWeights =
+		BlockWeights::simple_max(Weight::from_parts(1024, 6 * 1024 * 1024));
 	pub const ParachainId: ParaId = ParaId::new(200);
 	pub const ReservedXcmpWeight: Weight = Weight::zero();
 	pub const ReservedDmpWeight: Weight = Weight::zero();
@@ -72,6 +76,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type BlockWeights = RuntimeBlockWeights;
 	type Block = Block;
 	type Version = Version;
 	type OnSetCode = ParachainSetCode<Self>;
@@ -93,6 +98,7 @@ impl Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
+	type RelayParentOffset = ConstU32<0>;
 }
 
 std::thread_local! {
@@ -222,12 +228,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[allow(dead_code)]
-pub fn mk_dmp(sent_at: u32) -> InboundDownwardMessage {
-	InboundDownwardMessage { sent_at, msg: format!("down{}", sent_at).into_bytes() }
+pub fn mk_dmp(sent_at: u8, size: usize) -> InboundDownwardMessage {
+	InboundDownwardMessage { sent_at: sent_at as u32, msg: vec![sent_at; size] }
 }
 
-pub fn mk_hrmp(sent_at: u32) -> InboundHrmpMessage {
-	InboundHrmpMessage { sent_at, data: format!("{}", sent_at).into_bytes() }
+pub fn mk_hrmp(sent_at: u8, size: usize) -> InboundHrmpMessage {
+	InboundHrmpMessage { sent_at: sent_at as u32, data: vec![sent_at; size] }
 }
 
 pub struct ReadRuntimeVersion(pub Vec<u8>);
@@ -417,6 +423,8 @@ impl BlockTests {
 					relay_chain_state,
 					downward_messages: Default::default(),
 					horizontal_messages: Default::default(),
+					relay_parent_descendants: Default::default(),
+					collator_peer_id: None,
 				};
 				if let Some(ref hook) = self.inherent_data_hook {
 					hook(self, relay_parent_number, &mut system_inherent_data);

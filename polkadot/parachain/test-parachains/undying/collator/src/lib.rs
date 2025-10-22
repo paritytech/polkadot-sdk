@@ -17,14 +17,23 @@
 //! Collator for the `Undying` test parachain.
 
 use codec::{Decode, Encode};
-use futures::channel::oneshot;
+use futures::{channel::oneshot, StreamExt};
 use futures_timer::Delay;
+use polkadot_cli::ProvideRuntimeApi;
 use polkadot_node_primitives::{
-	maybe_compress_pov, Collation, CollationResult, CollationSecondedSignal, CollatorFn,
-	MaybeCompressedPoV, PoV, Statement,
+	maybe_compress_pov, AvailableData, Collation, CollationResult, CollationSecondedSignal,
+	CollatorFn, MaybeCompressedPoV, PoV, Statement, UpwardMessages,
 };
-use polkadot_primitives::{CollatorId, CollatorPair, Hash};
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
+use polkadot_primitives::{
+	CandidateCommitments, CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, CollatorId,
+	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
+	DEFAULT_CLAIM_QUEUE_OFFSET,
+};
+use polkadot_service::{Handle, NewFull, ParachainHost};
+use sc_client_api::client::BlockchainEvents;
 use sp_core::Pair;
+
 use std::{
 	collections::HashMap,
 	sync::{
@@ -37,6 +46,8 @@ use test_parachain_undying::{
 	execute, hash_state, BlockData, GraveyardState, HeadData, StateMismatch,
 };
 
+pub const LOG_TARGET: &str = "parachain::undying-collator";
+
 /// Default PoV size which also drives state size.
 const DEFAULT_POV_SIZE: usize = 1000;
 /// Default PVF time complexity - 1 signature per block.
@@ -47,24 +58,31 @@ fn calculate_head_and_state_for_number(
 	number: u64,
 	graveyard_size: usize,
 	pvf_complexity: u32,
+	experimental_send_approved_peer: bool,
 ) -> Result<(HeadData, GraveyardState), StateMismatch> {
 	let index = 0u64;
 	let mut graveyard = vec![0u8; graveyard_size * graveyard_size];
 	let zombies = 0;
 	let seal = [0u8; 32];
+	let core_selector_number = 0;
 
 	// Ensure a larger compressed PoV.
 	graveyard.iter_mut().enumerate().for_each(|(i, grave)| {
 		*grave = i as u8;
 	});
 
-	let mut state = GraveyardState { index, graveyard, zombies, seal };
+	let mut state = GraveyardState { index, graveyard, zombies, seal, core_selector_number };
 	let mut head =
 		HeadData { number: 0, parent_hash: Hash::default().into(), post_state: hash_state(&state) };
 
 	while head.number < number {
-		let block = BlockData { state, tombstones: 1_000, iterations: pvf_complexity };
-		let (new_head, new_state) = execute(head.hash(), head.clone(), block)?;
+		let block = BlockData {
+			state,
+			tombstones: 1_000,
+			iterations: pvf_complexity,
+			experimental_send_approved_peer,
+		};
+		let (new_head, new_state, _) = execute(head.hash(), head.clone(), block)?;
 		head = new_head;
 		state = new_state;
 	}
@@ -90,22 +108,28 @@ struct State {
 	/// TODO: Implement a static state, and use `ballast` to inflate the PoV size. This way
 	/// we can just discard the `ballast` before processing the block.
 	graveyard_size: usize,
+	experimental_send_approved_peer: bool,
 }
 
 impl State {
 	/// Init the genesis state.
-	fn genesis(graveyard_size: usize, pvf_complexity: u32) -> Self {
+	fn genesis(
+		graveyard_size: usize,
+		pvf_complexity: u32,
+		experimental_send_approved_peer: bool,
+	) -> Self {
 		let index = 0u64;
 		let mut graveyard = vec![0u8; graveyard_size * graveyard_size];
 		let zombies = 0;
 		let seal = [0u8; 32];
+		let core_selector_number = 0;
 
 		// Ensure a larger compressed PoV.
 		graveyard.iter_mut().enumerate().for_each(|(i, grave)| {
 			*grave = i as u8;
 		});
 
-		let state = GraveyardState { index, graveyard, zombies, seal };
+		let state = GraveyardState { index, graveyard, zombies, seal, core_selector_number };
 
 		let head_data =
 			HeadData { number: 0, parent_hash: Default::default(), post_state: hash_state(&state) };
@@ -117,13 +141,17 @@ impl State {
 			best_block: 0,
 			pvf_complexity,
 			graveyard_size,
+			experimental_send_approved_peer,
 		}
 	}
 
 	/// Advance the state and produce a new block based on the given `parent_head`.
 	///
 	/// Returns the new [`BlockData`] and the new [`HeadData`].
-	fn advance(&mut self, parent_head: HeadData) -> Result<(BlockData, HeadData), StateMismatch> {
+	fn advance(
+		&mut self,
+		parent_head: HeadData,
+	) -> Result<(BlockData, HeadData, UpwardMessages), StateMismatch> {
 		self.best_block = parent_head.number;
 
 		let state = if let Some(state) = self
@@ -137,21 +165,28 @@ impl State {
 				parent_head.number,
 				self.graveyard_size,
 				self.pvf_complexity,
+				self.experimental_send_approved_peer,
 			)?;
 			state
 		};
 
 		// Start with prev state and transaction to execute (place 1000 tombstones).
-		let block = BlockData { state, tombstones: 1000, iterations: self.pvf_complexity };
+		let block = BlockData {
+			state,
+			tombstones: 1000,
+			iterations: self.pvf_complexity,
+			experimental_send_approved_peer: self.experimental_send_approved_peer,
+		};
 
-		let (new_head, new_state) = execute(parent_head.hash(), parent_head, block.clone())?;
+		let (new_head, new_state, upward_messages) =
+			execute(parent_head.hash(), parent_head, block.clone())?;
 
 		let new_head_arc = Arc::new(new_head.clone());
 
 		self.head_to_state.insert(new_head_arc.clone(), new_state);
 		self.number_to_head.insert(new_head.number, new_head_arc);
 
-		Ok((block, new_head))
+		Ok((block, new_head, upward_messages))
 	}
 }
 
@@ -164,27 +199,40 @@ pub struct Collator {
 
 impl Default for Collator {
 	fn default() -> Self {
-		Self::new(DEFAULT_POV_SIZE, DEFAULT_PVF_COMPLEXITY)
+		Self::new(DEFAULT_POV_SIZE, DEFAULT_PVF_COMPLEXITY, false)
 	}
 }
 
 impl Collator {
 	/// Create a new collator instance with the state initialized from genesis and `pov_size`
 	/// parameter. The same parameter needs to be passed when exporting the genesis state.
-	pub fn new(pov_size: usize, pvf_complexity: u32) -> Self {
+	pub fn new(
+		pov_size: usize,
+		pvf_complexity: u32,
+		experimental_send_approved_peer: bool,
+	) -> Self {
 		let graveyard_size = ((pov_size / std::mem::size_of::<u8>()) as f64).sqrt().ceil() as usize;
 
 		log::info!(
+			target: LOG_TARGET,
 			"PoV target size: {} bytes. Graveyard size: ({} x {})",
 			pov_size,
 			graveyard_size,
-			graveyard_size
+			graveyard_size,
 		);
 
-		log::info!("PVF time complexity: {}", pvf_complexity);
+		log::info!(
+			target: LOG_TARGET,
+			"PVF time complexity: {}",
+			pvf_complexity,
+		);
 
 		Self {
-			state: Arc::new(Mutex::new(State::genesis(graveyard_size, pvf_complexity))),
+			state: Arc::new(Mutex::new(State::genesis(
+				graveyard_size,
+				pvf_complexity,
+				experimental_send_approved_peer,
+			))),
 			key: CollatorPair::generate().0,
 			seconded_collations: Arc::new(AtomicU32::new(0)),
 		}
@@ -232,21 +280,32 @@ impl Collator {
 		Box::new(move |relay_parent, validation_data| {
 			let parent = match HeadData::decode(&mut &validation_data.parent_head.0[..]) {
 				Err(err) => {
-					log::error!("Requested to build on top of malformed head-data: {:?}", err);
+					log::error!(
+						target: LOG_TARGET,
+						"Requested to build on top of malformed head-data: {:?}",
+						err,
+					);
 					return futures::future::ready(None).boxed()
 				},
 				Ok(p) => p,
 			};
 
-			let (block_data, head_data) = match state.lock().unwrap().advance(parent.clone()) {
-				Err(err) => {
-					log::error!("Unable to build on top of {:?}: {:?}", parent, err);
-					return futures::future::ready(None).boxed()
-				},
-				Ok(x) => x,
-			};
+			let (block_data, head_data, upward_messages) =
+				match state.lock().unwrap().advance(parent.clone()) {
+					Err(err) => {
+						log::error!(
+							target: LOG_TARGET,
+							"Unable to build on top of {:?}: {:?}",
+							parent,
+							err,
+						);
+						return futures::future::ready(None).boxed()
+					},
+					Ok(x) => x,
+				};
 
 			log::info!(
+				target: LOG_TARGET,
 				"created a new collation on relay-parent({}): {:?}",
 				relay_parent,
 				head_data,
@@ -256,7 +315,7 @@ impl Collator {
 			let pov = PoV { block_data: block_data.encode().into() };
 
 			let collation = Collation {
-				upward_messages: Default::default(),
+				upward_messages,
 				horizontal_messages: Default::default(),
 				new_validation_code: None,
 				head_data: head_data.encode().into(),
@@ -265,10 +324,15 @@ impl Collator {
 				hrmp_watermark: validation_data.relay_parent_number,
 			};
 
-			log::info!("Raw PoV size for collation: {} bytes", pov.block_data.0.len(),);
+			log::info!(
+				target: LOG_TARGET,
+				"Raw PoV size for collation: {} bytes",
+				pov.block_data.0.len(),
+			);
 			let compressed_pov = maybe_compress_pov(pov);
 
 			log::info!(
+				target: LOG_TARGET,
 				"Compressed PoV size for collation: {} bytes",
 				compressed_pov.block_data.0.len(),
 			);
@@ -282,11 +346,12 @@ impl Collator {
 					if let Ok(res) = recv.await {
 						if !matches!(
 							res.statement.payload(),
-							Statement::Seconded(s) if s.descriptor.pov_hash == compressed_pov.hash(),
+							Statement::Seconded(s) if s.descriptor.pov_hash() == compressed_pov.hash(),
 						) {
 							log::error!(
+								target: LOG_TARGET,
 								"Seconded statement should match our collation: {:?}",
-								res.statement.payload()
+								res.statement.payload(),
 							);
 						}
 
@@ -330,6 +395,259 @@ impl Collator {
 			}
 		}
 	}
+
+	pub fn send_same_collations_to_all_assigned_cores(
+		&self,
+		full_node: &NewFull,
+		mut overseer_handle: Handle,
+		para_id: ParaId,
+	) {
+		let client = full_node.client.clone();
+
+		let collation_function =
+			self.create_collation_function(full_node.task_manager.spawn_handle());
+
+		full_node
+			.task_manager
+			.spawn_handle()
+			.spawn("malus-undying-collator", None, async move {
+				// Subscribe to relay chain block import notifications. In each iteration, build a
+				// collation in response to a block import notification and submits it to all cores
+				// assigned to the parachain.
+				let mut import_notifications = client.import_notification_stream();
+
+				while let Some(notification) = import_notifications.next().await {
+					let relay_parent = notification.hash;
+
+					// Get the list of cores assigned to the parachain.
+					let claim_queue = match client.runtime_api().claim_queue(relay_parent) {
+						Ok(claim_queue) => claim_queue,
+						Err(error) => {
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to query claim queue runtime API: {error:?}",
+							);
+							continue;
+						},
+					};
+
+					let claim_queue_offset = ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET);
+
+					let scheduled_cores: Vec<CoreIndex> = claim_queue
+						.iter()
+						.filter_map(move |(core_index, paras)| {
+							paras.get(claim_queue_offset.0 as usize).and_then(|core_para_id| {
+								(core_para_id == &para_id).then_some(*core_index)
+							})
+						})
+						.collect();
+
+					if scheduled_cores.is_empty() {
+						log::info!(
+							target: LOG_TARGET,
+							"Scheduled cores is empty.",
+						);
+						continue;
+					}
+
+					if scheduled_cores.len() == 1 {
+						log::info!(
+							target: LOG_TARGET,
+							"Malus collator configured with duplicate collations, but only 1 core assigned. \
+							Collator will not do anything malicious.",
+						);
+					}
+
+					// Fetch validation data for the collation.
+					let validation_data = match client.runtime_api().persisted_validation_data(
+						relay_parent,
+						para_id,
+						OccupiedCoreAssumption::Included,
+					) {
+						Ok(Some(validation_data)) => validation_data,
+						Ok(None) => {
+							log::info!(
+								target: LOG_TARGET,
+								"Persisted validation data is None.",
+							);
+							continue;
+						},
+						Err(error) => {
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to query persisted validation data runtime API: {error:?}",
+							);
+							continue;
+						},
+					};
+
+					// Generate the collation.
+					let collation =
+						match collation_function(relay_parent, &validation_data).await {
+							Some(collation) => collation,
+							None => {
+								log::info!(
+									target: LOG_TARGET,
+									"Collation result is None.",
+								);
+								continue;
+							},
+						}
+						.collation;
+
+					// Fetch the validation code hash.
+					let validation_code_hash = match client.runtime_api().validation_code_hash(
+						relay_parent,
+						para_id,
+						OccupiedCoreAssumption::Included,
+					) {
+						Ok(Some(validation_code_hash)) => validation_code_hash,
+						Ok(None) => {
+							log::info!(
+								target: LOG_TARGET,
+								"Validation code hash is None.",
+							);
+							continue;
+						},
+						Err(error) => {
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to query validation code hash runtime API: {error:?}",
+							);
+							continue;
+						},
+					};
+
+					// Fetch the session index.
+					let session_index =
+						match client.runtime_api().session_index_for_child(relay_parent) {
+							Ok(session_index) => session_index,
+							Err(error) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Failed to query session index for child runtime API: {error:?}",
+								);
+								continue;
+							},
+						};
+
+					let persisted_validation_data_hash = validation_data.hash();
+					let parent_head_data = validation_data.parent_head.clone();
+					let parent_head_data_hash = validation_data.parent_head.hash();
+
+					// Apply compression to the block data.
+					let pov = {
+						let pov = collation.proof_of_validity.into_compressed();
+						let encoded_size = pov.encoded_size();
+						let max_pov_size = validation_data.max_pov_size as usize;
+
+						// As long as `POV_BOMB_LIMIT` is at least `max_pov_size`, this ensures
+						// that honest collators never produce a PoV which is uncompressed.
+						//
+						// As such, honest collators never produce an uncompressed PoV which starts
+						// with a compression magic number, which would lead validators to
+						// reject the collation.
+						if encoded_size > max_pov_size {
+							log::error!(
+								target: LOG_TARGET,
+								"PoV size {encoded_size} exceeded maximum size of {max_pov_size}",
+							);
+							continue;
+						}
+
+						pov
+					};
+
+					let pov_hash = pov.hash();
+
+					// Fetch the session info.
+					let session_info =
+						match client.runtime_api().session_info(relay_parent, session_index) {
+							Ok(Some(session_info)) => session_info,
+							Ok(None) => {
+								log::info!(
+									target: LOG_TARGET,
+									"Session info is None.",
+								);
+								continue;
+							},
+							Err(error) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Failed to query session info runtime API: {error:?}",
+								);
+								continue;
+							},
+						};
+
+					let n_validators = session_info.validators.len();
+
+					let available_data =
+						AvailableData { validation_data, pov: Arc::new(pov.clone()) };
+					let chunks = match polkadot_erasure_coding::obtain_chunks_v1(
+						n_validators,
+						&available_data,
+					) {
+						Ok(chunks) => chunks,
+						Err(error) => {
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to obtain chunks v1: {error:?}",
+							);
+							continue;
+						},
+					};
+					let erasure_root = polkadot_erasure_coding::branches(&chunks).root();
+
+					let commitments = CandidateCommitments {
+						upward_messages: collation.upward_messages,
+						horizontal_messages: collation.horizontal_messages,
+						new_validation_code: collation.new_validation_code,
+						head_data: collation.head_data,
+						processed_downward_messages: collation.processed_downward_messages,
+						hrmp_watermark: collation.hrmp_watermark,
+					};
+
+					// Submit the same collation to all assigned cores.
+					for core_index in &scheduled_cores {
+						let candidate_receipt = CandidateReceiptV2 {
+							descriptor: CandidateDescriptorV2::new(
+								para_id,
+								relay_parent,
+								*core_index,
+								session_index,
+								persisted_validation_data_hash,
+								pov_hash,
+								erasure_root,
+								commitments.head_data.hash(),
+								validation_code_hash,
+							),
+							commitments_hash: commitments.hash(),
+						};
+
+						// We cannot use SubmitCollation here because it includes an additional
+						// check for the core index by calling `parse_ump_signals`. This check
+						// enforces that the parachain always selects the correct core by comparing
+						// the descriptor and commitments core indexes. To bypass this check, we are
+						// simulating the behavior of SubmitCollation while skipping ump signals
+						// validation.
+						overseer_handle
+							.send_msg(
+								CollatorProtocolMessage::DistributeCollation {
+									candidate_receipt,
+									parent_head_data_hash,
+									pov: pov.clone(),
+									parent_head_data: parent_head_data.clone(),
+									result_sender: None,
+									core_index: *core_index,
+								},
+								"Collator",
+							)
+							.await;
+					}
+				}
+			});
+	}
 }
 
 use sp_core::traits::SpawnNamed;
@@ -344,7 +662,7 @@ mod tests {
 	#[test]
 	fn collator_works() {
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let collator = Collator::new(1_000, 1);
+		let collator = Collator::new(1_000, 1, false);
 		let collation_function = collator.create_collation_function(spawner);
 
 		for i in 0..5 {
@@ -398,17 +716,17 @@ mod tests {
 
 	#[test]
 	fn advance_to_state_when_parent_head_is_missing() {
-		let collator = Collator::new(1_000, 1);
+		let collator = Collator::new(1_000, 1, false);
 		let graveyard_size = collator.state.lock().unwrap().graveyard_size;
 
-		let mut head = calculate_head_and_state_for_number(10, graveyard_size, 1).unwrap().0;
+		let mut head = calculate_head_and_state_for_number(10, graveyard_size, 1, false).unwrap().0;
 
 		for i in 1..10 {
 			head = collator.state.lock().unwrap().advance(head).unwrap().1;
 			assert_eq!(10 + i, head.number);
 		}
 
-		let collator = Collator::new(1_000, 1);
+		let collator = Collator::new(1_000, 1, false);
 		let mut second_head = collator
 			.state
 			.lock()

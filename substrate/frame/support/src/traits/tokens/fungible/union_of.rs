@@ -20,7 +20,8 @@
 //!
 //! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::cmp::Ordering;
 use frame_support::traits::{
 	fungible::imbalance,
 	tokens::{
@@ -36,11 +37,12 @@ use sp_runtime::{
 	Either::{Left, Right},
 	RuntimeDebug,
 };
-use sp_std::cmp::Ordering;
 
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
-#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq)]
+#[derive(
+	Decode, DecodeWithMemTracking, Encode, Default, MaxEncodedLen, TypeInfo, Clone, RuntimeDebug, Eq,
+)]
 pub enum NativeOrWithId<AssetId>
 where
 	AssetId: Ord,
@@ -101,7 +103,7 @@ impl<AssetId: Ord> Convert<NativeOrWithId<AssetId>, Either<(), AssetId>> for Nat
 /// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 pub struct UnionOf<Left, Right, Criterion, AssetKind, AccountId>(
-	sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
+	core::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
 );
 
 impl<
@@ -664,7 +666,7 @@ pub struct ConvertImbalanceDropHandler<
 	Balance,
 	AssetId,
 	AccountId,
->(sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, Balance, AssetId, AccountId)>);
+>(core::marker::PhantomData<(Left, Right, Criterion, AssetKind, Balance, AssetId, AccountId)>);
 
 impl<
 		Left: fungible::HandleImbalanceDrop<Balance>,
@@ -844,8 +846,10 @@ impl<
 }
 
 impl<
-		Left: fungible::BalancedHold<AccountId>,
-		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>,
+		Left: fungible::BalancedHold<AccountId>
+			+ fungible::hold::DoneSlash<Self::Reason, AccountId, Self::Balance>,
+		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>
+			+ fungibles::hold::DoneSlash<AssetKind, Left::Reason, AccountId, Left::Balance>,
 		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
 		AssetKind: AssetId,
 		AccountId,
@@ -867,6 +871,29 @@ impl<
 				let (credit, amount) =
 					<Right as fungibles::BalancedHold<AccountId>>::slash(a, reason, who, amount);
 				(fungibles::imbalance::from_fungibles(credit, asset), amount)
+			},
+		}
+	}
+}
+impl<
+		Reason,
+		Balance,
+		Left: fungible::hold::DoneSlash<Reason, AccountId, Balance>,
+		Right: fungibles::hold::DoneSlash<Right::AssetId, Reason, AccountId, Balance>
+			+ fungibles::Inspect<AccountId>,
+		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::hold::DoneSlash<AssetKind, Reason, AccountId, Balance>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn done_slash(asset: AssetKind, reason: &Reason, who: &AccountId, amount: Balance) {
+		match Criterion::convert(asset.clone()) {
+			Left(()) => {
+				Left::done_slash(reason, who, amount);
+			},
+			Right(a) => {
+				Right::done_slash(a, reason, who, amount);
 			},
 		}
 	}

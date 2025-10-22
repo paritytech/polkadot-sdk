@@ -1,0 +1,17 @@
+title: 'Snowbridge: Improve local and testnet setup'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Enable the Prague-Electra fork by default.
+    Improve Penpal Runtime to include pallet-utility.
+crates:
+- name: snowbridge-pallet-ethereum-client
+  bump: patch
+- name: snowbridge-pallet-ethereum-client-fixtures
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch

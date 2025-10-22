@@ -18,7 +18,8 @@
 use super::*;
 
 use polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, Versioned,
+	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, CollationProtocols,
+	ValidationProtocols,
 };
 
 use polkadot_node_subsystem::{
@@ -36,8 +37,7 @@ use crate::validator_discovery;
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
-	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_v3, Network,
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v3, Network,
 };
 
 use crate::metrics::Metrics;
@@ -174,17 +174,19 @@ where
 				network_service.report_peer(peer, rep);
 			}
 		},
-		NetworkBridgeTxMessage::DisconnectPeer(peer, peer_set) => {
+		NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set) => {
 			gum::trace!(
 				target: LOG_TARGET,
-				action = "DisconnectPeer",
-				?peer,
+				action = "DisconnectPeers",
+				?peers,
 				peer_set = ?peer_set,
 			);
 
 			// [`NetworkService`] keeps track of the protocols by their main name.
 			let protocol = peerset_protocol_names.get_main_name(peer_set);
-			network_service.disconnect_peer(peer, protocol);
+			for peer in peers {
+				network_service.disconnect_peer(peer, protocol.clone());
+			}
 		},
 		NetworkBridgeTxMessage::SendValidationMessage(peers, msg) => {
 			gum::trace!(
@@ -195,19 +197,7 @@ where
 			);
 
 			match msg {
-				Versioned::V1(msg) => send_validation_message_v1(
-					peers,
-					WireMessage::ProtocolMessage(msg),
-					&metrics,
-					notification_sinks,
-				),
-				Versioned::V3(msg) => send_validation_message_v3(
-					peers,
-					WireMessage::ProtocolMessage(msg),
-					&metrics,
-					notification_sinks,
-				),
-				Versioned::V2(msg) => send_validation_message_v2(
+				ValidationProtocols::V3(msg) => send_validation_message_v3(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -225,19 +215,7 @@ where
 
 			for (peers, msg) in msgs {
 				match msg {
-					Versioned::V1(msg) => send_validation_message_v1(
-						peers,
-						WireMessage::ProtocolMessage(msg),
-						&metrics,
-						notification_sinks,
-					),
-					Versioned::V3(msg) => send_validation_message_v3(
-						peers,
-						WireMessage::ProtocolMessage(msg),
-						&metrics,
-						notification_sinks,
-					),
-					Versioned::V2(msg) => send_validation_message_v2(
+					ValidationProtocols::V3(msg) => send_validation_message_v3(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -254,13 +232,13 @@ where
 			);
 
 			match msg {
-				Versioned::V1(msg) => send_collation_message_v1(
+				CollationProtocols::V1(msg) => send_collation_message_v1(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
+				CollationProtocols::V2(msg) => send_collation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -277,13 +255,13 @@ where
 
 			for (peers, msg) in msgs {
 				match msg {
-					Versioned::V1(msg) => send_collation_message_v1(
+					CollationProtocols::V1(msg) => send_collation_message_v1(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
+					CollationProtocols::V2(msg) => send_collation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -316,7 +294,6 @@ where
 					Requests::CollationFetchingV2(_) => metrics.on_message("collation_fetching_v2"),
 					Requests::PoVFetchingV1(_) => metrics.on_message("pov_fetching_v1"),
 					Requests::DisputeSendingV1(_) => metrics.on_message("dispute_sending_v1"),
-					Requests::StatementFetchingV1(_) => metrics.on_message("statement_fetching_v1"),
 					Requests::AttestedCandidateV2(_) => metrics.on_message("attested_candidate_v2"),
 				}
 
@@ -367,6 +344,22 @@ where
 			let all_addrs = validator_addrs.into_iter().flatten().collect();
 			let network_service = validator_discovery
 				.on_resolved_request(all_addrs, peer_set, network_service)
+				.await;
+			return (network_service, authority_discovery_service)
+		},
+
+		NetworkBridgeTxMessage::AddToResolvedValidators { validator_addrs, peer_set } => {
+			gum::trace!(
+				target: LOG_TARGET,
+				action = "AddToResolvedValidators",
+				peer_set = ?peer_set,
+				?validator_addrs,
+				"Received a resolved validator connection request",
+			);
+
+			let all_addrs = validator_addrs.into_iter().flatten().collect();
+			let network_service = validator_discovery
+				.on_add_to_resolved_request(all_addrs, peer_set, network_service)
 				.await;
 			return (network_service, authority_discovery_service)
 		},

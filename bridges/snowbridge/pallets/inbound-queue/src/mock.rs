@@ -8,19 +8,25 @@ use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{
-	gwei,
-	inbound::{Log, Proof, VerificationError},
-	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup,
+	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
-use snowbridge_router_primitives::inbound::MessageToXcm;
+use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{IdentifyAccount, IdentityLookup, Verify},
+	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
-use xcm::{latest::SendXcm, prelude::*};
+use xcm::{
+	latest::{SendXcm, WESTEND_GENESIS_HASH},
+	prelude::*,
+};
 use xcm_executor::AssetsInHolding;
+
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_inbound_queue_primitives::EventFixture;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 
 use crate::{self as inbound_queue};
 
@@ -61,26 +67,34 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ChainForkVersions: ForkVersions = ForkVersions{
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 0, 1], // 0x00000001
+			version: hex!("00000001"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 0, 1], // 0x01000001
+			version: hex!("01000001"),
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 0, 1], // 0x02000001
+			version: hex!("02000001"),
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [3, 0, 0, 1], // 0x03000001
+			version: hex!("03000001"),
 			epoch: 0,
 		},
 		deneb: Fork {
-			version: [4, 0, 0, 1], // 0x04000001
-			epoch: 4294967295,
+			version: hex!("04000001"),
+			epoch: 0,
+		},
+		electra: Fork {
+			version: hex!("05000000"),
+			epoch: 80000000000,
+		},
+		fulu: Fork {
+			version: hex!("06000000"),
+			epoch: 80000000001,
 		}
 	};
 }
@@ -88,6 +102,7 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<32>;
 	type WeightInfo = ();
 }
 
@@ -111,12 +126,16 @@ parameter_types! {
 	pub const SendTokenExecutionFee: u128 = 1_000_000_000;
 	pub const InitialFund: u128 = 1_000_000_000_000;
 	pub const InboundQueuePalletInstance: u8 = 80;
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
-	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: BeaconHeader, _: H256) {}
+	fn initialize_storage() -> EventFixture {
+		make_register_token_message()
+	}
 }
 
 // Mock XCM sender that always succeeds
@@ -204,6 +223,13 @@ impl TransactAsset for SuccessfulTransactor {
 	}
 }
 
+pub struct MockTokenIdConvert;
+impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
+	fn maybe_convert(_id: TokenId) -> Option<Location> {
+		Some(Location::parent())
+	}
+}
+
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -217,6 +243,9 @@ impl inbound_queue::Config for Test {
 		InboundQueuePalletInstance,
 		AccountId,
 		Balance,
+		MockTokenIdConvert,
+		UniversalLocation,
+		AssetHubFromEthereum,
 	>;
 	type PricingParameters = Parameters;
 	type ChannelLookup = MockChannelLookup;
@@ -226,20 +255,6 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
-}
-
-pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.rev()
-		.take(n)
-		.rev()
-		.map(|e| e.event)
-		.collect()
-}
-
-pub fn expect_events(e: Vec<RuntimeEvent>) {
-	assert_eq!(last_events(e.len()), e);
 }
 
 pub fn setup() {

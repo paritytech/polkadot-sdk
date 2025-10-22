@@ -26,7 +26,7 @@ use crate::justification::verification::{
 };
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::Header as HeaderT;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*, vec, vec::Vec};
 
 // Verification callbacks for justification optimization.
 struct JustificationOptimizer<Header: HeaderT> {

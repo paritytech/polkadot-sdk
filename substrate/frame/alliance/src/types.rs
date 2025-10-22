@@ -15,15 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
 /// A Multihash instance that only supports the basic functionality and no hashing.
 #[derive(
-	Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Clone,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub struct Multihash {
 	/// The code of the Multihash.
@@ -50,6 +60,7 @@ impl Multihash {
 	RuntimeDebug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -64,7 +75,17 @@ pub enum Version {
 ///
 /// The generic is about the allocated size of the multihash.
 #[derive(
-	Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Clone,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub struct Cid {
 	/// The version of CID.
@@ -96,7 +117,17 @@ impl Cid {
 
 /// Witness data for the `disband` call.
 #[derive(
-	Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo, Default,
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+	Default,
 )]
 pub struct DisbandWitness {
 	/// Total number of fellow members in the current Alliance.

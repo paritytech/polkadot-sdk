@@ -10,15 +10,14 @@ workspace = true
 [package.metadata]
 cargo-fuzz = true
 
-[dependencies]
-lazy_static = "1.4.0"
-libfuzzer-sys = "0.4"
-regex = "1.10.2"
-
-sp-core = { path = ".." }
-
 [[bin]]
 name = "fuzz_address_uri"
 path = "fuzz_targets/fuzz_address_uri.rs"
 test = false
 doc = false
+
+[dependencies]
+libfuzzer-sys = { workspace = true }
+regex = { workspace = true }
+
+sp-core = { workspace = true, default-features = true }

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! The core collator logic for Aura - slot claiming, block proposing, and collation
 //! packaging.
@@ -24,7 +25,7 @@
 //! This module also exposes some standalone functions for common operations when building
 //! aura-based collators.
 
-use codec::{Codec, Encode};
+use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParachainCandidate,
@@ -39,6 +40,7 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
 use polkadot_primitives::{Header as PHeader, Id as ParaId};
 
+use crate::collators::RelayParentData;
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
@@ -116,19 +118,26 @@ where
 	}
 
 	/// Explicitly creates the inherent data for parachain block authoring and overrides
-	/// the timestamp inherent data with the one provided, if any.
-	pub async fn create_inherent_data(
+	/// the timestamp inherent data with the one provided, if any. Additionally allows to specify
+	/// relay parent descendants that can be used to prevent authoring at the tip of the relay
+	/// chain.
+	pub async fn create_inherent_data_with_rp_offset(
 		&self,
 		relay_parent: PHash,
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
+		relay_parent_descendants: Option<RelayParentData>,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,
 			validation_data,
 			self.para_id,
+			relay_parent_descendants
+				.map(RelayParentData::into_inherent_descendant_list)
+				.unwrap_or_default(),
+			Vec::new(),
 		)
 		.await;
 
@@ -156,15 +165,27 @@ where
 		Ok((paras_inherent_data, other_inherent_data))
 	}
 
-	/// Propose, seal, and import a block, packaging it into a collation.
-	///
-	/// Provide the slot to build at as well as any other necessary pre-digest logs,
-	/// the inherent data, and the proposal duration and PoV size limits.
-	///
-	/// The Aura pre-digest should not be explicitly provided and is set internally.
-	///
-	/// This does not announce the collation to the parachain network or the relay chain.
-	pub async fn collate(
+	/// Explicitly creates the inherent data for parachain block authoring and overrides
+	/// the timestamp inherent data with the one provided, if any.
+	pub async fn create_inherent_data(
+		&self,
+		relay_parent: PHash,
+		validation_data: &PersistedValidationData,
+		parent_hash: Block::Hash,
+		timestamp: impl Into<Option<Timestamp>>,
+	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
+		self.create_inherent_data_with_rp_offset(
+			relay_parent,
+			validation_data,
+			parent_hash,
+			timestamp,
+			None,
+		)
+		.await
+	}
+
+	/// Build and import a parachain block on the given parent header, using the given slot claim.
+	pub async fn build_block_and_import(
 		&mut self,
 		parent_header: &Block::Header,
 		slot_claim: &SlotClaim<P::Public>,
@@ -172,10 +193,7 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -> Result<
-		Option<(Collation, ParachainBlockData<Block>, Block::Hash)>,
-		Box<dyn Error + Send + 'static>,
-	> {
+	) -> Result<Option<ParachainCandidate<Block>>, Box<dyn Error + Send + 'static>> {
 		let mut digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
 
@@ -205,7 +223,6 @@ where
 		)
 		.map_err(|e| e as Box<dyn Error + Send>)?;
 
-		let post_hash = sealed_importable.post_hash();
 		let block = Block::new(
 			sealed_importable.post_header(),
 			sealed_importable
@@ -220,18 +237,44 @@ where
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
 			.await?;
 
-		if let Some((collation, block_data)) = self.collator_service.build_collation(
-			parent_header,
-			post_hash,
-			ParachainCandidate { block, proof: proposal.proof },
-		) {
-			tracing::info!(
-				target: crate::LOG_TARGET,
-				"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
-				block_data.header().encode().len() as f64 / 1024f64,
-				block_data.extrinsics().encode().len() as f64 / 1024f64,
-				block_data.storage_proof().encode().len() as f64 / 1024f64,
-			);
+		Ok(Some(ParachainCandidate { block, proof: proposal.proof }))
+	}
+
+	/// Propose, seal, import a block and packaging it into a collation.
+	///
+	/// Provide the slot to build at as well as any other necessary pre-digest logs,
+	/// the inherent data, and the proposal duration and PoV size limits.
+	///
+	/// The Aura pre-digest should not be explicitly provided and is set internally.
+	///
+	/// This does not announce the collation to the parachain network or the relay chain.
+	pub async fn collate(
+		&mut self,
+		parent_header: &Block::Header,
+		slot_claim: &SlotClaim<P::Public>,
+		additional_pre_digest: impl Into<Option<Vec<DigestItem>>>,
+		inherent_data: (ParachainInherentData, InherentData),
+		proposal_duration: Duration,
+		max_pov_size: usize,
+	) -> Result<Option<(Collation, ParachainBlockData<Block>)>, Box<dyn Error + Send + 'static>> {
+		let maybe_candidate = self
+			.build_block_and_import(
+				parent_header,
+				slot_claim,
+				additional_pre_digest,
+				inherent_data,
+				proposal_duration,
+				max_pov_size,
+			)
+			.await?;
+
+		let Some(candidate) = maybe_candidate else { return Ok(None) };
+
+		let hash = candidate.block.header().hash();
+		if let Some((collation, block_data)) =
+			self.collator_service.build_collation(parent_header, hash, candidate)
+		{
+			block_data.log_size_info();
 
 			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 				tracing::info!(
@@ -241,10 +284,9 @@ where
 				);
 			}
 
-			Ok(Some((collation, block_data, post_hash)))
+			Ok(Some((collation, block_data)))
 		} else {
-			Err(Box::<dyn Error + Send + Sync>::from("Unable to produce collation")
-				as Box<dyn Error + Send>)
+			Err(Box::<dyn Error + Send + Sync>::from("Unable to produce collation"))
 		}
 	}
 
@@ -373,7 +415,7 @@ where
 			aura_internal::seal::<_, P>(&pre_hash, &author_pub, keystore).map_err(Box::new)?;
 		let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, pre_header);
 		block_import_params.post_digests.push(seal_digest);
-		block_import_params.body = Some(body.clone());
+		block_import_params.body = Some(body);
 		block_import_params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(storage_changes));
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);

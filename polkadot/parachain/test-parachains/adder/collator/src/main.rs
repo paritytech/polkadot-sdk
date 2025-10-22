@@ -23,6 +23,7 @@ use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
+	collections::HashSet,
 	fs,
 	io::{self, Write},
 };
@@ -82,7 +83,6 @@ fn main() -> Result<()> {
 						),
 						enable_beefy: false,
 						force_authoring_backoff: false,
-						jaeger_agent: None,
 						telemetry_worker_handle: None,
 
 						// Collators don't spawn PVF workers, so we can disable version checks.
@@ -98,6 +98,9 @@ fn main() -> Result<()> {
 						execute_workers_max_num: None,
 						prepare_workers_hard_max_num: None,
 						prepare_workers_soft_max_num: None,
+						keep_finalized_for: None,
+						invulnerable_ah_collators: HashSet::new(),
+						collator_protocol_hold_off: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;

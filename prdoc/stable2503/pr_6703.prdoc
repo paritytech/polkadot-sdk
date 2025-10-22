@@ -1,0 +1,7 @@
+title: 'network/libp2p-backend: Suppress warning adding already reserved node as reserved'
+doc:
+- audience: Node Dev
+  description: Fixes https://github.com/paritytech/polkadot-sdk/issues/6598.
+crates:
+- name: sc-network
+  bump: patch

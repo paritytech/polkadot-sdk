@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 function relayer_path() {
     local default_path=~/local_bridge_testing/bin/substrate-relay
@@ -114,7 +114,7 @@ function send_governance_transact() {
 
     local dest=$(jq --null-input \
                     --arg para_id "$para_id" \
-                    '{ "V3": { "parents": 0, "interior": { "X1": { "Parachain": $para_id } } } }')
+                    '{ "V4": { "parents": 0, "interior": { "X1": [{ "Parachain": $para_id }] } } }')
 
     local message=$(jq --null-input \
                        --argjson hex_encoded_data $hex_encoded_data \
@@ -122,7 +122,7 @@ function send_governance_transact() {
                        --arg require_weight_at_most_proof_size "$require_weight_at_most_proof_size" \
                        '
                        {
-                          "V3": [
+                          "V4": [
                                   {
                                     "UnpaidExecution": {
                                         "weight_limit": "Unlimited"
@@ -243,6 +243,41 @@ function force_create_foreign_asset() {
     send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
 }
 
+function create_pool() {
+    local runtime_para_endpoint=$1
+    local seed=$2
+    local native_asset_id=$3
+    local foreign_asset_id=$4
+    
+    call_polkadot_js_api \
+        --ws "${runtime_para_endpoint?}" \
+        --seed "${seed?}" \
+        tx.assetConversion.createPool \
+            "${native_asset_id}" \
+            "${foreign_asset_id}"
+    }
+    
+function add_liquidity() {
+    local runtime_para_endpoint=$1
+    local seed=$2
+    local native_asset_id=$3
+    local foreign_asset_id=$4
+    local native_asset_amount=$5
+    local foreign_asset_amount=$6
+    local pool_owner_account_id=$7
+    
+    call_polkadot_js_api \
+        --ws "${runtime_para_endpoint?}" \
+        --seed "${seed?}" \
+        tx.assetConversion.addLiquidity \
+            "${native_asset_id}" \
+            "${foreign_asset_id}" \
+            "${native_asset_amount}" \
+            "${foreign_asset_amount}" \
+            "1" \
+            "1" \
+            "${pool_owner_account_id}"
+}
 function limited_reserve_transfer_assets() {
     local url=$1
     local seed=$2

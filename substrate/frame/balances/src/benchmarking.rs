@@ -31,6 +31,14 @@ const SEED: u32 = 0;
 // existential deposit multiplier
 const ED_MULTIPLIER: u32 = 10;
 
+fn minimum_balance<T: Config<I>, I: 'static>() -> T::Balance {
+	if cfg!(feature = "insecure_zero_ed") {
+		100u32.into()
+	} else {
+		T::ExistentialDeposit::get()
+	}
+}
+
 #[instance_benchmarks]
 mod benchmarks {
 	use super::*;
@@ -40,7 +48,7 @@ mod benchmarks {
 	// * Transfer will create the recipient account.
 	#[benchmark]
 	fn transfer_allow_death() {
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
@@ -57,7 +65,12 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), recipient_lookup, transfer_amount);
 
-		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), balance - transfer_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		}
+
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
 
@@ -75,7 +88,7 @@ mod benchmarks {
 			<Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, T::Balance::max_value());
 
 		// Give the recipient account existential deposit (thus their account already exists).
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let _ =
 			<Balances<T, I> as Currency<_>>::make_free_balance_be(&recipient, existential_deposit);
 		let transfer_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
@@ -98,7 +111,7 @@ mod benchmarks {
 		// Give the sender account max funds, thus a transfer will not kill account.
 		let _ =
 			<Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, T::Balance::max_value());
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let transfer_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 
 		#[extrinsic_call]
@@ -114,10 +127,8 @@ mod benchmarks {
 		let user: T::AccountId = account("user", 0, SEED);
 		let user_lookup = T::Lookup::unlookup(user.clone());
 
-		// Give the user some initial balance.
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let balance_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&user, balance_amount);
 
 		#[extrinsic_call]
 		force_set_balance(RawOrigin::Root, user_lookup, balance_amount);
@@ -132,7 +143,7 @@ mod benchmarks {
 		let user_lookup = T::Lookup::unlookup(user.clone());
 
 		// Give the user some initial balance.
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let balance_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&user, balance_amount);
 
@@ -147,7 +158,7 @@ mod benchmarks {
 	// * Transfer will create the recipient account.
 	#[benchmark]
 	fn force_transfer() {
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let source: T::AccountId = account("source", 0, SEED);
 		let source_lookup = T::Lookup::unlookup(source.clone());
 
@@ -165,7 +176,12 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, source_lookup, recipient_lookup, transfer_amount);
 
-		assert_eq!(Balances::<T, I>::free_balance(&source), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&source), balance - transfer_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&source), Zero::zero());
+		}
+
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
 
@@ -175,7 +191,7 @@ mod benchmarks {
 	#[benchmark(extra)]
 	fn transfer_increasing_users(u: Linear<0, 1_000>) {
 		// 1_000 is not very much, but this upper bound can be controlled by the CLI.
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
@@ -200,7 +216,12 @@ mod benchmarks {
 		#[extrinsic_call]
 		transfer_allow_death(RawOrigin::Signed(caller.clone()), recipient_lookup, transfer_amount);
 
-		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), balance - transfer_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		}
+
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
 
@@ -214,7 +235,7 @@ mod benchmarks {
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 
 		// Give some multiple of the existential deposit
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, balance);
 
@@ -231,7 +252,7 @@ mod benchmarks {
 		let user_lookup = T::Lookup::unlookup(user.clone());
 
 		// Give some multiple of the existential deposit
-		let ed = T::ExistentialDeposit::get();
+		let ed = minimum_balance::<T, I>();
 		let balance = ed + ed;
 		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&user, balance);
 
@@ -257,8 +278,8 @@ mod benchmarks {
 			.map(|i| -> T::AccountId {
 				let user = account("old_user", i, SEED);
 				let account = AccountData {
-					free: T::ExistentialDeposit::get(),
-					reserved: T::ExistentialDeposit::get(),
+					free: minimum_balance::<T, I>(),
+					reserved: minimum_balance::<T, I>(),
 					frozen: Zero::zero(),
 					flags: ExtraFlags::old_logic(),
 				};
@@ -288,19 +309,19 @@ mod benchmarks {
 
 	#[benchmark]
 	fn force_adjust_total_issuance() {
-		let ti = Balances::<T, I>::total_issuance();
+		let ti = TotalIssuance::<T, I>::get();
 		let delta = 123u32.into();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AdjustmentDirection::Increase, delta);
 
-		assert_eq!(Balances::<T, I>::total_issuance(), ti + delta);
+		assert_eq!(TotalIssuance::<T, I>::get(), ti + delta);
 	}
 
 	/// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.
 	#[benchmark]
 	fn burn_allow_death() {
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
@@ -313,13 +334,17 @@ mod benchmarks {
 		#[extrinsic_call]
 		burn(RawOrigin::Signed(caller.clone()), burn_amount, false);
 
-		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), balance - burn_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		}
 	}
 
 	// Benchmark `burn` extrinsic with the case where account is kept alive.
 	#[benchmark]
 	fn burn_keep_alive() {
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit

@@ -172,8 +172,6 @@ pub trait RaceStrategy<SourceHeaderId, TargetHeaderId, Proof>: Debug {
 	/// Additional data expected from the target client.
 	type TargetNoncesData;
 
-	/// Should return true if nothing has to be synced.
-	fn is_empty(&self) -> bool;
 	/// Return id of source header that is required to be on target to continue synchronization.
 	async fn required_source_header_at_target<RS: RaceState<SourceHeaderId, TargetHeaderId>>(
 		&self,
@@ -225,15 +223,9 @@ pub trait RaceState<SourceHeaderId, TargetHeaderId>: Clone + Send + Sync {
 	/// client (at the `best_finalized_source_header_id_at_best_target`).
 	fn set_best_finalized_source_header_id_at_best_target(&mut self, id: SourceHeaderId);
 
-	/// Best finalized source header id at the source client.
-	fn best_finalized_source_header_id_at_source(&self) -> Option<SourceHeaderId>;
 	/// Best finalized source header id at the best block on the target
 	/// client (at the `best_finalized_source_header_id_at_best_target`).
 	fn best_finalized_source_header_id_at_best_target(&self) -> Option<SourceHeaderId>;
-	/// The best header id at the target client.
-	fn best_target_header_id(&self) -> Option<TargetHeaderId>;
-	/// Best finalized header id at the target client.
-	fn best_finalized_target_header_id(&self) -> Option<TargetHeaderId>;
 
 	/// Returns `true` if we have selected nonces to submit to the target node.
 	fn nonces_to_submit(&self) -> Option<RangeInclusive<MessageNonce>>;
@@ -296,20 +288,8 @@ where
 		self.best_finalized_source_header_id_at_best_target = Some(id);
 	}
 
-	fn best_finalized_source_header_id_at_source(&self) -> Option<SourceHeaderId> {
-		self.best_finalized_source_header_id_at_source.clone()
-	}
-
 	fn best_finalized_source_header_id_at_best_target(&self) -> Option<SourceHeaderId> {
 		self.best_finalized_source_header_id_at_best_target.clone()
-	}
-
-	fn best_target_header_id(&self) -> Option<TargetHeaderId> {
-		self.best_target_header_id.clone()
-	}
-
-	fn best_finalized_target_header_id(&self) -> Option<TargetHeaderId> {
-		self.best_finalized_target_header_id.clone()
 	}
 
 	fn nonces_to_submit(&self) -> Option<RangeInclusive<MessageNonce>> {

@@ -24,18 +24,18 @@
 //! DO NOT depend on user input). Thus transaction generation should be
 //! based on randomized data.
 
-use futures::Future;
 use std::{borrow::Cow, collections::HashMap, pin::Pin, sync::Arc};
 
+use async_trait::async_trait;
 use node_primitives::Block;
 use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 use sc_transaction_pool_api::{
-	ImportNotificationStream, PoolFuture, PoolStatus, ReadyTransactions, TransactionFor,
-	TransactionSource, TransactionStatusStreamFor, TxHash,
+	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionSource,
+	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
-use sp_runtime::{traits::NumberFor, OpaqueExtrinsic};
+use sp_runtime::OpaqueExtrinsic;
 
 use crate::{
 	common::SizeType,
@@ -144,7 +144,8 @@ impl core::Benchmark for ConstructionBenchmark {
 
 		let inherent_data = futures::executor::block_on(timestamp_provider.create_inherent_data())
 			.expect("Create inherent data failed");
-		let _block = futures::executor::block_on(proposer.propose(
+		let _block = futures::executor::block_on(Proposer::propose(
+			proposer,
 			inherent_data,
 			Default::default(),
 			std::time::Duration::from_secs(20),
@@ -165,18 +166,18 @@ impl core::Benchmark for ConstructionBenchmark {
 
 #[derive(Clone, Debug)]
 pub struct PoolTransaction {
-	data: OpaqueExtrinsic,
+	data: Arc<OpaqueExtrinsic>,
 	hash: node_primitives::Hash,
 }
 
 impl From<OpaqueExtrinsic> for PoolTransaction {
 	fn from(e: OpaqueExtrinsic) -> Self {
-		PoolTransaction { data: e, hash: node_primitives::Hash::zero() }
+		PoolTransaction { data: Arc::from(e), hash: node_primitives::Hash::zero() }
 	}
 }
 
 impl sc_transaction_pool_api::InPoolTransaction for PoolTransaction {
-	type Transaction = OpaqueExtrinsic;
+	type Transaction = Arc<OpaqueExtrinsic>;
 	type Hash = node_primitives::Hash;
 
 	fn data(&self) -> &Self::Transaction {
@@ -224,61 +225,58 @@ impl ReadyTransactions for TransactionsIterator {
 	fn report_invalid(&mut self, _tx: &Self::Item) {}
 }
 
+#[async_trait]
 impl sc_transaction_pool_api::TransactionPool for Transactions {
 	type Block = Block;
 	type Hash = node_primitives::Hash;
 	type InPoolTransaction = PoolTransaction;
 	type Error = sc_transaction_pool_api::error::Error;
 
-	/// Returns a future that imports a bunch of unverified transactions to the pool.
-	fn submit_at(
+	/// Asynchronously imports a bunch of unverified transactions to the pool.
+	async fn submit_at(
 		&self,
 		_at: Self::Hash,
 		_source: TransactionSource,
 		_xts: Vec<TransactionFor<Self>>,
-	) -> PoolFuture<Vec<Result<node_primitives::Hash, Self::Error>>, Self::Error> {
+	) -> Result<Vec<Result<node_primitives::Hash, Self::Error>>, Self::Error> {
 		unimplemented!()
 	}
 
-	/// Returns a future that imports one unverified transaction to the pool.
-	fn submit_one(
+	/// Asynchronously imports one unverified transaction to the pool.
+	async fn submit_one(
 		&self,
 		_at: Self::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor<Self>,
-	) -> PoolFuture<TxHash<Self>, Self::Error> {
+	) -> Result<TxHash<Self>, Self::Error> {
 		unimplemented!()
 	}
 
-	fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		_at: Self::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor<Self>,
-	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		unimplemented!()
 	}
 
-	fn ready_at(
+	async fn ready_at(
 		&self,
-		_at: NumberFor<Self::Block>,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send,
-		>,
-	> {
-		let iter: Box<dyn ReadyTransactions<Item = Arc<PoolTransaction>> + Send> =
-			Box::new(TransactionsIterator(self.0.clone().into_iter()));
-		Box::pin(futures::future::ready(iter))
+		_at: Self::Hash,
+	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
+		Box::new(TransactionsIterator(self.0.clone().into_iter()))
 	}
 
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		unimplemented!()
 	}
 
-	fn remove_invalid(&self, _hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
+	async fn report_invalid(
+		&self,
+		_at: Option<Self::Hash>,
+		_invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>> {
 		Default::default()
 	}
 
@@ -303,6 +301,14 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	}
 
 	fn ready_transaction(&self, _hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
+		unimplemented!()
+	}
+
+	async fn ready_at_with_timeout(
+		&self,
+		_at: Self::Hash,
+		_timeout: std::time::Duration,
+	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		unimplemented!()
 	}
 }

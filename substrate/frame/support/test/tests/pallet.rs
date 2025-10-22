@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::BTreeMap;
+
 use frame_support::{
 	assert_ok, derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Parameter, Pays},
@@ -24,19 +26,21 @@ use frame_support::{
 	storage::{unhashed, unhashed::contains_prefixed_key},
 	traits::{
 		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
-		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
-		UnfilteredDispatchable,
+		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, SignedTransactionBuilder,
+		StorageVersion, UnfilteredDispatchable,
 	},
 	weights::{RuntimeDbWeight, Weight},
 	OrdNoBound, PartialOrdNoBound,
 };
+use frame_system::offchain::{CreateSignedTransaction, CreateTransactionBase, SigningTypes};
 use scale_info::{meta_type, TypeInfo};
 use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
 use sp_runtime::{
-	traits::{Dispatchable, Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
+	testing::UintAuthorityId,
+	traits::{Block as BlockT, Dispatchable},
 	DispatchError, ModuleError,
 };
 
@@ -44,9 +48,6 @@ parameter_types! {
 	/// Used to control if the storage version should be updated.
 	storage UpdateStorageVersion: bool = false;
 }
-
-/// Latest stable metadata version used for testing.
-const LATEST_METADATA_VERSION: u32 = 15;
 
 pub struct SomeType1;
 impl From<SomeType1> for u64 {
@@ -114,8 +115,8 @@ impl SomeAssociation2 for u64 {
 #[frame_support::pallet]
 /// Pallet documentation
 // Comments should not be included in the pallet documentation
-#[pallet_doc("../../README.md")]
-#[doc = include_str!("../../README.md")]
+#[pallet_doc("../example-pallet-doc.md")]
+#[doc = include_str!("../example-readme.md")]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -133,6 +134,7 @@ pub mod pallet {
 	{
 		/// Some comment
 		/// Some comment
+		#[deprecated = "test 2"]
 		#[pallet::constant]
 		type MyGetParam: Get<u32>;
 
@@ -146,6 +148,7 @@ pub mod pallet {
 
 		type Balance: Parameter + Default + TypeInfo;
 
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -212,6 +215,7 @@ pub mod pallet {
 		/// call foo doc comment put in metadata
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
+		#[deprecated = "test"]
 		pub fn foo(
 			origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
@@ -272,6 +276,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// error doc comment put in metadata
 		InsufficientProposersBalance,
+		#[deprecated = "test"]
 		NonExistentStorageValue,
 		Code(u8),
 		#[codec(skip)]
@@ -283,12 +288,14 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(fn deposit_event)]
+
 	pub enum Event<T: Config>
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
 		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
+		#[deprecated = "test"]
 		Spending(BalanceOf<T>),
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),
@@ -328,6 +335,7 @@ pub mod pallet {
 		StorageMap<Hasher = Twox64Concat, Key = u16, Value = u32, MaxValues = ConstU32<3>>;
 
 	#[pallet::storage]
+	#[allow(deprecated)]
 	pub type Map3<T> =
 		StorageMap<_, Blake2_128Concat, u32, u64, ResultQuery<Error<T>::NonExistentStorageValue>>;
 
@@ -345,6 +353,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	#[allow(deprecated)]
 	pub type DoubleMap3<T> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -369,6 +378,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn nmap3)]
+	#[allow(deprecated)]
 	pub type NMap3<T> = StorageNMap<
 		_,
 		(NMapKey<Blake2_128Concat, u8>, NMapKey<Twox64Concat, u16>),
@@ -390,6 +400,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn counted_nmap3)]
+	#[allow(deprecated)]
 	pub type CountedNMap3<T> = CountedStorageNMap<
 		_,
 		(NMapKey<Blake2_128Concat, u8>, NMapKey<Twox64Concat, u16>),
@@ -446,8 +457,24 @@ pub mod pallet {
 		T::AccountId: From<SomeType1> + SomeAssociation1 + From<SomeType4>,
 	{
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 		_myfield: u32,
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: From<SomeType1> + SomeAssociation1,
+	{
+		/// Query value no args.
+		pub fn get_value() -> Option<u32> {
+			Value::<T>::get()
+		}
+
+		/// Query value with args.
+		pub fn get_value_with_arg(key: u16) -> Option<u32> {
+			Map2::<T>::get(key)
+		}
 	}
 
 	#[pallet::genesis_build]
@@ -471,6 +498,7 @@ pub mod pallet {
 		OrdNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		TypeInfo,
 		MaxEncodedLen,
 	)]
@@ -486,7 +514,7 @@ pub mod pallet {
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
 			let _ = T::AccountId::from(SomeType5); // Test for where clause
 			if matches!(call, Call::foo_storage_layer { .. }) {
-				return Ok(ValidTransaction::default())
+				return Ok(ValidTransaction::default());
 			}
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		}
@@ -565,6 +593,7 @@ pub mod pallet2 {
 	where
 		<Self as frame_system::Config>::AccountId: From<SomeType1> + SomeAssociation1,
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -744,23 +773,90 @@ impl pallet5::Config for Runtime {
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic =
-	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	UintAuthorityId,
+	frame_system::CheckNonZeroSender<Runtime>,
+>;
+pub type UncheckedSignaturePayload = sp_runtime::generic::UncheckedSignaturePayload<
+	u64,
+	UintAuthorityId,
+	frame_system::CheckNonZeroSender<Runtime>,
+>;
 
-frame_support::construct_runtime!(
-	pub struct Runtime {
-		// Exclude part `Storage` in order not to check its metadata in tests.
-		System: frame_system exclude_parts { Pallet, Storage },
-		Example: pallet,
-		Example2: pallet2 exclude_parts { Call },
-		#[cfg(feature = "frame-feature-testing")]
-		Example3: pallet3,
-		Example4: pallet4 use_parts { Call },
+impl SigningTypes for Runtime {
+	type Public = UintAuthorityId;
+	type Signature = UintAuthorityId;
+}
 
-		#[cfg(feature = "frame-feature-testing-2")]
-		Example5: pallet5,
+impl<LocalCall> CreateTransactionBase<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = UncheckedExtrinsic;
+}
+
+impl<LocalCall> CreateSignedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_signed_transaction<
+		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+	>(
+		call: RuntimeCall,
+		_public: UintAuthorityId,
+		account: u64,
+		nonce: u64,
+	) -> Option<UncheckedExtrinsic> {
+		Some(UncheckedExtrinsic::new_signed(
+			call,
+			nonce,
+			account.into(),
+			frame_system::CheckNonZeroSender::new(),
+		))
 	}
-);
+}
+
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask,
+		RuntimeViewFunction
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system + Call + Event<T>;
+
+	#[runtime::pallet_index(1)]
+	pub type Example = pallet;
+
+	#[runtime::pallet_index(2)]
+	#[runtime::disable_call]
+	pub type Example2 = pallet2;
+
+	#[cfg(feature = "frame-feature-testing")]
+	#[runtime::pallet_index(3)]
+	pub type Example3 = pallet3;
+
+	#[runtime::pallet_index(4)]
+	pub type Example4 = pallet4;
+
+	#[cfg(feature = "frame-feature-testing-2")]
+	#[runtime::pallet_index(5)]
+	pub type Example5 = pallet5;
+}
 
 // Test that the part `RuntimeCall` is excluded from Example2 and included in Example4.
 fn _ensure_call_is_correctly_excluded_and_included(call: RuntimeCall) {
@@ -778,6 +874,7 @@ fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn transactional_works() {
 	TestExternalities::default().execute_with(|| {
 		frame_system::Pallet::<Runtime>::set_block_number(1);
@@ -807,7 +904,8 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
-			weight: frame_support::weights::Weight::from_parts(3, 0),
+			call_weight: frame_support::weights::Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		}
@@ -886,7 +984,7 @@ fn instance_expand() {
 
 #[test]
 fn inherent_expand() {
-	use frame_support::{inherent::InherentData, traits::EnsureInherentsAreFirst};
+	use frame_support::inherent::InherentData;
 	use sp_core::Hasher;
 	use sp_runtime::{
 		traits::{BlakeTwo256, Block as _, Header},
@@ -895,10 +993,8 @@ fn inherent_expand() {
 
 	let inherents = InherentData::new().create_extrinsics();
 
-	let expected = vec![UncheckedExtrinsic {
-		call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-		signature: None,
-	}];
+	let expected =
+		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {}))];
 	assert_eq!(expected, inherents);
 
 	let block = Block::new(
@@ -910,18 +1006,15 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 0,
+			})),
 		],
 	);
 
-	assert!(InherentData::new().check_extrinsics(&block).ok());
+	assert!(InherentData::new().check_extrinsics(&block.into()).ok());
 
 	let block = Block::new(
 		Header::new(
@@ -932,18 +1025,15 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 0, bar: 0 }),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 0,
+				bar: 0,
+			})),
 		],
 	);
 
-	assert!(InherentData::new().check_extrinsics(&block).fatal_error());
+	assert!(InherentData::new().check_extrinsics(&block.into()).fatal_error());
 
 	let block = Block::new(
 		Header::new(
@@ -953,15 +1043,14 @@ fn inherent_expand() {
 			BlakeTwo256::hash(b"test"),
 			Digest::default(),
 		),
-		vec![UncheckedExtrinsic {
-			call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-			signature: None,
-		}],
+		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
+			foo: 0,
+		}))],
 	);
 
 	let mut inherent = InherentData::new();
 	inherent.put_data(*b"required", &true).unwrap();
-	assert!(inherent.check_extrinsics(&block).fatal_error());
+	assert!(inherent.check_extrinsics(&block.into()).fatal_error());
 
 	let block = Block::new(
 		Header::new(
@@ -971,89 +1060,17 @@ fn inherent_expand() {
 			BlakeTwo256::hash(b"test"),
 			Digest::default(),
 		),
-		vec![UncheckedExtrinsic {
-			call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-			signature: Some((1, Default::default())),
-		}],
+		vec![UncheckedExtrinsic::new_signed(
+			RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+			1,
+			1.into(),
+			Default::default(),
+		)],
 	);
 
 	let mut inherent = InherentData::new();
 	inherent.put_data(*b"required", &true).unwrap();
-	assert!(inherent.check_extrinsics(&block).fatal_error());
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-				signature: None,
-			},
-		],
-	);
-
-	assert!(Runtime::ensure_inherents_are_first(&block).is_ok());
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-		],
-	);
-
-	assert_eq!(Runtime::ensure_inherents_are_first(&block).err().unwrap(), 2);
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				signature: Some((1, Default::default())),
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-		],
-	);
-
-	assert_eq!(Runtime::ensure_inherents_are_first(&block).err().unwrap(), 2);
+	assert!(inherent.check_extrinsics(&block.into()).fatal_error());
 }
 
 #[test]
@@ -1091,6 +1108,7 @@ fn composite_expand() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn pallet_expand_deposit_event() {
 	TestExternalities::default().execute_with(|| {
 		frame_system::Pallet::<Runtime>::set_block_number(1);
@@ -1110,6 +1128,7 @@ fn pallet_new_call_variant() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn storage_expand() {
 	use frame_support::{pallet_prelude::*, storage::StoragePrefixedMap};
 
@@ -1273,6 +1292,7 @@ fn storage_expand() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn pallet_hooks_expand() {
 	TestExternalities::default().execute_with(|| {
 		frame_system::Pallet::<Runtime>::set_block_number(1);
@@ -1368,6 +1388,7 @@ fn migrate_from_pallet_version_to_storage_version() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn pallet_item_docs_in_metadata() {
 	// call
 	let call_variants = match meta_type::<pallet::Call<Runtime>>().type_info().type_def {
@@ -1404,12 +1425,14 @@ fn pallet_item_docs_in_metadata() {
 }
 
 #[test]
-fn metadata() {
+#[allow(deprecated)]
+fn metadata_v15() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected_pallet_doc = vec![" Pallet documentation", readme, pallet_doc];
 
 	let pallets = vec![
 		PalletMetadata {
@@ -1806,6 +1829,16 @@ fn metadata() {
 			error: None,
 			docs: vec![" Test that the supertrait check works when we pass some parameter to the `frame_system::Config`."],
 		},
+		PalletMetadata {
+			index: 4,
+			name: "Example4",
+			storage: None,
+			calls: Some(meta_type::<pallet4::Call<Runtime>>().into()),
+			event: None,
+			constants: vec![],
+			error: None,
+			docs: vec![],
+		},
 		#[cfg(feature = "frame-feature-testing-2")]
 		PalletMetadata {
 			index: 5,
@@ -1830,18 +1863,22 @@ fn metadata() {
 	}
 
 	let extrinsic = ExtrinsicMetadata {
-		version: 4,
+		version: 5,
 		signed_extensions: vec![SignedExtensionMetadata {
 			identifier: "UnitSignedExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],
-		address_ty: meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(),
-		call_ty: meta_type::<<UncheckedExtrinsic as ExtrinsicT>::Call>(),
-		signature_ty: meta_type::<
-			<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::Signature
+		address_ty: meta_type::<
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Address
 		>(),
-		extra_ty: meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(),
+		call_ty: meta_type::<<Runtime as CreateTransactionBase<RuntimeCall>>::RuntimeCall>(),
+		signature_ty: meta_type::<
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Signature
+		>(),
+		extra_ty: meta_type::<
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Extension
+		>(),
 	};
 
 	let outer_enums = OuterEnums {
@@ -1864,8 +1901,7 @@ fn metadata() {
 		_ => panic!("metadata has been bumped, test needs to be updated"),
 	};
 
-	let bytes = &Runtime::metadata_at_version(LATEST_METADATA_VERSION)
-		.expect("Metadata must be present; qed");
+	let bytes = &Runtime::metadata_at_version(15).expect("Metadata must be present; qed");
 
 	let actual_metadata: RuntimeMetadataPrefixed =
 		Decode::decode(&mut &bytes[..]).expect("Metadata encoded properly; qed");
@@ -1899,7 +1935,7 @@ fn metadata_at_version() {
 
 #[test]
 fn metadata_versions() {
-	assert_eq!(vec![14, LATEST_METADATA_VERSION], Runtime::metadata_versions());
+	assert_eq!(vec![14, 15, 16], Runtime::metadata_versions());
 }
 
 #[test]
@@ -1911,8 +1947,9 @@ fn metadata_ir_pallet_runtime_docs() {
 		.find(|pallet| pallet.name == "Example")
 		.expect("Pallet should be present");
 
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(pallet.docs, expected);
 }
 
@@ -1920,29 +1957,37 @@ fn metadata_ir_pallet_runtime_docs() {
 fn extrinsic_metadata_ir_types() {
 	let ir = Runtime::metadata_ir().extrinsic;
 
-	assert_eq!(meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(), ir.address_ty);
+	assert_eq!(
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Address>(),
+		ir.address_ty
+	);
 	assert_eq!(meta_type::<u64>(), ir.address_ty);
 
-	assert_eq!(meta_type::<<UncheckedExtrinsic as ExtrinsicT>::Call>(), ir.call_ty);
+	assert_eq!(
+		meta_type::<<Runtime as CreateTransactionBase<RuntimeCall>>::RuntimeCall>(),
+		ir.call_ty
+	);
 	assert_eq!(meta_type::<RuntimeCall>(), ir.call_ty);
 
 	assert_eq!(
-		meta_type::<
-			<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::Signature,
-		>(),
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Signature>(),
 		ir.signature_ty
 	);
-	assert_eq!(meta_type::<()>(), ir.signature_ty);
+	assert_eq!(meta_type::<UintAuthorityId>(), ir.signature_ty);
 
-	assert_eq!(meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(), ir.extra_ty);
+	assert_eq!(
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Extension>(),
+		ir.extra_ty
+	);
 	assert_eq!(meta_type::<frame_system::CheckNonZeroSender<Runtime>>(), ir.extra_ty);
 }
 
 #[test]
 fn test_pallet_runtime_docs() {
 	let docs = crate::pallet::Pallet::<Runtime>::pallet_documentation_metadata();
-	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
-	let expected = vec![" Pallet documentation", readme, readme];
+	let readme = "Very important information :D\n";
+	let pallet_doc = "This is the best pallet\n";
+	let expected = vec![" Pallet documentation", readme, pallet_doc];
 	assert_eq!(docs, expected);
 }
 
@@ -2365,6 +2410,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		AllPalletsWithSystem,
 	>;
 
+	/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+	/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+	/// can be safely deleted.
+	#[allow(deprecated)]
 	type ExecutiveWithUpgrade = frame_executive::Executive<
 		Runtime,
 		Block,
@@ -2374,6 +2423,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		CustomUpgrade,
 	>;
 
+	/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+	/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+	/// can be safely deleted.
+	#[allow(deprecated)]
 	type ExecutiveWithUpgradePallet4 = frame_executive::Executive<
 		Runtime,
 		Block,
@@ -2421,9 +2474,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		// any storage version "enabled".
 		assert!(
 			ExecutiveWithUpgradePallet4::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost)
-				.unwrap_err() == "On chain storage version set, while the pallet \
+				.unwrap_err() ==
+				"On chain storage version set, while the pallet \
 				doesn't have the `#[pallet::storage_version(VERSION)]` attribute."
-				.into()
+					.into()
 		);
 	});
 }
@@ -2462,6 +2516,7 @@ fn test_call_feature_parsing() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_error_feature_parsing() {
 	let err = pallet::Error::<Runtime>::InsufficientProposersBalance;
 	match err {
@@ -2473,5 +2528,59 @@ fn test_error_feature_parsing() {
 		#[cfg(feature = "frame-feature-testing")]
 		pallet::Error::FeatureTest => (),
 		pallet::Error::__Ignore(_, _) => (),
+	}
+}
+
+#[test]
+fn pallet_metadata() {
+	use sp_metadata_ir::{EnumDeprecationInfoIR, ItemDeprecationInfoIR, VariantDeprecationInfoIR};
+	let pallets = Runtime::metadata_ir().pallets;
+	let example = pallets[0].clone();
+	let example2 = pallets[1].clone();
+	{
+		// Example pallet calls is fully and partially deprecated
+		let meta = &example.calls.unwrap();
+		assert_eq!(
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				0,
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
+			)])),
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet constant is deprecated
+		let meta = &example.constants[0];
+		assert_eq!(
+			ItemDeprecationInfoIR::Deprecated { note: "test 2", since: None },
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet errors are partially and fully deprecated
+		let meta = &example.error.unwrap();
+		assert_eq!(
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				2,
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
+			)])),
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet events are partially and fully deprecated
+		let meta = example.event.unwrap();
+		assert_eq!(
+			EnumDeprecationInfoIR(BTreeMap::from([(
+				1,
+				VariantDeprecationInfoIR::Deprecated { note: "test", since: None }
+			)])),
+			meta.deprecation_info
+		);
+	}
+	{
+		// Example2 pallet events are not deprecated
+		let meta = example2.event.unwrap();
+		assert!(!meta.deprecation_info.has_deprecated_variants());
 	}
 }

@@ -47,10 +47,13 @@ use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_consensus::BlockOrigin;
-use sp_core::{ed25519, sr25519, traits::SpawnNamed, Pair, Public};
+use sp_core::{
+	crypto::get_public_from_string_or_panic, ed25519, sr25519, traits::SpawnNamed, Pair,
+};
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
+	generic::{self, ExtrinsicFormat, Preamble},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
@@ -288,17 +291,18 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 		}
 
 		let sender = self.keyring.at(self.iteration);
-		let receiver = get_account_id_from_seed::<sr25519::Public>(&format!(
+		let receiver = get_public_from_string_or_panic::<sr25519::Public>(&format!(
 			"random-user//{}",
 			self.iteration
-		));
+		))
+		.into();
 
 		let signed = self.keyring.sign(
 			CheckedExtrinsic {
-				signed: Some((
+				format: ExtrinsicFormat::Signed(
 					sender,
-					signed_extra(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
-				)),
+					tx_ext(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
+				),
 				function: match self.content.block_type {
 					BlockType::RandomTransfersKeepAlive =>
 						RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
@@ -385,6 +389,7 @@ impl BenchDb {
 			state_pruning: Some(PruningMode::ArchiveAll),
 			source: database_type.into_settings(dir.into()),
 			blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
+			metrics_registry: None,
 		};
 		let task_executor = TaskExecutor::new();
 
@@ -439,7 +444,11 @@ impl BenchDb {
 	}
 
 	/// Iterate over some block content with transaction signed using this database keyring.
-	pub fn block_content(&self, content: BlockContent, client: &Client) -> BlockContentIterator {
+	pub fn block_content(
+		&self,
+		content: BlockContent,
+		client: &Client,
+	) -> BlockContentIterator<'_> {
 		BlockContentIterator::new(content, &self.keyring, client)
 	}
 
@@ -562,11 +571,11 @@ impl BenchKeyring {
 		tx_version: u32,
 		genesis_hash: [u8; 32],
 	) -> UncheckedExtrinsic {
-		match xt.signed {
-			Some((signed, extra)) => {
+		match xt.format {
+			ExtrinsicFormat::Signed(signed, tx_ext) => {
 				let payload = (
 					xt.function,
-					extra.clone(),
+					tx_ext.clone(),
 					spec_version,
 					tx_version,
 					genesis_hash,
@@ -582,12 +591,21 @@ impl BenchKeyring {
 						key.sign(b)
 					}
 				});
-				UncheckedExtrinsic {
-					signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
-					function: payload.0,
-				}
+				generic::UncheckedExtrinsic::new_signed(
+					payload.0,
+					sp_runtime::MultiAddress::Id(signed),
+					signature,
+					tx_ext,
+				)
+				.into()
 			},
-			None => UncheckedExtrinsic { signature: None, function: xt.function },
+			ExtrinsicFormat::Bare => generic::UncheckedExtrinsic::new_bare(xt.function).into(),
+			ExtrinsicFormat::General(ext_version, tx_ext) =>
+				generic::UncheckedExtrinsic::from_parts(
+					xt.function,
+					Preamble::General(ext_version, tx_ext),
+				)
+				.into(),
 		}
 	}
 
@@ -629,19 +647,6 @@ pub struct BenchContext {
 }
 
 type AccountPublic = <Signature as Verify>::Signer;
-
-fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
 
 impl BenchContext {
 	/// Import some block.

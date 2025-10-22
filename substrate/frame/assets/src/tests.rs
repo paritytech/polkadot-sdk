@@ -22,7 +22,11 @@ use crate::{mock::*, Error};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{fungibles::InspectEnumerable, tokens::Preservation::Protect, Currency},
+	traits::{
+		fungibles::InspectEnumerable,
+		tokens::{Preservation::Protect, Provenance},
+		Currency,
+	},
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
@@ -205,7 +209,15 @@ fn refunding_calls_died_hook() {
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
 
 		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 0);
-		assert_eq!(hooks(), vec![Hook::Died(0, 1)]);
+		assert_eq!(
+			hooks(),
+			vec![
+				Hook::Died(0, 1),
+				// Note: Hooks get called twice because the hook is called from `Holder` AND
+				// `Freezer`.
+				Hook::Died(0, 1)
+			]
+		);
 		assert_eq!(asset_ids(), vec![0, 999]);
 	});
 }
@@ -646,27 +658,59 @@ fn min_balance_should_work() {
 		assert!(Assets::maybe_balance(0, 1).is_none());
 		assert_eq!(Assets::balance(0, 2), 100);
 		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
-		assert_eq!(take_hooks(), vec![Hook::Died(0, 1)]);
+		assert_eq!(
+			take_hooks(),
+			vec![
+				Hook::Died(0, 1),
+				// Note: Hooks get called twice because the hook is called from `Holder` AND
+				// `Freezer`.
+				Hook::Died(0, 1)
+			]
+		);
 
 		// Death by `force_transfer`.
 		assert_ok!(Assets::force_transfer(RuntimeOrigin::signed(1), 0, 2, 1, 91));
 		assert!(Assets::maybe_balance(0, 2).is_none());
 		assert_eq!(Assets::balance(0, 1), 100);
 		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
-		assert_eq!(take_hooks(), vec![Hook::Died(0, 2)]);
+		assert_eq!(
+			take_hooks(),
+			vec![
+				Hook::Died(0, 2),
+				// Note: Hooks get called twice because the hook is called from `Holder` AND
+				// `Freezer`.
+				Hook::Died(0, 2)
+			]
+		);
 
 		// Death by `burn`.
 		assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 1, 91));
 		assert!(Assets::maybe_balance(0, 1).is_none());
 		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 0);
-		assert_eq!(take_hooks(), vec![Hook::Died(0, 1)]);
+		assert_eq!(
+			take_hooks(),
+			vec![
+				Hook::Died(0, 1),
+				// Note: Hooks get called twice because the hook is called from `Holder` AND
+				// `Freezer`.
+				Hook::Died(0, 1)
+			]
+		);
 
 		// Death by `transfer_approved`.
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
 		Balances::make_free_balance_be(&1, 2);
 		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 100));
 		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91));
-		assert_eq!(take_hooks(), vec![Hook::Died(0, 1)]);
+		assert_eq!(
+			take_hooks(),
+			vec![
+				Hook::Died(0, 1),
+				// Note: Hooks get called twice because the hook is called from `Holder` AND
+				// `Freezer`.
+				Hook::Died(0, 1)
+			]
+		);
 	});
 }
 
@@ -792,6 +836,49 @@ fn transferring_to_blocked_account_should_not_work() {
 		assert_ok!(Assets::thaw(RuntimeOrigin::signed(1), 0, 1));
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 50));
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
+	});
+}
+
+#[test]
+fn transfer_all_works_1() {
+	new_test_ext().execute_with(|| {
+		// setup
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 0, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 1, 200));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
+		// transfer all and allow death
+		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, false));
+		assert_eq!(Assets::balance(0, &1), 0);
+		assert_eq!(Assets::balance(0, &2), 300);
+	});
+}
+
+#[test]
+fn transfer_all_works_2() {
+	new_test_ext().execute_with(|| {
+		// setup
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 0, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 1, 200));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
+		// transfer all and allow death
+		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, true));
+		assert_eq!(Assets::balance(0, &1), 100);
+		assert_eq!(Assets::balance(0, &2), 200);
+	});
+}
+
+#[test]
+fn transfer_all_works_3() {
+	new_test_ext().execute_with(|| {
+		// setup
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 0, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 1, 210));
+		set_frozen_balance(0, 1, 10);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
+		// transfer all and allow death w/ frozen
+		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, false));
+		assert_eq!(Assets::balance(0, &1), 100);
+		assert_eq!(Assets::balance(0, &2), 210);
 	});
 }
 
@@ -1255,6 +1342,130 @@ fn set_metadata_should_work() {
 	});
 }
 
+/// Calling on `dead_account` should be either unreachable, or fail if either a freeze or some
+/// balance on hold exists.
+///
+/// ### Case 1: Sufficient asset
+///
+/// This asserts for `dead_account` on `decrease_balance`, `transfer_and_die` and
+/// `do_destry_accounts`.
+#[test]
+fn calling_dead_account_fails_if_freezes_or_balances_on_hold_exist_1() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 50));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+		// Cannot transfer out less than max(freezes, ed). This happens in
+		// `prep_debit` under `transfer_and_die`. Would not reach `dead_account`.
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::transfer_keep_alive(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		// Cannot start destroying the asset, because some accounts contain freezes
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsFreezes
+		);
+		clear_frozen_balance(0, 1);
+
+		set_balance_on_hold(0, 1, 50);
+		// Cannot transfer out less than max(freezes, ed). This happens in
+		// `prep_debit` under `transfer_and_die`. Would not reach `dead_account`.
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::transfer_keep_alive(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		// Cannot start destroying the asset, because some accounts contain freezes
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsHolds
+		);
+	})
+}
+
+/// Calling on `dead_account` should be either unreachable, or fail if either a freeze or some
+/// balance on hold exists.
+///
+/// ### Case 2: Inufficient asset
+///
+/// This asserts for `dead_account` on `do_refund` and `do_refund_other`.
+#[test]
+fn calling_dead_account_fails_if_freezes_or_balances_on_hold_exist_2() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+
+		let mut account =
+			Account::<Test>::get(&0, &1).expect("account has already been touched; qed");
+		let touch_deposit =
+			account.reason.take_deposit().expect("account was created by touching it; qed");
+
+		assert_noop!(
+			Assets::refund(RuntimeOrigin::signed(1), 0, true),
+			Error::<Test>::ContainsFreezes
+		);
+
+		// Assert touch deposit is not tainted.
+		let deposit_after_noop =
+			Account::<Test>::get(&0, &1).and_then(|mut account| account.reason.take_deposit());
+		assert_eq!(deposit_after_noop, Some(touch_deposit));
+
+		clear_frozen_balance(0, 1);
+
+		set_balance_on_hold(0, 1, 50);
+		assert_noop!(
+			Assets::refund(RuntimeOrigin::signed(1), 0, true),
+			Error::<Test>::ContainsHolds
+		);
+		clear_balance_on_hold(0, 1);
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
+	});
+
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		set_frozen_balance(0, 2, 100);
+		assert_noop!(
+			Assets::refund_other(RuntimeOrigin::signed(1), 0, 2),
+			Error::<Test>::WouldBurn
+		);
+		clear_frozen_balance(0, 2);
+
+		// Note: It's not possible to set balance on hold for the maximum balance,
+		// as it `WouldBurn` because of how setting the balance works on mock.
+		set_balance_on_hold(0, 2, 99);
+		assert_noop!(
+			Assets::refund_other(RuntimeOrigin::signed(1), 0, 2),
+			Error::<Test>::WouldBurn
+		);
+		clear_balance_on_hold(0, 2);
+	})
+}
+
 /// Destroying an asset calls the `FrozenBalance::died` hooks of all accounts.
 #[test]
 fn destroy_accounts_calls_died_hooks() {
@@ -1269,7 +1480,19 @@ fn destroy_accounts_calls_died_hooks() {
 		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 0));
 
 		// Accounts 1 and 2 died.
-		assert_eq!(hooks(), vec![Hook::Died(0, 1), Hook::Died(0, 2)]);
+		assert_eq!(
+			hooks(),
+			vec![
+				Hook::Died(0, 1),
+				// Note: Hooks get called twice because the hook is called from `Holder` AND
+				// `Freezer`.
+				Hook::Died(0, 1),
+				Hook::Died(0, 2),
+				// Note: Hooks get called twice because the hook is called from `Holder` AND
+				// `Freezer`.
+				Hook::Died(0, 2)
+			]
+		);
 	})
 }
 
@@ -1298,9 +1521,15 @@ fn freezer_should_work() {
 		// freeze 50 of it.
 		set_frozen_balance(0, 1, 50);
 
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 20));
-		// cannot transfer another 21 away as this would take the non-frozen balance (30) to below
-		// the minimum balance (10).
+		// Note: The amount to be transferred in this step changed deliberately from 20 to 30
+		// (https://github.com/paritytech/polkadot-sdk/pull/4530/commits/2ab35354d86904c035b21a2229452841b79b0457)
+		// to reflect the change in how `reducible_balance` is calculated: from untouchable = ed +
+		// frozen, to untouchalbe = max(ed, frozen)
+		//
+		// This is done in this line so most of the remaining test is preserved without changes
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 30));
+		// cannot transfer another 21 away as this would take the spendable balance (30) to below
+		// zero.
 		assert_noop!(
 			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 21),
 			Error::<Test>::BalanceLow
@@ -1323,8 +1552,60 @@ fn freezer_should_work() {
 
 		// and if we clear it, we can remove the account completely.
 		clear_frozen_balance(0, 1);
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
-		assert_eq!(hooks(), vec![Hook::Died(0, 1)]);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 49));
+		assert_eq!(
+			hooks(),
+			vec![
+				Hook::Died(0, 1),
+				// Note: Hooks get called twice because the hook is called from `Holder` AND
+				// `Freezer`.
+				Hook::Died(0, 1)
+			]
+		);
+	});
+}
+
+#[test]
+fn freezing_and_holds_work() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::balance(0, 1), 100);
+
+		// Hold 50 of it
+		set_balance_on_hold(0, 1, 50);
+		assert_eq!(Assets::balance(0, 1), 50);
+		assert_eq!(TestHolder::balance_on_hold(0, &1), Some(50));
+
+		// Can freeze up to held + min_balance without affecting reducible
+		set_frozen_balance(0, 1, 59);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(40));
+		set_frozen_balance(0, 1, 61);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(39));
+
+		// Increasing hold is not necessarily restricted by the frozen balance
+		set_balance_on_hold(0, 1, 62);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(28));
+
+		// Transfers are bound to the spendable amount
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// Approved transfers fail as well
+		Balances::make_free_balance_be(&1, 2);
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 29));
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// Also forced transfers fail
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// ...but transferring up to spendable works
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 28));
 	});
 }
 
@@ -1689,6 +1970,31 @@ fn root_asset_create_should_work() {
 }
 
 #[test]
+fn asset_start_destroy_fails_if_there_are_holds_or_freezes() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsFreezes
+		);
+
+		set_balance_on_hold(0, 1, 50);
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsHolds
+		);
+
+		clear_frozen_balance(0, 1);
+		clear_balance_on_hold(0, 1);
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+	});
+}
+
+#[test]
 fn asset_create_and_destroy_is_reverted_if_callback_fails() {
 	new_test_ext().execute_with(|| {
 		// Asset creation fails due to callback failure
@@ -1738,10 +2044,10 @@ fn multiple_transfer_alls_work_ok() {
 #[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::create { id: 10, admin: 4, min_balance: 3 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::create(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::create(), info.call_weight);
 
 	let info = crate::Call::<Test>::finish_destroy { id: 10 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::finish_destroy(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::finish_destroy(), info.call_weight);
 }
 
 #[test]
@@ -1775,5 +2081,102 @@ fn asset_destroy_refund_existence_deposit() {
 		assert_eq!(Balances::reserved_balance(&account2), 0);
 		assert_eq!(Balances::reserved_balance(&account3), 0);
 		assert_eq!(Balances::reserved_balance(&admin), 0);
+	});
+}
+
+#[test]
+fn increasing_or_decreasing_destroying_asset_should_not_work() {
+	new_test_ext().execute_with(|| {
+		use frame_support::traits::fungibles::Inspect;
+
+		let admin = 1;
+		let admin_origin = RuntimeOrigin::signed(admin);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, admin, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::balance(0, 1), 100);
+
+		assert_eq!(Assets::can_deposit(0, &1, 10, Provenance::Extant), DepositConsequence::Success);
+		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::Success);
+		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::Success);
+		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::Success);
+
+		assert_ok!(Assets::start_destroy(admin_origin, 0));
+
+		assert_eq!(
+			Assets::can_deposit(0, &1, 10, Provenance::Extant),
+			DepositConsequence::UnknownAsset
+		);
+		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::UnknownAsset);
+		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::UnknownAsset);
+		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::UnknownAsset);
+	});
+}
+
+#[test]
+fn asset_id_cannot_be_reused() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&1, 100);
+		// Asset id can be reused till auto increment is not enabled.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Asset id `0` is reused.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert!(Asset::<Test>::contains_key(0));
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Enable auto increment. Next asset id must be 5.
+		pallet::NextAssetId::<Test>::put(5);
+
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1), Error::<Test>::BadAssetId);
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 1, 1, 1), Error::<Test>::BadAssetId);
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1),
+			Error::<Test>::BadAssetId
+		);
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 1, 1, true, 1),
+			Error::<Test>::BadAssetId
+		);
+
+		// Asset with id `5` is created.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 5, 1, 1));
+		assert!(Asset::<Test>::contains_key(5));
+
+		// Destroy asset with id `6`.
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 5));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 5));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Asset id `5` cannot be reused.
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 5, 1, 1), Error::<Test>::BadAssetId);
+
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 6, 1, 1));
+		assert!(Asset::<Test>::contains_key(6));
+
+		// Destroy asset with id `6`.
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 6));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 6));
+
+		assert!(!Asset::<Test>::contains_key(6));
+
+		// Asset id `6` cannot be reused with force.
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 6, 1, false, 1),
+			Error::<Test>::BadAssetId
+		);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 7, 1, false, 1));
+		assert!(Asset::<Test>::contains_key(7));
 	});
 }

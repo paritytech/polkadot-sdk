@@ -73,7 +73,7 @@ fn test_weight(mut count: u64) -> Weight {
 
 fn maybe_forward_id_for(topic: &XcmHash) -> XcmHash {
 	match UsingTopic::get() {
-		true => forward_id_for(topic),
+		true => *topic,
 		false => fake_id(),
 	}
 }
@@ -209,7 +209,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		let origin = Local::get().relative_to(&Remote::get());
 		AllowUnpaidFrom::set(vec![origin.clone()]);
 		set_exporter_override(price::<RemoteExporter>, deliver::<RemoteExporter>);
-		// The we execute it:
+		// Then we execute it:
 		let mut id = fake_id();
 		let outcome = XcmExecutor::<TestConfig>::prepare_and_execute(
 			origin,
@@ -225,7 +225,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		match outcome {
 			Outcome::Complete { .. } => Ok(id),
 			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
-			Outcome::Error { .. } => Err(Transport("Unable to execute")),
+			Outcome::Error(_) => Err(Transport("Unable to execute")),
 		}
 	}
 }
@@ -275,7 +275,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		match outcome {
 			Outcome::Complete { .. } => Ok(id),
 			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
-			Outcome::Error { .. } => Err(Transport("Unable to execute")),
+			Outcome::Error(_) => Err(Transport("Unable to execute")),
 		}
 	}
 }

@@ -32,7 +32,7 @@ use polkadot_service::{
 	Error, FullClient, IsParachainNode, NewFull, OverseerGen, PrometheusConfig,
 };
 use polkadot_test_runtime::{
-	ParasCall, ParasSudoWrapperCall, Runtime, SignedExtra, SignedPayload, SudoCall,
+	ParasCall, ParasSudoWrapperCall, Runtime, SignedPayload, SudoCall, TxExtension,
 	UncheckedExtrinsic, VERSION,
 };
 
@@ -40,7 +40,9 @@ use sc_chain_spec::ChainSpec;
 use sc_client_api::BlockchainEvents;
 use sc_network::{
 	config::{NetworkConfiguration, TransportConfig},
-	multiaddr, NetworkStateInfo,
+	multiaddr,
+	service::traits::NetworkService,
+	NetworkStateInfo,
 };
 use sc_service::{
 	config::{
@@ -68,62 +70,45 @@ use substrate_test_client::{
 pub type Client = FullClient;
 
 pub use polkadot_service::{FullBackend, GetLastTimestamp};
+use sc_service::config::{ExecutorConfiguration, RpcConfiguration};
 
 /// Create a new full node.
-#[sc_tracing::logging::prefix_logs_with(config.network.node_name.as_str())]
+#[sc_tracing::logging::prefix_logs_with(custom_log_prefix.unwrap_or(config.network.node_name.as_str()))]
 pub fn new_full<OverseerGenerator: OverseerGen>(
 	config: Configuration,
 	is_parachain_node: IsParachainNode,
 	workers_path: Option<PathBuf>,
 	overseer_gen: OverseerGenerator,
+	custom_log_prefix: Option<&'static str>,
 ) -> Result<NewFull, Error> {
 	let workers_path = Some(workers_path.unwrap_or_else(get_relative_workers_path_for_test));
 
+	let params = polkadot_service::NewFullParams {
+		is_parachain_node,
+		enable_beefy: true,
+		force_authoring_backoff: false,
+		telemetry_worker_handle: None,
+		node_version: None,
+		secure_validator_mode: false,
+		workers_path,
+		workers_names: None,
+		overseer_gen,
+		overseer_message_channel_capacity_override: None,
+		malus_finality_delay: None,
+		hwbench: None,
+		execute_workers_max_num: None,
+		prepare_workers_hard_max_num: None,
+		prepare_workers_soft_max_num: None,
+		keep_finalized_for: None,
+		invulnerable_ah_collators: HashSet::new(),
+		collator_protocol_hold_off: None,
+	};
+
 	match config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
-			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(
-				config,
-				polkadot_service::NewFullParams {
-					is_parachain_node,
-					enable_beefy: true,
-					force_authoring_backoff: false,
-					jaeger_agent: None,
-					telemetry_worker_handle: None,
-					node_version: None,
-					secure_validator_mode: false,
-					workers_path,
-					workers_names: None,
-					overseer_gen,
-					overseer_message_channel_capacity_override: None,
-					malus_finality_delay: None,
-					hwbench: None,
-					execute_workers_max_num: None,
-					prepare_workers_hard_max_num: None,
-					prepare_workers_soft_max_num: None,
-				},
-			),
+			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(config, params),
 		sc_network::config::NetworkBackendType::Litep2p =>
-			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(
-				config,
-				polkadot_service::NewFullParams {
-					is_parachain_node,
-					enable_beefy: true,
-					force_authoring_backoff: false,
-					jaeger_agent: None,
-					telemetry_worker_handle: None,
-					node_version: None,
-					secure_validator_mode: false,
-					workers_path,
-					workers_names: None,
-					overseer_gen,
-					overseer_message_channel_capacity_override: None,
-					malus_finality_delay: None,
-					hwbench: None,
-					execute_workers_max_num: None,
-					prepare_workers_hard_max_num: None,
-					prepare_workers_soft_max_num: None,
-				},
-			),
+			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(config, params),
 	}
 }
 
@@ -147,7 +132,7 @@ pub fn test_prometheus_config(port: u16) -> PrometheusConfig {
 
 /// Create a Polkadot `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide boot
+/// By default a TCP socket will be used, therefore you need to provide boot
 /// nodes if you want the future node to be connected to other nodes.
 ///
 /// The `storage_update_func` function will be executed in an externalities provided environment
@@ -180,12 +165,13 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	let addr: multiaddr::Multiaddr = multiaddr::Protocol::Memory(rand::random()).into();
+	// Libp2p needs to know the local address on which it should listen for incoming connections,
+	// while Litep2p will use `/ip4/127.0.0.1/tcp/0` by default.
+	let addr: multiaddr::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().expect("valid address; qed");
 	network_config.listen_addresses.push(addr.clone());
-
 	network_config.public_addresses.push(addr);
-
-	network_config.transport = TransportConfig::MemoryOnly;
+	network_config.transport =
+		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
 
 	Configuration {
 		impl_name: "polkadot-test-node".to_string(),
@@ -197,61 +183,94 @@ pub fn node_config(
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
+		warm_up_trie_cache: None,
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
 		chain_spec: Box::new(spec),
-		wasm_method: WasmExecutionMethod::Compiled {
-			instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+		executor: ExecutorConfiguration {
+			wasm_method: WasmExecutionMethod::Compiled {
+				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+			},
+			..ExecutorConfiguration::default()
 		},
 		wasm_runtime_overrides: Default::default(),
-		rpc_addr: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_max_connections: Default::default(),
-		rpc_cors: None,
-		rpc_methods: Default::default(),
-		rpc_id_provider: None,
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: 9944,
-		rpc_message_buffer_capacity: Default::default(),
-		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
-		rpc_rate_limit: None,
-		rpc_rate_limit_whitelisted_ips: Default::default(),
-		rpc_rate_limit_trust_proxy_headers: Default::default(),
+		rpc: RpcConfiguration {
+			addr: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			max_connections: Default::default(),
+			cors: None,
+			methods: Default::default(),
+			id_provider: None,
+			max_subs_per_conn: Default::default(),
+			port: 9944,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: None,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: Default::default(),
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(key_seed),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
-		runtime_cache_size: 2,
 		announce_block: true,
 		data_path: root,
 		base_path,
-		informant_output_format: Default::default(),
+	}
+}
+
+/// Get the listen multiaddr from the network service.
+///
+/// The address is used to connect to the node.
+pub async fn get_listen_address(network: Arc<dyn NetworkService>) -> sc_network::Multiaddr {
+	loop {
+		// Litep2p provides instantly the listen address of the TCP protocol and
+		// ditched the `/0` port used by the `node_config` function.
+		//
+		// Libp2p backend needs to be polled in a separate tokio task a few times
+		// before the listen address is available. The address is made available
+		// through the `SwarmEvent::NewListenAddr` event.
+		let listen_addresses = network.listen_addresses();
+
+		// The network backend must produce a valid TCP port.
+		match listen_addresses.into_iter().find(|addr| {
+			addr.iter().any(|protocol| match protocol {
+				multiaddr::Protocol::Tcp(port) => port > 0,
+				_ => false,
+			})
+		}) {
+			Some(multiaddr) => return multiaddr,
+			None => {
+				tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+				continue;
+			},
+		}
 	}
 }
 
 /// Run a test validator node that uses the test runtime and specified `config`.
-pub fn run_validator_node(
+pub async fn run_validator_node(
 	config: Configuration,
 	worker_program_path: Option<PathBuf>,
 ) -> PolkadotTestNode {
-	let multiaddr = config.network.listen_addresses[0].clone();
 	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } = new_full(
 		config,
 		IsParachainNode::No,
 		worker_program_path,
 		polkadot_service::ValidatorOverseerGen,
+		None,
 	)
 	.expect("could not create Polkadot test service");
 
 	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
 	let peer_id = network.local_peer_id();
+	let multiaddr = get_listen_address(network).await;
+
 	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 	PolkadotTestNode { task_manager, client, overseer_handle, addr, rpc_handlers }
@@ -269,7 +288,7 @@ pub fn run_validator_node(
 ///
 /// The collator functionality still needs to be registered at the node! This can be done using
 /// [`PolkadotTestNode::register_collator`].
-pub fn run_collator_node(
+pub async fn run_collator_node(
 	tokio_handle: tokio::runtime::Handle,
 	key: Sr25519Keyring,
 	storage_update_func: impl Fn(),
@@ -277,17 +296,19 @@ pub fn run_collator_node(
 	collator_pair: CollatorPair,
 ) -> PolkadotTestNode {
 	let config = node_config(storage_update_func, tokio_handle, key, boot_nodes, false);
-	let multiaddr = config.network.listen_addresses[0].clone();
 	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } = new_full(
 		config,
 		IsParachainNode::Collator(collator_pair),
 		None,
 		polkadot_service::CollatorOverseerGen,
+		None,
 	)
 	.expect("could not create Polkadot test service");
 
 	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
 	let peer_id = network.local_peer_id();
+
+	let multiaddr = get_listen_address(network).await;
 	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 	PolkadotTestNode { task_manager, client, overseer_handle, addr, rpc_handlers }
@@ -412,7 +433,8 @@ pub fn construct_extrinsic(
 	let period =
 		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
+		frame_system::AuthorizeCall::<Runtime>::new(),
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -421,16 +443,20 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-	);
+		frame_system::WeightReclaim::<Runtime>::new(),
+	)
+		.into();
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
+			(),
 			(),
 			VERSION.spec_version,
 			VERSION.transaction_version,
 			genesis_block,
 			current_block_hash,
+			(),
 			(),
 			(),
 			(),
@@ -441,15 +467,15 @@ pub fn construct_extrinsic(
 		function.clone(),
 		polkadot_test_runtime::Address::Id(caller.public().into()),
 		polkadot_primitives::Signature::Sr25519(signature),
-		extra.clone(),
+		tx_ext.clone(),
 	)
 }
 
 /// Construct a transfer extrinsic.
 pub fn construct_transfer_extrinsic(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
-	dest: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
+	dest: sp_keyring::Sr25519Keyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
 	let function =

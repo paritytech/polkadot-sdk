@@ -5,47 +5,44 @@ authors.workspace = true
 edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 
 # Substrate
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
-pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
-pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
-pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
-sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-asset-conversion = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-session = { workspace = true }
+pallet-timestamp = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
-pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
-parachains-common = { path = "../../../common", default-features = false }
-cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
-parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-xcmp-queue = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+pallet-collator-selection = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
+parachains-runtimes-test-utils = { workspace = true }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+pallet-xcm = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Bridges
-pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
-
-[dev-dependencies]
-hex-literal = "0.4.1"
-
-[build-dependencies]
-substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" }
+pallet-xcm-bridge-hub-router = { workspace = true }
 
 [features]
 default = ["std"]
@@ -56,6 +53,7 @@ std = [
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-asset-conversion/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
@@ -68,8 +66,8 @@ std = [
 	"parachains-runtimes-test-utils/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-runtime-apis/std",
 	"xcm/std",
 ]

@@ -16,16 +16,21 @@
 // limitations under the License.
 
 mod command;
+mod logging;
 mod types;
 mod writer;
 
-use crate::{pallet::types::GenesisBuilder, shared::HostInfoParams};
+use crate::shared::HostInfoParams;
 use clap::ValueEnum;
+use frame_support::Serialize;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
 	DEFAULT_WASM_EXECUTION_METHOD,
 };
 use std::{fmt::Debug, path::PathBuf};
+
+/// Logging target
+const LOG_TARGET: &'static str = "frame::benchmark::pallet";
 
 // Add a more relaxed parsing for pallet names by allowing pallet directory names with `-` to be
 // used like crate names with `_`
@@ -45,13 +50,24 @@ pub enum ListOutput {
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
-	/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
-	pub pallet: Option<String>,
+	/// Select a FRAME Pallets to benchmark, or `*` for all (in which case `extrinsic` must be
+	/// `*`).
+	#[arg(short, long, alias = "pallet", num_args = 1.., value_delimiter = ',', value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
+	pub pallets: Vec<String>,
 
-	/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
+	/// Select an extrinsic inside the pallet to benchmark, or `*` or 'all' for all.
 	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub extrinsic: Option<String>,
+
+	/// Comma separated list of pallets that should be excluded from the benchmark.
+	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
+	pub exclude_pallets: Vec<String>,
+
+	/// Comma separated list of `pallet::extrinsic` combinations that should not be run.
+	///
+	/// Example: `frame_system::remark,pallet_balances::transfer_keep_alive`
+	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
+	pub exclude_extrinsics: Vec<String>,
 
 	/// Run benchmarks for all pallets and extrinsics.
 	///
@@ -128,6 +144,10 @@ pub struct PalletCmd {
 	#[arg(long, default_value("max-encoded-len"), value_enum)]
 	pub default_pov_mode: command::PovEstimationMode,
 
+	/// Ignore the error when PoV modes reference unknown storage items or pallets.
+	#[arg(long)]
+	pub ignore_unknown_pov_mode: bool,
+
 	/// Set the heap pages while running benchmarks. If not set, the default value from the client
 	/// is used.
 	#[arg(long)]
@@ -168,8 +188,15 @@ pub struct PalletCmd {
 	pub wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
 	/// Optional runtime blob to use instead of the one from the genesis config.
-	#[arg(long, conflicts_with = "chain")]
+	#[arg(long, conflicts_with = "chain", required_if_eq("genesis_builder", "runtime"))]
 	pub runtime: Option<PathBuf>,
+
+	/// Set the runtime log level.
+	///
+	/// This will overwrite the `RUNTIME_LOG` environment variable. If neither is set, the CLI
+	/// default set by `RUST_LOG` setting is used.
+	#[arg(long)]
+	pub runtime_log: Option<String>,
 
 	/// Do not fail if there are unknown but also unused host functions in the runtime.
 	#[arg(long)]
@@ -177,9 +204,16 @@ pub struct PalletCmd {
 
 	/// How to construct the genesis state.
 	///
-	/// Uses `GenesisBuilder::Spec` by default and  `GenesisBuilder::Runtime` if `runtime` is set.
-	#[arg(long, value_enum)]
-	pub genesis_builder: Option<GenesisBuilder>,
+	/// Uses `GenesisBuilderPolicy::Spec` by default.
+	#[arg(long, value_enum, alias = "genesis-builder-policy")]
+	pub genesis_builder: Option<GenesisBuilderPolicy>,
+
+	/// The preset that we expect to find in the GenesisBuilder runtime API.
+	///
+	/// This can be useful when a runtime has a dedicated benchmarking preset instead of using the
+	/// default one.
+	#[arg(long, default_value = sp_genesis_builder::DEV_RUNTIME_PRESET)]
+	pub genesis_builder_preset: String,
 
 	/// DEPRECATED: This argument has no effect.
 	#[arg(long = "execution")]
@@ -243,4 +277,32 @@ pub struct PalletCmd {
 	/// use-cases, this option reduces the noise.
 	#[arg(long)]
 	quiet: bool,
+
+	/// Do not enable proof recording during time benchmarking.
+	///
+	/// By default, proof recording is enabled during benchmark execution. This can slightly
+	/// inflate the resulting time weights. For parachains using PoV-reclaim, this is typically the
+	/// correct setting. Chains that ignore the proof size dimension of weight (e.g. relay chain,
+	/// solo-chains) can disable proof recording to get more accurate results.
+	#[arg(long)]
+	disable_proof_recording: bool,
+}
+
+/// How the genesis state for benchmarking should be built.
+#[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy, Serialize)]
+#[clap(rename_all = "kebab-case")]
+pub enum GenesisBuilderPolicy {
+	/// Do not provide any genesis state.
+	///
+	/// Benchmarks are advised to function with this, since they should setup their own required
+	/// state. However, to keep backwards compatibility, this is not the default.
+	None,
+	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
+	/// This will use the `development` preset by default.
+	Runtime,
+	/// Use the runtime from the Spec file to build the genesis state.
+	SpecRuntime,
+	/// Use the spec file to build the genesis state. This fails when there is no spec.
+	#[value(alias = "spec")]
+	SpecGenesis,
 }

@@ -25,14 +25,14 @@ use crate as utility;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, Pays},
-	error::BadOrigin,
 	parameter_types, storage,
 	traits::{ConstU64, Contains},
 	weights::Weight,
 };
+use frame_system::EnsureRoot;
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable, Hash},
+	traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},
 	BuildStorage, DispatchError, TokenError,
 };
 
@@ -66,7 +66,7 @@ pub mod example {
 			_start_weight: Weight,
 			end_weight: Option<Weight>,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			if err {
 				let error: DispatchError = "The cake is a lie.".into();
 				if let Some(weight) = end_weight {
@@ -99,6 +99,7 @@ mod mock_democracy {
 
 		#[pallet::config]
 		pub trait Config: frame_system::Config + Sized {
+			#[allow(deprecated)]
 			type RuntimeEvent: From<Event<Self>>
 				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 			type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -190,6 +191,9 @@ impl pallet_collective::Config<CouncilCollective> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 impl example::Config for Test {}
@@ -234,6 +238,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -258,10 +263,18 @@ fn call_foobar(err: bool, start_weight: Weight, end_weight: Option<Weight>) -> R
 	RuntimeCall::Example(ExampleCall::foobar { err, start_weight, end_weight })
 }
 
+fn utility_events() -> Vec<Event> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Utility(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
 #[test]
 fn as_derivative_works() {
 	new_test_ext().execute_with(|| {
-		let sub_1_0 = Utility::derivative_account_id(1, 0);
+		let sub_1_0 = derivative_account_id(1, 0);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), sub_1_0, 5));
 		assert_err_ignore_postinfo!(
 			Utility::as_derivative(RuntimeOrigin::signed(1), 1, Box::new(call_transfer(6, 3)),),
@@ -293,7 +306,7 @@ fn as_derivative_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -305,7 +318,7 @@ fn as_derivative_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff);
 
 		// Full weight when err
 		let inner_call = call_foobar(true, start_weight, None);
@@ -320,7 +333,7 @@ fn as_derivative_handles_weight_refund() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					// No weight is refunded
-					actual_weight: Some(info.weight),
+					actual_weight: Some(info.call_weight),
 					pays_fee: Pays::Yes,
 				},
 				error: DispatchError::Other("The cake is a lie."),
@@ -340,7 +353,7 @@ fn as_derivative_handles_weight_refund() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					// Diff is refunded
-					actual_weight: Some(info.weight - diff),
+					actual_weight: Some(info.call_weight - diff),
 					pays_fee: Pays::Yes,
 				},
 				error: DispatchError::Other("The cake is a lie."),
@@ -453,14 +466,14 @@ fn batch_weight_calculation_doesnt_overflow() {
 		let big_call = RuntimeCall::RootTesting(RootTestingCall::fill_block {
 			ratio: Perbill::from_percent(50),
 		});
-		assert_eq!(big_call.get_dispatch_info().weight, Weight::MAX / 2);
+		assert_eq!(big_call.get_dispatch_info().call_weight, Weight::MAX / 2);
 
 		// 3 * 50% saturates to 100%
 		let batch_call = RuntimeCall::Utility(crate::Call::batch {
 			calls: vec![big_call.clone(), big_call.clone(), big_call.clone()],
 		});
 
-		assert_eq!(batch_call.get_dispatch_info().weight, Weight::MAX);
+		assert_eq!(batch_call.get_dispatch_info().call_weight, Weight::MAX);
 	});
 }
 
@@ -479,7 +492,7 @@ fn batch_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -489,7 +502,7 @@ fn batch_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Full weight when err
 		let good_call = call_foobar(false, start_weight, None);
@@ -503,7 +516,7 @@ fn batch_handles_weight_refund() {
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
 		);
 		// No weight is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when err
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -517,7 +530,7 @@ fn batch_handles_weight_refund() {
 		System::assert_last_event(
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
 		);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Partial batch completion
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -568,7 +581,7 @@ fn batch_all_revert() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					actual_weight: Some(
-						<Test as Config>::WeightInfo::batch_all(2) + info.weight * 2
+						<Test as Config>::WeightInfo::batch_all(2) + info.call_weight * 2
 					),
 					pays_fee: Pays::Yes
 				},
@@ -595,7 +608,7 @@ fn batch_all_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -605,7 +618,7 @@ fn batch_all_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Full weight when err
 		let good_call = call_foobar(false, start_weight, None);
@@ -616,7 +629,7 @@ fn batch_all_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
 		// No weight is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when err
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -627,7 +640,7 @@ fn batch_all_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Partial batch completion
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -661,7 +674,9 @@ fn batch_all_does_not_nest() {
 			Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_all.clone()]),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
-					actual_weight: Some(<Test as Config>::WeightInfo::batch_all(1) + info.weight),
+					actual_weight: Some(
+						<Test as Config>::WeightInfo::batch_all(1) + info.call_weight
+					),
 					pays_fee: Pays::Yes
 				},
 				error: frame_system::Error::<Test>::CallFiltered.into(),
@@ -786,7 +801,7 @@ fn batch_all_doesnt_work_with_inherents() {
 			batch_all.dispatch(RuntimeOrigin::signed(1)),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
-					actual_weight: Some(info.weight),
+					actual_weight: Some(info.call_weight),
 					pays_fee: Pays::Yes
 				},
 				error: frame_system::Error::<Test>::CallFiltered.into(),
@@ -802,7 +817,7 @@ fn batch_works_with_council_origin() {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
@@ -839,7 +854,7 @@ fn force_batch_works_with_council_origin() {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
@@ -889,7 +904,7 @@ fn with_weight_works() {
 			}));
 		// Weight before is max.
 		assert_eq!(
-			upgrade_code_call.get_dispatch_info().weight,
+			upgrade_code_call.get_dispatch_info().call_weight,
 			<Test as frame_system::Config>::SystemWeightInfo::set_code()
 		);
 		assert_eq!(
@@ -902,10 +917,176 @@ fn with_weight_works() {
 			weight: Weight::from_parts(123, 456),
 		};
 		// Weight after is set by Root.
-		assert_eq!(with_weight_call.get_dispatch_info().weight, Weight::from_parts(123, 456));
+		assert_eq!(with_weight_call.get_dispatch_info().call_weight, Weight::from_parts(123, 456));
 		assert_eq!(
 			with_weight_call.get_dispatch_info().class,
 			frame_support::dispatch::DispatchClass::Operational
 		);
 	})
+}
+
+#[test]
+fn dispatch_as_works() {
+	new_test_ext().execute_with(|| {
+		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
+		assert_eq!(Balances::free_balance(666), 100);
+		assert_eq!(Balances::free_balance(777), 0);
+		assert_ok!(Utility::dispatch_as(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
+			Box::new(call_transfer(777, 100))
+		));
+		assert_eq!(Balances::free_balance(666), 0);
+		assert_eq!(Balances::free_balance(777), 100);
+
+		System::reset_events();
+		assert_ok!(Utility::dispatch_as(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
+			Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
+		));
+		assert_eq!(
+			utility_events(),
+			vec![Event::DispatchedAs { result: Err(DispatchError::BadOrigin) }]
+		);
+	})
+}
+
+#[test]
+fn if_else_with_root_works() {
+	new_test_ext().execute_with(|| {
+		let k = b"a".to_vec();
+		let call = RuntimeCall::System(frame_system::Call::set_storage {
+			items: vec![(k.clone(), k.clone())],
+		});
+		assert!(!TestBaseCallFilter::contains(&call));
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::root(),
+			RuntimeCall::Balances(BalancesCall::force_transfer { source: 1, dest: 2, value: 11 })
+				.into(),
+			call.into(),
+		));
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_eq!(storage::unhashed::get_raw(&k), Some(k));
+		System::assert_last_event(
+			utility::Event::IfElseFallbackCalled {
+				main_error: TokenError::FundsUnavailable.into(),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn if_else_with_signed_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			call_transfer(2, 11).into(),
+			call_transfer(2, 5).into()
+		));
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::free_balance(2), 15);
+
+		System::assert_last_event(
+			utility::Event::IfElseFallbackCalled {
+				main_error: TokenError::FundsUnavailable.into(),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn if_else_successful_main_call() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			call_transfer(2, 9).into(),
+			call_transfer(2, 1).into()
+		));
+		assert_eq!(Balances::free_balance(1), 1);
+		assert_eq!(Balances::free_balance(2), 19);
+
+		System::assert_last_event(utility::Event::IfElseMainSuccess.into());
+	})
+}
+
+#[test]
+fn dispatch_as_fallible_works() {
+	new_test_ext().execute_with(|| {
+		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
+		assert_eq!(Balances::free_balance(666), 100);
+		assert_eq!(Balances::free_balance(777), 0);
+		assert_ok!(Utility::dispatch_as_fallible(
+			RuntimeOrigin::root(),
+			Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(666))),
+			Box::new(call_transfer(777, 100))
+		));
+		assert_eq!(Balances::free_balance(666), 0);
+		assert_eq!(Balances::free_balance(777), 100);
+
+		assert_noop!(
+			Utility::dispatch_as_fallible(
+				RuntimeOrigin::root(),
+				Box::new(OriginCaller::system(frame_system::RawOrigin::Signed(777))),
+				Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
+			),
+			DispatchError::BadOrigin,
+		);
+	})
+}
+
+#[test]
+fn if_else_failing_fallback_call() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_err_ignore_postinfo!(
+			Utility::if_else(
+				RuntimeOrigin::signed(1),
+				call_transfer(2, 11).into(),
+				call_transfer(2, 11).into()
+			),
+			TokenError::FundsUnavailable
+		);
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+	})
+}
+
+#[test]
+fn if_else_with_nested_if_else_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+
+		let main_call = call_transfer(2, 11).into();
+		let fallback_call = call_transfer(2, 5).into();
+
+		let nested_if_else_call =
+			RuntimeCall::Utility(UtilityCall::if_else { main: main_call, fallback: fallback_call })
+				.into();
+
+		// Nested `if_else` call.
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			nested_if_else_call,
+			call_transfer(2, 7).into()
+		));
+
+		// inner if_else fallback is executed.
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::free_balance(2), 15);
+
+		// Ensure the correct event was triggered for the main call(nested if_else).
+		System::assert_last_event(utility::Event::IfElseMainSuccess.into());
+	});
 }

@@ -31,7 +31,9 @@ use std::{
 	sync::Arc,
 };
 
-use crate::{blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary};
+use crate::{
+	blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary, StaleBlock,
+};
 
 use sc_transaction_pool_api::ChainEvent;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
@@ -65,9 +67,16 @@ pub trait BlockOf {
 pub trait BlockchainEvents<Block: BlockT> {
 	/// Get block import event stream.
 	///
-	/// Not guaranteed to be fired for every imported block, only fired when the node
-	/// has synced to the tip or there is a re-org. Use `every_import_notification_stream()`
-	/// if you want a notification of every imported block regardless.
+	/// Not guaranteed to be fired for every imported block. Use
+	/// `every_import_notification_stream()` if you want a notification of every imported block
+	/// regardless.
+	///
+	/// The events for this notification stream are emitted:
+	/// - During initial sync process: if there is a re-org while importing blocks. See
+	/// [here](https://github.com/paritytech/substrate/pull/7118#issuecomment-694091901) for the
+	/// rationale behind this.
+	/// - After initial sync process: on every imported block, regardless of whether it is
+	/// the new best block or not, causes a re-org or not.
 	fn import_notification_stream(&self) -> ImportNotifications<Block>;
 
 	/// Get a stream of every imported block.
@@ -397,8 +406,8 @@ pub struct FinalityNotification<Block: BlockT> {
 	///
 	/// This maps to the range `(old_finalized, new_finalized)`.
 	pub tree_route: Arc<[Block::Hash]>,
-	/// Stale branches heads.
-	pub stale_heads: Arc<[Block::Hash]>,
+	/// Stale blocks.
+	pub stale_blocks: Arc<[Arc<StaleBlock<Block>>]>,
 	/// Handle to unpin the block this notification is for
 	unpin_handle: UnpinHandle<Block>,
 }
@@ -432,7 +441,9 @@ impl<Block: BlockT> FinalityNotification<Block> {
 			hash,
 			header: summary.header,
 			tree_route: Arc::from(summary.finalized),
-			stale_heads: Arc::from(summary.stale_heads),
+			stale_blocks: Arc::from(
+				summary.stale_blocks.into_iter().map(Arc::from).collect::<Vec<_>>(),
+			),
 			unpin_handle: UnpinHandle::new(hash, unpin_worker_sender),
 		}
 	}

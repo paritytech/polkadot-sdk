@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: approval-voting fix sending of assignments after restart
+
+doc:
+  - audience: Node Dev
+    description: |
+      There is a problem on restart where nodes will not trigger their needed assignment if 
+      they were offline and the time of the assignment passed, so after restart always 
+      schedule a wakeup so that nodes a have the opportunity of triggering their assignments
+      if they are still needed.
+
+crates:
+  - name: polkadot-node-core-approval-voting
+    bump: minor

@@ -23,11 +23,14 @@ use codec::Encode;
 use polkadot_node_core_pvf::{
 	InvalidCandidate, PossiblyInvalidError, PrepareError, ValidationError,
 };
+use polkadot_node_primitives::PoV;
 use polkadot_parachain_primitives::primitives::{
-	BlockData as GenericBlockData, HeadData as GenericHeadData, ValidationParams,
+	BlockData as GenericBlockData, HeadData as GenericHeadData,
 };
+use polkadot_primitives::PersistedValidationData;
 use procfs::process;
 use rusty_fork::rusty_fork_test;
+use sp_core::H256;
 use std::{future::Future, sync::Arc, time::Duration};
 use test_parachain_adder::{hash_state, BlockData, HeadData};
 
@@ -74,7 +77,9 @@ fn find_process_by_sid_and_name(
 
 	let mut found = None;
 	for process in all_processes {
-		let stat = process.stat().expect("/proc existed above. Potential race occurred");
+		let Ok(stat) = process.stat() else {
+			continue;
+		};
 
 		if stat.session != sid || !process.exe().unwrap().to_str().unwrap().contains(exe_name) {
 			continue
@@ -125,16 +130,20 @@ rusty_fork_test! {
 		test_wrapper(|host, _sid| async move {
 			let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
 			let block_data = BlockData { state: 0, add: 512 };
+			let pvd = PersistedValidationData {
+				parent_head: GenericHeadData(parent_head.encode()),
+				relay_parent_number: 1u32,
+				relay_parent_storage_root: H256::default(),
+				max_pov_size: 4096 * 1024,
+			};
+			let pov = PoV { block_data: GenericBlockData(block_data.encode()) };
 			host
 				.validate_candidate(
 					test_parachain_adder::wasm_binary_unwrap(),
-					ValidationParams {
-						parent_head: GenericHeadData(parent_head.encode()),
-						block_data: GenericBlockData(block_data.encode()),
-						relay_parent_number: 1,
-						relay_parent_storage_root: Default::default(),
-					},
+					pvd,
+					pov,
 					Default::default(),
+					H256::default(),
 				)
 				.await
 				.unwrap();
@@ -166,18 +175,22 @@ rusty_fork_test! {
 			// Prepare the artifact ahead of time.
 			let binary = test_parachain_halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
+			let pvd = PersistedValidationData {
+				parent_head: GenericHeadData(HeadData::default().encode()),
+				relay_parent_number: 1u32,
+				relay_parent_storage_root: H256::default(),
+				max_pov_size: 4096 * 1024,
+			};
+			let pov = PoV { block_data: GenericBlockData(Vec::new()) };
 
 			let (result, _) = futures::join!(
 				// Choose an job that would normally take the entire timeout.
 				host.validate_candidate(
 					binary,
-					ValidationParams {
-						block_data: GenericBlockData(Vec::new()),
-						parent_head: Default::default(),
-						relay_parent_number: 1,
-						relay_parent_storage_root: Default::default(),
-					},
+					pvd,
+					pov,
 					Default::default(),
+					H256::default(),
 				),
 				// Send a stop signal to pause the worker.
 				async {
@@ -218,18 +231,22 @@ rusty_fork_test! {
 			// Prepare the artifact ahead of time.
 			let binary = test_parachain_halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
+			let pvd = PersistedValidationData {
+				parent_head: GenericHeadData(HeadData::default().encode()),
+				relay_parent_number: 1u32,
+				relay_parent_storage_root: H256::default(),
+				max_pov_size: 4096 * 1024,
+			};
+			let pov = PoV { block_data: GenericBlockData(Vec::new()) };
 
 			let (result, _) = futures::join!(
 				// Choose an job that would normally take the entire timeout.
 				host.validate_candidate(
 					binary,
-					ValidationParams {
-						block_data: GenericBlockData(Vec::new()),
-						parent_head: Default::default(),
-						relay_parent_number: 1,
-						relay_parent_storage_root: Default::default(),
-					},
+					pvd,
+					pov,
 					Default::default(),
+					H256::default(),
 				),
 				// Run a future that kills the job while it's running.
 				async {
@@ -274,18 +291,22 @@ rusty_fork_test! {
 			// Prepare the artifact ahead of time.
 			let binary = test_parachain_halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
+			let pvd = PersistedValidationData {
+				parent_head: GenericHeadData(HeadData::default().encode()),
+				relay_parent_number: 1u32,
+				relay_parent_storage_root: H256::default(),
+				max_pov_size: 4096 * 1024,
+			};
+			let pov = PoV { block_data: GenericBlockData(Vec::new()) };
 
 			let (result, _) = futures::join!(
 				// Choose a job that would normally take the entire timeout.
 				host.validate_candidate(
 					binary,
-					ValidationParams {
-						block_data: GenericBlockData(Vec::new()),
-						parent_head: Default::default(),
-						relay_parent_number: 1,
-						relay_parent_storage_root: Default::default(),
-					},
+					pvd,
+					pov,
 					Default::default(),
+					H256::default(),
 				),
 				// Run a future that kills the job while it's running.
 				async {
@@ -342,18 +363,22 @@ rusty_fork_test! {
 			// Prepare the artifact ahead of time.
 			let binary = test_parachain_halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
+			let pvd = PersistedValidationData {
+				parent_head: GenericHeadData(HeadData::default().encode()),
+				relay_parent_number: 1u32,
+				relay_parent_storage_root: H256::default(),
+				max_pov_size: 4096 * 1024,
+			};
+			let pov = PoV { block_data: GenericBlockData(Vec::new()) };
 
 			let _ = futures::join!(
 				// Choose a job that would normally take the entire timeout.
 				host.validate_candidate(
 					binary,
-					ValidationParams {
-						block_data: GenericBlockData(Vec::new()),
-						parent_head: Default::default(),
-						relay_parent_number: 1,
-						relay_parent_storage_root: Default::default(),
-					},
+					pvd,
+					pov,
 					Default::default(),
+					H256::default(),
 				),
 				// Run a future that tests the thread count while the worker is running.
 				async {

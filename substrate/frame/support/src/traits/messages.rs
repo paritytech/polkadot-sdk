@@ -18,16 +18,19 @@
 //! Traits for managing message queuing and handling.
 
 use super::storage::Footprint;
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use crate::defensive;
+
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
+use core::{cmp::Ordering, fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
 use sp_runtime::{traits::Convert, BoundedSlice, RuntimeDebug};
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub enum ProcessMessageError {
 	/// The message data format is unknown (e.g. unrecognised header)
 	BadFormat,
@@ -122,17 +125,6 @@ impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
 	}
 }
 
-/// The resource footprint of a queue.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
-pub struct QueueFootprint {
-	/// The number of pages in the queue (including overweight pages).
-	pub pages: u32,
-	/// The number of pages that are ready (not yet processed and also not overweight).
-	pub ready_pages: u32,
-	/// The storage footprint of the queue (including overweight messages).
-	pub storage: Footprint,
-}
-
 /// Can enqueue messages for multiple origins.
 pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 	/// The maximal length any enqueued message may have.
@@ -149,9 +141,6 @@ pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 
 	/// Any remaining unprocessed messages should happen only lazily, not proactively.
 	fn sweep_queue(origin: Origin);
-
-	/// Return the state footprint of the given queue.
-	fn footprint(origin: Origin) -> QueueFootprint;
 }
 
 impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
@@ -163,8 +152,149 @@ impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
 	) {
 	}
 	fn sweep_queue(_: Origin) {}
+}
+
+/// The resource footprint of a queue.
+#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+pub struct QueueFootprint {
+	/// The number of pages in the queue (including overweight pages).
+	pub pages: u32,
+	/// The number of pages that are ready (not yet processed and also not overweight).
+	pub ready_pages: u32,
+	/// The storage footprint of the queue (including overweight messages).
+	pub storage: Footprint,
+}
+
+/// The resource footprint of a batch of messages.
+#[derive(Default, Copy, Clone, PartialEq, RuntimeDebug)]
+pub struct BatchFootprint {
+	/// The number of messages in the batch.
+	pub msgs_count: usize,
+	/// The total size in bytes of all the messages in the batch.
+	pub size_in_bytes: usize,
+	/// The number of resulting new pages in the queue if the current batch was added.
+	pub new_pages_count: u32,
+}
+
+/// The resource footprints of continuous subsets of messages.
+///
+/// For a set of messages `xcms[0..n]`, each `footprints[i]` contains the footprint
+/// of the batch `xcms[0..i]`, so as `i` increases `footprints[i]` contains the footprint
+/// of a bigger batch.
+#[derive(Default, RuntimeDebug)]
+pub struct BatchesFootprints {
+	/// The position in the first available MQ page where the batch will start being appended.
+	///
+	/// The messages in the batch will be enqueued to the message queue. Since the message queue is
+	/// organized in pages, the messages may be enqueued across multiple contiguous pages.
+	/// The position where we start appending messages to the first available MQ page is of
+	/// particular importance since it impacts the performance of the enqueuing operation.
+	/// That's because the first page has to be decoded first. This is not needed for the following
+	/// pages.
+	pub first_page_pos: usize,
+	pub footprints: Vec<BatchFootprint>,
+}
+
+impl BatchesFootprints {
+	/// Appends a batch footprint to the back of the collection.
+	///
+	/// The new footprint represents a batch that includes all the messages contained by the
+	/// previous batches plus the provided `msg`. If `new_page` is true, we will consider that
+	/// the provided `msg` is appended to a new message queue page. Otherwise, we consider
+	/// that it is appended to the current page.
+	pub fn push(&mut self, msg: &[u8], new_page: bool) {
+		let previous_footprint =
+			self.footprints.last().map(|footprint| *footprint).unwrap_or_default();
+
+		let mut new_pages_count = previous_footprint.new_pages_count;
+		if new_page {
+			new_pages_count = new_pages_count.saturating_add(1);
+		}
+		self.footprints.push(BatchFootprint {
+			msgs_count: previous_footprint.msgs_count.saturating_add(1),
+			size_in_bytes: previous_footprint.size_in_bytes.saturating_add(msg.len()),
+			new_pages_count,
+		});
+	}
+
+	/// Gets the biggest batch for which the comparator function returns `Ordering::Less`.
+	pub fn search_best_by<F>(&self, f: F) -> &BatchFootprint
+	where
+		F: FnMut(&BatchFootprint) -> Ordering,
+	{
+		// Since the batches are sorted by size, we can use binary search.
+		let maybe_best_idx = match self.footprints.binary_search_by(f) {
+			Ok(last_ok_idx) => Some(last_ok_idx),
+			Err(first_err_idx) => first_err_idx.checked_sub(1),
+		};
+		if let Some(best_idx) = maybe_best_idx {
+			match self.footprints.get(best_idx) {
+				Some(best_footprint) => return best_footprint,
+				None => {
+					defensive!("Invalid best_batch_idx: {}", best_idx);
+				},
+			}
+		}
+		&BatchFootprint { msgs_count: 0, size_in_bytes: 0, new_pages_count: 0 }
+	}
+}
+
+/// Provides information on queue footprint.
+pub trait QueueFootprintQuery<Origin> {
+	/// The maximal length any enqueued message may have.
+	type MaxMessageLen: Get<u32>;
+
+	/// Return the state footprint of the given queue.
+	fn footprint(origin: Origin) -> QueueFootprint;
+
+	/// Get the `BatchFootprint` for each batch of messages `[0..n]`
+	/// as long as the total number of pages would be <= `total_pages_limit`.
+	///
+	/// # Examples
+	///
+	/// Let's consider that each message would result in a new page and that there's already 1
+	/// full page in the queue. Then, for the messages `["1", "2", "3"]`
+	/// and `total_pages_limit = 3`, `get_batches_footprints()` would return:
+	/// ```
+	/// use frame_support::traits::BatchFootprint;
+	///
+	/// vec![
+	/// 	// The footprint of batch ["1"]
+	/// 	BatchFootprint {
+	/// 		msgs_count: 1,
+	/// 		size_in_bytes: 1,
+	/// 		new_pages_count: 1, // total pages count = 2
+	/// 	},
+	/// 	// The footprint of batch ["1", "2"]
+	/// 	BatchFootprint {
+	/// 		msgs_count: 2,
+	/// 		size_in_bytes: 2,
+	/// 		new_pages_count: 2, // total pages count = 3
+	/// 	}
+	/// 	// For the batch ["1", "2", "3"], the total pages count would be 4, which would exceed
+	/// 	// the `total_pages_limit`.
+	/// ];
+	/// ```
+	fn get_batches_footprints<'a>(
+		origin: Origin,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> BatchesFootprints;
+}
+
+impl<Origin: MaxEncodedLen> QueueFootprintQuery<Origin> for () {
+	type MaxMessageLen = ConstU32<0>;
+
 	fn footprint(_: Origin) -> QueueFootprint {
 		QueueFootprint::default()
+	}
+
+	fn get_batches_footprints<'a>(
+		_origin: Origin,
+		_msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		_total_pages_limit: u32,
+	) -> BatchesFootprints {
+		BatchesFootprints::default()
 	}
 }
 
@@ -189,9 +319,23 @@ impl<E: EnqueueMessage<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N, O>>
 	fn sweep_queue(origin: N) {
 		E::sweep_queue(C::convert(origin));
 	}
+}
+
+impl<E: QueueFootprintQuery<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N, O>>
+	QueueFootprintQuery<N> for TransformOrigin<E, O, N, C>
+{
+	type MaxMessageLen = E::MaxMessageLen;
 
 	fn footprint(origin: N) -> QueueFootprint {
 		E::footprint(C::convert(origin))
+	}
+
+	fn get_batches_footprints<'a>(
+		origin: N,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> BatchesFootprints {
+		E::get_batches_footprints(C::convert(origin), msgs, total_pages_limit)
 	}
 }
 
@@ -210,9 +354,6 @@ pub trait HandleMessage {
 
 	/// Any remaining unprocessed messages should happen only lazily, not proactively.
 	fn sweep_queue();
-
-	/// Return the state footprint of the queue.
-	fn footprint() -> QueueFootprint;
 }
 
 /// Adapter type to transform an [`EnqueueMessage`] with an origin into a [`HandleMessage`] impl.
@@ -235,10 +376,6 @@ where
 
 	fn sweep_queue() {
 		E::sweep_queue(O::get());
-	}
-
-	fn footprint() -> QueueFootprint {
-		E::footprint(O::get())
 	}
 }
 

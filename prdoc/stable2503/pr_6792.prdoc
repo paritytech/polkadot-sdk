@@ -1,0 +1,11 @@
+title: Add fallback_max_weight to snowbridge Transact
+doc:
+- audience: Runtime Dev
+  description: |-
+    We removed the `require_weight_at_most` field and later changed it to `fallback_max_weight`.
+    This was to have a fallback when sending a message to v4 chains, which happens in the small time window when chains are upgrading.
+    We originally put no fallback for a message in snowbridge's inbound queue but we should have one.
+    This PR adds it.
+crates:
+- name: snowbridge-router-primitives
+  bump: patch

@@ -47,7 +47,7 @@ impl<Block: BlockT> WasmSubstitute<Block> {
 		Self { code, hash, block_number, version }
 	}
 
-	fn runtime_code(&self, heap_pages: Option<u64>) -> RuntimeCode {
+	fn runtime_code(&self, heap_pages: Option<u64>) -> RuntimeCode<'_> {
 		RuntimeCode { code_fetcher: self, hash: self.hash.clone(), heap_pages }
 	}
 
@@ -71,7 +71,7 @@ fn make_hash<K: std::hash::Hash + ?Sized>(val: &K) -> Vec<u8> {
 }
 
 impl<Block: BlockT> FetchRuntimeCode for WasmSubstitute<Block> {
-	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<'_, [u8]>> {
 		Some(self.code.as_slice().into())
 	}
 }
@@ -94,7 +94,7 @@ impl From<WasmSubstituteError> for sp_blockchain::Error {
 pub struct WasmSubstitutes<Block: BlockT, Executor, Backend> {
 	/// spec_version -> WasmSubstitute
 	substitutes: Arc<HashMap<u32, WasmSubstitute<Block>>>,
-	executor: Executor,
+	executor: Arc<Executor>,
 	backend: Arc<Backend>,
 }
 
@@ -110,14 +110,14 @@ impl<Block: BlockT, Executor: Clone, Backend> Clone for WasmSubstitutes<Block, E
 
 impl<Executor, Backend, Block> WasmSubstitutes<Block, Executor, Backend>
 where
-	Executor: RuntimeVersionOf + Clone + 'static,
+	Executor: RuntimeVersionOf,
 	Backend: backend::Backend<Block>,
 	Block: BlockT,
 {
 	/// Create a new instance.
 	pub fn new(
 		substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
-		executor: Executor,
+		executor: Arc<Executor>,
 		backend: Arc<Backend>,
 	) -> Result<Self> {
 		let substitutes = substitutes

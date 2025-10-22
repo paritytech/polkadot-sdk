@@ -60,7 +60,6 @@ type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContex
 >;
 pub struct TestHarness {
 	pub virtual_overseer: VirtualOverseer,
-	pub pov_req_cfg: RequestResponseConfig,
 	pub chunk_req_v1_cfg: RequestResponseConfig,
 	pub chunk_req_v2_cfg: RequestResponseConfig,
 	pub pool: TaskExecutor,
@@ -110,7 +109,7 @@ impl TestState {
 		let session_info = make_session_info();
 
 		let our_chunk_index = availability_chunk_index(
-			Some(&node_features),
+			&node_features,
 			session_info.validators.len(),
 			CoreIndex(1),
 			ValidatorIndex(0),
@@ -216,7 +215,7 @@ impl TestState {
 		// Test will fail if this does not happen until timeout.
 		let mut remaining_stores = self.valid_chunks.len();
 
-		let TestSubsystemContextHandle { tx, mut rx } = harness.virtual_overseer;
+		let TestSubsystemContextHandle { tx, mut rx, .. } = harness.virtual_overseer;
 
 		// Spawning necessary as incoming queue can only hold a single item, we don't want to dead
 		// lock ;-)

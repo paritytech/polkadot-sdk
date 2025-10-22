@@ -1,60 +1,82 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// Polkadot is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
+extern crate alloc;
 
-// You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-
+pub use array_bytes;
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-pub use lazy_static::lazy_static;
-pub use log;
 pub use paste;
 pub use std::{
-	any::type_name, collections::HashMap, error::Error, fmt, marker::PhantomData, ops::Deref,
-	sync::Mutex,
+	any::type_name,
+	collections::HashMap,
+	error::Error,
+	fmt,
+	marker::PhantomData,
+	ops::Deref,
+	sync::{Arc, LazyLock, Mutex},
 };
+pub use tracing;
 
+pub use cumulus_primitives_core::relay_chain::Slot;
+pub use sp_consensus_aura::AURA_ENGINE_ID;
+pub use sp_runtime::DigestItem;
 // Substrate
+pub use alloc::collections::vec_deque::VecDeque;
+pub use core::{cell::RefCell, fmt::Debug};
 pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessageOrigin;
 pub use frame_support::{
 	assert_ok,
-	sp_runtime::{traits::Header as HeaderT, DispatchResult},
+	sp_runtime::{
+		traits::{Convert, Dispatchable, Header as HeaderT, Zero},
+		Digest, DispatchResult,
+	},
 	traits::{
-		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
-		ProcessMessage, ProcessMessageError, ServiceQueues,
+		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnIdle, OnInitialize,
+		OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
 };
 pub use frame_system::{
-	pallet_prelude::BlockNumberFor, Config as SystemConfig, Pallet as SystemPallet,
+	limits::BlockWeights as BlockWeightsLimits, pallet_prelude::BlockNumberFor,
+	Config as SystemConfig, Pallet as SystemPallet,
 };
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
+pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
+pub use sp_core::{
+	crypto::get_public_from_string_or_panic, parameter_types, sr25519, storage::Storage, Pair,
+};
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
 pub use sp_runtime::BoundedSlice;
-pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
 pub use sp_tracing;
 
 // Cumulus
-pub use cumulus_pallet_parachain_system::Pallet as ParachainSystemPallet;
+pub use cumulus_pallet_parachain_system::{
+	parachain_inherent::{deconstruct_parachain_inherent_data, InboundMessagesData},
+	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
+};
 pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
 	AbridgedHrmpChannel, DmpMessageHandler, ParaId, PersistedValidationData, XcmpMessageHandler,
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+pub use pallet_aura;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
@@ -62,12 +84,13 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use sp_core::crypto::AccountId32;
+use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
 	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
+use xcm_simulator::helpers::TopicIdTracker;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -95,7 +118,6 @@ thread_local! {
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
 }
-
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
 	Origin: Chain + Clone,
@@ -124,6 +146,16 @@ where
 		)* );
 	}
 }
+
+// Implement optional inherent code to be executed
+// This will be executed after on-initialize and before on-finalize
+pub trait AdditionalInherentCode {
+	fn on_new_block() -> DispatchResult {
+		Ok(())
+	}
+}
+
+impl AdditionalInherentCode for () {}
 
 pub trait TestExt {
 	fn build_new_ext(storage: Storage) -> TestExternalities;
@@ -211,14 +243,14 @@ pub trait Network {
 pub trait Chain: TestExt {
 	type Network: Network;
 	type Runtime: SystemConfig;
-	type RuntimeCall;
+	type RuntimeCall: Clone + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>;
 	type RuntimeOrigin;
 	type RuntimeEvent;
 	type System;
 	type OriginCaller;
 
 	fn account_id_of(seed: &str) -> AccountId {
-		helpers::get_account_id_from_seed::<sr25519::Public>(seed)
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into()
 	}
 
 	fn account_data_of(account: AccountIdOf<Self::Runtime>) -> AccountData<Balance>;
@@ -251,6 +283,11 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
+	type DigestProvider: Convert<
+		(BlockNumberFor<Self::Runtime>, BlockNumberFor<Self::Runtime>),
+		Digest,
+	>;
+	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
 
@@ -293,9 +330,11 @@ impl Bridge for () {
 	fn init() {}
 }
 
+pub type BridgeLaneId = Vec<u8>;
+
 #[derive(Clone, Default, Debug)]
 pub struct BridgeMessage {
-	pub id: u32,
+	pub lane_id: BridgeLaneId,
 	pub nonce: u64,
 	pub payload: Vec<u8>,
 }
@@ -307,7 +346,7 @@ pub trait BridgeMessageHandler {
 		message: BridgeMessage,
 	) -> Result<(), BridgeMessageDispatchError>;
 
-	fn notify_source_message_delivery(lane_id: u32);
+	fn notify_source_message_delivery(lane_id: BridgeLaneId);
 }
 
 impl BridgeMessageHandler for () {
@@ -321,7 +360,7 @@ impl BridgeMessageHandler for () {
 		Err(BridgeMessageDispatchError(Box::new("Not a bridge")))
 	}
 
-	fn notify_source_message_delivery(_lane_id: u32) {}
+	fn notify_source_message_delivery(_lane_id: BridgeLaneId) {}
 }
 
 #[derive(Debug)]
@@ -437,10 +476,8 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				= $crate::RefCell::new($crate::TestExternalities::new($genesis));
 		}
 
-		$crate::lazy_static! {
-			pub static ref $global_ext: $crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>
-				= $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new()));
-		}
+		pub static $global_ext: $crate::LazyLock<$crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>>
+			= $crate::LazyLock::new(|| $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new())));
 
 		impl<$network: $crate::Network> $crate::TestExt for $name<$network> {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
@@ -472,10 +509,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 					v.take()
 				});
 
-				// Get TestExternality from lazy_static
+				// Get TestExternality from LazyLock
 				let global_ext_guard = $global_ext.lock().unwrap();
 
-				// Replace TestExternality in lazy_static by TestExternality from thread_local
+				// Replace TestExternality in LazyLock by TestExternality from thread_local
 				global_ext_guard.deref().borrow_mut().insert(id.to_string(), local_ext);
 			}
 
@@ -484,10 +521,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 				let mut global_ext_unlocked = false;
 
-				// Keep the mutex unlocked until TesExternality from lazy_static
+				// Keep the mutex unlocked until TesExternality from LazyLock
 				// has been updated
 				while !global_ext_unlocked {
-					// Get TesExternality from lazy_static
+					// Get TesExternality from LazyLock
 					let global_ext_result = $global_ext.try_lock();
 
 					if let Ok(global_ext_guard) = global_ext_result {
@@ -500,10 +537,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 					}
 				}
 
-				// Now that we know that lazy_static TestExt has been updated, we lock its mutex
+				// Now that we know that TestExt has been updated, we lock its mutex
 				let mut global_ext_guard = $global_ext.lock().unwrap();
 
-				// and set TesExternality from lazy_static into TesExternality for local_thread
+				// and set TesExternality from LazyLock into TesExternality for local_thread
 				let global_ext = global_ext_guard.deref();
 
 				$local_ext.with(|v| {
@@ -521,7 +558,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				<$network>::init();
 
 				// Execute
-				let r = $local_ext.with(|v| v.borrow_mut().execute_with(execute));
+				let r = $local_ext.with(|v| {
+					$crate::tracing::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					v.borrow_mut().execute_with(execute)
+				});
 
 				// Send messages if needed
 				$local_ext.with(|v| {
@@ -545,7 +585,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 						// log events
 						Self::events().iter().for_each(|event| {
-							$crate::log::debug!(target: concat!("events::", stringify!($name)), "{:?}", event);
+							$crate::tracing::info!(target: concat!("events::", stringify!($name)), ?event, "Event emitted");
 						});
 
 						// clean events
@@ -583,6 +623,8 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
+					$( DigestProvider: $digest_provider:ty,)?
+					$( AdditionalInherentCode: $additional_inherent_code:ty,)?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -623,11 +665,14 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
+				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
+				$crate::decl_test_parachains!(@inner_additional_inherent_code $($additional_inherent_code)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
 				fn init() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, TestExt};
+
 					// Initialize the thread local variable
 					$crate::paste::paste! {
 						[<LOCAL_EXT_ $name:upper>].with(|v| *v.borrow_mut() = Self::build_new_ext($genesis));
@@ -641,7 +686,9 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{
+						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode
+					};
 
 					let para_id = Self::para_id().into();
 
@@ -661,22 +708,67 @@ macro_rules! decl_test_parachains {
 							.expect("network not initialized?")
 							.clone()
 						);
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
 
-						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
-							<Self as Chain>::RuntimeOrigin::none(),
-							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						// Initialze `System`.
+						let digest = <Self as Parachain>::DigestProvider::convert((block_number, relay_block_number));
+						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
+
+						// Process `on_initialize` for all pallets except `System`.
+					// This must run BEFORE timestamp::set because pallet_aura's OnTimestampSet implementation
+					// checks that the timestamp slot matches CurrentSlot, and CurrentSlot is updated in on_initialize.
+					let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
+
+					// Process parachain inherents:
+
+					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+						// We need to satisfy `pallet_timestamp::on_finalize`.
+						// The timestamp must match the relay chain slot since Aura uses the relay chain slot from the digest.
+					now: relay_block_number as u64 * slot_duration,
+					}.into();
+					$crate::assert_ok!(
+						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+					);
+
+					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
+						let (data, mut downward_messages, mut horizontal_messages) =
+							$crate::deconstruct_parachain_inherent_data(data);
+						let inbound_messages_data = $crate::InboundMessagesData::new(
+							downward_messages.into_abridged(&mut usize::MAX.clone()),
+							horizontal_messages.into_abridged(&mut usize::MAX.clone()),
+						);
+						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
+							data,
+							inbound_messages_data
+						}.into();
+						$crate::assert_ok!(
+							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+
+						$crate::assert_ok!(
+							<Self as Parachain>::AdditionalInherentCode::on_new_block()
 						);
 					});
 				}
 
 				fn finalize_block() {
-					use $crate::{Chain, Encode, Hooks, Network, Parachain, TestExt};
+					use $crate::{BlockWeightsLimits, Chain, OnFinalize, OnIdle, SystemConfig, TestExt, Weight};
 
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
-						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
+
+						// Process `on_idle` for all pallets.
+						let weight = <Self as Chain>::System::block_weight();
+						let max_weight: Weight = <<<Self as Chain>::Runtime as SystemConfig>::BlockWeights as frame_support::traits::Get<BlockWeightsLimits>>::get().max_block;
+						let remaining_weight = max_weight.saturating_sub(weight.total());
+						if remaining_weight.all_gt(Weight::zero()) {
+							let _ = $runtime::AllPalletsWithSystem::on_idle(block_number, remaining_weight);
+						}
+
+						// Process `on_finalize` for all pallets except `System`.
+						$runtime::AllPalletsWithoutSystem::on_finalize(block_number);
 					});
 
 					Self::set_last_head();
@@ -684,7 +776,7 @@ macro_rules! decl_test_parachains {
 
 
 				fn set_last_head() {
-					use $crate::{Chain, Encode, HeadData, Network, Parachain, TestExt};
+					use $crate::{Chain, Encode, HeadData, TestExt};
 
 					let para_id = Self::para_id().into();
 
@@ -718,6 +810,10 @@ macro_rules! decl_test_parachains {
 			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
+	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
+	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
+	( @inner_additional_inherent_code $additional_inherent_code:ty ) => { type AdditionalInherentCode = $additional_inherent_code; };
+	( @inner_additional_inherent_code /* none */ ) => { type AdditionalInherentCode = (); };
 }
 
 #[macro_export]
@@ -735,10 +831,8 @@ macro_rules! __impl_test_ext_for_parachain {
 				= $crate::RefCell::new($crate::TestExternalities::new($genesis));
 		}
 
-		$crate::lazy_static! {
-			pub static ref $global_ext: $crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>
-				= $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new()));
-		}
+		pub static $global_ext: $crate::LazyLock<$crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>>
+			= $crate::LazyLock::new(|| $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new())));
 
 		impl<$network: $crate::Network> $crate::TestExt for $name<$network> {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
@@ -768,10 +862,10 @@ macro_rules! __impl_test_ext_for_parachain {
 					v.take()
 				});
 
-				// Get TestExternality from lazy_static
+				// Get TestExternality from LazyLock
 				let global_ext_guard = $global_ext.lock().unwrap();
 
-				// Replace TestExternality in lazy_static by TestExternality from thread_local
+				// Replace TestExternality in LazyLock by TestExternality from thread_local
 				global_ext_guard.deref().borrow_mut().insert(id.to_string(), local_ext);
 			}
 
@@ -780,10 +874,10 @@ macro_rules! __impl_test_ext_for_parachain {
 
 				let mut global_ext_unlocked = false;
 
-				// Keep the mutex unlocked until TesExternality from lazy_static
+				// Keep the mutex unlocked until TesExternality from LazyLock
 				// has been updated
 				while !global_ext_unlocked {
-					// Get TesExternality from lazy_static
+					// Get TesExternality from LazyLock
 					let global_ext_result = $global_ext.try_lock();
 
 					if let Ok(global_ext_guard) = global_ext_result {
@@ -796,10 +890,10 @@ macro_rules! __impl_test_ext_for_parachain {
 					}
 				}
 
-				// Now that we know that lazy_static TestExt has been updated, we lock its mutex
+				// Now that we know that TestExt has been updated, we lock its mutex
 				let mut global_ext_guard = $global_ext.lock().unwrap();
 
-				// and set TesExternality from lazy_static into TesExternality for local_thread
+				// and set TesExternality from LazyLock into TesExternality for local_thread
 				let global_ext = global_ext_guard.deref();
 
 				$local_ext.with(|v| {
@@ -821,7 +915,10 @@ macro_rules! __impl_test_ext_for_parachain {
 				Self::new_block();
 
 				// Execute
-				let r = $local_ext.with(|v| v.borrow_mut().execute_with(execute));
+				let r = $local_ext.with(|v| {
+					$crate::tracing::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					v.borrow_mut().execute_with(execute)
+				});
 
 				// Finalize the block
 				Self::finalize_block();
@@ -867,7 +964,7 @@ macro_rules! __impl_test_ext_for_parachain {
 
 						// log events
 						<Self as $crate::Chain>::events().iter().for_each(|event| {
-							$crate::log::debug!(target: concat!("events::", stringify!($name)), "{:?}", event);
+							$crate::tracing::info!(target: concat!("events::", stringify!($name)), ?event, "Event emitted");
 						});
 
 						// clean events
@@ -1019,7 +1116,10 @@ macro_rules! decl_test_networks {
 											&mut msg.using_encoded($crate::blake2_256),
 										);
 									});
-									$crate::log::debug!(target: concat!("dmp::", stringify!($name)) , "DMP messages processed {:?} to para_id {:?}", msgs.clone(), &to_para_id);
+									let messages = msgs.clone().iter().map(|(block, message)| {
+										(*block, $crate::array_bytes::bytes2hex("0x", message))
+									}).collect::<Vec<_>>();
+									$crate::tracing::info!(target: concat!("xcm::dmp::", stringify!($name)), ?to_para_id, ?messages, "Downward messages processed");
 									$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back((to_para_id, block, msg)));
 								}
 							}
@@ -1032,7 +1132,7 @@ macro_rules! decl_test_networks {
 
 					while let Some((to_para_id, messages))
 						= $crate::HORIZONTAL_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
-						let iter = messages.iter().map(|(p, b, m)| (*p, *b, &m[..])).collect::<Vec<_>>().into_iter();
+						let iter = messages.iter().map(|(para_id, relay_block_number, message)| (*para_id, *relay_block_number, &message[..])).collect::<Vec<_>>().into_iter();
 						$(
 							let para_id: u32 = <$parachain<Self>>::para_id().into();
 
@@ -1042,7 +1142,10 @@ macro_rules! decl_test_networks {
 									// Nudge the MQ pallet to process immediately instead of in the next block.
 									let _ =  <$parachain<Self> as Parachain>::MessageProcessor::service_queues($crate::Weight::MAX);
 								});
-								$crate::log::debug!(target: concat!("hrmp::", stringify!($name)) , "HRMP messages processed {:?} to para_id {:?}", &messages, &to_para_id);
+								let messages = messages.clone().iter().map(|(para_id, relay_block_number, message)| {
+									(*para_id, *relay_block_number, $crate::array_bytes::bytes2hex("0x", message))
+								}).collect::<Vec<_>>();
+								$crate::tracing::info!(target: concat!("xcm::hrmp::", stringify!($name)), ?to_para_id, ?messages, "Horizontal messages processed");
 							}
 						)*
 					}
@@ -1061,7 +1164,8 @@ macro_rules! decl_test_networks {
 								&mut msg.using_encoded($crate::blake2_256),
 							);
 						});
-						$crate::log::debug!(target: concat!("ump::", stringify!($name)) , "Upward message processed {:?} from para_id {:?}", &msg, &from_para_id);
+						let message = $crate::array_bytes::bytes2hex("0x", msg.clone());
+						$crate::tracing::info!(target: concat!("xcm::ump::", stringify!($name)), ?from_para_id, ?message, "Upward message processed");
 					}
 				}
 
@@ -1076,12 +1180,12 @@ macro_rules! decl_test_networks {
 						});
 
 						match dispatch_result {
-							Err(e) => panic!("Error {:?} processing bridged message: {:?}", e, msg.clone()),
+							Err(e) => panic!("Error {:?} processing bridged message: {:?}", e, msg),
 							Ok(()) => {
 								<<Self::Bridge as Bridge>::Source as TestExt>::ext_wrapper(|| {
-									<<Self::Bridge as Bridge>::Handler as BridgeMessageHandler>::notify_source_message_delivery(msg.id);
+									<<Self::Bridge as Bridge>::Handler as BridgeMessageHandler>::notify_source_message_delivery(msg.lane_id.clone());
 								});
-								$crate::log::debug!(target: concat!("bridge::", stringify!($name)) , "Bridged message processed {:?}", msg.clone());
+								$crate::tracing::info!(target: concat!("bridge::", stringify!($name)), ?msg, "Bridged message processed");
 							}
 						}
 					}
@@ -1094,6 +1198,7 @@ macro_rules! decl_test_networks {
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
+					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1125,7 +1230,7 @@ macro_rules! decl_test_networks {
 
 					$crate::ParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
-							parent_head: Default::default(),
+							parent_head: parent_head_data.clone(),
 							relay_parent_number,
 							relay_parent_storage_root: relay_storage_root,
 							max_pov_size: Default::default(),
@@ -1133,6 +1238,8 @@ macro_rules! decl_test_networks {
 						relay_chain_state: proof,
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
+						relay_parent_descendants: Default::default(),
+						collator_peer_id: None,
 					}
 				}
 			}
@@ -1200,13 +1307,22 @@ macro_rules! __impl_check_assertion {
 			Args: Clone,
 		{
 			fn check_assertion(test: $crate::Test<Origin, Destination, Hops, Args>) {
-				use $crate::TestExt;
+				use $crate::{Dispatchable, TestExt};
 
 				let chain_name = std::any::type_name::<$chain<$network>>();
 
 				<$chain<$network>>::execute_with(|| {
 					if let Some(dispatchable) = test.hops_dispatchable.get(chain_name) {
 						$crate::assert_ok!(dispatchable(test.clone()));
+					}
+					if let Some(call) = test.hops_calls.get(chain_name) {
+						$crate::assert_ok!(
+							match call.clone().dispatch(test.signed_origin.clone()) {
+								// We get rid of `post_info`.
+								Ok(_) => Ok(()),
+								Err(error_with_post_info) => Err(error_with_post_info.error),
+							}
+						);
 					}
 					if let Some(assertion) = test.hops_assertion.get(chain_name) {
 						assertion(test);
@@ -1219,63 +1335,64 @@ macro_rules! __impl_check_assertion {
 
 #[macro_export]
 macro_rules! assert_expected_events {
-	( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
-		let mut message: Vec<String> = Vec::new();
+    ( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
+		let mut messages: Vec<String> = Vec::new();
 		let mut events = <$chain as $crate::Chain>::events();
 
+		// For each event pattern, we try to find a matching event.
 		$(
+			// We'll store a string representation of the first partially matching event.
+			let mut failure_message: Option<String> = None;
 			let mut event_received = false;
-			let mut meet_conditions = true;
-			let mut index_match = 0;
-			let mut event_message: Vec<String> = Vec::new();
-
-			for (index, event) in events.iter().enumerate() {
-				// Have to reset the variable to override a previous partial match
-				meet_conditions = true;
+			for index in 0..events.len() {
+				let event = &events[index];
 				match event {
 					$event_pat => {
-						event_received = true;
+						let mut event_meets_conditions = true;
 						let mut conditions_message: Vec<String> = Vec::new();
+						event_received = true;
 
 						$(
-							// We only want to record condition error messages in case it did not happened before
-							// Only the first partial match is recorded
-							if !$condition && event_message.is_empty() {
+							if !$condition {
 								conditions_message.push(
 									format!(
-										" - The attribute {:?} = {:?} did not met the condition {:?}\n",
+										" - The attribute {} = {:?} did not meet the condition {}\n",
 										stringify!($attr),
 										$attr,
 										stringify!($condition)
 									)
 								);
 							}
-							meet_conditions &= $condition;
+							event_meets_conditions &= $condition;
 						)*
 
-						// Set the index where we found a perfect match
-						if event_received && meet_conditions {
-							index_match = index;
+						if failure_message.is_none() && !conditions_message.is_empty() {
+							// Record the failure message.
+							failure_message = Some(format!(
+								"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions.\n\
+								 Actual event:\n{:#?}\n\
+								 Failures:\n{}",
+								stringify!($chain),
+								stringify!($event_pat),
+								event,
+								conditions_message.concat()
+							));
+						}
+
+						if event_meets_conditions {
+							// Found an event where all conditions hold.
+							failure_message = None;
+							events.remove(index);
 							break;
-						} else {
-							event_message.extend(conditions_message);
 						}
 					},
 					_ => {}
 				}
 			}
 
-			if event_received && !meet_conditions  {
-				message.push(
-					format!(
-						"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions:\n{}",
-						stringify!($chain),
-						stringify!($event_pat),
-						event_message.concat()
-					)
-				);
-			} else if !event_received {
-				message.push(
+			if !event_received || failure_message.is_some() {
+				// No event matching the pattern was found.
+				messages.push(
 					format!(
 						"\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}",
 						stringify!($chain),
@@ -1283,18 +1400,15 @@ macro_rules! assert_expected_events {
 						<$chain as $crate::Chain>::events(),
 					)
 				);
-			} else {
-				// If we find a perfect match we remove the event to avoid being potentially assessed multiple times
-				events.remove(index_match);
 			}
 		)*
 
-		if !message.is_empty() {
-			// Log events as they will not be logged after the panic
+		if !messages.is_empty() {
+			// Log all events (since they won't be logged after the panic).
 			<$chain as $crate::Chain>::events().iter().for_each(|event| {
-				$crate::log::debug!(target: concat!("events::", stringify!($chain)), "{:?}", event);
+				$crate::tracing::info!(target: concat!("events::", stringify!($chain)), ?event, "Event emitted");
 			});
-			panic!("{}", message.concat())
+			panic!("{}", messages.concat())
 		}
 	}
 }
@@ -1509,11 +1623,31 @@ where
 	pub root_origin: Origin::RuntimeOrigin,
 	pub hops_assertion: HashMap<String, fn(Self)>,
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
+	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
+	pub topic_id_tracker: Arc<Mutex<TopicIdTracker>>,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
-/// `Test` implementation
+/// `Test` implementation.
+impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
+where
+	Args: Clone,
+	Origin: Chain + Clone,
+	Destination: Chain + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
+	Hops: Clone,
+{
+	/// Asserts that a single unique topic ID exists across all chains.
+	pub fn assert_unique_topic_id(&self) {
+		self.topic_id_tracker.lock().unwrap().assert_unique();
+	}
+	/// Inserts a topic ID for a specific chain and asserts it remains globally unique.
+	pub fn insert_unique_topic_id(&mut self, chain: &str, id: H256) {
+		self.topic_id_tracker.lock().unwrap().insert_and_assert_unique(chain, id);
+	}
+}
 impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
 where
 	Args: Clone,
@@ -1523,7 +1657,7 @@ where
 	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
 	Hops: Clone + CheckAssertion<Origin, Destination, Hops, Args>,
 {
-	/// Creates a new `Test` instance
+	/// Creates a new `Test` instance.
 	pub fn new(test_args: TestContext<Args, Origin, Destination>) -> Self {
 		Test {
 			sender: TestAccount {
@@ -1538,7 +1672,9 @@ where
 			root_origin: <Origin as Chain>::RuntimeOrigin::root(),
 			hops_assertion: Default::default(),
 			hops_dispatchable: Default::default(),
+			hops_calls: Default::default(),
 			args: test_args.args,
+			topic_id_tracker: Arc::new(Mutex::new(TopicIdTracker::new())),
 			_marker: Default::default(),
 		}
 	}
@@ -1551,6 +1687,11 @@ where
 	pub fn set_dispatchable<Hop>(&mut self, dispatchable: fn(Self) -> DispatchResult) {
 		let chain_name = std::any::type_name::<Hop>();
 		self.hops_dispatchable.insert(chain_name.to_string(), dispatchable);
+	}
+	/// Stores a call in a particular Chain, this will later be dispatched.
+	pub fn set_call(&mut self, call: Origin::RuntimeCall) {
+		let chain_name = std::any::type_name::<Origin>();
+		self.hops_calls.insert(chain_name.to_string(), call);
 	}
 	/// Executes all dispatchables and assertions in order from `Origin` to `Destination`
 	pub fn assert(&mut self) {
@@ -1588,18 +1729,5 @@ pub mod helpers {
 			within_threshold(threshold_size, expected_weight.proof_size(), weight.proof_size());
 
 		ref_time_within && proof_size_within
-	}
-
-	/// Helper function to generate an account ID from seed.
-	pub fn get_account_id_from_seed<TPublic: sp_core::Public>(seed: &str) -> AccountId
-	where
-		sp_runtime::MultiSigner:
-			From<<<TPublic as sp_runtime::CryptoType>::Pair as sp_core::Pair>::Public>,
-	{
-		use sp_runtime::traits::IdentifyAccount;
-		let pubkey = TPublic::Pair::from_string(&format!("//{}", seed), None)
-			.expect("static values are valid; qed")
-			.public();
-		sp_runtime::MultiSigner::from(pubkey).into_account()
 	}
 }

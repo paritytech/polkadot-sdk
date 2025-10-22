@@ -42,26 +42,32 @@
 
 mod tests;
 
-use codec::{Decode, Encode};
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{
 	marker::PhantomData,
 	ops::{Deref, DerefMut},
 };
-use frame_support::{
-	dispatch::DispatchResult,
-	pallet_prelude::MaxEncodedLen,
-	traits::{BalanceStatus, Currency, Get, ReservableCurrency},
-	weights::Weight,
-	RuntimeDebugNoBound,
+use frame::{
+	prelude::*,
+	traits::{BalanceStatus, Currency, ReservableCurrency},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
-use sp_io::hashing::blake2_256;
-use sp_runtime::RuntimeDebug;
-use sp_std::vec::Vec;
 
 /// Pending atomic swap operation.
-#[derive(Clone, Eq, PartialEq, RuntimeDebugNoBound, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(T))]
 #[codec(mel_bound())]
 pub struct PendingSwap<T: Config> {
@@ -96,7 +102,17 @@ pub trait SwapAction<AccountId, T: Config> {
 }
 
 /// A swap action that only allows transferring balances.
-#[derive(Clone, RuntimeDebug, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	RuntimeDebug,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(C))]
 #[codec(mel_bound())]
 pub struct BalanceSwapAction<AccountId, C: ReservableCurrency<AccountId>> {
@@ -157,16 +173,15 @@ where
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	/// Atomic swap's pallet configuration trait.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Swap action.
 		type SwapAction: SwapAction<Self::AccountId, Self> + Parameter + MaxEncodedLen;

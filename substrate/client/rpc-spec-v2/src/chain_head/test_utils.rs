@@ -16,12 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Test utilities.
+
 use parking_lot::Mutex;
 use sc_client_api::{
 	execution_extensions::ExecutionExtensions, BlockBackend, BlockImportNotification,
 	BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, FinalityNotification,
 	FinalityNotifications, FinalizeSummary, ImportNotifications, KeysIter, MerkleValue, PairsIter,
-	StorageData, StorageEventStream, StorageKey, StorageProvider,
+	StaleBlock, StorageData, StorageEventStream, StorageKey, StorageProvider,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::{CallApiAt, CallApiAtParams};
@@ -36,6 +38,7 @@ use sp_version::RuntimeVersion;
 use std::sync::Arc;
 use substrate_test_runtime::{Block, Hash, Header, H256};
 
+/// A mock client used for testing.
 pub struct ChainHeadMockClient<Client> {
 	client: Arc<Client>,
 	import_sinks: Mutex<Vec<TracingUnboundedSender<BlockImportNotification<Block>>>>,
@@ -44,6 +47,7 @@ pub struct ChainHeadMockClient<Client> {
 }
 
 impl<Client> ChainHeadMockClient<Client> {
+	/// Create a new mock client.
 	pub fn new(client: Arc<Client>) -> Self {
 		ChainHeadMockClient {
 			client,
@@ -53,6 +57,7 @@ impl<Client> ChainHeadMockClient<Client> {
 		}
 	}
 
+	/// Trigger the import stram from a header.
 	pub async fn trigger_import_stream(&self, header: Header) {
 		// Ensure the client called the `import_notification_stream`.
 		while self.import_sinks.lock().is_empty() {
@@ -69,7 +74,8 @@ impl<Client> ChainHeadMockClient<Client> {
 		}
 	}
 
-	pub async fn trigger_finality_stream(&self, header: Header) {
+	/// Trigger the import stram from a header and a list of stale heads.
+	pub async fn trigger_finality_stream(&self, header: Header, stale_blocks: Vec<Hash>) {
 		// Ensure the client called the `finality_notification_stream`.
 		while self.finality_sinks.lock().is_empty() {
 			tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
@@ -80,7 +86,10 @@ impl<Client> ChainHeadMockClient<Client> {
 		let summary = FinalizeSummary {
 			header: header.clone(),
 			finalized: vec![header.hash()],
-			stale_heads: vec![],
+			stale_blocks: stale_blocks
+				.into_iter()
+				.map(|h| StaleBlock { hash: h, is_head: false })
+				.collect(),
 		};
 		let notification = FinalityNotification::from_summary(summary, sink);
 
@@ -286,6 +295,7 @@ impl<Block: BlockT, Client: BlockBackend<Block>> BlockBackend<Block>
 	fn block_indexed_body(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {
 		self.client.block_indexed_body(hash)
 	}
+
 	fn requires_full_sync(&self) -> bool {
 		self.client.requires_full_sync()
 	}
@@ -346,7 +356,8 @@ where
 	fn number(
 		&self,
 		hash: Block::Hash,
-	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
+	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>>
+	{
 		self.client.number(hash)
 	}
 

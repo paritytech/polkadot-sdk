@@ -1,0 +1,7 @@
+title: '`CheckOnlySudoAccount`: Provide some tags'
+doc:
+- audience: Runtime User
+  description:  Let `CheckOnlySudoAccount` provide some tags to make the tx pool happy.
+crates:
+- name: pallet-sudo
+  bump: patch

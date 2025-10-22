@@ -1,0 +1,10 @@
+title: Pure state sync refactoring (part-2)
+
+doc:
+- audience: Node Dev
+  description: |
+    This is the last part of the pure refactoring of state sync, focusing on encapsulating `StateSyncMetadata` as a separate entity.
+
+crates:
+- name: sc-network-sync
+  bump: none

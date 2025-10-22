@@ -400,6 +400,7 @@ fn construct_runtime_final_expansion(
 
 	let dispatch = expand::expand_outer_dispatch(&name, system_pallet, &pallets, &scrate);
 	let tasks = expand::expand_outer_task(&name, &pallets, &scrate);
+	let query = expand::expand_outer_query(&name, &pallets, &scrate);
 	let metadata = expand::expand_runtime_metadata(
 		&name,
 		&pallets,
@@ -466,16 +467,17 @@ fn construct_runtime_final_expansion(
 		// Therefore, the `Deref` trait will resolve the `runtime_metadata` from `impl_runtime_apis!`
 		// when both macros are called; and will resolve an empty `runtime_metadata` when only the `construct_runtime!`
 		// is called.
-
 		#[doc(hidden)]
 		trait InternalConstructRuntime {
 			#[inline(always)]
-			fn runtime_metadata(&self) -> #scrate::__private::sp_std::vec::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
+			fn runtime_metadata(&self) -> #scrate::__private::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
 				Default::default()
 			}
 		}
 		#[doc(hidden)]
 		impl InternalConstructRuntime for &#name {}
+
+		use #scrate::__private::metadata_ir::InternalImplRuntimeApis;
 
 		#outer_event
 
@@ -490,6 +492,8 @@ fn construct_runtime_final_expansion(
 		#dispatch
 
 		#tasks
+
+		#query
 
 		#metadata
 
@@ -649,16 +653,7 @@ pub(crate) fn decl_pallet_runtime_setup(
 		.collect::<Vec<_>>();
 	let pallet_attrs = pallet_declarations
 		.iter()
-		.map(|pallet| {
-			pallet.cfg_pattern.iter().fold(TokenStream2::new(), |acc, pattern| {
-				let attr = TokenStream2::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			})
-		})
+		.map(|pallet| pallet.get_attributes())
 		.collect::<Vec<_>>();
 
 	quote!(
@@ -669,10 +664,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 		impl #scrate::traits::PalletInfo for PalletInfo {
 
 			fn index<P: 'static>() -> Option<usize> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(#indices)
 					}
 				)*
@@ -681,10 +676,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn name<P: 'static>() -> Option<&'static str> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(#name_strings)
 					}
 				)*
@@ -693,10 +688,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn name_hash<P: 'static>() -> Option<[u8; 16]> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(#name_hashes)
 					}
 				)*
@@ -705,10 +700,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn module_name<P: 'static>() -> Option<&'static str> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(#module_names)
 					}
 				)*
@@ -717,10 +712,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn crate_version<P: 'static>() -> Option<#scrate::traits::CrateVersion> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(
 							<#pallet_structs as #scrate::traits::PalletInfoAccess>::crate_version()
 						)
@@ -762,6 +757,7 @@ pub(crate) fn decl_static_assertions(
 		);
 
 		quote! {
+			#[allow(deprecated)]
 			#scrate::__private::tt_call! {
 				macro = [{ #path::tt_error_token }]
 				your_tt_return = [{ #scrate::__private::tt_return }]

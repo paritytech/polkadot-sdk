@@ -19,12 +19,11 @@
 
 use std::{
 	collections::{HashMap, HashSet},
-	sync::Arc,
+	sync::{Arc, LazyLock},
 	time::Instant,
 };
 
 use async_trait::async_trait;
-use lazy_static::lazy_static;
 
 use polkadot_node_network_protocol::{authority_discovery::AuthorityDiscovery, PeerId};
 use sc_keystore::LocalKeystore;
@@ -34,10 +33,10 @@ use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_primitives::{DisputeMessage, SignedDisputeStatement};
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, Hash, SessionIndex, SessionInfo,
-	ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::dummy_candidate_descriptor;
+use polkadot_primitives_test_helpers::dummy_candidate_descriptor_v2;
 
 use crate::LOG_TARGET;
 
@@ -60,68 +59,64 @@ pub const ALICE_INDEX: ValidatorIndex = ValidatorIndex(1);
 pub const BOB_INDEX: ValidatorIndex = ValidatorIndex(2);
 pub const CHARLIE_INDEX: ValidatorIndex = ValidatorIndex(3);
 
-lazy_static! {
-
 /// Mocked `AuthorityDiscovery` service.
-pub static ref MOCK_AUTHORITY_DISCOVERY: MockAuthorityDiscovery = MockAuthorityDiscovery::new();
+pub static MOCK_AUTHORITY_DISCOVERY: LazyLock<MockAuthorityDiscovery> =
+	LazyLock::new(|| MockAuthorityDiscovery::new());
 // Creating an innocent looking `SessionInfo` is really expensive in a debug build. Around
 // 700ms on my machine, We therefore cache those keys here:
-pub static ref MOCK_VALIDATORS_DISCOVERY_KEYS: HashMap<Sr25519Keyring, AuthorityDiscoveryId> =
-	MOCK_VALIDATORS
-	.iter()
-	.chain(MOCK_AUTHORITIES_NEXT_SESSION.iter())
-	.map(|v| (*v, v.public().into()))
-	.collect()
-;
-pub static ref FERDIE_DISCOVERY_KEY: AuthorityDiscoveryId =
-	MOCK_VALIDATORS_DISCOVERY_KEYS.get(&Sr25519Keyring::Ferdie).unwrap().clone();
-
-pub static ref MOCK_SESSION_INFO: SessionInfo =
-	SessionInfo {
-		validators: MOCK_VALIDATORS.iter().take(4).map(|k| k.public().into()).collect(),
-		discovery_keys: MOCK_VALIDATORS
+pub static MOCK_VALIDATORS_DISCOVERY_KEYS: LazyLock<HashMap<Sr25519Keyring, AuthorityDiscoveryId>> =
+	LazyLock::new(|| {
+		MOCK_VALIDATORS
 			.iter()
-			.map(|k| MOCK_VALIDATORS_DISCOVERY_KEYS.get(&k).unwrap().clone())
-			.collect(),
-		assignment_keys: vec![],
-		validator_groups: Default::default(),
-		n_cores: 0,
-		zeroth_delay_tranche_width: 0,
-		relay_vrf_modulo_samples: 0,
-		n_delay_tranches: 0,
-		no_show_slots: 0,
-		needed_approvals: 0,
-		active_validator_indices: vec![],
-		dispute_period: 6,
-		random_seed: [0u8; 32],
-	};
+			.chain(MOCK_AUTHORITIES_NEXT_SESSION.iter())
+			.map(|v| (*v, v.public().into()))
+			.collect()
+	});
+pub static FERDIE_DISCOVERY_KEY: LazyLock<AuthorityDiscoveryId> =
+	LazyLock::new(|| MOCK_VALIDATORS_DISCOVERY_KEYS.get(&Sr25519Keyring::Ferdie).unwrap().clone());
+
+pub static MOCK_SESSION_INFO: LazyLock<SessionInfo> = LazyLock::new(|| SessionInfo {
+	validators: MOCK_VALIDATORS.iter().take(4).map(|k| k.public().into()).collect(),
+	discovery_keys: MOCK_VALIDATORS
+		.iter()
+		.map(|k| MOCK_VALIDATORS_DISCOVERY_KEYS.get(&k).unwrap().clone())
+		.collect(),
+	assignment_keys: vec![],
+	validator_groups: Default::default(),
+	n_cores: 0,
+	zeroth_delay_tranche_width: 0,
+	relay_vrf_modulo_samples: 0,
+	n_delay_tranches: 0,
+	no_show_slots: 0,
+	needed_approvals: 0,
+	active_validator_indices: vec![],
+	dispute_period: 6,
+	random_seed: [0u8; 32],
+});
 
 /// `SessionInfo` for the second session. (No more validators, but two more authorities.
-pub static ref MOCK_NEXT_SESSION_INFO: SessionInfo =
-	SessionInfo {
-		discovery_keys:
-			MOCK_AUTHORITIES_NEXT_SESSION
-				.iter()
-				.map(|k| MOCK_VALIDATORS_DISCOVERY_KEYS.get(&k).unwrap().clone())
-				.collect(),
-		validators: Default::default(),
-		assignment_keys: vec![],
-		validator_groups: Default::default(),
-		n_cores: 0,
-		zeroth_delay_tranche_width: 0,
-		relay_vrf_modulo_samples: 0,
-		n_delay_tranches: 0,
-		no_show_slots: 0,
-		needed_approvals: 0,
-		active_validator_indices: vec![],
-		dispute_period: 6,
-		random_seed: [0u8; 32],
-	};
-}
+pub static MOCK_NEXT_SESSION_INFO: LazyLock<SessionInfo> = LazyLock::new(|| SessionInfo {
+	discovery_keys: MOCK_AUTHORITIES_NEXT_SESSION
+		.iter()
+		.map(|k| MOCK_VALIDATORS_DISCOVERY_KEYS.get(&k).unwrap().clone())
+		.collect(),
+	validators: Default::default(),
+	assignment_keys: vec![],
+	validator_groups: Default::default(),
+	n_cores: 0,
+	zeroth_delay_tranche_width: 0,
+	relay_vrf_modulo_samples: 0,
+	n_delay_tranches: 0,
+	no_show_slots: 0,
+	needed_approvals: 0,
+	active_validator_indices: vec![],
+	dispute_period: 6,
+	random_seed: [0u8; 32],
+});
 
 pub fn make_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
 	CandidateReceipt {
-		descriptor: dummy_candidate_descriptor(relay_parent),
+		descriptor: dummy_candidate_descriptor_v2(relay_parent),
 		commitments_hash: Hash::random(),
 	}
 }

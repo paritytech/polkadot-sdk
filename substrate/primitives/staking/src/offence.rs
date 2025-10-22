@@ -19,7 +19,7 @@
 //! that use staking.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use sp_core::Get;
 use sp_runtime::{transaction_validity::TransactionValidityError, DispatchError, Perbill};
 
@@ -240,5 +240,58 @@ impl<Reporter, Evidence> OffenceReportSystem<Reporter, Evidence> for () {
 
 	fn process_evidence(_reporter: Reporter, _evidence: Evidence) -> Result<(), DispatchError> {
 		Ok(())
+	}
+}
+
+/// Wrapper type representing the severity of an offence.
+///
+/// As of now the only meaningful value taken into account
+/// when deciding the severity of an offence is the associated
+/// slash amount `Perbill`.
+///
+/// For instance used for the purposes of distinguishing who should be
+/// prioritized for disablement.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	core::fmt::Debug,
+	scale_info::TypeInfo,
+)]
+pub struct OffenceSeverity(pub Perbill);
+
+impl OffenceSeverity {
+	/// Returns the maximum severity.
+	pub fn max_severity() -> Self {
+		Self(Perbill::from_percent(100))
+	}
+
+	/// Returns the minimum severity.
+	pub fn min_severity() -> Self {
+		Self(Perbill::from_percent(0))
+	}
+}
+
+impl Default for OffenceSeverity {
+	/// Default is the maximum severity.
+	/// When severity is unclear it is best to assume the worst.
+	fn default() -> Self {
+		Self::max_severity()
+	}
+}
+
+impl PartialOrd for OffenceSeverity {
+	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+		self.0.partial_cmp(&other.0)
+	}
+}
+
+impl Ord for OffenceSeverity {
+	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+		self.0.cmp(&other.0)
 	}
 }

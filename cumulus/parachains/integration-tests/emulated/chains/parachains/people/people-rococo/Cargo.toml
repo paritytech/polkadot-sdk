@@ -7,15 +7,17 @@ license = "Apache-2.0"
 description = "People Rococo emulated chain"
 publish = false
 
-[dependencies]
+[lints]
+workspace = true
 
+[dependencies]
 # Substrate
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
+frame-support = { workspace = true }
+sp-core = { workspace = true }
 
 # Cumulus
-parachains-common = { path = "../../../../../../common" }
-cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
-emulated-integration-tests-common = { path = "../../../../common", default-features = false }
-people-rococo-runtime = { path = "../../../../../../runtimes/people/people-rococo" }
-testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
+cumulus-primitives-core = { workspace = true }
+emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
+people-rococo-runtime = { workspace = true }
+testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }

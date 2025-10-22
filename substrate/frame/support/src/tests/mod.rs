@@ -14,9 +14,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(clippy::deprecated_semver)]
 
 use super::*;
-use frame_support_procedural::import_section;
 use sp_io::{MultiRemovalResults, TestExternalities};
 use sp_metadata_ir::{
 	PalletStorageMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
@@ -26,11 +26,8 @@ use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 
 pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
-mod inject_runtime_type;
 mod storage_alias;
-mod tasks;
 
-#[import_section(tasks::tasks_example)]
 #[pallet]
 pub mod frame_system {
 	#[allow(unused)]
@@ -61,7 +58,7 @@ pub mod frame_system {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config(with_default)]
+	#[pallet::config(with_default, frame_system_config)]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: 'static {
 		#[pallet::no_default]
@@ -78,6 +75,11 @@ pub mod frame_system {
 		#[pallet::no_default_bounds]
 		type PalletInfo: crate::traits::PalletInfo;
 		type DbWeight: Get<crate::weights::RuntimeDbWeight>;
+		#[pallet::constant]
+		#[pallet::no_default]
+		#[deprecated = "this constant is deprecated"]
+		#[allow(deprecated)]
+		type ExampleConstant: Get<()>;
 	}
 
 	#[pallet::error]
@@ -101,11 +103,11 @@ pub mod frame_system {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			if let Err(_err) = task.run() {
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			Ok(().into())
@@ -113,18 +115,26 @@ pub mod frame_system {
 	}
 
 	#[pallet::storage]
+	#[deprecated]
+	#[allow(deprecated)]
 	pub type Data<T> = StorageMap<_, Twox64Concat, u32, u64, ValueQuery>;
 
 	#[pallet::storage]
+	#[deprecated(note = "test")]
+	#[allow(deprecated)]
 	pub type OptionLinkedMap<T> = StorageMap<_, Blake2_128Concat, u32, u32, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn generic_data)]
+	#[deprecated(note = "test", since = "test")]
+	#[allow(deprecated)]
 	pub type GenericData<T: Config> =
 		StorageMap<_, Identity, BlockNumberFor<T>, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn generic_data2)]
+	#[deprecated = "test"]
+	#[allow(deprecated)]
 	pub type GenericData2<T: Config> =
 		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, BlockNumberFor<T>, OptionQuery>;
 
@@ -186,6 +196,7 @@ pub mod frame_system {
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		#[allow(deprecated)]
 		fn build(&self) {
 			for (k, v) in &self.data {
 				<Data<T>>::insert(k, v);
@@ -220,17 +231,32 @@ type Header = generic::Header<BlockNumber, BlakeTwo256>;
 type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 type Block = generic::Block<Header, UncheckedExtrinsic>;
 
-crate::construct_runtime!(
-	pub enum Runtime
-	{
-		System: self::frame_system,
-	}
-);
+#[crate::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask,
+		RuntimeViewFunction
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = self::frame_system;
+}
 
 #[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as self::frame_system::DefaultConfig)]
 impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
+	type ExampleConstant = ();
 }
 
 fn new_test_ext() -> TestExternalities {
@@ -251,6 +277,7 @@ impl<T: Ord> Sorted for Vec<T> {
 #[test]
 fn map_issue_3318() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type OptionLinkedMap = self::frame_system::OptionLinkedMap<Runtime>;
 
 		OptionLinkedMap::insert(1, 1);
@@ -263,6 +290,7 @@ fn map_issue_3318() {
 #[test]
 fn map_swap_works() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type OptionLinkedMap = self::frame_system::OptionLinkedMap<Runtime>;
 
 		OptionLinkedMap::insert(0, 0);
@@ -294,6 +322,7 @@ fn map_swap_works() {
 #[test]
 fn double_map_swap_works() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type DataDM = self::frame_system::DataDM<Runtime>;
 
 		DataDM::insert(0, 1, 1);
@@ -328,6 +357,7 @@ fn double_map_swap_works() {
 #[test]
 fn map_basic_insert_remove_should_work() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type Map = self::frame_system::Data<Runtime>;
 
 		// initialized during genesis
@@ -356,6 +386,7 @@ fn map_basic_insert_remove_should_work() {
 #[test]
 fn map_iteration_should_work() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type Map = self::frame_system::Data<Runtime>;
 
 		assert_eq!(Map::iter().collect::<Vec<_>>().sorted(), vec![(15, 42)]);
@@ -576,6 +607,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::DeprecatedWithoutNote,
 			},
 			StorageEntryMetadataIR {
 				name: "OptionLinkedMap",
@@ -587,6 +619,10 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::Deprecated {
+					note: "test",
+					since: None,
+				},
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData",
@@ -598,6 +634,10 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::Deprecated {
+					note: "test",
+					since: Some("test"),
+				},
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData2",
@@ -609,6 +649,10 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::Deprecated {
+					note: "test",
+					since: None,
+				},
 			},
 			StorageEntryMetadataIR {
 				name: "DataDM",
@@ -620,6 +664,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "GenericDataDM",
@@ -631,6 +676,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData2DM",
@@ -642,6 +688,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "AppendableDM",
@@ -656,6 +703,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Total",
@@ -663,6 +711,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<(u32, u32)>()),
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![" Some running total."],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Numbers",
@@ -674,6 +723,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![" Numbers to be added into the total."],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 		],
 	}
@@ -683,6 +733,25 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 fn store_metadata() {
 	let metadata = Pallet::<Runtime>::storage_metadata();
 	pretty_assertions::assert_eq!(expected_metadata(), metadata);
+}
+
+#[test]
+fn constant_metadata() {
+	let metadata: Vec<sp_metadata_ir::PalletConstantMetadataIR> =
+		Pallet::<Runtime>::pallet_constants_metadata();
+	pretty_assertions::assert_eq!(
+		metadata,
+		vec![sp_metadata_ir::PalletConstantMetadataIR {
+			name: "ExampleConstant",
+			ty: scale_info::meta_type::<()>(),
+			value: vec![],
+			docs: vec![],
+			deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::Deprecated {
+				note: "this constant is deprecated",
+				since: None
+			}
+		},]
+	);
 }
 
 parameter_types! {
@@ -712,5 +781,6 @@ fn derive_partial_eq_no_bound_core_mod() {
 		crate::DefaultNoBound,
 		crate::EqNoBound,
 	)]
+	#[allow(dead_code)]
 	struct Test;
 }

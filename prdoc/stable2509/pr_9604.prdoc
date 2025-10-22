@@ -1,0 +1,7 @@
+title: 'Society pallet: Make fields of storage-persisted types public'
+doc:
+- audience: Runtime Dev
+  description: Fields of types persisted in storage have been made public.
+crates:
+- name: pallet-society
+  bump: minor

@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Use `cmd_lib` instead of `std::process::Command` when using `#[docify::export]`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Simplified the display of commands and ensured they are tested for chain spec builder's `polkadot-sdk` reference docs.
+
+crates: []

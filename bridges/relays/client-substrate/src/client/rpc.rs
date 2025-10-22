@@ -52,7 +52,10 @@ use sp_core::{
 	storage::{StorageData, StorageKey},
 	Bytes, Hasher, Pair,
 };
-use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
+use sp_runtime::{
+	traits::Header,
+	transaction_validity::{TransactionSource, TransactionValidity},
+};
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
 use std::{cmp::Ordering, future::Future, marker::PhantomData};
@@ -191,21 +194,7 @@ impl<C: Chain> RpcClient<C> {
 		params: &ConnectionParams,
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
-		let uri = match params.uri {
-			Some(ref uri) => uri.clone(),
-			None => {
-				format!(
-					"{}://{}:{}{}",
-					if params.secure { "wss" } else { "ws" },
-					params.host,
-					params.port,
-					match params.path {
-						Some(ref path) => format!("/{}", path),
-						None => String::new(),
-					},
-				)
-			},
-		};
+		let uri = params.uri.clone();
 		log::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
 
 		let client = tokio
@@ -635,16 +624,25 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		.map_err(|e| Error::failed_state_call::<C>(at, method_clone, arguments_clone, e))
 	}
 
-	async fn prove_storage(&self, at: HashOf<C>, keys: Vec<StorageKey>) -> Result<StorageProof> {
+	async fn prove_storage(
+		&self,
+		at: HashOf<C>,
+		keys: Vec<StorageKey>,
+	) -> Result<(StorageProof, HashOf<C>)> {
+		let state_root = *self.header_by_hash(at).await?.state_root();
+
 		let keys_clone = keys.clone();
-		self.jsonrpsee_execute(move |client| async move {
-			SubstrateStateClient::<C>::prove_storage(&*client, keys, Some(at))
-				.await
-				.map(|proof| StorageProof::new(proof.proof.into_iter().map(|b| b.0)))
-				.map_err(Into::into)
-		})
-		.await
-		.map_err(|e| Error::failed_to_prove_storage::<C>(at, keys_clone, e))
+		let read_proof = self
+			.jsonrpsee_execute(move |client| async move {
+				SubstrateStateClient::<C>::prove_storage(&*client, keys_clone, Some(at))
+					.await
+					.map(|proof| StorageProof::new(proof.proof.into_iter().map(|b| b.0)))
+					.map_err(Into::into)
+			})
+			.await
+			.map_err(|e| Error::failed_to_prove_storage::<C>(at, keys.clone(), e))?;
+
+		Ok((read_proof, state_root))
 	}
 }
 

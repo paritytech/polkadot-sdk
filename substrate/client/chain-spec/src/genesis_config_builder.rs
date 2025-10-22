@@ -27,6 +27,7 @@ use sp_core::{
 	traits::{CallContext, CodeExecutor, Externalities, FetchRuntimeCode, RuntimeCode},
 };
 use sp_genesis_builder::{PresetId, Result as BuildResult};
+pub use sp_genesis_builder::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
@@ -47,7 +48,7 @@ impl<'a, EHF> FetchRuntimeCode for GenesisConfigBuilderRuntimeCaller<'a, EHF>
 where
 	EHF: HostFunctions,
 {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		Some(self.code.as_ref().into())
 	}
 }
@@ -141,11 +142,9 @@ where
 	/// The patching process modifies the default `RuntimeGenesisConfig` according to the following
 	/// rules:
 	/// 1. Existing keys in the default configuration will be overridden by the corresponding values
-	///    in the patch.
+	///    in the patch (also applies to `null` values).
 	/// 2. If a key exists in the patch but not in the default configuration, it will be added to
 	///    the resulting `RuntimeGenesisConfig`.
-	/// 3. Keys in the default configuration that have null values in the patch will be removed from
-	///    the resulting `RuntimeGenesisConfig`. This is helpful for changing enum variant value.
 	///
 	/// Please note that the patch may contain full `RuntimeGenesisConfig`.
 	pub fn get_storage_for_patch(&self, patch: Value) -> core::result::Result<Storage, String> {
@@ -197,7 +196,7 @@ mod tests {
 			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_default_config()
 				.unwrap();
-		let expected = r#"{"babe": {"authorities": [], "epochConfig": {"allowed_slots": "PrimaryAndSecondaryVRFSlots", "c": [1, 4]}}, "balances": {"balances": []}, "substrateTest": {"authorities": []}, "system": {}}"#;
+		let expected = r#"{"babe": {"authorities": [], "epochConfig": {"allowed_slots": "PrimaryAndSecondaryVRFSlots", "c": [1, 4]}}, "balances": {"balances": [], "devAccounts": null}, "substrateTest": {"authorities": []}, "system": {}}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
 	}
 

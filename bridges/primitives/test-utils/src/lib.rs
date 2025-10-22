@@ -110,7 +110,7 @@ pub fn make_justification_for_header<H: HeaderT>(
 	);
 
 	// Roughly, how many vote ancestries do we want per fork
-	let target_depth = (ancestors + forks - 1) / forks;
+	let target_depth = ancestors.div_ceil(forks);
 
 	let mut unsigned_precommits = vec![];
 	for i in 0..forks {
@@ -177,6 +177,7 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 	let mut parachains = Vec::with_capacity(heads.len());
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
+	let mut storage_keys = vec![];
 	{
 		let mut trie = TrieDBMutBuilderV1::<H::Hashing>::new(&mut mdb, &mut root).build();
 		for (parachain, head) in heads {
@@ -185,11 +186,12 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 			trie.insert(&storage_key.0, &head.encode())
 				.map_err(|_| "TrieMut::insert has failed")
 				.expect("TrieMut::insert should not fail in tests");
+			storage_keys.push(storage_key.0);
 			parachains.push((ParaId(parachain), head.hash()));
 		}
 	}
 
-	// generate storage proof to be delivered to This chain
+	// generate storage proof to be delivered to this chain
 	let storage_proof = record_all_trie_keys::<LayoutV1<H::Hashing>, _>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");

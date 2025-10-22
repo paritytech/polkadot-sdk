@@ -18,13 +18,75 @@ on:
   # A manual dispatch for now - automatic on releases later.
   workflow_dispatch:
     inputs:
-      crate_release_version:
-        description: 'A release version to use, e.g. 1.9.0'
+      stable_release_branch:
+        description: 'Stable release branch, e.g. stable2407'
         required: true
-
+      debug:
+        description: Enable runner debug logging
+        required: false
+        default: false
+      patch:
+        description: 'Patch number of the stable release we want to sync with'
+        required: false
+        default: ""
 
 jobs:
+  prepare-chain-spec-artifacts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - template: minimal
+            package_name: 'minimal-template-runtime'
+            runtime_path: './templates/minimal/runtime'
+            runtime_wasm_path: minimal-template-runtime/minimal_template_runtime.compact.compressed.wasm
+            relay_chain: 'dev'
+          - template: parachain
+            package_name: 'parachain-template-runtime'
+            runtime_path: './templates/parachain/runtime'
+            runtime_wasm_path: parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm
+            relay_chain: 'rococo-local'
+    steps:
+        - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+          with:
+            ref: "${{ github.event.inputs.stable_release_branch }}"
+
+        - name: Setup build environment
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y protobuf-compiler
+            cargo install --git https://github.com/chevdor/srtool-cli --locked
+            cargo install --path substrate/bin/utils/chain-spec-builder --locked
+            srtool pull
+            
+        - name: Build runtime and generate chain spec
+          run: |
+            # Prepare directories
+            sudo mkdir -p ${{ matrix.runtime_path }}/target
+            sudo chmod -R 777 ${{ matrix.runtime_path }}/target
+            
+            # Build runtime
+            srtool build --package ${{ matrix.package_name }} --runtime-dir ${{ matrix.runtime_path }} --root
+            
+            # Generate chain spec
+            chain-spec-builder -c dev_chain_spec.json create \
+              --relay-chain "${{ matrix.relay_chain }}" \
+              --runtime "${{ matrix.runtime_path }}/target/srtool/release/wbuild/${{ matrix.runtime_wasm_path }}" \
+              named-preset development
+
+        - name: Prepare upload directory
+          run: |
+            mkdir -p artifacts-${{ matrix.template }}
+            cp dev_chain_spec.json artifacts-${{ matrix.template }}/dev_chain_spec.json
+
+        - name: Upload template directory
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+          with:
+            name: artifacts-${{ matrix.template }}
+            path: artifacts-${{ matrix.template }}/dev_chain_spec.json
+
   sync-templates:
+    needs: prepare-chain-spec-artifacts
     runs-on: ubuntu-latest
     environment: master
     strategy:
@@ -41,19 +103,25 @@ jobs:
         run: |
           git config --global user.name "Template Bot"
           git config --global user.email "163342540+paritytech-polkadotsdk-templatebot[bot]@users.noreply.github.com"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           path: polkadot-sdk
-          ref: "release-crates-io-v${{ github.event.inputs.crate_release_version }}"
+          ref: "${{ github.event.inputs.stable_release_branch }}"
+      - name: Download template artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: artifacts-${{ matrix.template }}
+          path: templates/${{ matrix.template }}/
+        if: matrix.template != 'solochain'
       - name: Generate a token for the template repository
         id: app_token
-        uses: actions/create-github-app-token@v1.9.3
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         with:
           owner: "paritytech"
           repositories: "polkadot-sdk-${{ matrix.template }}-template"
           app-id: ${{ secrets.TEMPLATE_APP_ID }}
           private-key: ${{ secrets.TEMPLATE_APP_KEY }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: "paritytech/polkadot-sdk-${{ matrix.template }}-template"
           path: "${{ env.template-path }}"
@@ -69,28 +137,44 @@ jobs:
             protobuf-compiler
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt clippy rust-src
-      
+
       # 2. Yanking the template out of the monorepo workspace.
 
-      - name: Use psvm to replace git references with released creates.
-        run: find . -type f -name 'Cargo.toml' -exec psvm -o -v ${{ github.event.inputs.crate_release_version }} -p {} \;
+      - name: Replace dev-dependencies path references with workspace references
+        run: find . -type f -name 'Cargo.toml' -exec sed -i'' -E "s/path = \"\.\.\/.*\"/workspace = true/g" {} \; 
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Create a new workspace Cargo.toml
         run: |
+          # This replaces the existing Cargo.toml for parachain-template,
+          # corresponding to the `parachain-template-docs` crate, so no need
+          # to delete that `Cargo.toml` after copying the `polkadot-sdk/templates/parachain/*`
+          # to the `polkadot-sdk-parachain-template` repo.
           cat << EOF > Cargo.toml
           [workspace.package]
           license = "MIT-0"
           authors = ["Parity Technologies <admin@parity.io>"]
-          homepage = "https://substrate.io"
+          homepage = "https://paritytech.github.io/polkadot-sdk/"
 
           [workspace]
+          EOF
+
+          [ ${{ matrix.template }} == "parachain" ] && echo "# Leave out the node compilation from regular template usage." \
+            && echo "default-members = [\"pallets/template\", \"runtime\"]" >> Cargo.toml
+          [ ${{ matrix.template }} != "parachain" ] && echo "# The node isn't yet replaceable by Omni Node."
+          cat << EOF >> Cargo.toml
           members = [
               "node",
               "pallets/template",
               "runtime",
           ]
           resolver = "2"
+
+          [workspace.dependencies]
           EOF
+
+          echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
+          echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
+
         shell: bash
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Update workspace configuration
@@ -105,8 +189,9 @@ jobs:
           toml set templates/${{ matrix.template }}/Cargo.toml 'workspace.package.edition' "$(toml get --raw Cargo.toml 'workspace.package.edition')" > Cargo.temp
           mv Cargo.temp ./templates/${{ matrix.template }}/Cargo.toml
         working-directory: polkadot-sdk
+
       - name: Print the result Cargo.tomls for debugging
-        if: runner.debug == '1'
+        if: ${{ github.event.inputs.debug }}
         run: find . -type f -name 'Cargo.toml' -exec cat {} \;
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
 
@@ -116,9 +201,24 @@ jobs:
       - name: Copy over the new changes
         run: |
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
+      - name: Remove unnecessary files from parachain template
+        if: ${{ matrix.template == 'parachain' }}
+        run: |
+          rm -f "${{ env.template-path }}/README.docify.md"
+          rm -f "${{ env.template-path }}/src/lib.rs"
+
+      - name: Run psvm on monorepo workspace dependencies
+        run: |
+          patch_input="${{ github.event.inputs.patch }}"
+          if [[ -n "$patch_input" ]]; then
+            patch="-$patch_input"
+          else
+            patch=""
+          fi
+          psvm -o -v "${{ github.event.inputs.stable_release_branch }}$patch" -p ./Cargo.toml
+        working-directory: polkadot-sdk/
       - name: Copy over required workspace dependencies
         run: |
-          echo -e "\n[workspace.dependencies]" >> Cargo.toml
           set +e
           # If a workspace dependency is required..
           while cargo tree --depth 1 --prefix none --no-dedupe 2>&1 | grep 'was not found in `workspace.dependencies`'; do
@@ -128,6 +228,30 @@ jobs:
             toml get ../polkadot-sdk/Cargo.toml 'workspace.dependencies' --output-toml | grep "^${missing_dep} = " >> Cargo.toml
           done;
         working-directory: "${{ env.template-path }}"
+
+      - name: Add build profiles
+        run: |
+          # Add profile configurations to resulting Cargo.toml
+          cat << EOF >> Cargo.toml
+
+          [profile.release]
+          opt-level = 3
+          panic = "unwind"
+
+          [profile.production]
+          codegen-units = 1
+          inherits = "release"
+          lto = true
+
+          EOF
+          
+        working-directory: "${{ env.template-path }}"
+
+      - name: Print the result Cargo.tomls for debugging after copying required workspace dependencies
+        if: ${{ github.event.inputs.debug }}
+        run: find . -type f -name 'Cargo.toml' -exec cat {} \;
+        working-directory: polkadot-sdk/templates/${{ matrix.template }}/
+
 
       # 3. Verify the build. Push the changes or create a PR.
 
@@ -150,18 +274,22 @@ jobs:
         timeout-minutes: 90
       - name: Create PR on failure
         if: failure() && steps.check-compilation.outcome == 'failure'
-        uses: peter-evans/create-pull-request@5b4a9f6a9e2af26e5f02351490b90d01eb8ec1e5 # v5
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v5
         with:
           path: "${{ env.template-path }}"
           token: ${{ steps.app_token.outputs.token }}
           add-paths: |
             ./*
-          title: "[Don't merge] Update the ${{ matrix.template }} template to ${{ github.event.inputs.crate_release_version }}"
+          title: "[Don't merge] Update the ${{ matrix.template }} template to ${{ github.event.inputs.stable_release_branch }}"
           body: "The template has NOT been successfully built and needs to be inspected."
-          branch: "update-template/${{ github.event.inputs.crate_release_version }}"
-      - name: Push changes
-        run: |
-          git add -A .
-          git commit --allow-empty -m "Update to ${{ github.event.inputs.crate_release_version }} triggered by ${{ github.event_name }}"
-          git push
-        working-directory: "${{ env.template-path }}"
+          branch: "update-template/${{ github.event.inputs.stable_release_branch }}"
+      - name: Create PR on success
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v5
+        with:
+          path: "${{ env.template-path }}"
+          token: ${{ steps.app_token.outputs.token }}
+          add-paths: |
+            ./*
+          title: "Update the ${{ matrix.template }} template to ${{ github.event.inputs.stable_release_branch }}"
+          body: "This synchronizes the template to the ${{ github.event.inputs.stable_release_branch }} branch."
+          branch: "update-template/${{ github.event.inputs.stable_release_branch }}"

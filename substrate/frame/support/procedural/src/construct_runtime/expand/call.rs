@@ -18,7 +18,6 @@
 use crate::construct_runtime::Pallet;
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::str::FromStr;
 use syn::Ident;
 
 pub fn expand_outer_dispatch(
@@ -29,6 +28,7 @@ pub fn expand_outer_dispatch(
 ) -> TokenStream {
 	let mut variant_defs = TokenStream::new();
 	let mut variant_patterns = Vec::new();
+	let mut variant_usages = Vec::new();
 	let mut query_call_part_macros = Vec::new();
 	let mut pallet_names = Vec::new();
 	let mut pallet_attrs = Vec::new();
@@ -40,21 +40,14 @@ pub fn expand_outer_dispatch(
 		let name = &pallet_declaration.name;
 		let path = &pallet_declaration.path;
 		let index = pallet_declaration.index;
-		let attr =
-			pallet_declaration.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			});
+		let attr = pallet_declaration.get_attributes();
 
 		variant_defs.extend(quote! {
 			#attr
 			#[codec(index = #index)]
 			#name( #scrate::dispatch::CallableCallFor<#name, #runtime> ),
 		});
+		variant_usages.push(quote!( #scrate::dispatch::CallableCallFor<#name, #runtime> ));
 		variant_patterns.push(quote!(RuntimeCall::#name(call)));
 		pallet_names.push(name);
 		pallet_attrs.push(attr);
@@ -71,6 +64,7 @@ pub fn expand_outer_dispatch(
 			Clone, PartialEq, Eq,
 			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,
+			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
 			#scrate::__private::RuntimeDebug,
 		)]
@@ -220,5 +214,37 @@ pub fn expand_outer_dispatch(
 				}
 			}
 		)*
+
+		impl #scrate::traits::Authorize for RuntimeCall {
+			fn authorize(
+				&self,
+				source: #scrate::pallet_prelude::TransactionSource,
+			) -> ::core::option::Option<
+				::core::result::Result<
+					(
+						#scrate::pallet_prelude::ValidTransaction,
+						#scrate::pallet_prelude::Weight,
+					),
+					#scrate::pallet_prelude::TransactionValidityError
+				>
+			> {
+				match self {
+					#(
+						#pallet_attrs
+						#variant_patterns => #scrate::traits::Authorize::authorize(call, source),
+					)*
+				}
+			}
+
+			fn weight_of_authorize(&self) -> #scrate::pallet_prelude::Weight {
+				match self {
+					#(
+						#pallet_attrs
+						#variant_patterns =>
+							#scrate::traits::Authorize::weight_of_authorize(call),
+					)*
+				}
+			}
+		}
 	}
 }

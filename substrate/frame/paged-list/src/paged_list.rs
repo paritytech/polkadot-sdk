@@ -23,16 +23,15 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
-use frame_support::{
-	defensive,
-	storage::StoragePrefixedContainer,
+use frame::{
+	deps::sp_io,
+	prelude::*,
+	runtime::prelude::storage::{StorageAppender, StorageList, StoragePrefixedContainer},
 	traits::{Get, StorageInstance},
-	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
-use sp_runtime::traits::Saturating;
-use sp_std::prelude::*;
 
 pub type PageIndex = u32;
 pub type ValueIndex = u32;
@@ -60,12 +59,13 @@ pub type ValueIndex = u32;
 /// as long as there are elements in the page and there are pages in storage. All elements of a page
 /// are loaded once a page is read from storage. Iteration then happens on the cached elements. This
 /// reduces the number of storage `read` calls on the overlay. **Appending** to the list happens by
-/// appending to the last page by utilizing [`sp_io::storage::append`]. It allows to directly extend
+/// appending to the last page by utilizing
+/// [`storage::append`](frame::deps::sp_io::storage::append). It allows to directly extend
 /// the elements of `values` vector of the page without loading the whole vector from storage. A new
 /// page is instantiated once [`Page::next`] overflows `ValuesPerNewPage`. Its vector will also be
-/// created through [`sp_io::storage::append`]. **Draining** advances the internal indices identical
-/// to Iteration. It additionally persists the increments to storage and thereby 'drains' elements.
-/// Completely drained pages are deleted from storage.
+/// created through [`storage::append`](frame::deps::sp_io::storage::append). **Draining** advances
+/// the internal indices identical to Iteration. It additionally persists the increments to storage
+/// and thereby 'drains' elements. Completely drained pages are deleted from storage.
 ///
 /// # Further Observations
 ///
@@ -83,7 +83,7 @@ pub struct StoragePagedList<Prefix, Value, ValuesPerNewPage> {
 
 /// The state of a [`StoragePagedList`].
 ///
-/// This struct doubles as [`frame_support::storage::StorageList::Appender`].
+/// This struct doubles as [`frame::deps::frame_support::storage::StorageList::Appender`].
 #[derive(
 	Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, DefaultNoBound,
 )]
@@ -111,7 +111,7 @@ pub struct StoragePagedListMeta<Prefix, Value, ValuesPerNewPage> {
 	_phantom: PhantomData<(Prefix, Value, ValuesPerNewPage)>,
 }
 
-impl<Prefix, Value, ValuesPerNewPage> frame_support::storage::StorageAppender<Value>
+impl<Prefix, Value, ValuesPerNewPage> StorageAppender<Value>
 	for StoragePagedListMeta<Prefix, Value, ValuesPerNewPage>
 where
 	Prefix: StorageInstance,
@@ -177,7 +177,7 @@ pub struct Page<V> {
 	/// The index of the page.
 	index: PageIndex,
 	/// The remaining values of the page, to be drained by [`Page::next`].
-	values: sp_std::iter::Skip<sp_std::vec::IntoIter<V>>,
+	values: core::iter::Skip<alloc::vec::IntoIter<V>>,
 }
 
 impl<V: FullCodec> Page<V> {
@@ -188,7 +188,7 @@ impl<V: FullCodec> Page<V> {
 	) -> Option<Self> {
 		let key = page_key::<Prefix>(index);
 		let values = sp_io::storage::get(&key)
-			.and_then(|raw| sp_std::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
+			.and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
 			// Don't create empty pages.
 			return None
@@ -311,7 +311,7 @@ where
 	}
 }
 
-impl<Prefix, Value, ValuesPerNewPage> frame_support::storage::StorageList<Value>
+impl<Prefix, Value, ValuesPerNewPage> StorageList<Value>
 	for StoragePagedList<Prefix, Value, ValuesPerNewPage>
 where
 	Prefix: StorageInstance,
@@ -355,13 +355,13 @@ where
 	/// Return the elements of the list.
 	#[cfg(test)]
 	fn as_vec() -> Vec<Value> {
-		<Self as frame_support::storage::StorageList<_>>::iter().collect()
+		<Self as StorageList<_>>::iter().collect()
 	}
 
 	/// Return and remove the elements of the list.
 	#[cfg(test)]
 	fn as_drained_vec() -> Vec<Value> {
-		<Self as frame_support::storage::StorageList<_>>::drain().collect()
+		<Self as StorageList<_>>::drain().collect()
 	}
 }
 
@@ -407,11 +407,7 @@ where
 #[allow(dead_code)]
 pub(crate) mod mock {
 	pub use super::*;
-	pub use frame_support::parameter_types;
-	#[cfg(test)]
-	pub use frame_support::{storage::StorageList as _, StorageNoopGuard};
-	#[cfg(test)]
-	pub use sp_io::TestExternalities;
+	use frame::testing_prelude::*;
 
 	parameter_types! {
 		pub const ValuesPerNewPage: u32 = 5;
@@ -432,6 +428,7 @@ pub(crate) mod mock {
 #[cfg(test)]
 mod tests {
 	use super::mock::*;
+	use frame::testing_prelude::*;
 
 	#[test]
 	fn append_works() {

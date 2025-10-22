@@ -1,21 +1,22 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Relay chain state proof provides means for accessing part of relay chain storage for reads.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
@@ -23,7 +24,6 @@ use cumulus_primitives_core::{
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
-use sp_std::vec::Vec;
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
@@ -98,6 +98,10 @@ pub enum Error {
 	HrmpChannel(ParaId, ParaId, ReadEntryErr),
 	/// The latest included parachain head cannot be extracted.
 	ParaHead(ReadEntryErr),
+	/// The relay chain authorities cannot be extracted
+	Authorities(ReadEntryErr),
+	/// The relay chain authorities for the next epoch cannot be extracted
+	NextAuthorities(ReadEntryErr),
 }
 
 #[derive(Debug)]
@@ -291,6 +295,26 @@ impl RelayChainStateProof {
 	pub fn read_included_para_head(&self) -> Result<relay_chain::HeadData, Error> {
 		read_entry(&self.trie_backend, &relay_chain::well_known_keys::para_head(self.para_id), None)
 			.map_err(Error::ParaHead)
+	}
+
+	/// Read relay chain authorities.
+	pub fn read_authorities(
+		&self,
+	) -> Result<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>, Error>
+	{
+		read_entry(&self.trie_backend, &relay_chain::well_known_keys::AUTHORITIES, None)
+			.map_err(Error::Authorities)
+	}
+
+	/// Read relay chain authorities for the next epoch.
+	pub fn read_next_authorities(
+		&self,
+	) -> Result<
+		Option<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>>,
+		Error,
+	> {
+		read_optional_entry(&self.trie_backend, &relay_chain::well_known_keys::NEXT_AUTHORITIES)
+			.map_err(Error::NextAuthorities)
 	}
 
 	/// Read the [`Slot`](relay_chain::Slot) from the relay chain state proof.

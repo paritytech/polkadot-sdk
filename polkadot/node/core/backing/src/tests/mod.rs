@@ -14,40 +14,40 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use self::test_helpers::mock::new_leaf;
 use super::*;
 use assert_matches::assert_matches;
 use futures::{future, Future};
 use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
-	errors::RuntimeApiError,
 	messages::{
-		AllMessages, CollatorProtocolMessage, RuntimeApiMessage, RuntimeApiRequest,
-		ValidationFailed,
+		AllMessages, ChainApiMessage, CollatorProtocolMessage, HypotheticalMembership, PvfExecKind,
+		RuntimeApiMessage, RuntimeApiRequest, ValidationFailed,
 	},
-	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, TimeoutExt,
+	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, TimeoutExt,
 };
-use polkadot_node_subsystem_test_helpers as test_helpers;
+use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
-	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	BlockNumber, CoreState, GroupRotationInfo, HeadData, Header, MutateDescriptorV2, OccupiedCore,
+	PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
+	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys, CandidateDescriptor,
 };
 use polkadot_statement_table::v2::Misbehavior;
-use rstest::rstest;
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use sp_tracing as _;
-use std::{collections::HashMap, time::Duration};
+use std::{
+	collections::{BTreeMap, HashMap, VecDeque},
+	time::Duration,
+};
 
-mod prospective_parachains;
-
-const ASYNC_BACKING_DISABLED_ERROR: RuntimeApiError =
-	RuntimeApiError::NotSupported { runtime_api_name: "test-runtime" };
+struct TestLeaf {
+	activated: ActivatedLeaf,
+	min_relay_parents: Vec<(ParaId, u32)>,
+}
 
 fn table_statement_to_primitive(statement: TableStatement) -> Statement {
 	match statement {
@@ -66,6 +66,14 @@ fn dummy_pvd() -> PersistedValidationData {
 	}
 }
 
+#[derive(Default)]
+struct PerSessionCacheState {
+	has_cached_validators: bool,
+	has_cached_node_features: bool,
+	has_cached_executor_params: bool,
+	has_cached_minimum_backing_votes: bool,
+}
+
 pub(crate) struct TestState {
 	chain_ids: Vec<ParaId>,
 	keystore: KeystorePtr,
@@ -75,12 +83,14 @@ pub(crate) struct TestState {
 	validator_groups: (Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
 	validator_to_group: IndexedVec<ValidatorIndex, Option<GroupIndex>>,
 	availability_cores: Vec<CoreState>,
+	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	head_data: HashMap<ParaId, HeadData>,
 	signing_context: SigningContext,
 	relay_parent: Hash,
 	minimum_backing_votes: u32,
 	disabled_validators: Vec<ValidatorIndex>,
 	node_features: NodeFeatures,
+	per_session_cache_state: PerSessionCacheState,
 }
 
 impl TestState {
@@ -130,6 +140,10 @@ impl Default for TestState {
 			CoreState::Scheduled(ScheduledCore { para_id: chain_b, collator: None }),
 		];
 
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(CoreIndex(0), [chain_a].into_iter().collect());
+		claim_queue.insert(CoreIndex(1), [chain_b].into_iter().collect());
+
 		let mut head_data = HashMap::new();
 		head_data.insert(chain_a, HeadData(vec![4, 5, 6]));
 		head_data.insert(chain_b, HeadData(vec![5, 6, 7]));
@@ -149,10 +163,12 @@ impl Default for TestState {
 			chain_ids,
 			keystore,
 			validators,
+			per_session_cache_state: PerSessionCacheState::default(),
 			validator_public,
 			validator_groups: (validator_groups, group_rotation_info),
 			validator_to_group,
 			availability_cores,
+			claim_queue,
 			head_data,
 			validation_data,
 			signing_context,
@@ -171,6 +187,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	keystore: KeystorePtr,
 	test: impl FnOnce(VirtualOverseer) -> T,
 ) {
+	sp_tracing::init_for_tests();
+
 	let pool = sp_core::testing::TaskExecutor::new();
 
 	let (context, virtual_overseer) =
@@ -227,7 +245,8 @@ impl TestCandidateBuilder {
 				para_head: self.head_data.hash(),
 				validation_code_hash: ValidationCode(self.validation_code).hash(),
 				persisted_validation_data_hash: self.persisted_validation_data_hash,
-			},
+			}
+			.into(),
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				upward_messages: Default::default(),
@@ -240,107 +259,7 @@ impl TestCandidateBuilder {
 	}
 }
 
-// Tests that the subsystem performs actions that are required on startup.
-async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestState) {
-	// Start work on some new parent.
-	virtual_overseer
-		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
-			new_leaf(test_state.relay_parent, 1),
-		))))
-		.await;
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
-		}
-	);
-
-	// Check that subsystem job issues a request for the session index for child.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Ok(test_state.signing_context.session_index)).unwrap();
-		}
-	);
-
-	// Check that subsystem job issues a request for a validator set.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Ok(test_state.validator_public.clone())).unwrap();
-		}
-	);
-
-	// Check that subsystem job issues a request for the validator groups.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::ValidatorGroups(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Ok(test_state.validator_groups.clone())).unwrap();
-		}
-	);
-
-	// Check that subsystem job issues a request for the availability cores.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Ok(test_state.availability_cores.clone())).unwrap();
-		}
-	);
-
-	// Node features request from runtime: all features are disabled.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
-		) => {
-			tx.send(Ok(test_state.node_features.clone())).unwrap();
-		}
-	);
-
-	// Check if subsystem job issues a request for the minimum backing votes.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
-			RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
-		)) if parent == test_state.relay_parent && session_index == test_state.signing_context.session_index => {
-			tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
-		}
-	);
-
-	// Check that subsystem job issues a request for the runtime version.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
-		}
-	);
-
-	// Check that subsystem job issues a request for the disabled validators.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Ok(test_state.disabled_validators.clone())).unwrap();
-		}
-	);
-}
-
-async fn assert_validation_requests(
+async fn assert_validation_request(
 	virtual_overseer: &mut VirtualOverseer,
 	validation_code: ValidationCode,
 ) {
@@ -350,33 +269,6 @@ async fn assert_validation_requests(
 			RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
 		) if hash == validation_code.hash() => {
 			tx.send(Ok(Some(validation_code))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-		) => {
-			tx.send(Ok(1u32.into())).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 		}
 	);
 }
@@ -404,8 +296,8 @@ async fn assert_validate_from_exhaustive(
 			},
 		) if validation_data == *assert_pvd &&
 			validation_code == *assert_validation_code &&
-			*pov == *assert_pov && &candidate_receipt.descriptor == assert_candidate.descriptor() &&
-			exec_kind == PvfExecKind::Backing &&
+			*pov == *assert_pov && candidate_receipt.descriptor == assert_candidate.descriptor &&
+			matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 			candidate_receipt.commitments_hash == assert_candidate.commitments.hash() =>
 		{
 			response_sender.send(Ok(ValidationResult::Valid(
@@ -424,23 +316,392 @@ async fn assert_validate_from_exhaustive(
 	);
 }
 
-// Test that a `CandidateBackingMessage::Second` issues validation work
-// and in case validation is successful issues a `StatementDistributionMessage`.
+// Activates the initial leaf and returns the `ParaId` used. This function is a prerequisite for all
+// tests.
+async fn activate_initial_leaf(
+	virtual_overseer: &mut VirtualOverseer,
+	test_state: &mut TestState,
+) -> ParaId {
+	const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
+	const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
+	let para_id = test_state.chain_ids[0];
+
+	let activated = new_leaf(test_state.relay_parent, LEAF_A_BLOCK_NUMBER - 1);
+	let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
+	let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+	activate_leaf(virtual_overseer, test_leaf_a, test_state).await;
+	para_id
+}
+
+async fn assert_candidate_is_shared_and_seconded(
+	virtual_overseer: &mut VirtualOverseer,
+	relay_parent: &Hash,
+) {
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::StatementDistribution(
+			StatementDistributionMessage::Share(
+				parent_hash,
+				_signed_statement,
+			)
+		) if parent_hash == *relay_parent => {}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::CollatorProtocol(CollatorProtocolMessage::Seconded(hash, statement)) => {
+			assert_eq!(*relay_parent, hash);
+			assert_matches!(statement.payload(), Statement::Seconded(_));
+		}
+	);
+}
+
+async fn assert_candidate_is_shared_and_backed(
+	virtual_overseer: &mut VirtualOverseer,
+	relay_parent: &Hash,
+	expected_para_id: &ParaId,
+	expected_candidate_hash: &CandidateHash,
+) {
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::StatementDistribution(
+			StatementDistributionMessage::Share(hash, _stmt)
+		) => {
+			assert_eq!(*relay_parent, hash);
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::ProspectiveParachains(
+			ProspectiveParachainsMessage::CandidateBacked(
+				candidate_para_id, candidate_hash
+			),
+		) if *expected_candidate_hash == candidate_hash && candidate_para_id == *expected_para_id
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::StatementDistribution(StatementDistributionMessage::Backed (
+			candidate_hash
+		)) if *expected_candidate_hash == candidate_hash
+	);
+}
+
+fn get_parent_hash(hash: Hash) -> Hash {
+	Hash::from_low_u64_be(hash.to_low_u64_be() + 1)
+}
+
+async fn activate_leaf(
+	virtual_overseer: &mut VirtualOverseer,
+	leaf: TestLeaf,
+	test_state: &mut TestState,
+) {
+	let TestLeaf { activated, min_relay_parents } = leaf;
+	let leaf_hash = activated.hash;
+	let leaf_number = activated.number;
+	// Start work on some new parent.
+	virtual_overseer
+		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
+			activated,
+		))))
+		.await;
+
+	let min_min = *min_relay_parents
+		.iter()
+		.map(|(_, block_num)| block_num)
+		.min()
+		.unwrap_or(&leaf_number);
+
+	let ancestry_len = leaf_number + 1 - min_min;
+
+	let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
+		.take(ancestry_len as usize);
+	let ancestry_numbers = (min_min..=leaf_number).rev();
+	let ancestry_iter = ancestry_hashes.zip(ancestry_numbers).peekable();
+
+	let mut next_overseer_message = None;
+	// How many blocks were actually requested.
+	let mut requested_len = 0;
+	{
+		let mut ancestry_iter = ancestry_iter.clone();
+		while let Some((hash, number)) = ancestry_iter.next() {
+			// May be `None` for the last element.
+			let parent_hash =
+				ancestry_iter.peek().map(|(h, _)| *h).unwrap_or_else(|| get_parent_hash(hash));
+
+			let msg = virtual_overseer.recv().await;
+			// It may happen that some blocks were cached by implicit view,
+			// reuse the message.
+			if !matches!(&msg, AllMessages::ChainApi(ChainApiMessage::BlockHeader(..))) {
+				next_overseer_message.replace(msg);
+				break
+			}
+
+			assert_matches!(
+				msg,
+				AllMessages::ChainApi(
+					ChainApiMessage::BlockHeader(_hash, tx)
+				) if _hash == hash => {
+					let header = Header {
+						parent_hash,
+						number,
+						state_root: Hash::zero(),
+						extrinsics_root: Hash::zero(),
+						digest: Default::default(),
+					};
+
+					tx.send(Ok(Some(header))).unwrap();
+				}
+			);
+
+			if requested_len == 0 {
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::ProspectiveParachains(
+						ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
+					) if parent == leaf_hash => {
+						tx.send(min_relay_parents.clone()).unwrap();
+					}
+				);
+			}
+
+			requested_len += 1;
+		}
+	}
+
+	for (hash, number) in ancestry_iter.take(requested_len) {
+		let msg = match next_overseer_message.take() {
+			Some(msg) => msg,
+			None => virtual_overseer.recv().await,
+		};
+
+		// Check that subsystem job issues a request for the session index for child.
+		assert_matches!(
+			msg,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+			) if parent == hash => {
+				tx.send(Ok(test_state.signing_context.session_index)).unwrap();
+			}
+		);
+
+		// Check that subsystem job issues a request for the validator groups.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ValidatorGroups(tx))
+			) if parent == hash => {
+				let (validator_groups, mut group_rotation_info) = test_state.validator_groups.clone();
+				group_rotation_info.now = number;
+				tx.send(Ok((validator_groups, group_rotation_info))).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ClaimQueue(tx))
+			) if parent == hash => {
+				tx.send(Ok(
+					test_state.claim_queue.clone()
+				)).unwrap();
+			}
+		);
+
+		// Check that the subsystem job issues a request for the disabled validators.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
+			) if parent == hash => {
+				tx.send(Ok(test_state.disabled_validators.clone())).unwrap();
+			}
+		);
+
+		if !test_state.per_session_cache_state.has_cached_validators {
+			// Check that subsystem job issues a request for a validator set.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
+				) if parent == hash => {
+					tx.send(Ok(test_state.validator_public.clone())).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_validators = true;
+		}
+
+		if !test_state.per_session_cache_state.has_cached_node_features {
+			// Node features request from runtime: all features are disabled.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
+				) if parent == hash => {
+					tx.send(Ok(test_state.node_features.clone())).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_node_features = true;
+		}
+
+		if !test_state.per_session_cache_state.has_cached_executor_params {
+			// Check if subsystem job issues a request for the executor parameters.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionExecutorParams(_session_index, tx))
+				) if parent == hash => {
+					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_executor_params = true;
+		}
+
+		if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
+			// Check if subsystem job issues a request for the minimum backing votes.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					parent,
+					RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+				)) if parent == hash && session_index == test_state.signing_context.session_index => {
+					tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_minimum_backing_votes = true;
+		}
+	}
+}
+
+async fn assert_validate_seconded_candidate(
+	virtual_overseer: &mut VirtualOverseer,
+	relay_parent: Hash,
+	candidate: &CommittedCandidateReceipt,
+	assert_pov: &PoV,
+	assert_pvd: &PersistedValidationData,
+	assert_validation_code: &ValidationCode,
+	expected_head_data: &HeadData,
+	fetch_pov: bool,
+) {
+	assert_validation_request(virtual_overseer, assert_validation_code.clone()).await;
+
+	if fetch_pov {
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::AvailabilityDistribution(
+				AvailabilityDistributionMessage::FetchPoV {
+					relay_parent: hash,
+					tx,
+					..
+				}
+			) if hash == relay_parent => {
+				tx.send(assert_pov.clone()).unwrap();
+			}
+		);
+	}
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::CandidateValidation(
+			CandidateValidationMessage::ValidateFromExhaustive {
+				pov,
+				validation_data,
+				validation_code,
+				candidate_receipt,
+				exec_kind,
+				response_sender,
+				..
+			},
+		) if validation_data == *assert_pvd &&
+			validation_code == *assert_validation_code &&
+			*pov == *assert_pov && candidate_receipt.descriptor == candidate.descriptor &&
+			matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
+			candidate_receipt.commitments_hash == candidate.commitments.hash() =>
+		{
+			response_sender.send(Ok(ValidationResult::Valid(
+				CandidateCommitments {
+					head_data: expected_head_data.clone(),
+					horizontal_messages: Default::default(),
+					upward_messages: Default::default(),
+					new_validation_code: None,
+					processed_downward_messages: 0,
+					hrmp_watermark: 0,
+				},
+				assert_pvd.clone(),
+			)))
+			.unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::AvailabilityStore(
+			AvailabilityStoreMessage::StoreAvailableData { candidate_hash, tx, .. }
+		) if candidate_hash == candidate.hash() => {
+			tx.send(Ok(())).unwrap();
+		}
+	);
+}
+
+pub(crate) async fn assert_hypothetical_membership_requests(
+	virtual_overseer: &mut VirtualOverseer,
+	mut expected_requests: Vec<(
+		HypotheticalMembershipRequest,
+		Vec<(HypotheticalCandidate, HypotheticalMembership)>,
+	)>,
+) {
+	// Requests come with no particular order.
+	let requests_num = expected_requests.len();
+
+	for _ in 0..requests_num {
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx),
+			) => {
+				let idx = match expected_requests.iter().position(|r| r.0 == request) {
+					Some(idx) => idx,
+					None =>
+						panic!(
+						"unexpected hypothetical membership request, no match found for {:?}",
+						request
+						),
+				};
+				let resp = std::mem::take(&mut expected_requests[idx].1);
+				tx.send(resp).unwrap();
+
+				expected_requests.remove(idx);
+			}
+		);
+	}
+}
+
+pub(crate) fn make_hypothetical_membership_response(
+	hypothetical_candidate: HypotheticalCandidate,
+	relay_parent_hash: Hash,
+) -> Vec<(HypotheticalCandidate, HypotheticalMembership)> {
+	vec![(hypothetical_candidate, vec![relay_parent_hash])]
+}
+
+// Test that a `CandidateBackingMessage::Second` issues validation work and in case validation is
+// successful issues correct messages.
 #[test]
 fn backing_second_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
 		let validation_code = ValidationCode(vec![1, 2, 3]);
 
-		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
 
 		let pov_hash = pov.hash();
 		let candidate = TestCandidateBuilder {
-			para_id: test_state.chain_ids[0],
+			para_id,
 			relay_parent: test_state.relay_parent,
 			pov_hash,
 			head_data: expected_head_data.clone(),
@@ -459,45 +720,52 @@ fn backing_second_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
-
-		assert_validate_from_exhaustive(
+		assert_validate_seconded_candidate(
 			&mut virtual_overseer,
-			&pvd,
-			&pov,
-			&validation_code,
+			test_state.relay_parent,
 			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
 			expected_head_data,
-			test_state.validation_data.clone(),
+			false,
+		)
+		.await;
+
+		let hypothetical_candidate = HypotheticalCandidate::Complete {
+			candidate_hash: candidate.hash(),
+			receipt: Arc::new(candidate.clone()),
+			persisted_validation_data: pvd.clone(),
+		};
+		let expected_request = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate.clone()],
+			fragment_chain_relay_parent: Some(test_state.relay_parent),
+		};
+		let expected_response =
+			make_hypothetical_membership_response(hypothetical_candidate, test_state.relay_parent);
+		assert_hypothetical_membership_requests(
+			&mut virtual_overseer,
+			vec![(expected_request, expected_response)],
 		)
 		.await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::AvailabilityStore(
-				AvailabilityStoreMessage::StoreAvailableData { candidate_hash, tx, .. }
-			) if candidate_hash == candidate.hash() => {
-				tx.send(Ok(())).unwrap();
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
 			}
 		);
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::StatementDistribution(
-				StatementDistributionMessage::Share(
-					parent_hash,
-					_signed_statement,
-				)
-			) if parent_hash == test_state.relay_parent => {}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::Seconded(hash, statement)) => {
-				assert_eq!(test_state.relay_parent, hash);
-				assert_matches!(statement.payload(), Statement::Seconded(_));
-			}
-		);
+		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &test_state.relay_parent)
+			.await;
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
@@ -509,22 +777,12 @@ fn backing_second_works() {
 }
 
 // Test that the candidate reaches quorum successfully.
-#[rstest]
-#[case(true)]
-#[case(false)]
-fn backing_works(#[case] elastic_scaling_mvp: bool) {
+#[test]
+fn backing_works() {
 	let mut test_state = TestState::default();
-	if elastic_scaling_mvp {
-		test_state
-			.node_features
-			.resize((node_features::FeatureIndex::ElasticScalingMVP as u8 + 1) as usize, false);
-		test_state
-			.node_features
-			.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
-	}
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_ab = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd_ab = dummy_pvd();
@@ -532,10 +790,10 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 
 		let pov_hash = pov_ab.hash();
 
-		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
 
 		let candidate_a = TestCandidateBuilder {
-			para_id: test_state.chain_ids[0],
+			para_id,
 			relay_parent: test_state.relay_parent,
 			pov_hash,
 			head_data: expected_head_data.clone(),
@@ -546,7 +804,6 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 		.build();
 
 		let candidate_a_hash = candidate_a.hash();
-		let candidate_a_commitments_hash = candidate_a.commitments.hash();
 
 		let public1 = Keystore::sr25519_generate_new(
 			&*test_state.keystore,
@@ -588,85 +845,40 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_ab.clone()).await;
-
-		// Sending a `Statement::Seconded` for our assignment will start
-		// validation process. The first thing requested is the PoV.
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::AvailabilityDistribution(
-				AvailabilityDistributionMessage::FetchPoV {
-					relay_parent,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
 					tx,
-					..
-				}
-			) if relay_parent == test_state.relay_parent => {
-				tx.send(pov_ab.clone()).unwrap();
+				),
+			) if
+				req.candidate_receipt == candidate_a
+				&& req.candidate_para == para_id
+				&& pvd_ab == req.persisted_validation_data => {
+				tx.send(true).unwrap();
 			}
 		);
 
-		// The next step is the actual request to Validation subsystem
-		// to validate the `Seconded` candidate.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive {
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					exec_kind,
-					response_sender,
-					..
-				},
-			) if validation_data == pvd_ab &&
-				validation_code == validation_code_ab &&
-				*pov == pov_ab && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
-				candidate_receipt.commitments_hash == candidate_a_commitments_hash =>
-			{
-				response_sender.send(Ok(
-					ValidationResult::Valid(CandidateCommitments {
-						head_data: expected_head_data.clone(),
-						upward_messages: Default::default(),
-						horizontal_messages: Default::default(),
-						new_validation_code: None,
-						processed_downward_messages: 0,
-						hrmp_watermark: 0,
-					}, test_state.validation_data.clone()),
-				)).unwrap();
-			}
-		);
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			candidate_a.descriptor.relay_parent(),
+			&candidate_a,
+			&pov_ab,
+			&pvd_ab,
+			&validation_code_ab,
+			expected_head_data,
+			true,
+		)
+		.await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::AvailabilityStore(
-				AvailabilityStoreMessage::StoreAvailableData { candidate_hash, tx, .. }
-			) if candidate_hash == candidate_a.hash() => {
-				tx.send(Ok(())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::StatementDistribution(
-				StatementDistributionMessage::Share(hash, _stmt)
-			) => {
-				assert_eq!(test_state.relay_parent, hash);
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::Provisioner(
-				ProvisionerMessage::ProvisionableData(
-					_,
-					ProvisionableData::BackedCandidate(candidate_receipt)
-				)
-			) => {
-				assert_eq!(candidate_receipt, candidate_a.to_plain());
-			}
-		);
+		assert_candidate_is_shared_and_backed(
+			&mut virtual_overseer,
+			&test_state.relay_parent,
+			&para_id,
+			&candidate_a_hash,
+		)
+		.await;
 
 		let statement =
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
@@ -674,7 +886,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate_a_hash, test_state.relay_parent)],
@@ -692,12 +904,9 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 		assert_eq!(candidates[0].validity_votes().len(), 3);
 
 		let (validator_indices, maybe_core_index) =
-			candidates[0].validator_indices_and_core_index(elastic_scaling_mvp);
-		if elastic_scaling_mvp {
-			assert_eq!(maybe_core_index.unwrap(), CoreIndex(0));
-		} else {
-			assert!(maybe_core_index.is_none());
-		}
+			candidates[0].validator_indices_and_core_index();
+
+		assert_eq!(maybe_core_index.unwrap(), CoreIndex(0));
 
 		assert_eq!(
 			validator_indices,
@@ -716,13 +925,6 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 #[test]
 fn get_backed_candidate_preserves_order() {
 	let mut test_state = TestState::default();
-	test_state
-		.node_features
-		.resize((node_features::FeatureIndex::ElasticScalingMVP as u8 + 1) as usize, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
-
 	// Set a single validator as the first validator group. It simplifies the test.
 	test_state.validator_groups.0[0] = vec![ValidatorIndex(2)];
 	// Add another validator group for the third core.
@@ -730,14 +932,19 @@ fn get_backed_candidate_preserves_order() {
 	// Assign the second core to the same para as the first one.
 	test_state.availability_cores[1] =
 		CoreState::Scheduled(ScheduledCore { para_id: test_state.chain_ids[0], collator: None });
+	*test_state.claim_queue.get_mut(&CoreIndex(1)).unwrap() =
+		[test_state.chain_ids[0]].into_iter().collect();
 	// Add another availability core for paraid 2.
 	test_state.availability_cores.push(CoreState::Scheduled(ScheduledCore {
 		para_id: test_state.chain_ids[1],
 		collator: None,
 	}));
+	test_state
+		.claim_queue
+		.insert(CoreIndex(2), [test_state.chain_ids[1]].into_iter().collect());
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pov_b = PoV { block_data: BlockData(vec![3, 4, 5]) };
@@ -846,22 +1053,42 @@ fn get_backed_candidate_preserves_order() {
 
 			virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
+			// Prospective parachains are notified about candidate seconded first.
 			assert_matches!(
 				virtual_overseer.recv().await,
-				AllMessages::Provisioner(
-					ProvisionerMessage::ProvisionableData(
-						_,
-						ProvisionableData::BackedCandidate(candidate_receipt)
-					)
-				) => {
-					assert_eq!(candidate_receipt, candidate.to_plain());
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+						req,
+						tx,
+					),
+				) if
+					req.candidate_receipt == candidate
+					&& req.candidate_para == candidate.descriptor.para_id()
+					&& pvd == req.persisted_validation_data => {
+					tx.send(true).unwrap();
 				}
+			);
+
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::CandidateBacked(
+						candidate_para_id, candidate_hash
+					),
+				) if candidate.hash() == candidate_hash && candidate_para_id == candidate.descriptor.para_id()
+			);
+
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::StatementDistribution(StatementDistributionMessage::Backed (
+					candidate_hash
+				)) if candidate.hash() == candidate_hash
 			);
 		}
 
 		// Happy case, all candidates should be present.
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			[
 				(
 					test_state.chain_ids[0],
@@ -912,7 +1139,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -951,7 +1178,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -996,7 +1223,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -1087,7 +1314,7 @@ fn extract_core_index_from_statement_works() {
 	.flatten()
 	.expect("should be signed");
 
-	candidate.descriptor.para_id = test_state.chain_ids[1];
+	candidate.descriptor.set_para_id(test_state.chain_ids[1]);
 
 	let signed_statement_3 = SignedFullStatementWithPVD::sign(
 		&test_state.keystore,
@@ -1103,7 +1330,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_1 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_1,
 	)
 	.unwrap();
@@ -1113,7 +1341,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_2 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_2,
 	);
 
@@ -1123,7 +1352,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_3 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_3,
 	)
 	.unwrap();
@@ -1133,9 +1363,9 @@ fn extract_core_index_from_statement_works() {
 
 #[test]
 fn backing_works_while_validation_ongoing() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_abc = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd_abc = dummy_pvd();
@@ -1215,7 +1445,22 @@ fn backing_works_while_validation_ongoing() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_abc.clone()).await;
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate_a
+				&& req.candidate_para == para_id
+				&& pvd_abc == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_validation_request(&mut virtual_overseer, validation_code_abc.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
 		// validation process. The first thing requested is PoV from the
@@ -1249,8 +1494,8 @@ fn backing_works_while_validation_ongoing() {
 				},
 			) if validation_data == pvd_abc &&
 				validation_code == validation_code_abc &&
-				*pov == pov_abc && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_abc && candidate_receipt.descriptor == candidate_a.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				// we never validate the candidate. our local node
@@ -1267,15 +1512,11 @@ fn backing_works_while_validation_ongoing() {
 		// Candidate gets backed entirely by other votes.
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::Provisioner(
-				ProvisionerMessage::ProvisionableData(
-					_,
-					ProvisionableData::BackedCandidate(CandidateReceipt {
-						descriptor,
-						..
-					})
-				)
-			) if descriptor == candidate_a.descriptor
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::CandidateBacked(
+					candidate_para_id, candidate_hash
+				),
+			) if candidate_a_hash == candidate_hash && candidate_para_id == para_id
 		);
 
 		let statement =
@@ -1284,7 +1525,7 @@ fn backing_works_while_validation_ongoing() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate_a.hash(), test_state.relay_parent)],
@@ -1311,8 +1552,11 @@ fn backing_works_while_validation_ongoing() {
 			.validity_votes()
 			.contains(&ValidityAttestation::Explicit(signed_c.signature().clone())));
 		assert_eq!(
-			candidates[0].validator_indices_and_core_index(false),
-			(bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1].as_bitslice(), None)
+			candidates[0].validator_indices_and_core_index(),
+			(
+				bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1].as_bitslice(),
+				Some(CoreIndex(0))
+			)
 		);
 
 		virtual_overseer
@@ -1324,13 +1568,12 @@ fn backing_works_while_validation_ongoing() {
 	});
 }
 
-// Issuing conflicting statements on the same candidate should
-// be a misbehavior.
+// Issuing conflicting statements on the same candidate should be a misbehavior.
 #[test]
 fn backing_misbehavior_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![1, 2, 3]) };
 
@@ -1352,8 +1595,6 @@ fn backing_misbehavior_works() {
 		.build();
 
 		let candidate_a_hash = candidate_a.hash();
-		let candidate_a_commitments_hash = candidate_a.commitments.hash();
-
 		let public2 = Keystore::sr25519_generate_new(
 			&*test_state.keystore,
 			ValidatorId::ID,
@@ -1387,85 +1628,41 @@ fn backing_misbehavior_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
-
+		// Prospective parachains are notified about candidate seconded first.
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::AvailabilityDistribution(
-				AvailabilityDistributionMessage::FetchPoV {
-					relay_parent,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
 					tx,
-					..
-				}
-			) if relay_parent == test_state.relay_parent => {
-				tx.send(pov_a.clone()).unwrap();
+				),
+			) if
+				req.candidate_receipt == candidate_a
+				&& req.candidate_para == para_id
+				&& pvd_a == req.persisted_validation_data => {
+				tx.send(true).unwrap();
 			}
 		);
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive {
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					exec_kind,
-					response_sender,
-					..
-				},
-			) if validation_data == pvd_a &&
-				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
-				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
-			{
-				response_sender.send(Ok(
-					ValidationResult::Valid(CandidateCommitments {
-						head_data: expected_head_data.clone(),
-						upward_messages: Default::default(),
-						horizontal_messages: Default::default(),
-						new_validation_code: None,
-						processed_downward_messages: 0,
-						hrmp_watermark: 0,
-					}, test_state.validation_data.clone()),
-				)).unwrap();
-			}
-		);
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			test_state.relay_parent,
+			&candidate_a,
+			&pov_a,
+			&pvd_a,
+			&validation_code_a,
+			expected_head_data,
+			true,
+		)
+		.await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::AvailabilityStore(
-				AvailabilityStoreMessage::StoreAvailableData { candidate_hash, tx, .. }
-			) if candidate_hash == candidate_a.hash() => {
-					tx.send(Ok(())).unwrap();
-				}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::StatementDistribution(
-				StatementDistributionMessage::Share(
-					relay_parent,
-					signed_statement,
-				)
-			) if relay_parent == test_state.relay_parent => {
-				assert_eq!(*signed_statement.payload(), StatementWithPVD::Valid(candidate_a_hash));
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::Provisioner(
-				ProvisionerMessage::ProvisionableData(
-					_,
-					ProvisionableData::BackedCandidate(CandidateReceipt {
-						descriptor,
-						..
-					})
-				)
-			) if descriptor == candidate_a.descriptor
-		);
+		assert_candidate_is_shared_and_backed(
+			&mut virtual_overseer,
+			&test_state.relay_parent,
+			&para_id,
+			&candidate_a_hash,
+		)
+		.await;
 
 		// This `Valid` statement is redundant after the `Seconded` statement already sent.
 		let statement =
@@ -1510,13 +1707,13 @@ fn backing_misbehavior_works() {
 	});
 }
 
-// Test that if we are asked to second an invalid candidate we
-// can still second a valid one afterwards.
+// Test that if we are asked to second an invalid candidate we can still second a valid one
+// afterwards.
 #[test]
-fn backing_dont_second_invalid() {
-	let test_state = TestState::default();
+fn backing_doesnt_second_invalid() {
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_block_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -1567,7 +1764,7 @@ fn backing_dont_second_invalid() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1583,8 +1780,8 @@ fn backing_dont_second_invalid() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_block_a && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_block_a && candidate_receipt.descriptor == candidate_a.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_a.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -1607,38 +1804,18 @@ fn backing_dont_second_invalid() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_b.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_b.clone()).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive {
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					exec_kind,
-					response_sender,
-					..
-				},
-			) if validation_data == pvd_b &&
-				validation_code == validation_code_b &&
-				*pov == pov_block_b && &candidate_receipt.descriptor == candidate_b.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
-				candidate_b.commitments.hash() == candidate_receipt.commitments_hash =>
-			{
-				response_sender.send(Ok(
-					ValidationResult::Valid(CandidateCommitments {
-						head_data: expected_head_data.clone(),
-						upward_messages: Default::default(),
-						horizontal_messages: Default::default(),
-						new_validation_code: None,
-						processed_downward_messages: 0,
-						hrmp_watermark: 0,
-					}, pvd_b.clone()),
-				)).unwrap();
-			}
-		);
+		assert_validate_from_exhaustive(
+			&mut virtual_overseer,
+			&pvd_b,
+			&pov_block_b,
+			&validation_code_b,
+			&candidate_b,
+			expected_head_data,
+			test_state.validation_data.clone(),
+		)
+		.await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1649,15 +1826,42 @@ fn backing_dont_second_invalid() {
 			}
 		);
 
+		let hypothetical_candidate_b = HypotheticalCandidate::Complete {
+			candidate_hash: candidate_b.hash(),
+			receipt: Arc::new(candidate_b.clone()),
+			persisted_validation_data: pvd_a.clone(), // ???
+		};
+		let expected_request_b = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate_b.clone()],
+			fragment_chain_relay_parent: Some(test_state.relay_parent),
+		};
+		let expected_response_b = make_hypothetical_membership_response(
+			hypothetical_candidate_b.clone(),
+			test_state.relay_parent,
+		);
+
+		assert_hypothetical_membership_requests(
+			&mut virtual_overseer,
+			vec![
+				// (expected_request_a, expected_response_a),
+				(expected_request_b, expected_response_b),
+			],
+		)
+		.await;
+
+		// Prospective parachains are notified.
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::StatementDistribution(
-				StatementDistributionMessage::Share(
-					parent_hash,
-					signed_statement,
-				)
-			) if parent_hash == test_state.relay_parent => {
-				assert_eq!(*signed_statement.payload(), StatementWithPVD::Seconded(candidate_b, pvd_b.clone()));
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) => {
+				assert_eq!(req.candidate_receipt, candidate_b);
+				assert_eq!(req.candidate_para, para_id);
+				assert_eq!(pvd_a, req.persisted_validation_data); // ???
+				tx.send(true).unwrap();
 			}
 		);
 
@@ -1670,13 +1874,13 @@ fn backing_dont_second_invalid() {
 	});
 }
 
-// Test that if we have already issued a statement (in this case `Invalid`) about a
-// candidate we will not be issuing a `Seconded` statement on it.
+// Test that if we have already issued a statement (in this case `Invalid`) about a candidate we
+// will not be issuing a `Seconded` statement on it.
 #[test]
 fn backing_second_after_first_fails_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -1719,7 +1923,22 @@ fn backing_second_after_first_fails_works() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd_a == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_validation_request(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		assert_matches!(
@@ -1750,8 +1969,8 @@ fn backing_second_after_first_fails_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -1802,7 +2021,7 @@ fn backing_second_after_first_fails_works() {
 		// triggered on the prev step.
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_to_second.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_to_second.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1816,13 +2035,13 @@ fn backing_second_after_first_fails_works() {
 	});
 }
 
-// That that if the validation of the candidate has failed this does not stop
-// the work of this subsystem and so it is not fatal to the node.
+// Test that if the validation of the candidate has failed this does not stop the work of this
+// subsystem and so it is not fatal to the node.
 #[test]
 fn backing_works_after_failed_validation() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -1863,7 +2082,22 @@ fn backing_works_after_failed_validation() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd_a == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_validation_request(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		assert_matches!(
@@ -1894,8 +2128,8 @@ fn backing_works_after_failed_validation() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Err(ValidationFailed("Internal test error".into()))).unwrap();
@@ -1905,7 +2139,7 @@ fn backing_works_after_failed_validation() {
 		// Try to get a set of backable candidates to trigger _some_ action in the subsystem
 		// and check that it is still alive.
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate.hash(), test_state.relay_parent)],
@@ -1962,7 +2196,7 @@ fn candidate_backing_reorders_votes() {
 	};
 
 	let attested = TableAttestedCandidate {
-		candidate: dummy_committed_candidate_receipt(dummy_hash()),
+		candidate: dummy_committed_candidate_receipt_v2(dummy_hash()),
 		validity_votes: vec![
 			(ValidatorIndex(5), fake_attestation(5)),
 			(ValidatorIndex(3), fake_attestation(3)),
@@ -1971,7 +2205,7 @@ fn candidate_backing_reorders_votes() {
 		group_id: core_idx,
 	};
 
-	let backed = table_attested_to_backed(attested, &table_context, false).unwrap();
+	let backed = table_attested_to_backed(attested, &table_context).unwrap();
 
 	let expected_bitvec = {
 		let mut validator_indices = BitVec::<u8, bitvec::order::Lsb0>::with_capacity(6);
@@ -1989,8 +2223,8 @@ fn candidate_backing_reorders_votes() {
 		vec![fake_attestation(1).into(), fake_attestation(3).into(), fake_attestation(5).into()];
 
 	assert_eq!(
-		backed.validator_indices_and_core_index(false),
-		(expected_bitvec.as_bitslice(), None)
+		backed.validator_indices_and_core_index(),
+		(expected_bitvec.as_bitslice(), Some(CoreIndex(10)))
 	);
 	assert_eq!(backed.validity_votes(), expected_attestations);
 }
@@ -1998,16 +2232,16 @@ fn candidate_backing_reorders_votes() {
 // Test whether we retry on failed PoV fetching.
 #[test]
 fn retry_works() {
-	// sp_tracing::try_init_simple();
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
 		let validation_code_a = ValidationCode(vec![1, 2, 3]);
 
 		let pov_hash = pov_a.hash();
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
 
 		let candidate = TestCandidateBuilder {
 			para_id: test_state.chain_ids[0],
@@ -2016,7 +2250,7 @@ fn retry_works() {
 			erasure_root: make_erasure_root(&test_state, pov_a.clone(), pvd_a.clone()),
 			persisted_validation_data_hash: pvd_a.hash(),
 			validation_code: validation_code_a.0.clone(),
-			..Default::default()
+			head_data: expected_head_data.clone(),
 		}
 		.build();
 
@@ -2074,7 +2308,22 @@ fn retry_works() {
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd_a == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_validation_request(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		// We cancel - should mean retry on next backing statement.
@@ -2096,42 +2345,30 @@ fn retry_works() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		// Not deterministic which message comes first:
-		for _ in 0u32..6 {
+		for _ in 0u32..3 {
 			match virtual_overseer.recv().await {
-				AllMessages::Provisioner(ProvisionerMessage::ProvisionableData(
-					_,
-					ProvisionableData::BackedCandidate(CandidateReceipt { descriptor, .. }),
-				)) => {
-					assert_eq!(descriptor, candidate.descriptor);
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::CandidateBacked(
+						candidate_para_id,
+						candidate_hash,
+					),
+				) if candidate_hash == candidate_hash && candidate_para_id == para_id => {
+					assert_eq!(candidate_para_id, para_id);
+					assert_eq!(candidate_hash, candidate.hash());
 				},
 				AllMessages::AvailabilityDistribution(
 					AvailabilityDistributionMessage::FetchPoV { relay_parent, tx, .. },
 				) if relay_parent == test_state.relay_parent => {
 					std::mem::drop(tx);
 				},
+				AllMessages::StatementDistribution(StatementDistributionMessage::Backed(
+					candidate_hash,
+				)) if candidate_hash == candidate.hash() => {},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_,
 					RuntimeApiRequest::ValidationCodeByHash(hash, tx),
 				)) if hash == validation_code_a.hash() => {
 					tx.send(Ok(Some(validation_code_a.clone()))).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionIndexForChild(tx),
-				)) => {
-					tx.send(Ok(1u32.into())).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(1, tx),
-				)) => {
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::NodeFeatures(1, tx),
-				)) => {
-					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				},
 				msg => {
 					assert!(false, "Unexpected message: {:?}", msg);
@@ -2142,8 +2379,6 @@ fn retry_works() {
 		let statement =
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -2173,8 +2408,8 @@ fn retry_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash
 		);
 		virtual_overseer
@@ -2183,10 +2418,10 @@ fn retry_works() {
 
 #[test]
 fn observes_backing_even_if_not_validator() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	let empty_keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	test_harness(empty_keystore, |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd = dummy_pvd();
@@ -2267,6 +2502,22 @@ fn observes_backing_even_if_not_validator() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
+		// Prospective parachains are notified about candidate seconded first.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate_a
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
 		let statement =
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
 
@@ -2274,14 +2525,11 @@ fn observes_backing_even_if_not_validator() {
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::Provisioner(
-				ProvisionerMessage::ProvisionableData(
-					_,
-					ProvisionableData::BackedCandidate(candidate_receipt)
-				)
-			) => {
-				assert_eq!(candidate_receipt, candidate_a.to_plain());
-			}
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::CandidateBacked(
+					candidate_para_id, candidate_hash
+				),
+			) if candidate_a_hash == candidate_hash && candidate_para_id == para_id
 		);
 
 		let statement =
@@ -2298,155 +2546,27 @@ fn observes_backing_even_if_not_validator() {
 	});
 }
 
-// Tests that it's impossible to second multiple candidates per relay parent
-// without prospective parachains.
-#[test]
-fn cannot_second_multiple_candidates_per_parent() {
-	let test_state = TestState::default();
-	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
-
-		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
-		let pvd = dummy_pvd();
-		let validation_code = ValidationCode(vec![1, 2, 3]);
-
-		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
-
-		let pov_hash = pov.hash();
-		let candidate_builder = TestCandidateBuilder {
-			para_id: test_state.chain_ids[0],
-			relay_parent: test_state.relay_parent,
-			pov_hash,
-			head_data: expected_head_data.clone(),
-			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
-			persisted_validation_data_hash: pvd.hash(),
-			validation_code: validation_code.0.clone(),
-		};
-		let candidate = candidate_builder.clone().build();
-
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
-
-		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
-
-		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
-
-		assert_validate_from_exhaustive(
-			&mut virtual_overseer,
-			&pvd,
-			&pov,
-			&validation_code,
-			&candidate,
-			expected_head_data,
-			test_state.validation_data.clone(),
-		)
-		.await;
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::AvailabilityStore(
-				AvailabilityStoreMessage::StoreAvailableData { candidate_hash, tx, .. }
-			) if candidate_hash == candidate.hash() => {
-				tx.send(Ok(())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::StatementDistribution(
-				StatementDistributionMessage::Share(
-					parent_hash,
-					_signed_statement,
-				)
-			) if parent_hash == test_state.relay_parent => {}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::Seconded(hash, statement)) => {
-				assert_eq!(test_state.relay_parent, hash);
-				assert_matches!(statement.payload(), Statement::Seconded(_));
-			}
-		);
-
-		// Try to second candidate with the same relay parent again.
-
-		// Make sure the candidate hash is different.
-		let validation_code = ValidationCode(vec![4, 5, 6]);
-		let mut candidate_builder = candidate_builder;
-		candidate_builder.validation_code = validation_code.0.clone();
-		let candidate = candidate_builder.build();
-
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
-
-		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
-
-		// The validation is still requested.
-		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive { response_sender, .. },
-			) => {
-				response_sender.send(Ok(ValidationResult::Valid(
-					CandidateCommitments {
-						head_data: expected_head_data.clone(),
-						horizontal_messages: Default::default(),
-						upward_messages: Default::default(),
-						new_validation_code: None,
-						processed_downward_messages: 0,
-						hrmp_watermark: 0,
-					},
-					test_state.validation_data.clone(),
-				)))
-				.unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::AvailabilityStore(
-				AvailabilityStoreMessage::StoreAvailableData { candidate_hash, tx, .. }
-			) if candidate_hash == candidate.hash() => {
-				tx.send(Ok(())).unwrap();
-			}
-		);
-
-		// Validation done, but the candidate is rejected cause of 0-depth being already occupied.
-
-		assert!(virtual_overseer
-			.recv()
-			.timeout(std::time::Duration::from_millis(50))
-			.await
-			.is_none());
-
-		virtual_overseer
-	});
-}
-
 #[test]
 fn new_leaf_view_doesnt_clobber_old() {
 	let mut test_state = TestState::default();
 	let relay_parent_2 = Hash::repeat_byte(1);
 	assert_ne!(test_state.relay_parent, relay_parent_2);
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		// New leaf that doesn't clobber old.
 		{
 			let old_relay_parent = test_state.relay_parent;
 			test_state.relay_parent = relay_parent_2;
-			test_startup(&mut virtual_overseer, &test_state).await;
+
+			const LEAF_B_BLOCK_NUMBER: BlockNumber = 101;
+			const LEAF_B_ANCESTRY_LEN: BlockNumber = 3;
+			let para_id = test_state.chain_ids[0];
+			let activated = new_leaf(test_state.relay_parent, LEAF_B_BLOCK_NUMBER - 1);
+			let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
+			let test_leaf_b = TestLeaf { activated, min_relay_parents };
+
+			activate_leaf(&mut virtual_overseer, test_leaf_b, &mut test_state).await;
 			test_state.relay_parent = old_relay_parent;
 		}
 
@@ -2499,7 +2619,7 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_second() {
 	test_state.disabled_validators.push(ValidatorIndex(0));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2547,7 +2667,7 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_statement() {
 	test_state.disabled_validators.push(ValidatorIndex(0));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2589,6 +2709,21 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_statement() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
 		// Ensure backing subsystem is not doing any work
 		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
 
@@ -2609,7 +2744,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 	test_state.disabled_validators.push(ValidatorIndex(2));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2628,7 +2763,6 @@ fn validator_ignores_statements_from_disabled_validators() {
 			validation_code: validation_code.0.clone(),
 		}
 		.build();
-		let candidate_commitments_hash = candidate.commitments.hash();
 
 		let public2 = Keystore::sr25519_generate_new(
 			&*test_state.keystore,
@@ -2680,93 +2814,1198 @@ fn validator_ignores_statements_from_disabled_validators() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_3 }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
-
-		// Sending a `Statement::Seconded` for our assignment will start
-		// validation process. The first thing requested is the PoV.
+		// Prospective parachains are notified about candidate seconded first.
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::AvailabilityDistribution(
-				AvailabilityDistributionMessage::FetchPoV {
-					relay_parent,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
 					tx,
-					..
-				}
-			) if relay_parent == test_state.relay_parent => {
-				tx.send(pov.clone()).unwrap();
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
 			}
 		);
 
-		// The next step is the actual request to Validation subsystem
-		// to validate the `Seconded` candidate.
-		let expected_pov = pov;
-		let expected_validation_code = validation_code;
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive {
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					executor_params: _,
-					exec_kind,
-					response_sender,
-				}
-			) if validation_data == pvd &&
-				validation_code == expected_validation_code &&
-				*pov == expected_pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
-				candidate_commitments_hash == candidate_receipt.commitments_hash =>
-			{
-				response_sender.send(Ok(
-					ValidationResult::Valid(CandidateCommitments {
-						head_data: expected_head_data.clone(),
-						upward_messages: Default::default(),
-						horizontal_messages: Default::default(),
-						new_validation_code: None,
-						processed_downward_messages: 0,
-						hrmp_watermark: 0,
-					}, test_state.validation_data.clone()),
-				)).unwrap();
-			}
-		);
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			test_state.relay_parent,
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			expected_head_data,
+			true,
+		)
+		.await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::AvailabilityStore(
-				AvailabilityStoreMessage::StoreAvailableData { candidate_hash, tx, .. }
-			) if candidate_hash == candidate.hash() => {
-				tx.send(Ok(())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::StatementDistribution(
-				StatementDistributionMessage::Share(hash, _stmt)
-			) => {
-				assert_eq!(test_state.relay_parent, hash);
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::Provisioner(
-				ProvisionerMessage::ProvisionableData(
-					_,
-					ProvisionableData::BackedCandidate(candidate_receipt)
-				)
-			) => {
-				assert_eq!(candidate_receipt, candidate.to_plain());
-			}
-		);
+		assert_candidate_is_shared_and_backed(
+			&mut virtual_overseer,
+			&test_state.relay_parent,
+			&para_id,
+			&candidate.hash(),
+		)
+		.await;
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
 				ActiveLeavesUpdate::stop_work(test_state.relay_parent),
 			)))
 			.await;
+		virtual_overseer
+	});
+}
+
+// Test that `seconding_sanity_check` works when a candidate is allowed
+// for all leaves.
+#[test]
+fn seconding_sanity_check_allowed_on_all() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		// Candidate is seconded in a parent of the activated `leaf_a`.
+		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
+		const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
+		let para_id = test_state.chain_ids[0];
+
+		// `a` is grandparent of `b`.
+		let leaf_a_hash = Hash::from_low_u64_be(130);
+		let leaf_a_parent = get_parent_hash(leaf_a_hash);
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
+		let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+		const LEAF_B_BLOCK_NUMBER: BlockNumber = LEAF_A_BLOCK_NUMBER + 2;
+		const LEAF_B_ANCESTRY_LEN: BlockNumber = 4;
+
+		let leaf_b_hash = Hash::from_low_u64_be(128);
+		let activated = new_leaf(leaf_b_hash, LEAF_B_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
+		let test_leaf_b = TestLeaf { activated, min_relay_parents };
+
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_b, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_a_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let second = CandidateBackingMessage::Second(
+			leaf_a_hash,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			leaf_a_parent,
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			expected_head_data,
+			false,
+		)
+		.await;
+
+		// `seconding_sanity_check`
+		let hypothetical_candidate = HypotheticalCandidate::Complete {
+			candidate_hash: candidate.hash(),
+			receipt: Arc::new(candidate.clone()),
+			persisted_validation_data: pvd.clone(),
+		};
+		let expected_request_a = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate.clone()],
+			fragment_chain_relay_parent: Some(leaf_a_hash),
+		};
+		let expected_response_a =
+			make_hypothetical_membership_response(hypothetical_candidate.clone(), leaf_a_hash);
+		let expected_request_b = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate.clone()],
+			fragment_chain_relay_parent: Some(leaf_b_hash),
+		};
+		let expected_response_b =
+			make_hypothetical_membership_response(hypothetical_candidate, leaf_b_hash);
+		assert_hypothetical_membership_requests(
+			&mut virtual_overseer,
+			vec![
+				(expected_request_a, expected_response_a),
+				(expected_request_b, expected_response_b),
+			],
+		)
+		.await;
+		// Prospective parachains are notified.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &leaf_a_parent).await;
+
+		virtual_overseer
+	});
+}
+
+// Test that `seconding_sanity_check` disallows seconding when a candidate is disallowed
+// for all leaves.
+#[test]
+fn seconding_sanity_check_disallowed() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		// Candidate is seconded in a parent of the activated `leaf_a`.
+		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
+		const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
+		let para_id = test_state.chain_ids[0];
+
+		let leaf_b_hash = Hash::from_low_u64_be(128);
+		// `a` is grandparent of `b`.
+		let leaf_a_hash = Hash::from_low_u64_be(130);
+		let leaf_a_parent = get_parent_hash(leaf_a_hash);
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
+		let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+		const LEAF_B_BLOCK_NUMBER: BlockNumber = LEAF_A_BLOCK_NUMBER + 2;
+		const LEAF_B_ANCESTRY_LEN: BlockNumber = 4;
+
+		let activated = new_leaf(leaf_b_hash, LEAF_B_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
+		let test_leaf_b = TestLeaf { activated, min_relay_parents };
+
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap().clone();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_a_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let second = CandidateBackingMessage::Second(
+			leaf_a_hash,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			leaf_a_parent,
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			&expected_head_data,
+			false,
+		)
+		.await;
+
+		// `seconding_sanity_check`
+		let hypothetical_candidate = HypotheticalCandidate::Complete {
+			candidate_hash: candidate.hash(),
+			receipt: Arc::new(candidate.clone()),
+			persisted_validation_data: pvd.clone(),
+		};
+		let expected_request_a = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate.clone()],
+			fragment_chain_relay_parent: Some(leaf_a_hash),
+		};
+		let expected_response_a =
+			make_hypothetical_membership_response(hypothetical_candidate, leaf_a_hash);
+		assert_hypothetical_membership_requests(
+			&mut virtual_overseer,
+			vec![(expected_request_a, expected_response_a)],
+		)
+		.await;
+		// Prospective parachains are notified.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &leaf_a_parent).await;
+
+		activate_leaf(&mut virtual_overseer, test_leaf_b, &mut test_state).await;
+		let leaf_a_grandparent = get_parent_hash(leaf_a_parent);
+		let candidate = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_a_grandparent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let second = CandidateBackingMessage::Second(
+			leaf_a_hash,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			leaf_a_grandparent,
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			&expected_head_data,
+			false,
+		)
+		.await;
+
+		// `seconding_sanity_check`
+
+		let hypothetical_candidate = HypotheticalCandidate::Complete {
+			candidate_hash: candidate.hash(),
+			receipt: Arc::new(candidate),
+			persisted_validation_data: pvd,
+		};
+		let expected_request_a = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate.clone()],
+			fragment_chain_relay_parent: Some(leaf_a_hash),
+		};
+		let expected_empty_response = vec![(hypothetical_candidate.clone(), vec![])];
+		let expected_request_b = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate.clone()],
+			fragment_chain_relay_parent: Some(leaf_b_hash),
+		};
+		assert_hypothetical_membership_requests(
+			&mut virtual_overseer,
+			vec![
+				(expected_request_a, expected_empty_response.clone()),
+				(expected_request_b, expected_empty_response),
+			],
+		)
+		.await;
+
+		assert!(virtual_overseer
+			.recv()
+			.timeout(std::time::Duration::from_millis(50))
+			.await
+			.is_none());
+
+		virtual_overseer
+	});
+}
+
+// Test that `seconding_sanity_check` allows seconding a candidate when it's allowed on at least one
+// leaf.
+#[test]
+fn seconding_sanity_check_allowed_on_at_least_one_leaf() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		// Candidate is seconded in a parent of the activated `leaf_a`.
+		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
+		const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
+		let para_id = test_state.chain_ids[0];
+
+		// `a` is grandparent of `b`.
+		let leaf_a_hash = Hash::from_low_u64_be(130);
+		let leaf_a_parent = get_parent_hash(leaf_a_hash);
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
+		let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+		const LEAF_B_BLOCK_NUMBER: BlockNumber = LEAF_A_BLOCK_NUMBER + 2;
+		const LEAF_B_ANCESTRY_LEN: BlockNumber = 4;
+
+		let leaf_b_hash = Hash::from_low_u64_be(128);
+		let activated = new_leaf(leaf_b_hash, LEAF_B_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
+		let test_leaf_b = TestLeaf { activated, min_relay_parents };
+
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_b, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_a_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let second = CandidateBackingMessage::Second(
+			leaf_a_hash,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			leaf_a_parent,
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			expected_head_data,
+			false,
+		)
+		.await;
+
+		// `seconding_sanity_check`
+		let hypothetical_candidate = HypotheticalCandidate::Complete {
+			candidate_hash: candidate.hash(),
+			receipt: Arc::new(candidate.clone()),
+			persisted_validation_data: pvd.clone(),
+		};
+		let expected_request_a = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate.clone()],
+			fragment_chain_relay_parent: Some(leaf_a_hash),
+		};
+		let expected_response_a =
+			make_hypothetical_membership_response(hypothetical_candidate.clone(), leaf_a_hash);
+		let expected_request_b = HypotheticalMembershipRequest {
+			candidates: vec![hypothetical_candidate.clone()],
+			fragment_chain_relay_parent: Some(leaf_b_hash),
+		};
+		let expected_response_b = vec![(hypothetical_candidate.clone(), vec![])];
+		assert_hypothetical_membership_requests(
+			&mut virtual_overseer,
+			vec![
+				(expected_request_a, expected_response_a),
+				(expected_request_b, expected_response_b),
+			],
+		)
+		.await;
+		// Prospective parachains are notified.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &leaf_a_parent).await;
+
+		virtual_overseer
+	});
+}
+
+// Test that a seconded candidate which is not approved by prospective parachains
+// subsystem doesn't change the view.
+#[test]
+fn prospective_parachains_reject_candidate() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		// Candidate is seconded in a parent of the activated `leaf_a`.
+		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
+		const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
+		let para_id = test_state.chain_ids[0];
+
+		let leaf_a_hash = Hash::from_low_u64_be(130);
+		let leaf_a_parent = get_parent_hash(leaf_a_hash);
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
+		let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_a_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let second = CandidateBackingMessage::Second(
+			leaf_a_hash,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			leaf_a_parent,
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			expected_head_data,
+			false,
+		)
+		.await;
+
+		// `seconding_sanity_check`
+		let hypothetical_candidate = HypotheticalCandidate::Complete {
+			candidate_hash: candidate.hash(),
+			receipt: Arc::new(candidate.clone()),
+			persisted_validation_data: pvd.clone(),
+		};
+		let expected_request_a = vec![(
+			HypotheticalMembershipRequest {
+				candidates: vec![hypothetical_candidate.clone()],
+				fragment_chain_relay_parent: Some(leaf_a_hash),
+			},
+			make_hypothetical_membership_response(hypothetical_candidate, leaf_a_hash),
+		)];
+		assert_hypothetical_membership_requests(&mut virtual_overseer, expected_request_a.clone())
+			.await;
+
+		// Prospective parachains are notified.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				// Reject it.
+				tx.send(false).unwrap();
+			}
+		);
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::Invalid(
+				relay_parent,
+				candidate_receipt,
+			)) if candidate_receipt.descriptor() == &candidate.descriptor &&
+				candidate_receipt.commitments_hash == candidate.commitments.hash() &&
+				relay_parent == leaf_a_parent
+		);
+
+		// Try seconding the same candidate.
+
+		let second = CandidateBackingMessage::Second(
+			leaf_a_hash,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			leaf_a_parent,
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			expected_head_data,
+			false,
+		)
+		.await;
+
+		// `seconding_sanity_check`
+		assert_hypothetical_membership_requests(&mut virtual_overseer, expected_request_a).await;
+		// Prospective parachains are notified.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &leaf_a_parent).await;
+
+		virtual_overseer
+	});
+}
+
+// Test that a validator can second multiple candidates per single relay parent.
+#[test]
+fn second_multiple_candidates_per_relay_parent() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		// Candidate `a` is seconded in a parent of the activated `leaf`.
+		const LEAF_BLOCK_NUMBER: BlockNumber = 100;
+		const LEAF_ANCESTRY_LEN: BlockNumber = 3;
+		let para_id = test_state.chain_ids[0];
+
+		let leaf_hash = Hash::from_low_u64_be(130);
+		let leaf_parent = get_parent_hash(leaf_hash);
+		let leaf_grandparent = get_parent_hash(leaf_parent);
+		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN)];
+		let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate_a = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		};
+		let mut candidate_b = candidate_a.clone();
+		candidate_b.relay_parent = leaf_grandparent;
+
+		let candidate_a = candidate_a.build();
+		let candidate_b = candidate_b.build();
+
+		for candidate in &[candidate_a, candidate_b] {
+			let second = CandidateBackingMessage::Second(
+				leaf_hash,
+				candidate.to_plain(),
+				pvd.clone(),
+				pov.clone(),
+			);
+
+			virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+			assert_validate_seconded_candidate(
+				&mut virtual_overseer,
+				candidate.descriptor.relay_parent(),
+				&candidate,
+				&pov,
+				&pvd,
+				&validation_code,
+				expected_head_data,
+				false,
+			)
+			.await;
+
+			// `seconding_sanity_check`
+			let hypothetical_candidate = HypotheticalCandidate::Complete {
+				candidate_hash: candidate.hash(),
+				receipt: Arc::new(candidate.clone()),
+				persisted_validation_data: pvd.clone(),
+			};
+			let expected_request_a = vec![(
+				HypotheticalMembershipRequest {
+					candidates: vec![hypothetical_candidate.clone()],
+					fragment_chain_relay_parent: Some(leaf_hash),
+				},
+				make_hypothetical_membership_response(hypothetical_candidate, leaf_hash),
+			)];
+			assert_hypothetical_membership_requests(
+				&mut virtual_overseer,
+				expected_request_a.clone(),
+			)
+			.await;
+
+			// Prospective parachains are notified.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+						req,
+						tx,
+					),
+				) if
+					&req.candidate_receipt == candidate
+					&& req.candidate_para == para_id
+					&& pvd == req.persisted_validation_data
+				=> {
+					tx.send(true).unwrap();
+				}
+			);
+
+			assert_candidate_is_shared_and_seconded(
+				&mut virtual_overseer,
+				&candidate.descriptor.relay_parent(),
+			)
+			.await;
+		}
+
+		virtual_overseer
+	});
+}
+
+// Tests that validators start work on consecutive prospective parachain blocks.
+#[test]
+fn concurrent_dependent_candidates() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		// Candidate `a` is seconded in a grandparent of the activated `leaf`,
+		// candidate `b` -- in parent.
+		const LEAF_BLOCK_NUMBER: BlockNumber = 100;
+		const LEAF_ANCESTRY_LEN: BlockNumber = 3;
+		let para_id = test_state.chain_ids[0];
+
+		let leaf_hash = Hash::from_low_u64_be(130);
+		let leaf_parent = get_parent_hash(leaf_hash);
+		let leaf_grandparent = get_parent_hash(leaf_parent);
+		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN)];
+		let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+
+		let head_data = &[
+			HeadData(vec![10, 20, 30]), // Before `a`.
+			HeadData(vec![11, 21, 31]), // After `a`.
+			HeadData(vec![12, 22]),     // After `b`.
+		];
+
+		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd_a = PersistedValidationData {
+			parent_head: head_data[0].clone(),
+			relay_parent_number: LEAF_BLOCK_NUMBER - 2,
+			relay_parent_storage_root: Hash::zero(),
+			max_pov_size: 1024,
+		};
+
+		let pov_b = PoV { block_data: BlockData(vec![22, 14, 100]) };
+		let pvd_b = PersistedValidationData {
+			parent_head: head_data[1].clone(),
+			relay_parent_number: LEAF_BLOCK_NUMBER - 1,
+			relay_parent_storage_root: Hash::zero(),
+			max_pov_size: 1024,
+		};
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let candidate_a = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_grandparent,
+			pov_hash: pov_a.hash(),
+			head_data: head_data[1].clone(),
+			erasure_root: make_erasure_root(&test_state, pov_a.clone(), pvd_a.clone()),
+			persisted_validation_data_hash: pvd_a.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+		let candidate_b = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_parent,
+			pov_hash: pov_b.hash(),
+			head_data: head_data[2].clone(),
+			erasure_root: make_erasure_root(&test_state, pov_b.clone(), pvd_b.clone()),
+			persisted_validation_data_hash: pvd_b.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+		let candidate_a_hash = candidate_a.hash();
+		let candidate_b_hash = candidate_b.hash();
+
+		let public1 = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[5].to_seed()),
+		)
+		.expect("Insert key into keystore");
+		let public2 = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[2].to_seed()),
+		)
+		.expect("Insert key into keystore");
+
+		// Signing context should have a parent hash candidate is based on.
+		let signing_context =
+			SigningContext { parent_hash: leaf_grandparent, session_index: test_state.session() };
+		let signed_a = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Seconded(candidate_a.clone(), pvd_a.clone()),
+			&signing_context,
+			ValidatorIndex(2),
+			&public2.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		let signing_context =
+			SigningContext { parent_hash: leaf_parent, session_index: test_state.session() };
+		let signed_b = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Seconded(candidate_b.clone(), pvd_b.clone()),
+			&signing_context,
+			ValidatorIndex(5),
+			&public1.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		let statement_a = CandidateBackingMessage::Statement(leaf_grandparent, signed_a.clone());
+		let statement_b = CandidateBackingMessage::Statement(leaf_parent, signed_b.clone());
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: statement_a }).await;
+
+		// At this point the subsystem waits for response, the previous message is received,
+		// send a second one without blocking.
+		let _ = virtual_overseer
+			.tx
+			.start_send_unpin(FromOrchestra::Communication { msg: statement_b });
+
+		let mut valid_statements = HashSet::new();
+		let mut backed_statements = HashSet::new();
+
+		loop {
+			let msg = virtual_overseer
+				.recv()
+				.timeout(std::time::Duration::from_secs(1))
+				.await
+				.expect("overseer recv timed out");
+
+			// Order is not guaranteed since we have 2 statements being handled concurrently.
+			match msg {
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::IntroduceSecondedCandidate(_, tx),
+				) => {
+					tx.send(true).unwrap();
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::ValidationCodeByHash(_, tx),
+				)) => {
+					tx.send(Ok(Some(validation_code.clone()))).unwrap();
+				},
+				AllMessages::AvailabilityDistribution(
+					AvailabilityDistributionMessage::FetchPoV { candidate_hash, tx, .. },
+				) => {
+					let pov = if candidate_hash == candidate_a_hash {
+						&pov_a
+					} else if candidate_hash == candidate_b_hash {
+						&pov_b
+					} else {
+						panic!("unknown candidate hash")
+					};
+					tx.send(pov.clone()).unwrap();
+				},
+				AllMessages::CandidateValidation(
+					CandidateValidationMessage::ValidateFromExhaustive {
+						candidate_receipt,
+						response_sender,
+						..
+					},
+				) => {
+					let candidate_hash = candidate_receipt.hash();
+					let (head_data, pvd) = if candidate_hash == candidate_a_hash {
+						(&head_data[1], &pvd_a)
+					} else if candidate_hash == candidate_b_hash {
+						(&head_data[2], &pvd_b)
+					} else {
+						panic!("unknown candidate hash")
+					};
+					response_sender
+						.send(Ok(ValidationResult::Valid(
+							CandidateCommitments {
+								head_data: head_data.clone(),
+								horizontal_messages: Default::default(),
+								upward_messages: Default::default(),
+								new_validation_code: None,
+								processed_downward_messages: 0,
+								hrmp_watermark: 0,
+							},
+							pvd.clone(),
+						)))
+						.unwrap();
+				},
+				AllMessages::AvailabilityStore(AvailabilityStoreMessage::StoreAvailableData {
+					tx,
+					..
+				}) => {
+					tx.send(Ok(())).unwrap();
+				},
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::CandidateBacked(..),
+				) => {},
+				AllMessages::StatementDistribution(StatementDistributionMessage::Share(
+					_,
+					statement,
+				)) => {
+					assert_eq!(statement.validator_index(), ValidatorIndex(0));
+					let payload = statement.payload();
+					assert_matches!(
+						payload.clone(),
+						StatementWithPVD::Valid(hash)
+							if hash == candidate_a_hash || hash == candidate_b_hash =>
+						{
+							assert!(valid_statements.insert(hash));
+						}
+					);
+				},
+				AllMessages::StatementDistribution(StatementDistributionMessage::Backed(hash)) => {
+					// Ensure that `Share` was received first for the candidate.
+					assert!(valid_statements.contains(&hash));
+					backed_statements.insert(hash);
+
+					if backed_statements.len() == 2 {
+						break
+					}
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => {
+					tx.send(Ok(1u32.into())).unwrap();
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionExecutorParams(sess_idx, tx),
+				)) => {
+					assert_eq!(sess_idx, 1);
+					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_parent,
+					RuntimeApiRequest::ValidatorGroups(tx),
+				)) => {
+					tx.send(Ok(test_state.validator_groups.clone())).unwrap();
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::NodeFeatures(sess_idx, tx),
+				)) => {
+					assert_eq!(sess_idx, 1);
+					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_parent,
+					RuntimeApiRequest::AvailabilityCores(tx),
+				)) => {
+					tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+				},
+				_ => panic!("unexpected message received from overseer: {:?}", msg),
+			}
+		}
+
+		assert!(valid_statements.contains(&candidate_a_hash));
+		assert!(valid_statements.contains(&candidate_b_hash));
+		assert!(backed_statements.contains(&candidate_a_hash));
+		assert!(backed_statements.contains(&candidate_b_hash));
+
+		virtual_overseer
+	});
+}
+
+// Test that multiple candidates from different paras can occupy the same depth
+// in a given relay parent.
+#[test]
+fn seconding_sanity_check_occupy_same_depth() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		// Candidate `a` is seconded in a parent of the activated `leaf`.
+		const LEAF_BLOCK_NUMBER: BlockNumber = 100;
+		const LEAF_ANCESTRY_LEN: BlockNumber = 3;
+
+		let para_id_a = test_state.chain_ids[0];
+		let para_id_b = test_state.chain_ids[1];
+
+		let leaf_hash = Hash::from_low_u64_be(130);
+		let leaf_parent = get_parent_hash(leaf_hash);
+
+		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
+		let min_block_number = LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN;
+		let min_relay_parents = vec![(para_id_a, min_block_number), (para_id_b, min_block_number)];
+		let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data_a = test_state.head_data.get(&para_id_a).unwrap();
+		let expected_head_data_b = test_state.head_data.get(&para_id_b).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate_a = TestCandidateBuilder {
+			para_id: para_id_a,
+			relay_parent: leaf_parent,
+			pov_hash,
+			head_data: expected_head_data_a.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		};
+
+		let mut candidate_b = candidate_a.clone();
+		candidate_b.para_id = para_id_b;
+		candidate_b.head_data = expected_head_data_b.clone();
+		// A rotation happens, test validator is assigned to second para here.
+		candidate_b.relay_parent = leaf_hash;
+
+		let candidate_a = (candidate_a.build(), expected_head_data_a, para_id_a);
+		let candidate_b = (candidate_b.build(), expected_head_data_b, para_id_b);
+
+		for candidate in &[candidate_a, candidate_b] {
+			let (candidate, expected_head_data, para_id) = candidate;
+			let second = CandidateBackingMessage::Second(
+				leaf_hash,
+				candidate.to_plain(),
+				pvd.clone(),
+				pov.clone(),
+			);
+
+			virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+			assert_validate_seconded_candidate(
+				&mut virtual_overseer,
+				candidate.descriptor.relay_parent(),
+				&candidate,
+				&pov,
+				&pvd,
+				&validation_code,
+				expected_head_data,
+				false,
+			)
+			.await;
+
+			// `seconding_sanity_check`
+			let hypothetical_candidate = HypotheticalCandidate::Complete {
+				candidate_hash: candidate.hash(),
+				receipt: Arc::new(candidate.clone()),
+				persisted_validation_data: pvd.clone(),
+			};
+			let expected_request_a = vec![(
+				HypotheticalMembershipRequest {
+					candidates: vec![hypothetical_candidate.clone()],
+					fragment_chain_relay_parent: Some(leaf_hash),
+				},
+				// Send the same membership for both candidates.
+				make_hypothetical_membership_response(hypothetical_candidate, leaf_hash),
+			)];
+
+			assert_hypothetical_membership_requests(
+				&mut virtual_overseer,
+				expected_request_a.clone(),
+			)
+			.await;
+
+			// Prospective parachains are notified.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+						req,
+						tx,
+					),
+				) if
+					&req.candidate_receipt == candidate
+					&& &req.candidate_para == para_id
+					&& pvd == req.persisted_validation_data
+				=> {
+					tx.send(true).unwrap();
+				}
+			);
+
+			assert_candidate_is_shared_and_seconded(
+				&mut virtual_overseer,
+				&candidate.descriptor.relay_parent(),
+			)
+			.await;
+		}
+
+		virtual_overseer
+	});
+}
+
+// Test that the subsystem doesn't skip occupied cores assignments.
+#[test]
+fn occupied_core_assignment() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		// Candidate is seconded in a parent of the activated `leaf_a`.
+		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
+		const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
+		let para_id = test_state.chain_ids[0];
+		let previous_para_id = test_state.chain_ids[1];
+
+		// Set the core state to occupied.
+		let mut candidate_descriptor =
+			polkadot_primitives_test_helpers::dummy_candidate_descriptor(Hash::zero());
+		candidate_descriptor.para_id = previous_para_id;
+		test_state.availability_cores[0] = CoreState::Occupied(OccupiedCore {
+			group_responsible: Default::default(),
+			next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
+			occupied_since: 100_u32,
+			time_out_at: 200_u32,
+			next_up_on_time_out: None,
+			availability: Default::default(),
+			candidate_descriptor: candidate_descriptor.into(),
+			candidate_hash: Default::default(),
+		});
+
+		let leaf_a_hash = Hash::from_low_u64_be(130);
+		let leaf_a_parent = get_parent_hash(leaf_a_hash);
+		let activated = new_leaf(leaf_a_hash, LEAF_A_BLOCK_NUMBER);
+		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
+		let test_leaf_a = TestLeaf { activated, min_relay_parents };
+
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
+
+		let pov_hash = pov.hash();
+		let candidate = TestCandidateBuilder {
+			para_id,
+			relay_parent: leaf_a_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		let second = CandidateBackingMessage::Second(
+			leaf_a_hash,
+			candidate.to_plain(),
+			pvd.clone(),
+			pov.clone(),
+		);
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			leaf_a_parent,
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			expected_head_data,
+			false,
+		)
+		.await;
+
+		// `seconding_sanity_check`
+		let hypothetical_candidate = HypotheticalCandidate::Complete {
+			candidate_hash: candidate.hash(),
+			receipt: Arc::new(candidate.clone()),
+			persisted_validation_data: pvd.clone(),
+		};
+		let expected_request = vec![(
+			HypotheticalMembershipRequest {
+				candidates: vec![hypothetical_candidate.clone()],
+				fragment_chain_relay_parent: Some(leaf_a_hash),
+			},
+			make_hypothetical_membership_response(hypothetical_candidate, leaf_a_hash),
+		)];
+		assert_hypothetical_membership_requests(&mut virtual_overseer, expected_request).await;
+		// Prospective parachains are notified.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					req,
+					tx,
+				),
+			) if
+				req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data
+			=> {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &leaf_a_parent).await;
+
 		virtual_overseer
 	});
 }

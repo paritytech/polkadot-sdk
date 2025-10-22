@@ -1,50 +1,44 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus. If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
+	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
+	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
-
-use polkadot_parachain_primitives::primitives::{
-	HeadData, RelayChainBlockNumber, ValidationResult,
+use frame_support::{
+	traits::{ExecuteBlock, Get, IsSubType},
+	BoundedVec,
 };
-
-use codec::Encode;
-
-use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
+use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::KillStorageResult;
-use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
-use sp_std::prelude::*;
-use sp_trie::{MemoryDB, ProofSizeProvider};
-use trie_recorder::SizeOnlyRecorderProvider;
+use sp_io::{hashing::blake2_128, KillStorageResult};
+use sp_runtime::traits::{
+	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
+};
+use sp_state_machine::OverlayedChanges;
+use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
+use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
-type TrieBackend<B> = sp_state_machine::TrieBackend<
-	MemoryDB<HashingFor<B>>,
-	HashingFor<B>,
-	trie_cache::CacheProvider<HashingFor<B>>,
-	SizeOnlyRecorderProvider<HashingFor<B>>,
->;
-
-type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
+type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
 
 fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
@@ -72,72 +66,23 @@ environmental::environmental!(recorder: trait ProofSizeProvider);
 /// we have the in-memory database that contains all the values from the state of the parachain
 /// that we require to verify the block.
 ///
-/// 5. We are going to run `check_inherents`. This is important to check stuff like the timestamp
-/// matching the real world time.
-///
-/// 6. The last step is to execute the entire block in the machinery we just have setup. Executing
+/// 5. The last step is to execute the entire block in the machinery we just have setup. Executing
 /// the blocks include running all transactions in the block against our in-memory database and
 /// ensuring that the final storage root matches the storage root in the header of the block. In the
 /// end we return back the [`ValidationResult`] with all the required information for the validator.
 #[doc(hidden)]
-#[allow(deprecated)]
-pub fn validate_block<
-	B: BlockT,
-	E: ExecuteBlock<B>,
-	PSC: crate::Config,
-	CI: crate::CheckInherents<B>,
->(
+pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	MemoryOptimizedValidationParams {
 		block_data,
-		parent_head,
+		parent_head: parachain_head,
 		relay_parent_number,
 		relay_parent_storage_root,
 	}: MemoryOptimizedValidationParams,
 ) -> ValidationResult
 where
 	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
+	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
-		.expect("Invalid parachain block data");
-
-	let parent_header =
-		codec::decode_from_bytes::<B::Header>(parent_head.clone()).expect("Invalid parent head");
-
-	let (header, extrinsics, storage_proof) = block_data.deconstruct();
-
-	let block = B::new(header, extrinsics);
-	assert!(parent_header.hash() == *block.header().parent_hash(), "Invalid parent hash");
-
-	let inherent_data = extract_parachain_inherent_data(&block);
-
-	validate_validation_data(
-		&inherent_data.validation_data,
-		relay_parent_number,
-		relay_parent_storage_root,
-		parent_head,
-	);
-
-	// Create the db
-	let db = match storage_proof.to_memory_db(Some(parent_header.state_root())) {
-		Ok((db, _)) => db,
-		Err(_) => panic!("Compact proof decoding failure."),
-	};
-
-	sp_std::mem::drop(storage_proof);
-
-	let mut recorder = SizeOnlyRecorderProvider::new();
-	let cache_provider = trie_cache::CacheProvider::new();
-	// We use the storage root of the `parent_head` to ensure that it is the correct root.
-	// This is already being done above while creating the in-memory db, but let's be paranoid!!
-	let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
-		db,
-		*parent_header.state_root(),
-		cache_provider,
-	)
-	.with_recorder(recorder.clone())
-	.build();
-
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -179,93 +124,229 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
-		let relay_chain_proof = crate::RelayChainStateProof::new(
-			PSC::SelfParaId::get(),
-			inherent_data.validation_data.relay_parent_storage_root,
-			inherent_data.relay_chain_state.clone(),
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
+		.expect("Invalid parachain block data");
+
+	// Initialize hashmaps randomness.
+	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
+		&block_data,
+		relay_parent_storage_root,
+	));
+
+	let mut parent_header =
+		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
+
+	let (blocks, proof) = block_data.into_inner();
+
+	assert_eq!(
+		*blocks
+			.first()
+			.expect("BlockData should have at least one block")
+			.header()
+			.parent_hash(),
+		parent_header.hash(),
+		"Parachain head needs to be the parent of the first block"
+	);
+
+	let mut processed_downward_messages = 0;
+	let mut upward_messages = BoundedVec::default();
+	let mut upward_message_signals = Vec::<Vec<_>>::new();
+	let mut horizontal_messages = BoundedVec::default();
+	let mut hrmp_watermark = Default::default();
+	let mut head_data = None;
+	let mut new_validation_code = None;
+	let num_blocks = blocks.len();
+
+	// Create the db
+	let mut db = match proof.to_memory_db(Some(parent_header.state_root())) {
+		Ok((db, _)) => db,
+		Err(_) => panic!("Compact proof decoding failure."),
+	};
+
+	core::mem::drop(proof);
+
+	let cache_provider = trie_cache::CacheProvider::new();
+	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
+
+	for (block_index, block) in blocks.into_iter().enumerate() {
+		// We use the storage root of the `parent_head` to ensure that it is the correct root.
+		// This is already being done above while creating the in-memory db, but let's be paranoid!!
+		let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
+			&db,
+			*parent_header.state_root(),
+			&cache_provider,
 		)
-		.expect("Invalid relay chain state proof");
+		.build();
 
-		#[allow(deprecated)]
-		let res = CI::check_inherents(&block, &relay_chain_proof);
+		// We use the same recorder when executing all blocks. So, each node only contributes once
+		// to the total size of the storage proof. This recorder should only be used for
+		// `execute_block`.
+		let mut execute_recorder = SizeOnlyRecorderProvider::with_seen_nodes(seen_nodes.clone());
+		// `backend` with the `execute_recorder`. As the `execute_recorder`, this should only be
+		// used for `execute_block`.
+		let execute_backend = sp_state_machine::TrieBackendBuilder::wrap(&backend)
+			.with_recorder(execute_recorder.clone())
+			.build();
 
-		if !res.ok() {
-			if log::log_enabled!(log::Level::Error) {
-				res.into_errors().for_each(|e| {
-					log::error!("Checking inherent with identifier `{:?}` failed", e.0)
-				});
+		// We let all blocks contribute to the same overlay. Data written by a previous block will
+		// be directly accessible without going to the db.
+		let mut overlay = OverlayedChanges::default();
+
+		parent_header = block.header().clone();
+
+		run_with_externalities_and_recorder::<B, _, _>(
+			&execute_backend,
+			// Here is the only place where we want to use the recorder.
+			// We want to ensure that we not accidentally read something from the proof, that
+			// was not yet read and thus, alter the proof size. Otherwise, we end up with
+			// mismatches in later blocks.
+			&mut execute_recorder,
+			&mut overlay,
+			|| {
+				E::execute_block(block);
+			},
+		);
+
+		run_with_externalities_and_recorder::<B, _, _>(
+			&backend,
+			&mut Default::default(),
+			// We are only reading here, but need to know what the old block has written. Thus, we
+			// are passing here the overlay.
+			&mut overlay,
+			|| {
+				// Ensure the validation data is correct.
+				validate_validation_data(
+					crate::ValidationData::<PSC>::get()
+						.expect("`ValidationData` must be set after executing a block; qed"),
+					&parachain_head,
+					relay_parent_number,
+					relay_parent_storage_root,
+				);
+
+				new_validation_code =
+					new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
+
+				let mut found_separator = false;
+				crate::UpwardMessages::<PSC>::get()
+					.into_iter()
+					.filter_map(|m| {
+						// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
+						if m == UMP_SEPARATOR {
+							found_separator = true;
+							None
+						} else if found_separator {
+							if upward_message_signals.iter().all(|s| *s != m) {
+								upward_message_signals.push(m);
+							}
+							None
+						} else {
+							// No signal or separator
+							Some(m)
+						}
+					})
+					.for_each(|m| {
+						upward_messages.try_push(m)
+							.expect(
+								"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+							)
+					});
+
+				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
+				horizontal_messages.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter()).expect(
+					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
+				);
+				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
+
+				if block_index + 1 == num_blocks {
+					head_data = Some(
+						crate::CustomValidationHeadData::<PSC>::get()
+							.map_or_else(|| HeadData(parent_header.encode()), HeadData),
+					);
+				}
+			},
+		);
+
+		if block_index + 1 != num_blocks {
+			let mut changes = overlay
+				.drain_storage_changes(
+					&backend,
+					<PSC as frame_system::Config>::Version::get().state_version(),
+				)
+				.expect("Failed to get drain storage changes from the overlay.");
+
+			drop(backend);
+
+			// We just forward the changes directly to our db.
+			changes.transaction.drain().into_iter().for_each(|(_, (value, count))| {
+				// We only care about inserts and not deletes.
+				if count > 0 {
+					db.insert(EMPTY_PREFIX, &value);
+
+					let hash = HashingFor::<B>::hash(&value);
+					seen_nodes.borrow_mut().insert(hash);
+				}
+			});
+		}
+	}
+
+	if !upward_message_signals.is_empty() {
+		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
+		let mut approved_peer = None;
+
+		upward_message_signals.iter().for_each(|s| {
+			match UMPSignal::decode(&mut &s[..]).expect("Failed to decode `UMPSignal`") {
+				UMPSignal::SelectCore(selector, offset) => match &selected_core {
+					Some(selected_core) if *selected_core != (selector, offset) => {
+						panic!(
+							"All `SelectCore` signals need to select the same core: {selected_core:?} vs {:?}",
+							(selector, offset),
+						)
+					},
+					Some(_) => {},
+					None => {
+						selected_core = Some((selector, offset));
+					},
+				},
+				UMPSignal::ApprovedPeer(new_approved_peer) => match &approved_peer {
+					Some(approved_peer) if *approved_peer != new_approved_peer => {
+						panic!(
+							"All `ApprovedPeer` signals need to select the same peer_id: {new_approved_peer:?} vs {approved_peer:?}",
+						)
+					},
+					Some(_) => {},
+					None => {
+						approved_peer = Some(new_approved_peer);
+					},
+				},
 			}
+		});
 
-			panic!("Checking inherents failed");
-		}
-	});
+		upward_messages
+			.try_push(UMP_SEPARATOR)
+			.expect("UMPSignals does not fit in UMPMessages");
+		upward_messages
+			.try_extend(upward_message_signals.into_iter())
+			.expect("UMPSignals does not fit in UMPMessages");
+	}
 
-	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
-		let head_data = HeadData(block.header().encode());
-
-		E::execute_block(block);
-
-		let new_validation_code = crate::NewValidationCode::<PSC>::get();
-		let upward_messages = crate::UpwardMessages::<PSC>::get().try_into().expect(
-			"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-		);
-		let processed_downward_messages = crate::ProcessedDownwardMessages::<PSC>::get();
-		let horizontal_messages = crate::HrmpOutboundMessages::<PSC>::get().try_into().expect(
-			"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
-		);
-		let hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
-
-		let head_data =
-			if let Some(custom_head_data) = crate::CustomValidationHeadData::<PSC>::get() {
-				HeadData(custom_head_data)
-			} else {
-				head_data
-			};
-
-		ValidationResult {
-			head_data,
-			new_validation_code: new_validation_code.map(Into::into),
-			upward_messages,
-			processed_downward_messages,
-			horizontal_messages,
-			hrmp_watermark,
-		}
-	})
+	ValidationResult {
+		head_data: head_data.expect("HeadData not set"),
+		new_validation_code: new_validation_code.map(Into::into),
+		upward_messages,
+		processed_downward_messages,
+		horizontal_messages,
+		hrmp_watermark,
+	}
 }
 
-/// Extract the [`ParachainInherentData`].
-fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
-	block: &B,
-) -> &ParachainInherentData
-where
-	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
-{
-	block
-		.extrinsics()
-		.iter()
-		// Inherents are at the front of the block and are unsigned.
-		//
-		// If `is_signed` is returning `None`, we keep it safe and assume that it is "signed".
-		// We are searching for unsigned transactions anyway.
-		.take_while(|e| !e.is_signed().unwrap_or(true))
-		.filter_map(|e| e.call().is_sub_type())
-		.find_map(|c| match c {
-			crate::Call::set_validation_data { data: validation_data } => Some(validation_data),
-			_ => None,
-		})
-		.expect("Could not find `set_validation_data` inherent")
-}
-
-/// Validate the given [`PersistedValidationData`] against the [`MemoryOptimizedValidationParams`].
+/// Validates the given [`PersistedValidationData`] against the data from the relay chain.
 fn validate_validation_data(
-	validation_data: &PersistedValidationData,
-	relay_parent_number: RelayChainBlockNumber,
+	validation_data: PersistedValidationData,
+	parent_header: &[u8],
+	relay_parent_number: RNumber,
 	relay_parent_storage_root: RHash,
-	parent_head: bytes::Bytes,
 ) {
-	assert_eq!(parent_head, validation_data.parent_head.0, "Parent head doesn't match");
+	assert_eq!(parent_header, &validation_data.parent_head.0, "Parent head doesn't match");
 	assert_eq!(
 		relay_parent_number, validation_data.relay_parent_number,
 		"Relay parent number doesn't match",
@@ -276,15 +357,35 @@ fn validate_validation_data(
 	);
 }
 
+/// Build a seed from the head data of the parachain block.
+///
+/// Uses both the relay parent storage root and the hash of the blocks
+/// in the block data, to make sure the seed changes every block and that
+/// the user cannot find about it ahead of time.
+fn build_seed_from_head_data<B: BlockT>(
+	block_data: &ParachainBlockData<B::LazyBlock>,
+	relay_parent_storage_root: crate::relay_chain::Hash,
+) -> [u8; 16] {
+	let mut bytes_to_hash = Vec::with_capacity(
+		block_data.blocks().len() * size_of::<B::Hash>() + size_of::<crate::relay_chain::Hash>(),
+	);
+
+	bytes_to_hash.extend_from_slice(relay_parent_storage_root.as_ref());
+	block_data.blocks().iter().for_each(|block| {
+		bytes_to_hash.extend_from_slice(block.header().hash().as_ref());
+	});
+
+	blake2_128(&bytes_to_hash)
+}
+
 /// Run the given closure with the externalities and recorder set.
-fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
-	backend: &TrieBackend<B>,
-	recorder: &mut SizeOnlyRecorderProvider<HashingFor<B>>,
+fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
+	backend: &impl sp_state_machine::Backend<HashingFor<Block>>,
+	recorder: &mut SizeOnlyRecorderProvider<HashingFor<Block>>,
+	overlay: &mut OverlayedChanges<HashingFor<Block>>,
 	execute: F,
 ) -> R {
-	let mut overlay = sp_state_machine::OverlayedChanges::default();
-	let mut ext = Ext::<B>::new(&mut overlay, backend);
-	recorder.reset();
+	let mut ext = Ext::<Block, _>::new(overlay, backend);
 
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
@@ -294,7 +395,7 @@ fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Opt
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = sp_std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			Some(value.len() as u32)
 		},
@@ -368,7 +469,7 @@ fn host_default_child_storage_read(
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = sp_std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			Some(value.len() as u32)
 		},

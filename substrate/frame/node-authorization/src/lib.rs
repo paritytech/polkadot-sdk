@@ -38,25 +38,29 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use frame::{
+	deps::{sp_core::OpaquePeerId as PeerId, sp_io},
+	prelude::*,
+};
 pub use pallet::*;
-use sp_core::OpaquePeerId as PeerId;
-use sp_runtime::traits::StaticLookup;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 pub use weights::WeightInfo;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -66,6 +70,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The maximum number of well known nodes that are allowed to set
@@ -109,7 +114,7 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, PeerId, BTreeSet<PeerId>, ValueQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub nodes: Vec<(PeerId, T::AccountId)>,
 	}
@@ -169,7 +174,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Set reserved node every block. It may not be enabled depends on the offchain
 		/// worker settings when starting the node.
-		fn offchain_worker(now: frame_system::pallet_prelude::BlockNumberFor<T>) {
+		fn offchain_worker(now: BlockNumberFor<T>) {
 			let network_state = sp_io::offchain::network_state();
 			match network_state {
 				Err(_) => log::error!(

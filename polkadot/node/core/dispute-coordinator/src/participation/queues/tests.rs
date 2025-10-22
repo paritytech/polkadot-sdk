@@ -17,13 +17,13 @@
 use crate::{metrics::Metrics, ParticipationPriority};
 use assert_matches::assert_matches;
 use polkadot_primitives::{BlockNumber, Hash};
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2, dummy_hash};
 
 use super::{CandidateComparator, ParticipationRequest, QueueError, Queues};
 
 /// Make a `ParticipationRequest` based on the given commitments hash.
 fn make_participation_request(hash: Hash) -> ParticipationRequest {
-	let mut receipt = dummy_candidate_receipt(dummy_hash());
+	let mut receipt = dummy_candidate_receipt_v2(dummy_hash());
 	// make it differ:
 	receipt.commitments_hash = hash;
 	let request_timer = Metrics::default().time_participation_pipeline();

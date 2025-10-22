@@ -22,6 +22,7 @@
 //! Cannot be put into mock.rs since benchmarks require no-std and mock.rs is std.
 
 use crate::*;
+use alloc::vec::Vec;
 use frame_support::traits::Defensive;
 
 /// Converts `Self` into a `Weight` by using `Self` for all components.
@@ -36,7 +37,18 @@ impl IntoWeight for u64 {
 }
 
 /// Mocked message origin for testing.
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, Debug)]
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Debug,
+)]
 pub enum MessageOrigin {
 	Here,
 	There,
@@ -77,7 +89,7 @@ where
 }
 
 /// Create a message from the given data.
-pub fn msg<N: Get<u32>>(x: &str) -> BoundedSlice<u8, N> {
+pub fn msg<N: Get<u32>>(x: &str) -> BoundedSlice<'_, u8, N> {
 	BoundedSlice::defensive_truncate_from(x.as_bytes())
 }
 

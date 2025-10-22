@@ -16,12 +16,10 @@
 
 //! Deal with CLI args of substrate-to-substrate relay.
 
-use codec::{Decode, Encode};
+use clap::Parser;
 use rbtag::BuildInfo;
-use structopt::StructOpt;
-use strum::{EnumString, VariantNames};
-
-use bp_messages::LaneId;
+use sp_runtime::traits::TryConvert;
+use std::str::FromStr;
 
 pub mod bridge;
 pub mod chain_schema;
@@ -42,59 +40,33 @@ pub type DefaultClient<C> = relay_substrate_client::RpcWithCachingClient<C>;
 
 /// Lane id.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HexLaneId(pub [u8; 4]);
+pub struct HexLaneId(Vec<u8>);
 
-impl From<HexLaneId> for LaneId {
-	fn from(lane_id: HexLaneId) -> LaneId {
-		LaneId(lane_id.0)
+impl<T: TryFrom<Vec<u8>>> TryConvert<HexLaneId, T> for HexLaneId {
+	fn try_convert(lane_id: HexLaneId) -> Result<T, HexLaneId> {
+		T::try_from(lane_id.0.clone()).map_err(|_| lane_id)
 	}
 }
 
-impl std::str::FromStr for HexLaneId {
+impl FromStr for HexLaneId {
 	type Err = hex::FromHexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let mut lane_id = [0u8; 4];
-		hex::decode_to_slice(s, &mut lane_id)?;
-		Ok(HexLaneId(lane_id))
-	}
-}
-
-/// Nicer formatting for raw bytes vectors.
-#[derive(Default, Encode, Decode, PartialEq, Eq)]
-pub struct HexBytes(pub Vec<u8>);
-
-impl std::str::FromStr for HexBytes {
-	type Err = hex::FromHexError;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Ok(Self(hex::decode(s)?))
-	}
-}
-
-impl std::fmt::Debug for HexBytes {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(fmt, "0x{self}")
-	}
-}
-
-impl std::fmt::Display for HexBytes {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(fmt, "{}", hex::encode(&self.0))
+		hex::decode(s).map(Self)
 	}
 }
 
 /// Prometheus metrics params.
-#[derive(Clone, Debug, PartialEq, StructOpt)]
+#[derive(Clone, Debug, PartialEq, Parser)]
 pub struct PrometheusParams {
 	/// Do not expose a Prometheus metric endpoint.
-	#[structopt(long)]
+	#[arg(long)]
 	pub no_prometheus: bool,
 	/// Expose Prometheus endpoint at given interface.
-	#[structopt(long, default_value = "127.0.0.1")]
+	#[arg(long, default_value = "127.0.0.1")]
 	pub prometheus_host: String,
 	/// Expose Prometheus endpoint at given port.
-	#[structopt(long, default_value = "9616")]
+	#[arg(long, default_value = "9616")]
 	pub prometheus_port: u16,
 }
 
@@ -166,31 +138,39 @@ where
 	}
 }
 
-#[doc = "Runtime version params."]
-#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy, EnumString, VariantNames)]
-pub enum RuntimeVersionType {
-	/// Auto query version from chain
-	Auto,
-	/// Custom `spec_version` and `transaction_version`
-	Custom,
-	/// Read version from bundle dependencies directly.
-	Bundle,
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_messages::{HashedLaneId, LegacyLaneId};
+	use sp_core::H256;
 
 	#[test]
-	fn hex_bytes_display_matches_from_str_for_clap() {
-		// given
-		let hex = HexBytes(vec![1, 2, 3, 4]);
-		let display = format!("{hex}");
+	fn hex_lane_id_from_str_works() {
+		// hash variant
+		assert!(HexLaneId::from_str(
+			"101010101010101010101010101010101010101010101010101010101010101"
+		)
+		.is_err());
+		assert!(HexLaneId::from_str(
+			"00101010101010101010101010101010101010101010101010101010101010101"
+		)
+		.is_err());
+		assert_eq!(
+			HexLaneId::try_convert(
+				HexLaneId::from_str(
+					"0101010101010101010101010101010101010101010101010101010101010101"
+				)
+				.unwrap()
+			),
+			Ok(HashedLaneId::from_inner(H256::from([1u8; 32])))
+		);
 
-		// when
-		let hex2: HexBytes = display.parse().unwrap();
-
-		// then
-		assert_eq!(hex.0, hex2.0);
+		// array variant
+		assert!(HexLaneId::from_str("0000001").is_err());
+		assert!(HexLaneId::from_str("000000001").is_err());
+		assert_eq!(
+			HexLaneId::try_convert(HexLaneId::from_str("00000001").unwrap()),
+			Ok(LegacyLaneId([0, 0, 0, 1]))
+		);
 	}
 }

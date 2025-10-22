@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::Pallet as Referenda;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use assert_matches::assert_matches;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
@@ -31,6 +32,10 @@ use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded as ArithBounded;
 
 const SEED: u32 = 0;
+
+fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
+	<T as Config<I>>::BlockNumberProvider::set_block_number(n);
+}
 
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -105,7 +110,7 @@ fn fill_queue<T: Config<I>, I: 'static>(
 	others
 }
 
-fn info<T: Config<I>, I: 'static>(index: ReferendumIndex) -> &'static TrackInfoOf<T, I> {
+fn info<T: Config<I>, I: 'static>(index: ReferendumIndex) -> Cow<'static, TrackInfoOf<T, I>> {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	T::Tracks::info(status.track).expect("Id value returned from T::Tracks")
 }
@@ -150,30 +155,28 @@ fn make_failing<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 fn skip_prepare_period<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	let prepare_period_over = status.submitted + info::<T, I>(index).prepare_period;
-	frame_system::Pallet::<T>::set_block_number(prepare_period_over);
+	set_block_number::<T, I>(prepare_period_over);
 }
 
 fn skip_decision_period<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	let decision_period_over = status.deciding.unwrap().since + info::<T, I>(index).decision_period;
-	frame_system::Pallet::<T>::set_block_number(decision_period_over);
+	set_block_number::<T, I>(decision_period_over);
 }
 
 fn skip_confirm_period<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	let confirm_period_over = status.deciding.unwrap().confirming.unwrap();
-	frame_system::Pallet::<T>::set_block_number(confirm_period_over);
+	set_block_number::<T, I>(confirm_period_over);
 }
 
 fn skip_timeout_period<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	let timeout_period_over = status.submitted + T::UndecidingTimeout::get();
-	frame_system::Pallet::<T>::set_block_number(timeout_period_over);
+	set_block_number::<T, I>(timeout_period_over);
 }
 
-fn alarm_time<T: Config<I>, I: 'static>(
-	index: ReferendumIndex,
-) -> frame_system::pallet_prelude::BlockNumberFor<T> {
+fn alarm_time<T: Config<I>, I: 'static>(index: ReferendumIndex) -> BlockNumberFor<T, I> {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	status.alarm.unwrap().0
 }
@@ -632,7 +635,7 @@ benchmarks_instance_pallet! {
 	}
 
 	set_some_metadata {
-		use sp_std::borrow::Cow;
+		use alloc::borrow::Cow;
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");
 		let index = create_referendum::<T, I>(origin.clone());
@@ -643,7 +646,7 @@ benchmarks_instance_pallet! {
 	}
 
 	clear_metadata {
-		use sp_std::borrow::Cow;
+		use alloc::borrow::Cow;
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");
 		let index = create_referendum::<T, I>(origin.clone());

@@ -23,22 +23,29 @@ use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
+	collections::HashSet,
 	fs,
 	io::{self, Write},
 };
 use test_parachain_undying_collator::Collator;
 
 mod cli;
-use cli::Cli;
+use cli::{Cli, MalusType};
 
 fn main() -> Result<()> {
 	let cli = Cli::from_args();
 
 	match cli.subcommand {
 		Some(cli::Subcommand::ExportGenesisState(params)) => {
-			// `pov_size` and `pvf_complexity` need to match the ones that we start the collator
-			// with.
-			let collator = Collator::new(params.pov_size, params.pvf_complexity);
+			// `pov_size`, `pvf_complexity` need to match the
+			// ones that we start the collator with.
+			let collator = Collator::new(
+				params.pov_size,
+				params.pvf_complexity,
+				// The value of `experimental_send_approved_peer` doesn't matter because it's not
+				// part of the state.
+				false,
+			);
 
 			let output_buf =
 				format!("0x{:?}", HexDisplay::from(&collator.genesis_head())).into_bytes();
@@ -74,7 +81,11 @@ fn main() -> Result<()> {
 			})?;
 
 			runner.run_node_until_exit(|config| async move {
-				let collator = Collator::new(cli.run.pov_size, cli.run.pvf_complexity);
+				let collator = Collator::new(
+					cli.run.pov_size,
+					cli.run.pvf_complexity,
+					cli.run.experimental_send_approved_peer,
+				);
 
 				let full_node = polkadot_service::build_full(
 					config,
@@ -84,7 +95,6 @@ fn main() -> Result<()> {
 						),
 						enable_beefy: false,
 						force_authoring_backoff: false,
-						jaeger_agent: None,
 						telemetry_worker_handle: None,
 
 						// Collators don't spawn PVF workers, so we can disable version checks.
@@ -100,11 +110,15 @@ fn main() -> Result<()> {
 						execute_workers_max_num: None,
 						prepare_workers_hard_max_num: None,
 						prepare_workers_soft_max_num: None,
+						keep_finalized_for: None,
+						invulnerable_ah_collators: HashSet::new(),
+						collator_protocol_hold_off: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;
 				let mut overseer_handle = full_node
 					.overseer_handle
+					.clone()
 					.expect("Overseer handle should be initialized for collators");
 
 				let genesis_head_hex =
@@ -120,9 +134,16 @@ fn main() -> Result<()> {
 
 				let config = CollationGenerationConfig {
 					key: collator.collator_key(),
-					collator: Some(
-						collator.create_collation_function(full_node.task_manager.spawn_handle()),
-					),
+					// If the collator is malicious, disable the collation function
+					// (set to None) and manually handle collation submission later.
+					collator: if cli.run.malus_type == MalusType::None {
+						Some(
+							collator
+								.create_collation_function(full_node.task_manager.spawn_handle()),
+						)
+					} else {
+						None
+					},
 					para_id,
 				};
 				overseer_handle
@@ -132,6 +153,16 @@ fn main() -> Result<()> {
 				overseer_handle
 					.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 					.await;
+
+				// If the collator is configured to behave maliciously, simulate the specified
+				// malicious behavior.
+				if cli.run.malus_type == MalusType::DuplicateCollations {
+					collator.send_same_collations_to_all_assigned_cores(
+						&full_node,
+						overseer_handle,
+						para_id,
+					);
+				}
 
 				Ok(full_node.task_manager)
 			})

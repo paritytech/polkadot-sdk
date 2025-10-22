@@ -20,6 +20,7 @@ use futures::channel::oneshot::Receiver;
 use polkadot_node_primitives::approval::v2::VrfSignature;
 use polkadot_node_subsystem::messages::{AllMessages, BlockDescription};
 use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_overseer::{HighPriority, PriorityLevel};
 use polkadot_test_client::Sr25519Keyring;
 use sp_consensus_babe::{
 	digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
@@ -37,7 +38,7 @@ use std::{sync::Arc, time::Duration};
 
 use futures::{channel::oneshot, prelude::*};
 use polkadot_node_subsystem::messages::{
-	ApprovalVotingMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
+	ApprovalVotingParallelMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
 	HighestApprovedAncestorBlock,
 };
 use polkadot_primitives::{Block, BlockNumber, Hash, Header};
@@ -46,12 +47,32 @@ use polkadot_node_subsystem_test_helpers::TestSubsystemSender;
 use polkadot_overseer::{SubsystemContext, SubsystemSender};
 
 type VirtualOverseer =
-	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingParallelMessage>;
 
 #[async_trait::async_trait]
 impl OverseerHandleT for TestSubsystemSender {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, _origin: &'static str) {
 		TestSubsystemSender::send_message(self, msg.into()).await;
+	}
+}
+
+#[async_trait::async_trait]
+impl OverseerHandleWithPriorityT for TestSubsystemSender {
+	async fn send_msg_with_priority<M: Send + Into<AllMessages>>(
+		&mut self,
+		msg: M,
+		_origin: &'static str,
+		priority: PriorityLevel,
+	) {
+		match priority {
+			PriorityLevel::High => {
+				TestSubsystemSender::send_message_with_priority::<HighPriority>(self, msg.into())
+					.await;
+			},
+			PriorityLevel::Normal => {
+				TestSubsystemSender::send_message(self, msg.into()).await;
+			},
+		}
 	}
 }
 
@@ -63,17 +84,11 @@ struct TestHarness {
 	finality_target_rx: Receiver<Option<Hash>>,
 }
 
-#[derive(Default)]
-struct HarnessConfig;
-
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	case_vars: CaseVars,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter_level(log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = TaskExecutor::new();
 	let (mut context, virtual_overseer) =
@@ -368,7 +383,7 @@ async fn test_skeleton(
 		overseer_recv(
 			virtual_overseer
 		).await,
-		AllMessages::ApprovalVoting(ApprovalVotingMessage::ApprovedAncestor(_block_hash, _block_number, tx))
+		AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::ApprovedAncestor(_block_hash, _block_number, tx))
 		=> {
 			tx.send(highest_approved_ancestor_block.clone()).unwrap();
 		}
@@ -390,6 +405,8 @@ async fn test_skeleton(
 		) => {
 			tx.send(undisputed_chain.unwrap_or((target_block_number, target_block_hash))).unwrap();
 	});
+	// Check that ApprovedAncestor and DetermineUndisputedChain are sent with high priority.
+	assert_eq!(virtual_overseer.message_counter.with_high_priority(), 2);
 }
 
 /// Straight forward test case, where the test is not

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Helper for handling (i.e. answering) block requests from a remote peer via the
 //! `crate::request_responses::RequestResponsesBehaviour`.
@@ -39,7 +40,7 @@ use sc_network::{
 	request_responses::{IfDisconnected, IncomingRequest, OutgoingResponse, RequestFailure},
 	service::traits::RequestResponseConfig,
 	types::ProtocolName,
-	NetworkBackend,
+	NetworkBackend, MAX_RESPONSE_SIZE,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
 use sc_network_types::PeerId;
@@ -89,7 +90,7 @@ pub fn generate_protocol_config<
 		generate_protocol_name(genesis_hash, fork_id).into(),
 		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
 		1024 * 1024,
-		16 * 1024 * 1024,
+		MAX_RESPONSE_SIZE,
 		Duration::from_secs(20),
 		Some(inbound_queue),
 	)
@@ -502,6 +503,7 @@ enum HandleRequestError {
 }
 
 /// The full block downloader implementation of [`BlockDownloader].
+#[derive(Debug)]
 pub struct FullBlockDownloader {
 	protocol_name: ProtocolName,
 	network: NetworkServiceHandle,
@@ -576,6 +578,10 @@ impl FullBlockDownloader {
 
 #[async_trait::async_trait]
 impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
+	fn protocol_name(&self) -> &ProtocolName {
+		&self.protocol_name
+	}
+
 	async fn download_blocks(
 		&self,
 		who: PeerId,

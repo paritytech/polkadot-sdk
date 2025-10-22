@@ -18,6 +18,7 @@
 //! Traits and implementations for swap between the various asset classes.
 
 use super::*;
+use frame_support::{storage::with_transaction, transactional};
 
 /// Trait for providing methods to swap between the various asset classes.
 pub trait Swap<AccountId> {
@@ -112,6 +113,37 @@ pub trait SwapCredit<AccountId> {
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)>;
 }
 
+/// Trait providing methods to quote swap prices between asset classes.
+///
+/// The quoted price is only guaranteed if no other swaps are made after the price is quoted and
+/// before the target swap (e.g., the swap is made immediately within the same transaction).
+pub trait QuotePrice {
+	/// Measurement units of the asset classes for pricing.
+	type Balance: Balance;
+	/// Type representing the kind of assets for which the price is being quoted.
+	type AssetKind;
+	/// Quotes the amount of `asset1` required to obtain the exact `amount` of `asset2`.
+	///
+	/// If `include_fee` is set to `true`, the price will include the pool's fee.
+	/// If the pool does not exist or the swap cannot be made, `None` is returned.
+	fn quote_price_tokens_for_exact_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance>;
+	/// Quotes the amount of `asset2` resulting from swapping the exact `amount` of `asset1`.
+	///
+	/// If `include_fee` is set to `true`, the price will include the pool's fee.
+	/// If the pool does not exist or the swap cannot be made, `None` is returned.
+	fn quote_price_exact_tokens_for_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance>;
+}
+
 impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 	type Balance = T::Balance;
 	type AssetKind = T::AssetKind;
@@ -120,6 +152,7 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		T::MaxSwapPathLength::get()
 	}
 
+	#[transactional]
 	fn swap_exact_tokens_for_tokens(
 		sender: T::AccountId,
 		path: Vec<Self::AssetKind>,
@@ -128,19 +161,17 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		send_to: T::AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
-		let amount_out = with_storage_layer(|| {
-			Self::do_swap_exact_tokens_for_tokens(
-				sender,
-				path,
-				amount_in,
-				amount_out_min,
-				send_to,
-				keep_alive,
-			)
-		})?;
-		Ok(amount_out)
+		Self::do_swap_exact_tokens_for_tokens(
+			sender,
+			path,
+			amount_in,
+			amount_out_min,
+			send_to,
+			keep_alive,
+		)
 	}
 
+	#[transactional]
 	fn swap_tokens_for_exact_tokens(
 		sender: T::AccountId,
 		path: Vec<Self::AssetKind>,
@@ -149,17 +180,14 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		send_to: T::AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
-		let amount_in = with_storage_layer(|| {
-			Self::do_swap_tokens_for_exact_tokens(
-				sender,
-				path,
-				amount_out,
-				amount_in_max,
-				send_to,
-				keep_alive,
-			)
-		})?;
-		Ok(amount_in)
+		Self::do_swap_tokens_for_exact_tokens(
+			sender,
+			path,
+			amount_out,
+			amount_in_max,
+			send_to,
+			keep_alive,
+		)
 	}
 }
 
@@ -208,5 +236,26 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 		})
 		// should never map an error since `with_transaction` above never returns it.
 		.map_err(|_| (Self::Credit::zero(credit_asset), DispatchError::Corruption))?
+	}
+}
+
+impl<T: Config> QuotePrice for Pallet<T> {
+	type Balance = T::Balance;
+	type AssetKind = T::AssetKind;
+	fn quote_price_exact_tokens_for_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance> {
+		Self::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
+	}
+	fn quote_price_tokens_for_exact_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance> {
+		Self::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 	}
 }

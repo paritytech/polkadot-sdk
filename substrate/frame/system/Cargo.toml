@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME system module"
 readme = "README.md"
@@ -15,25 +15,28 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
-cfg-if = "1.0"
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+cfg-if = { workspace = true }
+codec = { features = ["derive"], workspace = true }
+docify = { workspace = true }
+frame-support = { workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
+scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-frame-support = { path = "../support", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-version = { path = "../../primitives/version", default-features = false, features = ["serde"] }
-sp-weights = { path = "../../primitives/weights", default-features = false, features = ["serde"] }
-docify = "0.2.8"
+sp-core = { features = ["serde"], workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-version = { features = ["serde"], workspace = true }
+sp-weights = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-criterion = "0.5.1"
-sp-externalities = { path = "../../primitives/externalities" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+criterion = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 default = ["std"]
@@ -44,10 +47,8 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
-	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-version/std",
 	"sp-weights/std",
 ]
@@ -57,7 +58,3 @@ runtime-benchmarks = [
 ]
 try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]
 experimental = ["frame-support/experimental"]
-
-[[bench]]
-name = "bench"
-harness = false

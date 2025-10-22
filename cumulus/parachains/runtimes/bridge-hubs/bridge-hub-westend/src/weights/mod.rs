@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of Cumulus.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -24,9 +24,11 @@ use ::pallet_bridge_relayers::WeightInfo as _;
 
 pub mod block_weights;
 pub mod cumulus_pallet_parachain_system;
+pub mod cumulus_pallet_weight_reclaim;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
+pub mod frame_system_extensions;
 pub mod pallet_balances;
 pub mod pallet_bridge_grandpa;
 pub mod pallet_bridge_messages;
@@ -37,11 +39,20 @@ pub mod pallet_message_queue;
 pub mod pallet_multisig;
 pub mod pallet_session;
 pub mod pallet_timestamp;
+pub mod pallet_transaction_payment;
 pub mod pallet_utility;
 pub mod pallet_xcm;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod xcm;
+
+pub mod snowbridge_pallet_ethereum_client;
+pub mod snowbridge_pallet_inbound_queue;
+pub mod snowbridge_pallet_inbound_queue_v2;
+pub mod snowbridge_pallet_outbound_queue;
+pub mod snowbridge_pallet_outbound_queue_v2;
+pub mod snowbridge_pallet_system;
+pub mod snowbridge_pallet_system_v2;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;

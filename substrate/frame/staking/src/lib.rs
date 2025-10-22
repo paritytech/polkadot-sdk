@@ -160,12 +160,14 @@
 //!
 //! ```
 //! use pallet_staking::{self as staking};
+//! use frame_support::traits::RewardsReporter;
 //!
 //! #[frame_support::pallet(dev_mode)]
 //! pub mod pallet {
 //!   use super::*;
 //!   use frame_support::pallet_prelude::*;
 //!   use frame_system::pallet_prelude::*;
+//!   # use frame_support::traits::RewardsReporter;
 //!
 //!   #[pallet::pallet]
 //!   pub struct Pallet<T>(_);
@@ -219,8 +221,8 @@
 //! [here](https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model).
 //!
 //! Total reward is split among validators and their nominators depending on the number of points
-//! they received during the era. Points are added to a validator using
-//! [`reward_by_ids`](Pallet::reward_by_ids).
+//! they received during the era. Points are added to a validator using the method
+//! [`frame_support::traits::RewardsReporter::reward_by_ids`] implemented by the [`Pallet`].
 //!
 //! [`Pallet`] implements [`pallet_authorship::EventHandler`] to add reward points to block producer
 //! and block producer of referenced uncles.
@@ -295,6 +297,7 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod asset;
 pub mod election_size_tracker;
 pub mod inflation;
 pub mod ledger;
@@ -304,11 +307,16 @@ pub mod weights;
 
 mod pallet;
 
-use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
-		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		tokens::fungible::{Credit, Debt},
+		ConstU32, Contains, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -320,12 +328,10 @@ use sp_runtime::{
 	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
-	offence::{Offence, OffenceError, ReportOffence},
+	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
-	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
@@ -344,9 +350,12 @@ macro_rules! log {
 	};
 }
 
-/// Maximum number of winners (aka. active validators), as defined in the election provider of this
-/// pallet.
-pub type MaxWinnersOf<T> = <<T as Config>::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners;
+/// Alias for the maximum number of winners (aka. active validators), as defined in by this pallet's
+/// config.
+pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
+
+/// Alias for the maximum number of winners per page, as expected by the election provider.
+pub type MaxWinnersPerPageOf<P> = <P as ElectionProvider>::MaxWinnersPerPage;
 
 /// Maximum number of nominations per nominator.
 pub type MaxNominationsOf<T> =
@@ -358,17 +367,24 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+pub type NegativeImbalanceOf<T> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -382,7 +398,7 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo, Clone, PartialEq, Eq)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
@@ -397,7 +413,18 @@ impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
 }
 
 /// A destination account for payment.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum RewardDestination<AccountId> {
 	/// Pay into the stash account, increasing the amount at stake accordingly.
 	Staked,
@@ -414,7 +441,18 @@ pub enum RewardDestination<AccountId> {
 }
 
 /// Preference of what happens regarding validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	Default,
+	MaxEncodedLen,
+)]
 pub struct ValidatorPrefs {
 	/// Reward that validator takes up-front; only the rest is split between themselves and
 	/// nominators.
@@ -427,14 +465,24 @@ pub struct ValidatorPrefs {
 }
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
-	value: Balance,
+	pub value: Balance,
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
-	era: EraIndex,
+	pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -452,6 +500,7 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	CloneNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
@@ -486,9 +535,9 @@ pub struct StakingLedger<T: Config> {
 	/// The controller associated with this ledger's stash.
 	///
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
-	/// Use [`controller`] function to get the controller associated with the ledger.
+	/// Use [`Self::controller()`] function to get the controller associated with the ledger.
 	#[codec(skip)]
-	controller: Option<T::AccountId>,
+	pub controller: Option<T::AccountId>,
 }
 
 /// State of a ledger with regards with its data and metadata integrity.
@@ -535,6 +584,52 @@ impl<T: Config> StakingLedger<T> {
 			legacy_claimed_rewards: self.legacy_claimed_rewards,
 			controller: self.controller,
 		}
+	}
+
+	/// Sets ledger total to the `new_total`.
+	///
+	/// Removes entries from `unlocking` upto `amount` starting from the oldest first.
+	fn update_total_stake(mut self, new_total: BalanceOf<T>) -> Self {
+		let old_total = self.total;
+		self.total = new_total;
+		debug_assert!(
+			new_total <= old_total,
+			"new_total {:?} must be <= old_total {:?}",
+			new_total,
+			old_total
+		);
+
+		let to_withdraw = old_total.defensive_saturating_sub(new_total);
+		// accumulator to keep track of how much is withdrawn.
+		// First we take out from active.
+		let mut withdrawn = BalanceOf::<T>::zero();
+
+		// first we try to remove stake from active
+		if self.active >= to_withdraw {
+			self.active -= to_withdraw;
+			return self
+		} else {
+			withdrawn += self.active;
+			self.active = BalanceOf::<T>::zero();
+		}
+
+		// start removing from the oldest chunk.
+		while let Some(last) = self.unlocking.last_mut() {
+			if withdrawn.defensive_saturating_add(last.value) <= to_withdraw {
+				withdrawn += last.value;
+				self.unlocking.pop();
+			} else {
+				let diff = to_withdraw.defensive_saturating_sub(withdrawn);
+				withdrawn += diff;
+				last.value -= diff;
+			}
+
+			if withdrawn >= to_withdraw {
+				break
+			}
+		}
+
+		self
 	}
 
 	/// Re-bond funds that were scheduled for unlocking.
@@ -674,7 +769,7 @@ impl<T: Config> StakingLedger<T> {
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
 				// deal.
 				slash_from_target =
-					sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+					core::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
 			}
 
 			self.total = self.total.saturating_sub(slash_from_target);
@@ -715,7 +810,15 @@ impl<T: Config> StakingLedger<T> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound,
+	EqNoBound,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
@@ -782,18 +885,18 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq, Clone, DecodeWithMemTracking)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
-	validator: AccountId,
+	pub validator: AccountId,
 	/// The validator's own slash.
-	own: Balance,
+	pub own: Balance,
 	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
+	pub others: Vec<(AccountId, Balance)>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
+	pub reporters: Vec<AccountId>,
 	/// The amount of payout.
-	payout: Balance,
+	pub payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
@@ -843,9 +946,8 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
 pub trait SessionInterface<AccountId> {
-	/// Disable the validator at the given index, returns `false` if the validator was already
-	/// disabled or the index is out of bounds.
-	fn disable_validator(validator_index: u32) -> bool;
+	/// Report an offending validator.
+	fn report_offence(validator: AccountId, severity: OffenceSeverity);
 	/// Get the validators from session.
 	fn validators() -> Vec<AccountId>;
 	/// Prune historical session tries up to but not including the given index.
@@ -855,10 +957,7 @@ pub trait SessionInterface<AccountId> {
 impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
 	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config<
-		FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		FullIdentificationOf = ExposureOf<T>,
-	>,
+	T: pallet_session::historical::Config,
 	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
 	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
 	T::ValidatorIdOf: Convert<
@@ -866,8 +965,11 @@ where
 		Option<<T as frame_system::Config>::AccountId>,
 	>,
 {
-	fn disable_validator(validator_index: u32) -> bool {
-		<pallet_session::Pallet<T>>::disable_index(validator_index)
+	fn report_offence(
+		validator: <T as frame_system::Config>::AccountId,
+		severity: OffenceSeverity,
+	) {
+		<pallet_session::Pallet<T>>::report_offence(validator, severity)
 	}
 
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
@@ -880,8 +982,8 @@ where
 }
 
 impl<AccountId> SessionInterface<AccountId> for () {
-	fn disable_validator(_: u32) -> bool {
-		true
+	fn report_offence(_validator: AccountId, _severity: OffenceSeverity) {
+		()
 	}
 	fn validators() -> Vec<AccountId> {
 		Vec::new()
@@ -916,7 +1018,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
 impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
@@ -947,6 +1049,7 @@ where
 	Eq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -972,35 +1075,78 @@ impl Default for Forcing {
 	}
 }
 
-/// A `Convert` implementation that finds the stash of the given controller account,
-/// if any.
-pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
-
-impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
-	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
-		StakingLedger::<T>::paired_account(StakingAccount::Controller(controller))
-	}
-}
-
 /// A typed conversion from stash account ID to the active exposure of nominators
 /// on that account.
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
-pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
+#[deprecated(note = "Use `DefaultExposureOf` instead")]
+pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
+#[allow(deprecated)]
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
 {
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		<Pallet<T>>::active_era()
+		ActiveEra::<T>::get()
 			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
+	}
+}
+
+/// Identify a validator with their default exposure.
+///
+/// This type should not be used in a fresh runtime, instead use [`UnitIdentificationOf`].
+///
+/// In the past, a type called [`ExposureOf`] used to return the full exposure of a validator to
+/// identify their exposure. This type is kept, marked as deprecated, for backwards compatibility of
+/// external SDK users, but is no longer used in this repo.
+///
+/// In the new model, we don't need to identify a validator with their full exposure anymore, and
+/// therefore [`UnitIdentificationOf`] is perfectly fine. Yet, for runtimes that used to work with
+/// [`ExposureOf`], we need to be able to decode old identification data, possibly stored in the
+/// historical session pallet in older blocks. Therefore, this type is a good compromise, allowing
+/// old exposure identifications to be decoded, and returning a few zero bytes
+/// (`Exposure::default`) for any new identification request.
+///
+/// A typical usage of this type is:
+///
+/// ```ignore
+/// impl pallet_session::historical::Config for Runtime {
+///     type FullIdentification = sp_staking::Exposure<AccountId, Balance>;
+///     type IdentificationOf = pallet_staking::DefaultExposureOf<Self>
+/// }
+/// ```
+pub struct DefaultExposureOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
+	for DefaultExposureOf<T>
+{
+	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
+		T::SessionInterface::validators()
+			.contains(&validator)
+			.then_some(Default::default())
+	}
+}
+
+/// An identification type that signifies the existence of a validator by returning `Some(())`, and
+/// `None` otherwise. Also see the documentation of [`DefaultExposureOf`] for more info.
+///
+/// ```ignore
+/// impl pallet_session::historical::Config for Runtime {
+///     type FullIdentification = ();
+///     type IdentificationOf = pallet_staking::UnitIdentificationOf<Self>
+/// }
+/// ```
+pub struct UnitIdentificationOf<T>(core::marker::PhantomData<T>);
+impl<T: Config> Convert<T::AccountId, Option<()>> for UnitIdentificationOf<T> {
+	fn convert(validator: T::AccountId) -> Option<()> {
+		DefaultExposureOf::<T>::convert(validator).map(|_default_exposure| ())
 	}
 }
 
 /// Filter historical offences out and only allow those from the bonding period.
 pub struct FilterHistoricalOffences<T, R> {
-	_inner: sp_std::marker::PhantomData<(T, R)>,
+	_inner: core::marker::PhantomData<(T, R)>,
 }
 
 impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O>
@@ -1030,10 +1176,10 @@ where
 	}
 }
 
-/// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
+/// Wrapper struct for Era-related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
-pub struct EraInfo<T>(sp_std::marker::PhantomData<T>);
+pub struct EraInfo<T>(core::marker::PhantomData<T>);
 impl<T: Config> EraInfo<T> {
 	/// Returns true if validator has one or more page of era rewards not claimed yet.
 	// Also looks at legacy storage that can be cleaned up after #433.
@@ -1113,7 +1259,7 @@ impl<T: Config> EraInfo<T> {
 		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
 
 		// since overview is present, paged exposure will always be present except when a
-		// validator has only own stake and no nominator stake.
+		// validator only has its own stake and no nominator stake.
 		let exposure_page = <ErasStakersPaged<T>>::get((era, validator, page)).unwrap_or_default();
 
 		// build the exposure
@@ -1200,15 +1346,15 @@ impl<T: Config> EraInfo<T> {
 		<ErasValidatorPrefs<T>>::get(&era, validator_stash).commission
 	}
 
-	/// Creates an entry to track validator reward has been claimed for a given era and page.
-	/// Noop if already claimed.
+	/// Creates an entry to track whether validator reward has been claimed for a given era and
+	/// page. Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
 		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		// this should never be called if the reward has already been claimed
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
-			// nevertheless don't do anything since the page already exist in claimed rewards.
+			// nevertheless don't do anything since the page already exists in claimed rewards.
 			return
 		}
 
@@ -1246,6 +1392,24 @@ impl<T: Config> EraInfo<T> {
 	}
 }
 
+/// A utility struct that provides a way to check if a given account is a staker.
+///
+/// This struct implements the `Contains` trait, allowing it to determine whether
+/// a particular account is currently staking by checking if the account exists in
+/// the staking ledger.
+pub struct AllStakers<T: Config>(core::marker::PhantomData<T>);
+
+impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
+	/// Checks if the given account ID corresponds to a staker.
+	///
+	/// # Returns
+	/// - `true` if the account has an entry in the staking ledger (indicating it is staking).
+	/// - `false` otherwise.
+	fn contains(account: &T::AccountId) -> bool {
+		Ledger::<T>::contains_key(account)
+	}
+}
+
 /// Configurations of the benchmarking of the pallet.
 pub trait BenchmarkingConfig {
 	/// The maximum number of validators to use.
@@ -1264,80 +1428,4 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
-}
-
-/// Controls validator disabling
-pub trait DisablingStrategy<T: Config> {
-	/// Make a disabling decision. Returns the index of the validator to disable or `None` if no new
-	/// validator should be disabled.
-	fn decision(
-		offender_stash: &T::AccountId,
-		slash_era: EraIndex,
-		currently_disabled: &Vec<u32>,
-	) -> Option<u32>;
-}
-
-/// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
-/// threshold. `DISABLING_LIMIT_FACTOR` is the factor of the maximum disabled validators in the
-/// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
-/// active set can be disabled in an era.
-/// By default a factor of 3 is used which is the byzantine threshold.
-pub struct UpToLimitDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
-
-impl<const DISABLING_LIMIT_FACTOR: usize> UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR> {
-	/// Disabling limit calculated from the total number of validators in the active set. When
-	/// reached no more validators will be disabled.
-	pub fn disable_limit(validators_len: usize) -> usize {
-		validators_len
-			.saturating_sub(1)
-			.checked_div(DISABLING_LIMIT_FACTOR)
-			.unwrap_or_else(|| {
-				defensive!("DISABLING_LIMIT_FACTOR should not be 0");
-				0
-			})
-	}
-}
-
-impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
-	for UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>
-{
-	fn decision(
-		offender_stash: &T::AccountId,
-		slash_era: EraIndex,
-		currently_disabled: &Vec<u32>,
-	) -> Option<u32> {
-		let active_set = T::SessionInterface::validators();
-
-		// We don't disable more than the limit
-		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
-			log!(
-				debug,
-				"Won't disable: reached disabling limit {:?}",
-				Self::disable_limit(active_set.len())
-			);
-			return None
-		}
-
-		// We don't disable for offences in previous eras
-		if ActiveEra::<T>::get().map(|e| e.index).unwrap_or_default() > slash_era {
-			log!(
-				debug,
-				"Won't disable: current_era {:?} > slash_era {:?}",
-				Pallet::<T>::current_era().unwrap_or_default(),
-				slash_era
-			);
-			return None
-		}
-
-		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
-			idx as u32
-		} else {
-			log!(debug, "Won't disable: offender not in active set",);
-			return None
-		};
-
-		log!(debug, "Will disable {:?}", offender_idx);
-
-		Some(offender_idx)
-	}
 }

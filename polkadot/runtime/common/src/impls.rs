@@ -16,7 +16,7 @@
 
 //! Auxiliary `struct`/`enum`s for polkadot runtime.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::{
 	fungible::{Balanced, Credit},
 	tokens::imbalance::ResolveTo,
@@ -28,7 +28,7 @@ use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
 use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
-pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
+pub struct ToAuthor<R>(core::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToAuthor<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config,
@@ -44,14 +44,14 @@ where
 	}
 }
 
-pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
+pub struct DealWithFees<R>(core::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,
 	<R as frame_system::Config>::AccountId: From<polkadot_primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<polkadot_primitives::AccountId>,
 {
-	fn on_unbalanceds<B>(
+	fn on_unbalanceds(
 		mut fees_then_tips: impl Iterator<Item = Credit<R::AccountId, pallet_balances::Pallet<R>>>,
 	) {
 		if let Some(fees) = fees_then_tips.next() {
@@ -67,29 +67,51 @@ where
 	}
 }
 
-pub fn era_payout(
-	total_staked: Balance,
-	total_stakable: Balance,
-	max_annual_inflation: Perquintill,
-	period_fraction: Perquintill,
-	auctioned_slots: u64,
-) -> (Balance, Balance) {
-	use pallet_staking_reward_fn::compute_inflation;
+/// Parameters passed into [`relay_era_payout`] function.
+pub struct EraPayoutParams {
+	/// Total staked amount.
+	pub total_staked: Balance,
+	/// Total stakable amount.
+	///
+	/// Usually, this is equal to the total issuance, except if a large part of the issuance is
+	/// locked in another sub-system.
+	pub total_stakable: Balance,
+	/// Ideal stake ratio, which is deducted by `legacy_auction_proportion` if not `None`.
+	pub ideal_stake: Perquintill,
+	/// Maximum inflation rate.
+	pub max_annual_inflation: Perquintill,
+	/// Minimum inflation rate.
+	pub min_annual_inflation: Perquintill,
+	/// Falloff used to calculate era payouts.
+	pub falloff: Perquintill,
+	/// Fraction of the era period used to calculate era payouts.
+	pub period_fraction: Perquintill,
+	/// Legacy auction proportion, which substracts from `ideal_stake` if not `None`.
+	pub legacy_auction_proportion: Option<Perquintill>,
+}
+
+/// A specialized function to compute the inflation of the staking system, tailored for polkadot
+/// relay chains, such as Polkadot, Kusama and Westend.
+pub fn relay_era_payout(params: EraPayoutParams) -> (Balance, Balance) {
 	use sp_runtime::traits::Saturating;
 
-	let min_annual_inflation = Perquintill::from_rational(25u64, 1000u64);
+	let EraPayoutParams {
+		total_staked,
+		total_stakable,
+		ideal_stake,
+		max_annual_inflation,
+		min_annual_inflation,
+		falloff,
+		period_fraction,
+		legacy_auction_proportion,
+	} = params;
+
 	let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
 
-	// 30% reserved for up to 60 slots.
-	let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 200u64);
-
-	// Therefore the ideal amount at stake (as a percentage of total issuance) is 75% less the
-	// amount that we expect to be taken up with auctions.
-	let ideal_stake = Perquintill::from_percent(75).saturating_sub(auction_proportion);
+	let ideal_stake = ideal_stake.saturating_sub(legacy_auction_proportion.unwrap_or_default());
 
 	let stake = Perquintill::from_rational(total_staked, total_stakable);
-	let falloff = Perquintill::from_percent(5);
-	let adjustment = compute_inflation(stake, ideal_stake, falloff);
+	let adjustment = pallet_staking_reward_fn::compute_inflation(stake, ideal_stake, falloff);
 	let staking_inflation =
 		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
 
@@ -109,13 +131,30 @@ pub fn era_payout(
 /// Versioned locatable asset type which contains both an XCM `location` and `asset_id` to identify
 /// an asset which exists on some chain.
 #[derive(
-	Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	Clone,
+	RuntimeDebug,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum VersionedLocatableAsset {
 	#[codec(index = 3)]
 	V3 { location: xcm::v3::Location, asset_id: xcm::v3::AssetId },
 	#[codec(index = 4)]
 	V4 { location: xcm::v4::Location, asset_id: xcm::v4::AssetId },
+	#[codec(index = 5)]
+	V5 { location: xcm::v5::Location, asset_id: xcm::v5::AssetId },
+}
+
+/// A conversion from latest xcm to `VersionedLocatableAsset`.
+impl From<(xcm::latest::Location, xcm::latest::AssetId)> for VersionedLocatableAsset {
+	fn from(value: (xcm::latest::Location, xcm::latest::AssetId)) -> Self {
+		VersionedLocatableAsset::V5 { location: value.0, asset_id: value.1 }
+	}
 }
 
 /// Converts the [`VersionedLocatableAsset`] to the [`xcm_builder::LocatableAssetId`].
@@ -127,12 +166,22 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 		asset: VersionedLocatableAsset,
 	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
 		match asset {
-			VersionedLocatableAsset::V3 { location, asset_id } =>
+			VersionedLocatableAsset::V3 { location, asset_id } => {
+				let v4_location: xcm::v4::Location =
+					location.try_into().map_err(|_| asset.clone())?;
+				let v4_asset_id: xcm::v4::AssetId =
+					asset_id.try_into().map_err(|_| asset.clone())?;
 				Ok(xcm_builder::LocatableAssetId {
-					location: location.try_into().map_err(|_| asset.clone())?,
-					asset_id: asset_id.try_into().map_err(|_| asset.clone())?,
+					location: v4_location.try_into().map_err(|_| asset.clone())?,
+					asset_id: v4_asset_id.try_into().map_err(|_| asset.clone())?,
+				})
+			},
+			VersionedLocatableAsset::V4 { ref location, ref asset_id } =>
+				Ok(xcm_builder::LocatableAssetId {
+					location: location.clone().try_into().map_err(|_| asset.clone())?,
+					asset_id: asset_id.clone().try_into().map_err(|_| asset.clone())?,
 				}),
-			VersionedLocatableAsset::V4 { location, asset_id } =>
+			VersionedLocatableAsset::V5 { location, asset_id } =>
 				Ok(xcm_builder::LocatableAssetId { location, asset_id }),
 		}
 	}
@@ -145,12 +194,12 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 		location: &VersionedLocation,
 	) -> Result<xcm::latest::Location, &VersionedLocation> {
 		let latest = match location.clone() {
-			VersionedLocation::V2(l) => {
-				let v3: xcm::v3::Location = l.try_into().map_err(|_| location)?;
-				v3.try_into().map_err(|_| location)?
+			VersionedLocation::V3(l) => {
+				let v4_location: xcm::v4::Location = l.try_into().map_err(|_| location)?;
+				v4_location.try_into().map_err(|_| location)?
 			},
-			VersionedLocation::V3(l) => l.try_into().map_err(|_| location)?,
-			VersionedLocation::V4(l) => l,
+			VersionedLocation::V4(l) => l.try_into().map_err(|_| location)?,
+			VersionedLocation::V5(l) => l,
 		};
 		Ok(latest)
 	}
@@ -166,11 +215,25 @@ where
 	fn contains(asset: &VersionedLocatableAsset) -> bool {
 		use VersionedLocatableAsset::*;
 		let (location, asset_id) = match asset.clone() {
-			V3 { location, asset_id } => match (location.try_into(), asset_id.try_into()) {
+			V3 { location, asset_id } => {
+				let v4_location: xcm::v4::Location = match location.try_into() {
+					Ok(l) => l,
+					Err(_) => return false,
+				};
+				let v4_asset_id: xcm::v4::AssetId = match asset_id.try_into() {
+					Ok(a) => a,
+					Err(_) => return false,
+				};
+				match (v4_location.try_into(), v4_asset_id.try_into()) {
+					(Ok(l), Ok(a)) => (l, a),
+					_ => return false,
+				}
+			},
+			V4 { location, asset_id } => match (location.try_into(), asset_id.try_into()) {
 				(Ok(l), Ok(a)) => (l, a),
 				_ => return false,
 			},
-			V4 { location, asset_id } => (location, asset_id),
+			V5 { location, asset_id } => (location, asset_id),
 		};
 		C::contains(&location, &asset_id.0)
 	}
@@ -191,17 +254,14 @@ pub mod benchmarks {
 	pub struct AssetRateArguments;
 	impl AssetKindFactory<VersionedLocatableAsset> for AssetRateArguments {
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
-			VersionedLocatableAsset::V4 {
-				location: xcm::v4::Location::new(0, [xcm::v4::Junction::Parachain(seed)]),
-				asset_id: xcm::v4::Location::new(
+			(
+				Location::new(0, [Parachain(seed)]),
+				AssetId(Location::new(
 					0,
-					[
-						xcm::v4::Junction::PalletInstance(seed.try_into().unwrap()),
-						xcm::v4::Junction::GeneralIndex(seed.into()),
-					],
-				)
-				.into(),
-			}
+					[PalletInstance(seed.try_into().unwrap()), GeneralIndex(seed.into())],
+				)),
+			)
+				.into()
 		}
 	}
 
@@ -216,26 +276,17 @@ pub mod benchmarks {
 		for TreasuryArguments<Parents, ParaId>
 	{
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
-			VersionedLocatableAsset::V3 {
-				location: xcm::v3::Location::new(
-					Parents::get(),
-					[xcm::v3::Junction::Parachain(ParaId::get())],
-				),
-				asset_id: xcm::v3::Location::new(
+			(
+				Location::new(Parents::get(), [Junction::Parachain(ParaId::get())]),
+				AssetId(Location::new(
 					0,
-					[
-						xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()),
-						xcm::v3::Junction::GeneralIndex(seed.into()),
-					],
-				)
-				.into(),
-			}
+					[PalletInstance(seed.try_into().unwrap()), GeneralIndex(seed.into())],
+				)),
+			)
+				.into()
 		}
 		fn create_beneficiary(seed: [u8; 32]) -> VersionedLocation {
-			VersionedLocation::V4(xcm::v4::Location::new(
-				0,
-				[xcm::v4::Junction::AccountId32 { network: None, id: seed }],
-			))
+			VersionedLocation::from(Location::new(0, [AccountId32 { network: None, id: seed }]))
 		}
 	}
 }
@@ -328,13 +379,8 @@ mod tests {
 
 	impl pallet_treasury::Config for Test {
 		type Currency = pallet_balances::Pallet<Test>;
-		type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
 		type RejectOrigin = frame_system::EnsureRoot<AccountId>;
 		type RuntimeEvent = RuntimeEvent;
-		type OnSlash = ();
-		type ProposalBond = ();
-		type ProposalBondMinimum = ();
-		type ProposalBondMaximum = ();
 		type SpendPeriod = ();
 		type Burn = ();
 		type BurnDestination = ();
@@ -349,6 +395,7 @@ mod tests {
 		type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 		type BalanceConverter = UnityAssetBalanceConversion;
 		type PayoutPeriod = ConstU64<0>;
+		type BlockNumberProvider = System;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper = ();
 	}
@@ -374,6 +421,46 @@ mod tests {
 			.assimilate_storage(&mut t)
 			.unwrap();
 		t.into()
+	}
+
+	pub fn deprecated_era_payout(
+		total_staked: Balance,
+		total_stakable: Balance,
+		max_annual_inflation: Perquintill,
+		period_fraction: Perquintill,
+		auctioned_slots: u64,
+	) -> (Balance, Balance) {
+		use pallet_staking_reward_fn::compute_inflation;
+		use sp_runtime::traits::Saturating;
+
+		let min_annual_inflation = Perquintill::from_rational(25u64, 1000u64);
+		let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
+
+		// 30% reserved for up to 60 slots.
+		let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 200u64);
+
+		// Therefore the ideal amount at stake (as a percentage of total issuance) is 75% less the
+		// amount that we expect to be taken up with auctions.
+		let ideal_stake = Perquintill::from_percent(75).saturating_sub(auction_proportion);
+
+		let stake = Perquintill::from_rational(total_staked, total_stakable);
+		let falloff = Perquintill::from_percent(5);
+		let adjustment = compute_inflation(stake, ideal_stake, falloff);
+		let staking_inflation =
+			min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
+
+		let max_payout = period_fraction * max_annual_inflation * total_stakable;
+		let staking_payout = (period_fraction * staking_inflation) * total_stakable;
+		let rest = max_payout.saturating_sub(staking_payout);
+
+		let other_issuance = total_stakable.saturating_sub(total_staked);
+		if total_staked > other_issuance {
+			let _cap_rest =
+				Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
+			// We don't do anything with this, but if we wanted to, we could introduce a cap on the
+			// treasury amount with: `rest = rest.min(cap_rest);`
+		}
+		(staking_payout, rest)
 	}
 
 	#[test]
@@ -430,13 +517,99 @@ mod tests {
 
 	#[test]
 	fn era_payout_should_give_sensible_results() {
-		assert_eq!(
-			era_payout(75, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
-			(10, 0)
+		let payout =
+			deprecated_era_payout(75, 100, Perquintill::from_percent(10), Perquintill::one(), 0);
+		assert_eq!(payout, (10, 0));
+
+		let payout =
+			deprecated_era_payout(80, 100, Perquintill::from_percent(10), Perquintill::one(), 0);
+		assert_eq!(payout, (6, 4));
+	}
+
+	#[test]
+	fn relay_era_payout_should_give_sensible_results() {
+		let params = EraPayoutParams {
+			total_staked: 75,
+			total_stakable: 100,
+			ideal_stake: Perquintill::from_percent(75),
+			max_annual_inflation: Perquintill::from_percent(10),
+			min_annual_inflation: Perquintill::from_rational(25u64, 1000u64),
+			falloff: Perquintill::from_percent(5),
+			period_fraction: Perquintill::one(),
+			legacy_auction_proportion: None,
+		};
+		assert_eq!(relay_era_payout(params), (10, 0));
+
+		let params = EraPayoutParams {
+			total_staked: 80,
+			total_stakable: 100,
+			ideal_stake: Perquintill::from_percent(75),
+			max_annual_inflation: Perquintill::from_percent(10),
+			min_annual_inflation: Perquintill::from_rational(25u64, 1000u64),
+			falloff: Perquintill::from_percent(5),
+			period_fraction: Perquintill::one(),
+			legacy_auction_proportion: None,
+		};
+		assert_eq!(relay_era_payout(params), (6, 4));
+	}
+
+	#[test]
+	fn relay_era_payout_should_give_same_results_as_era_payout() {
+		let total_staked = 1_000_000;
+		let total_stakable = 2_000_000;
+		let max_annual_inflation = Perquintill::from_percent(10);
+		let period_fraction = Perquintill::from_percent(25);
+		let auctioned_slots = 30;
+
+		let params = EraPayoutParams {
+			total_staked,
+			total_stakable,
+			ideal_stake: Perquintill::from_percent(75),
+			max_annual_inflation,
+			min_annual_inflation: Perquintill::from_rational(25u64, 1000u64),
+			falloff: Perquintill::from_percent(5),
+			period_fraction,
+			legacy_auction_proportion: Some(Perquintill::from_rational(
+				auctioned_slots.min(60),
+				200u64,
+			)),
+		};
+
+		let payout = deprecated_era_payout(
+			total_staked,
+			total_stakable,
+			max_annual_inflation,
+			period_fraction,
+			auctioned_slots,
 		);
-		assert_eq!(
-			era_payout(80, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
-			(6, 4)
+		assert_eq!(relay_era_payout(params), payout);
+
+		let total_staked = 1_900_000;
+		let total_stakable = 2_000_000;
+		let auctioned_slots = 60;
+
+		let params = EraPayoutParams {
+			total_staked,
+			total_stakable,
+			ideal_stake: Perquintill::from_percent(75),
+			max_annual_inflation,
+			min_annual_inflation: Perquintill::from_rational(25u64, 1000u64),
+			falloff: Perquintill::from_percent(5),
+			period_fraction,
+			legacy_auction_proportion: Some(Perquintill::from_rational(
+				auctioned_slots.min(60),
+				200u64,
+			)),
+		};
+
+		let payout = deprecated_era_payout(
+			total_staked,
+			total_stakable,
+			max_annual_inflation,
+			period_fraction,
+			auctioned_slots,
 		);
+
+		assert_eq!(relay_era_payout(params), payout);
 	}
 }

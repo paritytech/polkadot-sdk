@@ -20,7 +20,7 @@ use crate::{
 	mock::{new_test_ext, Configuration, MockGenesisConfig, ParasShared, RuntimeOrigin, Test},
 };
 use bitvec::{bitvec, prelude::Lsb0};
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_ok};
 
 fn on_new_session(session_index: SessionIndex) -> (HostConfiguration<u32>, HostConfiguration<u32>) {
 	ParasShared::set_session_index(session_index);
@@ -210,7 +210,7 @@ fn invariants() {
 		);
 
 		assert_err!(
-			Configuration::set_max_pov_size(RuntimeOrigin::root(), MAX_POV_SIZE + 1),
+			Configuration::set_max_pov_size(RuntimeOrigin::root(), POV_SIZE_HARD_LIMIT + 1),
 			Error::<Test>::InvalidNewValue
 		);
 
@@ -316,13 +316,14 @@ fn setting_pending_config_members() {
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+			#[allow(deprecated)]
 			scheduler_params: SchedulerParams {
 				group_rotation_frequency: 20,
 				paras_availability_period: 10,
 				max_validators_per_core: None,
 				lookahead: 3,
 				num_cores: 2,
-				max_availability_timeouts: 5,
+				max_availability_timeouts: 0,
 				on_demand_queue_max_size: 10_000u32,
 				on_demand_base_fee: 10_000_000u128,
 				on_demand_fee_variability: Perbill::from_percent(3),
@@ -353,11 +354,6 @@ fn setting_pending_config_members() {
 		Configuration::set_coretime_cores(
 			RuntimeOrigin::root(),
 			new_config.scheduler_params.num_cores,
-		)
-		.unwrap();
-		Configuration::set_max_availability_timeouts(
-			RuntimeOrigin::root(),
-			new_config.scheduler_params.max_availability_timeouts,
 		)
 		.unwrap();
 		Configuration::set_group_rotation_frequency(
@@ -421,13 +417,6 @@ fn setting_pending_config_members() {
 			new_config.max_upward_queue_size,
 		)
 		.unwrap();
-		assert_noop!(
-			Configuration::set_max_upward_queue_size(
-				RuntimeOrigin::root(),
-				MAX_UPWARD_MESSAGE_SIZE_BOUND + 1,
-			),
-			Error::<Test>::InvalidNewValue
-		);
 		Configuration::set_max_downward_message_size(
 			RuntimeOrigin::root(),
 			new_config.max_downward_message_size,

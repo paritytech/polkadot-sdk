@@ -1,0 +1,38 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'Bounded Slashing: Paginated Offence Processing & Slash Application'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      NOTE: This is reverted in #7939.
+      This PR refactors the slashing mechanism in `pallet-staking` to be bounded by introducing paged offence processing and paged slash application.
+
+            ### Key Changes
+            - Offences are queued instead of being processed immediately.
+            - Slashes are computed in pages, stored as a `StorageDoubleMap` with `(Validator, SlashFraction, PageIndex)` to uniquely identify them.
+            - Slashes are applied incrementally across multiple blocks instead of a single unbounded operation.
+            - New storage items: `OffenceQueue`, `ProcessingOffence`, `OffenceQueueEras`.
+            - Updated API for cancelling and applying slashes.
+            - Preliminary benchmarks added; further optimizations planned.
+
+            This enables staking slashing to scale efficiently and removes a major blocker for staking migration to a parachain (AH).
+
+crates:
+- name: pallet-babe
+  bump: patch
+- name: pallet-staking
+  bump: major
+- name: pallet-grandpa
+  bump: patch
+- name: westend-runtime
+  bump: minor
+- name: pallet-beefy
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-session-benchmarking
+  bump: patch
+- name: pallet-root-offences
+  bump: patch

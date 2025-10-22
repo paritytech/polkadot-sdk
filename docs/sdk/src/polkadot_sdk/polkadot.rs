@@ -8,18 +8,18 @@
 //! - [Polkadot Parachains](https://parachains.info/)
 //! - [Polkadot (multi-chain) Explorer: Subscan](https://subscan.io/)
 //! - Polkadot Fellowship
-//!     - [Manifesto](https://github.com/polkadot-fellows/manifesto)
+//!     - [Manifesto](https://github.com/polkadot-fellows/manifesto/blob/main/manifesto.pdf)
 //!     - [Runtimes](https://github.com/polkadot-fellows/runtimes)
 //!     - [RFCs](https://github.com/polkadot-fellows/rfcs)
 //! 	- [Dashboard](https://polkadot-fellows.github.io/dashboard/)
-//! - [Polkadot Specs](spec.polkadot.network)
+//! - [Polkadot Specs](http://spec.polkadot.network)
 //! - [The Polkadot Parachain Host Implementers' Guide](https://paritytech.github.io/polkadot-sdk/book/)
-//! - [Whitepaper](https://www.polkadot.network/whitepaper/)
+//! - [Polkadot papers](https://polkadot.com/papers/)
 //! - [JAM Graypaper](https://graypaper.com)
 //!
 //! ## Alternative Node Implementations 🌈
 //!
-//! - [Smoldot](https://crates.io/crates/smoldot-light). Polkadot light node/client.
+//! - [Smoldot](https://docs.rs/crate/smoldot-light/latest). Polkadot light node/client.
 //! - [KAGOME](https://github.com/qdrvm/kagome). C++ implementation of the Polkadot host.
 //! - [Gossamer](https://github.com/ChainSafe/gossamer). Golang implementation of the Polkadot host.
 //!
@@ -45,7 +45,7 @@
 //! > their execution and governance sovereignty. These chains are called "Parachains".
 //!
 //! * Shared Security: The idea of shared economic security sits at the core of Polkadot. Polkadot
-//!   enables different parachains* to pool their economic security from Polkadot (i.e. "*Relay
+//!   enables different parachains to pool their economic security from Polkadot (i.e. "*Relay
 //!   Chain*").
 //! * (heterogenous) Sharded Execution: Yet, each parachain is free to have its own execution logic
 //!   (runtime), which also encompasses governance and sovereignty. Moreover, Polkadot ensures the
@@ -54,7 +54,7 @@
 //!   the validity of the block execution of multiple parachains using the same set of validators as
 //!   the Relay Chain. In practice, this means that the shards (parachains) share the same economic
 //!   security as the Relay Chain.
-//!   Learn about this process called [Approval Checking](https://polkadot.network/blog/polkadot-v1-0-sharding-and-economic-security#approval-checking-and-finality).
+//!   Learn about this process called [Approval Checking](https://polkadot.com/blog/polkadot-v1-0-sharding-and-economic-security#approval-checking-and-finality).
 //! * A framework to build blockchains: In order to materialize the ecosystem of parachains, an easy
 //!   blockchain framework must exist. This is [Substrate](crate::polkadot_sdk::substrate),
 //!   [FRAME](crate::polkadot_sdk::frame_runtime) and [Cumulus](crate::polkadot_sdk::cumulus).
@@ -80,7 +80,7 @@
 //! Within the scope of Polkadot 1.x, two main scheduling ways have been considered:
 //!
 //! * Long term Parachains, obtained through locking a sum of DOT in an auction system.
-//! * on-demand Parachains, purchased through paying DOT to the relay-chain whenever needed.
+//! * On-demand Parachains, purchased through paying DOT to the relay-chain whenever needed.
 //!
 //! ### The Future
 //!

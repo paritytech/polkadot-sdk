@@ -11,9 +11,10 @@ use sp_core::H256;
 use xcm_executor::traits::ConvertLocation;
 
 use snowbridge_core::{
-	gwei, meth, outbound::ConstantGasMeter, sibling_sovereign_account, AgentId, AllowSiblingsOnly,
-	ParaId, PricingParameters, Rewards,
+	gwei, meth, sibling_sovereign_account, AgentId, AllowSiblingsOnly, ParaId, PricingParameters,
+	Rewards,
 };
+use snowbridge_outbound_queue_primitives::v1::ConstantGasMeter;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
@@ -48,7 +49,17 @@ mod pallet_xcm_origin {
 
 	// Insert this custom Origin into the aggregate RuntimeOrigin
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		RuntimeDebug,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub struct Origin(pub Location);
 
 	impl From<Location> for Origin {
@@ -62,17 +73,17 @@ mod pallet_xcm_origin {
 	pub struct EnsureXcm<F>(PhantomData<F>);
 	impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureXcm<F>
 	where
-		O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
+		for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 	{
 		type Success = Location;
 
 		fn try_origin(outer: O) -> Result<Self::Success, O> {
-			outer.try_with_caller(|caller| {
-				caller.try_into().and_then(|o| match o {
-					Origin(location) if F::contains(&location) => Ok(location),
-					o => Err(o.into()),
-				})
-			})
+			match outer.caller().try_into() {
+				Ok(Origin(ref location)) if F::contains(location) => return Ok(location.clone()),
+				_ => (),
+			}
+
+			Err(outer)
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -166,10 +177,12 @@ impl snowbridge_pallet_outbound_queue::Config for Test {
 parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Kusama);
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub const RelayLocation: Location = Location::parent();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(1013)].into();
+	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+	pub EthereumDestination: Location = Location::new(2,[GlobalConsensus(EthereumNetwork::get())]);
 }
 
 pub const DOT: u128 = 10_000_000_000;
@@ -177,8 +190,8 @@ pub const DOT: u128 = 10_000_000_000;
 parameter_types! {
 	pub TreasuryAccount: AccountId = PalletId(*b"py/trsry").into_account_truncating();
 	pub Fee: u64 = 1000;
-	pub const RococoNetwork: NetworkId = NetworkId::Rococo;
 	pub const InitialFunding: u128 = 1_000_000_000_000;
+	pub BridgeHubParaId: ParaId = ParaId::new(1002);
 	pub AssetHubParaId: ParaId = ParaId::new(1000);
 	pub TestParaId: u32 = 2000;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
@@ -188,7 +201,6 @@ parameter_types! {
 		multiplier: FixedU128::from_rational(4, 3)
 	};
 	pub const InboundDeliveryCost: u128 = 1_000_000_000;
-
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -208,6 +220,8 @@ impl crate::Config for Test {
 	type DefaultPricingParameters = Parameters;
 	type WeightInfo = ();
 	type InboundDeliveryCost = InboundDeliveryCost;
+	type UniversalLocation = UniversalLocation;
+	type EthereumLocation = EthereumDestination;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }
@@ -241,10 +255,6 @@ pub fn new_test_ext(genesis_build: bool) -> sp_io::TestExternalities {
 }
 
 // Test helpers
-
-pub fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-	pallet_xcm_origin::Origin(location).into()
-}
 
 pub fn make_agent_id(location: Location) -> AgentId {
 	<Test as snowbridge_system::Config>::AgentIdOf::convert_location(&location)

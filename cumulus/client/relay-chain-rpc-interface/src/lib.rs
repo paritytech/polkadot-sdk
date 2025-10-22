@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,46 +9,42 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
-		CommittedCandidateReceipt, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+	BlockNumber, CoreState, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
 use sc_client_api::StorageProof;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
-use std::pin::Pin;
+use std::{collections::btree_map::BTreeMap, pin::Pin};
 
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
 
-mod light_client_worker;
+mod metrics;
 mod reconnecting_ws_client;
 mod rpc_client;
-mod tokio_platform;
 
-pub use rpc_client::{
-	create_client_and_start_light_client_worker, create_client_and_start_worker,
-	RelayChainRpcClient,
-};
+pub use rpc_client::{create_client_and_start_worker, RelayChainRpcClient};
 
 const TIMEOUT_IN_SECONDS: u64 = 6;
 
@@ -88,12 +85,13 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) =>
+			BlockId::Number(num) => {
 				if let Some(hash) = self.rpc_client.chain_get_block_hash(Some(num)).await? {
 					hash
 				} else {
 					return Ok(None)
-				},
+				}
+			},
 		};
 		let header = self.rpc_client.chain_get_header(Some(hash)).await?;
 
@@ -162,6 +160,18 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	async fn finalized_block_hash(&self) -> RelayChainResult<RelayHash> {
 		self.rpc_client.chain_get_finalized_head().await
+	}
+
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		self.rpc_client
+			.call_remote_runtime_function_encoded(method_name, hash, payload)
+			.await
+			.map(|bytes| bytes.to_vec())
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
@@ -251,5 +261,32 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	async fn version(&self, relay_parent: RelayHash) -> RelayChainResult<RuntimeVersion> {
 		self.rpc_client.runtime_version(relay_parent).await
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
+		self.rpc_client.parachain_host_availability_cores(relay_parent).await
+	}
+
+	async fn claim_queue(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<
+		BTreeMap<cumulus_relay_chain_interface::CoreIndex, std::collections::VecDeque<ParaId>>,
+	> {
+		self.rpc_client.parachain_host_claim_queue(relay_parent).await
+	}
+
+	async fn scheduling_lookahead(&self, relay_parent: RelayHash) -> RelayChainResult<u32> {
+		self.rpc_client.parachain_host_scheduling_lookahead(relay_parent).await
+	}
+
+	async fn candidate_events(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CandidateEvent>> {
+		self.rpc_client.parachain_host_candidate_events(relay_parent).await
 	}
 }

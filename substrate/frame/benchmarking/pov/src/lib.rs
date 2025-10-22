@@ -23,19 +23,22 @@ mod benchmarking;
 mod tests;
 mod weights;
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use alloc::vec::Vec;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_std::prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 

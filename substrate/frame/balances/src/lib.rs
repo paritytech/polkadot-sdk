@@ -150,7 +150,15 @@ mod tests;
 mod types;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{
+	format,
+	string::{String, ToString},
+	vec::Vec,
+};
 use codec::{Codec, MaxEncodedLen};
+use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -158,6 +166,7 @@ use frame_support::{
 		tokens::{
 			fungible, BalanceStatus as Status, DepositConsequence,
 			Fortitude::{self, Force, Polite},
+			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
@@ -168,17 +177,17 @@ use frame_support::{
 use frame_system as system;
 pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
+use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-		Saturating, StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
-use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
+
 pub use types::{
-	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons,
-	ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -186,11 +195,15 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::balances";
 
+// Default derivation(hard) for development accounts.
+const DEFAULT_ADDRESS_URI: &str = "//Sender//{}";
+
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
@@ -202,7 +215,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 
 		pub struct TestDefaultConfig;
 
@@ -219,7 +232,7 @@ pub mod pallet {
 			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
-			type ExistentialDeposit = ConstU64<1>;
+			type ExistentialDeposit = ConstUint<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = Self::RuntimeFreezeReason;
@@ -231,6 +244,7 @@ pub mod pallet {
 			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
+			type DoneSlashHandler = ();
 		}
 	}
 
@@ -238,6 +252,7 @@ pub mod pallet {
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -257,6 +272,7 @@ pub mod pallet {
 			+ Member
 			+ AtLeast32BitUnsigned
 			+ Codec
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize
@@ -309,6 +325,14 @@ pub mod pallet {
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
+
+		/// Allows callbacks to other pallets so they can update their bookkeeping when a slash
+		/// occurs.
+		type DoneSlashHandler: fungible::hold::DoneSlash<
+			Self::RuntimeHoldReason,
+			Self::AccountId,
+			Self::Balance,
+		>;
 	}
 
 	/// The in-code storage version.
@@ -351,8 +375,12 @@ pub mod pallet {
 		Slashed { who: T::AccountId, amount: T::Balance },
 		/// Some amount was minted into an account.
 		Minted { who: T::AccountId, amount: T::Balance },
+		/// Some credit was balanced and added to the TotalIssuance.
+		MintedCredit { amount: T::Balance },
 		/// Some amount was burned from an account.
 		Burned { who: T::AccountId, amount: T::Balance },
+		/// Some debt has been dropped from the Total Issuance.
+		BurnedDebt { amount: T::Balance },
 		/// Some amount was suspended from an account (it can be restored later).
 		Suspended { who: T::AccountId, amount: T::Balance },
 		/// Some amount was restored into an account.
@@ -373,6 +401,40 @@ pub mod pallet {
 		Thawed { who: T::AccountId, amount: T::Balance },
 		/// The `TotalIssuance` was forcefully changed.
 		TotalIssuanceForced { old: T::Balance, new: T::Balance },
+		/// Some balance was placed on hold.
+		Held { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
+		/// Held balance was burned from an account.
+		BurnedHeld { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
+		/// A transfer of `amount` on hold from `source` to `dest` was initiated.
+		TransferOnHold {
+			reason: T::RuntimeHoldReason,
+			source: T::AccountId,
+			dest: T::AccountId,
+			amount: T::Balance,
+		},
+		/// The `transferred` balance is placed on hold at the `dest` account.
+		TransferAndHold {
+			reason: T::RuntimeHoldReason,
+			source: T::AccountId,
+			dest: T::AccountId,
+			transferred: T::Balance,
+		},
+		/// Some balance was released from hold.
+		Released { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
+		/// An unexpected/defensive event was triggered.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Defensive/unexpected errors/events.
+	///
+	/// In case of observation in explorers, report it as an issue in polkadot-sdk.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	pub enum UnexpectedKind {
+		/// Balance was altered/dusted during an operation that should have NOT done so.
+		BalanceUpdated,
+		/// Mutating the account failed unexpectedly. This might lead to storage items in
+		/// `Balances` and the underlying account in `System` to be out of sync.
+		FailedToMutateAccount,
 	}
 
 	#[pallet::error]
@@ -405,13 +467,11 @@ pub mod pallet {
 
 	/// The total units issued in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn total_issuance)]
 	#[pallet::whitelist_storage]
 	pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
 	/// The total units of outstanding deactivated balance in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn inactive_issuance)]
 	#[pallet::whitelist_storage]
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::Balance, ValueQuery>;
@@ -449,7 +509,6 @@ pub mod pallet {
 	///
 	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn locks)]
 	pub type Locks<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -462,7 +521,6 @@ pub mod pallet {
 	///
 	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn reserves)]
 	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -497,11 +555,18 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub balances: Vec<(T::AccountId, T::Balance)>,
+		/// Derived development accounts(Optional):
+		/// - `u32`: The number of development accounts to generate.
+		/// - `T::Balance`: The initial balance assigned to each development account.
+		/// - `String`: An optional derivation(hard) string template.
+		/// - Must include `{}` as a placeholder for account indices.
+		/// - Defaults to `"//Sender//{}`" if `None`.
+		pub dev_accounts: Option<(u32, T::Balance, Option<String>)>,
 	}
 
 	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
 		fn default() -> Self {
-			Self { balances: Default::default() }
+			Self { balances: Default::default(), dev_accounts: None }
 		}
 	}
 
@@ -525,13 +590,22 @@ pub mod pallet {
 				.iter()
 				.map(|(x, _)| x)
 				.cloned()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 
 			assert!(
 				endowed_accounts.len() == self.balances.len(),
 				"duplicate balances in genesis."
 			);
 
+			// Generate additional dev accounts.
+			if let Some((num_accounts, balance, ref derivation)) = self.dev_accounts {
+				// Using the provided derivation string or default to `"//Sender//{}`".
+				Pallet::<T, I>::derive_dev_account(
+					num_accounts,
+					balance,
+					derivation.as_deref().unwrap_or(DEFAULT_ADDRESS_URI),
+				);
+			}
 			for &(ref who, free) in self.balances.iter() {
 				frame_system::Pallet::<T>::inc_providers(who);
 				assert!(T::AccountStore::insert(who, AccountData { free, ..Default::default() })
@@ -557,26 +631,8 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			Holds::<T, I>::iter_keys().try_for_each(|k| {
-				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
-					T::RuntimeHoldReason::VARIANT_COUNT as usize
-				{
-					Err("Found `Hold` with too many elements")
-				} else {
-					Ok(())
-				}
-			})?;
-
-			Freezes::<T, I>::iter_keys().try_for_each(|k| {
-				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
-					Err("Found `Freeze` with too many elements")
-				} else {
-					Ok(())
-				}
-			})?;
-
-			Ok(())
+		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(n)
 		}
 	}
 
@@ -742,7 +798,7 @@ pub mod pallet {
 			let new_free = if wipeout { Zero::zero() } else { new_free };
 
 			// First we try to modify the account's balance to the forced balance.
-			let old_free = Self::mutate_account_handling_dust(&who, |account| {
+			let old_free = Self::mutate_account_handling_dust(&who, false, |account| {
 				let old_free = account.free;
 				account.free = new_free;
 				old_free
@@ -819,6 +875,28 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Public function to get the total issuance.
+		pub fn total_issuance() -> T::Balance {
+			TotalIssuance::<T, I>::get()
+		}
+
+		/// Public function to get the inactive issuance.
+		pub fn inactive_issuance() -> T::Balance {
+			InactiveIssuance::<T, I>::get()
+		}
+
+		/// Public function to access the Locks storage.
+		pub fn locks(who: &T::AccountId) -> WeakBoundedVec<BalanceLock<T::Balance>, T::MaxLocks> {
+			Locks::<T, I>::get(who)
+		}
+
+		/// Public function to access the reserves storage.
+		pub fn reserves(
+			who: &T::AccountId,
+		) -> BoundedVec<ReserveData<T::ReserveIdentifier, T::Balance>, T::MaxReserves> {
+			Reserves::<T, I>::get(who)
+		}
+
 		fn ed() -> T::Balance {
 			T::ExistentialDeposit::get()
 		}
@@ -856,13 +934,13 @@ pub mod pallet {
 		}
 
 		/// Get the free balance of an account.
-		pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn free_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).free
 		}
 
 		/// Get the balance of an account that can be used for transfers, reservations, or any other
 		/// non-locking, non-transaction-fee activity. Will be at most `free_balance`.
-		pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn usable_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Expendable, Polite)
 		}
 
@@ -870,14 +948,12 @@ pub mod pallet {
 		/// or any other kind of fees, though). Will be at most `free_balance`.
 		///
 		/// This requires that the account stays alive.
-		pub fn usable_balance_for_fees(
-			who: impl sp_std::borrow::Borrow<T::AccountId>,
-		) -> T::Balance {
+		pub fn usable_balance_for_fees(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Protect, Polite)
 		}
 
 		/// Get the reserved balance of an account.
-		pub fn reserved_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn reserved_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).reserved
 		}
 
@@ -899,9 +975,10 @@ pub mod pallet {
 		/// the caller will do this.
 		pub(crate) fn mutate_account_handling_dust<R>(
 			who: &T::AccountId,
+			force_consumer_bump: bool,
 			f: impl FnOnce(&mut AccountData<T::Balance>) -> R,
 		) -> Result<R, DispatchError> {
-			let (r, maybe_dust) = Self::mutate_account(who, f)?;
+			let (r, maybe_dust) = Self::mutate_account(who, force_consumer_bump, f)?;
 			if let Some(dust) = maybe_dust {
 				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
 			}
@@ -921,9 +998,10 @@ pub mod pallet {
 		/// the caller will do this.
 		pub(crate) fn try_mutate_account_handling_dust<R, E: From<DispatchError>>(
 			who: &T::AccountId,
+			force_consumer_bump: bool,
 			f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
 		) -> Result<R, E> {
-			let (r, maybe_dust) = Self::try_mutate_account(who, f)?;
+			let (r, maybe_dust) = Self::try_mutate_account(who, force_consumer_bump, f)?;
 			if let Some(dust) = maybe_dust {
 				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
 			}
@@ -942,11 +1020,18 @@ pub mod pallet {
 		///
 		/// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
 		/// the caller will do this.
+		///
+		/// NOTE: LOW-LEVEL: `force_consumer_bump` is mainly there to accomodate for locks, which
+		/// have no ability in their API to return an error, and therefore better force increment
+		/// the consumer, or else the system will be inconsistent. See `consumer_limits_tests`.
 		pub(crate) fn mutate_account<R>(
 			who: &T::AccountId,
+			force_consumer_bump: bool,
 			f: impl FnOnce(&mut AccountData<T::Balance>) -> R,
 		) -> Result<(R, Option<T::Balance>), DispatchError> {
-			Self::try_mutate_account(who, |a, _| -> Result<R, DispatchError> { Ok(f(a)) })
+			Self::try_mutate_account(who, force_consumer_bump, |a, _| -> Result<R, DispatchError> {
+				Ok(f(a))
+			})
 		}
 
 		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
@@ -978,6 +1063,7 @@ pub mod pallet {
 		/// the caller will do this.
 		pub(crate) fn try_mutate_account<R, E: From<DispatchError>>(
 			who: &T::AccountId,
+			force_consumer_bump: bool,
 			f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
 		) -> Result<(R, Option<T::Balance>), E> {
 			Self::ensure_upgraded(who);
@@ -1001,7 +1087,12 @@ pub mod pallet {
 					frame_system::Pallet::<T>::dec_consumers(who);
 				}
 				if !did_consume && does_consume {
-					frame_system::Pallet::<T>::inc_consumers(who)?;
+					if force_consumer_bump {
+						// If we are forcing a consumer bump, we do it without limit.
+						frame_system::Pallet::<T>::inc_consumers_without_limit(who)?;
+					} else {
+						frame_system::Pallet::<T>::inc_consumers(who)?;
+					}
 				}
 				if does_consume && frame_system::Pallet::<T>::consumers(who) == 0 {
 					// NOTE: This is a failsafe and should not happen for normal accounts. A normal
@@ -1012,7 +1103,7 @@ pub mod pallet {
 				}
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
-					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
+					frame_system::Pallet::<T>::dec_providers(who).inspect_err(|_| {
 						// best-effort revert consumer change.
 						if did_consume && !does_consume {
 							let _ = frame_system::Pallet::<T>::inc_consumers(who).defensive();
@@ -1020,7 +1111,6 @@ pub mod pallet {
 						if !did_consume && does_consume {
 							let _ = frame_system::Pallet::<T>::dec_consumers(who);
 						}
-						r
 					})?;
 				}
 
@@ -1084,9 +1174,9 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// No way this can fail since we do not alter the existential balances.
-			// TODO: Revisit this assumption.
-			let res = Self::mutate_account(who, |b| {
+			// We do not alter ED, so the account will not get dusted. Yet, consumer limit might be
+			// full, therefore we pass `true` into `mutate_account` to make sure this cannot fail
+			let res = Self::mutate_account(who, true, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
 				for l in locks.iter() {
@@ -1097,9 +1187,18 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			});
-			debug_assert!(res.is_ok());
-			if let Ok((_, maybe_dust)) = res {
-				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
+			match res {
+				Ok((_, None)) => {
+					// expected -- all good.
+				},
+				Ok((_, Some(_dust))) => {
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
+					defensive!("caused unexpected dusting/balance update.");
+				},
+				_ => {
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::FailedToMutateAccount));
+					defensive!("errored in mutate_account");
+				},
 			}
 
 			match locks.is_empty() {
@@ -1123,7 +1222,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			let (_, maybe_dust) = Self::mutate_account(who, |b| {
+			let (_, maybe_dust) = Self::mutate_account(who, false, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
 				for l in Locks::<T, I>::get(who).iter() {
@@ -1134,7 +1233,10 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			})?;
-			debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
+			if maybe_dust.is_some() {
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
+				defensive!("caused unexpected dusting/balance update.");
+			}
 			if freezes.is_empty() {
 				Freezes::<T, I>::remove(who);
 			} else {
@@ -1185,9 +1287,10 @@ pub mod pallet {
 
 			let ((_, maybe_dust_1), maybe_dust_2) = Self::try_mutate_account(
 				beneficiary,
+				false,
 				|to_account, is_new| -> Result<((), Option<T::Balance>), DispatchError> {
 					ensure!(!is_new, Error::<T, I>::DeadAccount);
-					Self::try_mutate_account(slashed, |from_account, _| -> DispatchResult {
+					Self::try_mutate_account(slashed, false, |from_account, _| -> DispatchResult {
 						match status {
 							Status::Free =>
 								to_account.free = to_account
@@ -1220,6 +1323,113 @@ pub mod pallet {
 				destination_status: status,
 			});
 			Ok(actual)
+		}
+
+		/// Generate dev account from derivation(hard) string.
+		pub fn derive_dev_account(num_accounts: u32, balance: T::Balance, derivation: &str) {
+			// Ensure that the number of accounts is not zero.
+			assert!(num_accounts > 0, "num_accounts must be greater than zero");
+
+			assert!(
+				balance >= <T as Config<I>>::ExistentialDeposit::get(),
+				"the balance of any account should always be at least the existential deposit.",
+			);
+
+			assert!(
+				derivation.contains("{}"),
+				"Invalid derivation, expected `{{}}` as part of the derivation"
+			);
+
+			for index in 0..num_accounts {
+				// Replace "{}" in the derivation string with the index.
+				let derivation_string = derivation.replace("{}", &index.to_string());
+
+				// Generate the key pair from the derivation string using sr25519.
+				let pair: SrPair = Pair::from_string(&derivation_string, None)
+					.expect(&format!("Failed to parse derivation string: {derivation_string}"));
+
+				// Convert the public key to AccountId.
+				let who = T::AccountId::decode(&mut &pair.public().encode()[..])
+					.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
+
+				// Set the balance for the generated account.
+				Self::mutate_account_handling_dust(&who, false, |account| {
+					account.free = balance;
+				})
+				.expect(&format!("Failed to add account to keystore: {:?}", who));
+			}
+		}
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		pub(crate) fn do_try_state(
+			_n: BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::hold_and_freeze_count()?;
+			Self::account_frozen_greater_than_locks()?;
+			Self::account_frozen_greater_than_freezes()?;
+			Ok(())
+		}
+
+		fn hold_and_freeze_count() -> Result<(), sp_runtime::TryRuntimeError> {
+			Holds::<T, I>::iter_keys().try_for_each(|k| {
+				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeHoldReason::VARIANT_COUNT as usize
+				{
+					Err("Found `Hold` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Freezes::<T, I>::iter_keys().try_for_each(|k| {
+				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
+					Err("Found `Freeze` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Ok(())
+		}
+
+		fn account_frozen_greater_than_locks() -> Result<(), sp_runtime::TryRuntimeError> {
+			Locks::<T, I>::iter().try_for_each(|(who, locks)| {
+				let max_locks = locks.iter().map(|l| l.amount).max().unwrap_or_default();
+				let frozen = T::AccountStore::get(&who).frozen;
+				if max_locks > frozen {
+					log::warn!(
+						target: crate::LOG_TARGET,
+						"Maximum lock of {:?} ({:?}) is greater than the frozen balance {:?}",
+						who,
+						max_locks,
+						frozen
+					);
+					Err("bad locks".into())
+				} else {
+					Ok(())
+				}
+			})
+		}
+
+		fn account_frozen_greater_than_freezes() -> Result<(), sp_runtime::TryRuntimeError> {
+			Freezes::<T, I>::iter().try_for_each(|(who, freezes)| {
+				let max_locks = freezes.iter().map(|l| l.amount).max().unwrap_or_default();
+				let frozen = T::AccountStore::get(&who).frozen;
+				if max_locks > frozen {
+					log::warn!(
+						target: crate::LOG_TARGET,
+						"Maximum freeze of {:?} ({:?}) is greater than the frozen balance {:?}",
+						who,
+						max_locks,
+						frozen
+					);
+					Err("bad freezes".into())
+				} else {
+					Ok(())
+				}
+			})
 		}
 	}
 }

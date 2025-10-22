@@ -19,8 +19,7 @@
 
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_noop, assert_ok};
-use sp_runtime::traits::BadOrigin;
+use frame::testing_prelude::*;
 
 #[test]
 fn add_well_known_node_works() {

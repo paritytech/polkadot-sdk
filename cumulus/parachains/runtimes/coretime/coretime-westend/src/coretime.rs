@@ -1,40 +1,85 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
-
-use crate::*;
+use crate::{xcm_config::LocationToAccountId, *};
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::{Balanced, Credit},
-		OnUnbalanced,
+		fungible::{Balanced, Credit, Inspect},
+		tokens::{Fortitude, Preservation},
+		DefensiveResult, OnUnbalanced,
 	},
 };
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
-use parachains_common::{AccountId, Balance, BlockNumber};
+use frame_system::Pallet as System;
+use pallet_broker::{
+	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId, Timeslice,
+};
+use parachains_common::{AccountId, Balance};
+use sp_runtime::traits::{AccountIdConversion, MaybeConvert};
+use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
+use xcm_executor::traits::{ConvertLocation, TransactAsset};
 
-pub struct CreditToCollatorPot;
-impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
-	fn on_nonzero_unbalanced(credit: Credit<AccountId, Balances>) {
-		let staking_pot = CollatorSelection::account_id();
-		let _ = <Balances as Balanced<_>>::resolve(&staking_pot, credit);
+pub struct BurnCoretimeRevenue;
+impl OnUnbalanced<Credit<AccountId, Balances>> for BurnCoretimeRevenue {
+	fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
+		let acc = RevenueAccumulationAccount::get();
+		if !System::<Runtime>::account_exists(&acc) {
+			System::<Runtime>::inc_providers(&acc);
+		}
+		Balances::resolve(&acc, amount).defensive_ok();
 	}
+}
+
+type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+
+fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
+	let dest = Location::parent();
+	let stash_location =
+		Junction::AccountId32 { network: None, id: stash.clone().into() }.into_location();
+	let asset = Asset { id: AssetId(Location::parent()), fun: Fungible(value) };
+	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
+
+	let withdrawn = AssetTransactor::withdraw_asset(&asset, &stash_location, None)?;
+
+	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
+
+	let parent_assets = Into::<Assets>::into(withdrawn)
+		.reanchored(&dest, &Here.into())
+		.defensive_map_err(|_| XcmError::ReanchorFailed)?;
+
+	PolkadotXcm::send_xcm(
+		Here,
+		Location::parent(),
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			ReceiveTeleportedAsset(parent_assets.clone()),
+			BurnAsset(parent_assets),
+		]),
+	)?;
+
+	AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
+
+	Ok(())
 }
 
 /// A type containing the encoding of the coretime pallet in the Relay chain runtime. Used to
@@ -66,11 +111,9 @@ enum CoretimeProviderCalls {
 
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
-}
-
-parameter_types! {
-	pub storage CoreCount: Option<CoreIndex> = None;
-	pub storage CoretimeRevenue: Option<(BlockNumber, Balance)> = None;
+	pub const MinimumCreditPurchase: Balance = UNITS / 10;
+	pub RevenueAccumulationAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
+	pub const MinimumEndPrice: Balance = UNITS;
 }
 
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
@@ -99,20 +142,19 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: call_weight,
 				call: request_core_count_call.encode().into(),
+				fallback_max_weight: Some(call_weight),
 			},
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::debug!(
+			Ok(_) => tracing::debug!(
 				target: "runtime::coretime",
 				"Request to update schedulable cores sent successfully."
 			),
-			Err(e) => log::error!(
-				target: "runtime::coretime",
-				"Failed to send request to update schedulable cores: {:?}",
-				e
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Failed to send request to update schedulable cores"
 			),
 		}
 	}
@@ -129,20 +171,19 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
 				call: request_revenue_info_at_call.encode().into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000_000, 200_000)),
 			},
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::debug!(
+			Ok(_) => tracing::debug!(
 				target: "runtime::coretime",
 				"Request for revenue information sent successfully."
 			),
-			Err(e) => log::error!(
-				target: "runtime::coretime",
-				"Request for revenue information failed to send: {:?}",
-				e
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Request for revenue information failed to send"
 			),
 		}
 	}
@@ -158,20 +199,19 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
 				call: credit_account_call.encode().into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000_000, 200_000)),
 			},
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::debug!(
+			Ok(_) => tracing::debug!(
 				target: "runtime::coretime",
 				"Instruction to credit account sent successfully."
 			),
-			Err(e) => log::error!(
-				target: "runtime::coretime",
-				"Instruction to credit account failed to send: {:?}",
-				e
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Instruction to credit account failed to send"
 			),
 		}
 	}
@@ -183,14 +223,44 @@ impl CoretimeInterface for CoretimeAllocator {
 		end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
-		let assign_core_call =
-			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
 
 		// Weight for `assign_core` from westend benchmarks:
 		// `ref_time` = 10177115 + (1 * 25000000) + (2 * 100000000) + (57600 * 13932) = 937660315
 		// `proof_size` = 3612
 		// Add 5% to each component and round to 2 significant figures.
 		let call_weight = Weight::from_parts(980_000_000, 3800);
+
+		// The relay chain currently only allows `assign_core` to be called with a complete mask
+		// and only ever with increasing `begin`. The assignments must be truncated to avoid
+		// dropping that core's assignment completely.
+
+		// This shadowing of `assignment` is temporary and can be removed when the relay can accept
+		// multiple messages to assign a single core.
+		let assignment = if assignment.len() > 28 {
+			let mut total_parts = 0u16;
+			// Account for missing parts with a new `Idle` assignment at the start as
+			// `assign_core` on the relay assumes this is sorted. We'll add the rest of the
+			// assignments and sum the parts in one pass, so this is just initialized to 0.
+			let mut assignment_truncated = vec![(CoreAssignment::Idle, 0)];
+			// Truncate to first 27 non-idle assignments.
+			assignment_truncated.extend(
+				assignment
+					.into_iter()
+					.filter(|(a, _)| *a != CoreAssignment::Idle)
+					.take(27)
+					.inspect(|(_, parts)| total_parts += *parts)
+					.collect::<Vec<_>>(),
+			);
+
+			// Set the parts of the `Idle` assignment we injected at the start of the vec above.
+			assignment_truncated[0].1 = 57_600u16.saturating_sub(total_parts);
+			assignment_truncated
+		} else {
+			assignment
+		};
+
+		let assign_core_call =
+			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -199,44 +269,56 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: call_weight,
 				call: assign_core_call.encode().into(),
+				fallback_max_weight: Some(call_weight),
 			},
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::debug!(
+			Ok(_) => tracing::debug!(
 				target: "runtime::coretime",
 				"Core assignment sent successfully."
 			),
-			Err(e) => log::error!(
-				target: "runtime::coretime",
-				"Core assignment failed to send: {:?}",
-				e
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Core assignment failed to send"
 			),
 		}
 	}
 
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
-		let revenue = CoretimeRevenue::get();
-		CoretimeRevenue::set(&None);
-		revenue
-	}
+	fn on_new_timeslice(_timeslice: Timeslice) {
+		let stash = RevenueAccumulationAccount::get();
+		let value =
+			Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Polite);
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance) {
-		CoretimeRevenue::set(&Some((when, revenue)));
+		if value > 0 {
+			tracing::debug!(target: "runtime::coretime", %value, "Going to burn stashed tokens at RC");
+			match burn_at_relay(&stash, value) {
+				Ok(()) => {
+					tracing::debug!(target: "runtime::coretime", %value, "Successfully burnt tokens");
+				},
+				Err(err) => {
+					tracing::error!(target: "runtime::coretime", error=?err, "burn_at_relay failed");
+				},
+			}
+		}
+	}
+}
+
+pub struct SovereignAccountOf;
+impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
+	fn maybe_convert(id: TaskId) -> Option<AccountId> {
+		// Currently all tasks are parachains.
+		let location = Location::new(1, [Parachain(id)]);
+		LocationToAccountId::convert_location(&location)
 	}
 }
 
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnRevenue = CreditToCollatorPot;
-	#[cfg(feature = "fast-runtime")]
-	type TimeslicePeriod = ConstU32<10>;
-	#[cfg(not(feature = "fast-runtime"))]
-	type TimeslicePeriod = ConstU32<80>;
+	type OnRevenue = BurnCoretimeRevenue;
+	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
 	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
 	type MaxLeasedCores = ConstU32<10>;
 	type MaxReservedCores = ConstU32<10>;
@@ -245,5 +327,8 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<20>;
+	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
+	type MinimumCreditPurchase = MinimumCreditPurchase;
 }

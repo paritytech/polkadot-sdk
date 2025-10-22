@@ -17,15 +17,13 @@
 #![cfg(test)]
 
 use codec::Encode;
-use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
-use polkadot_service::chain_spec::get_account_id_from_seed;
+use frame_support::weights::Weight;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
 };
 use polkadot_test_runtime::{pallet_test_notifier, xcm_config::XcmConfig};
 use polkadot_test_service::construct_extrinsic;
-use sp_core::sr25519;
 use sp_runtime::traits::Block;
 use sp_state_machine::InspectState;
 use xcm::{latest::prelude::*, VersionedResponse, VersionedXcm};
@@ -34,7 +32,7 @@ use xcm_executor::traits::WeightBounds;
 #[test]
 fn basic_buy_fees_message_executes() {
 	sp_tracing::try_init_simple();
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	let msg = Xcm(vec![
 		WithdrawAsset((Parent, 100).into()),
@@ -75,7 +73,7 @@ fn basic_buy_fees_message_executes() {
 #[test]
 fn transact_recursion_limit_works() {
 	sp_tracing::try_init_simple();
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	let base_xcm = |call: polkadot_test_runtime::RuntimeCall| {
 		Xcm(vec![
@@ -83,8 +81,8 @@ fn transact_recursion_limit_works() {
 			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
 			Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: call.get_dispatch_info().weight,
 				call: call.encode().into(),
+				fallback_max_weight: None,
 			},
 		])
 	};
@@ -104,8 +102,8 @@ fn transact_recursion_limit_works() {
 				let expected_transact_status =
 					sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
 						index: 27,
-						error: [24, 0, 0, 0],
-						message: Some("LocalExecutionIncomplete"),
+						error: [28, 0, 40, 0], // ExceedsStackLimit
+						message: Some("LocalExecutionIncompleteWithError"),
 					})
 					.encode()
 					.into();
@@ -120,7 +118,8 @@ fn transact_recursion_limit_works() {
 			},
 			_ => unreachable!(),
 		}
-		let max_weight = <XcmConfig as xcm_executor::Config>::Weigher::weight(&mut msg).unwrap();
+		let max_weight =
+			<XcmConfig as xcm_executor::Config>::Weigher::weight(&mut msg, Weight::MAX).unwrap();
 		call = Some(polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
 			message: Box::new(VersionedXcm::from(msg.clone())),
 			max_weight,
@@ -174,7 +173,7 @@ fn query_response_fires() {
 	use polkadot_test_runtime::RuntimeEvent::TestNotifier;
 
 	sp_tracing::try_init_simple();
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	let mut block_builder = client.init_polkadot_block_builder();
 
@@ -241,9 +240,9 @@ fn query_response_fires() {
 			}) if q == query_id,
 		)));
 		assert_eq!(
-			polkadot_test_runtime::Xcm::query(query_id),
+			polkadot_test_runtime::Xcm::query(&query_id),
 			Some(QueryStatus::Ready {
-				response: VersionedResponse::V4(Response::ExecutionResult(None)),
+				response: VersionedResponse::from(Response::ExecutionResult(None)),
 				at: 2u32.into()
 			}),
 		)
@@ -256,7 +255,7 @@ fn query_response_elicits_handler() {
 	use polkadot_test_runtime::RuntimeEvent::TestNotifier;
 
 	sp_tracing::try_init_simple();
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	let mut block_builder = client.init_polkadot_block_builder();
 
@@ -332,7 +331,7 @@ fn query_response_elicits_handler() {
 #[test]
 fn deposit_reserve_asset_works_for_any_xcm_sender() {
 	sp_tracing::try_init_simple();
-	let mut client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().build();
 
 	// Init values for the simulated origin Parachain
 	let amount_to_send: u128 = 1_000_000_000_000;
@@ -343,7 +342,7 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 	let weight_limit = Unlimited;
 	let reserve = Location::parent();
 	let dest = Location::new(1, [Parachain(2000)]);
-	let beneficiary_id = get_account_id_from_seed::<sr25519::Public>("Alice");
+	let beneficiary_id = sp_keyring::Sr25519Keyring::Alice.to_account_id();
 	let beneficiary = Location::new(0, [AccountId32 { network: None, id: beneficiary_id.into() }]);
 
 	// spends up to half of fees for execution on reserve and other half for execution on
@@ -377,6 +376,26 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 
 	let mut block_builder = client.init_polkadot_block_builder();
 
+	// Make the para available, so that `DMP` doesn't reject the XCM because the para is unknown.
+	let make_para_available =
+		construct_extrinsic(
+			&client,
+			polkadot_test_runtime::RuntimeCall::Sudo(pallet_sudo::Call::sudo {
+				call: Box::new(polkadot_test_runtime::RuntimeCall::System(
+					frame_system::Call::set_storage {
+						items: vec![(
+							polkadot_runtime_parachains::paras::Heads::<
+								polkadot_test_runtime::Runtime,
+							>::hashed_key_for(2000u32),
+							vec![1, 2, 3],
+						)],
+					},
+				)),
+			}),
+			sp_keyring::Sr25519Keyring::Alice,
+			0,
+		);
+
 	// Simulate execution of an incoming XCM message at the reserve chain
 	let execute = construct_extrinsic(
 		&client,
@@ -385,9 +404,12 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 			max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 		}),
 		sp_keyring::Sr25519Keyring::Alice,
-		0,
+		1,
 	);
 
+	block_builder
+		.push_polkadot_extrinsic(make_para_available)
+		.expect("pushes extrinsic");
 	block_builder.push_polkadot_extrinsic(execute).expect("pushes extrinsic");
 
 	let block = block_builder.build().expect("Finalizes the block").block;

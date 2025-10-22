@@ -342,7 +342,7 @@ impl<Block: BlockT> SharedVoterSetState<Block> {
 	}
 
 	/// Read the inner voter set state.
-	pub(crate) fn read(&self) -> parking_lot::RwLockReadGuard<VoterSetState<Block>> {
+	pub(crate) fn read(&self) -> parking_lot::RwLockReadGuard<'_, VoterSetState<Block>> {
 		self.inner.read()
 	}
 
@@ -1214,14 +1214,20 @@ where
 			.header(target_hash)?
 			.expect("Header known to exist after `finality_target` call; qed"),
 		Err(err) => {
-			warn!(
+			debug!(
 				target: LOG_TARGET,
 				"Encountered error finding best chain containing {:?}: couldn't find target block: {}",
 				block,
 				err,
 			);
 
-			return Ok(None)
+			// NOTE: in case the given `SelectChain` doesn't provide any block we fallback to using
+			// the given base block provided by the GRANDPA voter.
+			//
+			// For example, `LongestChain` will error if the given block to use as base isn't part
+			// of the best chain (as defined by `LongestChain`), which could happen if there was a
+			// re-org.
+			base_header.clone()
 		},
 	};
 

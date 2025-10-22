@@ -1,24 +1,25 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Polkadot is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! A module that is responsible for migration of storage.
 
 pub mod v5;
 
 use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
+use alloc::vec::Vec;
 use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
 	pallet_prelude::*,
@@ -116,7 +117,7 @@ pub mod v2 {
 			};
 
 			if v2::QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-				log::error!(
+				tracing::error!(
 					target: crate::LOG_TARGET,
 					"unexpected error when performing translation of the QueueConfig type \
 					during storage upgrade to v2"
@@ -213,18 +214,19 @@ pub mod v3 {
 
 	pub fn lazy_migrate_inbound_queue<T: Config>() {
 		let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
-			log::debug!(target: LOG, "Lazy migration finished: item gone");
+			tracing::debug!(target: LOG, "Lazy migration finished: item gone");
 			return
 		};
 		let Some(ref mut next) = states.first_mut() else {
-			log::debug!(target: LOG, "Lazy migration finished: item empty");
+			tracing::debug!(target: LOG, "Lazy migration finished: item empty");
 			v3::InboundXcmpStatus::<T>::kill();
 			return
 		};
-		log::debug!(
-			"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
-			next.sender,
-			next.message_metadata.len()
+		tracing::debug!(
+			target: LOG,
+			sibling=?next.sender,
+			msgs_left=%next.message_metadata.len(),
+			"Migrating inbound HRMP channel."
 		);
 		// We take the last element since the MQ is a FIFO and we want to keep the order.
 		let Some((block_number, format)) = next.message_metadata.pop() else {
@@ -233,9 +235,10 @@ pub mod v3 {
 			return
 		};
 		if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
-			log::warn!(target: LOG,
-				"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
-				format
+			tracing::warn!(
+				target: LOG,
+				?format,
+				"Dropping message (not ConcatenatedVersionedXcm)"
 			);
 			v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
 			v3::InboundXcmpStatus::<T>::put(states);
@@ -249,14 +252,14 @@ pub mod v3 {
 		};
 
 		let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
-			log::error!(target: LOG, "Message dropped: too big");
+			tracing::error!(target: LOG, "Message dropped: too big");
 			v3::InboundXcmpStatus::<T>::put(states);
 			return
 		};
 
 		// Finally! We have a proper message.
 		T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
-		log::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
+		tracing::debug!(target: LOG, next_sender=?next.sender, ?block_number, "Migrated HRMP message to MQ");
 		v3::InboundXcmpStatus::<T>::put(states);
 	}
 }
@@ -290,7 +293,7 @@ pub mod v4 {
 			};
 
 			if QueueConfig::<T>::translate(|pre| pre.map(translate)).is_err() {
-				log::error!(
+				tracing::error!(
 					target: crate::LOG_TARGET,
 					"unexpected error when performing translation of the QueueConfig type \
 					during storage upgrade to v4"

@@ -16,13 +16,13 @@
 
 //! Common try-runtime only tests for runtimes.
 
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use frame_support::{
 	dispatch::RawOrigin,
 	traits::{Get, Hooks},
 };
 use pallet_fast_unstake::{Pallet as FastUnstake, *};
 use pallet_staking::*;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// register all inactive nominators for fast-unstake, and progress until they have all been
 /// processed.
@@ -36,7 +36,7 @@ where
 
 	let all_stakers = Ledger::<T>::iter().map(|(ctrl, l)| (ctrl, l.stash)).collect::<BTreeSet<_>>();
 	let mut all_exposed = BTreeSet::new();
-	ErasStakers::<T>::iter().for_each(|(_, val, expo)| {
+	ErasStakersPaged::<T>::iter().for_each(|((_era, val, _page), expo)| {
 		all_exposed.insert(val);
 		all_exposed.extend(expo.others.iter().map(|ie| ie.who.clone()))
 	});

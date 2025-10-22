@@ -1,0 +1,10 @@
+title: 'grandpa: Ensure `WarpProof` stays in its limits'
+doc:
+- audience: Node Dev
+  description: |-
+    There was the chance that a `WarpProof` was bigger than the maximum warp sync proof size. This could have happened when inserting the last justification, which then may pushed the total proof size above the maximum. The solution is simply to ensure that the last justfication also fits into the limits.
+
+    Close: https://github.com/paritytech/polkadot-sdk/issues/6957
+crates:
+- name: sc-consensus-grandpa
+  bump: patch

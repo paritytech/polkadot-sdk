@@ -2,20 +2,18 @@
 //!
 //! The Polkadot SDK Developer Documentation.
 //!
-//! This crate is a *minimal*, but *always-accurate* source of information for those wishing to
-//! build on the Polkadot SDK.
-//!
-//! > **Work in Progress**: This crate is under heavy development. Expect content to be moved and
-//! > changed. Do not use links to this crate yet. See [`meta_contributing`] for more information.
+//! This crate is a *minimal*, *always-accurate* and low level source of truth about Polkadot-SDK.
+//! For more high level docs, please go to [docs.polkadot.com](https://docs.polkadot.com).
 //!
 //! ## Getting Started
 //!
 //! We suggest the following reading sequence:
 //!
-//! - Start by learning about the the [`polkadot_sdk`], its structure and context.
-//! - Then, head over the [`guides`]. This modules contains in-depth guides about the most important
-//!   user-journeys of the Polkadot SDK.
-//! - Whilst reading the guides, you might find back-links to [`reference_docs`].
+//! - Start by learning about [`polkadot_sdk`], its structure and context.
+//! - Then, head over to the [`guides`]. This modules contains in-depth guides about the most
+//!   important user-journeys of the Polkadot SDK.
+//! 	- Whilst reading the guides, you might find back-links to [`reference_docs`].
+//! - [`external_resources`] for a list of 3rd party guides and tutorials.
 //! - Finally, <https://paritytech.github.io> is the parent website of this crate that contains the
 //!   list of further tools related to the Polkadot SDK.
 //!
@@ -25,9 +23,11 @@
 #![doc = simple_mermaid::mermaid!("../../mermaid/IA.mmd")]
 #![warn(rustdoc::broken_intra_doc_links)]
 #![warn(rustdoc::private_intra_doc_links)]
-#![doc(html_favicon_url = "https://polkadot.network/favicon-32x32.png")]
+// Frame macros reference features which this crate does not have
+#![allow(unexpected_cfgs)]
+#![doc(html_favicon_url = "https://polkadot.com/favicon.ico")]
 #![doc(
-	html_logo_url = "https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg"
+	html_logo_url = "https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png"
 )]
 #![doc(issue_tracker_base_url = "https://github.com/paritytech/polkadot-sdk/issues")]
 
@@ -35,9 +35,13 @@
 /// how one can contribute to it.
 pub mod meta_contributing;
 
+/// A list of external resources and learning material about Polkadot SDK.
+pub mod external_resources;
+
 /// In-depth guides about the most common components of the Polkadot SDK. They are slightly more
-/// high level and broad than reference docs.
+/// high level and broad than [`reference_docs`].
 pub mod guides;
+
 /// An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
 /// the tools that are provided as a part of it, and to gain a high level understanding of each.
 pub mod polkadot_sdk;

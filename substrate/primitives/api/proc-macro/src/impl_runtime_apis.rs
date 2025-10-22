@@ -15,14 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	common::API_VERSION_ATTRIBUTE,
-	utils::{
-		extract_all_signature_types, extract_block_type_from_trait_path, extract_impl_trait,
-		extract_parameter_names_types_and_borrows, generate_crate_access,
-		generate_runtime_mod_name_for_trait, parse_runtime_api_version, prefix_function_with_trait,
-		versioned_trait_name, AllowSelfRefInParameters, RequireQualifiedTraitPath,
-	},
+use crate::utils::{
+	extract_api_version, extract_block_type_from_trait_path, extract_impl_trait,
+	extract_parameter_names_types_and_borrows, generate_crate_access,
+	generate_runtime_mod_name_for_trait, prefix_function_with_trait, versioned_trait_name,
+	AllowSelfRefInParameters, ApiVersion, RequireQualifiedTraitPath,
 };
 
 use proc_macro2::{Span, TokenStream};
@@ -31,11 +28,11 @@ use quote::quote;
 
 use syn::{
 	fold::{self, Fold},
-	parenthesized,
 	parse::{Error, Parse, ParseStream, Result},
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
-	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type, TypePath,
+	visit_mut::{self, VisitMut},
+	Attribute, Ident, ImplItem, ItemImpl, Path, Signature, Type, TypePath,
 };
 
 use std::collections::HashMap;
@@ -85,7 +82,7 @@ fn generate_impl_call(
 		quote!(
 			if !#input.is_empty() {
 				panic!(
-					"Bad input data provided to {}: expected no parameters, but input buffer is not empty.",
+					"Bad input data provided to {}: expected no parameters, but input buffer is not empty. Nothing bad happened: someone sent an invalid transaction to the node.",
 					#fn_name_str
 				);
 			}
@@ -103,12 +100,11 @@ fn generate_impl_call(
 
 		quote!(
 			#let_binding =
-				match #c::DecodeLimit::decode_all_with_depth_limit(
-					#c::MAX_EXTRINSIC_DEPTH,
+				match #c::Decode::decode(
 					&mut #input,
 				) {
 					Ok(res) => res,
-					Err(e) => panic!("Bad input data provided to {}: {}", #fn_name_str, e),
+					Err(e) => panic!("Bad input data provided to {}: {}. Nothing bad happened: someone sent an invalid transaction to the node.", #fn_name_str, e),
 				};
 		)
 	};
@@ -176,10 +172,10 @@ fn generate_impl_calls(
 					&impl_trait,
 					&trait_api_ver,
 				)?;
-				let mut attrs = filter_cfg_attrs(&impl_.attrs);
+				let mut attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 				// Add any `#[cfg(feature = X)]` attributes of the method to result
-				attrs.extend(filter_cfg_attrs(&method.attrs));
+				attrs.extend(filter_cfg_and_allow_attrs(&method.attrs));
 
 				impl_calls.push((
 					impl_trait_ident.clone(),
@@ -227,34 +223,34 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 	let c = generate_crate_access();
 
 	let impl_calls =
-		generate_impl_calls(impls, &input)?
-			.into_iter()
-			.map(|(trait_, fn_name, impl_, attrs)| {
-				let fn_name =
-					Ident::new(&prefix_function_with_trait(&trait_, &fn_name), Span::call_site());
+        generate_impl_calls(impls, &input)?
+            .into_iter()
+            .map(|(trait_, fn_name, impl_, attrs)| {
+                let fn_name =
+                    Ident::new(&prefix_function_with_trait(&trait_, &fn_name), Span::call_site());
 
-				quote!(
-					#c::std_disabled! {
-						#( #attrs )*
-						#[no_mangle]
-						#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
-						pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
-							let mut #input = if input_len == 0 {
-								&[0u8; 0]
-							} else {
-								unsafe {
-									::core::slice::from_raw_parts(input_data, input_len)
-								}
-							};
+                quote!(
+                    #c::std_disabled! {
+                        #( #attrs )*
+                        #[no_mangle]
+                        #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+                        pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
+                            let mut #input = if input_len == 0 {
+                                &[0u8; 0]
+                            } else {
+                                unsafe {
+                                    ::core::slice::from_raw_parts(input_data, input_len)
+                                }
+                            };
 
-							#c::init_runtime_logger();
+                            #c::init_runtime_logger();
 
-							let output = (move || { #impl_ })();
-							#c::to_substrate_wasm_fn_return_value(&output)
-						}
-					}
-				)
-			});
+                            let output = (move || { #impl_ })();
+                            #c::to_substrate_wasm_fn_return_value(&output)
+                        }
+                    }
+                )
+            });
 
 	Ok(quote!( #( #impl_calls )* ))
 }
@@ -328,6 +324,10 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					self.recorder = std::option::Option::Some(std::default::Default::default());
 				}
 
+				fn record_proof_with_recorder(&mut self, recorder: #crate_::ProofRecorder<Block>) {
+					self.recorder = std::option::Option::Some(recorder);
+				}
+
 				fn proof_recorder(&self) -> std::option::Option<#crate_::ProofRecorder<Block>> {
 					std::clone::Clone::clone(&self.recorder)
 				}
@@ -396,10 +396,10 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> RuntimeApiImpl<Block, C> {
 				fn commit_or_rollback_transaction(&self, commit: bool) {
 					let proof = "\
-					We only close a transaction when we opened one ourself.
-					Other parts of the runtime that make use of transactions (state-machine)
-					also balance their transactions. The runtime cannot close client initiated
-					transactions; qed";
+                    We only close a transaction when we opened one ourself.
+                    Other parts of the runtime that make use of transactions (state-machine)
+                    also balance their transactions. The runtime cannot close client initiated
+                    transactions; qed";
 
 					let res = if commit {
 						let res = if let Some(recorder) = &self.recorder {
@@ -466,12 +466,12 @@ fn extend_with_runtime_decl_path(mut trait_: Path) -> Path {
 	trait_
 }
 
-fn extend_with_api_version(mut trait_: Path, version: Option<u64>) -> Path {
+fn extend_with_api_version(mut trait_: Path, version: Option<u32>) -> Path {
 	let version = if let Some(v) = version {
 		v
 	} else {
 		// nothing to do
-		return trait_
+		return trait_;
 	};
 
 	let trait_name = &mut trait_
@@ -506,7 +506,7 @@ fn generate_api_impl_for_runtime(impls: &[ItemImpl]) -> Result<TokenStream> {
 		let trait_api_ver = extract_api_version(&impl_.attrs, impl_.span())?;
 
 		let mut impl_ = impl_.clone();
-		impl_.attrs = filter_cfg_attrs(&impl_.attrs);
+		impl_.attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 		let trait_ = extract_impl_trait(&impl_, RequireQualifiedTraitPath::Yes)?.clone();
 		let trait_ = extend_with_runtime_decl_path(trait_);
@@ -632,11 +632,6 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 	}
 
 	fn fold_item_impl(&mut self, mut input: ItemImpl) -> ItemImpl {
-		// All this `UnwindSafe` magic below here is required for this rust bug:
-		// https://github.com/rust-lang/rust/issues/24159
-		// Before we directly had the final block type and rust could determine that it is unwind
-		// safe, but now we just have a generic parameter `Block`.
-
 		let crate_ = generate_crate_access();
 
 		// Implement the trait for the `RuntimeApiImpl`
@@ -644,9 +639,9 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 			Box::new(parse_quote!( RuntimeApiImpl<__SrApiBlock__, RuntimeApiImplCall> ));
 
 		input.generics.params.push(parse_quote!(
-			__SrApiBlock__: #crate_::BlockT + std::panic::UnwindSafe +
-				std::panic::RefUnwindSafe
+			__SrApiBlock__: #crate_::BlockT
 		));
+
 		input
 			.generics
 			.params
@@ -661,18 +656,7 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 
 		where_clause.predicates.push(parse_quote! { &'static RuntimeApiImplCall: Send });
 
-		// Require that all types used in the function signatures are unwind safe.
-		extract_all_signature_types(&input.items).iter().for_each(|i| {
-			where_clause.predicates.push(parse_quote! {
-				#i: std::panic::UnwindSafe + std::panic::RefUnwindSafe
-			});
-		});
-
-		where_clause.predicates.push(parse_quote! {
-			__SrApiBlock__::Header: std::panic::UnwindSafe + std::panic::RefUnwindSafe
-		});
-
-		input.attrs = filter_cfg_attrs(&input.attrs);
+		input.attrs = filter_cfg_and_allow_attrs(&input.attrs);
 
 		fold::fold_item_impl(self, input)
 	}
@@ -756,17 +740,17 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 			let mut error = Error::new(
 				span,
 				"Two traits with the same name detected! \
-					The trait name is used to generate its ID. \
-					Please rename one trait at the declaration!",
+                    The trait name is used to generate its ID. \
+                    Please rename one trait at the declaration!",
 			);
 
 			error.combine(Error::new(other_span, "First trait implementation."));
 
-			return Err(error)
+			return Err(error);
 		}
 
 		let id: Path = parse_quote!( #path ID );
-		let mut attrs = filter_cfg_attrs(&impl_.attrs);
+		let mut attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 		// Handle API versioning
 		// If feature gated version is set - handle it first
@@ -803,17 +787,50 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	))
 }
 
+/// replaces `Self` with explicit `ItemImpl.self_ty`.
+struct ReplaceSelfImpl {
+	self_ty: Box<Type>,
+}
+
+impl ReplaceSelfImpl {
+	/// Replace `Self` with `ItemImpl.self_ty`
+	fn replace(&mut self, trait_: &mut ItemImpl) {
+		visit_mut::visit_item_impl_mut(self, trait_)
+	}
+}
+
+impl VisitMut for ReplaceSelfImpl {
+	fn visit_type_mut(&mut self, ty: &mut syn::Type) {
+		match ty {
+			Type::Path(p) if p.path.is_ident("Self") => {
+				*ty = *self.self_ty.clone();
+			},
+			ty => syn::visit_mut::visit_type_mut(self, ty),
+		}
+	}
+}
+
+/// Rename `Self` to `ItemImpl.self_ty` in all items.
+fn rename_self_in_trait_impls(impls: &mut [ItemImpl]) {
+	impls.iter_mut().for_each(|i| {
+		let mut checker = ReplaceSelfImpl { self_ty: i.self_ty.clone() };
+		checker.replace(i);
+	});
+}
+
 /// The implementation of the `impl_runtime_apis!` macro.
 pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	// Parse all impl blocks
-	let RuntimeApiImpls { impls: api_impls } = parse_macro_input!(input as RuntimeApiImpls);
+	let RuntimeApiImpls { impls: mut api_impls } = parse_macro_input!(input as RuntimeApiImpls);
 
-	impl_runtime_apis_impl_inner(&api_impls)
+	impl_runtime_apis_impl_inner(&mut api_impls)
 		.unwrap_or_else(|e| e.to_compile_error())
 		.into()
 }
 
-fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
+fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStream> {
+	rename_self_in_trait_impls(api_impls);
+
 	let dispatch_impl = generate_dispatch_function(api_impls)?;
 	let api_impls_for_runtime = generate_api_impl_for_runtime(api_impls)?;
 	let base_runtime_api = generate_runtime_api_base_structures()?;
@@ -852,91 +869,13 @@ fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
 	Ok(impl_)
 }
 
-// Filters all attributes except the cfg ones.
-fn filter_cfg_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
-	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
-}
-
-/// Parse feature flagged api_version.
-/// E.g. `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
-fn extract_cfg_api_version(attrs: &Vec<Attribute>, span: Span) -> Result<Option<(String, u64)>> {
-	let cfg_attrs = attrs.iter().filter(|a| a.path().is_ident("cfg_attr")).collect::<Vec<_>>();
-
-	let mut cfg_api_version_attr = Vec::new();
-	for cfg_attr in cfg_attrs {
-		let mut feature_name = None;
-		let mut api_version = None;
-		cfg_attr.parse_nested_meta(|m| {
-			if m.path.is_ident("feature") {
-				let a = m.value()?;
-				let b: LitStr = a.parse()?;
-				feature_name = Some(b.value());
-			} else if m.path.is_ident(API_VERSION_ATTRIBUTE) {
-				let content;
-				parenthesized!(content in m.input);
-				let ver: LitInt = content.parse()?;
-				api_version = Some(ver.base10_parse::<u64>()?);
-			}
-			Ok(())
-		})?;
-
-		// If there is a cfg attribute containing api_version - save if for processing
-		if let (Some(feature_name), Some(api_version)) = (feature_name, api_version) {
-			cfg_api_version_attr.push((feature_name, api_version, cfg_attr.span()));
-		}
-	}
-
-	if cfg_api_version_attr.len() > 1 {
-		let mut err = Error::new(span, format!("Found multiple feature gated api versions (cfg attribute with nested `{}` attribute). This is not supported.", API_VERSION_ATTRIBUTE));
-		for (_, _, attr_span) in cfg_api_version_attr {
-			err.combine(Error::new(attr_span, format!("`{}` found here", API_VERSION_ATTRIBUTE)));
-		}
-
-		return Err(err)
-	}
-
-	Ok(cfg_api_version_attr
-		.into_iter()
-		.next()
-		.map(|(feature, name, _)| (feature, name)))
-}
-
-/// Represents an API version.
-struct ApiVersion {
-	/// Corresponds to `#[api_version(X)]` attribute.
-	pub custom: Option<u64>,
-	/// Corresponds to `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
-	/// attribute. `String` is the feature name, `u64` the staging api version.
-	pub feature_gated: Option<(String, u64)>,
-}
-
-// Extracts the value of `API_VERSION_ATTRIBUTE` and handles errors.
-// Returns:
-// - Err if the version is malformed
-// - `ApiVersion` on success. If a version is set or not is determined by the fields of `ApiVersion`
-fn extract_api_version(attrs: &Vec<Attribute>, span: Span) -> Result<ApiVersion> {
-	// First fetch all `API_VERSION_ATTRIBUTE` values (should be only one)
-	let api_ver = attrs
+// Filters all attributes except the cfg and allow ones.
+fn filter_cfg_and_allow_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
+	attrs
 		.iter()
-		.filter(|a| a.path().is_ident(API_VERSION_ATTRIBUTE))
-		.collect::<Vec<_>>();
-
-	if api_ver.len() > 1 {
-		return Err(Error::new(
-			span,
-			format!(
-				"Found multiple #[{}] attributes for an API implementation. \
-				Each runtime API can have only one version.",
-				API_VERSION_ATTRIBUTE
-			),
-		))
-	}
-
-	// Parse the runtime version if there exists one.
-	Ok(ApiVersion {
-		custom: api_ver.first().map(|v| parse_runtime_api_version(v)).transpose()?,
-		feature_gated: extract_cfg_api_version(attrs, span)?,
-	})
+		.filter(|a| a.path().is_ident("cfg") || a.path().is_ident("allow"))
+		.cloned()
+		.collect()
 }
 
 #[cfg(test)]
@@ -947,6 +886,7 @@ mod tests {
 	fn filter_non_cfg_attributes() {
 		let cfg_std: Attribute = parse_quote!(#[cfg(feature = "std")]);
 		let cfg_benchmarks: Attribute = parse_quote!(#[cfg(feature = "runtime-benchmarks")]);
+		let allow: Attribute = parse_quote!(#[allow(non_camel_case_types)]);
 
 		let attrs = vec![
 			cfg_std.clone(),
@@ -956,9 +896,40 @@ mod tests {
 			parse_quote!(#[allow(non_camel_case_types)]),
 		];
 
-		let filtered = filter_cfg_attrs(&attrs);
-		assert_eq!(filtered.len(), 2);
+		let filtered = filter_cfg_and_allow_attrs(&attrs);
+		assert_eq!(filtered.len(), 3);
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
+		assert_eq!(allow, filtered[2]);
+	}
+
+	#[test]
+	fn impl_trait_rename_self_param() {
+		let code = quote::quote! {
+			impl client::Core<Block> for Runtime {
+				fn initialize_block(header: &HeaderFor<Self>) -> Output<Self> {
+					let _: HeaderFor<Self> = header.clone();
+					example_fn::<Self>(header)
+				}
+			}
+		};
+		let expected = quote::quote! {
+			impl client::Core<Block> for Runtime {
+				fn initialize_block(header: &HeaderFor<Runtime>) -> Output<Runtime> {
+					let _: HeaderFor<Runtime> = header.clone();
+					example_fn::<Runtime>(header)
+				}
+			}
+		};
+
+		// Parse the items
+		let RuntimeApiImpls { impls: mut api_impls } =
+			syn::parse2::<RuntimeApiImpls>(code).unwrap();
+
+		// Run the renamer which is being run first in the `impl_runtime_apis!` macro.
+		rename_self_in_trait_impls(&mut api_impls);
+		let result: TokenStream = quote::quote! {  #(#api_impls)* };
+
+		assert_eq!(result.to_string(), expected.to_string());
 	}
 }

@@ -4,9 +4,9 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet for whitelisting call, and dispatch from specific origin"
+description = "FRAME pallet for whitelisting calls, and dispatching from a specific origin"
 
 [lints]
 workspace = true
@@ -15,50 +15,28 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-api = { path = "../../primitives/api", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+frame = { workspace = true, features = ["runtime"] }
+scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../balances" }
-pallet-preimage = { path = "../preimage" }
-sp-core = { path = "../../primitives/core" }
-sp-io = { path = "../../primitives/io" }
+pallet-balances = { workspace = true, default-features = true }
+pallet-preimage = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
-	"pallet-balances/std",
-	"pallet-preimage/std",
+	"frame/std",
 	"scale-info/std",
-	"sp-api/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
+	"frame/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-preimage/try-runtime",
-	"sp-runtime/try-runtime",
 ]

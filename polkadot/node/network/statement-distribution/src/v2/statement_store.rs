@@ -24,7 +24,7 @@
 //! groups, and views based on the validators themselves.
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use polkadot_node_network_protocol::v2::StatementFilter;
+use polkadot_node_network_protocol::v3::StatementFilter;
 use polkadot_primitives::{
 	CandidateHash, CompactStatement, GroupIndex, SignedStatement, ValidatorIndex,
 };
@@ -217,7 +217,7 @@ impl StatementStore {
 		&'a self,
 		validators: &'a [ValidatorIndex],
 		candidate_hash: CandidateHash,
-	) -> impl Iterator<Item = &SignedStatement> + 'a {
+	) -> impl Iterator<Item = &'a SignedStatement> + 'a {
 		let s_st = CompactStatement::Seconded(candidate_hash);
 		let v_st = CompactStatement::Valid(candidate_hash);
 
@@ -292,7 +292,7 @@ impl GroupStatements {
 mod tests {
 	use super::*;
 
-	use polkadot_primitives::v7::{Hash, SigningContext, ValidatorPair};
+	use polkadot_primitives::{Hash, SigningContext, ValidatorPair};
 	use sp_application_crypto::Pair as PairT;
 
 	#[test]

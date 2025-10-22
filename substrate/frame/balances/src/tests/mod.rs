@@ -19,8 +19,11 @@
 
 #![cfg(test)]
 
-use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet, TotalIssuance};
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::{
+	self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet, TotalIssuance,
+	DEFAULT_ADDRESS_URI,
+};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
@@ -34,17 +37,19 @@ use frame_support::{
 use frame_system::{self as system, RawOrigin};
 use pallet_transaction_payment::{ChargeTransactionPayment, FungibleAdapter, Multiplier};
 use scale_info::TypeInfo;
-use sp_core::hexdisplay::HexDisplay;
+use sp_core::{hexdisplay::HexDisplay, sr25519::Pair as SrPair, Pair};
 use sp_io;
 use sp_runtime::{
-	traits::{BadOrigin, SignedExtension, Zero},
+	traits::{BadOrigin, Zero},
 	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug,
 	TokenError,
 };
 use std::collections::BTreeSet;
 
+mod consumer_limit_tests;
 mod currency_tests;
 mod dispatchable_tests;
+mod fungible_and_currency;
 mod fungible_conformance_tests;
 mod fungible_tests;
 mod general_tests;
@@ -55,6 +60,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Copy,
 	Clone,
 	Eq,
@@ -74,6 +80,9 @@ pub enum TestId {
 impl VariantCount for TestId {
 	const VARIANT_COUNT: u32 = 3;
 }
+
+pub(crate) type AccountId = <Test as frame_system::Config>::AccountId;
+pub(crate) type Balance = <Test as Config>::Balance;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -104,7 +113,10 @@ impl pallet_transaction_payment::Config for Test {
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
-	type FeeMultiplierUpdate = ();
+}
+
+parameter_types! {
+	pub FooReason: TestId = TestId::Foo;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -147,6 +159,11 @@ impl ExtBuilder {
 		self.dust_trap = Some(account);
 		self
 	}
+	#[cfg(feature = "try-runtime")]
+	pub fn auto_try_state(self, auto_try_state: bool) -> Self {
+		AutoTryState::set(auto_try_state);
+		self
+	}
 	pub fn set_associated_consts(&self) {
 		DUST_TRAP_TARGET.with(|v| v.replace(self.dust_trap));
 		EXISTENTIAL_DEPOSIT.with(|v| v.replace(self.existential_deposit));
@@ -166,6 +183,11 @@ impl ExtBuilder {
 			} else {
 				vec![]
 			},
+			dev_accounts: Some((
+				1000,
+				self.existential_deposit,
+				Some(DEFAULT_ADDRESS_URI.to_string()),
+			)),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -177,9 +199,19 @@ impl ExtBuilder {
 	pub fn build_and_execute_with(self, f: impl Fn()) {
 		let other = self.clone();
 		UseSystem::set(false);
-		other.build().execute_with(|| f());
+		other.build().execute_with(|| {
+			f();
+			if AutoTryState::get() {
+				Balances::do_try_state(System::block_number()).unwrap();
+			}
+		});
 		UseSystem::set(true);
-		self.build().execute_with(|| f());
+		self.build().execute_with(|| {
+			f();
+			if AutoTryState::get() {
+				Balances::do_try_state(System::block_number()).unwrap();
+			}
+		});
 	}
 }
 
@@ -203,6 +235,7 @@ impl OnUnbalanced<CreditOf<Test, ()>> for DustTrap {
 
 parameter_types! {
 	pub static UseSystem: bool = false;
+	pub static AutoTryState: bool = true;
 }
 
 type BalancesAccountStore = StorageMapShim<super::Account<Test>, u64, super::AccountData<u64>>;
@@ -271,14 +304,39 @@ pub fn events() -> Vec<RuntimeEvent> {
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
-	DispatchInfo { weight: w, ..Default::default() }
+	DispatchInfo { call_weight: w, ..Default::default() }
 }
 
 /// Check that the total-issuance matches the sum of all accounts' total balances.
 pub fn ensure_ti_valid() {
 	let mut sum = 0;
 
+	// Fetch the dev accounts from Account Storage.
+	let dev_accounts = (1000, EXISTENTIAL_DEPOSIT, DEFAULT_ADDRESS_URI.to_string());
+	let (num_accounts, _balance, ref derivation) = dev_accounts;
+
+	// Generate the dev account public keys.
+	let dev_account_ids: Vec<_> = (0..num_accounts)
+		.map(|index| {
+			let derivation_string = derivation.replace("{}", &index.to_string());
+			let pair: SrPair =
+				Pair::from_string(&derivation_string, None).expect("Invalid derivation string");
+			<crate::tests::Test as frame_system::Config>::AccountId::decode(
+				&mut &pair.public().encode()[..],
+			)
+			.unwrap()
+		})
+		.collect();
+
+	// Iterate over all account keys (i.e., the account IDs).
 	for acc in frame_system::Account::<Test>::iter_keys() {
+		// Skip dev accounts by checking if the account is in the dev_account_ids list.
+		// This also proves dev_accounts exists in storage.
+		if dev_account_ids.contains(&acc) {
+			continue;
+		}
+
+		// Check if we are using the system pallet or some other custom storage for accounts.
 		if UseSystem::get() {
 			let data = frame_system::Pallet::<Test>::account(acc);
 			sum += data.data.total();
@@ -288,16 +346,17 @@ pub fn ensure_ti_valid() {
 		}
 	}
 
-	assert_eq!(TotalIssuance::<Test>::get(), sum, "Total Issuance wrong");
+	// Ensure the total issuance matches the sum of the account balances
+	assert_eq!(TotalIssuance::<Test>::get(), sum, "Total Issuance is incorrect");
 }
 
 #[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::transfer_allow_death { dest: 10, value: 4 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::transfer_allow_death(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::transfer_allow_death(), info.call_weight);
 
 	let info = crate::Call::<Test>::force_unreserve { who: 10, amount: 4 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::force_unreserve(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::force_unreserve(), info.call_weight);
 }
 
 #[test]
@@ -310,4 +369,25 @@ fn check_whitelist() {
 	assert!(whitelist.contains("c2261276cc9d1f8598ea4b6a74b15c2f1ccde6872881f893a21de93dfe970cd5"));
 	// Total Issuance
 	assert!(whitelist.contains("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"));
+}
+
+/// This pallet runs tests twice, once with system as `type AccountStore` and once this pallet. This
+/// function will return the right value based on the `UseSystem` flag.
+pub(crate) fn get_test_account_data(who: AccountId) -> AccountData<Balance> {
+	if UseSystem::get() {
+		<SystemAccountStore as StoredMap<_, _>>::get(&who)
+	} else {
+		<BalancesAccountStore as StoredMap<_, _>>::get(&who)
+	}
+}
+
+/// Same as `get_test_account_data`, but returns a `frame_system::AccountInfo` with the data filled
+/// in.
+pub(crate) fn get_test_account(
+	who: AccountId,
+) -> frame_system::AccountInfo<u32, AccountData<Balance>> {
+	let mut system_account = frame_system::Account::<Test>::get(&who);
+	let account_data = get_test_account_data(who);
+	system_account.data = account_data;
+	system_account
 }

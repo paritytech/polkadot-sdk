@@ -45,7 +45,10 @@ pub mod prelude {
 		Backend, ExecutorDispatch, TestClient, TestClientBuilder, WasmExecutionMethod,
 	};
 	// Keyring
-	pub use super::{AccountKeyring, Sr25519Keyring};
+	pub use super::Sr25519Keyring;
+	pub use futures::executor::block_on;
+	pub use sc_block_builder::BlockBuilderBuilder;
+	pub use sp_blockchain::HeaderBackend;
 }
 
 /// Test client database backend.

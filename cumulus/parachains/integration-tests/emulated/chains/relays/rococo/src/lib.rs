@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+pub use rococo_runtime;
 
 pub mod genesis;
 
@@ -24,7 +25,7 @@ use emulated_integration_tests_common::{
 
 // Rococo declaration
 decl_test_relay_chains! {
-	#[api_version(11)]
+	#[api_version(14)]
 	pub struct Rococo {
 		genesis = genesis::genesis(),
 		on_init = (),

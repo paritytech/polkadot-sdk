@@ -25,27 +25,43 @@
 //! interface.
 
 use crate::Config;
-use codec::{Decode, Encode, MaxEncodedLen};
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::{iter, marker::PhantomData};
 use frame_election_provider_support::ScoreProvider;
 use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, DefensiveOption, Get},
-	DefaultNoBound, PalletError,
+	CloneNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
-use sp_std::{
-	boxed::Box,
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	iter,
-	marker::PhantomData,
-	prelude::*,
-};
 
+#[cfg(any(
+	test,
+	feature = "try-runtime",
+	feature = "fuzz",
+	feature = "std",
+	feature = "runtime-benchmarks"
+))]
+use alloc::vec::Vec;
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;
 
-#[derive(Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, PalletError)]
+#[derive(
+	Debug,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	PalletError,
+)]
 pub enum ListError {
 	/// A duplicate id has been detected.
 	Duplicate,
@@ -55,6 +71,8 @@ pub enum ListError {
 	NotInSameBag,
 	/// Given node id was not found.
 	NodeNotFound,
+	/// The List is locked, therefore updates cannot happen now.
+	Locked,
 }
 
 #[cfg(test)]
@@ -114,7 +132,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns the number of ids migrated.
 	pub fn unsafe_regenerate(
 		all: impl IntoIterator<Item = T::AccountId>,
-		score_of: Box<dyn Fn(&T::AccountId) -> T::Score>,
+		score_of: Box<dyn Fn(&T::AccountId) -> Option<T::Score>>,
 	) -> u32 {
 		// NOTE: This call is unsafe for the same reason as SortedListProvider::unsafe_regenerate.
 		// I.e. because it can lead to many storage accesses.
@@ -239,7 +257,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Iterate over all nodes in all bags in the list.
 	///
 	/// Full iteration can be expensive; it's recommended to limit the number of items with
-	/// `.take(n)`.
+	/// `.take(n)`, or call `.next()` one by one.
 	pub(crate) fn iter() -> impl Iterator<Item = Node<T, I>> {
 		// We need a touch of special handling here: because we permit `T::BagThresholds` to
 		// omit the final bound, we need to ensure that we explicitly include that threshold in the
@@ -274,7 +292,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 
 		let start_node = Node::<T, I>::get(start).ok_or(ListError::NodeNotFound)?;
 		let start_node_upper = start_node.bag_upper;
-		let start_bag = sp_std::iter::successors(start_node.next(), |prev| prev.next());
+		let start_bag = core::iter::successors(start_node.next(), |prev| prev.next());
 
 		let thresholds = T::BagThresholds::get();
 		let idx = thresholds.partition_point(|&threshold| start_node_upper > threshold);
@@ -286,6 +304,13 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			.filter_map(Bag::get)
 			.flat_map(|bag| bag.iter());
 
+		crate::log!(
+			debug,
+			"starting to iterate from {:?}, who's bag is {:?}, and there are {:?} leftover bags",
+			&start,
+			start_node_upper,
+			idx
+		);
 		Ok(start_bag.chain(leftover_bags))
 	}
 
@@ -295,13 +320,16 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns the final count of number of ids inserted.
 	fn insert_many(
 		ids: impl IntoIterator<Item = T::AccountId>,
-		score_of: impl Fn(&T::AccountId) -> T::Score,
+		score_of: impl Fn(&T::AccountId) -> Option<T::Score>,
 	) -> u32 {
 		let mut count = 0;
 		ids.into_iter().for_each(|v| {
-			let score = score_of(&v);
-			if Self::insert(v, score).is_ok() {
-				count += 1;
+			if let Some(score) = score_of(&v) {
+				if Self::insert(v, score).is_ok() {
+					count += 1;
+				}
+			} else {
+				// nada
 			}
 		});
 
@@ -325,7 +353,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		bag.put();
 
 		crate::log!(
-			debug,
+			trace,
 			"inserted {:?} with score {:?} into bag {:?}, new count is {}",
 			id,
 			score,
@@ -341,7 +369,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		if !Self::contains(id) {
 			return Err(ListError::NodeNotFound)
 		}
-		let _ = Self::remove_many(sp_std::iter::once(id));
+		let _ = Self::remove_many(core::iter::once(id));
 		Ok(())
 	}
 
@@ -546,7 +574,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// build map of bags and the corresponding nodes to avoid multiple lookups
 		let mut bags_map = BTreeMap::<T::Score, Vec<T::AccountId>>::new();
 
-		let _ = active_bags.clone().try_for_each(|b| {
+		active_bags.clone().try_for_each(|b| {
 			bags_map.insert(
 				b.bag_upper,
 				b.iter().map(|n: Node<T, I>| n.id().clone()).collect::<Vec<_>>(),
@@ -591,7 +619,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			Box::new(iter)
 		} else {
 			// otherwise, insert it here.
-			Box::new(iter.chain(sp_std::iter::once(T::Score::max_value())))
+			Box::new(iter.chain(core::iter::once(T::Score::max_value())))
 		};
 
 		iter.filter_map(|t| {
@@ -609,18 +637,27 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 /// desirable to ensure that there is some element of first-come, first-serve to the list's
 /// iteration so that there's no incentive to churn ids positioning to improve the chances of
 /// appearing within the ids set.
-#[derive(DefaultNoBound, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	DefaultNoBound,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]
-#[cfg_attr(feature = "std", derive(frame_support::DebugNoBound, Clone, PartialEq))]
 pub struct Bag<T: Config<I>, I: 'static = ()> {
-	head: Option<T::AccountId>,
-	tail: Option<T::AccountId>,
+	pub head: Option<T::AccountId>,
+	pub tail: Option<T::AccountId>,
 
 	#[codec(skip)]
-	bag_upper: T::Score,
+	pub bag_upper: T::Score,
 	#[codec(skip)]
-	_phantom: PhantomData<I>,
+	pub _phantom: PhantomData<I>,
 }
 
 impl<T: Config<I>, I: 'static> Bag<T, I> {
@@ -673,7 +710,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 
 	/// Iterate over the nodes in this bag.
 	pub(crate) fn iter(&self) -> impl Iterator<Item = Node<T, I>> {
-		sp_std::iter::successors(self.head(), |prev| prev.next())
+		core::iter::successors(self.head(), |prev| prev.next())
 	}
 
 	/// Insert a new id into this bag.
@@ -804,23 +841,31 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	#[cfg(feature = "std")]
 	#[allow(dead_code)]
 	pub fn std_iter(&self) -> impl Iterator<Item = Node<T, I>> {
-		sp_std::iter::successors(self.head(), |prev| prev.next())
+		core::iter::successors(self.head(), |prev| prev.next())
 	}
 }
 
 /// A Node is the fundamental element comprising the doubly-linked list described by `Bag`.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+	RuntimeDebugNoBound,
+)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]
-#[cfg_attr(feature = "std", derive(frame_support::DebugNoBound, Clone, PartialEq))]
 pub struct Node<T: Config<I>, I: 'static = ()> {
-	pub(crate) id: T::AccountId,
-	pub(crate) prev: Option<T::AccountId>,
-	pub(crate) next: Option<T::AccountId>,
-	pub(crate) bag_upper: T::Score,
-	pub(crate) score: T::Score,
+	pub id: T::AccountId,
+	pub prev: Option<T::AccountId>,
+	pub next: Option<T::AccountId>,
+	pub bag_upper: T::Score,
+	pub score: T::Score,
 	#[codec(skip)]
-	pub(crate) _phantom: PhantomData<I>,
+	pub _phantom: PhantomData<I>,
 }
 
 impl<T: Config<I>, I: 'static> Node<T, I> {

@@ -1,0 +1,12 @@
+title: Migrate pallet-child-bounties benchmark to v2
+doc:
+- audience: Runtime Dev
+  description: |-
+    Part of:
+
+    - #6202.
+crates:
+- name: pallet-utility
+  bump: patch
+- name: pallet-child-bounties
+  bump: patch

@@ -98,8 +98,14 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use polkadot_primitives::Id;
+	use frame_support::parameter_types;
+	use polkadot_primitives::Id as ParaId;
 	use xcm_builder::IsChildSystemParachain;
+
+	parameter_types! {
+		pub AssetHubParaId: ParaId = ASSET_HUB_ID.into();
+		pub PeopleParaId: ParaId = PEOPLE_ID.into();
+	}
 
 	/// Network's Asset Hub parachain ID.
 	pub const ASSET_HUB_ID: u32 = 1000;
@@ -113,9 +119,22 @@ pub mod system_parachain {
 	pub const PEOPLE_ID: u32 = 1004;
 	/// Brokerage parachain ID.
 	pub const BROKER_ID: u32 = 1005;
+	/// AH-next - temporary AH clone.
+	pub const ASSET_HUB_NEXT_ID: u32 = 1100;
 
 	/// All system parachains of Westend.
-	pub type SystemParachains = IsChildSystemParachain<Id>;
+	pub type SystemParachains = IsChildSystemParachain<ParaId>;
+
+	/// Coretime constants
+	pub mod coretime {
+		/// Coretime timeslice period in blocks
+		/// WARNING: This constant is used accross chains, so additional care should be taken
+		/// when changing it.
+		#[cfg(feature = "fast-runtime")]
+		pub const TIMESLICE_PERIOD: u32 = 20;
+		#[cfg(not(feature = "fast-runtime"))]
+		pub const TIMESLICE_PERIOD: u32 = 80;
+	}
 }
 
 /// Westend Treasury pallet instance.

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus. If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Provide a specialized trie-recorder and provider for use in validate-block.
 //!
@@ -20,24 +20,23 @@
 //! [`SizeOnlyRecorderProvider`]. They are used to track the current
 //! proof-size without actually recording the accessed nodes themselves.
 
+use alloc::rc::Rc;
 use codec::Encode;
-
-use sp_std::{
-	cell::{RefCell, RefMut},
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	rc::Rc,
-};
-use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
+use core::cell::{RefCell, RefMut};
+use hashbrown::{HashMap, HashSet};
+use sp_trie::{NodeCodec, ProofSizeProvider, RandomState, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
+
+pub(crate) type SeenNodes<H> = Rc<RefCell<HashSet<<H as Hasher>::Out, RandomState>>>;
 
 /// A trie recorder that only keeps track of the proof size.
 ///
 /// The internal size counting logic should align
 /// with ['sp_trie::recorder::Recorder'].
-pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
-	seen_nodes: RefMut<'a, BTreeSet<H::Out>>,
+pub struct SizeOnlyRecorder<'a, H: Hasher> {
+	seen_nodes: RefMut<'a, HashSet<H::Out, RandomState>>,
 	encoded_size: RefMut<'a, usize>,
-	recorded_keys: RefMut<'a, BTreeMap<Rc<[u8]>, RecordedForKey>>,
+	recorded_keys: RefMut<'a, HashMap<Rc<[u8]>, RecordedForKey, RandomState>>,
 }
 
 impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
@@ -90,32 +89,35 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 }
 
 #[derive(Clone)]
-pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
-	seen_nodes: Rc<RefCell<BTreeSet<H::Out>>>,
+pub struct SizeOnlyRecorderProvider<H: Hasher> {
+	seen_nodes: SeenNodes<H>,
 	encoded_size: Rc<RefCell<usize>>,
-	recorded_keys: Rc<RefCell<BTreeMap<Rc<[u8]>, RecordedForKey>>>,
+	recorded_keys: Rc<RefCell<HashMap<Rc<[u8]>, RecordedForKey, RandomState>>>,
 }
 
-impl<H: Hasher> SizeOnlyRecorderProvider<H> {
-	/// Create a new instance of [`SizeOnlyRecorderProvider`]
-	pub fn new() -> Self {
+impl<H: Hasher> Default for SizeOnlyRecorderProvider<H> {
+	fn default() -> Self {
 		Self {
 			seen_nodes: Default::default(),
 			encoded_size: Default::default(),
 			recorded_keys: Default::default(),
 		}
 	}
+}
 
-	/// Reset the internal state.
-	pub fn reset(&self) {
-		self.seen_nodes.borrow_mut().clear();
-		*self.encoded_size.borrow_mut() = 0;
-		self.recorded_keys.borrow_mut().clear();
+impl<H: Hasher> SizeOnlyRecorderProvider<H> {
+	/// Use the given `seen_nodes` to populate the internal state.
+	#[cfg(not(feature = "std"))]
+	pub(crate) fn with_seen_nodes(seen_nodes: SeenNodes<H>) -> Self {
+		Self { seen_nodes, ..Default::default() }
 	}
 }
 
 impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderProvider<H> {
-	type Recorder<'a> = SizeOnlyRecorder<'a, H> where H: 'a;
+	type Recorder<'a>
+		= SizeOnlyRecorder<'a, H>
+	where
+		H: 'a;
 
 	fn drain_storage_proof(self) -> Option<StorageProof> {
 		None
@@ -201,13 +203,13 @@ mod tests {
 		for _ in 1..10 {
 			let reference_recorder = Recorder::default();
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
-				SizeOnlyRecorderProvider::new();
+				SizeOnlyRecorderProvider::default();
 			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			{
-				let local_cache = cache_for_test.local_cache();
+				let local_cache = cache_for_test.local_cache_untrusted();
 				let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =
@@ -216,7 +218,7 @@ mod tests {
 						.with_cache(&mut trie_cache_for_reference)
 						.build();
 
-				let local_cache_for_test = reference_cache.local_cache();
+				let local_cache_for_test = reference_cache.local_cache_untrusted();
 				let mut trie_cache_for_test = local_cache_for_test.as_trie_db_cache(root);
 				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 				let test_trie =
@@ -256,7 +258,7 @@ mod tests {
 		for _ in 1..10 {
 			let reference_recorder = Recorder::default();
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
-				SizeOnlyRecorderProvider::new();
+				SizeOnlyRecorderProvider::default();
 			{
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =
@@ -289,9 +291,6 @@ mod tests {
 				reference_recorder.estimate_encoded_size(),
 				recorder_for_test.estimate_encoded_size()
 			);
-
-			recorder_for_test.reset();
-			assert_eq!(recorder_for_test.estimate_encoded_size(), 0)
 		}
 	}
 }

@@ -17,13 +17,13 @@
 
 //! Frame System benchmarks.
 
+use alloc::{vec, vec::Vec};
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{dispatch::DispatchClass, storage, traits::Get};
 use frame_system::{Call, Pallet as System, RawOrigin};
 use sp_core::storage::well_known_keys;
 use sp_runtime::traits::Hash;
-use sp_std::{prelude::*, vec};
 
 pub struct Pallet<T: Config>(System<T>);
 pub trait Config: frame_system::Config {
@@ -205,7 +205,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		authorize_upgrade(RawOrigin::Root, hash);
 
-		assert!(System::<T>::authorized_upgrade().is_some());
+		assert_eq!(System::<T>::authorized_upgrade().unwrap().code_hash(), &hash);
 		Ok(())
 	}
 

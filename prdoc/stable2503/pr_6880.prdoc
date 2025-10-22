@@ -1,0 +1,14 @@
+title: '[pallet-revive] implement the call data copy API'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR implements the call data copy API by adjusting the input method.
+
+    Closes #6770
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

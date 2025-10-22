@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! Tests for pallet-example-basic.
 
@@ -27,7 +33,8 @@ use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, DispatchTransaction, IdentityLookup},
+	transaction_validity::TransactionSource::External,
 	BuildStorage,
 };
 // Reexport crate as its pallet name for construct_runtime.
@@ -78,7 +85,6 @@ impl pallet_balances::Config for Test {
 
 impl Config for Test {
 	type MagicNumber = ConstU64<1_000_000_000>;
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
 
@@ -92,7 +98,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		example: pallet_example_basic::GenesisConfig {
 			dummy: 42,
 			// we configure the map with (key, value) pairs.
-			bar: vec![(1, 2), (2, 3)],
+			bar: alloc::vec![(1, 2), (2, 3)],
 			foo: 24,
 		},
 	}
@@ -146,13 +152,16 @@ fn signed_ext_watch_dummy_works() {
 
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
-				.validate(&1, &call, &info, 150)
+				.validate_only(Some(1).into(), &call, &info, 150, External, 0)
 				.unwrap()
+				.0
 				.priority,
 			u64::MAX,
 		);
 		assert_eq!(
-			WatchDummy::<Test>(PhantomData).validate(&1, &call, &info, 250),
+			WatchDummy::<Test>(PhantomData)
+				.validate_only(Some(1).into(), &call, &info, 250, External, 0)
+				.unwrap_err(),
 			InvalidTransaction::ExhaustsResources.into(),
 		);
 	})
@@ -174,13 +183,13 @@ fn weights_work() {
 	let info1 = default_call.get_dispatch_info();
 	// aka. `let info = <Call<Test> as GetDispatchInfo>::get_dispatch_info(&default_call);`
 	// TODO: account for proof size weight
-	assert!(info1.weight.ref_time() > 0);
-	assert_eq!(info1.weight, <Test as Config>::WeightInfo::accumulate_dummy());
+	assert!(info1.call_weight.ref_time() > 0);
+	assert_eq!(info1.call_weight, <Test as Config>::WeightInfo::accumulate_dummy());
 
 	// `set_dummy` is simpler than `accumulate_dummy`, and the weight
 	//   should be less.
 	let custom_call = pallet_example_basic::Call::<Test>::set_dummy { new_value: 20 };
 	let info2 = custom_call.get_dispatch_info();
 	// TODO: account for proof size weight
-	assert!(info1.weight.ref_time() > info2.weight.ref_time());
+	assert!(info1.call_weight.ref_time() > info2.call_weight.ref_time());
 }

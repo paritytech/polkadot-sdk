@@ -19,10 +19,11 @@
 
 #[allow(deprecated)]
 use super::PreimageProvider;
-use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use alloc::vec::Vec;
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
+use core::{fmt::Debug, result::Result};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, DispatchError, RuntimeDebug};
-use sp_std::{fmt::Debug, prelude::*, result::Result};
 
 /// Information relating to the period of a scheduled task. First item is the length of the
 /// period and the second is the number of times it should be executed in total before the task
@@ -34,7 +35,18 @@ pub type Period<BlockNumber> = (BlockNumber, u32);
 pub type Priority = u8;
 
 /// The dispatch time of a scheduled task.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum DispatchTime<BlockNumber> {
 	/// At specified block.
 	At(BlockNumber),
@@ -182,7 +194,7 @@ pub mod v1 {
 	/// A type that can be used as a scheduler.
 	pub trait Named<BlockNumber, Call, RuntimeOrigin> {
 		/// An address which can be used for removing a scheduled task.
-		type Address: Codec + Clone + Eq + EncodeLike + sp_std::fmt::Debug + MaxEncodedLen;
+		type Address: Codec + Clone + Eq + EncodeLike + core::fmt::Debug + MaxEncodedLen;
 
 		/// Schedule a dispatch to happen at the beginning of some block in the future.
 		///
@@ -353,7 +365,7 @@ pub mod v2 {
 	/// A type that can be used as a scheduler.
 	pub trait Named<BlockNumber, Call, RuntimeOrigin> {
 		/// An address which can be used for removing a scheduled task.
-		type Address: Codec + Clone + Eq + EncodeLike + sp_std::fmt::Debug + MaxEncodedLen;
+		type Address: Codec + Clone + Eq + EncodeLike + core::fmt::Debug + MaxEncodedLen;
 		/// A means of expressing a call by the hash of its encoded data.
 		type Hash;
 
@@ -448,7 +460,7 @@ pub mod v3 {
 	/// A type that can be used as a scheduler.
 	pub trait Named<BlockNumber, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
-		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + sp_std::fmt::Debug;
+		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + core::fmt::Debug;
 		/// The hasher used in the runtime.
 		type Hasher: sp_runtime::traits::Hash;
 

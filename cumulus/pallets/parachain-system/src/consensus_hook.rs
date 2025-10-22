@@ -1,28 +1,28 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! The definition of a [`ConsensusHook`] trait for consensus logic to manage the backlog
 //! of parachain blocks ready to submit to the relay chain, as well as some basic implementations.
 
 use super::relay_state_snapshot::RelayChainStateProof;
+use core::num::NonZeroU32;
 use frame_support::weights::Weight;
-use sp_std::num::NonZeroU32;
 
 /// The possible capacity of the unincluded segment.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UnincludedSegmentCapacity(UnincludedSegmentCapacityInner);
 
 impl UnincludedSegmentCapacity {
@@ -41,7 +41,7 @@ impl UnincludedSegmentCapacity {
 	}
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum UnincludedSegmentCapacityInner {
 	ExpectParentIncluded,
 	Value(NonZeroU32),
@@ -95,7 +95,7 @@ impl<const N: u32> ConsensusHook for FixedCapacityUnincludedSegment<N> {
 	fn on_state_proof(_state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
 		(
 			Weight::zero(),
-			NonZeroU32::new(sp_std::cmp::max(N, 1))
+			NonZeroU32::new(core::cmp::max(N, 1))
 				.expect("1 is the minimum value and non-zero; qed")
 				.into(),
 		)

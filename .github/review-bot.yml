@@ -9,6 +9,7 @@ rules:
         - ^\.gitlab/.*
         - ^\.config/nextest.toml
         - ^\.cargo/.*
+        - ^\.forklift/.*
       exclude:
         - ^\.gitlab/pipeline/zombienet.*
     type: "or"
@@ -28,11 +29,11 @@ rules:
       # excluding files from 'Runtime files' and 'CI files' rules
       exclude:
         - ^cumulus/parachains/common/src/[^/]+\.rs$
-        - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))
         - ^\.gitlab-ci\.yml
         - ^docker/.*
         - ^\.github/.*
         - ^\.gitlab/.*
+        - ^\.forklift/.*
         - ^\.config/nextest.toml
         - ^\.cargo/.*
     minApprovals: 2
@@ -50,19 +51,16 @@ rules:
     teams:
       - bridges-core
 
-  # substrate
-  - name: FRAME coders substrate
+  # Smart Contracts
+  - name: Smart Contracts
+    type: basic
     condition:
       include:
-        - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))
-    type: "and"
-    reviewers:
-      - minApprovals: 2
-        teams:
-          - core-devs
-      - minApprovals: 1
-        teams:
-          - frame-coders
+        - ^substrate/frame/contracts/.*
+        - ^substrate/frame/revive/.*
+    minApprovals: 2
+    teams:
+      - smart-contracts
 
   # Protection of THIS file
   - name: Review Bot

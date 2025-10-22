@@ -1,18 +1,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Parachain specific networking
 //!
@@ -32,8 +33,8 @@ use polkadot_node_primitives::{CollationSecondedSignal, Statement};
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_parachain_primitives::primitives::HeadData;
 use polkadot_primitives::{
-	CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId, OccupiedCoreAssumption,
-	SigningContext, UncheckedSigned,
+	CandidateReceiptV2 as CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId,
+	OccupiedCoreAssumption, SigningContext, UncheckedSigned,
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -79,7 +80,7 @@ impl Decode for BlockAnnounceData {
 		let relay_parent = match PHash::decode(input) {
 			Ok(p) => p,
 			// For being backwards compatible, we support missing relay-chain parent.
-			Err(_) => receipt.descriptor.relay_parent,
+			Err(_) => receipt.descriptor.relay_parent(),
 		};
 
 		Ok(Self { receipt, statement, relay_parent })
@@ -108,7 +109,7 @@ impl BlockAnnounceData {
 			return Err(Validation::Failure { disconnect: true })
 		}
 
-		if HeadData(encoded_header).hash() != self.receipt.descriptor.para_head {
+		if HeadData(encoded_header).hash() != self.receipt.descriptor.para_head() {
 			tracing::debug!(
 				target: LOG_TARGET,
 				"Receipt para head hash doesn't match the hash of the header in the block announcement",
@@ -302,7 +303,7 @@ where
 		}
 		.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?;
 
-		Ok(candidate_receipts.into_iter().map(|cr| cr.descriptor.para_head))
+		Ok(candidate_receipts.into_iter().map(|cr| cr.descriptor.para_head()))
 	}
 
 	/// Handle a block announcement with empty data (no statement) attached to it.
@@ -399,7 +400,7 @@ where
 				return Ok(e)
 			}
 
-			let relay_parent = block_announce_data.receipt.descriptor.relay_parent;
+			let relay_parent = block_announce_data.receipt.descriptor.relay_parent();
 
 			relay_chain_interface
 				.wait_for_block(relay_parent)

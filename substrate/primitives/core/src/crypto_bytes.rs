@@ -22,11 +22,9 @@ use crate::{
 	hash::{H256, H512},
 };
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
-
-use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
@@ -34,7 +32,7 @@ use crate::crypto::Ss58Codec;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
+use alloc::{format, string::String};
 
 pub use public_bytes::*;
 pub use signature_bytes::*;
@@ -47,7 +45,7 @@ pub use signature_bytes::*;
 /// The tag `T` is held in a `PhantomData<fn() ->T>`, a trick allowing
 /// `CryptoBytes` to be `Send` and `Sync` regardless of `T` properties
 /// ([ref](https://doc.rust-lang.org/nomicon/phantom-data.html#table-of-phantomdata-patterns)).
-#[derive(Encode, Decode, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen)]
 #[repr(transparent)]
 pub struct CryptoBytes<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);
 
@@ -97,26 +95,6 @@ impl<const N: usize, T> Default for CryptoBytes<N, T> {
 	fn default() -> Self {
 		Self([0_u8; N], PhantomData)
 	}
-}
-
-impl<const N: usize, T> PassByInner for CryptoBytes<N, T> {
-	type Inner = [u8; N];
-
-	fn into_inner(self) -> Self::Inner {
-		self.0
-	}
-
-	fn inner(&self) -> &Self::Inner {
-		&self.0
-	}
-
-	fn from_inner(inner: Self::Inner) -> Self {
-		Self(inner, PhantomData)
-	}
-}
-
-impl<const N: usize, T> PassBy for CryptoBytes<N, T> {
-	type PassBy = pass_by::Inner<Self, [u8; N]>;
 }
 
 impl<const N: usize, T> AsRef<[u8]> for CryptoBytes<N, T> {
@@ -256,7 +234,7 @@ mod public_bytes {
 
 	impl<const N: usize, SubTag> Public for PublicBytes<N, SubTag> where Self: CryptoType {}
 
-	impl<const N: usize, SubTag> sp_std::fmt::Debug for PublicBytes<N, SubTag>
+	impl<const N: usize, SubTag> core::fmt::Debug for PublicBytes<N, SubTag>
 	where
 		Self: CryptoType,
 	{
@@ -267,7 +245,7 @@ mod public_bytes {
 		}
 
 		#[cfg(not(feature = "std"))]
-		fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 			Ok(())
 		}
 	}
@@ -362,17 +340,17 @@ mod signature_bytes {
 		}
 	}
 
-	impl<const N: usize, SubTag> sp_std::fmt::Debug for SignatureBytes<N, SubTag>
+	impl<const N: usize, SubTag> core::fmt::Debug for SignatureBytes<N, SubTag>
 	where
 		Self: CryptoType,
 	{
 		#[cfg(feature = "std")]
-		fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 			write!(f, "{}", crate::hexdisplay::HexDisplay::from(&&self.0[..]))
 		}
 
 		#[cfg(not(feature = "std"))]
-		fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 			Ok(())
 		}
 	}

@@ -28,7 +28,7 @@ use sp_runtime::{
 	EncodedJustification,
 };
 
-use sc_client_api::backend::Backend;
+use sc_client_api::{backend::Backend, TrieCacheContext};
 use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResult};
 
 use crate::{
@@ -132,7 +132,7 @@ where
 	type Error = ConsensusError;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();
@@ -149,7 +149,7 @@ where
 		// Run inner block import.
 		let inner_import_result = self.inner.import_block(block).await?;
 
-		match self.backend.state_at(hash) {
+		match self.backend.state_at(hash, TrieCacheContext::Untrusted) {
 			Ok(_) => {},
 			Err(_) => {
 				// The block is imported as part of some chain sync.
@@ -192,7 +192,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await

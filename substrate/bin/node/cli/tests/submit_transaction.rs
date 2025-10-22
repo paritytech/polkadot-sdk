@@ -1,28 +1,30 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
 use frame_system::offchain::{SendSignedTransaction, Signer, SubmitTransaction};
-use kitchensink_runtime::{Executive, Indices, Runtime, UncheckedExtrinsic};
+use kitchensink_runtime::{Executive, ExistentialDeposit, Indices, Runtime, UncheckedExtrinsic};
 use polkadot_sdk::*;
 use sp_application_crypto::AppCrypto;
 use sp_core::offchain::{testing::TestTransactionPoolExt, TransactionPoolExt};
 use sp_keyring::sr25519::Keyring::Alice;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
+use sp_runtime::generic;
 
 pub mod common;
 use self::common::*;
@@ -44,10 +46,9 @@ fn should_submit_unsigned_transaction() {
 		};
 
 		let call = pallet_im_online::Call::heartbeat { heartbeat: heartbeat_data, signature };
-		SubmitTransaction::<Runtime, pallet_im_online::Call<Runtime>>::submit_unsigned_transaction(
-			call.into(),
-		)
-		.unwrap();
+		let xt = generic::UncheckedExtrinsic::new_bare(call.into()).into();
+		SubmitTransaction::<Runtime, pallet_im_online::Call<Runtime>>::submit_transaction(xt)
+			.unwrap();
 
 		assert_eq!(state.read().transactions.len(), 1)
 	});
@@ -131,8 +132,8 @@ fn should_submit_signed_twice_from_the_same_account() {
 		// now check that the transaction nonces are not equal
 		let s = state.read();
 		fn nonce(tx: UncheckedExtrinsic) -> frame_system::CheckNonce<Runtime> {
-			let extra = tx.signature.unwrap().2;
-			extra.5
+			let extra = tx.0.preamble.to_signed().unwrap().2;
+			extra.6
 		}
 		let nonce1 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[0]).unwrap());
 		let nonce2 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[1]).unwrap());
@@ -180,8 +181,8 @@ fn should_submit_signed_twice_from_all_accounts() {
 		// now check that the transaction nonces are not equal
 		let s = state.read();
 		fn nonce(tx: UncheckedExtrinsic) -> frame_system::CheckNonce<Runtime> {
-			let extra = tx.signature.unwrap().2;
-			extra.5
+			let extra = tx.0.preamble.to_signed().unwrap().2;
+			extra.6
 		}
 		let nonce1 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[0]).unwrap());
 		let nonce2 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[1]).unwrap());
@@ -237,9 +238,12 @@ fn submitted_transaction_should_be_valid() {
 		let source = TransactionSource::External;
 		let extrinsic = UncheckedExtrinsic::decode(&mut &*tx0).unwrap();
 		// add balance to the account
-		let author = extrinsic.signature.clone().unwrap().0;
+		let author = extrinsic.0.preamble.clone().to_signed().clone().unwrap().0;
 		let address = Indices::lookup(author).unwrap();
-		let data = pallet_balances::AccountData { free: 5_000_000_000_000, ..Default::default() };
+		let data = pallet_balances::AccountData {
+			free: ExistentialDeposit::get() * 10,
+			..Default::default()
+		};
 		let account = frame_system::AccountInfo { providers: 1, data, ..Default::default() };
 		<frame_system::Account<Runtime>>::insert(&address, account);
 

@@ -15,13 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::cmp;
+
 use super::*;
 use frame_support::{
-	pallet_prelude::{DispatchResult, *},
+	pallet_prelude::*,
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{BlockNumberProvider, Convert};
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
@@ -60,6 +62,27 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_force_reserve(workload: Schedule, core: CoreIndex) -> DispatchResult {
+		// Sales must have started, otherwise reserve is equivalent.
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		// Reserve - starts at second sale period boundary from now.
+		Self::do_reserve(workload.clone())?;
+
+		// Add to workload - grants one region from the next sale boundary.
+		Workplan::<T>::insert((sale.region_begin, core), &workload);
+
+		// Assign now until the next sale boundary unless the next timeslice is already the sale
+		// boundary.
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let timeslice = status.last_committed_timeslice.saturating_add(1);
+		if timeslice < sale.region_begin {
+			Workplan::<T>::insert((timeslice, core), &workload);
+		}
+
+		Ok(())
+	}
+
 	pub(crate) fn do_set_lease(task: TaskId, until: Timeslice) -> DispatchResult {
 		let mut r = Leases::<T>::get();
 		ensure!(until > Self::current_timeslice(), Error::<T>::AlreadyExpired);
@@ -67,6 +90,15 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::TooManyLeases)?;
 		Leases::<T>::put(r);
 		Self::deposit_event(Event::<T>::Leased { until, task });
+		Ok(())
+	}
+
+	pub(crate) fn do_remove_lease(task: TaskId) -> DispatchResult {
+		let mut r = Leases::<T>::get();
+		let i = r.iter().position(|lease| lease.task == task).ok_or(Error::<T>::LeaseNotFound)?;
+		r.remove(i);
+		Leases::<T>::put(r);
+		Self::deposit_event(Event::<T>::LeaseRemoved { task });
 		Ok(())
 	}
 
@@ -91,7 +123,7 @@ impl<T: Config> Pallet<T> {
 			last_committed_timeslice: commit_timeslice.saturating_sub(1),
 			last_timeslice: Self::current_timeslice(),
 		};
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		// Imaginary old sale for bootstrapping the first actual sale:
 		let old_sale = SaleInfoRecord {
 			sale_start: now,
@@ -119,7 +151,7 @@ impl<T: Config> Pallet<T> {
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		Self::ensure_cores_for_sale(&status, &sale)?;
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		ensure!(now > sale.sale_start, Error::<T>::TooEarly);
 		let price = Self::sale_price(&sale, now);
 		ensure!(price_limit >= price, Error::<T>::Overpriced);
@@ -127,8 +159,14 @@ impl<T: Config> Pallet<T> {
 		let core = Self::purchase_core(&who, price, &mut sale)?;
 
 		SaleInfo::<T>::put(&sale);
-		let id =
-			Self::issue(core, sale.region_begin, sale.region_end, Some(who.clone()), Some(price));
+		let id = Self::issue(
+			core,
+			sale.region_begin,
+			CoreMask::complete(),
+			sale.region_end,
+			Some(who.clone()),
+			Some(price),
+		);
 		let duration = sale.region_end.saturating_sub(sale.region_begin);
 		Self::deposit_event(Event::Purchased { who, region_id: id, price, duration });
 		Ok(id)
@@ -164,8 +202,10 @@ impl<T: Config> Pallet<T> {
 		Workplan::<T>::insert((sale.region_begin, core), &workload);
 
 		let begin = sale.region_end;
-		let price_cap = record.price + config.renewal_bump * record.price;
-		let now = frame_system::Pallet::<T>::block_number();
+		let end_price = sale.end_price;
+		// Renewals should never be priced lower than the current `end_price`:
+		let price_cap = cmp::max(record.price + config.renewal_bump * record.price, end_price);
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let price = Self::sale_price(&sale, now).min(price_cap);
 		log::debug!(
 			"Renew with: sale price: {:?}, price cap: {:?}, old price: {:?}",
@@ -214,6 +254,7 @@ impl<T: Config> Pallet<T> {
 		maybe_check_owner: Option<T::AccountId>,
 		pivot_offset: Timeslice,
 	) -> Result<(RegionId, RegionId), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let mut region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
@@ -226,6 +267,13 @@ impl<T: Config> Pallet<T> {
 		region.paid = None;
 		let new_region_ids = (region_id, RegionId { begin: pivot, ..region_id });
 
+		// Remove this region from the pool in case it has been assigned provisionally. If we get
+		// this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region, &status);
+
+		// Overwrite the previous region with its new end and create a new region for the second
+		// part of the partition.
 		Regions::<T>::insert(&new_region_ids.0, &RegionRecord { end: pivot, ..region.clone() });
 		Regions::<T>::insert(&new_region_ids.1, &region);
 		Self::deposit_event(Event::Partitioned { old_region_id: region_id, new_region_ids });
@@ -238,6 +286,7 @@ impl<T: Config> Pallet<T> {
 		maybe_check_owner: Option<T::AccountId>,
 		pivot: CoreMask,
 	) -> Result<(RegionId, RegionId), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
@@ -247,6 +296,11 @@ impl<T: Config> Pallet<T> {
 		ensure!((pivot & !region_id.mask).is_void(), Error::<T>::ExteriorPivot);
 		ensure!(!pivot.is_void(), Error::<T>::VoidPivot);
 		ensure!(pivot != region_id.mask, Error::<T>::CompletePivot);
+
+		// Remove this region from the pool in case it has been assigned provisionally. If we get
+		// this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region, &status);
 
 		// The old region should be removed.
 		Regions::<T>::remove(&region_id);
@@ -268,9 +322,17 @@ impl<T: Config> Pallet<T> {
 		finality: Finality,
 	) -> Result<(), Error<T>> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
 			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
+
+			// Remove this region from the pool in case it has been assigned provisionally. If we
+			// get this far then it is still in `Regions` and thus could only have been pooled
+			// provisionally.
+			Self::force_unpool_region(region_id, &region, &status);
+
 			// Ensure no previous allocations exist.
 			workplan.retain(|i| (i.mask & region_id.mask).is_void());
 			if workplan
@@ -311,6 +373,14 @@ impl<T: Config> Pallet<T> {
 			}
 			Self::deposit_event(Event::Assigned { region_id, task: target, duration });
 		}
+		Ok(())
+	}
+
+	pub(crate) fn do_remove_assignment(region_id: RegionId) -> DispatchResult {
+		let workplan_key = (region_id.begin, region_id.core);
+		ensure!(Workplan::<T>::contains_key(&workplan_key), Error::<T>::AssignmentNotFound);
+		Workplan::<T>::remove(&workplan_key);
+		Self::deposit_event(Event::<T>::AssignmentRemoved { region_id });
 		Ok(())
 	}
 
@@ -399,6 +469,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		beneficiary: RelayAccountIdOf<T>,
 	) -> DispatchResult {
+		ensure!(amount >= T::MinimumCreditPurchase::get(), Error::<T>::CreditPurchaseTooSmall);
 		T::Currency::transfer(&who, &Self::account_id(), amount, Expendable)?;
 		let rc_amount = T::ConvertBalance::convert(amount);
 		T::Coretime::credit_account(beneficiary.clone(), rc_amount);
@@ -458,6 +529,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_notify_revenue(revenue: OnDemandRevenueRecordOf<T>) -> DispatchResult {
+		RevenueInbox::<T>::put(revenue);
+		Ok(())
+	}
+
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
 		let mut id_leases_count = 0;
 		let mut other_leases_count = 0;
@@ -472,7 +548,72 @@ impl<T: Config> Pallet<T> {
 				}
 			})
 		});
+		Ok(())
+	}
 
+	pub(crate) fn do_enable_auto_renew(
+		sovereign_account: T::AccountId,
+		core: CoreIndex,
+		task: TaskId,
+		workload_end_hint: Option<Timeslice>,
+	) -> DispatchResult {
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
+		//
+		// In case we renew it now, we don't need to check the workload end since we know it is
+		// eligible for renewal.
+		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
+			.is_some()
+		{
+			Self::do_renew(sovereign_account.clone(), core)?;
+		} else if let Some(workload_end) = workload_end_hint {
+			ensure!(
+				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
+					.is_some(),
+				Error::<T>::NotAllowed
+			);
+		} else {
+			return Err(Error::<T>::NotAllowed.into())
+		}
+
+		// We are sorting auto renewals by `CoreIndex`.
+		AutoRenewals::<T>::try_mutate(|renewals| {
+			let pos = renewals
+				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
+				.unwrap_or_else(|e| e);
+			renewals.try_insert(
+				pos,
+				AutoRenewalRecord {
+					core,
+					task,
+					next_renewal: workload_end_hint.unwrap_or(sale.region_end),
+				},
+			)
+		})
+		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+
+		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
+		Ok(())
+	}
+
+	pub(crate) fn do_disable_auto_renew(core: CoreIndex, task: TaskId) -> DispatchResult {
+		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
+			let pos = renewals
+				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
+				.map_err(|_| Error::<T>::AutoRenewalNotEnabled)?;
+
+			let renewal_record = renewals.get(pos).ok_or(Error::<T>::AutoRenewalNotEnabled)?;
+
+			ensure!(
+				renewal_record.core == core && renewal_record.task == task,
+				Error::<T>::NoPermission
+			);
+			renewals.remove(pos);
+			Ok(())
+		})?;
+
+		Self::deposit_event(Event::AutoRenewalDisabled { core, task });
 		Ok(())
 	}
 
@@ -493,7 +634,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::ensure_cores_for_sale(&status, &sale)?;
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		Ok(Self::sale_price(&sale, now))
 	}
 }

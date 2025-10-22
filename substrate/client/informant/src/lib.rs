@@ -18,16 +18,21 @@
 
 //! Console informant. Prints sync progress and block events. Runs on the calling thread.
 
-use ansi_term::{Colour, Style};
+use console::style;
 use futures::prelude::*;
 use futures_timer::Delay;
-use log::{debug, info, trace};
+use log::{debug, info, log_enabled, trace};
 use sc_client_api::{BlockchainEvents, UsageProvider};
 use sc_network::NetworkStatusProvider;
-use sc_network_sync::SyncStatusProvider;
+use sc_network_sync::{SyncStatusProvider, SyncingService};
 use sp_blockchain::HeaderMetadata;
 use sp_runtime::traits::{Block as BlockT, Header};
-use std::{collections::VecDeque, fmt::Display, sync::Arc, time::Duration};
+use std::{
+	collections::VecDeque,
+	fmt::{Debug, Display},
+	sync::Arc,
+	time::Duration,
+};
 
 mod display;
 
@@ -36,71 +41,14 @@ fn interval(duration: Duration) -> impl Stream<Item = ()> + Unpin {
 	futures::stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
 }
 
-/// The format to print telemetry output in.
-#[derive(Clone, Debug)]
-pub struct OutputFormat {
-	/// Enable color output in logs.
-	///
-	/// Is enabled by default.
-	pub enable_color: bool,
-}
-
-impl Default for OutputFormat {
-	fn default() -> Self {
-		Self { enable_color: true }
-	}
-}
-
-enum ColorOrStyle {
-	Color(Colour),
-	Style(Style),
-}
-
-impl From<Colour> for ColorOrStyle {
-	fn from(value: Colour) -> Self {
-		Self::Color(value)
-	}
-}
-
-impl From<Style> for ColorOrStyle {
-	fn from(value: Style) -> Self {
-		Self::Style(value)
-	}
-}
-
-impl ColorOrStyle {
-	fn paint(&self, data: String) -> impl Display {
-		match self {
-			Self::Color(c) => c.paint(data),
-			Self::Style(s) => s.paint(data),
-		}
-	}
-}
-
-impl OutputFormat {
-	/// Print with color if `self.enable_color == true`.
-	fn print_with_color(
-		&self,
-		color: impl Into<ColorOrStyle>,
-		data: impl ToString,
-	) -> impl Display {
-		if self.enable_color {
-			color.into().paint(data.to_string()).to_string()
-		} else {
-			data.to_string()
-		}
-	}
-}
-
 /// Builds the informant and returns a `Future` that drives the informant.
-pub async fn build<B: BlockT, C, N, S>(client: Arc<C>, network: N, syncing: S, format: OutputFormat)
+pub async fn build<B: BlockT, C, N>(client: Arc<C>, network: N, syncing: Arc<SyncingService<B>>)
 where
 	N: NetworkStatusProvider,
-	S: SyncStatusProvider<B>,
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
 {
-	let mut display = display::InformantDisplay::new(format.clone());
+	let mut display = display::InformantDisplay::new();
 
 	let client_1 = client.clone();
 
@@ -108,13 +56,14 @@ where
 		.filter_map(|_| async {
 			let net_status = network.status().await;
 			let sync_status = syncing.status().await;
+			let num_connected_peers = syncing.num_connected_peers();
 
-			match (net_status.ok(), sync_status.ok()) {
-				(Some(net), Some(sync)) => Some((net, sync)),
+			match (net_status, sync_status) {
+				(Ok(net), Ok(sync)) => Some((net, sync, num_connected_peers)),
 				_ => None,
 			}
 		})
-		.for_each(move |(net_status, sync_status)| {
+		.for_each(move |(net_status, sync_status, num_connected_peers)| {
 			let info = client_1.usage_info();
 			if let Some(ref usage) = info.usage {
 				trace!(target: "usage", "Usage statistics: {}", usage);
@@ -124,20 +73,30 @@ where
 					"Usage statistics not displayed as backend does not provide it",
 				)
 			}
-			display.display(&info, net_status, sync_status);
+			display.display(&info, net_status, sync_status, num_connected_peers);
 			future::ready(())
 		});
 
 	futures::select! {
 		() = display_notifications.fuse() => (),
-		() = display_block_import(client, format).fuse() => (),
+		() = display_block_import(client).fuse() => (),
 	};
 }
 
-fn display_block_import<B: BlockT, C>(
-	client: Arc<C>,
-	format: OutputFormat,
-) -> impl Future<Output = ()>
+/// Print the full hash when debug logging is enabled.
+struct PrintFullHashOnDebugLogging<'a, H>(&'a H);
+
+impl<H: Debug + Display> Display for PrintFullHashOnDebugLogging<'_, H> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		if log_enabled!(log::Level::Debug) {
+			Debug::fmt(&self.0, f)
+		} else {
+			Display::fmt(&self.0, f)
+		}
+	}
+}
+
+async fn display_block_import<B: BlockT, C>(client: Arc<C>)
 where
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
@@ -150,8 +109,9 @@ where
 	// Hashes of the last blocks we have seen at import.
 	let mut last_blocks = VecDeque::new();
 	let max_blocks_to_track = 100;
+	let mut notifications = client.import_notification_stream();
 
-	client.import_notification_stream().for_each(move |n| {
+	while let Some(n) = notifications.next().await {
 		// detect and log reorganizations.
 		if let Some((ref last_num, ref last_hash)) = last_best {
 			if n.header.parent_hash() != last_hash && n.is_new_best {
@@ -161,11 +121,11 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						format.print_with_color(Colour::Red.bold(), last_num),
-						last_hash,
-						format.print_with_color(Colour::Green.bold(), n.header.number()),
-						n.hash,
-						format.print_with_color(Colour::White.bold(), ancestor.number),
+						style(last_num).red().bold(),
+						PrintFullHashOnDebugLogging(&last_hash),
+						style(n.header.number()).green().bold(),
+						PrintFullHashOnDebugLogging(&n.hash),
+						style(ancestor.number).white().bold(),
 						ancestor.hash,
 					),
 					Ok(_) => {},
@@ -191,12 +151,10 @@ where
 			info!(
 				target: "substrate",
 				"{best_indicator} Imported #{} ({} → {})",
-				format.print_with_color(Colour::White.bold(), n.header.number()),
-				n.header.parent_hash(),
-				n.hash,
+				style(n.header.number()).white().bold(),
+				PrintFullHashOnDebugLogging(n.header.parent_hash()),
+				PrintFullHashOnDebugLogging(&n.hash),
 			);
 		}
-
-		future::ready(())
-	})
+	}
 }

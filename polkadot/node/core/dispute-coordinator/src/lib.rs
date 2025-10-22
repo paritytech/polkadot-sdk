@@ -44,6 +44,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	database::Database,
 	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
+	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
 	DisputeStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorIndex,
@@ -233,6 +234,8 @@ impl DisputeCoordinatorSubsystem {
 				ordering_provider,
 				highest_session_seen,
 				gaps_in_cache,
+				offchain_disabled_validators,
+				controlled_validator_indices,
 			) = match self
 				.handle_startup(ctx, first_leaf.clone(), &mut runtime_info, &mut overlay_db, clock)
 				.await
@@ -259,6 +262,8 @@ impl DisputeCoordinatorSubsystem {
 					ordering_provider,
 					highest_session_seen,
 					gaps_in_cache,
+					offchain_disabled_validators,
+					controlled_validator_indices,
 				),
 				backend,
 			)))
@@ -284,30 +289,55 @@ impl DisputeCoordinatorSubsystem {
 		ChainScraper,
 		SessionIndex,
 		bool,
+		initialized::OffchainDisabledValidators,
+		ControlledValidatorIndices,
 	)> {
 		let now = clock.now();
-
-		let active_disputes = match overlay_db.load_recent_disputes() {
-			Ok(disputes) => disputes
-				.map(|disputes| get_active_with_status(disputes.into_iter(), now))
-				.into_iter()
-				.flatten(),
-			Err(e) => {
-				gum::error!(target: LOG_TARGET, "Failed initial load of recent disputes: {:?}", e);
-				return Err(e.into())
-			},
-		};
 
 		// We assume the highest session is the passed leaf. If we can't get the session index
 		// we can't initialize the subsystem so we'll wait for a new leaf
 		let highest_session = runtime_info
 			.get_session_index_for_child(ctx.sender(), initial_head.hash)
 			.await?;
+		let earliest_session = highest_session.saturating_sub(DISPUTE_WINDOW.get() - 1);
+
+		// Load recent disputes from the database
+		let recent_disputes = match overlay_db.load_recent_disputes() {
+			Ok(disputes) => disputes.unwrap_or_default(),
+			Err(e) => {
+				gum::error!(target: LOG_TARGET, "Failed initial load of recent disputes: {:?}", e);
+				return Err(e.into())
+			},
+		};
+
+		// Initialize offchain disabled validators from recent disputes
+		let offchain_disabled_validators = initialized::OffchainDisabledValidators::new_from_state(
+			&recent_disputes,
+			|session, candidate_hash| match overlay_db.load_candidate_votes(session, candidate_hash)
+			{
+				Ok(Some(votes)) => Some(votes.into()),
+				_ => None,
+			},
+			earliest_session,
+		);
+
+		let active_disputes = get_active_with_status(recent_disputes.into_iter(), now);
 
 		let mut gap_in_cache = false;
 		// Cache the sessions. A failure to fetch a session here is not that critical so we
 		// won't abort the initialization
-		for idx in highest_session.saturating_sub(DISPUTE_WINDOW.get() - 1)..=highest_session {
+		for idx in earliest_session..=highest_session {
+			// Print disabled validators on startup if any
+			let disabled: Vec<u32> = offchain_disabled_validators.iter(idx).map(|i| i.0).collect();
+			if !disabled.is_empty() {
+				gum::info!(
+					target: LOG_TARGET,
+					disabled = ?disabled,
+					session = idx,
+					"Detected disabled validators on startup",
+				);
+			}
+
 			if let Err(e) = runtime_info
 				.get_session_info_by_index(ctx.sender(), initial_head.hash, idx)
 				.await
@@ -325,24 +355,22 @@ impl DisputeCoordinatorSubsystem {
 		}
 
 		// Prune obsolete disputes:
-		db::v1::note_earliest_session(
-			overlay_db,
-			highest_session.saturating_sub(DISPUTE_WINDOW.get() - 1),
-		)?;
+		db::v1::note_earliest_session(overlay_db, earliest_session)?;
 
 		let mut participation_requests = Vec::new();
 		let mut spam_disputes: UnconfirmedDisputes = UnconfirmedDisputes::new();
+		let mut controlled_indices =
+			ControlledValidatorIndices::new(self.keystore.clone(), DISPUTE_WINDOW.get());
 		let leaf_hash = initial_head.hash;
 		let (scraper, votes) = ChainScraper::new(ctx.sender(), initial_head).await?;
 		for ((session, ref candidate_hash), _) in active_disputes {
 			let env = match CandidateEnvironment::new(
-				&self.keystore,
 				ctx,
 				runtime_info,
 				highest_session,
 				leaf_hash,
-				// on startup we don't have any off-chain disabled state
-				std::iter::empty(),
+				offchain_disabled_validators.iter(session),
+				&mut controlled_indices,
 			)
 			.await
 			{
@@ -427,6 +455,8 @@ impl DisputeCoordinatorSubsystem {
 			scraper,
 			highest_session,
 			gap_in_cache,
+			offchain_disabled_validators,
+			controlled_indices,
 		))
 	}
 }
@@ -477,6 +507,18 @@ pub fn is_potential_spam(
 	let is_confirmed = vote_state.is_confirmed();
 	let all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
 	let ignore_disabled = !is_confirmed && all_invalid_votes_disabled;
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?candidate_hash,
+		?is_disputed,
+		?is_included,
+		?is_backed,
+		?is_confirmed,
+		?all_invalid_votes_disabled,
+		?ignore_disabled,
+		"Checking for potential spam"
+	);
 
 	(is_disputed && !is_included && !is_backed && !is_confirmed) || ignore_disabled
 }

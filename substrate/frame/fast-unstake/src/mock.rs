@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{self as fast_unstake};
+use frame_election_provider_support::PageIndex;
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
@@ -26,7 +27,6 @@ use frame_support::{
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 use pallet_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::prelude::*;
 
 pub type AccountId = u128;
 pub type BlockNumber = u64;
@@ -83,56 +83,55 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static CurrentEra: u32 = 0;
 	pub static Ongoing: bool = false;
-	pub static MaxWinners: u32 = 100;
 }
 
 pub struct MockElection;
-impl frame_election_provider_support::ElectionProviderBase for MockElection {
-	type AccountId = AccountId;
-	type BlockNumber = BlockNumber;
-	type MaxWinners = MaxWinners;
-	type DataProvider = Staking;
-	type Error = ();
-}
 
 impl frame_election_provider_support::ElectionProvider for MockElection {
-	fn ongoing() -> bool {
-		Ongoing::get()
-	}
-	fn elect() -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
+	type BlockNumber = BlockNumber;
+	type AccountId = AccountId;
+	type DataProvider = Staking;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type Pages = ConstU32<1>;
+	type MaxBackersPerWinnerFinal = Self::MaxBackersPerWinner;
+	type Error = ();
+
+	fn elect(
+		_remaining_pages: PageIndex,
+	) -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
 		Err(())
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn status() -> Result<bool, ()> {
+		if Ongoing::get() {
+			Ok(false)
+		} else {
+			Err(())
+		}
 	}
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
+	type OldCurrency = Balances;
 	type Currency = Balances;
-	type CurrencyBalance = Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type CurrencyToVote = ();
-	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
-	type Reward = ();
-	type SessionsPerEra = ();
-	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type NextNewSession = ();
-	type HistoryDepth = ConstU32<84>;
-	type MaxExposurePageSize = ConstU32<64>;
 	type ElectionProvider = MockElection;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type EventListeners = ();
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 parameter_types! {
@@ -242,9 +241,11 @@ impl ExtBuilder {
 				.clone()
 				.into_iter()
 				.map(|(stash, _, balance)| (stash, balance * 2))
-				.chain(validators_range.clone().map(|x| (x, 7 + 100)))
-				.chain(nominators_range.clone().map(|x| (x, 7 + 100)))
+				// give stakers enough balance for stake, ed and fast unstake deposit.
+				.chain(validators_range.clone().map(|x| (x, 7 + 1 + 100)))
+				.chain(nominators_range.clone().map(|x| (x, 7 + 1 + 100)))
 				.collect::<Vec<_>>(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -285,22 +286,19 @@ impl ExtBuilder {
 }
 
 pub(crate) fn run_to_block(n: u64, on_idle: bool) {
-	let current_block = System::block_number();
-	assert!(n > current_block);
-	while System::block_number() < n {
-		Balances::on_finalize(System::block_number());
-		Staking::on_finalize(System::block_number());
-		FastUnstake::on_finalize(System::block_number());
-
-		System::set_block_number(System::block_number() + 1);
-
-		Balances::on_initialize(System::block_number());
-		Staking::on_initialize(System::block_number());
-		FastUnstake::on_initialize(System::block_number());
-		if on_idle {
-			FastUnstake::on_idle(System::block_number(), BlockWeights::get().max_block);
-		}
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default()
+			.before_finalize(|_| {
+				// Satisfy the timestamp pallet.
+				Timestamp::set_timestamp(0);
+			})
+			.after_initialize(|bn| {
+				if on_idle {
+					FastUnstake::on_idle(bn, BlockWeights::get().max_block);
+				}
+			}),
+	);
 }
 
 pub(crate) fn next_block(on_idle: bool) {

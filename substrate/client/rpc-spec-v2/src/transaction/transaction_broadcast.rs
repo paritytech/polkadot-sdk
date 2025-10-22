@@ -27,7 +27,7 @@ use futures::{FutureExt, Stream, StreamExt};
 use futures_util::stream::AbortHandle;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
-	ConnectionDetails,
+	ConnectionId, Extensions,
 };
 use parking_lot::RwLock;
 use rand::{distributions::Alphanumeric, Rng};
@@ -121,19 +121,18 @@ where
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + BlockchainEvents<Pool::Block> + Send + Sync + 'static,
 {
-	async fn broadcast(
-		&self,
-		connection_details: ConnectionDetails,
-		bytes: Bytes,
-	) -> RpcResult<Option<String>> {
+	async fn broadcast(&self, ext: &Extensions, bytes: Bytes) -> RpcResult<Option<String>> {
 		let pool = self.pool.clone();
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
 
 		// Ensure that the connection has not reached the maximum number of active operations.
-		let Some(reserved_connection) = self.rpc_connections.reserve_space(connection_details.id())
-		else {
+		let Some(reserved_connection) = self.rpc_connections.reserve_space(conn_id) else {
 			return Ok(None)
 		};
 		let Some(reserved_identifier) = reserved_connection.register(id.clone()) else {
@@ -151,14 +150,25 @@ where
 		// Save the tx hash to remove it later.
 		let tx_hash = pool.hash_of(&decoded_extrinsic);
 
+		// Get a stream of best block hashes that immediately produces the current best block.
+		// This is used for the broadcast method to retry submitting the transaction to a future
+		// block if the error is retriable (for example, the transaction is invalid at the moment,
+		// but will become valid at a later block N + 1).
+		//
+		// Providing the best hash immediately is important for chains that are configured with
+		// `InstantSeal`.
+		let best_hash = self.client.info().best_hash;
+
 		// The compiler can no longer deduce the type of the stream and complains
 		// about `one type is more general than the other`.
 		let mut best_block_import_stream: std::pin::Pin<
 			Box<dyn Stream<Item = <Pool::Block as BlockT>::Hash> + Send>,
-		> =
-			Box::pin(self.client.import_notification_stream().filter_map(
-				|notification| async move { notification.is_new_best.then_some(notification.hash) },
-			));
+		> = Box::pin(futures::stream::select(
+			futures::stream::iter(std::iter::once(best_hash)),
+			self.client.import_notification_stream().filter_map(|notification| async move {
+				notification.is_new_best.then_some(notification.hash)
+			}),
+		));
 
 		let broadcast_transaction_fut = async move {
 			// Flag to determine if the we should broadcast the transaction again.
@@ -216,20 +226,22 @@ where
 		let pool = self.pool.clone();
 		// The future expected by the executor must be `Future<Output = ()>` instead of
 		// `Future<Output = Result<(), Aborted>>`.
-		let fut = fut.map(move |result| {
-			// Connection space is cleaned when this object is dropped.
-			drop(reserved_identifier);
+		let fut = fut.then(move |result| {
+			async move {
+				// Connection space is cleaned when this object is dropped.
+				drop(reserved_identifier);
 
-			// Remove the entry from the broadcast IDs map.
-			let Some(broadcast_state) = broadcast_ids.write().remove(&drop_id) else { return };
+				// Remove the entry from the broadcast IDs map.
+				let Some(broadcast_state) = broadcast_ids.write().remove(&drop_id) else { return };
 
-			// The broadcast was not stopped.
-			if result.is_ok() {
-				return
+				// The broadcast was not stopped.
+				if result.is_ok() {
+					return
+				}
+
+				// Best effort pool removal (tx can already be finalized).
+				pool.report_invalid(None, [(broadcast_state.tx_hash, None)].into()).await;
 			}
-
-			// Best effort pool removal (tx can already be finalized).
-			pool.remove_invalid(&[broadcast_state.tx_hash]);
 		});
 
 		// Keep track of this entry and the abortable handle.
@@ -245,11 +257,16 @@ where
 
 	async fn stop_broadcast(
 		&self,
-		connection_details: ConnectionDetails,
+		ext: &Extensions,
 		operation_id: String,
 	) -> Result<(), ErrorBroadcast> {
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee; qed");
+
 		// The operation ID must correlate to the same connection ID.
-		if !self.rpc_connections.contains_identifier(connection_details.id(), &operation_id) {
+		if !self.rpc_connections.contains_identifier(conn_id, &operation_id) {
 			return Err(ErrorBroadcast::InvalidOperationID)
 		}
 

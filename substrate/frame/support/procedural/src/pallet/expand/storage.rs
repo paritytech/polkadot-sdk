@@ -17,6 +17,7 @@
 
 use crate::{
 	counter_prefix,
+	deprecation::extract_or_return_allow_attrs,
 	pallet::{
 		parse::{
 			helper::two128_str,
@@ -62,7 +63,7 @@ fn check_prefix_duplicates(
 	if let Some(other_dup_err) = used_prefixes.insert(prefix.clone(), dup_err.clone()) {
 		let mut err = dup_err;
 		err.combine(other_dup_err);
-		return Err(err)
+		return Err(err);
 	}
 
 	if let Metadata::CountedMap { .. } = storage_def.metadata {
@@ -79,7 +80,7 @@ fn check_prefix_duplicates(
 		if let Some(other_dup_err) = used_prefixes.insert(counter_prefix, counter_dup_err.clone()) {
 			let mut err = counter_dup_err;
 			err.combine(other_dup_err);
-			return Err(err)
+			return Err(err);
 		}
 	}
 
@@ -152,7 +153,7 @@ pub fn process_generics(def: &mut Def) -> syn::Result<Vec<ResultOnEmptyStructMet
 					variant_name: variant_name.clone(),
 					span: storage_def.attr_span,
 				});
-				return syn::parse_quote!(#on_empty_ident)
+				return syn::parse_quote!(#on_empty_ident);
 			}
 			syn::parse_quote!(#frame_support::traits::GetDefault)
 		};
@@ -178,7 +179,7 @@ pub fn process_generics(def: &mut Def) -> syn::Result<Vec<ResultOnEmptyStructMet
 						with 1 type parameter, found `{}`",
 						query_type.to_token_stream().to_string()
 					);
-					return Err(syn::Error::new(query_type.span(), msg))
+					return Err(syn::Error::new(query_type.span(), msg));
 				}
 			}
 			Ok(())
@@ -402,14 +403,14 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		.filter_map(|storage_def| check_prefix_duplicates(storage_def, &mut prefix_set).err());
 	if let Some(mut final_error) = errors.next() {
 		errors.for_each(|error| final_error.combine(error));
-		return final_error.into_compile_error()
+		return final_error.into_compile_error();
 	}
 
 	let frame_support = &def.frame_support;
 	let frame_system = &def.frame_system;
 	let pallet_ident = &def.pallet_struct.pallet;
-
-	let entries_builder = def.storages.iter().map(|storage| {
+	let mut entries_builder = vec![];
+	for storage in def.storages.iter() {
 		let no_docs = vec![];
 		let docs = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &storage.docs };
 
@@ -418,25 +419,42 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		let full_ident = quote::quote_spanned!(storage.attr_span => #ident<#gen> );
 
 		let cfg_attrs = &storage.cfg_attrs;
+		let deprecation = match crate::deprecation::get_deprecation(
+			&quote::quote! { #frame_support },
+			&storage.attrs,
+		) {
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
 
-		quote::quote_spanned!(storage.attr_span =>
+		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+		let maybe_allow_attrs: Vec<syn::Attribute> =
+			extract_or_return_allow_attrs(&storage.attrs).collect();
+
+		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
-			{
-				<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
-					#frame_support::__private::sp_std::vec![
-						#( #docs, )*
-					],
-					&mut entries,
-				);
-			}
-		)
-	});
+			#(#maybe_allow_attrs)*
+			(|entries: &mut #frame_support::__private::Vec<_>| {
+				{
+					<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
+						#deprecation,
+						#frame_support::__private::vec![
+							#( #docs, )*
+						],
+						entries,
+					);
+				}
+			})
+		))
+	}
 
 	let getters = def.storages.iter().map(|storage| {
 		if let Some(getter) = &storage.getter {
 			let completed_where_clause =
 				super::merge_where_clauses(&[&storage.where_clause, &def.config.where_clause]);
-
+			// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+			let maybe_allow_attrs: Vec<syn::Attribute> =
+				extract_or_return_allow_attrs(&storage.attrs).collect();
 			let ident = &storage.ident;
 			let gen = &def.type_use_generics(storage.attr_span);
 			let type_impl_gen = &def.type_impl_generics(storage.attr_span);
@@ -472,6 +490,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter() -> #query {
 								<
 									#full_ident as #frame_support::storage::StorageValue<#value>
@@ -496,6 +515,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg>(k: KArg) -> #query where
 								KArg: #frame_support::__private::codec::EncodeLike<#key>,
 							{
@@ -522,6 +542,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg>(k: KArg) -> #query where
 								KArg: #frame_support::__private::codec::EncodeLike<#key>,
 							{
@@ -548,6 +569,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg1, KArg2>(k1: KArg1, k2: KArg2) -> #query where
 								KArg1: #frame_support::__private::codec::EncodeLike<#key1>,
 								KArg2: #frame_support::__private::codec::EncodeLike<#key2>,
@@ -576,6 +598,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg>(key: KArg) -> #query
 							where
 								KArg: #frame_support::storage::types::EncodeLikeTuple<
@@ -607,6 +630,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg>(key: KArg) -> #query
 							where
 								KArg: #frame_support::storage::types::EncodeLikeTuple<
@@ -815,6 +839,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 				for #name
 				#config_where_clause
 			{
+				#[allow(deprecated)]
 				fn get() -> Result<#value_ty, #error_path> {
 					Err(<#error_path>::#variant_name)
 				}
@@ -849,39 +874,41 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		storage_names.sort_by_cached_key(|ident| ident.to_string());
 
 		quote::quote!(
-			#[cfg(feature = "try-runtime")]
-			impl<#type_impl_gen> #frame_support::traits::TryDecodeEntireStorage
-			for #pallet_ident<#type_use_gen> #completed_where_clause
-			{
-				fn try_decode_entire_state() -> Result<usize, #frame_support::__private::sp_std::vec::Vec<#frame_support::traits::TryDecodeEntireStorageError>> {
-					let pallet_name = <<T as #frame_system::Config>::PalletInfo	as #frame_support::traits::PalletInfo>
-						::name::<#pallet_ident<#type_use_gen>>()
-						.expect("Every active pallet has a name in the runtime; qed");
+			#frame_support::try_runtime_enabled! {
+				#[allow(deprecated)]
+				impl<#type_impl_gen> #frame_support::traits::TryDecodeEntireStorage
+				for #pallet_ident<#type_use_gen> #completed_where_clause
+				{
+					fn try_decode_entire_state() -> Result<usize, #frame_support::__private::Vec<#frame_support::traits::TryDecodeEntireStorageError>> {
+						let pallet_name = <<T as #frame_system::Config>::PalletInfo	as #frame_support::traits::PalletInfo>
+							::name::<#pallet_ident<#type_use_gen>>()
+							.expect("Every active pallet has a name in the runtime; qed");
 
-					#frame_support::__private::log::debug!(target: "runtime::try-decode-state", "trying to decode pallet: {pallet_name}");
+						#frame_support::__private::log::debug!(target: "runtime::try-decode-state", "trying to decode pallet: {pallet_name}");
 
-					// NOTE: for now, we have to exclude storage items that are feature gated.
-					let mut errors = #frame_support::__private::sp_std::vec::Vec::new();
-					let mut decoded = 0usize;
+						// NOTE: for now, we have to exclude storage items that are feature gated.
+						let mut errors = #frame_support::__private::Vec::new();
+						let mut decoded = 0usize;
 
-					#(
-						#frame_support::__private::log::debug!(target: "runtime::try-decode-state", "trying to decode storage: \
-						{pallet_name}::{}", stringify!(#storage_names));
+						#(
+							#frame_support::__private::log::debug!(target: "runtime::try-decode-state", "trying to decode storage: \
+							{pallet_name}::{}", stringify!(#storage_names));
 
-						match <#storage_names as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state() {
-							Ok(count) => {
-								decoded += count;
-							},
-							Err(err) => {
-								errors.extend(err);
-							},
+							match <#storage_names as #frame_support::traits::TryDecodeEntireStorage>::try_decode_entire_state() {
+								Ok(count) => {
+									decoded += count;
+								},
+								Err(err) => {
+									errors.extend(err);
+								},
+							}
+						)*
+
+						if errors.is_empty() {
+							Ok(decoded)
+						} else {
+							Err(errors)
 						}
-					)*
-
-					if errors.is_empty() {
-						Ok(decoded)
-					} else {
-						Err(errors)
 					}
 				}
 			}
@@ -902,8 +929,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						.expect("No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."),
 					entries: {
 						#[allow(unused_mut)]
-						let mut entries = #frame_support::__private::sp_std::vec![];
-						#( #entries_builder )*
+						let mut entries = #frame_support::__private::vec![];
+						#( #entries_builder(&mut entries); )*
 						entries
 					},
 				}

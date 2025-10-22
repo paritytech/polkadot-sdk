@@ -19,7 +19,9 @@ use codec::Encode;
 use sc_block_builder::BlockBuilderBuilder;
 
 use crate::{construct_extrinsic, Client as TestClient};
-use cumulus_client_parachain_inherent::ParachainInherentData;
+use cumulus_pallet_parachain_system::parachain_inherent::{
+	BasicParachainInherentData, InboundMessagesData,
+};
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{
@@ -41,7 +43,7 @@ use sp_core::{sr25519, Pair};
 use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	AccountId32, FixedU64, OpaqueExtrinsic,
+	AccountId32, FixedU64, MultiAddress, OpaqueExtrinsic,
 };
 
 /// Accounts to use for transfer transactions. Enough for 5000 transactions.
@@ -68,12 +70,11 @@ pub fn extrinsic_set_time(client: &TestClient) -> OpaqueExtrinsic {
 	let best_number = client.usage_info().chain.best_number;
 
 	let timestamp = best_number as u64 * cumulus_test_runtime::MinimumPeriod::get();
-	cumulus_test_runtime::UncheckedExtrinsic {
-		signature: None,
-		function: cumulus_test_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set {
+	cumulus_test_runtime::UncheckedExtrinsic::new_bare(
+		cumulus_test_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set {
 			now: timestamp,
 		}),
-	}
+	)
 	.into()
 }
 
@@ -89,7 +90,7 @@ pub fn extrinsic_set_validation_data(
 	};
 
 	let (relay_parent_storage_root, relay_chain_state) = sproof_builder.into_state_root_and_proof();
-	let data = ParachainInherentData {
+	let data = BasicParachainInherentData {
 		validation_data: PersistedValidationData {
 			parent_head,
 			relay_parent_number: 10,
@@ -97,21 +98,28 @@ pub fn extrinsic_set_validation_data(
 			max_pov_size: 10000,
 		},
 		relay_chain_state,
+		relay_parent_descendants: Default::default(),
+		collator_peer_id: None,
+	};
+
+	let inbound_messages_data = InboundMessagesData {
 		downward_messages: Default::default(),
 		horizontal_messages: Default::default(),
 	};
 
-	cumulus_test_runtime::UncheckedExtrinsic {
-		signature: None,
-		function: cumulus_test_runtime::RuntimeCall::ParachainSystem(
-			cumulus_pallet_parachain_system::Call::set_validation_data { data },
+	cumulus_test_runtime::UncheckedExtrinsic::new_bare(
+		cumulus_test_runtime::RuntimeCall::ParachainSystem(
+			cumulus_pallet_parachain_system::Call::set_validation_data {
+				data,
+				inbound_messages_data,
+			},
 		),
-	}
+	)
 	.into()
 }
 
 /// Import block into the given client and make sure the import was successful
-pub async fn import_block(mut client: &TestClient, block: &NodeBlock, import_existing: bool) {
+pub async fn import_block(client: &TestClient, block: &NodeBlock, import_existing: bool) {
 	let mut params = BlockImportParams::new(BlockOrigin::File, block.header.clone());
 	params.body = Some(block.extrinsics.clone());
 	params.state_action = StateAction::Execute;
@@ -153,7 +161,10 @@ pub fn create_benchmarking_transfer_extrinsics(
 	for (src, dst) in src_accounts.iter().zip(dst_accounts.iter()) {
 		let extrinsic: UncheckedExtrinsic = construct_extrinsic(
 			client,
-			BalancesCall::transfer_keep_alive { dest: AccountId::from(dst.public()), value: 10000 },
+			BalancesCall::transfer_keep_alive {
+				dest: MultiAddress::Id(AccountId::from(dst.public())),
+				value: 10000,
+			},
 			src.clone(),
 			Some(0),
 		);

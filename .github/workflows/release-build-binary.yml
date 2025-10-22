@@ -1,0 +1,81 @@
+name: Binary Build
+# This workflow can be used to build a binary like polkadot + workers, omninode or polkadot-parachain
+# from any branch with release or profuction profile to be later used for testing.
+# ⚠️ IT should not be used for release purposes! 
+
+on:
+  workflow_dispatch:
+    inputs:
+      binary:
+        required: true
+        default: "polkadot"
+        description: "The binary to build"
+      package:
+        description: Package to be built, can be polkadot, polkadot-parachain-bin, polkadot-omni-node etc.
+        required: true
+        type: string
+      profile:
+        required: true
+        default: "release"
+        description: "The profile to use for the binary build"
+      features:
+        required: false
+        type: string
+        description: "Features to enable when building the binary (must be a list of comma-separated features)"
+
+jobs:
+
+  setup:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set image
+        id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+      - name: Set runner
+        id: set_runner
+        shell: bash
+        run: |
+          if [[ "${{ inputs.binary }}" == "polkadot-parachain" ]]; then
+            echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: [setup]
+    runs-on: ${{ needs.setup.outputs.RUNNER }}
+    container:
+      image: ${{ needs.setup.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Build binary
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
+          PROFILE=${{ inputs.profile }}
+          if [ "${{ inputs.binary }}" = "polkadot" ]; then
+              for binary in polkadot polkadot-prepare-worker polkadot-execute-worker; do
+                  echo "Building $binary with profile $PROFILE and features ${{ inputs.features }}"
+                  ./.github/scripts/release/build-linux-release.sh $binary ${{ inputs.package }} ${{ inputs.features }}
+              done
+          else
+            echo "Building ${{ inputs.binary }} with profile $PROFILE and features ${{ inputs.features }}"
+            ./.github/scripts/release/build-linux-release.sh ${{ inputs.binary }} ${{ inputs.package }} ${{ inputs.features }}
+          fi
+
+      - name: Upload ${{ inputs.binary }} artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ inputs.binary }}
+          path: /artifacts/**

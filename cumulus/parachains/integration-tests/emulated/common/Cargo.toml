@@ -5,42 +5,54 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Common resources for integration testing with xcm-emulator"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-paste = "1.0.14"
+codec = { workspace = true }
+hex-literal = { workspace = true }
+paste = { workspace = true, default-features = true }
 
 # Substrate
-sp-consensus-beefy = { path = "../../../../../substrate/primitives/consensus/beefy" }
-sc-consensus-grandpa = { path = "../../../../../substrate/client/consensus/grandpa" }
-sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery" }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
-frame-support = { path = "../../../../../substrate/frame/support" }
-sp-core = { path = "../../../../../substrate/primitives/core" }
-sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe" }
-pallet-assets = { path = "../../../../../substrate/frame/assets" }
-pallet-balances = { path = "../../../../../substrate/frame/balances" }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+pallet-asset-conversion = { workspace = true, default-features = true }
+pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
+pallet-whitelist = { workspace = true, default-features = true }
+sc-consensus-grandpa = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-beefy = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-primitives = { path = "../../../../../polkadot/primitives" }
-polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain" }
-polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm" }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm" }
+pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+xcm = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+xcm-runtime-apis = { workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 # Cumulus
-parachains-common = { path = "../../../common" }
-cumulus-primitives-core = { path = "../../../../primitives/core" }
-xcm-emulator = { path = "../../../../xcm/xcm-emulator" }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
-asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
+asset-test-utils = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true }
+xcm-emulator = { workspace = true, default-features = true }
 
 # Bridges
-bp-messages = { path = "../../../../../bridges/primitives/messages" }
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
+bp-messages = { workspace = true, default-features = true }
+bp-xcm-bridge-hub = { workspace = true, default-features = true }
+pallet-bridge-messages = { workspace = true, default-features = true }
+pallet-xcm-bridge-hub = { workspace = true, default-features = true }

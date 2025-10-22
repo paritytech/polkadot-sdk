@@ -1,0 +1,64 @@
+[package]
+name = "pallet-revive-eth-rpc"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "An Ethereum JSON-RPC server for pallet-revive."
+default-run = "eth-rpc"
+
+[lints]
+workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[[bin]]
+name = "eth-rpc"
+path = "src/main.rs"
+
+[dependencies]
+alloy-consensus = { workspace = true, default-features = true }
+alloy-core = { workspace = true, features = ["sol-types"], default-features = true }
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+codec = { workspace = true, features = ["derive"] }
+futures = { workspace = true, features = ["thread-pool"] }
+hex = { workspace = true }
+jsonrpsee = { workspace = true, features = ["full"] }
+log = { workspace = true }
+pallet-revive = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+rlp = { workspace = true }
+sc-cli = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true, features = ["alloc", "derive"] }
+serde_json = { workspace = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true }
+sp-rpc = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-weights = { workspace = true, default-features = true }
+sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
+subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
+pretty_assertions = { workspace = true }
+static_init = { workspace = true }
+substrate-cli-test-utils = { workspace = true }
+
+[build-dependencies]
+git2 = { workspace = true }
+revive-dev-runtime = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

@@ -18,15 +18,17 @@
 
 use pallet_staking::Forcing;
 use polkadot_primitives::{
-	vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
+	node_features, AccountId, AssignmentId, NodeFeatures, SchedulerParams, ValidatorId,
+	MAX_CODE_SIZE, MAX_POV_SIZE,
 };
-use polkadot_service::chain_spec::{get_account_id_from_seed, get_from_seed, Extensions};
+use polkadot_service::chain_spec::Extensions;
 use polkadot_test_runtime::BABE_GENESIS_EPOCH_CONFIG;
 use sc_chain_spec::{ChainSpec, ChainType};
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::sr25519;
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::Perbill;
 use test_runtime_constants::currency::DOTS;
 
@@ -64,7 +66,7 @@ pub fn polkadot_local_testnet_config() -> PolkadotChainSpec {
 pub fn polkadot_local_testnet_genesis() -> serde_json::Value {
 	polkadot_testnet_genesis(
 		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		Sr25519Keyring::Alice.to_account_id(),
 		None,
 	)
 }
@@ -74,31 +76,18 @@ fn get_authority_keys_from_seed(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
-		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-		get_account_id_from_seed::<sr25519::Public>(seed),
-		get_from_seed::<BabeId>(seed),
-		get_from_seed::<GrandpaId>(seed),
-		get_from_seed::<ValidatorId>(seed),
-		get_from_seed::<AssignmentId>(seed),
-		get_from_seed::<AuthorityDiscoveryId>(seed),
+		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		get_public_from_string_or_panic::<BabeId>(seed),
+		get_public_from_string_or_panic::<GrandpaId>(seed),
+		get_public_from_string_or_panic::<ValidatorId>(seed),
+		get_public_from_string_or_panic::<AssignmentId>(seed),
+		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
 	)
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
-	vec![
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		get_account_id_from_seed::<sr25519::Public>("Bob"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie"),
-		get_account_id_from_seed::<sr25519::Public>("Dave"),
-		get_account_id_from_seed::<sr25519::Public>("Eve"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-	]
+	Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect()
 }
 
 /// Helper function to create polkadot `RuntimeGenesisConfig` for testing
@@ -121,6 +110,14 @@ fn polkadot_testnet_genesis(
 
 	const ENDOWMENT: u128 = 1_000_000 * DOTS;
 	const STASH: u128 = 100 * DOTS;
+
+	// Prepare node features with V2 receipts
+	// and elastic scaling enabled.
+	let mut node_features = NodeFeatures::new();
+	node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize + 1, false);
+
+	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
+	node_features.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
 
 	serde_json::json!({
 		"balances": {
@@ -170,6 +167,7 @@ fn polkadot_testnet_genesis(
 				no_show_slots: 10,
 				minimum_validation_upgrade_delay: 5,
 				max_downward_message_size: 1024,
+				node_features,
 				scheduler_params: SchedulerParams {
 					group_rotation_frequency: 20,
 					paras_availability_period: 4,

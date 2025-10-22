@@ -82,7 +82,7 @@ impl Display for MetricCollection {
 		writeln!(f)?;
 		let metrics = self.all();
 		for metric in metrics {
-			writeln!(f, "{}", metric)?;
+			writeln!(f, "{metric}")?;
 		}
 		Ok(())
 	}
@@ -94,6 +94,23 @@ pub struct TestMetric {
 	label_names: Vec<String>,
 	label_values: Vec<String>,
 	value: f64,
+}
+
+impl TestMetric {
+	pub fn name(&self) -> &str {
+		&self.name
+	}
+
+	pub fn value(&self) -> f64 {
+		self.value
+	}
+
+	pub fn label_value(&self, label_name: &str) -> Option<&str> {
+		self.label_names
+			.iter()
+			.position(|name| name == label_name)
+			.and_then(|index| self.label_values.get(index).map(|s| s.as_str()))
+	}
 }
 
 impl Display for TestMetric {

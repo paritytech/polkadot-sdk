@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 version = "7.0.0"
 description = "Benchmarks for the XCM pallet"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -13,29 +15,21 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false }
-xcm = { package = "staging-xcm", path = "..", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
-log = { workspace = true, default-features = true }
+codec = { workspace = true }
+frame-benchmarking = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../../../substrate/frame/balances" }
-pallet-assets = { path = "../../../substrate/frame/assets" }
-sp-tracing = { path = "../../../substrate/primitives/tracing" }
-xcm = { package = "staging-xcm", path = ".." }
-# temp
-pallet-xcm = { path = "../pallet-xcm" }
-polkadot-runtime-common = { path = "../../runtime/common" }
-# westend-runtime = { path = "../../runtime/westend", features = ["runtime-benchmarks"] }
-polkadot-primitives = { path = "../../primitives" }
+pallet-balances = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+xcm = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -44,11 +38,9 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 ]
@@ -56,12 +48,9 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

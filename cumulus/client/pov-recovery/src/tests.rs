@@ -1,34 +1,38 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
-use cumulus_primitives_core::relay_chain::{BlockId, CandidateCommitments, CandidateDescriptor};
+use cumulus_primitives_core::relay_chain::{
+	BlockId, CandidateCommitments, CandidateDescriptorV2, CoreIndex, CoreState,
+};
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
-	PersistedValidationData, StorageValue, ValidationCodeHash, ValidatorId,
+	PersistedValidationData, RelayChainResult, StorageValue, ValidationCodeHash, ValidatorId,
 };
-use cumulus_test_client::{
-	runtime::{Block, Header},
-	Sr25519Keyring,
-};
-use futures::{channel::mpsc, SinkExt};
+use cumulus_test_client::runtime::{Block, Header};
+use futures::{channel::mpsc, SinkExt, Stream};
 use polkadot_node_primitives::AvailableData;
-use polkadot_node_subsystem::{messages::AvailabilityRecoveryMessage, RecoveryError, TimeoutExt};
+use polkadot_node_subsystem::{
+	messages::{AvailabilityRecoveryMessage, RuntimeApiRequest},
+	RecoveryError, TimeoutExt,
+};
+use polkadot_primitives::CandidateEvent;
 use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,
@@ -36,12 +40,13 @@ use sc_client_api::{
 };
 use sc_consensus::import_queue::RuntimeOrigin;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
+use sp_api::RuntimeApiInfo;
 use sp_blockchain::Info;
 use sp_runtime::{generic::SignedBlock, Justifications};
 use sp_version::RuntimeVersion;
 use std::{
 	borrow::Cow,
-	collections::BTreeMap,
+	collections::{BTreeMap, VecDeque},
 	ops::Range,
 	sync::{Arc, Mutex},
 };
@@ -320,14 +325,14 @@ impl RelayChainInterface for Relaychain {
 		.to_vec();
 
 		Ok(RuntimeVersion {
-			spec_name: sp_version::create_runtime_str!("test"),
-			impl_name: sp_version::create_runtime_str!("test"),
+			spec_name: Cow::Borrowed("test"),
+			impl_name: Cow::Borrowed("test"),
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 0,
 			apis: Cow::Owned(apis),
 			transaction_version: 5,
-			state_version: 1,
+			system_version: 1,
 		})
 	}
 
@@ -478,10 +483,40 @@ impl RelayChainInterface for Relaychain {
 	async fn header(&self, _: BlockId) -> RelayChainResult<Option<PHeader>> {
 		unimplemented!("Not needed for test");
 	}
+
+	async fn availability_cores(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, NumberFor<Block>>>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn claim_queue(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: PHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		unimplemented!("Not needed for test");
+	}
 }
 
 fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCandidateReceipt> {
-	let collator = Sr25519Keyring::Ferdie;
 	let mut latest_parent_hash = GENESIS_HASH;
 	let mut candidates = vec![];
 
@@ -497,17 +532,17 @@ fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCand
 		latest_parent_hash = head_data.hash();
 
 		candidates.push(CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
-				para_id: ParaId::from(1000),
-				relay_parent: PHash::zero(),
-				collator: collator.public().into(),
-				persisted_validation_data_hash: PHash::zero(),
-				pov_hash: PHash::zero(),
-				erasure_root: PHash::zero(),
-				signature: collator.sign(&[0u8; 132]).into(),
-				para_head: PHash::zero(),
-				validation_code_hash: PHash::zero().into(),
-			},
+			descriptor: CandidateDescriptorV2::new(
+				ParaId::from(1000),
+				PHash::zero(),
+				CoreIndex(0),
+				0,
+				PHash::zero(),
+				PHash::zero(),
+				PHash::zero(),
+				PHash::zero(),
+				PHash::zero().into(),
+			),
 			commitments: CandidateCommitments {
 				head_data: head_data.encode().into(),
 				upward_messages: vec![].try_into().expect("empty vec fits within bounds"),
@@ -604,7 +639,10 @@ async fn pending_candidate_height_lower_than_latest_finalized() {
 #[case(RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT)]
 #[case(10)]
 #[tokio::test]
-async fn single_pending_candidate_recovery_success(#[case] runtime_version: u32) {
+async fn single_pending_candidate_recovery_success(
+	#[case] runtime_version: u32,
+	#[values(true, false)] latest_block_data: bool,
+) {
 	sp_tracing::init_for_tests();
 
 	let (recovery_subsystem_tx, mut recovery_subsystem_rx) =
@@ -658,15 +696,20 @@ async fn single_pending_candidate_recovery_success(#[case] runtime_version: u32)
 		)) => {
 			assert_eq!(receipt.hash(), candidate_hash);
 			assert_eq!(session_index, TEST_SESSION_INDEX);
+			let block_data =
+					ParachainBlockData::<Block>::new(
+						vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
+					);
+
 			response_tx.send(
 				Ok(
 					AvailableData {
 						pov: Arc::new(PoV {
-							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof {encoded_nodes: vec![]}
-							).encode().into()
+							block_data: if latest_block_data {
+								block_data
+							} else {
+								block_data.as_v0().unwrap()
+							}.encode().into()
 						}),
 						validation_data: dummy_pvd(),
 					}
@@ -767,9 +810,7 @@ async fn single_pending_candidate_recovery_retry_succeeds() {
 					AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof {encoded_nodes: vec![]}
+								vec![Block::new(header.clone(), Vec::new())], CompactProof { encoded_nodes: vec![] }
 							).encode().into()
 						}),
 						validation_data: dummy_pvd(),
@@ -1074,8 +1115,7 @@ async fn candidate_is_imported_while_awaiting_recovery() {
 		.send(Ok(AvailableData {
 			pov: Arc::new(PoV {
 				block_data: ParachainBlockData::<Block>::new(
-					header.clone(),
-					vec![],
+					vec![Block::new(header.clone(), vec![])],
 					CompactProof { encoded_nodes: vec![] },
 				)
 				.encode()
@@ -1163,7 +1203,7 @@ async fn candidate_is_finalized_while_awaiting_recovery() {
 	let (unpin_sender, _unpin_receiver) = sc_utils::mpsc::tracing_unbounded("test_unpin", 10);
 	finality_notifications_tx
 		.unbounded_send(FinalityNotification::from_summary(
-			FinalizeSummary { header: header.clone(), finalized: vec![], stale_heads: vec![] },
+			FinalizeSummary { header: header.clone(), finalized: vec![], stale_blocks: vec![] },
 			unpin_sender,
 		))
 		.unwrap();
@@ -1172,8 +1212,7 @@ async fn candidate_is_finalized_while_awaiting_recovery() {
 		.send(Ok(AvailableData {
 			pov: Arc::new(PoV {
 				block_data: ParachainBlockData::<Block>::new(
-					header.clone(),
-					vec![],
+					vec![Block::new(header.clone(), vec![])],
 					CompactProof { encoded_nodes: vec![] },
 				)
 				.encode()
@@ -1260,9 +1299,7 @@ async fn chained_recovery_success() {
 					.send(Ok(AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof { encoded_nodes: vec![] },
+								vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
 							)
 							.encode()
 							.into(),
@@ -1377,8 +1414,7 @@ async fn chained_recovery_child_succeeds_before_parent() {
 			.send(Ok(AvailableData {
 				pov: Arc::new(PoV {
 					block_data: ParachainBlockData::<Block>::new(
-						header.clone(),
-						vec![],
+						vec![Block::new(header.clone(), vec![])],
 						CompactProof { encoded_nodes: vec![] },
 					)
 					.encode()
@@ -1395,6 +1431,110 @@ async fn chained_recovery_child_succeeds_before_parent() {
 		assert_eq!(incoming_blocks[0].header, Some(headers[0].clone()));
 		assert_eq!(incoming_blocks[1].header, Some(headers[1].clone()));
 	});
+
+	// No more recovery messages received.
+	assert_matches!(recovery_subsystem_rx.next().timeout(Duration::from_millis(100)).await, None);
+
+	// No more import requests received
+	assert_matches!(import_requests_rx.next().timeout(Duration::from_millis(100)).await, None);
+}
+
+#[tokio::test]
+async fn recovery_multiple_blocks_per_candidate() {
+	sp_tracing::init_for_tests();
+
+	let (recovery_subsystem_tx, mut recovery_subsystem_rx) =
+		AvailabilityRecoverySubsystemHandle::new();
+	let recovery_delay_range =
+		RecoveryDelayRange { min: Duration::from_millis(0), max: Duration::from_millis(0) };
+	let (_explicit_recovery_chan_tx, explicit_recovery_chan_rx) = mpsc::channel(10);
+	let candidates = make_candidate_chain(1..4);
+	let candidate = candidates.last().unwrap();
+	let headers = candidates
+		.iter()
+		.map(|c| Header::decode(&mut &c.commitments.head_data.0[..]).unwrap())
+		.collect::<Vec<_>>();
+	let header = headers.last().unwrap();
+
+	let relay_chain_client = Relaychain::new(vec![(
+		PHeader {
+			parent_hash: PHash::from_low_u64_be(0),
+			number: 1,
+			state_root: PHash::random(),
+			extrinsics_root: PHash::random(),
+			digest: Default::default(),
+		},
+		vec![candidate.clone()],
+	)]);
+	let mut known_blocks = HashMap::new();
+	known_blocks.insert(GENESIS_HASH, BlockStatus::InChainWithState);
+	let known_blocks = Arc::new(Mutex::new(known_blocks));
+	let (parachain_client, import_notifications_tx, _finality_notifications_tx) =
+		ParachainClient::new(vec![dummy_usage_info(0)], known_blocks.clone());
+	let (parachain_import_queue, mut import_requests_rx) = ParachainImportQueue::new();
+
+	let pov_recovery = PoVRecovery::<Block, _, _>::new(
+		Box::new(recovery_subsystem_tx),
+		recovery_delay_range,
+		Arc::new(parachain_client),
+		Box::new(parachain_import_queue),
+		relay_chain_client,
+		ParaId::new(1000),
+		explicit_recovery_chan_rx,
+		Arc::new(DummySyncOracle::default()),
+	);
+
+	task::spawn(pov_recovery.run());
+
+	// Candidates are recovered in the right order.
+	assert_matches!(
+		recovery_subsystem_rx.next().await,
+		Some(AvailabilityRecoveryMessage::RecoverAvailableData(
+			receipt,
+			session_index,
+			None,
+			None,
+			response_tx
+		)) => {
+			assert_eq!(receipt.hash(), candidate.hash());
+			assert_eq!(session_index, TEST_SESSION_INDEX);
+			response_tx
+				.send(Ok(AvailableData {
+					pov: Arc::new(PoV {
+						block_data: ParachainBlockData::<Block>::new(
+							headers.iter().map(|h| Block::new(h.clone(), vec![])).collect(),
+							CompactProof { encoded_nodes: vec![] },
+						)
+						.encode()
+						.into(),
+					}),
+					validation_data: dummy_pvd(),
+					}))
+				.unwrap();
+		}
+	);
+
+	assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
+		assert_eq!(incoming_blocks.len(), 3);
+		assert_eq!(incoming_blocks.iter().map(|b| b.header.clone().unwrap()).collect::<Vec<_>>(), headers);
+	});
+
+	known_blocks
+		.lock()
+		.expect("Poisoned lock")
+		.insert(header.hash(), BlockStatus::InChainWithState);
+
+	let (unpin_sender, _unpin_receiver) = sc_utils::mpsc::tracing_unbounded("test_unpin", 10);
+	import_notifications_tx
+		.unbounded_send(BlockImportNotification::new(
+			header.hash(),
+			BlockOrigin::ConsensusBroadcast,
+			header.clone(),
+			false,
+			None,
+			unpin_sender,
+		))
+		.unwrap();
 
 	// No more recovery messages received.
 	assert_matches!(recovery_subsystem_rx.next().timeout(Duration::from_millis(100)).await, None);

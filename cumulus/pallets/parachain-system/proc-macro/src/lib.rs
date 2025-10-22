@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use proc_macro2::Span;
 use proc_macro_crate::{crate_name, FoundCrate};
@@ -31,14 +31,12 @@ mod keywords {
 struct Input {
 	runtime: Path,
 	block_executor: Path,
-	check_inherents: Option<Path>,
 }
 
 impl Parse for Input {
 	fn parse(input: ParseStream) -> Result<Self, Error> {
 		let mut runtime = None;
 		let mut block_executor = None;
-		let mut check_inherents = None;
 
 		fn parse_inner<KW: Parse + Spanned>(
 			input: ParseStream,
@@ -67,7 +65,7 @@ impl Parse for Input {
 			} else if lookahead.peek(keywords::BlockExecutor) {
 				parse_inner::<keywords::BlockExecutor>(input, &mut block_executor)?;
 			} else if lookahead.peek(keywords::CheckInherents) {
-				parse_inner::<keywords::CheckInherents>(input, &mut check_inherents)?;
+				return Err(Error::new(input.span(), "`CheckInherents` is not supported anymore!"));
 			} else {
 				return Err(lookahead.error())
 			}
@@ -76,7 +74,6 @@ impl Parse for Input {
 		Ok(Self {
 			runtime: runtime.expect("Everything is parsed before; qed"),
 			block_executor: block_executor.expect("Everything is parsed before; qed"),
-			check_inherents,
 		})
 	}
 }
@@ -92,7 +89,7 @@ fn crate_() -> Result<Ident, Error> {
 
 #[proc_macro]
 pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let Input { runtime, block_executor, check_inherents } = match syn::parse(input) {
+	let Input { runtime, block_executor } = match syn::parse(input) {
 		Ok(t) => t,
 		Err(e) => return e.into_compile_error().into(),
 	};
@@ -100,17 +97,6 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 	let crate_ = match crate_() {
 		Ok(c) => c,
 		Err(e) => return e.into_compile_error().into(),
-	};
-
-	let check_inherents = match check_inherents {
-		Some(_check_inherents) => {
-			quote::quote! { #_check_inherents }
-		},
-		None => {
-			quote::quote! {
-				#crate_::DummyCheckInherents<<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock>
-			}
-		},
 	};
 
 	if cfg!(not(feature = "std")) {
@@ -122,8 +108,8 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				#[no_mangle]
 				unsafe fn validate_block(arguments: *mut u8, arguments_len: usize) -> u64 {
 					// We convert the `arguments` into a boxed slice and then into `Bytes`.
-					let args = #crate_::validate_block::sp_std::boxed::Box::from_raw(
-						#crate_::validate_block::sp_std::slice::from_raw_parts_mut(
+					let args = #crate_::validate_block::Box::from_raw(
+						#crate_::validate_block::slice::from_raw_parts_mut(
 							arguments,
 							arguments_len,
 						)
@@ -139,7 +125,6 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 						<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock,
 						#block_executor,
 						#runtime,
-						#check_inherents,
 					>(params);
 
 					#crate_::validate_block::polkadot_parachain_primitives::write_result(&res)

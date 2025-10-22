@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::extract_or_return_allow_attrs,
 	pallet::{
 		parse::error::{VariantDef, VariantField},
 		Def,
@@ -66,28 +67,30 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		#[doc(hidden)]
 		#[codec(skip)]
 		__Ignore(
-			#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen)>,
+			core::marker::PhantomData<(#type_use_gen)>,
 			#frame_support::Never,
 		)
 	);
 
-	let as_str_matches = error.variants.iter().map(
-		|VariantDef { ident: variant, field: field_ty, docs: _, cfg_attrs }| {
-			let variant_str = variant.to_string();
-			let cfg_attrs = cfg_attrs.iter().map(|attr| attr.to_token_stream());
-			match field_ty {
-				Some(VariantField { is_named: true }) => {
-					quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant { .. } => #variant_str,)
-				},
-				Some(VariantField { is_named: false }) => {
-					quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant(..) => #variant_str,)
-				},
-				None => {
-					quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant => #variant_str,)
-				},
-			}
-		},
-	);
+	let as_str_matches =
+		error
+			.variants
+			.iter()
+			.map(|VariantDef { ident: variant, field: field_ty, cfg_attrs, maybe_allow_attrs }| {
+				let variant_str = variant.to_string();
+				let cfg_attrs = cfg_attrs.iter().map(|attr| attr.to_token_stream());
+				match field_ty {
+					Some(VariantField { is_named: true }) => {
+						quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* #(#maybe_allow_attrs)* Self::#variant { .. } => #variant_str,)
+					},
+					Some(VariantField { is_named: false }) => {
+						quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* #(#maybe_allow_attrs)* Self::#variant(..) => #variant_str,)
+					},
+					None => {
+						quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* #(#maybe_allow_attrs)* Self::#variant => #variant_str,)
+					},
+				}
+			});
 
 	let error_item = {
 		let item = &mut def.item.content.as_mut().expect("Checked by def parser").1[error.index];
@@ -97,16 +100,28 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			unreachable!("Checked by error parser")
 		}
 	};
-
 	error_item.variants.insert(0, phantom_variant);
 
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
+
+	let deprecation = match crate::deprecation::get_deprecation_enum(
+		&quote::quote! {#frame_support},
+		error_item.variants.iter().enumerate().map(|(index, item)| {
+			let index = crate::deprecation::variant_index_for_deprecation(index as u8, item);
+
+			(index, item.attrs.as_ref())
+		}),
+	) {
+		Ok(deprecation) => deprecation,
+		Err(e) => return e.into_compile_error(),
+	};
 
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
 		#[derive(
 			#frame_support::__private::codec::Encode,
 			#frame_support::__private::codec::Decode,
+			#frame_support::__private::codec::DecodeWithMemTracking,
 			#frame_support::__private::scale_info::TypeInfo,
 			#frame_support::PalletError,
 		)]
@@ -121,27 +136,34 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		));
 	}
 
+	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+	let maybe_allow_attrs: Vec<syn::Attribute> =
+		extract_or_return_allow_attrs(&error_item.attrs).collect();
+
 	quote::quote_spanned!(error.attr_span =>
-		impl<#type_impl_gen> #frame_support::__private::sp_std::fmt::Debug for #error_ident<#type_use_gen>
+		#(#maybe_allow_attrs)*
+		impl<#type_impl_gen> core::fmt::Debug for #error_ident<#type_use_gen>
 			#config_where_clause
 		{
-			fn fmt(&self, f: &mut #frame_support::__private::sp_std::fmt::Formatter<'_>)
-				-> #frame_support::__private::sp_std::fmt::Result
+			fn fmt(&self, f: &mut core::fmt::Formatter<'_>)
+				-> core::fmt::Result
 			{
 				f.write_str(self.as_str())
 			}
 		}
 
+		#(#maybe_allow_attrs)*
 		impl<#type_impl_gen> #error_ident<#type_use_gen> #config_where_clause {
 			#[doc(hidden)]
 			pub fn as_str(&self) -> &'static str {
 				match &self {
-					Self::__Ignore(_, _) => unreachable!("`__Ignore` can never be constructed"),
+					#(#maybe_allow_attrs)* Self::__Ignore(_, _) => unreachable!("`__Ignore` can never be constructed"),
 					#( #as_str_matches )*
 				}
 			}
 		}
 
+		#(#maybe_allow_attrs)*
 		impl<#type_impl_gen> From<#error_ident<#type_use_gen>> for &'static str
 			#config_where_clause
 		{
@@ -150,6 +172,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
+		#(#maybe_allow_attrs)*
 		impl<#type_impl_gen> From<#error_ident<#type_use_gen>>
 			for #frame_support::sp_runtime::DispatchError
 			#config_where_clause
@@ -187,5 +210,18 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		pub use #error_token_unique_id as tt_error_token;
+
+		#(#maybe_allow_attrs)*
+		impl<#type_impl_gen> #error_ident<#type_use_gen> #config_where_clause {
+			#[allow(dead_code)]
+			#[doc(hidden)]
+			pub fn error_metadata() -> #frame_support::__private::metadata_ir::PalletErrorMetadataIR {
+				#(#maybe_allow_attrs)*
+				#frame_support::__private::metadata_ir::PalletErrorMetadataIR {
+					ty: #frame_support::__private::scale_info::meta_type::<#error_ident<#type_use_gen>>(),
+					deprecation_info: #deprecation,
+				}
+			}
+		}
 	)
 }

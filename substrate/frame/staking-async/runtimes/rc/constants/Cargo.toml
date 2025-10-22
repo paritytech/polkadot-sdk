@@ -1,0 +1,44 @@
+[package]
+name = "pallet-staking-async-rc-runtime-constants"
+version = "7.0.0"
+description = "Constants used throughout the Staking Async RC network."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[lints]
+workspace = true
+
+[dependencies]
+smallvec = { workspace = true, default-features = true }
+
+frame-support = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-weights = { workspace = true }
+
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"frame-support/std",
+	"polkadot-primitives/std",
+	"polkadot-runtime-common/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-weights/std",
+	"xcm-builder/std",
+	"xcm/std",
+]
+
+# Set timing constants (e.g. session period) to faster versions to speed up testing.
+fast-runtime = []

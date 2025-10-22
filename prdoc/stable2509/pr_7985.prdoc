@@ -1,0 +1,9 @@
+title: Collect system infomation on FreeBSD OS
+author: firegrass
+doc:
+  - audience: Node Operator
+    description: |
+      Adds support for collecting system information on FreeBSD. This allows Decentralized Nodes operators to be compliant with the Telemetry rule without maintaining patches.
+crates:
+- name: sc-sysinfo
+  bump: minor

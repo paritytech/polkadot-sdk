@@ -15,6 +15,12 @@
 
 pub mod genesis;
 
+pub use bridge_hub_westend_runtime::{
+	self, xcm_config::XcmConfig as BridgeHubWestendXcmConfig,
+	ExistentialDeposit as BridgeHubWestendExistentialDeposit,
+	RuntimeOrigin as BridgeHubWestendRuntimeOrigin,
+};
+
 // Substrate
 use frame_support::traits::OnInitialize;
 
@@ -22,6 +28,7 @@ use frame_support::traits::OnInitialize;
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
 	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	AuraDigestProvider,
 };
 
 // BridgeHubWestend Parachain declaration
@@ -37,10 +44,16 @@ decl_test_parachains! {
 			LocationToAccountId: bridge_hub_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: bridge_hub_westend_runtime::ParachainInfo,
 			MessageOrigin: bridge_hub_common::AggregateMessageOrigin,
+			DigestProvider: AuraDigestProvider,
 		},
 		pallets = {
 			PolkadotXcm: bridge_hub_westend_runtime::PolkadotXcm,
 			Balances: bridge_hub_westend_runtime::Balances,
+			EthereumSystem: bridge_hub_westend_runtime::EthereumSystem,
+			EthereumInboundQueue: bridge_hub_westend_runtime::EthereumInboundQueue,
+			EthereumOutboundQueue: bridge_hub_westend_runtime::EthereumOutboundQueue,
+			EthereumSystemV2: bridge_hub_westend_runtime::EthereumSystemV2,
+			BridgeRelayers: bridge_hub_westend_runtime::BridgeRelayers,
 		}
 	},
 }

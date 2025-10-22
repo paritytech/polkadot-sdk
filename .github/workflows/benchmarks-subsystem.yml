@@ -1,0 +1,172 @@
+name: Subsystem Benchmarks
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  preflight:
+    needs: isdraft
+    uses: ./.github/workflows/reusable-preflight.yml
+  build:
+    timeout-minutes: 80
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          [
+            {
+              name: "polkadot-availability-recovery",
+              bench: "availability-recovery-regression-bench",
+            },
+            {
+              name: "polkadot-availability-distribution",
+              bench: "availability-distribution-regression-bench",
+            },
+            {
+              name: "polkadot-node-core-approval-voting",
+              bench: "approval-voting-regression-bench",
+            },
+            {
+              name: "polkadot-statement-distribution",
+              bench: "statement-distribution-regression-bench",
+            },
+            {
+              name: "polkadot-node-core-dispute-coordinator",
+              bench: "dispute-coordinator-regression-bench",
+            },
+          ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Check Rust
+        run: |
+          rustup show
+          rustup +nightly show
+
+      - name: Run Benchmarks
+        id: run-benchmarks
+        run: |
+          forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks
+          ls -lsa ./charts
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{matrix.features.bench}}
+          path: ./charts
+
+  publish-benchmarks:
+    timeout-minutes: 60
+    needs: [build]
+    if: github.ref == 'refs/heads/master'
+    environment: subsystem-benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - run: git checkout master --
+
+      - name: Download artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          path: ./charts
+
+      - name: Setup git
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          ls -lsR ./charts
+
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        id: app-token
+        with:
+          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
+          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: availability-recovery-regression-bench
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+          max-items-in-chart: 500
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: availability-distribution-regression-bench
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+          max-items-in-chart: 500
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: approval-voting-regression-bench
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+          max-items-in-chart: 500
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: statement-distribution-regression-bench
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+          max-items-in-chart: 500
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: dispute-coordinator-regression-bench
+        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+          max-items-in-chart: 500

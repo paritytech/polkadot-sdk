@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! The Cumulus [`CollatorService`] is a utility struct for performing common
 //! operations used in parachain consensus/authoring.
@@ -175,13 +176,14 @@ where
 
 	/// Fetch the collation info from the runtime.
 	///
-	/// Returns `Ok(Some(_))` on success, `Err(_)` on error or `Ok(None)` if the runtime api isn't
-	/// implemented by the runtime.
+	/// Returns `Ok(Some((CollationInfo, ApiVersion)))` on success, `Err(_)` on error or `Ok(None)`
+	/// if the runtime api isn't implemented by the runtime. `ApiVersion` being the version of the
+	/// [`CollectCollationInfo`] runtime api.
 	pub fn fetch_collation_info(
 		&self,
 		block_hash: Block::Hash,
 		header: &Block::Header,
-	) -> Result<Option<CollationInfo>, sp_api::ApiError> {
+	) -> Result<Option<(CollationInfo, u32)>, sp_api::ApiError> {
 		let runtime_api = self.runtime_api.runtime_api();
 
 		let api_version =
@@ -205,7 +207,7 @@ where
 			runtime_api.collect_collation_info(block_hash, header)?
 		};
 
-		Ok(Some(collation_info))
+		Ok(Some((collation_info, api_version)))
 	}
 
 	/// Build a full [`Collation`] from a given [`ParachainCandidate`]. This requires
@@ -219,7 +221,7 @@ where
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		let (header, extrinsics) = candidate.block.deconstruct();
+		let block = candidate.block;
 
 		let compact_proof = match candidate
 			.proof
@@ -233,8 +235,8 @@ where
 		};
 
 		// Create the parachain block data for the validators.
-		let collation_info = self
-			.fetch_collation_info(block_hash, &header)
+		let (collation_info, _api_version) = self
+			.fetch_collation_info(block_hash, block.header())
 			.map_err(|e| {
 				tracing::error!(
 					target: LOG_TARGET,
@@ -245,10 +247,37 @@ where
 			.ok()
 			.flatten()?;
 
-		let block_data = ParachainBlockData::<Block>::new(header, extrinsics, compact_proof);
+		// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
+		//
+		// We are always using the `api_version` of the parent block. The `api_version` can only
+		// change with a runtime upgrade and this is when we want to observe the old `api_version`.
+		// Because this old `api_version` is the one used to validate this block. Otherwise we
+		// already assume the `api_version` is higher than what the relay chain will use and this
+		// will lead to validation errors.
+		let api_version = self
+			.runtime_api
+			.runtime_api()
+			.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
+			.ok()
+			.flatten()?;
+
+		let block_data = ParachainBlockData::<Block>::new(vec![block], compact_proof);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
-			block_data: BlockData(block_data.encode()),
+			block_data: BlockData(if api_version >= 3 {
+				block_data.encode()
+			} else {
+				let block_data = block_data.as_v0();
+
+				if block_data.is_none() {
+					tracing::error!(
+						target: LOG_TARGET,
+						"Trying to submit a collation with multiple blocks is not supported by the current runtime."
+					);
+				}
+
+				block_data?.encode()
+			}),
 		});
 
 		let upward_messages = collation_info

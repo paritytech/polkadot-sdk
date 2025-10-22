@@ -16,16 +16,22 @@
 // limitations under the License.
 
 #![cfg(test)]
+
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_ok};
 use mock::*;
+use pallet_timestamp::Now;
 use sp_core::Get;
 use sp_runtime::Perbill;
 
 use crate::mock::RuntimeOrigin;
+
+use pallet_election_provider_multi_phase::CurrentPhase;
 
 // syntactic sugar for logging.
 #[macro_export]
@@ -44,9 +50,9 @@ fn log_current_time() {
 		"block: {:?}, session: {:?}, era: {:?}, EPM phase: {:?} ts: {:?}",
 		System::block_number(),
 		Session::current_index(),
-		Staking::current_era(),
-		ElectionProviderMultiPhase::current_phase(),
-		Timestamp::now()
+		pallet_staking::CurrentEra::<Runtime>::get(),
+		CurrentPhase::<Runtime>::get(),
+		Now::<Runtime>::get()
 	);
 }
 
@@ -57,16 +63,16 @@ fn block_progression_works() {
 	execute_with(ext, || {
 		assert_eq!(active_era(), 0);
 		assert_eq!(Session::current_index(), 0);
-		assert!(ElectionProviderMultiPhase::current_phase().is_off());
+		assert!(CurrentPhase::<Runtime>::get().is_off());
 
 		assert!(start_next_active_era(pool_state.clone()).is_ok());
 		assert_eq!(active_era(), 1);
 		assert_eq!(Session::current_index(), <SessionsPerEra as Get<u32>>::get());
 
-		assert!(ElectionProviderMultiPhase::current_phase().is_off());
+		assert!(CurrentPhase::<Runtime>::get().is_off());
 
 		roll_to_epm_signed();
-		assert!(ElectionProviderMultiPhase::current_phase().is_signed());
+		assert!(CurrentPhase::<Runtime>::get().is_signed());
 	});
 
 	let (ext, pool_state, _) = ExtBuilder::default().build_offchainify();
@@ -74,11 +80,11 @@ fn block_progression_works() {
 	execute_with(ext, || {
 		assert_eq!(active_era(), 0);
 		assert_eq!(Session::current_index(), 0);
-		assert!(ElectionProviderMultiPhase::current_phase().is_off());
+		assert!(CurrentPhase::<Runtime>::get().is_off());
 
 		assert!(start_next_active_era_delayed_solution(pool_state).is_ok());
 		// if the solution is delayed, EPM will end up in emergency mode..
-		assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
+		assert!(CurrentPhase::<Runtime>::get().is_emergency());
 		// .. era won't progress..
 		assert_eq!(active_era(), 0);
 		// .. but session does.
@@ -102,7 +108,7 @@ fn offchainify_works() {
 		// not delayed.
 		for _ in 0..100 {
 			roll_one(pool_state.clone(), false);
-			let current_phase = ElectionProviderMultiPhase::current_phase();
+			let current_phase = CurrentPhase::<Runtime>::get();
 
 			assert!(
 				match QueuedSolution::<Runtime>::get() {
@@ -144,30 +150,35 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 
 		let active_set_size_before_slash = Session::validators().len();
 
-		// Slash more than 1/3 of the active validators
-		let mut slashed = slash_half_the_active_set();
+		// assuming half is above the disabling limit (default 1/3), otherwise test will break
+		let slashed = slash_half_the_active_set();
 
 		let active_set_size_after_slash = Session::validators().len();
 
 		// active set should stay the same before and after the slash
 		assert_eq!(active_set_size_before_slash, active_set_size_after_slash);
 
-		// Slashed validators are disabled up to a limit
-		slashed.truncate(
-			pallet_staking::UpToLimitDisablingStrategy::<SLASHING_DISABLING_FACTOR>::disable_limit(
-				active_set_size_after_slash,
-			),
-		);
-
 		// Find the indices of the disabled validators
 		let active_set = Session::validators();
-		let expected_disabled = slashed
+		let potentially_disabled = slashed
 			.into_iter()
 			.map(|d| active_set.iter().position(|a| *a == d).unwrap() as u32)
 			.collect::<Vec<_>>();
 
+		// Ensure that every actually disabled validator is also in the potentially disabled set
+		// (not necessarily the other way around)
+		let disabled = Session::disabled_validators();
+		for d in disabled.iter() {
+			assert!(potentially_disabled.contains(d));
+		}
+
+		// Ensure no more than disabling limit of validators (default 1/3) is disabled
+		let disabling_limit = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy::<
+			SLASHING_DISABLING_FACTOR,
+		>::disable_limit(active_set_size_before_slash);
+		assert!(disabled.len() == disabling_limit);
+
 		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
-		assert_eq!(Session::disabled_validators(), expected_disabled);
 	});
 }
 
@@ -208,8 +219,8 @@ fn continuous_slashes_below_offending_threshold() {
 			// break loop when era does not progress; EPM is in emergency phase as election
 			// failed due to election minimum score.
 			if start_next_active_era(pool_state.clone()).is_err() {
-				assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
-				break
+				assert!(CurrentPhase::<Runtime>::get().is_emergency());
+				break;
 			}
 
 			active_validator_set = Session::validators();
@@ -242,18 +253,8 @@ fn ledger_consistency_active_balance_below_ed() {
 	execute_with(ext, || {
 		assert_eq!(Staking::ledger(11.into()).unwrap().active, 1000);
 
-		// unbonding total of active stake fails because the active ledger balance would fall
-		// below the `MinNominatorBond`.
-		assert_noop!(
-			Staking::unbond(RuntimeOrigin::signed(11), 1000),
-			Error::<Runtime>::InsufficientBond
-		);
-
-		// however, chilling works as expected.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
-
-		// now unbonding the full active balance works, since remainder of the active balance is
-		// not enforced to be below `MinNominatorBond` if the stash has been chilled.
+		// unbonding total of active stake passes because chill occurs implicitly when unbonding
+		// full amount.
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 
 		// the active balance of the ledger entry is 0, while total balance is 1000 until
@@ -326,17 +327,17 @@ fn automatic_unbonding_pools() {
 
 		// creates a pool with 5 bonded, owned by 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(1), 5, 1, 1, 1));
-		assert_eq!(locked_amount_for(pool_bonded_account), 5);
+		assert_eq!(staked_amount_for(pool_bonded_account), 5);
 
 		let init_tvl = TotalValueLocked::<Runtime>::get();
 
 		// 2 joins the pool.
 		assert_ok!(Pools::join(RuntimeOrigin::signed(2), 10, 1));
-		assert_eq!(locked_amount_for(pool_bonded_account), 15);
+		assert_eq!(staked_amount_for(pool_bonded_account), 15);
 
 		// 3 joins the pool.
 		assert_ok!(Pools::join(RuntimeOrigin::signed(3), 10, 1));
-		assert_eq!(locked_amount_for(pool_bonded_account), 25);
+		assert_eq!(staked_amount_for(pool_bonded_account), 25);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 25);
 
@@ -347,7 +348,7 @@ fn automatic_unbonding_pools() {
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(2), 2, 10));
 
 		// amount is still locked in the pool, needs to wait for unbonding period.
-		assert_eq!(locked_amount_for(pool_bonded_account), 25);
+		assert_eq!(staked_amount_for(pool_bonded_account), 25);
 
 		// max chunks in the ledger are now filled up (`MaxUnlockingChunks == 1`).
 		assert_eq!(unlocking_chunks_of(pool_bonded_account), 1);
@@ -369,8 +370,8 @@ fn automatic_unbonding_pools() {
 		assert_eq!(current_era(), 3);
 		System::reset_events();
 
-		let locked_before_withdraw_pool = locked_amount_for(pool_bonded_account);
-		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+		let staked_before_withdraw_pool = staked_amount_for(pool_bonded_account);
+		assert_eq!(delegated_balance_for(pool_bonded_account), 5 + 10 + 10);
 
 		// now unbonding 3 will work, although the pool's ledger still has the unlocking chunks
 		// filled up.
@@ -382,24 +383,25 @@ fn automatic_unbonding_pools() {
 			[
 				// auto-withdraw happened as expected to release 2's unbonding funds, but the funds
 				// were not transferred to 2 and stay in the pool's transferrable balance instead.
-				pallet_staking::Event::Withdrawn { stash: 7939698191839293293, amount: 10 },
-				pallet_staking::Event::Unbonded { stash: 7939698191839293293, amount: 10 }
+				pallet_staking::Event::Withdrawn { stash: pool_bonded_account, amount: 10 },
+				pallet_staking::Event::Unbonded { stash: pool_bonded_account, amount: 10 }
 			]
 		);
 
 		// balance of the pool remains the same, it hasn't withdraw explicitly from the pool yet.
-		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+		assert_eq!(delegated_balance_for(pool_bonded_account), 25);
 		// but the locked amount in the pool's account decreases due to the auto-withdraw:
-		assert_eq!(locked_before_withdraw_pool - 10, locked_amount_for(pool_bonded_account));
+		assert_eq!(staked_before_withdraw_pool - 10, staked_amount_for(pool_bonded_account));
 
 		// TVL correctly updated.
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 25 - 10);
 
 		// however, note that the withdrawing from the pool still works for 2, the funds are taken
-		// from the pool's free balance.
-		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+		// from the pool's non staked balance.
+		assert_eq!(delegated_balance_for(pool_bonded_account), 25);
+		assert_eq!(staked_amount_for(pool_bonded_account), 15);
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(2), 2, 10));
-		assert_eq!(Balances::free_balance(pool_bonded_account), 16);
+		assert_eq!(delegated_balance_for(pool_bonded_account), 15);
 
 		assert_eq!(Balances::free_balance(2), 20);
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 15);
@@ -420,7 +422,7 @@ fn automatic_unbonding_pools() {
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(3), 3, 10));
 
 		// final conditions are the expected.
-		assert_eq!(Balances::free_balance(pool_bonded_account), 6); // 5 init bonded + ED
+		assert_eq!(delegated_balance_for(pool_bonded_account), 5); // 5 init bonded
 		assert_eq!(Balances::free_balance(2), init_free_balance_2);
 		assert_eq!(Balances::free_balance(3), init_free_balance_3);
 

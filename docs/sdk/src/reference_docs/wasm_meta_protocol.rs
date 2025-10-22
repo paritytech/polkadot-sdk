@@ -29,7 +29,7 @@
 //! Rust to different hardware targets.
 //!
 //! This design enables all Substrate-based chains to be fork-less-ly upgradeable, because the
-//! Runtime can be updates on the fly, within the execution of a block, and the node is (for the
+//! Runtime can be updated on the fly, within the execution of a block, and the node is (for the
 //! most part) oblivious to the change that is happening.
 //!
 //! Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
@@ -82,7 +82,7 @@
 //!
 //! ## State
 //!
-//! From the previous sections, we know that the a database component is part of the node, not the
+//! From the previous sections, we know that the database component is part of the node, not the
 //! runtime. We also hinted that a set of host functions ([`sp_io::storage`]) are how the runtime
 //! issues commands to the node to read/write to the state. Let's dive deeper into this.
 //!
@@ -143,16 +143,16 @@
 //! At some point, based on the consensus algorithm's rules, the node decides to import (aka.
 //! *validate*) a block.
 //!
-//! * First, the node will then fetch the state of the parent hash of the block that wishes to be
+//! * First, the node will fetch the state of the parent hash of the block that wishes to be
 //! imported.
 //! * The runtime is fetched from this state, and placed into a WASM execution environment.
-//! * The [`sp_api::Core::execute_block`] runtime API is called and the blocked is passed in as an
+//! * The [`sp_api::Core::execute_block`] runtime API is called and the block is passed in as an
 //! argument.
 //! * The runtime will then execute the block, and update the state accordingly. Any state update is
-//!   issues via the [`sp_io::storage`] host functions.
+//!   issued via the [`sp_io::storage`] host functions.
 //! * Both the runtime and node will check the state-root of the state after the block execution to
 //!   match the one claimed in the block header.
 //!
 //! > Example taken from [this
-//! > lecture](https://polkadot-blockchain-academy.github.io/pba-book/substrate/wasm/page.html#example-2-block-import-9)
+//! > lecture](https://www.youtube.com/watch?v=v0cKuddbF_Q&list=PL-w_i5kwVqbkRmfDn5nzeuU1S_FFW8dDg&index=4)
 //! > of the Polkadot Blockchain Academy.

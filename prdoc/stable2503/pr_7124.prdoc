@@ -1,0 +1,9 @@
+title: Remove pallet::getter from pallet-nft-fractionalization
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes all pallet::getter occurrences from pallet-nft-fractionalization and replaces them with explicit implementations.
+
+crates:
+  - name: pallet-nft-fractionalization
+    bump: major

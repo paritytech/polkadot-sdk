@@ -1,0 +1,40 @@
+title: 'Introduce CreateBare, deprecated CreateInherent'
+doc:
+- audience: Runtime Dev
+  description: |
+    Rename `CreateInherent` to `CreateBare`, add method `create_bare` and deprecate `create_inherent`.
+
+    Both unsigned transaction and inherent use the extrinsic type `Bare`.
+    Before this PR `CreateInherent` trait was use to generate unsigned transaction, now unsigned transaction can be generated using a proper trait `CreateBare`.
+
+    How to upgrade:
+    * Change usage of `CreateInherent` to `CreateBare` and `create_inherent` to `create_bare`.
+    * Implement `CreateBare` for the runtime, the method `create_bare` is usually implemented using `Extrinsic::new_bare`.
+
+crates:
+- name: frame-system
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-babe
+  bump: major
+- name: pallet-beefy
+  bump: major
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: pallet-grandpa
+  bump: major
+- name: pallet-im-online
+  bump: major
+- name: pallet-mixnet
+  bump: major
+- name: pallet-offences-benchmarking
+  bump: major

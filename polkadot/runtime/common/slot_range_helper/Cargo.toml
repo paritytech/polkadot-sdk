@@ -5,17 +5,18 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Helper crate for generating slot ranges for the Polkadot runtime."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-paste = "1.0"
-enumn = "0.1.12"
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+codec = { features = ["derive"], workspace = true }
+enumn = { workspace = true }
+paste = { workspace = true, default-features = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
-std = ["codec/std", "sp-runtime/std", "sp-std/std"]
+std = ["codec/std", "sp-runtime/std"]

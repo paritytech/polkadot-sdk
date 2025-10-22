@@ -22,6 +22,7 @@
 use super::*;
 use crate::Pallet as CoreFellowship;
 
+use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_arithmetic::traits::Bounded;
@@ -49,12 +50,13 @@ mod benchmarks {
 		for _ in 0..rank {
 			T::Members::promote(&member)?;
 		}
+		#[allow(deprecated)]
 		CoreFellowship::<T, I>::import(RawOrigin::Signed(member.clone()).into())?;
 		Ok(member)
 	}
 
 	fn set_benchmark_params<T: Config<I>, I: 'static>() -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get() as usize;
 		let params = ParamsType {
 			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
@@ -69,7 +71,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get() as usize;
 		let params = ParamsType {
 			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
@@ -82,6 +84,45 @@ mod benchmarks {
 		_(RawOrigin::Root, Box::new(params.clone()));
 
 		assert_eq!(Params::<T, I>::get(), params);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_partial_params() -> Result<(), BenchmarkError> {
+		let max_rank = T::MaxRank::get() as usize;
+
+		// Set up the initial default state for the Params storage
+		let params = ParamsType {
+			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			offboard_timeout: 1u32.into(),
+		};
+		CoreFellowship::<T, I>::set_params(RawOrigin::Root.into(), Box::new(params))?;
+
+		let default_params = Params::<T, I>::get();
+		let expected_params = ParamsType {
+			active_salary: default_params.active_salary,
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: default_params.demotion_period,
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			offboard_timeout: 1u32.into(),
+		};
+
+		let params_payload = ParamsType {
+			active_salary: BoundedVec::try_from(vec![None; max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![Some(10u32.into()); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![None; max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![Some(100u32.into()); max_rank])
+				.unwrap(),
+			offboard_timeout: None,
+		};
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(params_payload.clone()));
+
+		assert_eq!(Params::<T, I>::get(), expected_params);
 		Ok(())
 	}
 
@@ -108,19 +149,22 @@ mod benchmarks {
 	fn bump_demote() -> Result<(), BenchmarkError> {
 		set_benchmark_params::<T, I>()?;
 
-		let member = make_member::<T, I>(2)?;
+		let initial_rank = T::MaxRank::get();
+
+		let member = make_member::<T, I>(initial_rank)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
+
 		assert!(Member::<T, I>::contains_key(&member));
-		assert_eq!(T::Members::rank_of(&member), Some(2));
+		assert_eq!(T::Members::rank_of(&member), Some(initial_rank));
 
 		#[extrinsic_call]
 		CoreFellowship::<T, I>::bump(RawOrigin::Signed(member.clone()), member.clone());
 
 		assert!(Member::<T, I>::contains_key(&member));
-		assert_eq!(T::Members::rank_of(&member), Some(1));
+		assert_eq!(T::Members::rank_of(&member), Some(initial_rank.saturating_sub(1)));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -153,20 +197,51 @@ mod benchmarks {
 	fn promote() -> Result<(), BenchmarkError> {
 		// Ensure that the `min_promotion_period` wont get in our way.
 		let mut params = Params::<T, I>::get();
-		let max_rank = T::MaxRank::get().try_into().unwrap();
-		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
+		let max_rank = T::MaxRank::get();
+
+		// Get minimum promotion period.
+		params.min_promotion_period =
+			BoundedVec::try_from(vec![Zero::zero(); max_rank as usize]).unwrap();
 		Params::<T, I>::put(&params);
 
-		let member = make_member::<T, I>(1)?;
+		// Start at rank 0 to allow at least one promotion.
+		let current_rank = 0;
+		let member = make_member::<T, I>(current_rank)?;
 
-		// Set it to the max value to ensure that any possible auto-demotion period has passed.
+		// Set `to_rank` dynamically based on `max_rank`.
+		let to_rank = (current_rank + 1).min(max_rank); // Ensure `to_rank` <= `max_rank`.
+
+		// Set block number to avoid auto-demotion.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, member.clone(), 2u8.into());
+		_(RawOrigin::Root, member.clone(), to_rank);
 
-		assert_eq!(T::Members::rank_of(&member), Some(2));
+		// Assert the new rank matches `to_rank` (not a hardcoded value).
+		assert_eq!(T::Members::rank_of(&member), Some(to_rank));
+		assert!(!MemberEvidence::<T, I>::contains_key(&member));
+		Ok(())
+	}
+
+	/// Benchmark the `promote_fast` extrinsic to promote someone up to `r`.
+	#[benchmark]
+	fn promote_fast(
+		r: Linear<1, { ConvertU16ToU32::<T::MaxRank>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// Get a target rank for promotion.
+		let max_rank = T::MaxRank::get();
+		let target_rank = (r as u16).min(max_rank);
+
+		// Begin with Candidate.
+		let member = make_member::<T, I>(0)?;
+
+		ensure_evidence::<T, I>(&member)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, member.clone(), target_rank);
+
+		assert_eq!(T::Members::rank_of(&member), Some(target_rank));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -199,6 +274,23 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(member.clone()));
+
+		assert!(Member::<T, I>::contains_key(&member));
+		Ok(())
+	}
+
+	#[benchmark]
+	fn import_member() -> Result<(), BenchmarkError> {
+		let member = account("member", 0, SEED);
+		let sender = account("sender", 0, SEED);
+
+		T::Members::induct(&member)?;
+		T::Members::promote(&member)?;
+
+		assert!(!Member::<T, I>::contains_key(&member));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(sender), member.clone());
 
 		assert!(Member::<T, I>::contains_key(&member));
 		Ok(())

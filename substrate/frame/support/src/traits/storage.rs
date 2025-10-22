@@ -17,17 +17,18 @@
 
 //! Traits for encoding data related to pallet's storage items.
 
-use codec::{Encode, FullCodec, MaxEncodedLen};
-use core::marker::PhantomData;
+use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
+use core::{marker::PhantomData, mem, ops::Drop};
+use frame_support::CloneNoBound;
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{Convert, Member, Saturating},
+	traits::{Convert, Member},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// An instance of a pallet in the storage.
 ///
@@ -170,12 +171,19 @@ pub struct Footprint {
 }
 
 impl Footprint {
+	/// Construct a footprint directly from `items` and `len`.
 	pub fn from_parts(items: usize, len: usize) -> Self {
 		Self { count: items as u64, size: len as u64 }
 	}
 
+	/// Construct a footprint with one item, and size equal to the encoded size of `e`.
 	pub fn from_encodable(e: impl Encode) -> Self {
 		Self::from_parts(1, e.encoded_size())
+	}
+
+	/// Construct a footprint with one item, and size equal to the max encoded length of `E`.
+	pub fn from_mel<E: MaxEncodedLen>() -> Self {
+		Self::from_parts(1, E::max_encoded_len())
 	}
 }
 
@@ -193,6 +201,35 @@ where
 	}
 }
 
+/// Constant `Price` regardless of the given [`Footprint`].
+pub struct ConstantStoragePrice<Price, Balance>(PhantomData<(Price, Balance)>);
+impl<Price, Balance> Convert<Footprint, Balance> for ConstantStoragePrice<Price, Balance>
+where
+	Price: Get<Balance>,
+	Balance: From<u64> + sp_runtime::Saturating,
+{
+	fn convert(_: Footprint) -> Balance {
+		Price::get()
+	}
+}
+
+/// Placeholder marking functionality disabled. Useful for disabling various (sub)features.
+#[derive(CloneNoBound, Debug, Encode, Eq, Decode, TypeInfo, MaxEncodedLen, PartialEq)]
+pub struct Disabled;
+impl<A, F> Consideration<A, F> for Disabled {
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+	fn update(self, _: &A, _: F) -> Result<Self, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+	fn drop(self, _: &A) -> Result<(), DispatchError> {
+		Ok(())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
+}
+
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
 /// holding some data [`Footprint`] in state.
 ///
@@ -206,7 +243,9 @@ where
 /// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
 /// it.
 #[must_use]
-pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLen {
+pub trait Consideration<AccountId, Footprint>:
+	Member + FullCodec + TypeInfo + MaxEncodedLen
+{
 	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once the footprint changes or is removed.
 	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
@@ -228,17 +267,41 @@ pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLe
 	fn burn(self, _: &AccountId) {
 		let _ = self;
 	}
+	/// Ensure that creating a ticket for a given account and footprint will be successful if done
+	/// immediately after this call.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &AccountId, new: Footprint);
 }
 
-impl<A> Consideration<A> for () {
-	fn new(_: &A, _: Footprint) -> Result<Self, DispatchError> {
+impl<A, F> Consideration<A, F> for () {
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
 		Ok(())
 	}
-	fn update(self, _: &A, _: Footprint) -> Result<(), DispatchError> {
+	fn update(self, _: &A, _: F) -> Result<(), DispatchError> {
 		Ok(())
 	}
 	fn drop(self, _: &A) -> Result<(), DispatchError> {
 		Ok(())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
+}
+
+#[cfg(feature = "experimental")]
+/// An extension of the [`Consideration`] trait that allows for the management of tickets that may
+/// represent no cost. While the [`MaybeConsideration`] still requires proper handling, it
+/// introduces the ability to determine if a ticket represents no cost and can be safely forgotten
+/// without any side effects.
+pub trait MaybeConsideration<AccountId, Footprint>: Consideration<AccountId, Footprint> {
+	/// Returns `true` if this [`Consideration`] represents a no-cost ticket and can be forgotten
+	/// without any side effects.
+	fn is_none(&self) -> bool;
+}
+
+#[cfg(feature = "experimental")]
+impl<A, F> MaybeConsideration<A, F> for () {
+	fn is_none(&self) -> bool {
+		true
 	}
 }
 
@@ -247,9 +310,7 @@ macro_rules! impl_incrementable {
 		$(
 			impl Incrementable for $type {
 				fn increment(&self) -> Option<Self> {
-					let mut val = self.clone();
-					val.saturating_inc();
-					Some(val)
+					self.checked_add(1)
 				}
 
 				fn initial_value() -> Option<Self> {
@@ -281,10 +342,93 @@ where
 
 impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 
+/// Wrap a type so that is `Drop` impl is never called.
+///
+/// Useful when storing types like `Imbalance` which would trigger their `Drop`
+/// implementation whenever they are written to storage as they are dropped after
+/// being serialized.
+#[derive(Default, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
+pub struct NoDrop<T: Default>(T);
+
+impl<T: Default> Drop for NoDrop<T> {
+	fn drop(&mut self) {
+		mem::forget(mem::take(&mut self.0))
+	}
+}
+
+/// Sealed trait that marks a type with a suppressed Drop implementation.
+///
+/// Useful for constraining your storage items types by this bound to make
+/// sure they won't run drop when stored.
+pub trait SuppressedDrop: sealed::Sealed {
+	/// The wrapped whose drop function is ignored.
+	type Inner;
+
+	fn new(inner: Self::Inner) -> Self;
+	fn as_ref(&self) -> &Self::Inner;
+	fn as_mut(&mut self) -> &mut Self::Inner;
+	fn into_inner(self) -> Self::Inner;
+}
+
+impl SuppressedDrop for () {
+	type Inner = ();
+
+	fn new(inner: Self::Inner) -> Self {
+		inner
+	}
+
+	fn as_ref(&self) -> &Self::Inner {
+		self
+	}
+
+	fn as_mut(&mut self) -> &mut Self::Inner {
+		self
+	}
+
+	fn into_inner(self) -> Self::Inner {
+		self
+	}
+}
+
+impl<T: Default> SuppressedDrop for NoDrop<T> {
+	type Inner = T;
+
+	fn as_ref(&self) -> &Self::Inner {
+		&self.0
+	}
+
+	fn as_mut(&mut self) -> &mut Self::Inner {
+		&mut self.0
+	}
+
+	fn into_inner(mut self) -> Self::Inner {
+		mem::take(&mut self.0)
+	}
+
+	fn new(inner: Self::Inner) -> Self {
+		Self(inner)
+	}
+}
+
+mod sealed {
+	pub trait Sealed {}
+	impl Sealed for () {}
+	impl<T: Default> Sealed for super::NoDrop<T> {}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::ConstU64;
+	use crate::BoundedVec;
+	use sp_core::{ConstU32, ConstU64};
+
+	#[test]
+	fn incrementable_works() {
+		assert_eq!(0u8.increment(), Some(1));
+		assert_eq!(1u8.increment(), Some(2));
+
+		assert_eq!(u8::MAX.increment(), None);
+	}
 
 	#[test]
 	fn linear_storage_price_works() {
@@ -300,5 +444,18 @@ mod tests {
 		assert_eq!(p(1, 8), 31);
 
 		assert_eq!(p(u64::MAX, u64::MAX), u64::MAX);
+	}
+
+	#[test]
+	fn footprint_from_mel_works() {
+		let footprint = Footprint::from_mel::<(u8, BoundedVec<u8, ConstU32<9>>)>();
+		let expected_size = BoundedVec::<u8, ConstU32<9>>::max_encoded_len() as u64;
+		assert_eq!(expected_size, 10);
+		assert_eq!(footprint, Footprint { count: 1, size: expected_size + 1 });
+
+		let footprint = Footprint::from_mel::<(u8, BoundedVec<u8, ConstU32<999>>)>();
+		let expected_size = BoundedVec::<u8, ConstU32<999>>::max_encoded_len() as u64;
+		assert_eq!(expected_size, 1001);
+		assert_eq!(footprint, Footprint { count: 1, size: expected_size + 1 });
 	}
 }

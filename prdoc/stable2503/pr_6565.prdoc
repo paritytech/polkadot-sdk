@@ -1,0 +1,35 @@
+title: 'pallet_revive: Switch to 64bit RISC-V'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR updates pallet_revive to the newest PolkaVM version and adapts the test fixtures and syscall interface to work under 64bit.
+
+    Please note that after this PR no 32bit contracts can be deployed (they will be rejected at deploy time). Pre-deployed 32bit contracts are now considered defunct since we changes how parameters are passed for functions with more than 6 arguments.
+
+    ## Fixtures
+
+    The fixtures are now built for the 64bit target. I also removed the temporary directory mechanism that triggered a full rebuild every time. It also makes it easier to find the compiled fixtures since they are now always in `target/pallet-revive-fixtures`.
+
+    ## Syscall interface
+
+    ### Passing pointer
+
+    Registers and pointers are now 64bit wide. This allows us to pass u64 arguments in a single register. Before we needed two registers to pass them. This means that just as before we need one register per pointer we pass. We keep pointers as `u32` argument by truncating the register. This is done since the memory space of PolkaVM is 32bit.
+
+    ### Functions with more than 6 arguments
+
+    We only have 6 registers to pass arguments. This is why we pass a pointer to a struct when we need more than 6. Before this PR we expected a packed struct and interpreted it as SCALE encoded tuple. However, this was buggy because the `MaxEncodedLen` returned something that was larger than the packed size of the structure. This wasn't a problem before. But now the memory space changed in a way that things were placed at the edges of the memory space and those extra bytes lead to an out of bound access.
+
+    This is why this PR drops SCALE and expects the arguments to be passed as a pointer to a `C` aligned struct. This avoids unaligned accesses. However, revive needs to adapt its codegen to properly align the structure fields.
+
+    ## TODO
+    - [ ] Add multi block migration that wipes all existing contracts as we made breaking changes to the syscall interface
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-proc-macro
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

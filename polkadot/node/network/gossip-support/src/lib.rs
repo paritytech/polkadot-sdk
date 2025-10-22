@@ -28,6 +28,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	fmt,
 	time::{Duration, Instant},
+	u32,
 };
 
 use futures::{channel::oneshot, select, FutureExt as _};
@@ -41,12 +42,12 @@ use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_network_protocol::{
 	authority_discovery::AuthorityDiscovery, peer_set::PeerSet, GossipSupportNetworkMessage,
-	PeerId, Versioned,
+	PeerId, ValidationProtocols,
 };
 use polkadot_node_subsystem::{
 	messages::{
-		GossipSupportMessage, NetworkBridgeEvent, NetworkBridgeRxMessage, NetworkBridgeTxMessage,
-		RuntimeApiMessage, RuntimeApiRequest,
+		ChainApiMessage, GossipSupportMessage, NetworkBridgeEvent, NetworkBridgeRxMessage,
+		NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -69,6 +70,16 @@ const BACKOFF_DURATION: Duration = Duration::from_secs(5);
 #[cfg(test)]
 const BACKOFF_DURATION: Duration = Duration::from_millis(500);
 
+// The authorithy_discovery queries runs every ten minutes,
+// so it make sense to run a bit more often than that to
+// detect changes as often as we can, but not too often since
+// it won't help.
+#[cfg(not(test))]
+const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(5 * 60);
+
+#[cfg(test)]
+const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(2);
+
 /// Duration after which we consider low connectivity a problem.
 ///
 /// Especially at startup low connectivity is expected (authority discovery cache needs to be
@@ -79,17 +90,29 @@ const BACKOFF_DURATION: Duration = Duration::from_millis(500);
 const LOW_CONNECTIVITY_WARN_DELAY: Duration = Duration::from_secs(600);
 
 /// If connectivity is lower than this in percent, issue warning in logs.
-const LOW_CONNECTIVITY_WARN_THRESHOLD: usize = 90;
+const LOW_CONNECTIVITY_WARN_THRESHOLD: usize = 85;
 
 /// The Gossip Support subsystem.
 pub struct GossipSupport<AD> {
 	keystore: KeystorePtr,
 
 	last_session_index: Option<SessionIndex>,
+	/// Whether we are currently an authority or not.
+	is_authority_now: bool,
+	/// The minimum known session we build the topology for.
+	min_known_session: SessionIndex,
 	// Some(timestamp) if we failed to resolve
 	// at least a third of authorities the last time.
 	// `None` otherwise.
 	last_failure: Option<Instant>,
+
+	// Validators can restart during a session, so if they change
+	// their PeerID, we will connect to them in the best case after
+	// a session, so we need to try more often to resolved peers and
+	// reconnect to them. The authorithy_discovery queries runs every ten
+	// minutes, so we can't detect changes in the address more often
+	// that that.
+	last_connection_request: Option<Instant>,
 
 	/// First time we did not reach our connectivity threshold.
 	///
@@ -112,6 +135,9 @@ pub struct GossipSupport<AD> {
 	/// Authority discovery service.
 	authority_discovery: AD,
 
+	/// The oldest session we need to build a topology for because
+	/// the finalized blocks are from a session we haven't built a topology for.
+	finalized_needed_session: Option<u32>,
 	/// Subsystem metrics.
 	metrics: Metrics,
 }
@@ -131,11 +157,15 @@ where
 			keystore,
 			last_session_index: None,
 			last_failure: None,
+			last_connection_request: None,
 			failure_start: None,
 			resolved_authorities: HashMap::new(),
 			connected_authorities: HashMap::new(),
 			connected_peers: HashMap::new(),
+			min_known_session: u32::MAX,
 			authority_discovery,
+			finalized_needed_session: None,
+			is_authority_now: false,
 			metrics,
 		}
 	}
@@ -180,7 +210,22 @@ where
 						gum::debug!(target: LOG_TARGET, error = ?e);
 					}
 				},
-				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) => {},
+				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) =>
+					if let Some(session_index) = self.last_session_index {
+						if let Err(e) = self
+							.build_topology_for_last_finalized_if_needed(
+								ctx.sender(),
+								session_index,
+							)
+							.await
+						{
+							gum::warn!(
+								target: LOG_TARGET,
+								"Failed to build topology for last finalized session: {:?}",
+								e
+							);
+						}
+					},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return self,
 			}
 		}
@@ -196,15 +241,22 @@ where
 		for leaf in leaves {
 			let current_index = util::request_session_index_for_child(leaf, sender).await.await??;
 			let since_failure = self.last_failure.map(|i| i.elapsed()).unwrap_or_default();
+			let since_last_reconnect =
+				self.last_connection_request.map(|i| i.elapsed()).unwrap_or_default();
+
 			let force_request = since_failure >= BACKOFF_DURATION;
+			let re_resolve_authorities = since_last_reconnect >= TRY_RERESOLVE_AUTHORITIES;
 			let leaf_session = Some((current_index, leaf));
 			let maybe_new_session = match self.last_session_index {
 				Some(i) if current_index <= i => None,
 				_ => leaf_session,
 			};
 
-			let maybe_issue_connection =
-				if force_request { leaf_session } else { maybe_new_session };
+			let maybe_issue_connection = if force_request || re_resolve_authorities {
+				leaf_session
+			} else {
+				maybe_new_session
+			};
 
 			if let Some((session_index, relay_parent)) = maybe_issue_connection {
 				let session_info =
@@ -233,6 +285,9 @@ where
 						"New session detected",
 					);
 					self.last_session_index = Some(session_index);
+					self.is_authority_now =
+						ensure_i_am_an_authority(&self.keystore, &session_info.discovery_keys)
+							.is_ok();
 				}
 
 				// Connect to authorities from the past/present/future.
@@ -248,7 +303,7 @@ where
 				// connections to a much broader set of validators.
 				{
 					let mut connections = authorities_past_present_future(sender, leaf).await?;
-
+					self.last_connection_request = Some(Instant::now());
 					// Remove all of our locally controlled validator indices so we don't connect to
 					// ourself.
 					let connections =
@@ -259,13 +314,28 @@ where
 							// to clean up all connections.
 							Vec::new()
 						};
-					self.issue_connection_request(sender, connections).await;
+
+					if force_request || is_new_session {
+						self.issue_connection_request(sender, connections).await;
+					} else if re_resolve_authorities {
+						self.issue_connection_request_to_changed(sender, connections).await;
+					}
 				}
 
 				if is_new_session {
+					if let Err(err) = self
+						.build_topology_for_last_finalized_if_needed(sender, session_index)
+						.await
+					{
+						gum::warn!(
+							target: LOG_TARGET,
+							"Failed to build topology for last finalized session: {:?}",
+							err
+						);
+					}
+
 					// Gossip topology is only relevant for authorities in the current session.
 					let our_index = self.get_key_index_and_update_metrics(&session_info)?;
-
 					update_gossip_topology(
 						sender,
 						our_index,
@@ -279,6 +349,85 @@ where
 				// if new authorities are present.
 				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
+		}
+		Ok(())
+	}
+
+	/// Build the gossip topology for the session of the last finalized block if we haven't built
+	/// one.
+	///
+	/// This is needed to ensure that if finality is lagging accross session boundary and a restart
+	/// happens after the new session started, we built a topology from the session we haven't
+	/// finalized the blocks yet.
+	/// Once finalized blocks start to be from a session we've built a topology for, we can stop.
+	async fn build_topology_for_last_finalized_if_needed(
+		&mut self,
+		sender: &mut impl overseer::GossipSupportSenderTrait,
+		current_session_index: u32,
+	) -> Result<(), util::Error> {
+		self.min_known_session = self.min_known_session.min(current_session_index);
+
+		if self
+			.finalized_needed_session
+			.map(|oldest_needed_session| oldest_needed_session < self.min_known_session)
+			.unwrap_or(true)
+		{
+			let (tx, rx) = oneshot::channel();
+			sender.send_message(ChainApiMessage::FinalizedBlockNumber(tx)).await;
+			let finalized_block_number = match rx.await? {
+				Ok(block_number) => block_number,
+				_ => return Ok(()),
+			};
+
+			let (tx, rx) = oneshot::channel();
+			sender
+				.send_message(ChainApiMessage::FinalizedBlockHash(finalized_block_number, tx))
+				.await;
+
+			let finalized_block_hash = match rx.await? {
+				Ok(Some(block_hash)) => block_hash,
+				_ => return Ok(()),
+			};
+
+			let finalized_session_index =
+				util::request_session_index_for_child(finalized_block_hash, sender)
+					.await
+					.await??;
+
+			if finalized_session_index < self.min_known_session &&
+				Some(finalized_session_index) != self.finalized_needed_session
+			{
+				gum::debug!(
+					target: LOG_TARGET,
+					?finalized_block_hash,
+					?finalized_block_number,
+					?finalized_session_index,
+					"Building topology for finalized block session",
+				);
+
+				let finalized_session_info = match util::request_session_info(
+					finalized_block_hash,
+					finalized_session_index,
+					sender,
+				)
+				.await
+				.await??
+				{
+					Some(session_info) => session_info,
+					_ => return Ok(()),
+				};
+
+				let our_index = self.get_key_index_and_update_metrics(&finalized_session_info)?;
+				update_gossip_topology(
+					sender,
+					our_index,
+					finalized_session_info.discovery_keys.clone(),
+					finalized_block_hash,
+					finalized_session_index,
+				)
+				.await?;
+			}
+			self.finalized_needed_session = Some(finalized_session_index);
 		}
 		Ok(())
 	}
@@ -324,17 +473,14 @@ where
 		authority_check_result
 	}
 
-	async fn issue_connection_request<Sender>(
+	async fn resolve_authorities(
 		&mut self,
-		sender: &mut Sender,
 		authorities: Vec<AuthorityDiscoveryId>,
-	) where
-		Sender: overseer::GossipSupportSenderTrait,
-	{
-		let num = authorities.len();
+	) -> (Vec<HashSet<Multiaddr>>, HashMap<AuthorityDiscoveryId, HashSet<Multiaddr>>, usize) {
 		let mut validator_addrs = Vec::with_capacity(authorities.len());
-		let mut failures = 0;
 		let mut resolved = HashMap::with_capacity(authorities.len());
+		let mut failures = 0;
+
 		for authority in authorities {
 			if let Some(addrs) =
 				self.authority_discovery.get_addresses_by_authority_id(authority.clone()).await
@@ -350,6 +496,67 @@ where
 				);
 			}
 		}
+		(validator_addrs, resolved, failures)
+	}
+
+	async fn issue_connection_request_to_changed<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		authorities: Vec<AuthorityDiscoveryId>,
+	) where
+		Sender: overseer::GossipSupportSenderTrait,
+	{
+		let (_, resolved, _) = self.resolve_authorities(authorities).await;
+
+		let mut changed = Vec::new();
+
+		for (authority, new_addresses) in &resolved {
+			let new_peer_ids = new_addresses
+				.iter()
+				.flat_map(|addr| parse_addr(addr.clone()).ok().map(|(p, _)| p))
+				.collect::<HashSet<_>>();
+			match self.resolved_authorities.get(authority) {
+				Some(old_addresses) => {
+					let old_peer_ids = old_addresses
+						.iter()
+						.flat_map(|addr| parse_addr(addr.clone()).ok().map(|(p, _)| p))
+						.collect::<HashSet<_>>();
+					if !old_peer_ids.is_superset(&new_peer_ids) {
+						changed.push(new_addresses.clone());
+					}
+				},
+				None => changed.push(new_addresses.clone()),
+			}
+		}
+		gum::debug!(
+			target: LOG_TARGET,
+			num_changed = ?changed.len(),
+			?changed,
+			"Issuing a connection request to changed validators"
+		);
+		if !changed.is_empty() {
+			self.resolved_authorities = resolved;
+
+			sender
+				.send_message(NetworkBridgeTxMessage::AddToResolvedValidators {
+					validator_addrs: changed,
+					peer_set: PeerSet::Validation,
+				})
+				.await;
+		}
+	}
+
+	async fn issue_connection_request<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		authorities: Vec<AuthorityDiscoveryId>,
+	) where
+		Sender: overseer::GossipSupportSenderTrait,
+	{
+		let num = authorities.len();
+
+		let (validator_addrs, resolved, failures) = self.resolve_authorities(authorities).await;
+
 		self.resolved_authorities = resolved;
 		gum::debug!(target: LOG_TARGET, %num, "Issuing a connection request");
 
@@ -399,16 +606,24 @@ where
 	{
 		let mut authority_ids: HashMap<PeerId, HashSet<AuthorityDiscoveryId>> = HashMap::new();
 		for authority in authorities {
-			let peer_id = self
+			let peer_ids = self
 				.authority_discovery
 				.get_addresses_by_authority_id(authority.clone())
 				.await
 				.into_iter()
 				.flat_map(|list| list.into_iter())
-				.find_map(|addr| parse_addr(addr).ok().map(|(p, _)| p));
+				.flat_map(|addr| parse_addr(addr).ok().map(|(p, _)| p))
+				.collect::<HashSet<_>>();
 
-			if let Some(p) = peer_id {
-				authority_ids.entry(p).or_default().insert(authority);
+			gum::trace!(
+				target: LOG_TARGET,
+				?peer_ids,
+				?authority,
+				"Resolved to peer ids"
+			);
+
+			for p in peer_ids {
+				authority_ids.entry(p).or_default().insert(authority.clone());
 			}
 		}
 
@@ -480,9 +695,7 @@ where
 			NetworkBridgeEvent::PeerMessage(_, message) => {
 				// match void -> LLVM unreachable
 				match message {
-					Versioned::V1(m) => match m {},
-					Versioned::V2(m) => match m {},
-					Versioned::V3(m) => match m {},
+					ValidationProtocols::V3(m) => match m {},
 				}
 			},
 		}
@@ -498,13 +711,11 @@ where
 			.resolved_authorities
 			.iter()
 			.filter(|(a, _)| !self.connected_authorities.contains_key(a));
-		// TODO: Make that warning once connectivity issues are fixed (no point in warning, if
-		// we already know it is broken.
-		// https://github.com/paritytech/polkadot/issues/3921
-		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD {
-			gum::debug!(
+		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD && self.is_authority_now {
+			gum::error!(
 				target: LOG_TARGET,
-				"Connectivity seems low, we are only connected to {}% of available validators (see debug logs for details)", connected_ratio
+				session_index = self.last_session_index.as_ref().map(|s| *s).unwrap_or_default(),
+				"Connectivity seems low, we are only connected to {connected_ratio}% of available validators (see debug logs for details), if this persists more than a session action needs to be taken"
 			);
 		}
 		let pretty = PrettyAuthorities(unconnected_authorities);

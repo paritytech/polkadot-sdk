@@ -16,6 +16,8 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
+use alloc::boxed::Box;
+use core::marker::PhantomData;
 use frame_support::traits::{
 	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
 	Get, Imbalance, OnUnbalanced, OriginTrait,
@@ -23,7 +25,6 @@ use frame_support::traits::{
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
 use sp_runtime::traits::Zero;
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::{
 	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
 	Parent, WeightLimit,
@@ -66,7 +67,7 @@ where
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 	<R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
-	fn on_unbalanceds<B>(
+	fn on_unbalanceds(
 		mut fees_then_tips: impl Iterator<
 			Item = fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>,
 		>,
@@ -164,7 +165,7 @@ where
 			match AccountIdConverter::convert_location(&root_location) {
 				Some(a) => a,
 				None => {
-					log::warn!("Failed to convert root origin into account id");
+					tracing::warn!(target: "xcm::on_unbalanced", "Failed to convert root origin into account id");
 					return
 				},
 			};
@@ -186,7 +187,7 @@ where
 		);
 
 		if let Err(err) = result {
-			log::warn!("Failed to teleport slashed assets: {:?}", err);
+			tracing::warn!(target: "xcm::on_unbalanced", error=?err, "Failed to teleport slashed assets");
 		}
 	}
 }

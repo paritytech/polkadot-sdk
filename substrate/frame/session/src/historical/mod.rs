@@ -30,17 +30,18 @@ pub mod offchain;
 pub mod onchain;
 mod shared;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::fmt::Debug;
 use sp_runtime::{
 	traits::{Convert, OpaqueKeys},
 	KeyTypeId,
 };
 use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
-use sp_std::prelude::*;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
+	LayoutV0, MemoryDB, RandomState, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
 };
 
 use frame_support::{
@@ -49,9 +50,12 @@ use frame_support::{
 	Parameter,
 };
 
+const LOG_TARGET: &'static str = "runtime::historical";
+
 use crate::{self as pallet_session, Pallet as Session};
 
 pub use pallet::*;
+use sp_trie::{accessed_nodes_tracker::AccessedNodesTracker, recorder_ext::RecorderExt};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -68,6 +72,10 @@ pub mod pallet {
 	/// Config necessary for the historical pallet.
 	#[pallet::config]
 	pub trait Config: pallet_session::Config + frame_system::Config {
+		/// The overarching event type.
+		#[allow(deprecated)]
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// Full identification of the validator.
 		type FullIdentification: Parameter;
 
@@ -90,6 +98,15 @@ pub mod pallet {
 	/// The range of historical sessions we store. [first, last)
 	#[pallet::storage]
 	pub type StoredRange<T> = StorageValue<_, (SessionIndex, SessionIndex), OptionQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T> {
+		/// The merkle root of the validators of the said session were stored
+		RootStored { index: SessionIndex },
+		/// The merkle roots of up to this session index were pruned
+		RootsPruned { up_to: SessionIndex },
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -102,7 +119,7 @@ impl<T: Config> Pallet<T> {
 				None => return, // nothing to prune.
 			};
 
-			let up_to = sp_std::cmp::min(up_to, end);
+			let up_to = core::cmp::min(up_to, end);
 
 			if up_to < start {
 				return // out of bounds. harmless.
@@ -116,7 +133,19 @@ impl<T: Config> Pallet<T> {
 			} else {
 				Some((new_start, end))
 			}
-		})
+		});
+
+		Self::deposit_event(Event::<T>::RootsPruned { up_to });
+	}
+
+	fn full_id_validators() -> Vec<(T::ValidatorId, T::FullIdentification)> {
+		<Session<T>>::validators()
+			.into_iter()
+			.filter_map(|validator| {
+				T::FullIdentificationOf::convert(validator.clone())
+					.map(|full_id| (validator, full_id))
+			})
+			.collect::<Vec<_>>()
 	}
 }
 
@@ -157,7 +186,7 @@ pub trait SessionManager<ValidatorId, FullIdentification>:
 
 /// An `SessionManager` implementation that wraps an inner `I` and also
 /// sets the historical trie root of the ending session.
-pub struct NoteHistoricalRoot<T, I>(sp_std::marker::PhantomData<(T, I)>);
+pub struct NoteHistoricalRoot<T, I>(core::marker::PhantomData<(T, I)>);
 
 impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHistoricalRoot<T, I> {
 	fn do_new_session(new_index: SessionIndex, is_genesis: bool) -> Option<Vec<T::ValidatorId>> {
@@ -177,7 +206,10 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 		if let Some(new_validators) = new_validators_and_id {
 			let count = new_validators.len() as ValidatorCount;
 			match ProvingTrie::<T>::generate_for(new_validators) {
-				Ok(trie) => <HistoricalSessions<T>>::insert(new_index, &(trie.root, count)),
+				Ok(trie) => {
+					<HistoricalSessions<T>>::insert(new_index, &(trie.root, count));
+					Pallet::<T>::deposit_event(Event::RootStored { index: new_index });
+				},
 				Err(reason) => {
 					print("Failed to generate historical ancestry-inclusion proof.");
 					print(reason);
@@ -187,6 +219,7 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 			let previous_index = new_index.saturating_sub(1);
 			if let Some(previous_session) = <HistoricalSessions<T>>::get(previous_index) {
 				<HistoricalSessions<T>>::insert(new_index, previous_session);
+				Pallet::<T>::deposit_event(Event::RootStored { index: new_index });
 			}
 		}
 
@@ -231,7 +264,7 @@ impl<T: Config> ProvingTrie<T> {
 	where
 		I: IntoIterator<Item = (T::ValidatorId, T::FullIdentification)>,
 	{
-		let mut db = MemoryDB::default();
+		let mut db = MemoryDB::with_hasher(RandomState::default());
 		let mut root = Default::default();
 
 		{
@@ -243,7 +276,7 @@ impl<T: Config> ProvingTrie<T> {
 					Some(k) => k,
 				};
 
-				let full_id = (validator, full_id);
+				let id_tuple = (validator, full_id);
 
 				// map each key to the owner index.
 				for key_id in T::Keys::key_ids() {
@@ -251,12 +284,11 @@ impl<T: Config> ProvingTrie<T> {
 					let res =
 						(key_id, key).using_encoded(|k| i.using_encoded(|v| trie.insert(k, v)));
 
-					let _ = res.map_err(|_| "failed to insert into trie")?;
+					res.map_err(|_| "failed to insert into trie")?;
 				}
 
 				// map each owner index to the full identification.
-				let _ = i
-					.using_encoded(|k| full_id.using_encoded(|v| trie.insert(k, v)))
+				i.using_encoded(|k| id_tuple.using_encoded(|v| trie.insert(k, v)))
 					.map_err(|_| "failed to insert into trie")?;
 			}
 		}
@@ -264,35 +296,16 @@ impl<T: Config> ProvingTrie<T> {
 		Ok(ProvingTrie { db, root })
 	}
 
-	fn from_nodes(root: T::Hash, nodes: &[Vec<u8>]) -> Self {
-		use sp_trie::HashDBT;
-
-		let mut memory_db = MemoryDB::default();
-		for node in nodes {
-			HashDBT::insert(&mut memory_db, EMPTY_PREFIX, &node[..]);
-		}
-
-		ProvingTrie { db: memory_db, root }
+	fn from_proof(root: T::Hash, proof: StorageProof) -> Self {
+		ProvingTrie { db: proof.into_memory_db(), root }
 	}
 
 	/// Prove the full verification data for a given key and key ID.
 	pub fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>> {
 		let mut recorder = Recorder::<LayoutV0<T::Hashing>>::new();
-		{
-			let trie =
-				TrieDBBuilder::new(&self.db, &self.root).with_recorder(&mut recorder).build();
-			let val_idx = (key_id, key_data).using_encoded(|s| {
-				trie.get(s).ok()?.and_then(|raw| u32::decode(&mut &*raw).ok())
-			})?;
+		self.query(key_id, key_data, Some(&mut recorder));
 
-			val_idx.using_encoded(|s| {
-				trie.get(s)
-					.ok()?
-					.and_then(|raw| <IdentificationTuple<T>>::decode(&mut &*raw).ok())
-			})?;
-		}
-
-		Some(recorder.drain().into_iter().map(|r| r.data).collect())
+		Some(recorder.into_raw_storage_proof())
 	}
 
 	/// Access the underlying trie root.
@@ -300,10 +313,17 @@ impl<T: Config> ProvingTrie<T> {
 		&self.root
 	}
 
-	// Check a proof contained within the current memory-db. Returns `None` if the
-	// nodes within the current `MemoryDB` are insufficient to query the item.
-	fn query(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<IdentificationTuple<T>> {
-		let trie = TrieDBBuilder::new(&self.db, &self.root).build();
+	/// Search for a key inside the proof.
+	fn query(
+		&self,
+		key_id: KeyTypeId,
+		key_data: &[u8],
+		recorder: Option<&mut dyn TrieRecorder<T::Hash>>,
+	) -> Option<IdentificationTuple<T>> {
+		let trie = TrieDBBuilder::new(&self.db, &self.root)
+			.with_optional_recorder(recorder)
+			.build();
+
 		let val_idx = (key_id, key_data)
 			.using_encoded(|s| trie.get(s))
 			.ok()?
@@ -322,13 +342,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 
 	fn prove(key: (KeyTypeId, D)) -> Option<Self::Proof> {
 		let session = <Session<T>>::current_index();
-		let validators = <Session<T>>::validators()
-			.into_iter()
-			.filter_map(|validator| {
-				T::FullIdentificationOf::convert(validator.clone())
-					.map(|full_id| (validator, full_id))
-			})
-			.collect::<Vec<_>>();
+		let validators = Self::full_id_validators();
 
 		let count = validators.len() as ValidatorCount;
 
@@ -343,30 +357,36 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 	}
 
 	fn check_proof(key: (KeyTypeId, D), proof: Self::Proof) -> Option<IdentificationTuple<T>> {
-		let (id, data) = key;
-
-		if proof.session == <Session<T>>::current_index() {
-			<Session<T>>::key_owner(id, data.as_ref()).and_then(|owner| {
-				T::FullIdentificationOf::convert(owner.clone()).and_then(move |id| {
-					let count = <Session<T>>::validators().len() as ValidatorCount;
-
-					if count != proof.validator_count {
-						return None
-					}
-
-					Some((owner, id))
-				})
-			})
-		} else {
-			let (root, count) = <HistoricalSessions<T>>::get(&proof.session)?;
-
-			if count != proof.validator_count {
-				return None
-			}
-
-			let trie = ProvingTrie::<T>::from_nodes(root, &proof.trie_nodes);
-			trie.query(id, data.as_ref())
+		fn print_error<E: Debug>(e: E) {
+			log::error!(
+				target: LOG_TARGET,
+				"Rejecting equivocation report because of key ownership proof error: {:?}", e
+			);
 		}
+
+		let (id, data) = key;
+		let (root, count) = if proof.session == <Session<T>>::current_index() {
+			let validators = Self::full_id_validators();
+			let count = validators.len() as ValidatorCount;
+			let trie = ProvingTrie::<T>::generate_for(validators).map_err(print_error).ok()?;
+			(trie.root, count)
+		} else {
+			<HistoricalSessions<T>>::get(&proof.session)?
+		};
+
+		if count != proof.validator_count {
+			print_error("InvalidCount");
+			return None
+		}
+
+		let proof = StorageProof::new_with_duplicate_nodes_check(proof.trie_nodes)
+			.map_err(print_error)
+			.ok()?;
+		let mut accessed_nodes_tracker = AccessedNodesTracker::<T::Hash>::new(proof.len());
+		let trie = ProvingTrie::<T>::from_proof(root, proof);
+		let res = trie.query(id, data.as_ref(), Some(&mut accessed_nodes_tracker))?;
+		accessed_nodes_tracker.ensure_no_unused_nodes().map_err(print_error).ok()?;
+		Some(res)
 	}
 }
 
@@ -376,6 +396,7 @@ pub(crate) mod tests {
 	use crate::mock::{
 		force_new_session, set_next_validators, NextValidators, Session, System, Test,
 	};
+	use alloc::vec;
 
 	use sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, BuildStorage};
 	use sp_state_machine::BasicExternalities;
@@ -396,7 +417,7 @@ pub(crate) mod tests {
 				frame_system::Pallet::<Test>::inc_providers(k);
 			}
 		});
-		pallet_session::GenesisConfig::<Test> { keys }
+		pallet_session::GenesisConfig::<Test> { keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 		sp_io::TestExternalities::new(t)

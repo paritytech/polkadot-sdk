@@ -1,18 +1,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Parachain PoV recovery
 //!
@@ -48,23 +49,24 @@
 
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
 use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
-use sp_api::RuntimeApiInfo;
 use sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
-use polkadot_node_subsystem::messages::{AvailabilityRecoveryMessage, RuntimeApiRequest};
+use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, SessionIndex,
+	CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Id as ParaId, SessionIndex,
 };
 
 use cumulus_primitives_core::ParachainBlockData;
-use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_streams::pending_candidates;
 
-use codec::Decode;
+use codec::{Decode, DecodeAll};
 use futures::{
-	channel::mpsc::Receiver, select, stream::FuturesUnordered, Future, FutureExt, Stream, StreamExt,
+	channel::mpsc::Receiver, select, stream::FuturesUnordered, Future, FutureExt, StreamExt,
 };
 use futures_timer::Delay;
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
@@ -349,6 +351,38 @@ where
 		self.clear_waiting_recovery(&hash);
 	}
 
+	/// Try to decode [`ParachainBlockData`] from `data`.
+	///
+	/// Internally it will handle the decoding of the different versions.
+	fn decode_parachain_block_data(
+		data: &[u8],
+		expected_block_hash: Block::Hash,
+	) -> Option<ParachainBlockData<Block>> {
+		match ParachainBlockData::<Block>::decode_all(&mut &data[..]) {
+			Ok(block_data) => {
+				if block_data.blocks().last().map_or(false, |b| b.hash() == expected_block_hash) {
+					return Some(block_data)
+				}
+
+				tracing::debug!(
+					target: LOG_TARGET,
+					?expected_block_hash,
+					"Could not find the expected block hash as latest block in `ParachainBlockData`"
+				);
+			},
+			Err(error) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?expected_block_hash,
+					?error,
+					"Could not decode `ParachainBlockData` from recovered PoV",
+				);
+			},
+		}
+
+		None
+	}
+
 	/// Handle a recovered candidate.
 	async fn handle_candidate_recovered(&mut self, block_hash: Block::Hash, pov: Option<&PoV>) {
 		let pov = match pov {
@@ -384,23 +418,24 @@ where
 				},
 			};
 
-		let block_data = match ParachainBlockData::<Block>::decode(&mut &raw_block_data[..]) {
-			Ok(d) => d,
-			Err(error) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?error,
-					"Failed to decode parachain block data from recovered PoV",
-				);
-
-				self.reset_candidate(block_hash);
-				return
-			},
+		let Some(block_data) = Self::decode_parachain_block_data(&raw_block_data, block_hash)
+		else {
+			self.reset_candidate(block_hash);
+			return
 		};
 
-		let block = block_data.into_block();
+		let blocks = block_data.into_blocks();
 
-		let parent = *block.header().parent_hash();
+		let Some(parent) = blocks.first().map(|b| *b.header().parent_hash()) else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				"Recovered candidate doesn't contain any blocks.",
+			);
+
+			self.reset_candidate(block_hash);
+			return;
+		};
 
 		match self.parachain_client.block_status(parent) {
 			Ok(BlockStatus::Unknown) => {
@@ -418,7 +453,12 @@ where
 						"Waiting for recovery of parent.",
 					);
 
-					self.waiting_for_parent.entry(parent).or_default().push(block);
+					blocks.into_iter().for_each(|b| {
+						self.waiting_for_parent
+							.entry(*b.header().parent_hash())
+							.or_default()
+							.push(b);
+					});
 					return
 				} else {
 					tracing::debug!(
@@ -447,17 +487,20 @@ where
 			_ => (),
 		}
 
-		self.import_block(block);
+		self.import_blocks(blocks.into_iter());
 	}
 
-	/// Import the given `block`.
+	/// Import the given `blocks`.
 	///
 	/// This will also recursively drain `waiting_for_parent` and import them as well.
-	fn import_block(&mut self, block: Block) {
-		let mut blocks = VecDeque::new();
+	fn import_blocks(&mut self, blocks: impl Iterator<Item = Block>) {
+		let mut blocks = VecDeque::from_iter(blocks);
 
-		tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), "Importing block retrieved using pov_recovery");
-		blocks.push_back(block);
+		tracing::debug!(
+			target: LOG_TARGET,
+			blocks = ?blocks.iter().map(|b| b.hash()),
+			"Importing blocks retrieved using pov_recovery",
+		);
 
 		let mut incoming_blocks = Vec::new();
 
@@ -484,6 +527,8 @@ where
 		}
 
 		self.parachain_import_queue
+			// Use `ConsensusBroadcast` to inform the import pipeline that this blocks needs to be
+			// imported.
 			.import_blocks(BlockOrigin::ConsensusBroadcast, incoming_blocks);
 	}
 
@@ -559,7 +604,7 @@ where
 		loop {
 			select! {
 				next_pending_candidates = pending_candidates.next() => {
-					if let Some((candidates, session_index)) = next_pending_candidates {
+					if let Some((candidates, session_index, _)) = next_pending_candidates {
 						for candidate in candidates {
 							self.handle_pending_candidate(candidate, session_index);
 						}
@@ -586,7 +631,7 @@ where
 						if let Some(waiting_blocks) = self.waiting_for_parent.remove(&imported.hash) {
 							for block in waiting_blocks {
 								tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), resolved_parent = ?imported.hash, "Found new waiting child block during import, queuing.");
-								self.import_block(block);
+								self.import_blocks(std::iter::once(block));
 							}
 						};
 
@@ -614,93 +659,4 @@ where
 			}
 		}
 	}
-}
-
-/// Returns a stream over pending candidates for the parachain corresponding to `para_id`.
-async fn pending_candidates(
-	relay_chain_client: impl RelayChainInterface + Clone,
-	para_id: ParaId,
-	sync_service: Arc<dyn SyncOracle + Sync + Send>,
-) -> RelayChainResult<impl Stream<Item = (Vec<CommittedCandidateReceipt>, SessionIndex)>> {
-	let import_notification_stream = relay_chain_client.import_notification_stream().await?;
-
-	let filtered_stream = import_notification_stream.filter_map(move |n| {
-		let client_for_closure = relay_chain_client.clone();
-		let sync_oracle = sync_service.clone();
-		async move {
-			let hash = n.hash();
-			if sync_oracle.is_major_syncing() {
-				tracing::debug!(
-					target: LOG_TARGET,
-					relay_hash = ?hash,
-					"Skipping candidate due to sync.",
-				);
-				return None
-			}
-
-			let runtime_api_version = client_for_closure
-				.version(hash)
-				.await
-				.map_err(|e| {
-					tracing::error!(
-						target: LOG_TARGET,
-						error = ?e,
-						"Failed to fetch relay chain runtime version.",
-					)
-				})
-				.ok()?;
-			let parachain_host_runtime_api_version = runtime_api_version
-				.api_version(
-					&<dyn polkadot_primitives::runtime_api::ParachainHost<
-						polkadot_primitives::Block,
-					>>::ID,
-				)
-				.unwrap_or_default();
-
-			// If the relay chain runtime does not support the new runtime API, fallback to the
-			// deprecated one.
-			let pending_availability_result = if parachain_host_runtime_api_version <
-				RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
-			{
-				#[allow(deprecated)]
-				client_for_closure
-					.candidate_pending_availability(hash, para_id)
-					.await
-					.map_err(|e| {
-						tracing::error!(
-							target: LOG_TARGET,
-							error = ?e,
-							"Failed to fetch pending candidates.",
-						)
-					})
-					.map(|candidate| candidate.into_iter().collect::<Vec<_>>())
-			} else {
-				client_for_closure.candidates_pending_availability(hash, para_id).await.map_err(
-					|e| {
-						tracing::error!(
-							target: LOG_TARGET,
-							error = ?e,
-							"Failed to fetch pending candidates.",
-						)
-					},
-				)
-			};
-
-			let session_index_result =
-				client_for_closure.session_index_for_child(hash).await.map_err(|e| {
-					tracing::error!(
-						target: LOG_TARGET,
-						error = ?e,
-						"Failed to fetch session index.",
-					)
-				});
-
-			if let Ok(candidates) = pending_availability_result {
-				session_index_result.map(|session_index| (candidates, session_index)).ok()
-			} else {
-				None
-			}
-		}
-	});
-	Ok(filtered_stream)
 }

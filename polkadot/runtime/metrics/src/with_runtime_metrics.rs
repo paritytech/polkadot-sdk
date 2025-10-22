@@ -22,13 +22,12 @@
 
 const TRACING_TARGET: &'static str = "metrics";
 
+use alloc::vec::Vec;
 use codec::Encode;
 use polkadot_primitives::{
 	metric_definitions::{CounterDefinition, CounterVecDefinition, HistogramDefinition},
 	RuntimeMetricLabelValues, RuntimeMetricOp, RuntimeMetricUpdate,
 };
-
-use sp_std::prelude::*;
 
 /// Holds a set of counters that have different values for their labels,
 /// like Prometheus `CounterVec`.
@@ -143,5 +142,5 @@ impl Histogram {
 
 /// Returns current time in ns
 pub fn get_current_time() -> u128 {
-	frame_benchmarking::benchmarking::current_time()
+	frame_benchmarking::current_time()
 }

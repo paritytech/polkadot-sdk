@@ -1,0 +1,30 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Stabilize V16 metadata
+
+doc:
+  - audience: Node Dev
+    description: |
+      Metadata V16 is stabilized. V16 metadata exposes information about Pallet View Functions and V5 transactions,
+      and can be obtained, where applicable, by using the Runtime APIs `Metadata_metadata_at_version(16)`.
+
+crates:
+  # Update to support frame-metadata 23. Changes pub interfaces:
+  - name: sp-metadata-ir
+    bump: major
+  # Limit to fetching at latest v15 metadata:
+  - name: sc-runtime-utilities
+    bump: patch
+  # Use newer frame-metadata; should be no observable change (CI wants minor):
+  - name: substrate-wasm-builder
+    bump: minor
+  # frame-metadata bumped in this and exposed but via hidden docs. No code changes needed (CI wants minor):
+  - name: frame-support
+    bump: minor
+  # Uses newer frame-support / metadata-ir but no code change needed (CI wants minor):
+  - name: pallet-example-view-functions
+    bump: minor
+  # Avoid fetching V16 metadata:
+  - name: frame-benchmarking-cli
+    bump: minor

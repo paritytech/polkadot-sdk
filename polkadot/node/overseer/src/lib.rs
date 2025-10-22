@@ -60,6 +60,8 @@
 // unused dependencies can not work for test and examples at the same time
 // yielding false positives
 #![warn(missing_docs)]
+// TODO https://github.com/paritytech/polkadot-sdk/issues/5793
+#![allow(dead_code, irrefutable_let_patterns)]
 
 use std::{
 	collections::{hash_map, HashMap},
@@ -76,19 +78,19 @@ use sc_client_api::{BlockImportNotification, BlockchainEvents, FinalityNotificat
 
 use self::messages::{BitfieldSigningMessage, PvfCheckerMessage};
 use polkadot_node_subsystem_types::messages::{
-	ApprovalDistributionMessage, ApprovalVotingMessage, AvailabilityDistributionMessage,
-	AvailabilityRecoveryMessage, AvailabilityStoreMessage, BitfieldDistributionMessage,
-	CandidateBackingMessage, CandidateValidationMessage, ChainApiMessage, ChainSelectionMessage,
-	CollationGenerationMessage, CollatorProtocolMessage, DisputeCoordinatorMessage,
-	DisputeDistributionMessage, GossipSupportMessage, NetworkBridgeRxMessage,
-	NetworkBridgeTxMessage, ProspectiveParachainsMessage, ProvisionerMessage, RuntimeApiMessage,
-	StatementDistributionMessage,
+	ApprovalDistributionMessage, ApprovalVotingMessage, ApprovalVotingParallelMessage,
+	AvailabilityDistributionMessage, AvailabilityRecoveryMessage, AvailabilityStoreMessage,
+	BitfieldDistributionMessage, CandidateBackingMessage, CandidateValidationMessage,
+	ChainApiMessage, ChainSelectionMessage, CollationGenerationMessage, CollatorProtocolMessage,
+	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
+	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
+	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
-	jaeger, ActivatedLeaf, ActiveLeavesUpdate, ChainApiBackend, OverseerSignal,
-	RuntimeApiSubsystemClient, UnpinHandle,
+	ActivatedLeaf, ActiveLeavesUpdate, ChainApiBackend, OverseerSignal, RuntimeApiSubsystemClient,
+	UnpinHandle,
 };
 
 pub mod metrics;
@@ -105,10 +107,11 @@ pub use polkadot_node_metrics::{
 
 pub use orchestra as gen;
 pub use orchestra::{
-	contextbounds, orchestra, subsystem, FromOrchestra, MapSubsystem, MessagePacket,
-	OrchestraError as OverseerError, SignalsReceived, Spawner, Subsystem, SubsystemContext,
-	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
-	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
+	contextbounds, orchestra, subsystem, FromOrchestra, HighPriority, MapSubsystem, MessagePacket,
+	NormalPriority, OrchestraError as OverseerError, Priority, PriorityLevel, SignalsReceived,
+	Spawner, Subsystem, SubsystemContext, SubsystemIncomingMessages, SubsystemInstance,
+	SubsystemMeterReadouts, SubsystemMeters, SubsystemSender, TimeoutExt, ToOrchestra,
+	TrySendError,
 };
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -187,9 +190,20 @@ impl Handle {
 		self.send_and_log_error(Event::BlockImported(block)).await
 	}
 
-	/// Send some message to one of the `Subsystem`s.
+	/// Send some message with normal priority to one of the `Subsystem`s.
 	pub async fn send_msg(&mut self, msg: impl Into<AllMessages>, origin: &'static str) {
-		self.send_and_log_error(Event::MsgToSubsystem { msg: msg.into(), origin }).await
+		self.send_msg_with_priority(msg, origin, PriorityLevel::Normal).await
+	}
+
+	/// Send some message with the specified priority to one of the `Subsystem`s.
+	pub async fn send_msg_with_priority(
+		&mut self,
+		msg: impl Into<AllMessages>,
+		origin: &'static str,
+		priority: PriorityLevel,
+	) {
+		self.send_and_log_error(Event::MsgToSubsystem { msg: msg.into(), origin, priority })
+			.await
 	}
 
 	/// Send a message not providing an origin.
@@ -293,6 +307,8 @@ pub enum Event {
 		msg: AllMessages,
 		/// The originating subsystem name.
 		origin: &'static str,
+		/// The priority of the message.
+		priority: PriorityLevel,
 	},
 	/// A request from the outer world.
 	ExternalRequest(ExternalRequest),
@@ -465,7 +481,8 @@ pub async fn forward_events<P: BlockchainEvents<Block>>(client: Arc<P>, mut hand
 	message_capacity=2048,
 )]
 pub struct Overseer<SupportsParachains> {
-	#[subsystem(blocking, CandidateValidationMessage, sends: [
+	#[subsystem(CandidateValidationMessage, sends: [
+		ChainApiMessage,
 		RuntimeApiMessage,
 	])]
 	candidate_validation: CandidateValidation,
@@ -495,7 +512,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 		ProspectiveParachainsMessage,
 		ChainApiMessage,
-	])]
+	], can_receive_priority_messages)]
 	statement_distribution: StatementDistribution,
 
 	#[subsystem(AvailabilityDistributionMessage, sends: [
@@ -520,19 +537,19 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	bitfield_signing: BitfieldSigning,
 
-	#[subsystem(BitfieldDistributionMessage, sends: [
+	#[subsystem(blocking, message_capacity: 8192, BitfieldDistributionMessage, sends: [
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ProvisionerMessage,
-	])]
+	], can_receive_priority_messages)]
 	bitfield_distribution: BitfieldDistribution,
 
 	#[subsystem(ProvisionerMessage, sends: [
 		RuntimeApiMessage,
 		CandidateBackingMessage,
-		ChainApiMessage,
 		DisputeCoordinatorMessage,
 		ProspectiveParachainsMessage,
+		ChainApiMessage,
 	])]
 	provisioner: Provisioner,
 
@@ -548,7 +565,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, NetworkBridgeRxMessage, sends: [
 		BitfieldDistributionMessage,
 		StatementDistributionMessage,
-		ApprovalDistributionMessage,
+		ApprovalVotingParallelMessage,
 		GossipSupportMessage,
 		DisputeDistributionMessage,
 		CollationGenerationMessage,
@@ -580,7 +597,8 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, message_capacity: 64000, ApprovalDistributionMessage, sends: [
 		NetworkBridgeTxMessage,
 		ApprovalVotingMessage,
-	])]
+		RuntimeApiMessage,
+	], can_receive_priority_messages)]
 	approval_distribution: ApprovalDistribution,
 
 	#[subsystem(blocking, ApprovalVotingMessage, sends: [
@@ -593,13 +611,24 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 	])]
 	approval_voting: ApprovalVoting,
-
+	#[subsystem(blocking, message_capacity: 64000, ApprovalVotingParallelMessage, sends: [
+		AvailabilityRecoveryMessage,
+		CandidateValidationMessage,
+		ChainApiMessage,
+		ChainSelectionMessage,
+		DisputeCoordinatorMessage,
+		RuntimeApiMessage,
+		NetworkBridgeTxMessage,
+		ApprovalVotingParallelMessage,
+	], can_receive_priority_messages)]
+	approval_voting_parallel: ApprovalVotingParallel,
 	#[subsystem(GossipSupportMessage, sends: [
 		NetworkBridgeTxMessage,
 		NetworkBridgeRxMessage, // TODO <https://github.com/paritytech/polkadot/issues/5626>
 		RuntimeApiMessage,
 		ChainSelectionMessage,
-	])]
+		ChainApiMessage,
+	], can_receive_priority_messages)]
 	gossip_support: GossipSupport,
 
 	#[subsystem(blocking, message_capacity: 32000, DisputeCoordinatorMessage, sends: [
@@ -607,11 +636,11 @@ pub struct Overseer<SupportsParachains> {
 		ChainApiMessage,
 		DisputeDistributionMessage,
 		CandidateValidationMessage,
-		ApprovalVotingMessage,
 		AvailabilityStoreMessage,
 		AvailabilityRecoveryMessage,
 		ChainSelectionMessage,
-	])]
+		ApprovalVotingParallelMessage,
+	], can_receive_priority_messages)]
 	dispute_coordinator: DisputeCoordinator,
 
 	#[subsystem(DisputeDistributionMessage, sends: [
@@ -632,9 +661,6 @@ pub struct Overseer<SupportsParachains> {
 
 	/// External listeners waiting for a hash to be in the active-leave set.
 	pub activation_external_listeners: HashMap<Hash, Vec<oneshot::Sender<SubsystemResult<()>>>>,
-
-	/// Stores the [`jaeger::Span`] per active leaf.
-	pub span_per_active_leaf: HashMap<Hash, Arc<jaeger::Span>>,
 
 	/// The set of the "active leaves".
 	pub active_leaves: HashMap<Hash, BlockNumber>,
@@ -748,8 +774,15 @@ where
 			select! {
 				msg = self.events_rx.select_next_some() => {
 					match msg {
-						Event::MsgToSubsystem { msg, origin } => {
-							self.route_message(msg.into(), origin).await?;
+						Event::MsgToSubsystem { msg, origin, priority } => {
+							match priority {
+								PriorityLevel::Normal => {
+									self.route_message(msg.into(), origin).await?;
+								},
+								PriorityLevel::High => {
+									self.route_message_with_priority::<HighPriority>(msg.into(), origin).await?;
+								},
+							}
 							self.metrics.on_message_relayed();
 						}
 						Event::Stop => {
@@ -800,11 +833,10 @@ where
 		};
 
 		let mut update = match self.on_head_activated(&block.hash, Some(block.parent_hash)).await {
-			Some(span) => ActiveLeavesUpdate::start_work(ActivatedLeaf {
+			Some(_) => ActiveLeavesUpdate::start_work(ActivatedLeaf {
 				hash: block.hash,
 				number: block.number,
 				unpin_handle: block.unpin_handle,
-				span,
 			}),
 			None => ActiveLeavesUpdate::default(),
 		};
@@ -857,11 +889,7 @@ where
 
 	/// Handles a header activation. If the header's state doesn't support the parachains API,
 	/// this returns `None`.
-	async fn on_head_activated(
-		&mut self,
-		hash: &Hash,
-		parent_hash: Option<Hash>,
-	) -> Option<Arc<jaeger::Span>> {
+	async fn on_head_activated(&mut self, hash: &Hash, _parent_hash: Option<Hash>) -> Option<()> {
 		if !self.supports_parachains.head_supports_parachains(hash).await {
 			return None
 		}
@@ -879,22 +907,12 @@ where
 			}
 		}
 
-		let mut span = jaeger::Span::new(*hash, "leaf-activated");
-
-		if let Some(parent_span) = parent_hash.and_then(|h| self.span_per_active_leaf.get(&h)) {
-			span.add_follows_from(parent_span);
-		}
-
-		let span = Arc::new(span);
-		self.span_per_active_leaf.insert(*hash, span.clone());
-
-		Some(span)
+		Some(())
 	}
 
 	fn on_head_deactivated(&mut self, hash: &Hash) {
 		self.metrics.on_head_deactivated();
 		self.activation_external_listeners.remove(hash);
-		self.span_per_active_leaf.remove(hash);
 	}
 
 	fn clean_up_external_listeners(&mut self) {

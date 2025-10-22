@@ -1,25 +1,27 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Polkadot runtime metrics integration test.
 
-use hyper::{Client, Uri};
+use http_body_util::BodyExt;
+use hyper::Uri;
+use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use polkadot_primitives::metric_definitions::PARACHAIN_INHERENT_DATA_BITFIELDS_PROCESSED;
 use polkadot_test_service::{node_config, run_validator_node, test_prometheus_config};
-use sp_keyring::AccountKeyring::*;
+use sp_keyring::Sr25519Keyring::*;
 use std::collections::HashMap;
 
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -43,13 +45,13 @@ async fn runtime_can_publish_metrics() {
 	builder.init().expect("Failed to set up the logger");
 
 	// Start validator Alice.
-	let alice = run_validator_node(alice_config, None);
+	let alice = run_validator_node(alice_config, None).await;
 
 	let bob_config =
 		node_config(|| {}, tokio::runtime::Handle::current(), Bob, vec![alice.addr.clone()], true);
 
 	// Start validator Bob.
-	let _bob = run_validator_node(bob_config, None);
+	let _bob = run_validator_node(bob_config, None).await;
 
 	// Wait for Alice to see two finalized blocks.
 	alice.wait_for_finalized_blocks(2).await;
@@ -66,14 +68,20 @@ async fn runtime_can_publish_metrics() {
 }
 
 async fn scrape_prometheus_metrics(metrics_uri: &str) -> HashMap<String, u64> {
-	let res = Client::new()
+	let res = Client::builder(TokioExecutor::new())
+		.build_http::<http_body_util::Full<hyper::body::Bytes>>()
 		.get(Uri::try_from(metrics_uri).expect("bad URI"))
 		.await
 		.expect("GET request failed");
 
 	// Retrieve the `HTTP` response body.
 	let body = String::from_utf8(
-		hyper::body::to_bytes(res).await.expect("can't get body as bytes").to_vec(),
+		res.into_body()
+			.collect()
+			.await
+			.expect("can't get body as bytes")
+			.to_bytes()
+			.to_vec(),
 	)
 	.expect("body is not an UTF8 string");
 

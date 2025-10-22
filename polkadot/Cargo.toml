@@ -1,18 +1,6 @@
-[[bin]]
-name = "polkadot"
-path = "src/main.rs"
-
-[[bin]]
-name = "polkadot-execute-worker"
-path = "src/bin/execute-worker.rs"
-
-[[bin]]
-name = "polkadot-prepare-worker"
-path = "src/bin/prepare-worker.rs"
-
 [package]
 name = "polkadot"
-description = "Implementation of a `https://polkadot.network` node in Rust based on the Substrate framework."
+description = "Implementation of a `https://polkadot.com` node in Rust based on the Substrate framework."
 license = "GPL-3.0-only"
 rust-version = "1.64.0"
 readme = "README.md"
@@ -20,63 +8,16 @@ authors.workspace = true
 edition.workspace = true
 version = "6.0.0"
 default-run = "polkadot"
-
-[lints]
-workspace = true
-
-[dependencies]
-color-eyre = { version = "0.6.1", default-features = false }
-tikv-jemallocator = { version = "0.5.0", optional = true, features = ["unprefixed_malloc_on_supported_platforms"] }
-
-# Crates in our workspace, defined as dependencies so we can pass them feature flags.
-polkadot-cli = { path = "cli", features = ["rococo-native", "westend-native"] }
-polkadot-node-core-pvf = { path = "node/core/pvf" }
-polkadot-node-core-pvf-prepare-worker = { path = "node/core/pvf/prepare-worker" }
-polkadot-overseer = { path = "node/overseer" }
-
-# Needed for worker binaries.
-polkadot-node-core-pvf-common = { path = "node/core/pvf/common" }
-polkadot-node-core-pvf-execute-worker = { path = "node/core/pvf/execute-worker" }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"] }
-
-[dev-dependencies]
-assert_cmd = "2.0.4"
-nix = { version = "0.28.0", features = ["signal"] }
-tempfile = "3.2.0"
-tokio = "1.37"
-substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client" }
-polkadot-core-primitives = { path = "core-primitives" }
-
-[build-dependencies]
-substrate-build-script-utils = { path = "../substrate/utils/build-script-utils" }
+homepage.workspace = true
+repository.workspace = true
 
 [badges]
 maintenance = { status = "actively-developed" }
 
-[features]
-runtime-benchmarks = ["polkadot-cli/runtime-benchmarks"]
-try-runtime = ["polkadot-cli/try-runtime"]
-fast-runtime = ["polkadot-cli/fast-runtime"]
-runtime-metrics = ["polkadot-cli/runtime-metrics"]
-pyroscope = ["polkadot-cli/pyroscope"]
-jemalloc-allocator = [
-	"dep:tikv-jemallocator",
-	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
-	"polkadot-node-core-pvf/jemalloc-allocator",
-	"polkadot-overseer/jemalloc-allocator",
-]
-
-
-# Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
-# when run locally depending on system load
-ci-only-tests = ["polkadot-node-core-pvf/ci-only-tests"]
-
 # Configuration for building a .deb package - for use with `cargo-deb`
 [package.metadata.deb]
 name = "polkadot"
-extended-description = "Implementation of a https://polkadot.network node in Rust based on the Substrate framework."
+extended-description = "Implementation of a https://polkadot.com node in Rust based on the Substrate framework."
 section = "misc"
 maintainer = "security@parity.io"
 license-file = ["LICENSE", "0"]
@@ -108,3 +49,69 @@ conf-files = ["/etc/default/polkadot"]
 
 [package.metadata.spellcheck]
 config = "./scripts/ci/gitlab/spellcheck.toml"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "polkadot"
+path = "src/main.rs"
+
+[[bin]]
+name = "polkadot-execute-worker"
+path = "src/bin/execute-worker.rs"
+
+[[bin]]
+name = "polkadot-prepare-worker"
+path = "src/bin/prepare-worker.rs"
+
+[dependencies]
+color-eyre = { workspace = true }
+tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }
+
+# Crates in our workspace, defined as dependencies so we can pass them feature flags.
+polkadot-cli = { features = ["rococo-native", "westend-native"], workspace = true, default-features = true }
+polkadot-node-core-pvf = { workspace = true, default-features = true }
+polkadot-node-core-pvf-prepare-worker = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+
+# Needed for worker binaries.
+polkadot-node-core-pvf-common = { workspace = true, default-features = true }
+polkadot-node-core-pvf-execute-worker = { workspace = true, default-features = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = { workspace = true, features = ["unprefixed_malloc_on_supported_platforms"] }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+nix = { features = ["signal"], workspace = true }
+polkadot-core-primitives = { workspace = true, default-features = true }
+substrate-rpc-client = { workspace = true, default-features = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, default-features = true }
+
+[build-dependencies]
+substrate-build-script-utils = { workspace = true, default-features = true }
+
+[features]
+runtime-benchmarks = ["polkadot-cli/runtime-benchmarks"]
+try-runtime = ["polkadot-cli/try-runtime"]
+fast-runtime = ["polkadot-cli/fast-runtime"]
+runtime-metrics = ["polkadot-cli/runtime-metrics"]
+pyroscope = ["polkadot-cli/pyroscope"]
+jemalloc-allocator = [
+	"dep:tikv-jemallocator",
+	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
+	"polkadot-node-core-pvf/jemalloc-allocator",
+	"polkadot-overseer/jemalloc-allocator",
+]
+
+# Generate the metadata hash needed for CheckMetadataHash
+# in the builtin test runtimes (westend and rococo).
+metadata-hash = [
+	"polkadot-cli/metadata-hash",
+]
+
+# Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
+# when run locally depending on system load
+ci-only-tests = ["polkadot-node-core-pvf/ci-only-tests"]

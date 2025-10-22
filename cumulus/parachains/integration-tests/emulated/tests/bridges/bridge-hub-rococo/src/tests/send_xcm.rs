@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
+
 use crate::tests::*;
 
 #[test]
@@ -29,7 +31,7 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 	let xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
-			network: WestendId.into(),
+			network: ByGenesis(WESTEND_GENESIS_HASH),
 			destination: [Parachain(AssetHubWestend::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
@@ -38,6 +40,8 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 	// Rococo Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Rococo::execute_with(|| {
+		Dmp::make_parachain_reachable(BridgeHubRococo::para_id());
+
 		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
 			sudo_origin,
 			bx!(destination),
@@ -60,28 +64,32 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 
 #[test]
 fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
-	// Initially set only default version on all runtimes
-	let newer_xcm_version = xcm::prelude::XCM_VERSION;
-	let older_xcm_version = newer_xcm_version - 1;
-
-	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
-	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
-	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
-	AssetHubWestend::force_default_xcm_version(Some(older_xcm_version));
-
 	// prepare data
 	let destination = asset_hub_westend_location();
 	let native_token = Location::parent();
 	let amount = ASSET_HUB_ROCOCO_ED * 1_000;
 
-	// fund the AHR's SA on BHR for paying bridge transport fees
+	// fund the AHR's SA on BHR for paying bridge delivery fees
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 	// fund sender
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get().into(), amount * 10)]);
 
+	// Initially set only default version on all runtimes
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
+	AssetHubWestend::force_default_xcm_version(Some(older_xcm_version));
+
 	// send XCM from AssetHubRococo - fails - destination version not known
 	assert_err!(
-		send_asset_from_asset_hub_rococo(destination.clone(), (native_token.clone(), amount)),
+		send_assets_from_asset_hub_rococo(
+			destination.clone(),
+			(native_token.clone(), amount).into(),
+			0,
+			TransferType::LocalReserve
+		),
 		DispatchError::Module(sp_runtime::ModuleError {
 			index: 31,
 			error: [1, 0, 0, 0],
@@ -98,9 +106,11 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		newer_xcm_version,
 	);
 	// send XCM from AssetHubRococo - ok
-	assert_ok!(send_asset_from_asset_hub_rococo(
+	assert_ok!(send_assets_from_asset_hub_rococo(
 		destination.clone(),
-		(native_token.clone(), amount)
+		(native_token.clone(), amount).into(),
+		0,
+		TransferType::LocalReserve
 	));
 
 	// `ExportMessage` on local BridgeHub - fails - remote BridgeHub version not known
@@ -115,9 +125,11 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	);
 
 	// send XCM from AssetHubRococo - ok
-	assert_ok!(send_asset_from_asset_hub_rococo(
+	assert_ok!(send_assets_from_asset_hub_rococo(
 		destination.clone(),
-		(native_token.clone(), amount)
+		(native_token.clone(), amount).into(),
+		0,
+		TransferType::LocalReserve
 	));
 	assert_bridge_hub_rococo_message_accepted(true);
 	assert_bridge_hub_westend_message_received();

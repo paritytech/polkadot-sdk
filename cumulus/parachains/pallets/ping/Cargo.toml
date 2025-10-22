@@ -5,23 +5,24 @@ name = "cumulus-ping"
 version = "0.7.0"
 license = "Apache-2.0"
 description = "Ping Pallet for Cumulus XCM/UMP testing."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
 
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm = { workspace = true }
 
-cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
-cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false }
+cumulus-pallet-xcm = { workspace = true }
+cumulus-primitives-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -33,10 +34,8 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm/std",
 ]
-
 try-runtime = [
 	"cumulus-pallet-xcm/try-runtime",
 	"frame-support/try-runtime",

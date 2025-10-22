@@ -13,6 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::xcm_helpers::{
+	find_mq_processed_id, find_xcm_sent_message_id,
+};
+use rococo_westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
+use std::collections::HashMap;
+
 use crate::tests::*;
 
 #[test]
@@ -29,7 +35,7 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 	let xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
-			network: RococoId,
+			network: ByGenesis(ROCOCO_GENESIS_HASH),
 			destination: [Parachain(AssetHubRococo::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
@@ -38,6 +44,8 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 	// Westend Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Westend::execute_with(|| {
+		Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
+
 		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
 			sudo_origin,
 			bx!(destination),
@@ -60,28 +68,32 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 
 #[test]
 fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
-	// Initially set only default version on all runtimes
-	let newer_xcm_version = xcm::prelude::XCM_VERSION;
-	let older_xcm_version = newer_xcm_version - 1;
-
-	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
-	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
-	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
-	AssetHubWestend::force_default_xcm_version(Some(older_xcm_version));
-
 	// prepare data
 	let destination = asset_hub_rococo_location();
 	let native_token = Location::parent();
 	let amount = ASSET_HUB_WESTEND_ED * 1_000;
 
-	// fund the AHR's SA on BHR for paying bridge transport fees
+	// fund the AHR's SA on BHR for paying bridge delivery fees
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
 	// fund sender
 	AssetHubWestend::fund_accounts(vec![(AssetHubWestendSender::get().into(), amount * 10)]);
 
+	// Initially set only default version on all runtimes
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
+	AssetHubWestend::force_default_xcm_version(Some(older_xcm_version));
+
 	// send XCM from AssetHubWestend - fails - destination version not known
 	assert_err!(
-		send_asset_from_asset_hub_westend(destination.clone(), (native_token.clone(), amount)),
+		send_assets_from_asset_hub_westend(
+			destination.clone(),
+			(native_token.clone(), amount).into(),
+			0,
+			TransferType::LocalReserve
+		),
 		DispatchError::Module(sp_runtime::ModuleError {
 			index: 31,
 			error: [1, 0, 0, 0],
@@ -98,9 +110,11 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		newer_xcm_version,
 	);
 	// send XCM from AssetHubWestend - ok
-	assert_ok!(send_asset_from_asset_hub_westend(
+	assert_ok!(send_assets_from_asset_hub_westend(
 		destination.clone(),
-		(native_token.clone(), amount)
+		(native_token.clone(), amount).into(),
+		0,
+		TransferType::LocalReserve
 	));
 
 	// `ExportMessage` on local BridgeHub - fails - remote BridgeHub version not known
@@ -115,9 +129,11 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	);
 
 	// send XCM from AssetHubWestend - ok
-	assert_ok!(send_asset_from_asset_hub_westend(
+	assert_ok!(send_assets_from_asset_hub_westend(
 		destination.clone(),
-		(native_token.clone(), amount)
+		(native_token.clone(), amount).into(),
+		0,
+		TransferType::LocalReserve
 	));
 	assert_bridge_hub_westend_message_accepted(true);
 	assert_bridge_hub_rococo_message_received();
@@ -134,4 +150,51 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 			]
 		);
 	});
+}
+
+#[test]
+fn xcm_persists_set_topic_across_hops() {
+	for test_topic_id in [Some([42; 32]), None] {
+		// Reset tracked topic state before each run
+		let mut tracked_topic_ids = HashMap::new();
+
+		// Prepare test input
+		let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
+		let destination = Westend::child_location_of(BridgeHubWestend::para_id()).into();
+		let weight_limit = Unlimited;
+		let check_origin = None;
+
+		// Construct XCM with optional SetTopic
+		let mut message = vec![UnpaidExecution { weight_limit, check_origin }, ClearOrigin];
+		if let Some(topic_id) = test_topic_id {
+			message.push(SetTopic(topic_id));
+		}
+		let xcm = VersionedXcm::from(Xcm(message));
+
+		// Send XCM from Westend to BridgeHubWestend
+		Westend::execute_with(|| {
+			Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
+			assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
+				sudo_origin.clone(),
+				bx!(destination),
+				bx!(xcm),
+			));
+
+			let msg_sent_id = find_xcm_sent_message_id::<Westend>().expect("Missing Sent Event");
+			tracked_topic_ids.insert("Westend", msg_sent_id.into());
+		});
+
+		BridgeHubWestend::execute_with(|| {
+			let mq_prc_id =
+				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
+			tracked_topic_ids.insert("BridgeHubWestend", mq_prc_id);
+		});
+
+		// Assert exactly one consistent topic ID across all hops
+		let topic_id = tracked_topic_ids.get("Westend");
+		assert_eq!(tracked_topic_ids.get("BridgeHubWestend"), topic_id);
+		if let Some(expected) = test_topic_id {
+			assert_eq!(topic_id, Some(&expected.into()));
+		}
+	}
 }

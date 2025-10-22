@@ -1,0 +1,99 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: (XCMv5) implement RFC#100, add new InitiateTransfer instruction
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      There's a new XCM instruction in v5: InitiateTransfer.
+      It's meant as a general instruction that will do everything (and more) currently
+      done by InitiateTeleport, InitiateReserveWithdraw and DepositReserveAsset.
+      Its main feature is the ability to do cross-chains transfers mixing teleported and
+      reserve transferred assets.
+      ```rust
+      /// Specify which type of asset transfer is required for a particular `(asset, dest)` combination.
+      pub enum AssetTransferFilter {
+      	/// teleport assets matching `AssetFilter` to `dest`
+      	Teleport(AssetFilter),
+      	/// reserve-transfer assets matching `AssetFilter` to `dest`, using the local chain as reserve
+      	ReserveDeposit(AssetFilter),
+      	/// reserve-transfer assets matching `AssetFilter` to `dest`, using `dest` as reserve
+      	ReserveWithdraw(AssetFilter),
+      }
+      /// Cross-chain transfer matching `assets` in the holding register as follows:
+      ///
+      /// Assets in the holding register are matched using the given list of `AssetTransferFilter`s,
+      /// they are then transferred based on their specified transfer type:
+      ///
+      /// - teleport: burn local assets and append a `ReceiveTeleportedAsset` XCM instruction to
+      ///   the XCM program to be sent onward to the `dest` location,
+      ///
+      /// - reserve deposit: place assets under the ownership of `dest` within this consensus system
+      ///   (i.e. its sovereign account), and append a `ReserveAssetDeposited` XCM instruction
+      ///   to the XCM program to be sent onward to the `dest` location,
+      ///
+      /// - reserve withdraw: burn local assets and append a `WithdrawAsset` XCM instruction
+      ///   to the XCM program to be sent onward to the `dest` location,
+      ///
+      /// The onward XCM is then appended a `ClearOrigin` to allow safe execution of any following
+      /// custom XCM instructions provided in `remote_xcm`.
+      ///
+      /// The onward XCM also potentially contains a `BuyExecution` instruction based on the presence
+      /// of the `remote_fees` parameter (see below).
+      ///
+      /// If a transfer requires going through multiple hops, an XCM program can compose this instruction
+      /// to be used at every chain along the path, describing that specific leg of the transfer.
+      ///
+      /// Parameters:
+      /// - `dest`: The location of the transfer next hop.
+      /// - `remote_fees`: If set to `Some(asset_xfer_filter)`, the single asset matching
+      ///   `asset_xfer_filter` in the holding register will be transferred first in the remote XCM
+      ///   program, followed by a `BuyExecution(fee)`, then rest of transfers follow.
+      ///   This guarantees `remote_xcm` will successfully pass a `AllowTopLevelPaidExecutionFrom` barrier.
+      /// - `remote_xcm`: Custom instructions that will be executed on the `dest` chain. Note that
+      ///   these instructions will be executed after a `ClearOrigin` so their origin will be `None`.
+      ///
+      /// Safety: No concerns.
+      ///
+      /// Kind: *Command*.
+      ///
+      InitiateTransfer {
+      	destination: Location,
+      	remote_fees: Option<AssetTransferFilter>,
+      	assets: Vec<AssetTransferFilter>,
+      	remote_xcm: Xcm<()>,
+      }
+      ```
+
+crates:
+  - name: emulated-integration-tests-common
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: pallet-xcm-benchmarks
+    bump: minor
+  - name: staging-xcm
+    bump: major
+  - name: staging-xcm-executor
+    bump: major

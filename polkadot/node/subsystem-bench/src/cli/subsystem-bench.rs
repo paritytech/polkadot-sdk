@@ -20,7 +20,7 @@
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
-use polkadot_subsystem_bench::{approval, availability, configuration, statement};
+use polkadot_subsystem_bench::{approval, availability, configuration, disputes, statement};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,8 @@ pub enum TestObjective {
 	ApprovalVoting(approval::ApprovalsOptions),
 	// Benchmark the statement-distribution subsystem
 	StatementDistribution,
+	/// Benchmark the dispute-coordinator subsystem
+	DisputeCoordinator(disputes::DisputesOptions),
 }
 
 impl std::fmt::Display for TestObjective {
@@ -54,6 +56,7 @@ impl std::fmt::Display for TestObjective {
 				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
 				Self::ApprovalVoting(_) => "ApprovalVoting",
 				Self::StatementDistribution => "StatementDistribution",
+				Self::DisputeCoordinator(_) => "DisputeCoordinator",
 			}
 		)
 	}
@@ -127,14 +130,14 @@ impl BenchCli {
 			.expect("File exists")
 			.test_configurations;
 		let num_steps = test_sequence.len();
-		gum::info!("{}", format!("Sequence contains {} step(s)", num_steps).bright_purple());
+		gum::info!("{}", format!("Sequence contains {num_steps} step(s)").bright_purple());
 
 		for (index, CliTestConfiguration { objective, mut test_config }) in
 			test_sequence.into_iter().enumerate()
 		{
 			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
-			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
+			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {objective:?}").green(), test_config);
 			test_config.generate_pov_sizes();
 
 			let usage = match objective {
@@ -165,9 +168,15 @@ impl BenchCli {
 				},
 				TestObjective::StatementDistribution => {
 					let state = statement::TestState::new(&test_config);
-					let (mut env, _protocol_config) = statement::prepare_test(&state, true);
+					let mut env = statement::prepare_test(&state, true);
 					env.runtime()
 						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
+				},
+				TestObjective::DisputeCoordinator(ref options) => {
+					let state = disputes::TestState::new(&test_config, options);
+					let mut env = disputes::prepare_test(&state, true);
+					env.runtime()
+						.block_on(disputes::benchmark_dispute_coordinator(&mut env, &state))
 				},
 			};
 			println!("\n{}\n{}", benchmark_name.purple(), usage);
@@ -182,16 +191,20 @@ impl BenchCli {
 	}
 }
 
+#[cfg(feature = "memprofile")]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+#[cfg(feature = "memprofile")]
+#[allow(non_upper_case_globals)]
+#[export_name = "malloc_conf"]
+// See https://jemalloc.net/jemalloc.3.html for more information on the configuration options.
+pub static malloc_conf: &[u8] =
+	b"prof:true,prof_active:true,lg_prof_interval:30,lg_prof_sample:21,prof_prefix:/tmp/subsystem-bench\0";
+
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
-	env_logger::builder()
-		.filter(Some("hyper"), log::LevelFilter::Info)
-		// Avoid `Terminating due to subsystem exit subsystem` warnings
-		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
-		.filter(None, log::LevelFilter::Info)
-		.format_timestamp_millis()
-		.try_init()
-		.unwrap();
+	sp_tracing::try_init_simple();
 
 	let cli: BenchCli = BenchCli::parse();
 	cli.launch()?;

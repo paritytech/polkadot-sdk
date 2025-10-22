@@ -30,9 +30,11 @@
 //! (which requires state not owned by the request manager).
 
 use super::{
-	seconded_and_sufficient, BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT,
-	COST_IMPROPERLY_DECODED_RESPONSE, COST_INVALID_RESPONSE, COST_INVALID_SIGNATURE,
-	COST_UNREQUESTED_RESPONSE_STATEMENT, REQUEST_RETRY_DELAY,
+	seconded_and_sufficient, CandidateDescriptorVersion, TransposedClaimQueue,
+	BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT, COST_IMPROPERLY_DECODED_RESPONSE,
+	COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX, COST_INVALID_SIGNATURE,
+	COST_INVALID_UMP_SIGNALS, COST_UNREQUESTED_RESPONSE_STATEMENT,
+	COST_UNSUPPORTED_DESCRIPTOR_VERSION, REQUEST_RETRY_DELAY,
 };
 use crate::LOG_TARGET;
 
@@ -43,13 +45,13 @@ use polkadot_node_network_protocol::{
 		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
 		OutgoingRequest, OutgoingResult, MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
-	v2::StatementFilter,
+	v3::StatementFilter,
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceipt, CompactStatement, GroupIndex, Hash, Id as ParaId,
-	PersistedValidationData, SessionIndex, SignedStatement, SigningContext, ValidatorId,
-	ValidatorIndex,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement,
+	GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex, SignedStatement,
+	SigningContext, ValidatorId, ValidatorIndex,
 };
 
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
@@ -182,7 +184,7 @@ impl RequestManager {
 		relay_parent: Hash,
 		candidate_hash: CandidateHash,
 		group_index: GroupIndex,
-	) -> Entry {
+	) -> Entry<'_> {
 		let identifier = CandidateIdentifier { relay_parent, candidate_hash, group_index };
 
 		let (candidate, fresh) = match self.requests.entry(identifier.clone()) {
@@ -566,6 +568,8 @@ impl UnhandledResponse {
 		validator_key_lookup: impl Fn(ValidatorIndex) -> Option<ValidatorId>,
 		allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 		disabled_mask: BitVec<u8, Lsb0>,
+		transposed_cq: &TransposedClaimQueue,
+		allow_v2_descriptors: bool,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -650,6 +654,8 @@ impl UnhandledResponse {
 			validator_key_lookup,
 			allowed_para_lookup,
 			disabled_mask,
+			transposed_cq,
+			allow_v2_descriptors,
 		);
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -670,6 +676,8 @@ fn validate_complete_response(
 	validator_key_lookup: impl Fn(ValidatorIndex) -> Option<ValidatorId>,
 	allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 	disabled_mask: BitVec<u8, Lsb0>,
+	transposed_cq: &TransposedClaimQueue,
+	allow_v2_descriptors: bool,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
 
@@ -687,39 +695,83 @@ fn validate_complete_response(
 		unwanted_mask.validated_in_group.resize(group.len(), true);
 	}
 
-	let invalid_candidate_output = || ResponseValidationOutput {
+	let invalid_candidate_output = |cost: Rep| ResponseValidationOutput {
 		request_status: CandidateRequestStatus::Incomplete,
-		reputation_changes: vec![(requested_peer, COST_INVALID_RESPONSE)],
+		reputation_changes: vec![(requested_peer, cost)],
 		requested_peer,
 	};
+
+	let mut rep_changes = Vec::new();
 
 	// sanity-check candidate response.
 	// note: roughly ascending cost of operations
 	{
-		if response.candidate_receipt.descriptor.relay_parent != identifier.relay_parent {
-			return invalid_candidate_output()
+		if response.candidate_receipt.descriptor.relay_parent() != identifier.relay_parent {
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
-		if response.candidate_receipt.descriptor.persisted_validation_data_hash !=
+		if response.candidate_receipt.descriptor.persisted_validation_data_hash() !=
 			response.persisted_validation_data.hash()
 		{
-			return invalid_candidate_output()
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
 		if !allowed_para_lookup(
-			response.candidate_receipt.descriptor.para_id,
+			response.candidate_receipt.descriptor.para_id(),
 			identifier.group_index,
 		) {
-			return invalid_candidate_output()
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
 		if response.candidate_receipt.hash() != identifier.candidate_hash {
-			return invalid_candidate_output()
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
+		}
+
+		let candidate_hash = response.candidate_receipt.hash();
+
+		// V2 descriptors are invalid if not enabled by runtime.
+		if !allow_v2_descriptors &&
+			response.candidate_receipt.descriptor.version() == CandidateDescriptorVersion::V2
+		{
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				peer = ?requested_peer,
+				"Version 2 candidate receipts are not enabled by the runtime"
+			);
+			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION)
+		}
+		// Validate the ump signals.
+		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq) {
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				?err,
+				peer = ?requested_peer,
+				"Received candidate has invalid UMP signals"
+			);
+			return invalid_candidate_output(COST_INVALID_UMP_SIGNALS)
+		}
+
+		// Check if `session_index` of relay parent matches candidate descriptor
+		// `session_index`.
+		if let Some(candidate_session_index) = response.candidate_receipt.descriptor.session_index()
+		{
+			if candidate_session_index != session {
+				gum::debug!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					peer = ?requested_peer,
+					session_index = session,
+					candidate_session_index,
+					"Received candidate has invalid session index"
+				);
+				return invalid_candidate_output(COST_INVALID_SESSION_INDEX)
+			}
 		}
 	}
 
 	// statement checks.
-	let mut rep_changes = Vec::new();
 	let statements = {
 		let mut statements =
 			Vec::with_capacity(std::cmp::min(response.statements.len(), group.len() * 2));
@@ -815,7 +867,7 @@ fn validate_complete_response(
 		// Only accept responses which are sufficient, according to our
 		// required backing threshold.
 		if !seconded_and_sufficient(&received_filter, backing_threshold) {
-			return invalid_candidate_output()
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
 		statements
@@ -1019,6 +1071,7 @@ mod tests {
 		candidate_receipt.descriptor.persisted_validation_data_hash =
 			persisted_validation_data.hash();
 		let candidate = candidate_receipt.hash();
+		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
 		let requested_peer_1 = PeerId::random();
 		let requested_peer_2 = PeerId::random();
 
@@ -1074,7 +1127,7 @@ mod tests {
 					requested_peer: requested_peer_1,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1090,6 +1143,8 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask.clone(),
+				&Default::default(),
+				false,
 			);
 			assert_eq!(
 				output,
@@ -1114,7 +1169,7 @@ mod tests {
 					requested_peer: requested_peer_2,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1129,6 +1184,8 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
+				&Default::default(),
+				false,
 			);
 			assert_eq!(
 				output,
@@ -1197,7 +1254,7 @@ mod tests {
 					requested_peer,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1213,6 +1270,8 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
+				&Default::default(),
+				false,
 			);
 			assert_eq!(
 				output,
@@ -1277,7 +1336,7 @@ mod tests {
 					requested_peer,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1294,13 +1353,15 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
+				&Default::default(),
+				false,
 			);
 			assert_eq!(
 				output,
 				ResponseValidationOutput {
 					requested_peer,
 					request_status: CandidateRequestStatus::Complete {
-						candidate: candidate_receipt.clone(),
+						candidate: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					},
@@ -1417,7 +1478,7 @@ mod tests {
 					requested_peer: requested_peer_1,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt_1.clone(),
+						candidate_receipt: candidate_receipt_1.clone().into(),
 						persisted_validation_data: persisted_validation_data_1.clone(),
 						statements,
 					}),
@@ -1432,6 +1493,8 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask.clone(),
+				&Default::default(),
+				false,
 			);
 
 			// First request served successfully

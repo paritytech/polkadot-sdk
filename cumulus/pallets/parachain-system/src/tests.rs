@@ -1,37 +1,105 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg(test)]
 
 use super::*;
 use crate::mock::*;
 
+use core::num::NonZeroU32;
 use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
+use cumulus_primitives_parachain_inherent::{
+	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
+};
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
-use sp_std::num::NonZeroU32;
+use sp_inherents::InherentDataProvider;
+use sp_trie::StorageProof;
 
 #[test]
 #[should_panic]
 fn block_tests_run_on_drop() {
 	BlockTests::new().add(123, || panic!("if this test passes, block tests run properly"));
+}
+
+/// Test that ensures that the parachain-system pallet accepts both the legacy
+/// and versioned inherent format.
+#[test]
+fn test_inherent_compatibility() {
+	sp_tracing::init_for_tests();
+	let mut valid_inherent_data_v1 = sp_inherents::InherentData::new();
+	valid_inherent_data_v1
+		.put_data(
+			INHERENT_IDENTIFIER,
+			&ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+				relay_parent_descendants: Default::default(),
+				collator_peer_id: None,
+			},
+		)
+		.expect("Put validation function params failed");
+
+	let mut valid_inherent_data_legacy = sp_inherents::InherentData::new();
+	valid_inherent_data_legacy
+		.put_data(
+			PARACHAIN_INHERENT_IDENTIFIER_V0,
+			&v0::ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+			},
+		)
+		.expect("Put validation function params failed");
+
+	let mut valid_inherent_data_full_compatibility = sp_inherents::InherentData::new();
+	let data = ParachainInherentData {
+		validation_data: Default::default(),
+		relay_chain_state: StorageProof::empty(),
+		downward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		relay_parent_descendants: Default::default(),
+		collator_peer_id: None,
+	};
+	let _ = futures::executor::block_on(
+		data.provide_inherent_data(&mut valid_inherent_data_full_compatibility),
+	);
+
+	wasm_ext().execute_with(|| {
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_v1).is_some(),
+			"V1 inherent was not accepted"
+		);
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_legacy).is_some(),
+			"Legacy inherent was not accepted"
+		);
+
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_full_compatibility).is_some(),
+			"Inherent on multiple keys was not accepted."
+		);
+	})
 }
 
 #[test]
@@ -253,11 +321,11 @@ fn inherent_processed_messages_are_ignored() {
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
 			3 => {
 				sproof.dmq_mqc_head =
-					Some(MessageQueueChain::default().extend_downward(&mk_dmp(3)).head());
+					Some(MessageQueueChain::default().extend_downward(&mk_dmp(3, 0)).head());
 				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head = Some(
 					MessageQueueChain::default()
-						.extend_hrmp(&mk_hrmp(2))
-						.extend_hrmp(&mk_hrmp(3))
+						.extend_hrmp(&mk_hrmp(2, 1))
+						.extend_hrmp(&mk_hrmp(3, 1))
 						.head(),
 				);
 			},
@@ -265,8 +333,9 @@ fn inherent_processed_messages_are_ignored() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			3 => {
-				data.downward_messages.push(mk_dmp(3));
-				data.horizontal_messages.insert(ParaId::from(200), vec![mk_hrmp(2), mk_hrmp(3)]);
+				data.downward_messages.push(mk_dmp(3, 0));
+				data.horizontal_messages
+					.insert(ParaId::from(200), vec![mk_hrmp(2, 1), mk_hrmp(3, 1)]);
 			},
 			_ => unreachable!(),
 		})
@@ -275,13 +344,13 @@ fn inherent_processed_messages_are_ignored() {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let m = m.borrow();
 				// NOTE: if this fails, then run the test without benchmark features.
-				assert_eq!(&*m, &[mk_dmp(3).msg]);
+				assert_eq!(&*m, &[mk_dmp(3, 0).msg]);
 			});
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let m = m.borrow_mut();
 				assert_eq!(
 					&*m,
-					&[(ParaId::from(200), 2, b"2".to_vec()), (ParaId::from(200), 3, b"3".to_vec()),]
+					&[(ParaId::from(200), 2, vec![2]), (ParaId::from(200), 3, vec![3]),]
 				);
 			});
 		})
@@ -289,16 +358,372 @@ fn inherent_processed_messages_are_ignored() {
 		.add(3, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let m = m.borrow();
-				assert_eq!(&*m, &[mk_dmp(3).msg]);
+				assert_eq!(&*m, &[mk_dmp(3, 0).msg]);
 			});
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let m = m.borrow_mut();
 				assert_eq!(
 					&*m,
-					&[(ParaId::from(200), 2, b"2".to_vec()), (ParaId::from(200), 3, b"3".to_vec()),]
+					&[(ParaId::from(200), 2, vec![2]), (ParaId::from(200), 3, vec![3]),]
 				);
 			});
 		});
+}
+
+#[test]
+fn inherent_messages_are_compressed() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(2).unwrap().into()))
+	});
+
+	let mut dmp_msgs = vec![];
+	let mut hrmp_msgs = vec![];
+
+	// Batch 1
+	dmp_msgs.extend(vec![mk_dmp(1, 1024 * 100); 10]);
+	hrmp_msgs.push((ParaId::new(100), mk_hrmp(1, 24576)));
+	hrmp_msgs.extend(vec![(ParaId::new(100), mk_hrmp(1, 1024 * 100)); 9]);
+	hrmp_msgs.push((ParaId::new(200), mk_hrmp(1, 1024 * 100)));
+
+	// Batch 2
+	dmp_msgs.extend(vec![mk_dmp(2, 1024 * 100); 10]);
+	hrmp_msgs.extend(vec![(ParaId::new(200), mk_hrmp(1, 1024 * 100)); 10]);
+
+	// Batch 3
+	dmp_msgs.extend(vec![mk_dmp(2, 1024 * 100); 5]);
+	hrmp_msgs.extend(vec![(ParaId::new(100), mk_hrmp(2, 1024 * 100)); 15]);
+
+	// Batch 4
+	hrmp_msgs.extend(vec![(ParaId::new(200), mk_hrmp(2, 1024 * 100)); 1]);
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	let mut test = BlockTests::new()
+		.with_inclusion_delay(1)
+		.with_relay_block_number(|block_number| 4.max(*block_number as RelayChainBlockNumber))
+		.with_relay_sproof_builder(move |_, relay_block_num, sproof| match relay_block_num {
+			4 => {
+				let mut dmp_mqc = MessageQueueChain::default();
+				for msg in &dmp_msgs_clone {
+					dmp_mqc.extend_downward(msg);
+				}
+				sproof.dmq_mqc_head = Some(dmp_mqc.head());
+
+				for (sender, msg) in &hrmp_msgs_clone {
+					let mqc_head =
+						sproof.upsert_inbound_channel(*sender).mqc_head.get_or_insert_default();
+					let mut mqc = MessageQueueChain::new(*mqc_head);
+					mqc.extend_hrmp(msg);
+					*mqc_head = mqc.head();
+				}
+			},
+			_ => unreachable!(),
+		});
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
+		4 => {
+			data.downward_messages.extend(dmp_msgs_clone.iter().cloned());
+
+			for (sender, msg) in &hrmp_msgs_clone {
+				let entry = data.horizontal_messages.entry(*sender).or_default();
+				entry.push(msg.clone())
+			}
+		},
+		_ => unreachable!(),
+	});
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(1, move || {
+		HANDLED_DMP_MESSAGES.with(|m| {
+			let m = m.borrow();
+			assert_eq!(
+				&*m,
+				&dmp_msgs_clone[..10].into_iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedDownwardMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 1, reverse_idx: 0 })
+		);
+
+		HANDLED_XCMP_MESSAGES.with(|m| {
+			let m = m.borrow_mut();
+			assert_eq!(
+				&*m,
+				&hrmp_msgs_clone[..11]
+					.iter()
+					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+					.collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 1, reverse_idx: 10 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 0);
+	});
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(2, move || {
+		HANDLED_DMP_MESSAGES.with(|m| {
+			let m = m.borrow();
+			assert_eq!(
+				&*m,
+				&dmp_msgs_clone[..20].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedDownwardMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 5 })
+		);
+
+		HANDLED_XCMP_MESSAGES.with(|m| {
+			let m = m.borrow_mut();
+			assert_eq!(
+				&*m,
+				&hrmp_msgs_clone[..21]
+					.iter()
+					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+					.collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 1, reverse_idx: 0 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 1);
+	});
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(3, move || {
+		HANDLED_DMP_MESSAGES.with(|m| {
+			let m = m.borrow();
+			assert_eq!(
+				&*m,
+				&dmp_msgs_clone[..25].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedDownwardMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+		);
+
+		HANDLED_XCMP_MESSAGES.with(|m| {
+			let m = m.borrow_mut();
+			assert_eq!(
+				&*m,
+				&hrmp_msgs_clone[..36]
+					.iter()
+					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+					.collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 1 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 1);
+	});
+
+	test.add(4, move || {
+		HANDLED_DMP_MESSAGES.with(|m| {
+			let m = m.borrow();
+			assert_eq!(&*m, &dmp_msgs[..25].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>());
+		});
+		assert_eq!(
+			LastProcessedDownwardMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+		);
+
+		HANDLED_XCMP_MESSAGES.with(|m| {
+			let m = m.borrow_mut();
+			assert_eq!(
+				&*m,
+				&hrmp_msgs[..37]
+					.iter()
+					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+					.collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 2);
+	});
+}
+
+#[test]
+fn check_hrmp_message_metadata_works_with_known_channel() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut None,
+		(1, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(
+	expected = "One of the messages submitted by the collator was sent from a sender (2000) that \
+	doesn't have a channel opened to this parachain"
+)]
+fn check_hrmp_message_metadata_panics_on_unknown_channel() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut None,
+		(1, 2000.into()),
+	);
+}
+
+#[test]
+fn check_hrmp_message_metadata_works_when_correctly_ordered() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut None,
+		(1, 1000.into()),
+	);
+
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut Some((0, 1000.into())),
+		(1, 1000.into()),
+	);
+
+	// Test chained checks
+	let mut prev = None;
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(0, 1000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(1, 1000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(1, 1000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(2, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(expected = "[HRMP] Messages order violation")]
+fn check_hrmp_message_metadata_panics_on_unordered_sent_at() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut Some((1, 1000.into())),
+		(0, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(expected = "[HRMP] Messages order violation")]
+fn chained_check_hrmp_message_metadata_panics_on_unordered_sent_at() {
+	// Test chained checks
+	let mut prev = None;
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(1, 1000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(0, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(expected = "[HRMP] Messages order violation")]
+fn check_hrmp_message_metadata_panics_on_unordered_para_id() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut Some((1, 2000.into())),
+		(1, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(expected = "[HRMP] Messages order violation")]
+fn chained_check_hrmp_message_metadata_panics_on_unordered_para_id() {
+	// Test chained checks
+	let mut prev = None;
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default()), (2000.into(), Default::default())],
+		&mut prev,
+		(1, 2000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(1, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(
+	expected = "One of the messages submitted by the collator was sent from a sender (2000) that \
+	doesn't have a channel opened to this parachain"
+)]
+fn hrmp_ingress_channels_are_checked() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(2).unwrap().into()))
+	});
+
+	let mut test = BlockTests::new()
+		.with_inclusion_delay(1)
+		.with_relay_block_number(|block_number| 2.max(*block_number as RelayChainBlockNumber))
+		.with_relay_sproof_builder(move |_, relay_block_num, sproof| match relay_block_num {
+			// Let's open a channel only with parachain 1000.
+			2 => {
+				let mqc_head =
+					sproof.upsert_inbound_channel(1000.into()).mqc_head.get_or_insert_default();
+				let mut mqc = MessageQueueChain::new(*mqc_head);
+				mqc.extend_hrmp(&mk_hrmp(1, 100));
+				*mqc_head = mqc.head();
+			},
+			_ => {},
+		})
+		.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
+			// Simulate receiving a message from parachain 1000 at block 2. This should work.
+			2 => {
+				let entry = data.horizontal_messages.entry(1000.into()).or_default();
+				entry.push(mk_hrmp(1, 100))
+			},
+			_ => {},
+		})
+		.add(2, move || {
+			HANDLED_XCMP_MESSAGES.with(|m| {
+				let m = m.borrow_mut();
+				assert_eq!(&*m, &vec![(1000.into(), 1, vec![1; 100])]);
+			});
+		});
+	test.run();
+
+	let mut test = test
+		.with_relay_block_number(|block_number| 3.max(*block_number as RelayChainBlockNumber))
+		.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
+			// Simulate receiving a message from parachain 2000 at block 3. This should lead to a
+			// panic.
+			3 => {
+				let entry = data.horizontal_messages.entry(2000.into()).or_default();
+				entry.push(mk_hrmp(1, 100))
+			},
+			_ => {},
+		});
+	test.run();
 }
 
 #[test]
@@ -555,7 +980,7 @@ fn aborted_upgrade() {
 }
 
 #[test]
-fn checks_size() {
+fn checks_code_size() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, _, builder| {
 			builder.host_config.max_code_size = 8;
@@ -631,6 +1056,34 @@ fn send_upward_message_relay_bottleneck() {
 				assert_eq!(v, vec![vec![0u8; 8]]);
 			},
 		);
+}
+
+#[test]
+fn send_upwards_message_checks_size_on_validate() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, _, sproof| {
+			sproof.host_config.max_upward_message_size = 128;
+		})
+		.add(1, || {
+			assert_eq!(
+				ParachainSystem::can_send_upward_message(vec![0u8; 129].as_ref()),
+				Err(MessageSendError::TooBig)
+			);
+		});
+}
+
+#[test]
+fn send_upward_message_check_size() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, _, sproof| {
+			sproof.host_config.max_upward_message_size = 128;
+		})
+		.add(1, || {
+			assert_eq!(
+				ParachainSystem::send_upward_message(vec![0u8; 129]),
+				Err(MessageSendError::TooBig)
+			);
+		});
 }
 
 #[test]
@@ -754,12 +1207,8 @@ fn message_queue_chain() {
 #[test]
 #[cfg(not(feature = "runtime-benchmarks"))]
 fn receive_dmp() {
-	lazy_static::lazy_static! {
-		static ref MSG: InboundDownwardMessage = InboundDownwardMessage {
-			sent_at: 1,
-			msg: b"down".to_vec(),
-		};
-	}
+	static MSG: std::sync::LazyLock<InboundDownwardMessage> =
+		std::sync::LazyLock::new(|| InboundDownwardMessage { sent_at: 1, msg: b"down".to_vec() });
 
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
@@ -771,14 +1220,14 @@ fn receive_dmp() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.downward_messages.push(MSG.clone());
+				data.downward_messages.push((*MSG).clone());
 			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(MSG.msg.clone())]);
+				assert_eq!(&*m, &[MSG.msg.clone()]);
 				m.clear();
 			});
 		});
@@ -791,18 +1240,18 @@ fn receive_dmp_after_pause() {
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
 			1 => {
 				sproof.dmq_mqc_head =
-					Some(MessageQueueChain::default().extend_downward(&mk_dmp(1)).head());
+					Some(MessageQueueChain::default().extend_downward(&mk_dmp(1, 0)).head());
 			},
 			2 => {
 				// no new messages, mqc stayed the same.
 				sproof.dmq_mqc_head =
-					Some(MessageQueueChain::default().extend_downward(&mk_dmp(1)).head());
+					Some(MessageQueueChain::default().extend_downward(&mk_dmp(1, 0)).head());
 			},
 			3 => {
 				sproof.dmq_mqc_head = Some(
 					MessageQueueChain::default()
-						.extend_downward(&mk_dmp(1))
-						.extend_downward(&mk_dmp(3))
+						.extend_downward(&mk_dmp(1, 0))
+						.extend_downward(&mk_dmp(3, 0))
 						.head(),
 				);
 			},
@@ -810,20 +1259,20 @@ fn receive_dmp_after_pause() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.downward_messages.push(mk_dmp(1));
+				data.downward_messages.push(mk_dmp(1, 0));
 			},
 			2 => {
 				// no new messages
 			},
 			3 => {
-				data.downward_messages.push(mk_dmp(3));
+				data.downward_messages.push(mk_dmp(3, 0));
 			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(mk_dmp(1).msg.clone())]);
+				assert_eq!(&*m, &[(mk_dmp(1, 0).msg.clone())]);
 				m.clear();
 			});
 		})
@@ -831,7 +1280,7 @@ fn receive_dmp_after_pause() {
 		.add(3, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(mk_dmp(3).msg.clone())]);
+				assert_eq!(&*m, &[(mk_dmp(3, 0).msg.clone())]);
 				m.clear();
 			});
 		});
@@ -854,7 +1303,7 @@ fn receive_dmp_many() {
 			let mut msgs = vec![];
 			for _ in 1..=rng.gen_range(1..=100) {
 				// Just use the same message multiple times per block.
-				msgs.push(mk_dmp(block));
+				msgs.push(mk_dmp(block, 0));
 			}
 			sent_in_block.push(msgs);
 		}
@@ -901,18 +1350,18 @@ fn receive_hrmp() {
 				// 200 - doesn't exist yet
 				// 300 - one new message
 				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
 			},
 			2 => {
 				// 200 - now present with one message
 				// 300 - two new messages
 				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(4)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(4, 1)).head());
 				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head = Some(
 					MessageQueueChain::default()
-						.extend_hrmp(&mk_hrmp(1))
-						.extend_hrmp(&mk_hrmp(2))
-						.extend_hrmp(&mk_hrmp(3))
+						.extend_hrmp(&mk_hrmp(1, 1))
+						.extend_hrmp(&mk_hrmp(2, 1))
+						.extend_hrmp(&mk_hrmp(3, 1))
 						.head(),
 				);
 			},
@@ -920,13 +1369,13 @@ fn receive_hrmp() {
 				// 200 - no new messages
 				// 300 - is gone
 				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(4)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(4, 1)).head());
 			},
 			_ => unreachable!(),
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.horizontal_messages.insert(ParaId::from(300), vec![mk_hrmp(1)]);
+				data.horizontal_messages.insert(ParaId::from(300), vec![mk_hrmp(1, 1)]);
 			},
 			2 => {
 				data.horizontal_messages.insert(
@@ -935,11 +1384,11 @@ fn receive_hrmp() {
 						// can't be sent at the block 1 actually. However, we cheat here
 						// because we want to test the case where there are multiple messages
 						// but the harness at the moment doesn't support block skipping.
-						mk_hrmp(2).clone(),
-						mk_hrmp(3).clone(),
+						mk_hrmp(2, 1).clone(),
+						mk_hrmp(3, 1).clone(),
 					],
 				);
-				data.horizontal_messages.insert(ParaId::from(200), vec![mk_hrmp(4)]);
+				data.horizontal_messages.insert(ParaId::from(200), vec![mk_hrmp(4, 1)]);
 			},
 			3 => {},
 			_ => unreachable!(),
@@ -947,7 +1396,7 @@ fn receive_hrmp() {
 		.add(1, || {
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ParaId::from(300), 1, b"1".to_vec())]);
+				assert_eq!(&*m, &[(ParaId::from(300), 1, vec![1])]);
 				m.clear();
 			});
 		})
@@ -957,9 +1406,9 @@ fn receive_hrmp() {
 				assert_eq!(
 					&*m,
 					&[
-						(ParaId::from(300), 2, b"2".to_vec()),
-						(ParaId::from(300), 3, b"3".to_vec()),
-						(ParaId::from(200), 4, b"4".to_vec()),
+						(ParaId::from(300), 2, vec![2]),
+						(ParaId::from(300), 3, vec![3]),
+						(ParaId::from(200), 4, vec![4]),
 					]
 				);
 				m.clear();
@@ -994,19 +1443,19 @@ fn receive_hrmp_after_pause() {
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
 			1 => {
 				sproof.upsert_inbound_channel(ALICE).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
 			},
 			2 => {
 				// 300 - no new messages, mqc stayed the same.
 				sproof.upsert_inbound_channel(ALICE).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
 			},
 			3 => {
 				// 300 - new message.
 				sproof.upsert_inbound_channel(ALICE).mqc_head = Some(
 					MessageQueueChain::default()
-						.extend_hrmp(&mk_hrmp(1))
-						.extend_hrmp(&mk_hrmp(3))
+						.extend_hrmp(&mk_hrmp(1, 1))
+						.extend_hrmp(&mk_hrmp(3, 1))
 						.head(),
 				);
 			},
@@ -1014,20 +1463,20 @@ fn receive_hrmp_after_pause() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.horizontal_messages.insert(ALICE, vec![mk_hrmp(1)]);
+				data.horizontal_messages.insert(ALICE, vec![mk_hrmp(1, 1)]);
 			},
 			2 => {
 				// no new messages
 			},
 			3 => {
-				data.horizontal_messages.insert(ALICE, vec![mk_hrmp(3)]);
+				data.horizontal_messages.insert(ALICE, vec![mk_hrmp(3, 1)]);
 			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ALICE, 1, b"1".to_vec())]);
+				assert_eq!(&*m, &[(ALICE, 1, vec![1])]);
 				m.clear();
 			});
 		})
@@ -1035,7 +1484,7 @@ fn receive_hrmp_after_pause() {
 		.add(3, || {
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ALICE, 3, b"3".to_vec())]);
+				assert_eq!(&*m, &[(ALICE, 3, vec![3])]);
 				m.clear();
 			});
 		});
@@ -1059,7 +1508,7 @@ fn receive_hrmp_many() {
 			let mut msgs = vec![];
 			for _ in 1..=rng.gen_range(1..=100) {
 				// Just use the same message multiple times per block.
-				msgs.push(mk_hrmp(block));
+				msgs.push(mk_hrmp(block, 0));
 			}
 			sent_in_block.push(msgs);
 		}
@@ -1101,15 +1550,14 @@ fn receive_hrmp_many() {
 #[test]
 fn upgrade_version_checks_should_work() {
 	use codec::Encode;
-	use sp_runtime::DispatchErrorWithPostInfo;
 	use sp_version::RuntimeVersion;
 
 	let test_data = vec![
-		("test", 0, 1, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 0, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 1, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 2, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test2", 1, 1, Err(frame_system::Error::<Test>::InvalidSpecName)),
+		("test", 0, 1, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 0, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 1, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 2, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test2", 1, 1, frame_system::Error::<Test>::InvalidSpecName),
 	];
 
 	for (spec_name, spec_version, impl_version, expected) in test_data.into_iter() {
@@ -1124,15 +1572,21 @@ fn upgrade_version_checks_should_work() {
 		let mut ext = new_test_ext();
 		ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(read_runtime_version));
 		ext.execute_with(|| {
+			System::set_block_number(1);
+
 			let new_code = vec![1, 2, 3, 4];
 			let new_code_hash = H256(sp_crypto_hashing::blake2_256(&new_code));
 
-			#[allow(deprecated)]
-			let _authorize = ParachainSystem::authorize_upgrade(RawOrigin::Root.into(), new_code_hash, true);
-			#[allow(deprecated)]
-			let res = ParachainSystem::enact_authorized_upgrade(RawOrigin::None.into(), new_code);
+			let _authorize = System::authorize_upgrade(RawOrigin::Root.into(), new_code_hash);
+			assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), new_code));
 
-			assert_eq!(expected.map_err(DispatchErrorWithPostInfo::from), res);
+			System::assert_last_event(
+				frame_system::Event::RejectedInvalidAuthorizedUpgrade {
+					code_hash: new_code_hash,
+					error: expected.into(),
+				}
+				.into(),
+			);
 		});
 	}
 }
@@ -1194,7 +1648,7 @@ fn ump_fee_factor_increases_and_decreases() {
 				let messages = UpwardMessages::<Test>::get();
 				assert_eq!(
 					messages,
-					vec![b"This message will be enough to increase the fee factor".to_vec(),]
+					vec![b"This message will be enough to increase the fee factor".to_vec()]
 				);
 				// Now the delivery fee factor is decreased, since we are below the threshold
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));

@@ -113,7 +113,7 @@
 //!
 //! This call can only be made by the `ExternalOrigin`.
 //!
-//! - `external_propose` - Schedules a proposal to become a referendum once it is is legal for an
+//! - `external_propose` - Schedules a proposal to become a referendum once it is legal for an
 //!   externally proposed referendum.
 //!
 //! #### External Majority Origin
@@ -152,10 +152,12 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
-	error::BadOrigin,
 	traits::{
 		defensive_prelude::*,
 		schedule::{v3::Named as ScheduleNamed, DispatchTime},
@@ -166,10 +168,9 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use sp_runtime::{
-	traits::{Bounded as ArithBounded, One, Saturating, StaticLookup, Zero},
+	traits::{BadOrigin, Bounded as ArithBounded, One, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, DispatchResult,
 };
-use sp_std::prelude::*;
 
 mod conviction;
 mod types;
@@ -221,6 +222,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + Sized {
 		type WeightInfo: WeightInfo;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The Scheduler.
@@ -439,7 +441,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -782,10 +784,8 @@ pub mod pallet {
 			// - `InstantAllowed` is `true` and `origin` is `InstantOrigin`.
 			let maybe_ensure_instant = if voting_period < T::FastTrackVotingPeriod::get() {
 				Some(origin)
-			} else if let Err(origin) = T::FastTrackOrigin::try_origin(origin) {
-				Some(origin)
 			} else {
-				None
+				T::FastTrackOrigin::try_origin(origin).err()
 			};
 			if let Some(ensure_instant) = maybe_ensure_instant {
 				T::InstantOrigin::ensure_origin(ensure_instant)?;
@@ -1434,7 +1434,7 @@ impl<T: Config> Pallet<T> {
 				delegations: Default::default(),
 				prior: Default::default(),
 			};
-			sp_std::mem::swap(&mut old, voting);
+			core::mem::swap(&mut old, voting);
 			match old {
 				Voting::Delegating {
 					balance, target, conviction, delegations, mut prior, ..
@@ -1475,7 +1475,7 @@ impl<T: Config> Pallet<T> {
 	fn try_undelegate(who: T::AccountId) -> Result<u32, DispatchError> {
 		let votes = VotingOf::<T>::try_mutate(&who, |voting| -> Result<u32, DispatchError> {
 			let mut old = Voting::default();
-			sp_std::mem::swap(&mut old, voting);
+			core::mem::swap(&mut old, voting);
 			match old {
 				Voting::Delegating { balance, target, conviction, delegations, mut prior } => {
 					// remove any delegation votes to our current target.
@@ -1723,13 +1723,13 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), BadOrigin> {
 		match threshold {
 			VoteThreshold::SuperMajorityApprove => {
-				let _ = T::ExternalOrigin::ensure_origin(origin)?;
+				T::ExternalOrigin::ensure_origin(origin)?;
 			},
 			VoteThreshold::SuperMajorityAgainst => {
-				let _ = T::ExternalDefaultOrigin::ensure_origin(origin)?;
+				T::ExternalDefaultOrigin::ensure_origin(origin)?;
 			},
 			VoteThreshold::SimpleMajority => {
-				let _ = T::ExternalMajorityOrigin::ensure_origin(origin)?;
+				T::ExternalMajorityOrigin::ensure_origin(origin)?;
 			},
 		};
 		Ok(())

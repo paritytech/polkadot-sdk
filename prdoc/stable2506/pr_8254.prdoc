@@ -1,0 +1,16 @@
+title: Introduce `remove_upgrade_cooldown`
+doc:
+- audience: Runtime User
+  description: |-
+    This dispatchable enables anyone to pay for removing an active upgrade cooldown from a parachain instead of waiting for the cooldown to be finished. It is useful for times when a parachain needs to apply an upgrade faster than the upgrade cooldown, but it will need to pay in this case. The dispatchable enables anyone to remove an upgrade cooldown of any parachain. The caller needs to pay for the removal and the tokens are burned on a successful removal.
+crates:
+- name: polkadot-runtime-common
+  bump: none
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: frame-system
+  bump: minor

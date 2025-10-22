@@ -20,16 +20,15 @@ use crate::{
 	assigner_coretime::{mock_helpers::GenesisConfigBuilder, pallet::Error, Schedule},
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Balances, CoretimeAssigner, OnDemandAssigner, Paras, ParasShared,
-		RuntimeOrigin, Scheduler, System, Test,
+		new_test_ext, CoretimeAssigner, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler,
+		System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	scheduler::common::Assignment,
 };
-use frame_support::{assert_noop, assert_ok, pallet_prelude::*, traits::Currency};
+use frame_support::{assert_noop, assert_ok, pallet_prelude::*};
 use pallet_broker::TaskId;
 use polkadot_primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
-use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 	let validation_code: ValidationCode = vec![1, 2, 3].into();
@@ -74,8 +73,11 @@ fn run_to_block(
 		Paras::initializer_initialize(b + 1);
 		Scheduler::initializer_initialize(b + 1);
 
+		// Update the spot traffic and revenue on every block.
+		OnDemand::on_initialize(b + 1);
+
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
-		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
+		Scheduler::advance_claim_queue(&Default::default());
 	}
 }
 
@@ -233,10 +235,7 @@ fn assign_core_works_with_prior_schedule() {
 }
 
 #[test]
-// Invariants: We assume that CoreSchedules is append only and consumed. In other words new
-// schedules inserted for a core must have a higher block number than all of the already existing
-// schedules.
-fn assign_core_enforces_higher_block_number() {
+fn assign_core_enforces_higher_or_equal_block_number() {
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
@@ -253,7 +252,7 @@ fn assign_core_enforces_higher_block_number() {
 		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(15u32),
-			default_test_assignments(),
+			vec![(CoreAssignment::Idle, PartsOf57600(28800))],
 			None,
 		));
 
@@ -279,32 +278,27 @@ fn assign_core_enforces_higher_block_number() {
 			),
 			Error::<Test>::DisallowedInsert
 		);
+		// Call assign core again on last entry should work:
+		assert_eq!(
+			CoretimeAssigner::assign_core(
+				core_idx,
+				BlockNumberFor::<Test>::from(15u32),
+				vec![(CoreAssignment::Pool, PartsOf57600(28800))],
+				None,
+			),
+			Ok(())
+		);
 	});
 }
 
 #[test]
 fn assign_core_enforces_well_formed_schedule() {
-	let para_id = ParaId::from(1u32);
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		let empty_assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![];
-		let overscheduled = vec![
-			(CoreAssignment::Pool, PartsOf57600::FULL),
-			(CoreAssignment::Task(para_id.into()), PartsOf57600::FULL),
-		];
-		let underscheduled = vec![(CoreAssignment::Pool, PartsOf57600(30000))];
-		let not_unique = vec![
-			(CoreAssignment::Pool, PartsOf57600::FULL / 2),
-			(CoreAssignment::Pool, PartsOf57600::FULL / 2),
-		];
-		let not_sorted = vec![
-			(CoreAssignment::Task(para_id.into()), PartsOf57600(19200)),
-			(CoreAssignment::Pool, PartsOf57600(19200)),
-			(CoreAssignment::Idle, PartsOf57600(19200)),
-		];
 
 		// Attempting assign_core with malformed assignments such that all error cases
 		// are tested
@@ -316,42 +310,6 @@ fn assign_core_enforces_well_formed_schedule() {
 				None,
 			),
 			Error::<Test>::AssignmentsEmpty
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				overscheduled,
-				None,
-			),
-			Error::<Test>::OverScheduled
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				underscheduled,
-				None,
-			),
-			Error::<Test>::UnderScheduled
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				not_unique,
-				None,
-			),
-			Error::<Test>::AssignmentsNotSorted
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				not_sorted,
-				None,
-			),
-			Error::<Test>::AssignmentsNotSorted
 		);
 	});
 }
@@ -372,7 +330,14 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 			Schedule { next_schedule: Some(start_4), ..default_test_schedule() };
 		let expected_schedule_4 =
 			Schedule { next_schedule: Some(start_5), ..default_test_schedule() };
-		let expected_schedule_5 = default_test_schedule();
+		let expected_schedule_5 = Schedule {
+			next_schedule: None,
+			end_hint: None,
+			assignments: vec![
+				(CoreAssignment::Pool, PartsOf57600(28800)),
+				(CoreAssignment::Idle, PartsOf57600(28800)),
+			],
+		};
 
 		// Call assign_core for each of five schedules
 		assert_ok!(CoretimeAssigner::assign_core(
@@ -406,7 +371,14 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_5),
-			default_test_assignments(),
+			vec![(CoreAssignment::Pool, PartsOf57600(28800))],
+			None,
+		));
+		// Test updating last entry once more:
+		assert_ok!(CoretimeAssigner::assign_core(
+			core_idx,
+			BlockNumberFor::<Test>::from(start_5),
+			vec![(CoreAssignment::Idle, PartsOf57600(28800))],
 			None,
 		));
 
@@ -522,13 +494,9 @@ fn pop_assignment_for_core_works() {
 		// Initialize the parathread, wait for it to be ready, then add an
 		// on demand order to later pop with our Coretime assigner.
 		schedule_blank_para(para_id, ParaKind::Parathread);
-		Balances::make_free_balance_be(&alice, amt);
+		on_demand::Credits::<Test>::insert(&alice, amt);
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
-		assert_ok!(OnDemandAssigner::place_order_allow_death(
-			RuntimeOrigin::signed(alice),
-			amt,
-			para_id
-		));
+		assert_ok!(OnDemand::place_order_with_credits(RuntimeOrigin::signed(alice), amt, para_id));
 
 		// Case 1: Assignment idle
 		assert_ok!(CoretimeAssigner::assign_core(

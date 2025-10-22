@@ -1,0 +1,7 @@
+title: Refactor #[benchmarks] macro to don't define trait bounds twice
+doc:
+- audience: Runtime Dev
+  description: 'This PR contains a small refactor in the logic of #[benchmarks] so if a where clause is included the expanded code set the bound T:Config inside the where clause'
+crates:
+- name: frame-support-procedural
+  bump: patch

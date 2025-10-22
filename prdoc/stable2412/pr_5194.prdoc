@@ -1,0 +1,11 @@
+title: "FRAME: Support instantiable pallets in tasks."
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      In FRAME, tasks can now be used in instantiable pallet. Also some fix for expansion with
+      conditional compilation in construct runtine.
+
+crates:
+  - name: frame-support-procedural
+    bump: patch

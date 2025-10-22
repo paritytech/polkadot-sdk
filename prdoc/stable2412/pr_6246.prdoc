@@ -1,0 +1,13 @@
+title: '[pallet-revive] implement the block hash API'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Bound T::Hash to H256
+    - Implement the block hash API
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

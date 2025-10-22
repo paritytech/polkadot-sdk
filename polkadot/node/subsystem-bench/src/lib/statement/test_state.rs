@@ -33,20 +33,24 @@ use polkadot_node_network_protocol::{
 		BackedCandidateAcknowledgement, StatementDistributionMessage, StatementFilter,
 		ValidationProtocol,
 	},
-	Versioned,
+	ValidationProtocols,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
 use polkadot_overseer::BlockInfo;
+
+use polkadot_primitives::MutateDescriptorV2;
+
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
-	Hash, Header, Id, PersistedValidationData, SessionInfo, SignedStatement, SigningContext,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement, CoreIndex, Hash,
+	Header, Id, PersistedValidationData, SessionInfo, SignedStatement, SigningContext,
 	UncheckedSigned, ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
+	dummy_committed_candidate_receipt_v2, dummy_hash, dummy_head_data, dummy_pvd,
 };
 use sc_network::{config::IncomingRequest, ProtocolName};
 use sp_core::{Pair, H256};
@@ -57,6 +61,8 @@ use std::{
 		Arc,
 	},
 };
+
+const SESSION_INDEX: u32 = 0;
 
 #[derive(Clone)]
 pub struct TestState {
@@ -125,8 +131,10 @@ impl TestState {
 				let candidate_index =
 					*pov_size_to_candidate.get(pov_size).expect("pov_size always exists; qed");
 				let mut receipt = receipt_templates[candidate_index].clone();
-				receipt.descriptor.para_id = Id::new(core_idx as u32 + 1);
-				receipt.descriptor.relay_parent = block_info.hash;
+				receipt.descriptor.set_para_id(Id::new(core_idx as u32 + 1));
+				receipt.descriptor.set_relay_parent(block_info.hash);
+				receipt.descriptor.set_core_index(CoreIndex(core_idx as u32));
+				receipt.descriptor.set_session_index(SESSION_INDEX);
 
 				state.candidate_receipts.entry(block_info.hash).or_default().push(
 					CandidateReceipt {
@@ -190,7 +198,7 @@ fn sign_statement(
 	validator_index: ValidatorIndex,
 	pair: &ValidatorPair,
 ) -> UncheckedSigned<CompactStatement> {
-	let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+	let context = SigningContext { parent_hash: relay_parent, session_index: SESSION_INDEX };
 	let payload = statement.signing_payload(&context);
 
 	SignedStatement::new(
@@ -240,7 +248,7 @@ fn generate_receipt_templates(
 	pov_size_to_candidate
 		.iter()
 		.map(|(&pov_size, &index)| {
-			let mut receipt = dummy_committed_candidate_receipt(dummy_hash());
+			let mut receipt = dummy_committed_candidate_receipt_v2(dummy_hash());
 			let (_, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
 				n_validators,
 				&AvailableData {
@@ -249,8 +257,8 @@ fn generate_receipt_templates(
 				},
 				|_, _| {},
 			);
-			receipt.descriptor.persisted_validation_data_hash = pvd.hash();
-			receipt.descriptor.erasure_root = erasure_root;
+			receipt.descriptor.set_persisted_validation_data_hash(pvd.hash());
+			receipt.descriptor.set_erasure_root(erasure_root);
 			receipt
 		})
 		.collect()
@@ -264,7 +272,8 @@ impl HandleNetworkMessage for TestState {
 		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			NetworkMessage::RequestFromNode(_authority_id, Requests::AttestedCandidateV2(req)) => {
+			NetworkMessage::RequestFromNode(_authority_id, requests) => {
+				let Requests::AttestedCandidateV2(req) = *requests else { return None };
 				let payload = req.payload;
 				let candidate_receipt = self
 					.commited_candidate_receipts
@@ -285,7 +294,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::Statement(relay_parent, statement),
 				)),
 			) => {
@@ -317,7 +326,8 @@ impl HandleNetworkMessage for TestState {
 				}
 
 				let statement = CompactStatement::Valid(candidate_hash);
-				let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+				let context =
+					SigningContext { parent_hash: relay_parent, session_index: SESSION_INDEX };
 				let payload = statement.signing_payload(&context);
 				let pair = self.test_authorities.validator_pairs.get(index).unwrap();
 				let signature = pair.sign(&payload[..]);
@@ -335,7 +345,7 @@ impl HandleNetworkMessage for TestState {
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).unwrap(),
-						Versioned::V3(ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::Statement(relay_parent, statement),
 						)),
 					))
@@ -344,7 +354,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::BackedCandidateManifest(manifest),
 				)),
 			) => {
@@ -402,7 +412,7 @@ impl HandleNetworkMessage for TestState {
 				node_sender
 					.start_send(NetworkMessage::MessageFromPeer(
 						*self.test_authorities.peer_ids.get(index).unwrap(),
-						Versioned::V3(ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 							StatementDistributionMessage::BackedCandidateKnown(ack),
 						)),
 					))
@@ -418,7 +428,7 @@ impl HandleNetworkMessage for TestState {
 			},
 			NetworkMessage::MessageFromNode(
 				_authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(ValidationProtocol::StatementDistribution(
 					StatementDistributionMessage::BackedCandidateKnown(ack),
 				)),
 			) => {

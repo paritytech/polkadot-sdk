@@ -28,24 +28,35 @@ mod mock_helpers;
 mod tests;
 
 use crate::{
-	assigner_on_demand, configuration,
+	configuration, on_demand,
 	paras::AssignCoretime,
 	scheduler::common::{Assignment, AssignmentProvider},
 	ParaId,
 };
 
+use alloc::{vec, vec::Vec};
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
 use polkadot_primitives::CoreIndex;
 use sp_runtime::traits::{One, Saturating};
 
-use sp_std::prelude::*;
-
 pub use pallet::*;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
-#[derive(RuntimeDebug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+#[derive(
+	RuntimeDebug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+)]
 pub struct PartsOf57600(u16);
 
 impl PartsOf57600 {
@@ -202,10 +213,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config + configuration::Config + assigner_on_demand::Config
-	{
-	}
+	pub trait Config: frame_system::Config + configuration::Config + on_demand::Config {}
 
 	/// Scheduled assignment sets.
 	///
@@ -240,17 +248,9 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		AssignmentsEmpty,
-		/// Assignments together exceeded 57600.
-		OverScheduled,
-		/// Assignments together less than 57600
-		UnderScheduled,
 		/// assign_core is only allowed to append new assignments at the end of already existing
-		/// ones.
+		/// ones or update the last entry.
 		DisallowedInsert,
-		/// Tried to insert a schedule for the same core and block number as an existing schedule
-		DuplicateInsert,
-		/// Tried to add an unsorted set of assignments
-		AssignmentsNotSorted,
 	}
 }
 
@@ -282,8 +282,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 			match a_type {
 				CoreAssignment::Idle => None,
-				CoreAssignment::Pool =>
-					assigner_on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
+				CoreAssignment::Pool => on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
 				CoreAssignment::Task(para_id) => Some(Assignment::Bulk((*para_id).into())),
 			}
 		})
@@ -292,7 +291,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn report_processed(assignment: Assignment) {
 		match assignment {
 			Assignment::Pool { para_id, core_index } =>
-				assigner_on_demand::Pallet::<T>::report_processed(para_id, core_index),
+				on_demand::Pallet::<T>::report_processed(para_id, core_index),
 			Assignment::Bulk(_) => {},
 		}
 	}
@@ -305,7 +304,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn push_back_assignment(assignment: Assignment) {
 		match assignment {
 			Assignment::Pool { para_id, core_index } =>
-				assigner_on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
+				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
 			Assignment::Bulk(_) => {
 				// Session changes are rough. We just drop assignments that did not make it on a
 				// session boundary. This seems sensible as bulk is region based. Meaning, even if
@@ -323,9 +322,12 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		Assignment::Bulk(para_id)
 	}
 
-	fn session_core_count() -> u32 {
-		let config = configuration::ActiveConfig::<T>::get();
-		config.scheduler_params.num_cores
+	fn assignment_duplicated(assignment: &Assignment) {
+		match assignment {
+			Assignment::Pool { para_id, core_index } =>
+				on_demand::Pallet::<T>::assignment_duplicated(*para_id, *core_index),
+			Assignment::Bulk(_) => {},
+		}
 	}
 }
 
@@ -389,67 +391,56 @@ impl<T: Config> Pallet<T> {
 
 	/// Append another assignment for a core.
 	///
-	/// Important only appending is allowed. Meaning, all already existing assignments must have a
-	/// begin smaller than the one passed here. This restriction exists, because it makes the
-	/// insertion O(1) and the author could not think of a reason, why this restriction should be
-	/// causing any problems. Inserting arbitrarily causes a `DispatchError::DisallowedInsert`
-	/// error. This restriction could easily be lifted if need be and in fact an implementation is
-	/// available
-	/// [here](https://github.com/paritytech/polkadot-sdk/pull/1694/commits/c0c23b01fd2830910cde92c11960dad12cdff398#diff-0c85a46e448de79a5452395829986ee8747e17a857c27ab624304987d2dde8baR386).
-	/// The problem is that insertion complexity then depends on the size of the existing queue,
-	/// which makes determining weights hard and could lead to issues like overweight blocks (at
-	/// least in theory).
+	/// Important: Only appending is allowed or insertion into the last item. Meaning,
+	/// all already existing assignments must have a `begin` smaller or equal than the one passed
+	/// here.
+	/// Updating the last entry is supported to allow for making a core assignment multiple calls to
+	/// assign_core. Thus if you have too much interlacing for e.g. a single UMP message you can
+	/// split that up into multiple messages, each triggering a call to `assign_core`, together
+	/// forming the total assignment.
+	///
+	/// Inserting arbitrarily causes a `DispatchError::DisallowedInsert` error.
+	// With this restriction this function allows for O(1) complexity. It could easily be lifted, if
+	// need be and in fact an implementation is available
+	// [here](https://github.com/paritytech/polkadot-sdk/pull/1694/commits/c0c23b01fd2830910cde92c11960dad12cdff398#diff-0c85a46e448de79a5452395829986ee8747e17a857c27ab624304987d2dde8baR386).
+	// The problem is that insertion complexity then depends on the size of the existing queue,
+	// which makes determining weights hard and could lead to issues like overweight blocks (at
+	// least in theory).
 	pub fn assign_core(
 		core_idx: CoreIndex,
 		begin: BlockNumberFor<T>,
-		assignments: Vec<(CoreAssignment, PartsOf57600)>,
+		mut assignments: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<BlockNumberFor<T>>,
 	) -> Result<(), DispatchError> {
 		// There should be at least one assignment.
 		ensure!(!assignments.is_empty(), Error::<T>::AssignmentsEmpty);
 
-		// Checking for sort and unique manually, since we don't have access to iterator tools.
-		// This way of checking uniqueness only works since we also check sortedness.
-		assignments.iter().map(|x| &x.0).try_fold(None, |prev, cur| {
-			if prev.map_or(false, |p| p >= cur) {
-				Err(Error::<T>::AssignmentsNotSorted)
-			} else {
-				Ok(Some(cur))
-			}
-		})?;
-
-		// Check that the total parts between all assignments are equal to 57600
-		let parts_sum = assignments
-			.iter()
-			.map(|assignment| assignment.1)
-			.try_fold(PartsOf57600::ZERO, |sum, parts| {
-				sum.checked_add(parts).ok_or(Error::<T>::OverScheduled)
-			})?;
-		ensure!(parts_sum.is_full(), Error::<T>::UnderScheduled);
-
 		CoreDescriptors::<T>::mutate(core_idx, |core_descriptor| {
 			let new_queue = match core_descriptor.queue {
 				Some(queue) => {
-					ensure!(begin > queue.last, Error::<T>::DisallowedInsert);
+					ensure!(begin >= queue.last, Error::<T>::DisallowedInsert);
 
-					CoreSchedules::<T>::try_mutate((queue.last, core_idx), |schedule| {
-						if let Some(schedule) = schedule.as_mut() {
-							debug_assert!(schedule.next_schedule.is_none(), "queue.end was supposed to be the end, so the next item must be `None`!");
-							schedule.next_schedule = Some(begin);
+					// Update queue if we are appending:
+					if begin > queue.last {
+						CoreSchedules::<T>::mutate((queue.last, core_idx), |schedule| {
+							if let Some(schedule) = schedule.as_mut() {
+								debug_assert!(schedule.next_schedule.is_none(), "queue.end was supposed to be the end, so the next item must be `None`!");
+								schedule.next_schedule = Some(begin);
+							} else {
+								defensive!("Queue end entry does not exist?");
+							}
+						});
+					}
+
+					CoreSchedules::<T>::mutate((begin, core_idx), |schedule| {
+						let assignments = if let Some(mut old_schedule) = schedule.take() {
+							old_schedule.assignments.append(&mut assignments);
+							old_schedule.assignments
 						} else {
-							defensive!("Queue end entry does not exist?");
-						}
-						CoreSchedules::<T>::try_mutate((begin, core_idx), |schedule| {
-							// It should already be impossible to overwrite an existing schedule due
-							// to strictly increasing block number. But we check here for safety and
-							// in case the design changes.
-							ensure!(schedule.is_none(), Error::<T>::DuplicateInsert);
-							*schedule =
-								Some(Schedule { assignments, end_hint, next_schedule: None });
-							Ok::<(), DispatchError>(())
-						})?;
-						Ok::<(), DispatchError>(())
-					})?;
+							assignments
+						};
+						*schedule = Some(Schedule { assignments, end_hint, next_schedule: None });
+					});
 
 					QueueDescriptor { first: queue.first, last: begin }
 				},

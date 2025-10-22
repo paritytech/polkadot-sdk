@@ -1,0 +1,7 @@
+title: Log peerset set ID -> protocol name mapping
+doc:
+- audience: Node Dev
+  description: To simplify debugging of peerset related issues like https://github.com/paritytech/polkadot-sdk/issues/6573#issuecomment-2563091343.
+crates:
+- name: sc-network
+  bump: patch

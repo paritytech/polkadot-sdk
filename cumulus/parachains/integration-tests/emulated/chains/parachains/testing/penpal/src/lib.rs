@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use penpal_runtime::{self, xcm_config::RelayNetworkId as PenpalRelayNetworkId};
+
 mod genesis;
 pub use genesis::{genesis, PenpalAssetOwner, PenpalSudoAccount, ED, PARA_ID_A, PARA_ID_B};
-pub use penpal_runtime::xcm_config::{
-	CustomizableAssetFromSystemAssetHub, RelayNetworkId as PenpalRelayNetworkId,
-};
 
 // Substrate
 use frame_support::traits::OnInitialize;
@@ -30,7 +29,11 @@ use emulated_integration_tests_common::{
 	impl_xcm_helpers_for_parachain,
 	impls::{NetworkId, Parachain},
 	xcm_emulator::decl_test_parachains,
+	AuraDigestProvider,
 };
+
+// Polkadot
+use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 
 // Penpal Parachain declaration
 decl_test_parachains! {
@@ -40,7 +43,7 @@ decl_test_parachains! {
 			penpal_runtime::AuraExt::on_initialize(1);
 			frame_support::assert_ok!(penpal_runtime::System::set_storage(
 				penpal_runtime::RuntimeOrigin::root(),
-				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::Rococo.encode())],
+				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::ByGenesis(ROCOCO_GENESIS_HASH).encode())],
 			));
 		},
 		runtime = penpal_runtime,
@@ -49,11 +52,13 @@ decl_test_parachains! {
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			DigestProvider: AuraDigestProvider,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
 			ForeignAssets: penpal_runtime::ForeignAssets,
+			AssetConversion: penpal_runtime::AssetConversion,
 			Balances: penpal_runtime::Balances,
 		}
 	},
@@ -63,7 +68,7 @@ decl_test_parachains! {
 			penpal_runtime::AuraExt::on_initialize(1);
 			frame_support::assert_ok!(penpal_runtime::System::set_storage(
 				penpal_runtime::RuntimeOrigin::root(),
-				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::Westend.encode())],
+				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::ByGenesis(WESTEND_GENESIS_HASH).encode())],
 			));
 		},
 		runtime = penpal_runtime,
@@ -72,11 +77,13 @@ decl_test_parachains! {
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			DigestProvider: AuraDigestProvider,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
 			ForeignAssets: penpal_runtime::ForeignAssets,
+			AssetConversion: penpal_runtime::AssetConversion,
 			Balances: penpal_runtime::Balances,
 		}
 	},

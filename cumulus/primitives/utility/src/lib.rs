@@ -1,25 +1,29 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Helper datatypes for cumulus. This includes the [`ParentAsUmp`] routing type which will route
 //! messages into an [`UpwardMessageSender`] if the destination is `Parent`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::Encode;
+use core::marker::PhantomData;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 use frame_support::{
 	defensive,
@@ -33,7 +37,6 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	SaturatedConversion,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
 use xcm_builder::{InspectMessageQueues, TakeRevenue};
 use xcm_executor::{
@@ -70,9 +73,12 @@ where
 			let versioned_xcm =
 				W::wrap_version(&d, xcm).map_err(|()| SendError::DestinationUnsupported)?;
 			versioned_xcm
-				.validate_xcm_nesting()
+				.check_is_decodable()
 				.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 			let data = versioned_xcm.encode();
+
+			// Pre-check with our message sender if everything else is okay.
+			T::can_send_upward_message(&data).map_err(Self::map_upward_sender_err)?;
 
 			Ok((data, price))
 		} else {
@@ -84,18 +90,34 @@ where
 	}
 
 	fn deliver(data: Vec<u8>) -> Result<XcmHash, SendError> {
-		let (_, hash) = T::send_upward_message(data).map_err(|e| match e {
+		let (_, hash) = T::send_upward_message(data).map_err(Self::map_upward_sender_err)?;
+		Ok(hash)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		if location.as_ref().map_or(false, |l| l.contains_parents_only(1)) {
+			T::ensure_successful_delivery();
+		}
+	}
+}
+
+impl<T, W, P> ParentAsUmp<T, W, P> {
+	fn map_upward_sender_err(message_send_error: MessageSendError) -> SendError {
+		match message_send_error {
 			MessageSendError::TooBig => SendError::ExceedsMaxMessageSize,
 			e => SendError::Transport(e.into()),
-		})?;
-
-		Ok(hash)
+		}
 	}
 }
 
 impl<T: UpwardMessageSender + InspectMessageQueues, W, P> InspectMessageQueues
 	for ParentAsUmp<T, W, P>
 {
+	fn clear_messages() {
+		T::clear_messages();
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		T::get_messages()
 	}
@@ -378,7 +400,8 @@ impl<
 		FungiblesAssetMatcher,
 		OnUnbalanced,
 		AccountId,
-	> where
+	>
+where
 	Fungibles::Balance: Into<u128>,
 {
 	fn new() -> Self {
@@ -404,10 +427,22 @@ impl<
 		let first_asset: Asset =
 			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)?.into();
 		let (fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(&first_asset)
-			.map_err(|_| XcmError::AssetNotFound)?;
+			.map_err(|error| {
+				log::trace!(
+					target: "xcm::weight",
+					"SwapFirstAssetTrader::buy_weight asset {:?} didn't match. Error: {:?}",
+					first_asset,
+					error,
+				);
+				XcmError::AssetNotFound
+			})?;
 
 		let swap_asset = fungibles_asset.clone().into();
 		if Target::get().eq(&swap_asset) {
+			log::trace!(
+				target: "xcm::weight",
+				"SwapFirstAssetTrader::buy_weight Asset was same as Target, swap not needed.",
+			);
 			// current trader is not applicable.
 			return Err(XcmError::FeesNotMet)
 		}
@@ -421,7 +456,12 @@ impl<
 			credit_in,
 			fee,
 		)
-		.map_err(|(credit_in, _)| {
+		.map_err(|(credit_in, error)| {
+			log::trace!(
+				target: "xcm::weight",
+				"SwapFirstAssetTrader::buy_weight swap couldn't be done. Error was: {:?}",
+				error,
+			);
 			drop(credit_in);
 			XcmError::FeesNotMet
 		})?;
@@ -521,7 +561,8 @@ impl<
 		FungiblesAssetMatcher,
 		OnUnbalanced,
 		AccountId,
-	> where
+	>
+where
 	Fungibles::Balance: Into<u128>,
 {
 	fn drop(&mut self) {
@@ -570,11 +611,15 @@ mod test_xcm_router {
 		}
 	}
 
-	/// Impl [`UpwardMessageSender`] that return `Other` error
-	struct OtherErrorUpwardMessageSender;
-	impl UpwardMessageSender for OtherErrorUpwardMessageSender {
+	/// Impl [`UpwardMessageSender`] that return `Ok` for `can_send_upward_message`.
+	struct CanSendUpwardMessageSender;
+	impl UpwardMessageSender for CanSendUpwardMessageSender {
 		fn send_upward_message(_: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 			Err(MessageSendError::Other)
+		}
+
+		fn can_send_upward_message(_: &UpwardMessage) -> Result<(), MessageSendError> {
+			Ok(())
 		}
 	}
 
@@ -615,7 +660,7 @@ mod test_xcm_router {
 		let dest = (Parent, Here);
 		let mut dest_wrapper = Some(dest.clone().into());
 		let mut msg_wrapper = Some(message.clone());
-		assert!(<ParentAsUmp<(), (), ()> as SendXcm>::validate(
+		assert!(<ParentAsUmp<CanSendUpwardMessageSender, (), ()> as SendXcm>::validate(
 			&mut dest_wrapper,
 			&mut msg_wrapper
 		)
@@ -629,7 +674,7 @@ mod test_xcm_router {
 		assert_eq!(
 			Err(SendError::Transport("Other")),
 			send_xcm::<(
-				ParentAsUmp<OtherErrorUpwardMessageSender, (), ()>,
+				ParentAsUmp<CanSendUpwardMessageSender, (), ()>,
 				OkFixedXcmHashWithAssertingRequiredInputsSender
 			)>(dest.into(), message)
 		);
@@ -639,7 +684,7 @@ mod test_xcm_router {
 	fn parent_as_ump_validate_nested_xcm_works() {
 		let dest = Parent;
 
-		type Router = ParentAsUmp<(), (), ()>;
+		type Router = ParentAsUmp<CanSendUpwardMessageSender, (), ()>;
 
 		// Message that is not too deeply nested:
 		let mut good = Xcm(vec![ClearOrigin]);
@@ -803,7 +848,7 @@ mod test_trader {
 /// needed.
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>(
-	sp_std::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
+	core::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -819,13 +864,16 @@ impl<
 		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
-		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS};
+		use xcm::{latest::MAX_ITEMS_IN_ASSETS, MAX_INSTRUCTIONS_TO_DECODE};
 		use xcm_executor::{traits::FeeManager, FeesMode};
 
 		// check if the destination is relay/parent
 		if dest.ne(&Location::parent()) {
 			return (None, None);
 		}
+
+		// Ensure routers
+		XcmConfig::XcmSender::ensure_successful_delivery(Some(Location::parent()));
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {

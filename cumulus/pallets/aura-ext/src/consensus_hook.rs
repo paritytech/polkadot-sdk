@@ -1,25 +1,23 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! The definition of a [`FixedVelocityConsensusHook`] for consensus logic to manage
 //! block velocity.
-//!
-//! The velocity `V` refers to the rate of block processing by the relay chain.
-
 use super::{pallet, Aura};
+use core::{marker::PhantomData, num::NonZeroU32};
 use cumulus_pallet_parachain_system::{
 	self as parachain_system,
 	consensus_hook::{ConsensusHook, UnincludedSegmentCapacity},
@@ -27,11 +25,26 @@ use cumulus_pallet_parachain_system::{
 };
 use frame_support::pallet_prelude::*;
 use sp_consensus_aura::{Slot, SlotDuration};
-use sp_std::{marker::PhantomData, num::NonZeroU32};
 
-/// A consensus hook for a fixed block processing velocity and unincluded segment capacity.
+/// A consensus hook that enforces fixed block production velocity and unincluded segment capacity.
 ///
-/// Relay chain slot duration must be provided in milliseconds.
+/// It keeps track of relay chain slot information and parachain blocks authored per relay chain
+/// slot.
+///
+/// # Type Parameters
+/// - `T` - The runtime configuration trait
+/// - `RELAY_CHAIN_SLOT_DURATION_MILLIS` - Duration of relay chain slots in milliseconds
+/// - `V` - Maximum number of blocks that can be authored per relay chain parent (velocity)
+/// - `C` - Maximum capacity of unincluded segment
+///
+/// # Example Configuration
+/// ```ignore
+/// type ConsensusHook = FixedVelocityConsensusHook<Runtime, 6000, 2, 8>;
+/// ```
+/// This configures:
+/// - 6 second relay chain slots
+/// - Maximum 2 blocks per slot
+/// - Maximum 8 blocks in unincluded segment
 pub struct FixedVelocityConsensusHook<
 	T,
 	const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32,
@@ -48,14 +61,37 @@ impl<
 where
 	<T as pallet_timestamp::Config>::Moment: Into<u64>,
 {
-	// Validates the number of authored blocks within the slot with respect to the `V + 1` limit.
+	/// Consensus hook that performs validations on the provided relay chain state
+	/// proof:
+	/// - Ensures blocks are not produced faster than the specified velocity `V`
+	/// - Verifies parachain slot alignment with relay chain slot
+	///
+	/// # Panics
+	/// - When the relay chain slot from the state is smaller than the slot from the proof
+	/// - When the number of authored blocks exceeds velocity limit
+	/// - When parachain slot is ahead of the calculated slot from relay chain
 	fn on_state_proof(state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
 		// Ensure velocity is non-zero.
 		let velocity = V.max(1);
 		let relay_chain_slot = state_proof.read_slot().expect("failed to read relay chain slot");
 
-		let (slot, authored) =
-			pallet::SlotInfo::<T>::get().expect("slot info is inserted on block initialization");
+		let (relay_chain_slot, authored_in_relay) = match pallet::RelaySlotInfo::<T>::get() {
+			Some((slot, authored)) if slot == relay_chain_slot => (slot, authored),
+			Some((slot, _)) if slot < relay_chain_slot => (relay_chain_slot, 0),
+			Some((slot, _)) => {
+				panic!("Slot moved backwards: stored_slot={slot:?}, relay_chain_slot={relay_chain_slot:?}")
+			},
+			None => (relay_chain_slot, 0),
+		};
+
+		// We need to allow one additional block to be built to fill the unincluded segment.
+		if authored_in_relay > velocity {
+			panic!("authored blocks limit is reached for the slot: relay_chain_slot={relay_chain_slot:?}, authored={authored_in_relay:?}, velocity={velocity:?}");
+		}
+
+		pallet::RelaySlotInfo::<T>::put((relay_chain_slot, authored_in_relay + 1));
+
+		let para_slot = pallet_aura::CurrentSlot::<T>::get();
 
 		// Convert relay chain timestamp.
 		let relay_chain_timestamp =
@@ -65,16 +101,21 @@ where
 		let para_slot_from_relay =
 			Slot::from_timestamp(relay_chain_timestamp.into(), para_slot_duration);
 
-		// Perform checks.
-		assert_eq!(slot, para_slot_from_relay, "slot number mismatch");
-		if authored > velocity + 1 {
-			panic!("authored blocks limit is reached for the slot")
+		if *para_slot != *para_slot_from_relay {
+			panic!(
+				"Parachain slot must match relay-derived slot: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
+				para_slot,
+				para_slot_from_relay,
+				velocity,
+				relay_chain_slot
+			);
 		}
+
 		let weight = T::DbWeight::get().reads(1);
 
 		(
 			weight,
-			NonZeroU32::new(sp_std::cmp::max(C, 1))
+			NonZeroU32::new(core::cmp::max(C, 1))
 				.expect("1 is the minimum value and non-zero; qed")
 				.into(),
 		)
@@ -100,7 +141,7 @@ impl<
 	/// is more recent than the included block itself.
 	pub fn can_build_upon(included_hash: T::Hash, new_slot: Slot) -> bool {
 		let velocity = V.max(1);
-		let (last_slot, authored_so_far) = match pallet::SlotInfo::<T>::get() {
+		let (last_slot, authored_so_far) = match pallet::RelaySlotInfo::<T>::get() {
 			None => return true,
 			Some(x) => x,
 		};
@@ -113,6 +154,8 @@ impl<
 			return false
 		}
 
+		// Check that we have not authored more than `V + 1` parachain blocks in the current relay
+		// chain slot.
 		if last_slot == new_slot {
 			authored_so_far < velocity + 1
 		} else {

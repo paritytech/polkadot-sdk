@@ -13,7 +13,7 @@ Running the command on Substrate itself is not verify meaningful, since the gene
 used.
 
 The output for the Polkadot client with a recent chain snapshot will give you a better impression. A recent snapshot can
-be downloaded from [Polkachu].
+be downloaded from [Polkadot Snapshots].
 Then run (remove the `--db=paritydb` if you have a RocksDB snapshot):
 ```sh
 cargo run --profile=production -- benchmark storage --dev --state-version=0 --db=paritydb --weight-path runtime/polkadot/constants/src/weights
@@ -106,6 +106,6 @@ write: 71_347 * constants::WEIGHT_REF_TIME_PER_NANOS,
 License: Apache-2.0
 
 <!-- LINKS -->
-[Polkachu]: https://polkachu.com/snapshots
+[Polkadot Snapshots]: https://snapshots.polkadot.io
 [paritydb_weights.rs]:
     https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/paritydb_weights.rs#L60

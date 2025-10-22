@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Utilities for tracing block execution
 
@@ -35,7 +36,7 @@ use tracing::{
 
 use crate::{SpanDatum, TraceEvent, Values};
 use sc_client_api::BlockBackend;
-use sp_api::{Core, Metadata, ProvideRuntimeApi};
+use sp_api::{Core, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::hexdisplay::HexDisplay;
 use sp_rpc::tracing::{BlockTrace, Span, TraceBlockResponse};
@@ -50,6 +51,47 @@ const DEFAULT_TARGETS: &str = "pallet,frame,state";
 const TRACE_TARGET: &str = "block_trace";
 // The name of a field required for all events.
 const REQUIRED_EVENT_FIELD: &str = "method";
+
+/// Something that can execute a block in a tracing context.
+pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
+	/// Execute the given `block`.
+	///
+	/// The `block` is prepared to be executed right away, this means that any `Seal` was already
+	/// removed from the header. As this changes the `hash` of the block, `orig_hash` is passed
+	/// alongside to the callee.
+	///
+	/// The execution should be done sync on the same thread, because the caller will register
+	/// special tracing collectors.
+	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()>;
+}
+
+/// Default implementation of [`ExecuteBlock`].
+///
+/// Uses [`Core::execute_block`] to directly execute a block.
+struct DefaultExecuteBlock<Client> {
+	client: Arc<Client>,
+}
+
+impl<Client> DefaultExecuteBlock<Client> {
+	/// Creates a new instance.
+	pub fn new(client: Arc<Client>) -> Self {
+		Self { client }
+	}
+}
+
+impl<Client, Block> TracingExecuteBlock<Block> for DefaultExecuteBlock<Client>
+where
+	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	Client::Api: Core<Block>,
+	Block: BlockT,
+{
+	fn execute_block(&self, _: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
+		self.client
+			.runtime_api()
+			.execute_block(*block.header().parent_hash(), block.into())
+			.map_err(Into::into)
+	}
+}
 
 /// Tracing Block Result type alias
 pub type TraceBlockResult<T> = Result<T, Error>;
@@ -95,11 +137,13 @@ impl Subscriber for BlockSubscriber {
 		if !metadata.is_span() && metadata.fields().field(REQUIRED_EVENT_FIELD).is_none() {
 			return false
 		}
+
 		for (target, level) in &self.targets {
 			if metadata.level() <= level && metadata.target().starts_with(target) {
 				return true
 			}
 		}
+
 		false
 	}
 
@@ -166,6 +210,7 @@ pub struct BlockExecutor<Block: BlockT, Client> {
 	targets: Option<String>,
 	storage_keys: Option<String>,
 	methods: Option<String>,
+	execute_block: Arc<dyn TracingExecuteBlock<Block>>,
 }
 
 impl<Block, Client> BlockExecutor<Block, Client>
@@ -177,7 +222,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: Metadata<Block>,
+	Client::Api: Core<Block>,
 {
 	/// Create a new `BlockExecutor`
 	pub fn new(
@@ -186,8 +231,17 @@ where
 		targets: Option<String>,
 		storage_keys: Option<String>,
 		methods: Option<String>,
+		execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
 	) -> Self {
-		Self { client, block, targets, storage_keys, methods }
+		Self {
+			client: client.clone(),
+			block,
+			targets,
+			storage_keys,
+			methods,
+			execute_block: execute_block
+				.unwrap_or_else(|| Arc::new(DefaultExecuteBlock::new(client))),
+		}
 	}
 
 	/// Execute block, record all spans and events belonging to `Self::targets`
@@ -224,14 +278,14 @@ where
 				extrinsics_len = block.extrinsics().len(),
 			);
 			let _guard = dispatcher_span.enter();
+
 			if let Err(e) = dispatcher::with_default(&dispatch, || {
 				let span = tracing::info_span!(target: TRACE_TARGET, "trace_block");
 				let _enter = span.enter();
-				self.client.runtime_api().execute_block(parent_hash, block)
+				self.execute_block.execute_block(self.block, block)
 			}) {
 				return Err(Error::Dispatch(format!(
-					"Failed to collect traces and execute block: {}",
-					e
+					"Failed to collect traces and execute block: {e:?}"
 				)))
 			}
 		}
@@ -310,6 +364,7 @@ fn patch_and_filter(mut span: SpanDatum, targets: &str) -> Option<Span> {
 			return None
 		}
 	}
+
 	Some(span.into())
 }
 
@@ -320,6 +375,7 @@ fn check_target(targets: &str, target: &str, level: &Level) -> bool {
 			return true
 		}
 	}
+
 	false
 }
 

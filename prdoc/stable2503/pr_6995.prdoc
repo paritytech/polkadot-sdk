@@ -1,0 +1,14 @@
+title: added new proxy ParaRegistration to Westend
+doc:
+- audience: Runtime User
+  description: |-
+    This adds a new Proxy type to Westend Runtime called ParaRegistration. This is related to: https://github.com/polkadot-fellows/runtimes/pull/520.
+
+    This new proxy allows:
+    1. Reserve paraID
+    2. Register Parachain
+    3. Leverage Utilites pallet
+    4. Remove proxy.
+crates:
+- name: westend-runtime
+  bump: major

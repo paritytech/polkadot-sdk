@@ -12,7 +12,7 @@
 //!
 //! What follows is a description of how extrinsics based on this
 //! [`sp_runtime::generic::UncheckedExtrinsic`] type are encoded into bytes. Specifically, we are
-//! looking at how extrinsics with a format version of 4 are encoded. This version is itself a part
+//! looking at how extrinsics with a format version of 5 are encoded. This version is itself a part
 //! of the payload, and if it changes, it indicates that something about the encoding may have
 //! changed.
 //!
@@ -24,7 +24,8 @@
 //! ```text
 //! extrinsic_bytes = concat(
 //!     compact_encoded_length,
-//!     version_and_maybe_signature,
+//!     version_and_extrinsic_type,
+//! 	maybe_extension_data,
 //!     call_data
 //! )
 //! ```
@@ -56,18 +57,38 @@
 //!     version_and_signed,
 //!     from_address,
 //!     signature,
-//!     signed_extensions_extra,
+//!     transaction_extensions_extra,
 //! )
 //! ```
 //!
 //! Each of the details to be concatenated together is explained below:
 //!
-//! ### version_and_signed
+//! ## version_and_extrinsic_type
 //!
-//! This is one byte, equal to `0x84` or `0b1000_0100` (i.e. an upper 1 bit to denote that it is
-//! signed, and then the transaction version, 4, in the lower bits).
+//! This byte has 2 components:
+//! - the 2 most significant bits represent the extrinsic type:
+//!     - bare - `0b00`
+//!     - signed - `0b10`
+//!     - general - `0b01`
+//! - the 6 least significant bits represent the extrinsic format version (currently 5)
 //!
-//! ### from_address
+//! ### Bare extrinsics
+//!
+//! If the extrinsic is _bare_, then `version_and_extrinsic_type` will be just the _transaction
+//! protocol version_, which is 5 (or `0b0000_0101`). Bare extrinsics do not carry any other
+//! extension data, so `maybe_extension_data` would not be included in the payload and the
+//! `version_and_extrinsic_type` would always be followed by the encoded call bytes.
+//!
+//! ### Signed extrinsics
+//!
+//! If the extrinsic is _signed_ (all extrinsics submitted from users used to be signed up until
+//! version 4), then `version_and_extrinsic_type` is obtained by having a MSB of `1` on the
+//! _transaction protocol version_ byte (which translates to `0b1000_0101`).
+//!
+//! Additionally, _signed_ extrinsics also carry with them address and signature information encoded
+//! as follows:
+//!
+//! #### from_address
 //!
 //! This is the [SCALE encoded][frame::deps::codec] address of the sender of the extrinsic. The
 //! address is the first generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`], and so
@@ -78,7 +99,7 @@
 //! signed extrinsic to be submitted to a Polkadot node, you'll always use the
 //! [`sp_runtime::MultiAddress::Id`] variant to wrap your `AccountId32`.
 //!
-//! ### signature
+//! #### signature
 //!
 //! This is the [SCALE encoded][frame::deps::codec] signature. The signature type is configured via
 //! the third generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`], which determines the
@@ -90,32 +111,41 @@
 //! The signature type used on the Polkadot relay chain is [`sp_runtime::MultiSignature`]; the
 //! variants there are the types of signature that can be provided.
 //!
-//! ### signed_extensions_extra
+//! ### General extrinsics
 //!
-//! This is the concatenation of the [SCALE encoded][frame::deps::codec] bytes representing each of
-//! the [_signed extensions_][sp_runtime::traits::SignedExtension], and are configured by the
-//! fourth generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Learn more about
-//! signed extensions [here][crate::reference_docs::signed_extensions].
+//! If the extrinsic is _general_ (it doesn't carry a signature in the payload, only extension
+//! data), then `version_and_extrinsic_type` is obtained by logical OR between the general
+//! transaction type bits and the _transaction protocol version_ byte (which translates to
+//! `0b0100_0101`).
 //!
-//! When it comes to constructing an extrinsic, each signed extension has two things that we are
-//! interested in here:
+//! ### transaction_extensions_extra
 //!
-//! - The actual SCALE encoding of the signed extension type itself; this is what will form our
-//!   `signed_extensions_extra` bytes.
-//! - An `AdditionalSigned` type. This is SCALE encoded into the `signed_extensions_additional` data
-//!   of the _signed payload_ (see below).
+//! This is the concatenation of the [SCALE encoded][frame::deps::codec] bytes representing first a
+//! single byte describing the extension version (this is bumped whenever a change occurs in the
+//! transaction extension pipeline) followed by the bytes of each of the [_transaction
+//! extensions_][sp_runtime::traits::TransactionExtension], and are configured by the fourth generic
+//! parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Learn more about transaction
+//! extensions [here][crate::reference_docs::transaction_extensions].
+//!
+//! When it comes to constructing an extrinsic, each transaction extension has two things that we
+//! are interested in here:
+//!
+//! - The actual SCALE encoding of the transaction extension type itself; this is what will form our
+//!   `transaction_extensions_extra` bytes.
+//! - An `Implicit` type. This is SCALE encoded into the `transaction_extensions_implicit` data (see
+//!   below).
 //!
 //! Either (or both) of these can encode to zero bytes.
 //!
-//! Each chain configures the set of signed extensions that it uses in its runtime configuration.
-//! At the time of writing, Polkadot configures them
+//! Each chain configures the set of transaction extensions that it uses in its runtime
+//! configuration. At the time of writing, Polkadot configures them
 //! [here](https://github.com/polkadot-fellows/runtimes/blob/1dc04eb954eadf8aadb5d83990b89662dbb5a074/relay/polkadot/src/lib.rs#L1432C25-L1432C25).
-//! Some of the common signed extensions are defined
-//! [here][frame::deps::frame_system#signed-extensions].
+//! Some of the common transaction extensions are defined
+//! [here][frame::deps::frame_system#transaction-extensions].
 //!
-//! Information about exactly which signed extensions are present on a chain and in what order is
-//! also a part of the metadata for the chain. For V15 metadata, it can be
-//! [found here][frame::deps::frame_support::__private::metadata::v15::ExtrinsicMetadata].
+//! Information about exactly which transaction extensions are present on a chain and in what order
+//! is also a part of the metadata for the chain. For V15 metadata, it can be [found
+//! here][frame::deps::frame_support::__private::metadata::v15::ExtrinsicMetadata].
 //!
 //! ## call_data
 //!
@@ -150,53 +180,63 @@
 //!   are typically provided as values to the inner enum.
 //!
 //! Information about the pallets that exist for a chain (including their indexes), the calls
-//! available in each pallet (including their indexes), and the arguments required for each call
-//! can be found in the metadata for the chain. For V15 metadata, this information
-//! [is here][frame::deps::frame_support::__private::metadata::v15::PalletMetadata].
+//! available in each pallet (including their indexes), and the arguments required for each call can
+//! be found in the metadata for the chain. For V15 metadata, this information [is
+//! here][frame::deps::frame_support::__private::metadata::v15::PalletMetadata].
 //!
 //! # The Signed Payload Format
 //!
-//! All extrinsics submitted to a node from the outside world (also known as _transactions_) need to
-//! be _signed_. The data that needs to be signed for some extrinsic is called the _signed payload_,
-//! and its shape is described by the following pseudo-code:
+//! All _signed_ extrinsics submitted to a node from the outside world (also known as
+//! _transactions_) need to be _signed_. The data that needs to be signed for some extrinsic is
+//! called the _signed payload_, and its shape is described by the following pseudo-code:
 //!
 //! ```text
-//! signed_payload = concat(
-//!     call_data,
-//!     signed_extensions_extra,
-//!     signed_extensions_additional,
+//! signed_payload = blake2_256(
+//! 	concat(
+//!     	call_data,
+//!     	transaction_extensions_extra,
+//!     	transaction_extensions_implicit,
+//! 	)
 //! )
-//!
-//! if length(signed_payload) > 256 {
-//!     signed_payload = blake2_256(signed_payload)
-//! }
 //! ```
 //!
-//! The bytes representing `call_data` and `signed_extensions_extra` can be obtained as described
-//! above. `signed_extensions_additional` is constructed by SCALE encoding the
-//! ["additional signed" data][sp_runtime::traits::SignedExtension::AdditionalSigned] for each
-//! signed extension that the chain is using, in order.
+//! The bytes representing `call_data` and `transaction_extensions_extra` can be obtained as
+//! descibed above. `transaction_extensions_implicit` is constructed by SCALE encoding the
+//! ["implicit" data][sp_runtime::traits::TransactionExtension::Implicit] for each transaction
+//! extension that the chain is using, in order.
 //!
-//! Once we've concatenated those together, we hash the result if it's greater than 256 bytes in
-//! length using a Blake2 256bit hasher.
+//! Once we've concatenated those together, we hash the result using a Blake2 256bit hasher.
 //!
-//! The [`sp_runtime::generic::SignedPayload`] type takes care of assembling the correct payload
-//! for us, given `call_data` and a tuple of signed extensions.
+//! The [`sp_runtime::generic::SignedPayload`] type takes care of assembling the correct payload for
+//! us, given `call_data` and a tuple of transaction extensions.
+//!
+//! # The General Transaction Format
+//!
+//! A General transaction does not have a signature method hardcoded in the check logic of the
+//! extrinsic, such as a traditionally signed transaction. Instead, general transactions should have
+//! one or more extensions in the transaction extension pipeline that auhtorize origins in some way,
+//! one of which could be the traditional signature check that happens for all signed transactions
+//! in the [Checkable](sp_runtime::traits::Checkable) implementation of
+//! [UncheckedExtrinsic](sp_runtime::generic::UncheckedExtrinsic). Therefore, it is up to each
+//! extension to define the format of the payload it will try to check and authorize the right
+//! origin type. For an example, look into the [authorization example pallet
+//! extensions](pallet_example_authorization_tx_extension::extensions)
 //!
 //! # Example Encoding
 //!
-//! Using [`sp_runtime::generic::UncheckedExtrinsic`], we can construct and encode an extrinsic
-//! as follows:
+//! Using [`sp_runtime::generic::UncheckedExtrinsic`], we can construct and encode an extrinsic as
+//! follows:
 #![doc = docify::embed!("./src/reference_docs/extrinsic_encoding.rs", encoding_example)]
 
 #[docify::export]
 pub mod call_data {
 	use codec::{Decode, Encode};
+	use sp_runtime::{traits::Dispatchable, DispatchResultWithInfo};
 
 	// The outer enum composes calls within
 	// different pallets together. We have two
 	// pallets, "PalletA" and "PalletB".
-	#[derive(Encode, Decode)]
+	#[derive(Encode, Decode, Clone)]
 	pub enum Call {
 		#[codec(index = 0)]
 		PalletA(PalletACall),
@@ -207,23 +247,33 @@ pub mod call_data {
 	// An inner enum represents the calls within
 	// a specific pallet. "PalletA" has one call,
 	// "Foo".
-	#[derive(Encode, Decode)]
+	#[derive(Encode, Decode, Clone)]
 	pub enum PalletACall {
 		#[codec(index = 0)]
 		Foo(String),
 	}
 
-	#[derive(Encode, Decode)]
+	#[derive(Encode, Decode, Clone)]
 	pub enum PalletBCall {
 		#[codec(index = 0)]
 		Bar(String),
+	}
+
+	impl Dispatchable for Call {
+		type RuntimeOrigin = ();
+		type Config = ();
+		type Info = ();
+		type PostInfo = ();
+		fn dispatch(self, _origin: Self::RuntimeOrigin) -> DispatchResultWithInfo<Self::PostInfo> {
+			Ok(())
+		}
 	}
 }
 
 #[docify::export]
 pub mod encoding_example {
 	use super::call_data::{Call, PalletACall};
-	use crate::reference_docs::signed_extensions::signed_extensions_example;
+	use crate::reference_docs::transaction_extensions::transaction_extensions_example;
 	use codec::Encode;
 	use sp_core::crypto::AccountId32;
 	use sp_keyring::sr25519::Keyring;
@@ -232,34 +282,40 @@ pub mod encoding_example {
 		MultiAddress, MultiSignature,
 	};
 
-	// Define some signed extensions to use. We'll use a couple of examples
-	// from the signed extensions reference doc.
-	type SignedExtensions =
-		(signed_extensions_example::AddToPayload, signed_extensions_example::AddToSignaturePayload);
+	// Define some transaction extensions to use. We'll use a couple of examples
+	// from the transaction extensions reference doc.
+	type TransactionExtensions = (
+		transaction_extensions_example::AddToPayload,
+		transaction_extensions_example::AddToSignaturePayload,
+	);
 
 	// We'll use `UncheckedExtrinsic` to encode our extrinsic for us. We set
 	// the address and signature type to those used on Polkadot, use our custom
-	// `Call` type, and use our custom set of `SignedExtensions`.
-	type Extrinsic =
-		UncheckedExtrinsic<MultiAddress<AccountId32, ()>, Call, MultiSignature, SignedExtensions>;
+	// `Call` type, and use our custom set of `TransactionExtensions`.
+	type Extrinsic = UncheckedExtrinsic<
+		MultiAddress<AccountId32, ()>,
+		Call,
+		MultiSignature,
+		TransactionExtensions,
+	>;
 
 	pub fn encode_demo_extrinsic() -> Vec<u8> {
 		// The "from" address will be our Alice dev account.
 		let from_address = MultiAddress::<AccountId32, ()>::Id(Keyring::Alice.to_account_id());
 
-		// We provide some values for our expected signed extensions.
-		let signed_extensions = (
-			signed_extensions_example::AddToPayload(1),
-			signed_extensions_example::AddToSignaturePayload,
+		// We provide some values for our expected transaction extensions.
+		let transaction_extensions = (
+			transaction_extensions_example::AddToPayload(1),
+			transaction_extensions_example::AddToSignaturePayload,
 		);
 
 		// Construct our call data:
 		let call_data = Call::PalletA(PalletACall::Foo("Hello".to_string()));
 
 		// The signed payload. This takes care of encoding the call_data,
-		// signed_extensions_extra and signed_extensions_additional, and hashing
+		// transaction_extensions_extra and transaction_extensions_implicit, and hashing
 		// the result if it's > 256 bytes:
-		let signed_payload = SignedPayload::new(&call_data, signed_extensions.clone());
+		let signed_payload = SignedPayload::new(call_data.clone(), transaction_extensions.clone());
 
 		// Sign the signed payload with our Alice dev account's private key,
 		// and wrap the signature into the expected type:
@@ -269,7 +325,7 @@ pub mod encoding_example {
 		};
 
 		// Now, we can build and encode our extrinsic:
-		let ext = Extrinsic::new_signed(call_data, from_address, signature, signed_extensions);
+		let ext = Extrinsic::new_signed(call_data, from_address, signature, transaction_extensions);
 
 		let encoded_ext = ext.encode();
 		encoded_ext

@@ -26,16 +26,17 @@ pub mod migration;
 mod mock;
 mod tests;
 
-use core::marker::PhantomData;
+extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::Encode;
+use core::marker::PhantomData;
 use frame_support::weights::Weight;
 use sp_runtime::{traits::Hash, Perbill};
 use sp_staking::{
 	offence::{Kind, Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -63,6 +64,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Full identification of the validator.
 		type IdentificationTuple: Parameter;
@@ -72,7 +74,6 @@ pub mod pallet {
 
 	/// The primary structure that holds all offence records keyed by report identifiers.
 	#[pallet::storage]
-	#[pallet::getter(fn reports)]
 	pub type Reports<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -151,6 +152,13 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	/// Get the offence details from reports of given ID.
+	pub fn reports(
+		report_id: ReportIdOf<T>,
+	) -> Option<OffenceDetails<T::AccountId, T::IdentificationTuple>> {
+		Reports::<T>::get(report_id)
+	}
+
 	/// Compute the ID for the given report properties.
 	///
 	/// The report id depends on the offence kind, time slot and the id of offender.

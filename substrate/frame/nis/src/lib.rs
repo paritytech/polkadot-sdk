@@ -76,26 +76,32 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::{
-	fungible::{self, Inspect as FunInspect, Mutate as FunMutate},
-	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
-};
-pub use pallet::*;
-use sp_arithmetic::{traits::Unsigned, RationalArg};
-use sp_core::TypedGet;
-use sp_runtime::{
-	traits::{Convert, ConvertBack},
-	DispatchError, Perquintill,
-};
+extern crate alloc;
+
+pub mod weights;
 
 mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod weights;
 
-pub struct WithMaximumOf<A: TypedGet>(sp_std::marker::PhantomData<A>);
+pub use pallet::*;
+pub use weights::WeightInfo;
+
+use alloc::{vec, vec::Vec};
+use frame::prelude::*;
+use fungible::{
+	Balanced as FunBalanced, Inspect as FunInspect, Mutate as FunMutate,
+	MutateHold as FunMutateHold,
+};
+use nonfungible::{Inspect as NftInspect, Transfer as NftTransfer};
+use tokens::{Balance, Restriction::*};
+use Fortitude::*;
+use Precision::*;
+use Preservation::*;
+
+pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
 impl<A: TypedGet> Convert<Perquintill, A::Type> for WithMaximumOf<A>
 where
 	A::Type: Clone + Unsigned + From<u64>,
@@ -116,7 +122,7 @@ where
 	}
 }
 
-pub struct NoCounterpart<T>(sp_std::marker::PhantomData<T>);
+pub struct NoCounterpart<T>(core::marker::PhantomData<T>);
 impl<T> FunInspect<T> for NoCounterpart<T> {
 	type Balance = u32;
 	fn total_issuance() -> u32 {
@@ -167,33 +173,9 @@ impl BenchmarkSetup for () {
 	fn create_counterpart_asset() {}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use super::{FunInspect, FunMutate};
-	pub use crate::weights::WeightInfo;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{
-			fungible::{self, hold::Mutate as FunHoldMutate, Balanced as FunBalanced},
-			nonfungible::{Inspect as NftInspect, Transfer as NftTransfer},
-			tokens::{
-				Balance,
-				Fortitude::Polite,
-				Precision::{BestEffort, Exact},
-				Preservation::Expendable,
-				Restriction::{Free, OnHold},
-			},
-			Defensive, DefensiveSaturating, OnUnbalanced,
-		},
-		PalletId,
-	};
-	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::{PerThing, Perquintill};
-	use sp_runtime::{
-		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero},
-		Rounding, TokenError,
-	};
-	use sp_std::prelude::*;
+	use super::*;
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -212,6 +194,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The treasury's pallet id, used for deriving its sovereign account ID.
@@ -222,7 +205,7 @@ pub mod pallet {
 		type Currency: FunInspect<Self::AccountId, Balance = Self::CurrencyBalance>
 			+ FunMutate<Self::AccountId>
 			+ FunBalanced<Self::AccountId>
-			+ FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+			+ FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -372,7 +355,7 @@ pub mod pallet {
 		pub receipts_on_hold: Balance,
 	}
 
-	pub struct OnEmptyQueueTotals<T>(sp_std::marker::PhantomData<T>);
+	pub struct OnEmptyQueueTotals<T>(core::marker::PhantomData<T>);
 	impl<T: Config> Get<QueueTotalsTypeOf<T>> for OnEmptyQueueTotals<T> {
 		fn get() -> QueueTotalsTypeOf<T> {
 			BoundedVec::truncate_from(vec![
@@ -573,7 +556,7 @@ pub mod pallet {
 					// queue is <Ordered: Lowest ... Highest><Fifo: Last ... First>
 					let mut bid = Bid { amount, who: who.clone() };
 					let net = if queue_full {
-						sp_std::mem::swap(&mut q[0], &mut bid);
+						core::mem::swap(&mut q[0], &mut bid);
 						let _ = T::Currency::release(
 							&HoldReason::NftReceipt.into(),
 							&bid.who,
@@ -754,9 +737,13 @@ pub mod pallet {
 					.map(|_| ())
 					// We ignore this error as it just means the amount we're trying to deposit is
 					// dust and the beneficiary account doesn't exist.
-					.or_else(
-						|e| if e == TokenError::CannotCreate.into() { Ok(()) } else { Err(e) },
-					)?;
+					.or_else(|e| {
+						if e == TokenError::CannotCreate.into() {
+							Ok(())
+						} else {
+							Err(e)
+						}
+					})?;
 					summary.receipts_on_hold.saturating_reduce(on_hold);
 				}
 				T::Currency::release(&HoldReason::NftReceipt.into(), &who, amount, Exact)?;

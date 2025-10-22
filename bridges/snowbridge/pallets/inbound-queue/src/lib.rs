@@ -48,30 +48,26 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
-use sp_core::{H160, H256};
+use sp_core::H160;
 use sp_runtime::traits::Zero;
 use sp_std::vec;
 use xcm::prelude::{
-	send_xcm, Instruction::SetTopic, Junction::*, Location, SendError as XcmpSendError, SendXcm,
-	Xcm, XcmContext, XcmHash,
+	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
 };
 use xcm_executor::traits::TransactAsset;
 
 use snowbridge_core::{
-	inbound::{Message, VerificationError, Verifier},
 	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
 	StaticLookup,
 };
-use snowbridge_router_primitives::{
-	inbound,
-	inbound::{ConvertMessage, ConvertMessageError},
+use snowbridge_inbound_queue_primitives::{
+	v1::{ConvertMessage, ConvertMessageError, VersionedMessage},
+	EventProof, VerificationError, Verifier,
 };
+
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
 pub use weights::WeightInfo;
-
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::BeaconHeader;
 
 type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -86,17 +82,22 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_core::H256;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	use snowbridge_inbound_queue_primitives::EventFixture;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T> {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+		fn initialize_storage() -> EventFixture;
 	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The verifier for inbound messages from Ethereum
@@ -189,7 +190,9 @@ pub mod pallet {
 		ConvertMessage(ConvertMessageError),
 	}
 
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, PalletError)]
+	#[derive(
+		Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo, PalletError,
+	)]
 	pub enum SendError {
 		NotApplicable,
 		NotRoutable,
@@ -230,17 +233,17 @@ pub mod pallet {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
-		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
+		pub fn submit(origin: OriginFor<T>, event: EventProof) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
-			T::Verifier::verify(&message.event_log, &message.proof)
+			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
 			// Decode event log into an Envelope
 			let envelope =
-				Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+				Envelope::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
@@ -265,7 +268,7 @@ pub mod pallet {
 			// Reward relayer from the sovereign account of the destination parachain, only if funds
 			// are available
 			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::calculate_delivery_cost(message.encode().len() as u32);
+			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
 			let amount = T::Token::reducible_balance(
 				&sovereign_account,
 				Preservation::Preserve,
@@ -276,12 +279,12 @@ pub mod pallet {
 				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
 			}
 
+			// Decode payload into `VersionedMessage`
+			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
+				.map_err(|_| Error::<T>::InvalidPayload)?;
+
 			// Decode message into XCM
-			let (xcm, fee) =
-				match inbound::VersionedMessage::decode_all(&mut envelope.payload.as_ref()) {
-					Ok(message) => Self::do_convert(envelope.message_id, message)?,
-					Err(_) => return Err(Error::<T>::InvalidPayload.into()),
-				};
+			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
 
 			log::info!(
 				target: LOG_TARGET,
@@ -323,12 +326,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn do_convert(
 			message_id: H256,
-			message: inbound::VersionedMessage,
+			message: VersionedMessage,
 		) -> Result<(Xcm<()>, BalanceOf<T>), Error<T>> {
-			let (mut xcm, fee) =
-				T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;
-			// Append the message id as an XCM topic
-			xcm.inner_mut().extend(vec![SetTopic(message_id.into())]);
+			let (xcm, fee) = T::MessageConverter::convert(message_id, message)
+				.map_err(|e| Error::<T>::ConvertMessage(e))?;
 			Ok((xcm, fee))
 		}
 

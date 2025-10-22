@@ -12,7 +12,6 @@ error: recursion limit reached while expanding `frame_support::__private::tt_ret
 68  | |     {
 69  | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...   |
-180 | |     }
 181 | | }
     | |_^
     |

@@ -22,6 +22,7 @@ use std::collections::HashSet;
 
 use parking_lot::RwLock;
 
+use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
 use sp_core::offchain::OffchainStorage;
 use sp_runtime::{
@@ -78,6 +79,15 @@ pub struct ImportSummary<Block: BlockT> {
 	pub import_notification_action: ImportNotificationAction,
 }
 
+/// A stale block.
+#[derive(Clone, Debug)]
+pub struct StaleBlock<Block: BlockT> {
+	/// The hash of this block.
+	pub hash: Block::Hash,
+	/// Is this a head?
+	pub is_head: bool,
+}
+
 /// Finalization operation summary.
 ///
 /// Contains information about the block that just got finalized,
@@ -86,10 +96,11 @@ pub struct FinalizeSummary<Block: BlockT> {
 	/// Last finalized block header.
 	pub header: Block::Header,
 	/// Blocks that were finalized.
+	///
 	/// The last entry is the one that has been explicitly finalized.
 	pub finalized: Vec<Block::Hash>,
-	/// Heads that became stale during this finalization operation.
-	pub stale_heads: Vec<Block::Hash>,
+	/// Blocks that became stale during this finalization operation.
+	pub stale_blocks: Vec<StaleBlock<Block>>,
 }
 
 /// Import operation wrapper.
@@ -217,7 +228,8 @@ pub trait BlockImportOperation<Block: BlockT> {
 	where
 		I: IntoIterator<Item = (Vec<u8>, Option<Vec<u8>>)>;
 
-	/// Mark a block as finalized.
+	/// Mark a block as finalized, if multiple blocks are finalized in the same operation then they
+	/// must be marked in ascending order.
 	fn mark_finalized(
 		&mut self,
 		hash: Block::Hash,
@@ -231,6 +243,9 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Add a transaction index operation.
 	fn update_transaction_index(&mut self, index: Vec<IndexOperation>)
 		-> sp_blockchain::Result<()>;
+
+	/// Configure whether to create a block gap if newly imported block is missing parent
+	fn set_create_gap(&mut self, create_gap: bool);
 }
 
 /// Interface for performing operations on the backend.
@@ -488,6 +503,34 @@ pub trait StorageProvider<Block: BlockT, B: Backend<Block>> {
 	) -> sp_blockchain::Result<Option<MerkleValue<Block::Hash>>>;
 }
 
+/// Specify the desired trie cache context when calling [`Backend::state_at`].
+///
+/// This is used to determine the size of the local trie cache.
+#[derive(Debug, Clone, Copy)]
+pub enum TrieCacheContext {
+	/// This is used when calling [`Backend::state_at`] in a trusted context.
+	///
+	/// A trusted context is for example the building or importing of a block.
+	/// In this case the local trie cache can grow unlimited and all the cached data
+	/// will be propagated back to the shared trie cache. It is safe to let the local
+	/// cache grow to hold the entire data, because importing and building blocks is
+	/// bounded by the block size limit.
+	Trusted,
+	/// This is used when calling [`Backend::state_at`] in from untrusted context.
+	///
+	/// The local trie cache will be bounded by its preconfigured size.
+	Untrusted,
+}
+
+impl From<CallContext> for TrieCacheContext {
+	fn from(call_context: CallContext) -> Self {
+		match call_context {
+			CallContext::Onchain => TrieCacheContext::Trusted,
+			CallContext::Offchain => TrieCacheContext::Untrusted,
+		}
+	}
+}
+
 /// Client backend.
 ///
 /// Manages the data layer.
@@ -580,11 +623,15 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Returns true if state for given block is available.
 	fn have_state_at(&self, hash: Block::Hash, _number: NumberFor<Block>) -> bool {
-		self.state_at(hash).is_ok()
+		self.state_at(hash, TrieCacheContext::Untrusted).is_ok()
 	}
 
 	/// Returns state backend with post-state of given block.
-	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State>;
+	fn state_at(
+		&self,
+		hash: Block::Hash,
+		trie_cache_context: TrieCacheContext,
+	) -> sp_blockchain::Result<Self::State>;
 
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an

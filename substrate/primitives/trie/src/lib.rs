@@ -21,19 +21,29 @@
 
 extern crate alloc;
 
+pub mod accessed_nodes_tracker;
 #[cfg(feature = "std")]
 pub mod cache;
 mod error;
+#[cfg(any(not(feature = "std"), test))]
+mod hasher_random_state;
 mod node_codec;
 mod node_header;
 #[cfg(feature = "std")]
 pub mod recorder;
+pub mod recorder_ext;
 mod storage_proof;
 mod trie_codec;
 mod trie_stream;
 
 #[cfg(feature = "std")]
 pub mod proof_size_extension;
+
+#[cfg(feature = "std")]
+pub use std::hash::RandomState;
+
+#[cfg(not(feature = "std"))]
+pub use hasher_random_state::{add_extra_randomness, RandomState};
 
 use alloc::{borrow::Borrow, boxed::Box, vec, vec::Vec};
 use core::marker::PhantomData;
@@ -46,7 +56,7 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
-pub use storage_proof::{CompactProof, StorageProof};
+pub use storage_proof::{CompactProof, StorageProof, StorageProofError};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
 pub use trie_codec::{decode_compact, encode_compact, Error as CompactProofError};
@@ -63,6 +73,9 @@ pub use trie_db::{
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
+
+/// Raw storage proof type (just raw trie nodes).
+pub type RawStorageProof = Vec<Vec<u8>>;
 
 /// substrate trie layout
 pub struct LayoutV0<H>(PhantomData<H>);
@@ -187,19 +200,22 @@ pub type HashDB<'a, H> = dyn hash_db::HashDB<H, trie_db::DBValue> + 'a;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 /// This uses a `KeyFunction` for prefixing keys internally (avoiding
 /// key conflict for non random keys).
-pub type PrefixedMemoryDB<H> = memory_db::MemoryDB<H, memory_db::PrefixedKey<H>, trie_db::DBValue>;
+pub type PrefixedMemoryDB<H, RS = RandomState> =
+	memory_db::MemoryDB<H, memory_db::PrefixedKey<H>, trie_db::DBValue, RS>;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 /// This uses a noops `KeyFunction` (key addressing must be hashed or using
 /// an encoding scheme that avoid key conflict).
-pub type MemoryDB<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue>;
+pub type MemoryDB<H, RS = RandomState> =
+	memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue, RS>;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
-pub type GenericMemoryDB<H, KF> = memory_db::MemoryDB<H, KF, trie_db::DBValue>;
+pub type GenericMemoryDB<H, KF, RS = RandomState> =
+	memory_db::MemoryDB<H, KF, trie_db::DBValue, RS>;
 
-/// Persistent trie database read-access interface for the a given hasher.
+/// Persistent trie database read-access interface for a given hasher.
 pub type TrieDB<'a, 'cache, L> = trie_db::TrieDB<'a, 'cache, L>;
 /// Builder for creating a [`TrieDB`].
 pub type TrieDBBuilder<'a, 'cache, L> = trie_db::TrieDBBuilder<'a, 'cache, L>;
-/// Persistent trie database write-access interface for the a given hasher.
+/// Persistent trie database write-access interface for a given hasher.
 pub type TrieDBMut<'a, L> = trie_db::TrieDBMut<'a, L>;
 /// Builder for creating a [`TrieDBMut`].
 pub type TrieDBMutBuilder<'a, L> = trie_db::TrieDBMutBuilder<'a, L>;
@@ -212,17 +228,17 @@ pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
 pub mod trie_types {
 	use super::*;
 
-	/// Persistent trie database read-access interface for the a given hasher.
+	/// Persistent trie database read-access interface for a given hasher.
 	///
 	/// Read only V1 and V0 are compatible, thus we always use V1.
 	pub type TrieDB<'a, 'cache, H> = super::TrieDB<'a, 'cache, LayoutV1<H>>;
 	/// Builder for creating a [`TrieDB`].
 	pub type TrieDBBuilder<'a, 'cache, H> = super::TrieDBBuilder<'a, 'cache, LayoutV1<H>>;
-	/// Persistent trie database write-access interface for the a given hasher.
+	/// Persistent trie database write-access interface for a given hasher.
 	pub type TrieDBMutV0<'a, H> = super::TrieDBMut<'a, LayoutV0<H>>;
 	/// Builder for creating a [`TrieDBMutV0`].
 	pub type TrieDBMutBuilderV0<'a, H> = super::TrieDBMutBuilder<'a, LayoutV0<H>>;
-	/// Persistent trie database write-access interface for the a given hasher.
+	/// Persistent trie database write-access interface for a given hasher.
 	pub type TrieDBMutV1<'a, H> = super::TrieDBMut<'a, LayoutV1<H>>;
 	/// Builder for creating a [`TrieDBMutV1`].
 	pub type TrieDBMutBuilderV1<'a, H> = super::TrieDBMutBuilder<'a, LayoutV1<H>>;
@@ -615,6 +631,50 @@ mod tests {
 	type LayoutV1 = super::LayoutV1<Blake2Hasher>;
 
 	type MemoryDBMeta<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue>;
+
+	pub fn create_trie<L: TrieLayout>(
+		data: &[(&[u8], &[u8])],
+	) -> (MemoryDB<L::Hash>, trie_db::TrieHash<L>) {
+		let mut db = MemoryDB::default();
+		let mut root = Default::default();
+
+		{
+			let mut trie = trie_db::TrieDBMutBuilder::<L>::new(&mut db, &mut root).build();
+			for (k, v) in data {
+				trie.insert(k, v).expect("Inserts data");
+			}
+		}
+
+		let mut recorder = Recorder::<L>::new();
+		{
+			let trie = trie_db::TrieDBBuilder::<L>::new(&mut db, &mut root)
+				.with_recorder(&mut recorder)
+				.build();
+			for (k, _v) in data {
+				trie.get(k).unwrap();
+			}
+		}
+
+		(db, root)
+	}
+
+	pub fn create_storage_proof<L: TrieLayout>(
+		data: &[(&[u8], &[u8])],
+	) -> (RawStorageProof, trie_db::TrieHash<L>) {
+		let (db, root) = create_trie::<L>(data);
+
+		let mut recorder = Recorder::<L>::new();
+		{
+			let trie = trie_db::TrieDBBuilder::<L>::new(&db, &root)
+				.with_recorder(&mut recorder)
+				.build();
+			for (k, _v) in data {
+				trie.get(k).unwrap();
+			}
+		}
+
+		(recorder.drain().into_iter().map(|record| record.data).collect(), root)
+	}
 
 	fn hashed_null_node<T: TrieConfiguration>() -> TrieHash<T> {
 		<T::Codec as NodeCodecT>::hashed_null_node()

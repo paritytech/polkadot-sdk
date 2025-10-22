@@ -17,21 +17,13 @@
 
 //! Tests for NIS pallet.
 
-use super::*;
-use crate::{mock::*, Error};
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{
-		fungible::{hold::Inspect as InspectHold, Inspect as FunInspect, Mutate as FunMutate},
-		nonfungible::{Inspect, Transfer},
-		tokens::{Fortitude::Force, Precision::Exact, Preservation::Expendable},
-	},
+use frame::testing_prelude::*;
+
+use crate::{
+	mock::{Balance, *},
+	*,
 };
-use sp_arithmetic::Perquintill;
-use sp_runtime::{
-	Saturating,
-	TokenError::{self, FundsUnavailable},
-};
+use fungible::InspectHold;
 
 fn pot() -> Balance {
 	Balances::free_balance(&Nis::account_id())
@@ -55,7 +47,7 @@ fn enlarge(amount: Balance, max_bids: u32) {
 #[test]
 fn basic_setup_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 
 		for q in 0..3 {
 			assert!(Queues::<Test>::get(q).is_empty());
@@ -76,9 +68,9 @@ fn basic_setup_works() {
 #[test]
 fn place_bid_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_noop!(Nis::place_bid(signed(1), 1, 2), Error::<Test>::AmountTooSmall);
-		assert_noop!(Nis::place_bid(signed(1), 101, 2), FundsUnavailable);
+		assert_noop!(Nis::place_bid(signed(1), 101, 2), TokenError::FundsUnavailable);
 		assert_noop!(Nis::place_bid(signed(1), 10, 4), Error::<Test>::DurationTooBig);
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
 		assert_eq!(Balances::reserved_balance(1), 10);
@@ -90,7 +82,7 @@ fn place_bid_works() {
 #[test]
 fn place_bid_queuing_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 20, 2));
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
 		assert_ok!(Nis::place_bid(signed(1), 5, 2));
@@ -116,7 +108,7 @@ fn place_bid_queuing_works() {
 #[test]
 fn place_bid_fails_when_queue_full() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
 		assert_ok!(Nis::place_bid(signed(2), 10, 2));
 		assert_ok!(Nis::place_bid(signed(3), 10, 2));
@@ -128,7 +120,7 @@ fn place_bid_fails_when_queue_full() {
 #[test]
 fn multiple_place_bids_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 10, 1));
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
@@ -154,7 +146,7 @@ fn multiple_place_bids_works() {
 #[test]
 fn retract_single_item_queue_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 10, 1));
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
 		assert_ok!(Nis::retract_bid(signed(1), 10, 1));
@@ -169,7 +161,7 @@ fn retract_single_item_queue_works() {
 #[test]
 fn retract_with_other_and_duplicate_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 10, 1));
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
@@ -190,7 +182,7 @@ fn retract_with_other_and_duplicate_works() {
 #[test]
 fn retract_non_existent_item_fails() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_noop!(Nis::retract_bid(signed(1), 10, 1), Error::<Test>::UnknownBid);
 		assert_ok!(Nis::place_bid(signed(1), 10, 1));
 		assert_noop!(Nis::retract_bid(signed(1), 20, 1), Error::<Test>::UnknownBid);
@@ -202,7 +194,7 @@ fn retract_non_existent_item_fails() {
 #[test]
 fn basic_enlarge_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		assert_ok!(Nis::place_bid(signed(2), 40, 2));
 		enlarge(40, 2);
@@ -240,7 +232,7 @@ fn basic_enlarge_works() {
 #[test]
 fn enlarge_respects_bids_limit() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		assert_ok!(Nis::place_bid(signed(2), 40, 2));
 		assert_ok!(Nis::place_bid(signed(3), 40, 2));
@@ -285,7 +277,7 @@ fn enlarge_respects_bids_limit() {
 #[test]
 fn enlarge_respects_amount_limit_and_will_split() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 80, 1));
 		enlarge(40, 2);
 
@@ -317,7 +309,7 @@ fn enlarge_respects_amount_limit_and_will_split() {
 #[test]
 fn basic_thaw_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		assert_eq!(Nis::issuance().effective, 400);
 		assert_eq!(Balances::free_balance(1), 60);
@@ -330,9 +322,9 @@ fn basic_thaw_works() {
 		assert_eq!(Balances::reserved_balance(1), 40);
 		assert_eq!(holdings(), 40);
 
-		run_to_block(3);
+		System::run_to_block::<AllPalletsWithSystem>(3);
 		assert_noop!(Nis::thaw_private(signed(1), 0, None), Error::<Test>::NotExpired);
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_noop!(Nis::thaw_private(signed(1), 1, None), Error::<Test>::UnknownReceipt);
 		assert_noop!(Nis::thaw_private(signed(2), 0, None), Error::<Test>::NotOwner);
 
@@ -359,12 +351,12 @@ fn basic_thaw_works() {
 #[test]
 fn partial_thaw_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 80, 1));
 		enlarge(80, 1);
 		assert_eq!(holdings(), 80);
 
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 		let prop = Perquintill::from_rational(4_100_000, 21_000_000u64);
 		assert_noop!(Nis::thaw_private(signed(1), 0, Some(prop)), Error::<Test>::MakesDust);
 		let prop = Perquintill::from_rational(1_050_000, 21_000_000u64);
@@ -402,10 +394,10 @@ fn partial_thaw_works() {
 #[test]
 fn thaw_respects_transfers() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		enlarge(40, 1);
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 
 		assert_eq!(Nis::owner(&0), Some(1));
 		assert_eq!(Balances::reserved_balance(&1), 40);
@@ -428,10 +420,10 @@ fn thaw_respects_transfers() {
 #[test]
 fn communify_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		enlarge(40, 1);
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 
 		assert_eq!(Nis::owner(&0), Some(1));
 		assert_eq!(Balances::reserved_balance(&1), 40);
@@ -479,10 +471,10 @@ fn communify_works() {
 #[test]
 fn privatize_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		enlarge(40, 1);
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_noop!(Nis::privatize(signed(2), 0), Error::<Test>::AlreadyPrivate);
 		assert_ok!(Nis::communify(signed(1), 0));
 
@@ -503,11 +495,11 @@ fn privatize_works() {
 #[test]
 fn privatize_and_thaw_with_another_receipt_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		assert_ok!(Nis::place_bid(signed(2), 40, 1));
 		enlarge(80, 2);
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 
 		assert_ok!(Nis::communify(signed(1), 0));
 		assert_ok!(Nis::communify(signed(2), 1));
@@ -535,7 +527,7 @@ fn privatize_and_thaw_with_another_receipt_works() {
 #[test]
 fn communal_thaw_when_issuance_higher_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Balances::transfer_allow_death(signed(2), 1, 1));
 		assert_ok!(Nis::place_bid(signed(1), 100, 1));
 		enlarge(100, 1);
@@ -552,7 +544,7 @@ fn communal_thaw_when_issuance_higher_works() {
 		assert_ok!(Balances::mint_into(&3, 50));
 		assert_ok!(Balances::mint_into(&4, 50));
 
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 
 		// Unfunded initially...
 		assert_noop!(Nis::thaw_communal(signed(1), 0), Error::<Test>::Unfunded);
@@ -581,7 +573,7 @@ fn communal_thaw_when_issuance_higher_works() {
 #[test]
 fn private_thaw_when_issuance_higher_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Balances::transfer_allow_death(signed(2), 1, 1));
 		assert_ok!(Nis::place_bid(signed(1), 100, 1));
 		enlarge(100, 1);
@@ -591,7 +583,7 @@ fn private_thaw_when_issuance_higher_works() {
 		assert_ok!(Balances::mint_into(&3, 50));
 		assert_ok!(Balances::mint_into(&4, 50));
 
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 
 		// Unfunded initially...
 		assert_noop!(Nis::thaw_private(signed(1), 0, None), Error::<Test>::Unfunded);
@@ -609,7 +601,7 @@ fn private_thaw_when_issuance_higher_works() {
 #[test]
 fn thaw_with_ignored_issuance_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		// Give account zero some balance.
 		assert_ok!(Balances::mint_into(&0, 200));
 
@@ -622,7 +614,7 @@ fn thaw_with_ignored_issuance_works() {
 		assert_ok!(Balances::transfer_allow_death(signed(0), 3, 50));
 		assert_ok!(Balances::transfer_allow_death(signed(0), 4, 50));
 
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 		// Unfunded initially...
 		assert_noop!(Nis::thaw_private(signed(1), 0, None), Error::<Test>::Unfunded);
 		// ...so we fund...
@@ -640,7 +632,7 @@ fn thaw_with_ignored_issuance_works() {
 #[test]
 fn thaw_when_issuance_lower_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Balances::transfer_allow_death(signed(2), 1, 1));
 		assert_ok!(Nis::place_bid(signed(1), 100, 1));
 		enlarge(100, 1);
@@ -650,7 +642,7 @@ fn thaw_when_issuance_lower_works() {
 		assert_ok!(Balances::burn_from(&3, 25, Expendable, Exact, Force));
 		assert_ok!(Balances::burn_from(&4, 25, Expendable, Exact, Force));
 
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_ok!(Nis::thaw_private(signed(1), 0, None));
 
 		assert_ok!(Balances::transfer_allow_death(signed(1), 2, 1));
@@ -662,7 +654,7 @@ fn thaw_when_issuance_lower_works() {
 #[test]
 fn multiple_thaws_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Balances::transfer_allow_death(signed(3), 1, 1));
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		assert_ok!(Nis::place_bid(signed(1), 60, 1));
@@ -675,11 +667,11 @@ fn multiple_thaws_works() {
 		assert_ok!(Balances::mint_into(&4, 100));
 		assert_ok!(Nis::fund_deficit(signed(1)));
 
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_ok!(Nis::thaw_private(signed(1), 0, None));
 		assert_ok!(Nis::thaw_private(signed(1), 1, None));
 		assert_noop!(Nis::thaw_private(signed(2), 2, None), Error::<Test>::Throttled);
-		run_to_block(5);
+		System::run_to_block::<AllPalletsWithSystem>(5);
 		assert_ok!(Nis::thaw_private(signed(2), 2, None));
 
 		assert_ok!(Balances::transfer_allow_death(signed(1), 3, 1));
@@ -693,7 +685,7 @@ fn multiple_thaws_works() {
 #[test]
 fn multiple_thaws_works_in_alternative_thaw_order() {
 	new_test_ext().execute_with(|| {
-		run_to_block(1);
+		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_ok!(Balances::transfer_allow_death(signed(3), 1, 1));
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		assert_ok!(Nis::place_bid(signed(1), 60, 1));
@@ -706,12 +698,12 @@ fn multiple_thaws_works_in_alternative_thaw_order() {
 		assert_ok!(Balances::mint_into(&4, 100));
 		assert_ok!(Nis::fund_deficit(signed(1)));
 
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_ok!(Nis::thaw_private(signed(2), 2, None));
 		assert_noop!(Nis::thaw_private(signed(1), 1, None), Error::<Test>::Throttled);
 		assert_ok!(Nis::thaw_private(signed(1), 0, None));
 
-		run_to_block(5);
+		System::run_to_block::<AllPalletsWithSystem>(5);
 		assert_ok!(Nis::thaw_private(signed(1), 1, None));
 
 		assert_ok!(Balances::transfer_allow_death(signed(1), 3, 1));
@@ -725,7 +717,7 @@ fn multiple_thaws_works_in_alternative_thaw_order() {
 #[test]
 fn enlargement_to_target_works() {
 	new_test_ext().execute_with(|| {
-		run_to_block(2);
+		System::run_to_block::<AllPalletsWithSystem>(2);
 		let w = <() as WeightInfo>::process_queues() +
 			<() as WeightInfo>::process_queue() +
 			(<() as WeightInfo>::process_bid() * 2);
@@ -737,7 +729,7 @@ fn enlargement_to_target_works() {
 		assert_ok!(Nis::place_bid(signed(3), 40, 3));
 		Target::set(Perquintill::from_percent(40));
 
-		run_to_block(3);
+		System::run_to_block::<AllPalletsWithSystem>(3);
 		assert_eq!(Queues::<Test>::get(1), vec![Bid { amount: 40, who: 1 },]);
 		assert_eq!(
 			Queues::<Test>::get(2),
@@ -749,7 +741,7 @@ fn enlargement_to_target_works() {
 		);
 		assert_eq!(QueueTotals::<Test>::get(), vec![(1, 40), (2, 80), (2, 80)]);
 
-		run_to_block(4);
+		System::run_to_block::<AllPalletsWithSystem>(4);
 		// Two new items should have been issued to 2 & 3 for 40 each & duration of 3.
 		assert_eq!(
 			Receipts::<Test>::get(0).unwrap(),
@@ -778,7 +770,7 @@ fn enlargement_to_target_works() {
 			}
 		);
 
-		run_to_block(5);
+		System::run_to_block::<AllPalletsWithSystem>(5);
 		// No change
 		assert_eq!(
 			Summary::<Test>::get(),
@@ -791,7 +783,7 @@ fn enlargement_to_target_works() {
 			}
 		);
 
-		run_to_block(6);
+		System::run_to_block::<AllPalletsWithSystem>(6);
 		// Two new items should have been issued to 1 & 2 for 40 each & duration of 2.
 		assert_eq!(
 			Receipts::<Test>::get(2).unwrap(),
@@ -820,7 +812,7 @@ fn enlargement_to_target_works() {
 			}
 		);
 
-		run_to_block(8);
+		System::run_to_block::<AllPalletsWithSystem>(8);
 		// No change now.
 		assert_eq!(
 			Summary::<Test>::get(),
@@ -835,7 +827,7 @@ fn enlargement_to_target_works() {
 
 		// Set target a bit higher to use up the remaining bid.
 		Target::set(Perquintill::from_percent(60));
-		run_to_block(10);
+		System::run_to_block::<AllPalletsWithSystem>(10);
 
 		// One new item should have been issued to 1 for 40 each & duration of 2.
 		assert_eq!(

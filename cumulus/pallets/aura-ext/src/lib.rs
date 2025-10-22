@@ -1,22 +1,22 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Cumulus extension pallet for AuRa
 //!
-//! This pallets extends the Substrate AuRa pallet to make it compatible with parachains. It
+//! This pallet extends the Substrate AuRa pallet to make it compatible with parachains. It
 //! provides the [`Pallet`], the [`Config`] and the [`GenesisConfig`].
 //!
 //! It is also required that the parachain runtime uses the provided [`BlockExecutor`] to properly
@@ -25,7 +25,6 @@
 //! ```
 //! # struct Runtime;
 //! # struct Executive;
-//! # struct CheckInherents;
 //! cumulus_pallet_parachain_system::register_validate_block! {
 //!     Runtime = Runtime,
 //!     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
@@ -37,9 +36,12 @@
 use frame_support::traits::{ExecuteBlock, FindAuthor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_aura::{digests::CompatibleDigestItem, Slot};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
 pub mod consensus_hook;
+pub mod migration;
+mod test;
+
 pub use consensus_hook::FixedVelocityConsensusHook;
 
 type Aura<T> = pallet_aura::Pallet<T>;
@@ -57,6 +59,7 @@ pub mod pallet {
 	pub trait Config: pallet_aura::Config + frame_system::Config {}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
@@ -70,20 +73,7 @@ pub mod pallet {
 			// Fetch the authorities once to get them into the storage proof of the PoV.
 			Authorities::<T>::get();
 
-			let new_slot = pallet_aura::CurrentSlot::<T>::get();
-
-			let (new_slot, authored) = match SlotInfo::<T>::get() {
-				Some((slot, authored)) if slot == new_slot => (slot, authored + 1),
-				Some((slot, _)) if slot < new_slot => (new_slot, 1),
-				Some(..) => {
-					panic!("slot moved backwards")
-				},
-				None => (new_slot, 1),
-			};
-
-			SlotInfo::<T>::put((new_slot, authored));
-
-			T::DbWeight::get().reads_writes(2, 1)
+			T::DbWeight::get().reads_writes(1, 0)
 		}
 	}
 
@@ -99,17 +89,18 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Current slot paired with a number of authored blocks.
+	/// Current relay chain slot paired with a number of authored blocks.
 	///
-	/// Updated on each block initialization.
+	/// This is updated in [`FixedVelocityConsensusHook::on_state_proof`] with the current relay
+	/// chain slot as provided by the relay chain state proof.
 	#[pallet::storage]
-	pub(crate) type SlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
+	pub(crate) type RelaySlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -125,7 +116,7 @@ pub mod pallet {
 ///
 /// When executing the block it will verify the block seal to ensure that the correct author created
 /// the block.
-pub struct BlockExecutor<T, I>(sp_std::marker::PhantomData<(T, I)>);
+pub struct BlockExecutor<T, I>(core::marker::PhantomData<(T, I)>);
 
 impl<Block, T, I> ExecuteBlock<Block> for BlockExecutor<T, I>
 where
@@ -133,8 +124,8 @@ where
 	T: Config,
 	I: ExecuteBlock<Block>,
 {
-	fn execute_block(block: Block) {
-		let (mut header, extrinsics) = block.deconstruct();
+	fn execute_block(mut block: Block::LazyBlock) {
+		let header = block.header_mut();
 		// We need to fetch the authorities before we execute the block, to get the authorities
 		// before any potential update.
 		let authorities = Authorities::<T>::get();
@@ -172,6 +163,6 @@ where
 			panic!("Invalid AuRa seal");
 		}
 
-		I::execute_block(Block::new(header, extrinsics));
+		I::execute_block(block);
 	}
 }

@@ -40,24 +40,25 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+extern crate alloc;
+
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
+use frame_support::{
+	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
+	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	traits::{
+		EnsureOrigin, EnsureOriginWithArg, OriginTrait, PollStatus, Polling, RankedMembers,
+		RankedMembersSwapHandler, VoteTally,
+	},
+	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
 	traits::{Convert, StaticLookup},
 	ArithmeticError::Overflow,
 	DispatchError, Perbill, RuntimeDebug,
-};
-use sp_std::{marker::PhantomData, prelude::*};
-
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{
-		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
-		RankedMembersSwapHandler, VoteTally,
-	},
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
 #[cfg(test)]
@@ -88,6 +89,7 @@ pub type Votes = u32;
 	TypeInfo,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T, I, M))]
@@ -187,7 +189,18 @@ impl MemberRecord {
 }
 
 /// Record needed for every vote.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum VoteRecord {
 	/// Vote was an aye with given vote weight.
 	Aye(Votes),
@@ -266,10 +279,9 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = Rank;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
+		match o.as_signer().and_then(|who| Members::<T, I>::get(who)) {
 			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(rank),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+			_ => Err(o),
 		}
 	}
 
@@ -292,10 +304,12 @@ impl<T: Config<I>, I: 'static> EnsureOriginWithArg<T::RuntimeOrigin, Rank> for E
 	type Success = (T::AccountId, Rank);
 
 	fn try_origin(o: T::RuntimeOrigin, min_rank: &Rank) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who, rank)),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who.clone(), rank)),
+			_ => Err(o),
 		}
 	}
 
@@ -317,10 +331,12 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = T::AccountId;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who.clone()),
+			_ => Err(o),
 		}
 	}
 
@@ -345,10 +361,12 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = (T::AccountId, Rank);
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who, rank)),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who.clone(), rank)),
+			_ => Err(o),
 		}
 	}
 
@@ -379,6 +397,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, storage::KeyLenOf};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::MaybeConvert;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -389,6 +408,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -430,6 +450,14 @@ pub mod pallet {
 		/// Rank_delta is defined as the number of ranks above the minimum required to take part
 		/// in the poll.
 		type VoteWeight: Convert<Rank, Votes>;
+
+		/// The maximum number of members for a given rank in the collective.
+		///
+		/// The member at rank `x` contributes to the count at rank `x` and all ranks below it.
+		/// Therefore, the limit `m` at rank `x` sets the maximum total member count for rank `x`
+		/// and all ranks above.
+		/// The `None` indicates no member count limit for the given rank.
+		type MaxMemberCount: MaybeConvert<Rank, MemberIndex>;
 
 		/// Setup a member for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -511,6 +539,8 @@ pub mod pallet {
 		NoPermission,
 		/// The new member to exchange is the same as the old member
 		SameMember,
+		/// The max member count for the rank has been reached.
+		TooManyMembers,
 	}
 
 	#[pallet::call]
@@ -758,6 +788,9 @@ pub mod pallet {
 			ensure!(!Members::<T, I>::contains_key(&who), Error::<T, I>::AlreadyMember);
 			let index = MemberCount::<T, I>::get(0);
 			let count = index.checked_add(1).ok_or(Overflow)?;
+			if let Some(max) = T::MaxMemberCount::maybe_convert(0) {
+				ensure!(count <= max, Error::<T, I>::TooManyMembers);
+			}
 
 			Members::<T, I>::insert(&who, MemberRecord { rank: 0 });
 			IdToIndex::<T, I>::insert(0, &who, index);
@@ -784,6 +817,11 @@ pub mod pallet {
 				ensure!(max_rank >= rank, Error::<T, I>::NoPermission);
 			}
 			let index = MemberCount::<T, I>::get(rank);
+			let count = index.checked_add(1).ok_or(Overflow)?;
+			if let Some(max) = T::MaxMemberCount::maybe_convert(rank) {
+				ensure!(count <= max, Error::<T, I>::TooManyMembers);
+			}
+
 			MemberCount::<T, I>::insert(rank, index.checked_add(1).ok_or(Overflow)?);
 			IdToIndex::<T, I>::insert(rank, &who, index);
 			IndexToId::<T, I>::insert(rank, index, &who);

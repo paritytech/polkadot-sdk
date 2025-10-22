@@ -18,8 +18,14 @@
 
 #![no_std]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use sp_std::vec::Vec;
+use polkadot_parachain_primitives::primitives::UpwardMessages;
+use polkadot_primitives::{
+	ClaimQueueOffset, CoreSelector, UMPSignal, DEFAULT_CLAIM_QUEUE_OFFSET, UMP_SEPARATOR,
+};
 use tiny_keccak::{Hasher as _, Keccak};
 
 #[cfg(not(feature = "std"))]
@@ -84,6 +90,8 @@ pub struct GraveyardState {
 	pub zombies: u64,
 	// Grave seal.
 	pub seal: [u8; 32],
+	// Increasing sequence number for core selector.
+	pub core_selector_number: u8,
 }
 
 /// Block data for this parachain.
@@ -96,6 +104,8 @@ pub struct BlockData {
 	pub tombstones: u64,
 	/// The number of iterations to perform.
 	pub iterations: u32,
+	/// Whether or not to emit the experimental ApprovedPeer UMP signal.
+	pub experimental_send_approved_peer: bool,
 }
 
 pub fn hash_state(state: &GraveyardState) -> [u8; 32] {
@@ -117,6 +127,7 @@ pub fn execute_transaction(mut block_data: BlockData) -> GraveyardState {
 		// Chain hash the seals and burn CPU.
 		block_data.state.seal = hash_state(&block_data.state);
 	}
+	block_data.state.core_selector_number = block_data.state.core_selector_number.wrapping_add(1);
 
 	block_data.state
 }
@@ -131,7 +142,7 @@ pub fn execute(
 	parent_hash: [u8; 32],
 	parent_head: HeadData,
 	block_data: BlockData,
-) -> Result<(HeadData, GraveyardState), StateMismatch> {
+) -> Result<(HeadData, GraveyardState, UpwardMessages), StateMismatch> {
 	assert_eq!(parent_hash, parent_head.hash());
 
 	if hash_state(&block_data.state) != parent_head.post_state {
@@ -144,6 +155,21 @@ pub fn execute(
 		return Err(StateMismatch)
 	}
 
+	let mut upward_messages: UpwardMessages = Default::default();
+	upward_messages.force_push(UMP_SEPARATOR);
+	upward_messages.force_push(
+		UMPSignal::SelectCore(
+			CoreSelector(block_data.state.core_selector_number),
+			ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
+		)
+		.encode(),
+	);
+
+	if block_data.experimental_send_approved_peer {
+		upward_messages
+			.force_push(UMPSignal::ApprovedPeer(alloc::vec![1, 2, 3].try_into().unwrap()).encode());
+	}
+
 	// We need to clone the block data as the fn will mutate it's state.
 	let new_state = execute_transaction(block_data.clone());
 
@@ -154,5 +180,6 @@ pub fn execute(
 			post_state: hash_state(&new_state),
 		},
 		new_state,
+		upward_messages,
 	))
 }

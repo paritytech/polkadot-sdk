@@ -53,6 +53,7 @@ fn main() -> Result<(), String> {
 		stop_when_approved: false,
 		workdir_prefix: "/tmp".to_string(),
 		num_no_shows_per_candidate: 0,
+		approval_voting_parallel_enabled: true,
 	};
 
 	println!("Benchmarking...");
@@ -74,16 +75,14 @@ fn main() -> Result<(), String> {
 	.map_err(|e| e.to_string())?;
 	println!("{}", average_usage);
 
-	// We expect no variance for received and sent
-	// but use 0.001 because we operate with floats
+	// We expect some small variance for received and sent because the
+	// test messages are generated at every benchmark run and they contain
+	// random data so use 0.01 as the accepted variance.
 	messages.extend(average_usage.check_network_usage(&[
-		("Received from peers", 52942.4600, 0.001),
-		("Sent to peers", 63547.0330, 0.001),
+		("Received from peers", 52941.6071, 0.01),
+		("Sent to peers", 63995.2200, 0.01),
 	]));
-	messages.extend(average_usage.check_cpu_usage(&[
-		("approval-distribution", 7.4075, 0.1),
-		("approval-voting", 9.9873, 0.1),
-	]));
+	messages.extend(average_usage.check_cpu_usage(&[("approval-voting-parallel", 12.3817, 0.1)]));
 
 	if messages.is_empty() {
 		Ok(())

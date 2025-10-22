@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+pub use people_rococo_runtime;
 
 pub mod genesis;
 
@@ -21,7 +22,7 @@ use frame_support::traits::OnInitialize;
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impls::Parachain, xcm_emulator::decl_test_parachains,
+	impls::Parachain, xcm_emulator::decl_test_parachains, AuraDigestProvider,
 };
 
 // PeopleRococo Parachain declaration
@@ -37,6 +38,7 @@ decl_test_parachains! {
 			LocationToAccountId: people_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: people_rococo_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			DigestProvider: AuraDigestProvider,
 		},
 		pallets = {
 			PolkadotXcm: people_rococo_runtime::PolkadotXcm,

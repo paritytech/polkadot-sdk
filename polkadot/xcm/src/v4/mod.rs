@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -17,19 +17,26 @@
 //! Version 4 of the Cross-Consensus Message format data structures.
 
 pub use super::v3::GetWeight;
-use super::v3::{
-	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
-	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
+use super::{
+	v3::{
+		Instruction as OldInstruction, PalletInfo as OldPalletInfo,
+		QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
+	},
+	v5::{
+		Instruction as NewInstruction, PalletInfo as NewPalletInfo,
+		QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
+	},
 };
-use crate::DoubleEncoded;
+use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+	self, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input as CodecInput,
 	MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
-use derivative::Derivative;
+use derive_where::derive_where;
+use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
 mod asset;
@@ -50,7 +57,7 @@ pub use traits::{
 	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v3 are unchanged in XCM v4, and are re-imported here.
-pub use super::v3::{MaybeErrorCode, OriginKind, WeightLimit};
+pub use super::v3::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit};
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 4;
@@ -58,32 +65,16 @@ pub const VERSION: super::Version = 4;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Default, Encode, DecodeWithMemTracking, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
-
-environmental::environmental!(instructions_count: u8);
-
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		instructions_count::using_once(&mut 0, || {
-			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
-			instructions_count::with(|count| {
-				*count = count.saturating_add(number_of_instructions as u8);
-				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
-				}
-				Ok(())
-			})
-			.expect("Called in `using` context and thus can not return `None`; qed")?;
-			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
-			Ok(Self(decoded_instructions))
-		})
+		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
@@ -222,24 +213,23 @@ pub mod prelude {
 
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
-	/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
-	/// `MaybeErrorCode`. This is not (yet) enforced, so it's just an indication of expectation.
-	pub MaxDispatchErrorLen: u32 = 128;
 	pub MaxPalletsInfo: u32 = 64;
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct PalletInfo {
 	#[codec(compact)]
-	index: u32,
-	name: BoundedVec<u8, MaxPalletNameLen>,
-	module_name: BoundedVec<u8, MaxPalletNameLen>,
+	pub index: u32,
+	pub name: BoundedVec<u8, MaxPalletNameLen>,
+	pub module_name: BoundedVec<u8, MaxPalletNameLen>,
 	#[codec(compact)]
-	major: u32,
+	pub major: u32,
 	#[codec(compact)]
-	minor: u32,
+	pub minor: u32,
 	#[codec(compact)]
-	patch: u32,
+	pub patch: u32,
 }
 
 impl TryInto<OldPalletInfo> for PalletInfo {
@@ -247,6 +237,22 @@ impl TryInto<OldPalletInfo> for PalletInfo {
 
 	fn try_into(self) -> result::Result<OldPalletInfo, Self::Error> {
 		OldPalletInfo::new(
+			self.index,
+			self.name.into_inner(),
+			self.module_name.into_inner(),
+			self.major,
+			self.minor,
+			self.patch,
+		)
+		.map_err(|_| ())
+	}
+}
+
+impl TryInto<NewPalletInfo> for PalletInfo {
+	type Error = ();
+
+	fn try_into(self) -> result::Result<NewPalletInfo, Self::Error> {
+		NewPalletInfo::new(
 			self.index,
 			self.name.into_inner(),
 			self.module_name.into_inner(),
@@ -275,7 +281,9 @@ impl PalletInfo {
 }
 
 /// Response data to a query.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -322,8 +330,38 @@ impl TryFrom<OldResponse> for Response {
 	}
 }
 
+impl TryFrom<NewResponse> for Response {
+	type Error = ();
+
+	fn try_from(new: NewResponse) -> result::Result<Self, Self::Error> {
+		use NewResponse::*;
+		Ok(match new {
+			Null => Self::Null,
+			Assets(assets) => Self::Assets(assets.try_into()?),
+			ExecutionResult(result) => Self::ExecutionResult(
+				result
+					.map(|(num, new_error)| (num, new_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?,
+			),
+			Version(version) => Self::Version(version),
+			PalletsInfo(pallet_info) => {
+				let inner = pallet_info
+					.into_iter()
+					.map(TryInto::try_into)
+					.collect::<result::Result<Vec<_>, _>>()?;
+				Self::PalletsInfo(
+					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?,
+				)
+			},
+			DispatchResult(maybe_error) =>
+				Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
+		})
+	}
+}
+
 /// Information regarding the composition of a query response.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
 	pub destination: Location,
@@ -332,6 +370,18 @@ pub struct QueryResponseInfo {
 	pub query_id: QueryId,
 	/// The `max_weight` field of the `QueryResponse` message.
 	pub max_weight: Weight,
+}
+
+impl TryFrom<NewQueryResponseInfo> for QueryResponseInfo {
+	type Error = ();
+
+	fn try_from(new: NewQueryResponseInfo) -> result::Result<Self, Self::Error> {
+		Ok(Self {
+			destination: new.destination.try_into()?,
+			query_id: new.query_id,
+			max_weight: new.max_weight,
+		})
+	}
 }
 
 impl TryFrom<OldQueryResponseInfo> for QueryResponseInfo {
@@ -375,16 +425,17 @@ impl XcmContext {
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
 #[derive(
-	Derivative,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	xcm_procedural::XcmWeightInfoTrait,
 	xcm_procedural::Builder,
 )]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
@@ -690,6 +741,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(pays_fees)]
 	BuyExecution { fees: Asset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
@@ -1206,6 +1258,183 @@ impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 	}
 }
 
+// Convert from a v5 XCM to a v4 XCM.
+impl<Call: Decode + GetDispatchInfo> TryFrom<NewXcm<Call>> for Xcm<Call> {
+	type Error = ();
+	fn try_from(new_xcm: NewXcm<Call>) -> result::Result<Self, Self::Error> {
+		Ok(Xcm(new_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
+	}
+}
+
+// Convert from a v5 instruction to a v4 instruction.
+impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instruction<Call> {
+	type Error = ();
+	fn try_from(new_instruction: NewInstruction<Call>) -> result::Result<Self, Self::Error> {
+		use NewInstruction::*;
+		Ok(match new_instruction {
+			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
+			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
+			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
+			QueryResponse { query_id, response, max_weight, querier: Some(querier) } =>
+				Self::QueryResponse {
+					query_id,
+					querier: querier.try_into()?,
+					response: response.try_into()?,
+					max_weight,
+				},
+			QueryResponse { query_id, response, max_weight, querier: None } =>
+				Self::QueryResponse {
+					query_id,
+					querier: None,
+					response: response.try_into()?,
+					max_weight,
+				},
+			TransferAsset { assets, beneficiary } => Self::TransferAsset {
+				assets: assets.try_into()?,
+				beneficiary: beneficiary.try_into()?,
+			},
+			TransferReserveAsset { assets, dest, xcm } => Self::TransferReserveAsset {
+				assets: assets.try_into()?,
+				dest: dest.try_into()?,
+				xcm: xcm.try_into()?,
+			},
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
+				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity },
+			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
+			HrmpChannelClosing { initiator, sender, recipient } =>
+				Self::HrmpChannelClosing { initiator, sender, recipient },
+			Transact { origin_kind, mut call, fallback_max_weight } => {
+				// We first try to decode the call, if we can't, we use the fallback weight,
+				// if there's no fallback, we just return `Weight::MAX`.
+				let require_weight_at_most = match call.take_decoded() {
+					Ok(decoded) => decoded.get_dispatch_info().call_weight,
+					Err(error) => {
+						let fallback_weight = fallback_max_weight.unwrap_or(Weight::MAX);
+						tracing::debug!(
+							target: "xcm::versions::v5Tov4",
+							?error,
+							?fallback_weight,
+							"Couldn't decode call in Transact"
+						);
+						fallback_weight
+					},
+				};
+				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
+			},
+			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
+				query_id: response_info.query_id,
+				destination: response_info.destination.try_into().map_err(|_| ())?,
+				max_weight: response_info.max_weight,
+			}),
+			DepositAsset { assets, beneficiary } => {
+				let beneficiary = beneficiary.try_into()?;
+				let assets = assets.try_into()?;
+				Self::DepositAsset { assets, beneficiary }
+			},
+			DepositReserveAsset { assets, dest, xcm } => {
+				let dest = dest.try_into()?;
+				let xcm = xcm.try_into()?;
+				let assets = assets.try_into()?;
+				Self::DepositReserveAsset { assets, dest, xcm }
+			},
+			ExchangeAsset { give, want, maximal } => {
+				let give = give.try_into()?;
+				let want = want.try_into()?;
+				Self::ExchangeAsset { give, want, maximal }
+			},
+			InitiateReserveWithdraw { assets, reserve, xcm } => {
+				// No `max_assets` here, so if there's a connt, then we cannot translate.
+				let assets = assets.try_into()?;
+				let reserve = reserve.try_into()?;
+				let xcm = xcm.try_into()?;
+				Self::InitiateReserveWithdraw { assets, reserve, xcm }
+			},
+			InitiateTeleport { assets, dest, xcm } => {
+				// No `max_assets` here, so if there's a connt, then we cannot translate.
+				let assets = assets.try_into()?;
+				let dest = dest.try_into()?;
+				let xcm = xcm.try_into()?;
+				Self::InitiateTeleport { assets, dest, xcm }
+			},
+			ReportHolding { response_info, assets } => {
+				let response_info = QueryResponseInfo {
+					destination: response_info.destination.try_into().map_err(|_| ())?,
+					query_id: response_info.query_id,
+					max_weight: response_info.max_weight,
+				};
+				Self::ReportHolding { response_info, assets: assets.try_into()? }
+			},
+			BuyExecution { fees, weight_limit } => {
+				let fees = fees.try_into()?;
+				let weight_limit = weight_limit.into();
+				Self::BuyExecution { fees, weight_limit }
+			},
+			ClearOrigin => Self::ClearOrigin,
+			DescendOrigin(who) => Self::DescendOrigin(who.try_into()?),
+			RefundSurplus => Self::RefundSurplus,
+			SetErrorHandler(xcm) => Self::SetErrorHandler(xcm.try_into()?),
+			SetAppendix(xcm) => Self::SetAppendix(xcm.try_into()?),
+			ClearError => Self::ClearError,
+			ClaimAsset { assets, ticket } => {
+				let assets = assets.try_into()?;
+				let ticket = ticket.try_into()?;
+				Self::ClaimAsset { assets, ticket }
+			},
+			Trap(code) => Self::Trap(code),
+			SubscribeVersion { query_id, max_response_weight } =>
+				Self::SubscribeVersion { query_id, max_response_weight },
+			UnsubscribeVersion => Self::UnsubscribeVersion,
+			BurnAsset(assets) => Self::BurnAsset(assets.try_into()?),
+			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
+			ExpectOrigin(maybe_origin) =>
+				Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?),
+			ExpectError(maybe_error) => Self::ExpectError(
+				maybe_error
+					.map(|(num, new_error)| (num, new_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?,
+			),
+			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
+			QueryPallet { module_name, response_info } =>
+				Self::QueryPallet { module_name, response_info: response_info.try_into()? },
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
+				Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
+			ReportTransactStatus(response_info) =>
+				Self::ReportTransactStatus(response_info.try_into()?),
+			ClearTransactStatus => Self::ClearTransactStatus,
+			UniversalOrigin(junction) => Self::UniversalOrigin(junction.try_into()?),
+			ExportMessage { network, destination, xcm } => Self::ExportMessage {
+				network: network.into(),
+				destination: destination.try_into()?,
+				xcm: xcm.try_into()?,
+			},
+			LockAsset { asset, unlocker } =>
+				Self::LockAsset { asset: asset.try_into()?, unlocker: unlocker.try_into()? },
+			UnlockAsset { asset, target } =>
+				Self::UnlockAsset { asset: asset.try_into()?, target: target.try_into()? },
+			NoteUnlockable { asset, owner } =>
+				Self::NoteUnlockable { asset: asset.try_into()?, owner: owner.try_into()? },
+			RequestUnlock { asset, locker } =>
+				Self::RequestUnlock { asset: asset.try_into()?, locker: locker.try_into()? },
+			SetFeesMode { jit_withdraw } => Self::SetFeesMode { jit_withdraw },
+			SetTopic(topic) => Self::SetTopic(topic),
+			ClearTopic => Self::ClearTopic,
+			AliasOrigin(location) => Self::AliasOrigin(location.try_into()?),
+			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution {
+				weight_limit,
+				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
+			},
+			InitiateTransfer { .. } |
+			PayFees { .. } |
+			SetHints { .. } |
+			ExecuteWithOrigin { .. } => {
+				tracing::debug!(target: "xcm::versions::v5tov4", ?new_instruction, "not supported by v4");
+				return Err(());
+			},
+		})
+	}
+}
+
 // Convert from a v3 instruction to a v4 instruction
 impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 	type Error = ();
@@ -1365,9 +1594,12 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
-	use crate::v3::{
-		Junctions::Here as OldHere, MultiAssetFilter as OldMultiAssetFilter,
-		WildMultiAsset as OldWildMultiAsset,
+	use crate::{
+		v3::{
+			Junctions::Here as OldHere, MultiAssetFilter as OldMultiAssetFilter,
+			WildMultiAsset as OldWildMultiAsset,
+		},
+		MAX_INSTRUCTIONS_TO_DECODE,
 	};
 
 	#[test]

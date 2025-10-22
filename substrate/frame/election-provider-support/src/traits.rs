@@ -18,11 +18,12 @@
 //! Traits for the election operations.
 
 use crate::{Assignment, IdentifierT, IndexAssignmentOf, PerThing128, VoteWeight};
+use alloc::vec::Vec;
 use codec::Encode;
+use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Bounded, UniqueSaturatedInto};
 use sp_npos_elections::{ElectionScore, Error, EvaluateSupport};
-use sp_std::{fmt::Debug, prelude::*};
 
 /// An opaque index-based, NPoS solution type.
 pub trait NposSolution
@@ -41,6 +42,8 @@ where
 		+ Clone
 		+ Bounded
 		+ Encode
+		+ Ord
+		+ PartialOrd
 		+ TypeInfo;
 
 	/// The target type. Needs to be an index (convert to usize).
@@ -52,6 +55,8 @@ where
 		+ Clone
 		+ Bounded
 		+ Encode
+		+ Ord
+		+ PartialOrd
 		+ TypeInfo;
 
 	/// The weight/accuracy type of each vote.
@@ -122,4 +127,23 @@ where
 		voter_at: impl Fn(Self::VoterIndex) -> Option<A>,
 		target_at: impl Fn(Self::TargetIndex) -> Option<A>,
 	) -> Result<Vec<Assignment<A, Self::Accuracy>>, Error>;
+
+	/// Sort self by the means of the given function.
+	///
+	/// This might be helpful to allow for easier trimming.
+	fn sort<F>(&mut self, voter_stake: F)
+	where
+		F: FnMut(&Self::VoterIndex) -> VoteWeight;
+
+	/// Remove the least staked voter.
+	///
+	/// This is ONLY sensible to do if [`Self::sort`] has been called on the struct at least once.
+	fn remove_weakest_sorted<F>(&mut self, voter_stake: F) -> Option<Self::VoterIndex>
+	where
+		F: FnMut(&Self::VoterIndex) -> VoteWeight;
+
+	/// Make this solution corrupt. This should set the index of a voter to `Bounded::max_value()`.
+	///
+	/// Obviously, this is only useful for testing.
+	fn corrupt(&mut self);
 }

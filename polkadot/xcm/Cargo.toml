@@ -1,32 +1,35 @@
 [package]
 name = "staging-xcm"
 description = "The basic XCM datastructures."
-version = "7.0.0"
+version = "7.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-array-bytes = "6.2.2"
-bounded-collections = { version = "0.2.0", default-features = false, features = ["serde"] }
-derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
-impl-trait-for-tuples = "0.2.2"
-log = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
-sp-weights = { path = "../../substrate/primitives/weights", default-features = false, features = ["serde"] }
+array-bytes = { workspace = true, default-features = true }
+bounded-collections = { features = ["serde"], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+derive-where = { workspace = true }
+environmental = { workspace = true }
+frame-support = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
+impl-trait-for-tuples = { workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+schemars = { default-features = true, optional = true, workspace = true }
 serde = { features = ["alloc", "derive", "rc"], workspace = true }
-schemars = { version = "0.8.13", default-features = true, optional = true }
-xcm-procedural = { path = "procedural" }
-environmental = { version = "1.1.4", default-features = false }
+sp-runtime = { workspace = true }
+sp-weights = { features = ["serde"], workspace = true }
+tracing = { workspace = true }
+xcm-procedural = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-io = { path = "../../substrate/primitives/io" }
-hex = "0.4.3"
-hex-literal = "0.4.1"
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -35,9 +38,19 @@ std = [
 	"bounded-collections/std",
 	"codec/std",
 	"environmental/std",
-	"log/std",
+	"frame-support/std",
 	"scale-info/std",
 	"serde/std",
+	"sp-runtime/std",
 	"sp-weights/std",
+	"tracing/std",
 ]
-json-schema = ["bounded-collections/json-schema", "dep:schemars", "sp-weights/json-schema"]
+json-schema = [
+	"bounded-collections/json-schema",
+	"dep:schemars",
+	"sp-weights/json-schema",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

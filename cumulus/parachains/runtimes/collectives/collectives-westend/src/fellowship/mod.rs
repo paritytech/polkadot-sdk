@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! The Westend Technical Fellowship.
 
@@ -30,7 +30,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains, MapSuccess,
-		NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
+		OriginTrait, TryWithMorphedArg,
 	},
 	PalletId,
 };
@@ -55,8 +55,6 @@ use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
-#[cfg(feature = "runtime-benchmarks")]
-use testnet_parachains_constants::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
@@ -108,6 +106,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type AlarmInterval = ConstU32<1>;
 	type Tracks = tracks::TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = crate::System;
 }
 
 pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
@@ -152,6 +151,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type MinRankOfClass = tracks::MinRankOfClass;
 	type MemberSwappedHandler = (crate::FellowshipCore, crate::FellowshipSalary);
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (crate::FellowshipCore, crate::FellowshipSalary);
 }
@@ -209,8 +209,9 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 		>,
 		EnsureCanPromoteTo,
 	>;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
 }
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;
@@ -270,16 +271,6 @@ parameter_types! {
 	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	// Benchmark bond. Needed to make `propose_spend` work.
-	pub const TenPercent: Permill = Permill::from_percent(10);
-	// Benchmark minimum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMinimum: Balance = 1 * DOLLARS;
-	// Benchmark maximum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMaximum: Balance = 10 * DOLLARS;
-}
-
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.
 pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	FellowshipTreasuryInteriorLocation,
@@ -295,28 +286,6 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
 
 impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
-	// The creation of proposals via the treasury pallet is deprecated and should not be utilized.
-	// Instead, public or fellowship referenda should be used to propose and command the treasury
-	// spend or spend_local dispatchables. The parameters below have been configured accordingly to
-	// discourage its use.
-	// TODO: replace with `NeverEnsure` once polkadot-sdk 1.5 is released.
-	type ApproveOrigin = NeverEnsureOrigin<()>;
-	type OnSlash = ();
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBond = HundredPercent;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMinimum = MaxBalance;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMaximum = MaxBalance;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBond = TenPercent;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMinimum = BenchmarkProposalBondMinimum;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMaximum = BenchmarkProposalBondMaximum;
-	// end.
-
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type PalletId = FellowshipTreasuryPalletId;
 	type Currency = Balances;
@@ -365,4 +334,5 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		sp_core::ConstU8<1>,
 		ConstU32<1000>,
 	>;
+	type BlockNumberProvider = crate::System;
 }

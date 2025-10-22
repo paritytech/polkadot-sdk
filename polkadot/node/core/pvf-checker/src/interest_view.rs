@@ -58,7 +58,7 @@ impl PvfData {
 		Self { judgement: None, seen_in }
 	}
 
-	/// Mark a the `PvfData` as seen in the provided relay-chain block referenced by `relay_hash`.
+	/// Mark the `PvfData` as seen in the provided relay-chain block referenced by `relay_hash`.
 	pub fn seen_in(&mut self, relay_hash: Hash) {
 		self.seen_in.insert(relay_hash);
 	}

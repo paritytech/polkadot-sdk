@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_std::result;
+use core::result;
 use xcm::latest::prelude::*;
 
 pub trait MatchesFungible<Balance> {
@@ -27,7 +27,7 @@ impl<Balance> MatchesFungible<Balance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_fungible(a) { o @ Some(_) => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::matches_fungible", "did not match fungible asset: {:?}", &a);
+		tracing::trace!(target: "xcm::matches_fungible", asset = ?a, "did not match fungible asset");
 		None
 	}
 }
@@ -42,7 +42,7 @@ impl<Instance> MatchesNonFungible<Instance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_nonfungible(a) { o @ Some(_) => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::matches_non_fungible", "did not match non-fungible asset: {:?}", &a);
+		tracing::trace!(target: "xcm::matches_non_fungible", asset = ?a, "did not match non-fungible asset");
 		None
 	}
 }
@@ -86,7 +86,7 @@ impl<AssetId, Balance> MatchesFungibles<AssetId, Balance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_fungibles(a) { o @ Ok(_) => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::matches_fungibles", "did not match fungibles asset: {:?}", &a);
+		tracing::trace!(target: "xcm::matches_fungibles", asset = ?a, "did not match fungibles asset");
 		Err(Error::AssetNotHandled)
 	}
 }
@@ -101,7 +101,34 @@ impl<AssetId, Instance> MatchesNonFungibles<AssetId, Instance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_nonfungibles(a) { o @ Ok(_) => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::matches_non_fungibles", "did not match fungibles asset: {:?}", &a);
+		tracing::trace!(target: "xcm::matches_non_fungibles", asset = ?a, "did not match non-fungibles asset");
+		Err(Error::AssetNotHandled)
+	}
+}
+
+/// Unique instances matcher trait.
+///
+/// The `Id` type should be defined in such a way so that its value can unambigiously identify an
+/// instance. I.e., if instances are grouped (e.g., as tokens in an NFT collection), the `Id` should
+/// contain both the group ID and the item group-local ID.
+///
+/// This unified interface allows us to avoid duplicating the XCM adapters for non-grouped and
+/// grouped instances.
+///
+/// NOTE: The trait implementors should follow the convention of identifying the collection-less
+/// NFTs by an XCM `Asset` of the form `{ asset_id: NFT_ID, fun:
+/// Fungibility::NonFungible(AssetInstance::Undefined) }`.
+pub trait MatchesInstance<Id> {
+	fn matches_instance(a: &Asset) -> result::Result<Id, Error>;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl<Id> MatchesInstance<Id> for Tuple {
+	fn matches_instance(a: &Asset) -> result::Result<Id, Error> {
+		for_tuples!( #(
+			match Tuple::matches_instance(a) { o @ Ok(_) => return o, _ => () }
+		)* );
+		tracing::trace!(target: "xcm::matches_instance", asset = ?a, "did not match an asset instance");
 		Err(Error::AssetNotHandled)
 	}
 }

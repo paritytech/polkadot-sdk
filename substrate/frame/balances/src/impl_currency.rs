@@ -34,13 +34,14 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use imbalances::{NegativeImbalance, PositiveImbalance};
+use sp_runtime::traits::Bounded;
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy
 // of the inner member.
 mod imbalances {
-	use super::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
-	use frame_support::traits::SameOrOther;
-	use sp_std::mem;
+	use super::*;
+	use core::mem;
+	use frame_support::traits::{tokens::imbalance::TryMerge, SameOrOther};
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.
@@ -132,6 +133,12 @@ mod imbalances {
 		}
 	}
 
+	impl<T: Config<I>, I: 'static> TryMerge for PositiveImbalance<T, I> {
+		fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+			Ok(self.merge(other))
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> TryDrop for NegativeImbalance<T, I> {
 		fn try_drop(self) -> result::Result<(), Self> {
 			self.drop_zero()
@@ -196,17 +203,47 @@ mod imbalances {
 		}
 	}
 
+	impl<T: Config<I>, I: 'static> TryMerge for NegativeImbalance<T, I> {
+		fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+			Ok(self.merge(other))
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> Drop for PositiveImbalance<T, I> {
 		/// Basic drop handler will just square up the total issuance.
 		fn drop(&mut self) {
-			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(self.0));
+			if !self.0.is_zero() {
+				<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(self.0));
+				Pallet::<T, I>::deposit_event(Event::<T, I>::Issued { amount: self.0 });
+			}
 		}
 	}
 
 	impl<T: Config<I>, I: 'static> Drop for NegativeImbalance<T, I> {
 		/// Basic drop handler will just square up the total issuance.
 		fn drop(&mut self) {
-			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(self.0));
+			if !self.0.is_zero() {
+				<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(self.0));
+				Pallet::<T, I>::deposit_event(Event::<T, I>::Rescinded { amount: self.0 });
+			}
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> fungible::HandleImbalanceDrop<T::Balance>
+		for NegativeImbalance<T, I>
+	{
+		fn handle(amount: T::Balance) {
+			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(amount));
+			Pallet::<T, I>::deposit_event(Event::<T, I>::BurnedDebt { amount });
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> fungible::HandleImbalanceDrop<T::Balance>
+		for PositiveImbalance<T, I>
+	{
+		fn handle(amount: T::Balance) {
+			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(amount));
+			Pallet::<T, I>::deposit_event(Event::<T, I>::MintedCredit { amount });
 		}
 	}
 }
@@ -263,6 +300,8 @@ where
 				Zero::zero()
 			});
 		});
+
+		Pallet::<T, I>::deposit_event(Event::<T, I>::Rescinded { amount });
 		PositiveImbalance::new(amount)
 	}
 
@@ -279,6 +318,8 @@ where
 				Self::Balance::max_value()
 			})
 		});
+
+		Pallet::<T, I>::deposit_event(Event::<T, I>::Issued { amount });
 		NegativeImbalance::new(amount)
 	}
 
@@ -340,6 +381,7 @@ where
 
 		let result = match Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, _is_new| -> Result<(Self::NegativeImbalance, Self::Balance), DispatchError> {
 				// Best value is the most amount we can slash following liveness rules.
 				let ed = T::ExistentialDeposit::get();
@@ -377,6 +419,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, is_new| -> Result<Self::PositiveImbalance, DispatchError> {
 				ensure!(!is_new, Error::<T, I>::DeadAccount);
 				account.free = account.free.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
@@ -402,6 +445,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, is_new| -> Result<Self::PositiveImbalance, DispatchError> {
 				let ed = T::ExistentialDeposit::get();
 				ensure!(value >= ed || !is_new, Error::<T, I>::ExistentialDeposit);
@@ -435,6 +479,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, _| -> Result<Self::NegativeImbalance, DispatchError> {
 				let new_free_account =
 					account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
@@ -462,6 +507,7 @@ where
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account,
 			 is_new|
 			 -> Result<SignedImbalance<Self::Balance, Self::PositiveImbalance>, DispatchError> {
@@ -489,6 +535,29 @@ where
 	}
 }
 
+/// Validates whether an account can create a reserve without violating
+/// liquidity constraints.
+///
+/// This method performs liquidity checks without modifying the account state.
+fn ensure_can_reserve<T: Config<I>, I: 'static>(
+	who: &T::AccountId,
+	value: T::Balance,
+	check_existential_deposit: bool,
+) -> DispatchResult {
+	let AccountData { free, .. } = Pallet::<T, I>::account(who);
+
+	// Early validation: Check sufficient free balance
+	let new_free_balance = free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
+
+	// Conditionally validate existential deposit preservation
+	if check_existential_deposit {
+		let existential_deposit = T::ExistentialDeposit::get();
+		ensure!(new_free_balance >= existential_deposit, Error::<T, I>::Expendability);
+	}
+
+	Ok(())
+}
+
 impl<T: Config<I>, I: 'static> ReservableCurrency<T::AccountId> for Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
@@ -500,11 +569,7 @@ where
 		if value.is_zero() {
 			return true
 		}
-		Self::account(who).free.checked_sub(&value).map_or(false, |new_balance| {
-			new_balance >= T::ExistentialDeposit::get() &&
-				Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance)
-					.is_ok()
-		})
+		ensure_can_reserve::<T, I>(who, value, true).is_ok()
 	}
 
 	fn reserved_balance(who: &T::AccountId) -> Self::Balance {
@@ -519,12 +584,14 @@ where
 			return Ok(())
 		}
 
-		Self::try_mutate_account_handling_dust(who, |account, _| -> DispatchResult {
+		Self::try_mutate_account_handling_dust(who, false, |account, _| -> DispatchResult {
 			account.free =
 				account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
 			account.reserved =
 				account.reserved.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
-			Self::ensure_can_withdraw(&who, value, WithdrawReasons::RESERVE, account.free)
+
+			// Check if it is possible to reserve before trying to mutate the account
+			ensure_can_reserve::<T, I>(who, value, false)
 		})?;
 
 		Self::deposit_event(Event::Reserved { who: who.clone(), amount: value });
@@ -544,7 +611,7 @@ where
 			return value
 		}
 
-		let actual = match Self::mutate_account_handling_dust(who, |account| {
+		let actual = match Self::mutate_account_handling_dust(who, false, |account| {
 			let actual = cmp::min(account.reserved, value);
 			account.reserved -= actual;
 			// defensive only: this can never fail since total issuance which is at least
@@ -583,7 +650,7 @@ where
 		// NOTE: `mutate_account` may fail if it attempts to reduce the balance to the point that an
 		//   account is attempted to be illegally destroyed.
 
-		match Self::mutate_account_handling_dust(who, |account| {
+		match Self::mutate_account_handling_dust(who, false, |account| {
 			let actual = value.min(account.reserved);
 			account.reserved.saturating_reduce(actual);
 
@@ -609,7 +676,7 @@ where
 	///
 	/// This is `Polite` and thus will not repatriate any funds which would lead the total balance
 	/// to be less than the frozen amount. Returns `Ok` with the actual amount of funds moved,
-	/// which may be less than `value` since the operation is done an a `BestEffort` basis.
+	/// which may be less than `value` since the operation is done on a `BestEffort` basis.
 	fn repatriate_reserved(
 		slashed: &T::AccountId,
 		beneficiary: &T::AccountId,
@@ -651,8 +718,10 @@ where
 		Reserves::<T, I>::try_mutate(who, |reserves| -> DispatchResult {
 			match reserves.binary_search_by_key(id, |data| data.id) {
 				Ok(index) => {
-					// this add can't overflow but just to be defensive.
-					reserves[index].amount = reserves[index].amount.defensive_saturating_add(value);
+					reserves[index].amount = reserves[index]
+						.amount
+						.checked_add(&value)
+						.ok_or(ArithmeticError::Overflow)?;
 				},
 				Err(index) => {
 					reserves

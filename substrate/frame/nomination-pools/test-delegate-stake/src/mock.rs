@@ -15,12 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Disable warnings for `TransferStake` being deprecated.
+#![allow(deprecated)]
+
 use frame_election_provider_support::VoteWeight;
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, ConstU8, VariantCountOf},
+	traits::{ConstU64, ConstU8, Nothing, VariantCountOf},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -90,36 +93,21 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
+	type OldCurrency = Balances;
 	type Currency = Balances;
-	type CurrencyBalance = Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type CurrencyToVote = ();
-	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
-	type Reward = ();
-	type SessionsPerEra = ();
-	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type NextNewSession = ();
-	type MaxExposurePageSize = ConstU32<64>;
 	type ElectionProvider =
-		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
+		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type HistoryDepth = ConstU32<84>;
 	type EventListeners = (Pools, DelegatedStaking);
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 parameter_types! {
@@ -133,6 +121,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type BagThresholds = BagThresholds;
 	type ScoreProvider = Staking;
 	type Score = VoteWeight;
+	type MaxAutoRebagPerBlock = ();
 }
 
 pub struct BalanceToU256;
@@ -170,11 +159,14 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		}
 		DelegateStake::strategy_type()
 	}
-	fn transferable_balance(pool_account: Pool<Self::AccountId>) -> Self::Balance {
+	fn transferable_balance(
+		pool_account: Pool<Self::AccountId>,
+		member_account: Member<Self::AccountId>,
+	) -> Self::Balance {
 		if LegacyAdapter::get() {
-			return TransferStake::transferable_balance(pool_account)
+			return TransferStake::transferable_balance(pool_account, member_account)
 		}
-		DelegateStake::transferable_balance(pool_account)
+		DelegateStake::transferable_balance(pool_account, member_account)
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<Self::Balance> {
@@ -214,6 +206,13 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 			return TransferStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 		}
 		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
+	}
+
+	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
+		if LegacyAdapter::get() {
+			return TransferStake::dissolve(pool_account)
+		}
+		DelegateStake::dissolve(pool_account)
 	}
 
 	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance {
@@ -271,6 +270,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type BlockNumberProvider = System;
+	type Filter = Nothing;
 }
 
 parameter_types! {
@@ -316,6 +317,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
 		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

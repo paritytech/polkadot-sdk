@@ -5,37 +5,35 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../gum" }
+futures = { workspace = true }
+futures-timer = { workspace = true }
 
-metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["futures_channel"] }
+bs58 = { features = ["alloc"], workspace = true, default-features = true }
+codec = { workspace = true, default-features = true }
+metered = { features = ["futures_channel"], workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 # Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
-sc-service = { path = "../../../substrate/client/service" }
-sc-cli = { path = "../../../substrate/client/cli" }
-
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
-sc-tracing = { path = "../../../substrate/client/tracing" }
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-polkadot-primitives = { path = "../../primitives" }
-bs58 = { version = "0.5.0", features = ["alloc"] }
-log = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = false }
+sc-service = { workspace = true, default-features = false }
+sc-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
-assert_cmd = "2.0.4"
-tempfile = "3.2.0"
-hyper = { version = "0.14.20", default-features = false, features = ["http1", "tcp"] }
-tokio = "1.37"
-polkadot-test-service = { path = "../test/service", features = ["runtime-metrics"] }
-substrate-test-utils = { path = "../../../substrate/test-utils" }
-sc-service = { path = "../../../substrate/client/service" }
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-prometheus-parse = { version = "0.2.2" }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { features = ["client-legacy", "tokio"], workspace = true }
+polkadot-test-service = { features = ["runtime-metrics"], workspace = true }
+prometheus-parse = { workspace = true }
+sc-service = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+tokio = { workspace = true, default-features = true }
 
 [features]
 default = []

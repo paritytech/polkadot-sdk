@@ -1,0 +1,8 @@
+title: 'revive: Fix compilation of `uapi` crate when `unstable-hostfn` is not set'
+doc:
+- audience: Runtime Dev
+  description: This regression was introduced with some of the recent PRs. Regression
+    fixed and test added.
+crates:
+- name: pallet-revive-uapi
+  bump: minor

@@ -17,17 +17,23 @@
 
 use super::{
 	types::{ComponentRange, ComponentRangeMap},
-	writer, ListOutput, PalletCmd,
+	writer, ListOutput, PalletCmd, LOG_TARGET,
 };
-use crate::pallet::{types::FetchedCode, GenesisBuilder};
-use codec::{Decode, Encode};
+use crate::{
+	pallet::{types::FetchedCode, GenesisBuilderPolicy},
+	shared::{
+		genesis_state,
+		genesis_state::{GenesisStateHandler, SpecGenesisSource, WARN_SPEC_GENESIS_CTOR},
+	},
+};
+use clap::{error::ErrorKind, CommandFactory};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
 	BenchmarkResult, BenchmarkSelector,
 };
 use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
-use sc_chain_spec::json_patch::merge as json_merge;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -37,13 +43,14 @@ use sp_core::{
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
 	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
+	Hasher,
 };
 use sp_externalities::Extensions;
-use sp_genesis_builder::{PresetId, Result as GenesisBuildResult};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
-use sp_state_machine::{OverlayedChanges, StateMachine};
-use sp_wasm_interface::HostFunctions;
+use sp_state_machine::StateMachine;
+use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
+use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 use std::{
 	borrow::Cow,
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -53,9 +60,13 @@ use std::{
 	time,
 };
 
-/// Logging target
-const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
-
+type SubstrateAndExtraHF<T> = (
+	ExtendedHostFunctions<
+		(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions),
+		super::logging::logging::HostFunctions,
+	>,
+	T,
+);
 /// How the PoV size of a storage item should be estimated.
 #[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum PovEstimationMode {
@@ -87,6 +98,7 @@ pub(crate) type PovModesMap =
 #[derive(Debug, Clone)]
 struct SelectedBenchmark {
 	pallet: String,
+	instance: String,
 	extrinsic: String,
 	components: Vec<(BenchmarkParameter, u32, u32)>,
 	pov_modes: Vec<(String, String)>,
@@ -143,39 +155,65 @@ fn combine_batches(
 }
 
 /// Explains possible reasons why the metadata for the benchmarking could not be found.
-const ERROR_METADATA_NOT_FOUND: &'static str = "Did not find the benchmarking metadata. \
+const ERROR_API_NOT_FOUND: &'static str = "Did not find the benchmarking runtime api. \
 This could mean that you either did not build the node correctly with the \
 `--features runtime-benchmarks` flag, or the chain spec that you are using was \
 not created by a node that was compiled with the flag";
 
-/// When the runtime could not build the genesis storage.
-const ERROR_CANNOT_BUILD_GENESIS: &str = "The runtime returned \
-an error when trying to build the genesis storage. Please ensure that all pallets \
-define a genesis config that can be built. This can be tested with: \
-https://github.com/paritytech/polkadot-sdk/pull/3412";
-
-/// Warn when using the chain spec to generate the genesis state.
-const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of the runtime to \
-generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
-point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
-become a hard error any time after December 2024.";
-
-/// The preset that we expect to find in the GenesisBuilder runtime API.
-const GENESIS_PRESET: &str = "development";
-
 impl PalletCmd {
-	/// Runs the command and benchmarks a pallet.
-	#[deprecated(
-		note = "`run` will be removed after December 2024. Use `run_with_spec` instead or \
-	completely remove the code and use the `frame-benchmarking-cli` instead (see \
-	https://github.com/paritytech/polkadot-sdk/pull/3512)."
-	)]
-	pub fn run<Hasher, ExtraHostFunctions>(&self, config: sc_service::Configuration) -> Result<()>
-	where
-		Hasher: Hash,
-		ExtraHostFunctions: HostFunctions,
-	{
-		self.run_with_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
+	fn state_handler_from_cli<HF: HostFunctions>(
+		&self,
+		chain_spec_from_api: Option<Box<dyn ChainSpec>>,
+	) -> Result<GenesisStateHandler> {
+		let genesis_builder_to_source = || match self.genesis_builder {
+			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
+				SpecGenesisSource::Runtime(self.genesis_builder_preset.clone()),
+			Some(GenesisBuilderPolicy::SpecGenesis) | None => {
+				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
+				SpecGenesisSource::SpecJson
+			},
+			Some(GenesisBuilderPolicy::None) => SpecGenesisSource::None,
+		};
+
+		// First handle chain-spec passed in via API parameter.
+		if let Some(chain_spec) = chain_spec_from_api {
+			log::debug!("Initializing state handler with chain-spec from API: {:?}", chain_spec);
+
+			let source = genesis_builder_to_source();
+			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
+		};
+
+		// Handle chain-spec passed in via CLI.
+		if let Some(chain_spec_path) = &self.shared_params.chain {
+			log::debug!(
+				"Initializing state handler with chain-spec from path: {:?}",
+				chain_spec_path
+			);
+			let (chain_spec, _) =
+				genesis_state::chain_spec_from_path::<HF>(chain_spec_path.to_string().into())?;
+
+			let source = genesis_builder_to_source();
+
+			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
+		};
+
+		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
+		// incompatible on the CLI level.
+		if let Some(runtime_path) = &self.runtime {
+			log::debug!("Initializing state handler with runtime from path: {:?}", runtime_path);
+
+			let runtime_blob = fs::read(runtime_path)?;
+			return if let Some(GenesisBuilderPolicy::None) = self.genesis_builder {
+				Ok(GenesisStateHandler::Runtime(runtime_blob, None))
+			} else {
+				Ok(GenesisStateHandler::Runtime(
+					runtime_blob,
+					Some(self.genesis_builder_preset.clone()),
+				))
+			}
+		};
+
+		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
 	}
 
 	/// Runs the pallet benchmarking command.
@@ -185,9 +223,14 @@ impl PalletCmd {
 	) -> Result<()>
 	where
 		Hasher: Hash,
+		<Hasher as Hash>::Output: DecodeWithMemTracking,
 		ExtraHostFunctions: HostFunctions,
 	{
-		self.check_args()?;
+		if let Err((error_kind, msg)) = self.check_args(&chain_spec) {
+			let mut cmd = PalletCmd::command();
+			cmd.error(error_kind, msg).exit();
+		};
+
 		let _d = self.execution.as_ref().map(|exec| {
 			// We print the error at the end, since there is often A LOT of output.
 			sp_core::defer::DeferGuard::new(move || {
@@ -211,10 +254,12 @@ impl PalletCmd {
 			};
 			return self.output_from_results(&batches)
 		}
+		super::logging::init(self.runtime_log.clone());
 
-		let (genesis_storage, genesis_changes) =
-			self.genesis_storage::<Hasher, ExtraHostFunctions>(&chain_spec)?;
-		let mut changes = genesis_changes.clone();
+		let state_handler =
+			self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(chain_spec)?;
+		let genesis_storage =
+			state_handler.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(None)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(
@@ -225,11 +270,12 @@ impl PalletCmd {
 			// Enable storage tracking
 			true,
 		)?;
+
 		let state_without_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage,
 			cache_size,
-			// Do not record proof size
-			false,
+			// Proof recording depends on CLI settings
+			!self.disable_proof_recording,
 			// Do not enable storage tracking
 			false,
 		)?;
@@ -240,34 +286,57 @@ impl PalletCmd {
 		let state = &state_without_tracking;
 		let runtime = self.runtime_blob(&state_without_tracking)?;
 		let runtime_code = runtime.code()?;
-		let alloc_strategy = Self::alloc_strategy(runtime_code.heap_pages);
+		let alloc_strategy = self.alloc_strategy(runtime_code.heap_pages);
 
-		let executor = WasmExecutor::<(
-			sp_io::SubstrateHostFunctions,
-			frame_benchmarking::benchmarking::HostFunctions,
-			ExtraHostFunctions,
-		)>::builder()
-		.with_execution_method(method)
-		.with_allow_missing_host_functions(self.allow_missing_host_functions)
-		.with_onchain_heap_alloc_strategy(alloc_strategy)
-		.with_offchain_heap_alloc_strategy(alloc_strategy)
-		.with_max_runtime_instances(2)
-		.with_runtime_cache_size(2)
-		.build();
+		let executor = WasmExecutor::<SubstrateAndExtraHF<ExtraHostFunctions>>::builder()
+			.with_execution_method(method)
+			.with_allow_missing_host_functions(self.allow_missing_host_functions)
+			.with_onchain_heap_alloc_strategy(alloc_strategy)
+			.with_offchain_heap_alloc_strategy(alloc_strategy)
+			.with_max_runtime_instances(2)
+			.with_runtime_cache_size(2)
+			.build();
+
+		let runtime_version: sp_version::RuntimeVersion = Self::exec_state_machine(
+			StateMachine::new(
+				state,
+				&mut Default::default(),
+				&executor,
+				"Core_version",
+				&[],
+				&mut Self::build_extensions(executor.clone(), state.recorder()),
+				&runtime_code,
+				CallContext::Offchain,
+			),
+			"Could not find `Core::version` runtime api.",
+		)?;
+
+		let benchmark_api_version = runtime_version
+			.api_version(
+				&<dyn frame_benchmarking::Benchmark<
+					// We need to use any kind of `Block` type to make the compiler happy, not
+					// relevant for the `ID`.
+					sp_runtime::generic::Block<
+						sp_runtime::generic::Header<u32, Hasher>,
+						sp_runtime::generic::UncheckedExtrinsic<(), (), (), ()>,
+					>,
+				> as sp_api::RuntimeApiInfo>::ID,
+			)
+			.ok_or_else(|| ERROR_API_NOT_FOUND)?;
 
 		let (list, storage_info): (Vec<BenchmarkList>, Vec<StorageInfo>) =
 			Self::exec_state_machine(
 				StateMachine::new(
 					state,
-					&mut changes,
+					&mut Default::default(),
 					&executor,
 					"Benchmark_benchmark_metadata",
 					&(self.extra).encode(),
-					&mut Self::build_extensions(executor.clone()),
+					&mut Self::build_extensions(executor.clone(), state.recorder()),
 					&runtime_code,
 					CallContext::Offchain,
 				),
-				ERROR_METADATA_NOT_FOUND,
+				ERROR_API_NOT_FOUND,
 			)?;
 
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
@@ -284,10 +353,11 @@ impl PalletCmd {
 		let mut timer = time::SystemTime::now();
 		// Maps (pallet, extrinsic) to its component ranges.
 		let mut component_ranges = HashMap::<(String, String), Vec<ComponentRange>>::new();
-		let pov_modes = Self::parse_pov_modes(&benchmarks_to_run)?;
+		let pov_modes =
+			Self::parse_pov_modes(&benchmarks_to_run, &storage_info, self.ignore_unknown_pov_mode)?;
 		let mut failed = Vec::<(String, String)>::new();
 
-		'outer: for (i, SelectedBenchmark { pallet, extrinsic, components, .. }) in
+		'outer: for (i, SelectedBenchmark { pallet, instance, extrinsic, components, .. }) in
 			benchmarks_to_run.clone().into_iter().enumerate()
 		{
 			log::info!(
@@ -341,10 +411,33 @@ impl PalletCmd {
 				}
 				all_components
 			};
+
 			for (s, selected_components) in all_components.iter().enumerate() {
+				let params = |verify: bool, repeats: u32| -> Vec<u8> {
+					if benchmark_api_version >= 2 {
+						(
+							pallet.as_bytes(),
+							instance.as_bytes(),
+							extrinsic.as_bytes(),
+							&selected_components.clone(),
+							verify,
+							repeats,
+						)
+							.encode()
+					} else {
+						(
+							pallet.as_bytes(),
+							extrinsic.as_bytes(),
+							&selected_components.clone(),
+							verify,
+							repeats,
+						)
+							.encode()
+					}
+				};
+
 				// First we run a verification
 				if !self.no_verify {
-					let mut changes = genesis_changes.clone();
 					let state = &state_without_tracking;
 					// Don't use these results since verification code will add overhead.
 					let _batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
@@ -354,30 +447,23 @@ impl PalletCmd {
 					>(
 						StateMachine::new(
 							state,
-							&mut changes,
+							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
-							&(
-								pallet.as_bytes(),
-								extrinsic.as_bytes(),
-								&selected_components.clone(),
-								true, // run verification code
-								1,    // no need to do internal repeats
-							)
-								.encode(),
-							&mut Self::build_extensions(executor.clone()),
+							&params(true, 1),
+							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
 						),
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -386,7 +472,6 @@ impl PalletCmd {
 				}
 				// Do one loop of DB tracking.
 				{
-					let mut changes = genesis_changes.clone();
 					let state = &state_with_tracking;
 					let batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
 						std::result::Result<Vec<BenchmarkBatch>, String>,
@@ -394,31 +479,24 @@ impl PalletCmd {
 						_,
 					>(
 						StateMachine::new(
-							state, // todo remove tracking
-							&mut changes,
+							state,
+							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
-							&(
-								pallet.as_bytes(),
-								extrinsic.as_bytes(),
-								&selected_components.clone(),
-								false, // don't run verification code for final values
-								self.repeat,
-							)
-								.encode(),
-							&mut Self::build_extensions(executor.clone()),
+							&params(false, self.repeat),
+							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
 						),
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!("Error executing runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!("Benchmark {pallet}::{extrinsic} failed: {e}",);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -429,7 +507,6 @@ impl PalletCmd {
 				}
 				// Finally run a bunch of loops to get extrinsic timing information.
 				for r in 0..self.external_repeat {
-					let mut changes = genesis_changes.clone();
 					let state = &state_without_tracking;
 					let batch = match Self::exec_state_machine::<
 						std::result::Result<Vec<BenchmarkBatch>, String>,
@@ -438,29 +515,24 @@ impl PalletCmd {
 					>(
 						StateMachine::new(
 							state, // todo remove tracking
-							&mut changes,
+							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
-							&(
-								pallet.as_bytes(),
-								extrinsic.as_bytes(),
-								&selected_components.clone(),
-								false, // don't run verification code for final values
-								self.repeat,
-							)
-								.encode(),
-							&mut Self::build_extensions(executor.clone()),
+							&params(false, self.repeat),
+							&mut Self::build_extensions(executor.clone(), state.recorder()),
 							&runtime_code,
 							CallContext::Offchain,
 						),
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							return Err(format!("Error executing runtime benchmark: {e}",).into());
+							return Err(
+								format!("Benchmark {pallet}::{extrinsic} failed: {e}").into()
+							);
 						},
 						Ok(Err(e)) => {
 							return Err(
-								format!("Benchmark {pallet}::{extrinsic} failed: {e}",).into()
+								format!("Benchmark {pallet}::{extrinsic} failed: {e}").into()
 							);
 						},
 						Ok(Ok(b)) => b,
@@ -508,43 +580,33 @@ impl PalletCmd {
 	}
 
 	fn select_benchmarks_to_run(&self, list: Vec<BenchmarkList>) -> Result<Vec<SelectedBenchmark>> {
-		let pallet = self.pallet.clone().unwrap_or_default();
-		let pallet = pallet.as_bytes();
-
-		let extrinsic = self.extrinsic.clone().unwrap_or_default();
-		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
-		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
-
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let mut benchmarks_to_run = Vec::new();
-		list.iter()
-			.filter(|item| pallet.is_empty() || pallet == &b"*"[..] || pallet == &item.pallet[..])
-			.for_each(|item| {
-				for benchmark in &item.benchmarks {
-					let benchmark_name = &benchmark.name;
-					if extrinsic.is_empty() ||
-						extrinsic.as_bytes() == &b"*"[..] ||
-						extrinsics.contains(&&benchmark_name[..])
-					{
-						benchmarks_to_run.push((
-							item.pallet.clone(),
-							benchmark.name.clone(),
-							benchmark.components.clone(),
-							benchmark.pov_modes.clone(),
-						))
-					}
+		list.iter().filter(|item| self.pallet_selected(&item.pallet)).for_each(|item| {
+			for benchmark in &item.benchmarks {
+				if self.extrinsic_selected(&item.pallet, &benchmark.name) {
+					benchmarks_to_run.push((
+						item.pallet.clone(),
+						item.instance.clone(),
+						benchmark.name.clone(),
+						benchmark.components.clone(),
+						benchmark.pov_modes.clone(),
+					))
 				}
-			});
+			}
+		});
 		// Convert `Vec<u8>` to `String` for better readability.
 		let benchmarks_to_run: Vec<_> = benchmarks_to_run
 			.into_iter()
-			.map(|(pallet, extrinsic, components, pov_modes)| {
-				let pallet = String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
+			.map(|(pallet, instance, extrinsic, components, pov_modes)| {
+				let pallet = String::from_utf8(pallet).expect("Encoded from String; qed");
+				let instance = String::from_utf8(instance).expect("Encoded from String; qed");
 				let extrinsic =
 					String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
 
 				SelectedBenchmark {
 					pallet,
+					instance,
 					extrinsic,
 					components,
 					pov_modes: pov_modes
@@ -558,139 +620,61 @@ impl PalletCmd {
 			.collect();
 
 		if benchmarks_to_run.is_empty() {
-			return Err("No benchmarks found which match your input.".into())
+			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks. Make sure pallet is in `define_benchmarks!`".into())
 		}
 
 		Ok(benchmarks_to_run)
 	}
 
-	/// Produce a genesis storage and genesis changes.
-	///
-	/// It would be easier to only return one type, but there is no easy way to convert them.
-	// TODO: Re-write `BenchmarkingState` to not be such a clusterfuck and only accept
-	// `OverlayedChanges` instead of a mix between `OverlayedChanges` and `State`. But this can only
-	// be done once we deprecated and removed the legacy interface :(
-	fn genesis_storage<H: Hash, F: HostFunctions>(
-		&self,
-		chain_spec: &Option<Box<dyn ChainSpec>>,
-	) -> Result<(sp_storage::Storage, OverlayedChanges<H>)> {
-		Ok(match (self.genesis_builder, self.runtime.is_some()) {
-			(Some(GenesisBuilder::None), _) => Default::default(),
-			(Some(GenesisBuilder::Spec), _) | (None, false) => {
-				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
-				let Some(chain_spec) = chain_spec else {
-					return Err("No chain spec specified to generate the genesis state".into());
-				};
+	/// Whether this pallet should be run.
+	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
+		let include = self.pallets.clone();
 
-				let storage = chain_spec
-					.build_storage()
-					.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"))?;
+		let included = include.is_empty() ||
+			include.iter().any(|p| p.as_bytes() == pallet) ||
+			include.iter().any(|p| p == "*") ||
+			include.iter().any(|p| p == "all");
+		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
-				(storage, Default::default())
-			},
-			(Some(GenesisBuilder::Runtime), _) | (None, true) =>
-				(Default::default(), self.genesis_from_runtime::<H, F>()?),
-		})
+		included && !excluded
 	}
 
-	/// Generate the genesis changeset by the runtime API.
-	fn genesis_from_runtime<H: Hash, F: HostFunctions>(&self) -> Result<OverlayedChanges<H>> {
-		let state = BenchmarkingState::<H>::new(
-			Default::default(),
-			Some(self.database_cache_size as usize),
-			false,
-			false,
-		)?;
-
-		// Create a dummy WasmExecutor just to build the genesis storage.
-		let method =
-			execution_method_from_cli(self.wasm_method, self.wasmtime_instantiation_strategy);
-		let executor = WasmExecutor::<(
-			sp_io::SubstrateHostFunctions,
-			frame_benchmarking::benchmarking::HostFunctions,
-			F,
-		)>::builder()
-		.with_execution_method(method)
-		.with_allow_missing_host_functions(self.allow_missing_host_functions)
-		.build();
-
-		let runtime = self.runtime_blob(&state)?;
-		let runtime_code = runtime.code()?;
-
-		// We cannot use the `GenesisConfigBuilderRuntimeCaller` here since it returns the changes
-		// as `Storage` item, but we need it as `OverlayedChanges`.
-		let genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
-			StateMachine::new(
-				&state,
-				&mut Default::default(),
-				&executor,
-				"GenesisBuilder_get_preset",
-				&None::<PresetId>.encode(), // Use the default preset
-				&mut Self::build_extensions(executor.clone()),
-				&runtime_code,
-				CallContext::Offchain,
-			),
-			"build the genesis spec",
-		)?;
-
-		let Some(base_genesis_json) = genesis_json else {
-			return Err("GenesisBuilder::get_preset returned no data".into())
-		};
-
-		let base_genesis_json = serde_json::from_slice::<serde_json::Value>(&base_genesis_json)
-			.map_err(|e| format!("GenesisBuilder::get_preset returned invalid JSON: {:?}", e))?;
-
-		let dev_genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
-			StateMachine::new(
-				&state,
-				&mut Default::default(),
-				&executor,
-				"GenesisBuilder_get_preset",
-				&Some::<PresetId>(GENESIS_PRESET.into()).encode(), // Use the default preset
-				&mut Self::build_extensions(executor.clone()),
-				&runtime_code,
-				CallContext::Offchain,
-			),
-			"build the genesis spec",
-		)?;
-
-		let mut genesis_json = serde_json::Value::default();
-		json_merge(&mut genesis_json, base_genesis_json);
-
-		if let Some(dev) = dev_genesis_json {
-			let dev: serde_json::Value = serde_json::from_slice(&dev).map_err(|e| {
-				format!("GenesisBuilder::get_preset returned invalid JSON: {:?}", e)
-			})?;
-			json_merge(&mut genesis_json, dev);
-		} else {
-			log::warn!(
-				"Could not find genesis preset '{GENESIS_PRESET}'. Falling back to default."
-			);
+	/// Whether this extrinsic should be run.
+	fn extrinsic_selected(&self, pallet: &Vec<u8>, extrinsic: &Vec<u8>) -> bool {
+		if !self.pallet_selected(pallet) {
+			return false;
 		}
 
-		let json_pretty_str = serde_json::to_string_pretty(&genesis_json)
-			.map_err(|e| format!("json to string failed: {e}"))?;
+		let extrinsic_filter = self.extrinsic.clone().unwrap_or_default();
+		let extrinsic_split: Vec<&str> = extrinsic_filter.split(',').collect();
+		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
 
-		let mut changes = Default::default();
-		let build_res: GenesisBuildResult = Self::exec_state_machine(
-			StateMachine::new(
-				&state,
-				&mut changes,
-				&executor,
-				"GenesisBuilder_build_state",
-				&json_pretty_str.encode(),
-				&mut Extensions::default(),
-				&runtime_code,
-				CallContext::Offchain,
-			),
-			"populate the genesis state",
-		)?;
+		let included = extrinsic_filter.is_empty() ||
+			extrinsic_filter == "*" ||
+			extrinsic_filter == "all" ||
+			extrinsics.contains(&&extrinsic[..]);
 
-		if let Err(e) = build_res {
-			return Err(format!("GenesisBuilder::build_state failed: {}", e).into())
+		let excluded = self
+			.excluded_extrinsics()
+			.iter()
+			.any(|(p, e)| p.as_bytes() == pallet && e.as_bytes() == extrinsic);
+
+		included && !excluded
+	}
+
+	/// All `(pallet, extrinsic)` tuples that are excluded from the benchmarks.
+	fn excluded_extrinsics(&self) -> Vec<(String, String)> {
+		let mut excluded = Vec::new();
+
+		for e in &self.exclude_extrinsics {
+			let splits = e.split("::").collect::<Vec<_>>();
+			if splits.len() != 2 {
+				panic!("Invalid argument for '--exclude-extrinsics'. Expected format: 'pallet::extrinsic' but got '{}'", e);
+			}
+			excluded.push((splits[0].to_string(), splits[1].to_string()));
 		}
 
-		Ok(changes)
+		excluded
 	}
 
 	/// Execute a state machine and decode its return value as `R`.
@@ -707,7 +691,10 @@ impl PalletCmd {
 	}
 
 	/// Build the extension that are available for pallet benchmarks.
-	fn build_extensions<E: CodeExecutor>(exe: E) -> Extensions {
+	fn build_extensions<E: CodeExecutor, H: Hasher + 'static>(
+		exe: E,
+		maybe_recorder: Option<Recorder<H>>,
+	) -> Extensions {
 		let mut extensions = Extensions::default();
 		let (offchain, _) = TestOffchainExt::new();
 		let (pool, _) = TestTransactionPoolExt::new();
@@ -717,6 +704,9 @@ impl PalletCmd {
 		extensions.register(OffchainDbExt::new(offchain));
 		extensions.register(TransactionPoolExt::new(pool));
 		extensions.register(ReadRuntimeVersionExt::new(exe));
+		if let Some(recorder) = maybe_recorder {
+			extensions.register(ProofSizeExt::new(recorder));
+		}
 		extensions
 	}
 
@@ -728,15 +718,21 @@ impl PalletCmd {
 		&self,
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
-		if let Some(runtime) = &self.runtime {
-			log::info!("Loading WASM from {}", runtime.display());
-			let code = fs::read(runtime)?;
+		if let Some(runtime) = self.runtime.as_ref() {
+			log::debug!(target: LOG_TARGET, "Loading WASM from file {}", runtime.display());
+			let code = fs::read(runtime).map_err(|e| {
+				format!(
+					"Could not load runtime file from path: {}, error: {}",
+					runtime.display(),
+					e
+				)
+			})?;
 			let hash = sp_core::blake2_256(&code).to_vec();
 			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
 			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
 		} else {
-			log::info!("Loading WASM from genesis state");
+			log::info!(target: LOG_TARGET, "Loading WASM from state");
 			let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
 
 			Ok(FetchedCode::FromGenesis { state })
@@ -744,9 +740,9 @@ impl PalletCmd {
 	}
 
 	/// Allocation strategy for pallet benchmarking.
-	fn alloc_strategy(heap_pages: Option<u64>) -> HeapAllocStrategy {
-		heap_pages.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static {
-			extra_pages: p as _,
+	fn alloc_strategy(&self, runtime_heap_pages: Option<u64>) -> HeapAllocStrategy {
+		self.heap_pages.or(runtime_heap_pages).map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| {
+			HeapAllocStrategy::Static { extra_pages: p as _ }
 		})
 	}
 
@@ -936,14 +932,20 @@ impl PalletCmd {
 	}
 
 	/// Parses the PoV modes per benchmark that were specified by the `#[pov_mode]` attribute.
-	fn parse_pov_modes(benchmarks: &Vec<SelectedBenchmark>) -> Result<PovModesMap> {
+	fn parse_pov_modes(
+		benchmarks: &Vec<SelectedBenchmark>,
+		storage_info: &[StorageInfo],
+		ignore_unknown_pov_mode: bool,
+	) -> Result<PovModesMap> {
 		use std::collections::hash_map::Entry;
 		let mut parsed = PovModesMap::new();
 
 		for SelectedBenchmark { pallet, extrinsic, pov_modes, .. } in benchmarks {
 			for (pallet_storage, mode) in pov_modes {
 				let mode = PovEstimationMode::from_str(&mode)?;
+				let pallet_storage = pallet_storage.replace(" ", "");
 				let splits = pallet_storage.split("::").collect::<Vec<_>>();
+
 				if splits.is_empty() || splits.len() > 2 {
 					return Err(format!(
 						"Expected 'Pallet::Storage' as storage name but got: {}",
@@ -951,7 +953,8 @@ impl PalletCmd {
 					)
 					.into())
 				}
-				let (pov_pallet, pov_storage) = (splits[0], splits.get(1).unwrap_or(&"ALL"));
+				let (pov_pallet, pov_storage) =
+					(splits[0].trim(), splits.get(1).unwrap_or(&"ALL").trim());
 
 				match parsed
 					.entry((pallet.clone(), extrinsic.clone()))
@@ -970,33 +973,99 @@ impl PalletCmd {
 				}
 			}
 		}
+		log::debug!("Parsed PoV modes: {:?}", parsed);
+		Self::check_pov_modes(&parsed, storage_info, ignore_unknown_pov_mode)?;
+
 		Ok(parsed)
 	}
 
+	fn check_pov_modes(
+		pov_modes: &PovModesMap,
+		storage_info: &[StorageInfo],
+		ignore_unknown_pov_mode: bool,
+	) -> Result<()> {
+		// Check that all PoV modes are valid pallet storage keys
+		for (pallet, storage) in pov_modes.values().flat_map(|i| i.keys()) {
+			let (mut found_pallet, mut found_storage) = (false, false);
+
+			for info in storage_info {
+				if pallet == "ALL" || info.pallet_name == pallet.as_bytes() {
+					found_pallet = true;
+				}
+				if storage == "ALL" || info.storage_name == storage.as_bytes() {
+					found_storage = true;
+				}
+			}
+			if !found_pallet || !found_storage {
+				let err = format!("The PoV mode references an unknown storage item or pallet: `{}::{}`. You can ignore this warning by specifying `--ignore-unknown-pov-mode`", pallet, storage);
+
+				if ignore_unknown_pov_mode {
+					log::warn!(target: LOG_TARGET, "Error demoted to warning due to `--ignore-unknown-pov-mode`: {}", err);
+				} else {
+					return Err(err.into());
+				}
+			}
+		}
+
+		Ok(())
+	}
+
 	/// Sanity check the CLI arguments.
-	fn check_args(&self) -> Result<()> {
+	fn check_args(
+		&self,
+		chain_spec: &Option<Box<dyn ChainSpec>>,
+	) -> std::result::Result<(), (ErrorKind, String)> {
 		if self.runtime.is_some() && self.shared_params.chain.is_some() {
 			unreachable!("Clap should not allow both `--runtime` and `--chain` to be provided.")
 		}
 
+		if chain_spec.is_none() && self.runtime.is_none() && self.shared_params.chain.is_none() {
+			return Err((
+				ErrorKind::MissingRequiredArgument,
+				"Provide either a runtime via `--runtime` or a chain spec via `--chain`"
+					.to_string(),
+			))
+		}
+
+		match self.genesis_builder {
+			Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::SpecRuntime) =>
+				if chain_spec.is_none() && self.shared_params.chain.is_none() {
+					return Err((
+						ErrorKind::MissingRequiredArgument,
+						"Provide a chain spec via `--chain`.".to_string(),
+					))
+				},
+			_ => {},
+		}
+
 		if let Some(output_path) = &self.output {
 			if !output_path.is_dir() && output_path.file_name().is_none() {
-				return Err("Output file or path is invalid!".into())
+				return Err((
+					ErrorKind::InvalidValue,
+					format!("Output path is neither a directory nor a file: {output_path:?}"),
+				));
 			}
 		}
 
 		if let Some(header_file) = &self.header {
 			if !header_file.is_file() {
-				return Err("Header file is invalid!".into())
+				return Err((
+					ErrorKind::InvalidValue,
+					format!("Header file could not be found: {header_file:?}"),
+				));
 			};
 		}
 
 		if let Some(handlebars_template_file) = &self.template {
 			if !handlebars_template_file.is_file() {
-				return Err("Handlebars template file is invalid!".into())
+				return Err((
+					ErrorKind::InvalidValue,
+					format!(
+						"Handlebars template file could not be found: {handlebars_template_file:?}"
+					),
+				));
 			};
 		}
-
 		Ok(())
 	}
 }
@@ -1049,5 +1118,168 @@ fn list_benchmark(
 				println!("{pallet}");
 			}
 		},
+	}
+}
+#[cfg(test)]
+mod tests {
+	use crate::pallet::PalletCmd;
+	use clap::Parser;
+
+	fn cli_succeed(args: &[&str]) -> Result<(), clap::Error> {
+		let cmd = PalletCmd::try_parse_from(args)?;
+		assert!(cmd.check_args(&None).is_ok());
+		Ok(())
+	}
+
+	fn cli_fail(args: &[&str]) {
+		let cmd = PalletCmd::try_parse_from(args);
+		if let Ok(cmd) = cmd {
+			assert!(cmd.check_args(&None).is_err());
+		}
+	}
+
+	#[test]
+	fn test_cli_conflicts() -> Result<(), clap::Error> {
+		// Runtime tests
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder",
+			"runtime",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder",
+			"none",
+		])?;
+		cli_succeed(&["test", "--extrinsic", "", "--pallet", "", "--runtime", "path/to/runtime"])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder-preset",
+			"preset",
+		])?;
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder",
+			"spec",
+		]);
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-genesis",
+		]);
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-runtime",
+		]);
+		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec-genesis"]);
+
+		// Spec tests
+		cli_succeed(&["test", "--extrinsic", "", "--pallet", "", "--chain", "path/to/spec"])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-genesis",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-runtime",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"none",
+		])?;
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"runtime",
+		]);
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"runtime",
+			"--genesis-builder-preset",
+			"preset",
+		]);
+		Ok(())
 	}
 }

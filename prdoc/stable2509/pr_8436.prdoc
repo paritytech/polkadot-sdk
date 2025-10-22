@@ -1,0 +1,11 @@
+title: 'Fix calling nominate on a validator that doesn’t exist silently succeeds'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes a bug where calling nominate on a validator that doesn’t exist silently succeeds.
+      It also updates all the tests that had an incorrect setup - they were simulating elections with unregistered validators.
+
+crates:
+  - name: pallet-staking-async
+    bump: major

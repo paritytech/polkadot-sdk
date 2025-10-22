@@ -16,11 +16,13 @@
 
 //! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
+use core::{marker::PhantomData, result};
 use frame_support::traits::{Contains, Get};
 use sp_runtime::traits::MaybeEquivalence;
-use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
-use xcm_executor::traits::{Error as MatchError, MatchesFungibles, MatchesNonFungibles};
+use xcm_executor::traits::{
+	Error as MatchError, MatchesFungibles, MatchesInstance, MatchesNonFungible, MatchesNonFungibles,
+};
 
 /// Converter struct implementing `AssetIdConversion` converting a numeric asset ID (must be
 /// `TryFrom/TryInto<u128>`) into a `GeneralIndex` junction, prefixed by some `Location` value.
@@ -137,7 +139,13 @@ impl<
 		ConvertClassId: MaybeEquivalence<Location, ClassId>,
 		ConvertInstanceId: MaybeEquivalence<AssetInstance, InstanceId>,
 	> MatchesNonFungibles<ClassId, InstanceId>
-	for MatchedConvertedConcreteId<ClassId, InstanceId, MatchClassId, ConvertClassId, ConvertInstanceId>
+	for MatchedConvertedConcreteId<
+		ClassId,
+		InstanceId,
+		MatchClassId,
+		ConvertClassId,
+		ConvertInstanceId,
+	>
 {
 	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {
@@ -149,6 +157,41 @@ impl<
 		let instance =
 			ConvertInstanceId::convert(instance).ok_or(MatchError::InstanceConversionFailed)?;
 		Ok((what, instance))
+	}
+}
+
+/// An adapter that implements the unified unique instances matcher [`MatchesInstance`] trait
+/// for the [`MatchesNonFungibles`].
+/// The resulting matcher expects the instances to be part of some class (i.e., instance group,
+/// such as an NFT collection).
+///
+/// * `ClassId` is the ID of an instance class (e.g., NFT collection ID),
+/// * `InstanceId` is a class-scoped ID of a class member's unique instance (e.g., an NFT ID inside
+///   a collection).
+pub struct MatchInClassInstances<Matcher>(PhantomData<Matcher>);
+
+impl<ClassId, InstanceId, Matcher: MatchesNonFungibles<ClassId, InstanceId>>
+	MatchesInstance<(ClassId, InstanceId)> for MatchInClassInstances<Matcher>
+{
+	fn matches_instance(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
+		Matcher::matches_nonfungibles(a)
+	}
+}
+
+/// An adapter that implements the unified unique instances matcher [`MatchesInstance`] trait
+/// for the [`MatchesNonFungible`].
+/// The resulting matcher expects the instances to be fully individual, not belonging to any group
+/// (such as an NFT collection).
+///
+/// In practice, this typically means that the `InstanceId` is an indivisible ID (i.e., it is not
+/// composed of multiple IDs).
+pub struct MatchClasslessInstances<Matcher>(PhantomData<Matcher>);
+
+impl<InstanceId, Matcher: MatchesNonFungible<InstanceId>> MatchesInstance<InstanceId>
+	for MatchClasslessInstances<Matcher>
+{
+	fn matches_instance(a: &Asset) -> result::Result<InstanceId, MatchError> {
+		Matcher::matches_nonfungible(a).ok_or(MatchError::AssetNotHandled)
 	}
 }
 

@@ -47,43 +47,51 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use frame_support::{
 	dispatch::{
 		DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
-	traits::{Defensive, EstimateCallFee, Get},
+	pallet_prelude::TransactionSource,
+	traits::{Defensive, EstimateCallFee, Get, Imbalance, SuppressedDrop},
 	weights::{Weight, WeightToFee},
+	RuntimeDebugNoBound,
 };
 pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, SignedExtension, Zero,
+		Saturating, TransactionExtension, Zero,
 	},
-	transaction_validity::{
-		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
+pub use weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 mod payment;
 mod types;
+pub mod weights;
 
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
 
 type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+type CreditOf<T> = <StoredCreditOf<T> as SuppressedDrop>::Inner;
+type StoredCreditOf<T> = <<T as Config>::OnChargeTransaction as TxCreditHold<T>>::Credit;
+
+const LOG_TARGET: &str = "runtime::txpayment";
 
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
@@ -136,8 +144,8 @@ type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T
 /// Meaning that fees can change by around ~23% per day, given extreme congestion.
 ///
 /// More info can be found at:
-/// <https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html>
-pub struct TargetedFeeAdjustment<T, S, V, M, X>(sp_std::marker::PhantomData<(T, S, V, M, X)>);
+/// <https://research.web3.foundation/Polkadot/overview/token-economics>
+pub struct TargetedFeeAdjustment<T, S, V, M, X>(core::marker::PhantomData<(T, S, V, M, X)>);
 
 /// Something that can convert the current multiplier to the next one.
 pub trait MultiplierUpdate: Convert<Multiplier, Multiplier> {
@@ -208,7 +216,7 @@ where
 		// the computed ratio is only among the normal class.
 		let normal_max_weight =
 			weights.get(DispatchClass::Normal).max_total.unwrap_or(weights.max_block);
-		let current_block_weight = <frame_system::Pallet<T>>::block_weight();
+		let current_block_weight = frame_system::Pallet::<T>::block_weight();
 		let normal_block_weight =
 			current_block_weight.get(DispatchClass::Normal).min(normal_max_weight);
 
@@ -264,7 +272,7 @@ where
 }
 
 /// A struct to make the fee multiplier a constant
-pub struct ConstFeeMultiplier<M: Get<Multiplier>>(sp_std::marker::PhantomData<M>);
+pub struct ConstFeeMultiplier<M: Get<Multiplier>>(core::marker::PhantomData<M>);
 
 impl<M: Get<Multiplier>> MultiplierUpdate for ConstFeeMultiplier<M> {
 	fn min() -> Multiplier {
@@ -292,7 +300,7 @@ where
 
 /// Storage releases of the pallet.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-enum Releases {
+pub enum Releases {
 	/// Original version of the pallet.
 	V1Ancient,
 	/// One that bumps the usage to FixedU128 from FixedI128.
@@ -335,6 +343,7 @@ pub mod pallet {
 			type RuntimeEvent = ();
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
+			type WeightInfo = ();
 		}
 	}
 
@@ -342,6 +351,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Handler for withdrawing, refunding and depositing the transaction fee.
@@ -387,6 +397,9 @@ pub mod pallet {
 		/// transactions.
 		#[pallet::constant]
 		type OperationalFeeMultiplier: Get<u8>;
+
+		/// The weight information of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::type_value]
@@ -395,18 +408,25 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_fee_multiplier)]
+	#[pallet::whitelist_storage]
 	pub type NextFeeMultiplier<T: Config> =
 		StorageValue<_, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty>;
 
 	#[pallet::storage]
-	pub(super) type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
+	pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
+
+	/// The `OnChargeTransaction` stores the withdrawn tx fee here.
+	///
+	/// Use `withdraw_txfee` and `remaining_txfee` to access from outside the crate.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub(crate) type TxPaymentCredit<T: Config> = StorageValue<_, StoredCreditOf<T>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub multiplier: Multiplier,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -434,8 +454,17 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_: frame_system::pallet_prelude::BlockNumberFor<T>) {
-			<NextFeeMultiplier<T>>::mutate(|fm| {
+			NextFeeMultiplier::<T>::mutate(|fm| {
 				*fm = T::FeeMultiplierUpdate::convert(*fm);
+			});
+
+			// We generally expect the `OnChargeTransaction` implementation to delete this value
+			// after each transaction. To make sure it is never stored between blocks we
+			// delete the value here just in case.
+			TxPaymentCredit::<T>::take().map(|credit| {
+				log::error!(target: LOG_TARGET, "The `TxPaymentCredit` was stored between blocks. This is a bug.");
+				// Converting to inner makes sure that the drop implementation is called.
+				credit.into_inner()
 			});
 		}
 
@@ -472,7 +501,7 @@ pub mod pallet {
 			let min_value = T::FeeMultiplierUpdate::min();
 			let target = target + addition;
 
-			<frame_system::Pallet<T>>::set_block_consumed_resources(target, 0);
+			frame_system::Pallet::<T>::set_block_consumed_resources(target, 0);
 			let next = T::FeeMultiplierUpdate::convert(min_value);
 			assert!(
 				next > min_value,
@@ -485,6 +514,11 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to access the next fee multiplier.
+	pub fn next_fee_multiplier() -> Multiplier {
+		NextFeeMultiplier::<T>::get()
+	}
+
 	/// Query the data that we know about the fee of a given `call`.
 	///
 	/// This pallet is not and cannot be aware of the internals of a signed extension, for example
@@ -493,7 +527,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// All dispatchables must be annotated with weight and will have some fee info. This function
 	/// always returns.
-	pub fn query_info<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
+	pub fn query_info<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
 		unchecked_extrinsic: Extrinsic,
 		len: u32,
 	) -> RuntimeDispatchInfo<BalanceOf<T>>
@@ -507,20 +541,20 @@ impl<T: Config> Pallet<T> {
 		// a very very little potential gain in the future.
 		let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
-		let partial_fee = if unchecked_extrinsic.is_signed().unwrap_or(false) {
-			Self::compute_fee(len, &dispatch_info, 0u32.into())
-		} else {
-			// Unsigned extrinsics have no partial fee.
+		let partial_fee = if unchecked_extrinsic.is_bare() {
+			// Bare extrinsics have no partial fee.
 			0u32.into()
+		} else {
+			Self::compute_fee(len, &dispatch_info, 0u32.into())
 		};
 
-		let DispatchInfo { weight, class, .. } = dispatch_info;
+		let DispatchInfo { class, .. } = dispatch_info;
 
-		RuntimeDispatchInfo { weight, class, partial_fee }
+		RuntimeDispatchInfo { weight: dispatch_info.total_weight(), class, partial_fee }
 	}
 
 	/// Query the detailed fee of a given `call`.
-	pub fn query_fee_details<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
+	pub fn query_fee_details<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
 		unchecked_extrinsic: Extrinsic,
 		len: u32,
 	) -> FeeDetails<BalanceOf<T>>
@@ -531,11 +565,11 @@ impl<T: Config> Pallet<T> {
 
 		let tip = 0u32.into();
 
-		if unchecked_extrinsic.is_signed().unwrap_or(false) {
-			Self::compute_fee_details(len, &dispatch_info, tip)
-		} else {
-			// Unsigned extrinsics have no inclusion fee.
+		if unchecked_extrinsic.is_bare() {
+			// Bare extrinsics have no inclusion fee.
 			FeeDetails { inclusion_fee: None, tip }
+		} else {
+			Self::compute_fee_details(len, &dispatch_info, tip)
 		}
 	}
 
@@ -545,10 +579,10 @@ impl<T: Config> Pallet<T> {
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
 	{
 		let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
-		let DispatchInfo { weight, class, .. } = dispatch_info;
+		let DispatchInfo { class, .. } = dispatch_info;
 
 		RuntimeDispatchInfo {
-			weight,
+			weight: dispatch_info.total_weight(),
 			class,
 			partial_fee: Self::compute_fee(len, &dispatch_info, 0u32.into()),
 		}
@@ -565,7 +599,7 @@ impl<T: Config> Pallet<T> {
 		Self::compute_fee_details(len, &dispatch_info, tip)
 	}
 
-	/// Compute the final fee value for a particular transaction.
+	/// Compute the final fee value (including tip) for a particular transaction.
 	pub fn compute_fee(
 		len: u32,
 		info: &DispatchInfoOf<T::RuntimeCall>,
@@ -586,7 +620,7 @@ impl<T: Config> Pallet<T> {
 	where
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	{
-		Self::compute_fee_raw(len, info.weight, tip, info.pays_fee, info.class)
+		Self::compute_fee_raw(len, info.total_weight(), tip, info.pays_fee, info.class)
 	}
 
 	/// Compute the actual post dispatch fee for a particular transaction.
@@ -634,7 +668,7 @@ impl<T: Config> Pallet<T> {
 		if pays_fee == Pays::Yes {
 			// the adjustable part of the fee.
 			let unadjusted_weight_fee = Self::weight_to_fee(weight);
-			let multiplier = Self::next_fee_multiplier();
+			let multiplier = NextFeeMultiplier::<T>::get();
 			// final adjusted weight fee.
 			let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
@@ -664,6 +698,71 @@ impl<T: Config> Pallet<T> {
 		let capped_weight = weight.min(T::BlockWeights::get().max_block);
 		T::WeightToFee::weight_to_fee(&capped_weight)
 	}
+
+	/// Deposit the [`Event::TransactionFeePaid`] event.
+	pub fn deposit_fee_paid_event(who: T::AccountId, actual_fee: BalanceOf<T>, tip: BalanceOf<T>) {
+		Self::deposit_event(Event::TransactionFeePaid { who, actual_fee, tip });
+	}
+
+	/// Withdraw `amount` from the currents transaction's fees.
+	///
+	/// If enough balance is available a credit of size `amount` is returned.
+	///
+	/// # Warning
+	///
+	/// Do **not** use this to pay for Weight fees. Use only to pay for storage fees
+	/// that can be rolled back by a storage transaction.
+	///
+	/// # Note
+	///
+	/// This is only useful if a pallet knows that the pre-dispatch weight was vastly
+	/// overestimated. Pallets need to make sure to leave enough balance to pay for the
+	/// transaction fees. They can do that by first drawing as much as they need and then
+	/// at the end of the transaction (when they know the post dispatch fee) return an error
+	/// in case not enough is left. The error will automatically roll back all the storage
+	/// changes done by the pallet including the balance drawn by calling this function.
+	pub fn withdraw_txfee<Balance>(amount: Balance) -> Option<CreditOf<T>>
+	where
+		CreditOf<T>: Imbalance<Balance>,
+		Balance: PartialOrd,
+	{
+		<TxPaymentCredit<T>>::mutate(|credit| {
+			let credit = SuppressedDrop::as_mut(credit.as_mut()?);
+			if amount > credit.peek() {
+				return None
+			}
+			Some(credit.extract(amount))
+		})
+	}
+
+	/// Deposit some additional balance.
+	pub fn deposit_txfee<Balance>(deposit: CreditOf<T>)
+	where
+		CreditOf<T>: Imbalance<Balance>,
+	{
+		<TxPaymentCredit<T>>::mutate(|credit| {
+			if let Some(credit) = credit.as_mut().map(SuppressedDrop::as_mut) {
+				credit.subsume(deposit);
+			} else {
+				*credit = Some(SuppressedDrop::new(deposit))
+			}
+		});
+	}
+
+	/// Return how much balance is currently available to pay for the transaction.
+	///
+	/// Does **not** include the tip.
+	///
+	/// If noone calls `charge_from_txfee` it is the same as the pre dispatch fee.
+	pub fn remaining_txfee<Balance>() -> Balance
+	where
+		CreditOf<T>: Imbalance<Balance>,
+		Balance: Default,
+	{
+		<TxPaymentCredit<T>>::get()
+			.map(|c| SuppressedDrop::as_ref(&c).peek())
+			.unwrap_or_default()
+	}
 }
 
 impl<T> Convert<Weight, BalanceOf<T>> for Pallet<T>
@@ -676,7 +775,7 @@ where
 	/// share that the weight contributes to the overall fee of a transaction. It is mainly
 	/// for informational purposes and not used in the actual fee calculation.
 	fn convert(weight: Weight) -> BalanceOf<T> {
-		<NextFeeMultiplier<T>>::get().saturating_mul_int(Self::weight_to_fee(weight))
+		NextFeeMultiplier::<T>::get().saturating_mul_int(Self::weight_to_fee(weight))
 	}
 }
 
@@ -690,7 +789,7 @@ where
 ///
 /// Operational transactions will receive an additional priority bump, so that they are normally
 /// considered before regular transactions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
 
@@ -714,7 +813,7 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		fee_with_tip: BalanceOf<T>,
 	) -> Result<
 		(
 			BalanceOf<T>,
@@ -723,12 +822,35 @@ where
 		TransactionValidityError,
 	> {
 		let tip = self.0;
-		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
-			who, call, info, fee, tip,
+			who,
+			call,
+			info,
+			fee_with_tip,
+			tip,
 		)
-		.map(|i| (fee, i))
+		.map(|liquidity_info| (fee_with_tip, liquidity_info))
+	}
+
+	fn can_withdraw_fee(
+		&self,
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<BalanceOf<T>, TransactionValidityError> {
+		let tip = self.0;
+		let fee_with_tip = Pallet::<T>::compute_fee(len as u32, info, tip);
+
+		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
+			who,
+			call,
+			info,
+			fee_with_tip,
+			tip,
+		)?;
+		Ok(fee_with_tip)
 	}
 
 	/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
@@ -748,7 +870,7 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		tip: BalanceOf<T>,
-		final_fee: BalanceOf<T>,
+		final_fee_with_tip: BalanceOf<T>,
 	) -> TransactionPriority {
 		// Calculate how many such extrinsics we could fit into an empty block and take the
 		// limiting factor.
@@ -756,7 +878,8 @@ where
 		let max_block_length = *T::BlockLength::get().max.get(info.class) as u64;
 
 		// bounded_weight is used as a divisor later so we keep it non-zero.
-		let bounded_weight = info.weight.max(Weight::from_parts(1, 1)).min(max_block_weight);
+		let bounded_weight =
+			info.total_weight().max(Weight::from_parts(1, 1)).min(max_block_weight);
 		let bounded_length = (len as u64).clamp(1, max_block_length);
 
 		// returns the scarce resource, i.e. the one that is limiting the number of transactions.
@@ -796,7 +919,7 @@ where
 				// enough to prevent a possible spam attack by sending invalid operational
 				// extrinsics which push away regular transactions from the pool.
 				let fee_multiplier = T::OperationalFeeMultiplier::get().saturated_into();
-				let virtual_tip = final_fee.saturating_mul(fee_multiplier);
+				let virtual_tip = final_fee_with_tip.saturating_mul(fee_multiplier);
 				let scaled_virtual_tip = max_reward(virtual_tip);
 
 				scaled_tip.saturating_add(scaled_virtual_tip)
@@ -806,79 +929,154 @@ where
 	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
+impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "ChargeTransactionPayment<{:?}>", self.0)
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
 
-impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
+/// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+#[derive(RuntimeDebugNoBound)]
+pub enum Val<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// transaction fee
+		fee_with_tip: BalanceOf<T>,
+	},
+	NoCharge,
+}
+
+/// The info passed between the prepare and post-dispatch steps for the `ChargeAssetTxPayment`
+/// extension.
+pub enum Pre<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// implementation defined type that is passed into the post charge function
+		liquidity_info:
+			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+	},
+	NoCharge {
+		// weight initially estimated by the extension, to be refunded
+		refund: Weight,
+	},
+}
+
+impl<T: Config> core::fmt::Debug for Pre<T> {
+	#[cfg(feature = "std")]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Pre::Charge { tip, who, liquidity_info: _ } => {
+				write!(f, "Charge {{ tip: {:?}, who: {:?}, imbalance: <stripped> }}", tip, who)
+			},
+			Pre::NoCharge { refund } => write!(f, "NoCharge {{ refund: {:?} }}", refund),
+		}
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		f.write_str("<wasm:stripped>")
+	}
+}
+
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
-	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
 	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee - this is an option to allow for a Default impl.
-		Self::AccountId,
-		// imbalance resulting from withdrawing the fee
-		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-	);
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
+	type Implicit = ();
+	type Val = Val<T>;
+	type Pre = Pre<T>;
+
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		T::WeightInfo::charge_transaction_payment()
 	}
 
 	fn validate(
 		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-	) -> TransactionValidity {
-		let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
+		_: (),
+		_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		let Ok(who) = frame_system::ensure_signed(origin.clone()) else {
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
+		};
+		let fee_with_tip = self.can_withdraw_fee(&who, call, info, len)?;
 		let tip = self.0;
-		Ok(ValidTransaction {
-			priority: Self::get_priority(info, len, tip, final_fee),
-			..Default::default()
-		})
+		Ok((
+			ValidTransaction {
+				priority: Self::get_priority(info, len, tip, fee_with_tip),
+				..Default::default()
+			},
+			Val::Charge { tip: self.0, who, fee_with_tip },
+			origin,
+		))
 	}
 
-	fn pre_dispatch(
+	fn prepare(
 		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
+		val: Self::Val,
+		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
-		Ok((self.0, who.clone(), imbalance))
+		match val {
+			Val::Charge { tip, who, fee_with_tip } => {
+				// Mutating call to `withdraw_fee` to actually charge for the transaction.
+				let (_fee_with_tip, liquidity_info) =
+					self.withdraw_fee(&who, call, info, fee_with_tip)?;
+				Ok(Pre::Charge { tip, who, liquidity_info })
+			},
+			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
+		}
 	}
 
-	fn post_dispatch(
-		maybe_pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
+	fn post_dispatch_details(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		if let Some((tip, who, imbalance)) = maybe_pre {
-			let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
-			T::OnChargeTransaction::correct_and_deposit_fee(
-				&who, info, post_info, actual_fee, tip, imbalance,
-			)?;
-			Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
-		}
-		Ok(())
+	) -> Result<Weight, TransactionValidityError> {
+		let (tip, who, liquidity_info) = match pre {
+			Pre::Charge { tip, who, liquidity_info } => (tip, who, liquidity_info),
+			Pre::NoCharge { refund } => {
+				// No-op: Refund everything
+				return Ok(refund)
+			},
+		};
+		let actual_fee_with_tip =
+			Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
+		T::OnChargeTransaction::correct_and_deposit_fee(
+			&who,
+			info,
+			&post_info,
+			actual_fee_with_tip,
+			tip,
+			liquidity_info,
+		)?;
+		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid {
+			who,
+			actual_fee: actual_fee_with_tip,
+			tip,
+		});
+		Ok(Weight::zero())
 	}
 }
 

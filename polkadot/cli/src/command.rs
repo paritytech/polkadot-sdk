@@ -15,24 +15,27 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::cli::{Cli, Subcommand, NODE_VERSION};
-use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
+use frame_benchmarking_cli::{
+	BenchmarkCmd, ExtrinsicFactory, SubstrateRemarkBuilder, SUBSTRATE_REFERENCE_HARDWARE,
+};
 use futures::future::TryFutureExt;
-use log::info;
+use log::{info, warn};
 use polkadot_service::{
 	self,
-	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
+	benchmarking::{benchmark_inherent_data, TransferKeepAliveBuilder},
 	HeaderBackend, IdentifyVariant,
 };
-use sc_cli::SubstrateCli;
-use sp_core::crypto::Ss58AddressFormatRegistry;
-use sp_keyring::Sr25519Keyring;
-use std::net::ToSocketAddrs;
-
-pub use crate::error::Error;
-#[cfg(feature = "hostperfcheck")]
-pub use polkadot_performance_test::PerfCheckError;
 #[cfg(feature = "pyroscope")]
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use sc_cli::SubstrateCli;
+use sc_network_types::PeerId;
+use sp_core::crypto::Ss58AddressFormatRegistry;
+use sp_keyring::Sr25519Keyring;
+
+pub use crate::error::Error;
+#[cfg(feature = "pyroscope")]
+use std::net::ToSocketAddrs;
+use std::{collections::HashSet, time::Duration};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -41,6 +44,55 @@ fn get_exec_name() -> Option<String> {
 		.ok()
 		.and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
 		.and_then(|s| s.into_string().ok())
+}
+
+fn get_invulnerable_ah_collators(
+	chain_spec: &Box<dyn polkadot_service::ChainSpec>,
+) -> HashSet<PeerId> {
+	// A default set of invulnerable asset hub collators
+	const KUSAMA: [&str; 11] = [
+		"12D3KooWHNEENyCc4R3iDLLFaJiynUp9eDZp7TtS1G6DCp459vVK",
+		"12D3KooWAVqLdQEjSezy7CPEgMLMSTuyfSBdbxPGkmik5x2aL8u4",
+		"12D3KooWBxMiVQdYa5MaQjSWAu3YsfKdrs7vgX9cPk4cCwFVAXEu",
+		"12D3KooWGbRmQ9FjwkzTVTSxfUh854wxc3LUD5agjzcucDarZrNn",
+		"12D3KooWHwXftCGdp73t4BUxW3c9UKjYTvjc7tHsrinT5M8AUmXo",
+		"12D3KooWCTSAq83D99RcT64rrV5X3sGZxc9JQ8nVtd6GbZEKnDqC",
+		"12D3KooWF63ZxKtZMYs5247WQA8fcTiGJb2osXykc31cmjwNLwem",
+		"12D3KooWGowDwrXAh9cxkbPHPHuwMouFHrMcJhCVXcFS2B8vc5Ry",
+		"12D3KooWRhoxXsZypnp1Tady6XSRqXfxu7Bj6hGk8aj6FJ1iU6pt",
+		"12D3KooWJUs11H7S3Hv9BVh72w3yVmHoYTXaoBUg1KQyYk4hL2bB",
+		"12D3KooWAeLjabo2foz6gAQvLRfwF2d3WnpUGDjhg8V5AQUnv5AZ",
+	];
+
+	const POLKADOT: [&str; 7] = [
+		"12D3KooWEyGg3oUwYfaLWM5AJ2pvXCUxBuXNapX1tQXLsbDmMV6z",
+		"12D3KooWD9dTKLW65NFFLVjqgaXNzb3zKXBfwRS5iovxV6XaoVX6",
+		"12D3KooWPJfGGisRMkiD5yhySZggEhyMSwELb34P2bEuAmUh9RYy",
+		"12D3KooWQB9RBoJEByMtXtD8aC1WR1DJQb3QMXRcsQmNxrghsQLv",
+		"12D3KooWFhBYG98e53DQB7W2JKBL9xWrP83ANkAjzvp4enEJAt3k",
+		"12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa",
+		"12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq",
+	];
+
+	let invulnerables = if chain_spec.is_kusama() {
+		KUSAMA.to_vec()
+	} else if chain_spec.is_polkadot() {
+		POLKADOT.to_vec()
+	} else {
+		vec![]
+	};
+
+	invulnerables
+			.iter()
+			.filter_map(|invuln_str| {
+				invuln_str
+					.parse::<PeerId>()
+					.map_err(|e| {
+						warn!("Failed to parse AssetHub invulnerable peer from the default list. This should never happen. {:?}", e)
+					})
+					.ok()
+			})
+			.collect()
 }
 
 impl SubstrateCli for Cli {
@@ -109,17 +161,6 @@ impl SubstrateCli for Cli {
 			"westend-local" => Box::new(polkadot_service::chain_spec::westend_local_testnet_config()?),
 			#[cfg(feature = "westend-native")]
 			"westend-staging" => Box::new(polkadot_service::chain_spec::westend_staging_testnet_config()?),
-			#[cfg(not(feature = "westend-native"))]
-			name if name.starts_with("westend-") && !name.ends_with(".json") =>
-				Err(format!("`{}` only supported with `westend-native` feature enabled.", name))?,
-			"wococo" => Box::new(polkadot_service::chain_spec::wococo_config()?),
-			#[cfg(feature = "rococo-native")]
-			"wococo-dev" => Box::new(polkadot_service::chain_spec::wococo_development_config()?),
-			#[cfg(feature = "rococo-native")]
-			"wococo-local" => Box::new(polkadot_service::chain_spec::wococo_local_testnet_config()?),
-			#[cfg(not(feature = "rococo-native"))]
-			name if name.starts_with("wococo-") =>
-				Err(format!("`{}` only supported with `rococo-native` feature enabled.", name))?,
 			#[cfg(feature = "rococo-native")]
 			"versi-dev" => Box::new(polkadot_service::chain_spec::versi_development_config()?),
 			#[cfg(feature = "rococo-native")]
@@ -139,7 +180,6 @@ impl SubstrateCli for Cli {
 				// chains, we use the chain spec for the specific chain.
 				if self.run.force_rococo ||
 					chain_spec.is_rococo() ||
-					chain_spec.is_wococo() ||
 					chain_spec.is_versi()
 				{
 					Box::new(polkadot_service::RococoChainSpec::from_json_file(path)?)
@@ -192,7 +232,7 @@ where
 	F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
 {
 	let runner = cli
-		.create_runner_with_logger_hook::<sc_cli::RunCmd, F>(&cli.run.base, logger_hook)
+		.create_runner_with_logger_hook::<_, _, F>(&cli.run.base, logger_hook)
 		.map_err(Error::from)?;
 	let chain_spec = &runner.config().chain_spec;
 
@@ -209,29 +249,23 @@ where
 		info!("----------------------------");
 	}
 
-	let jaeger_agent = if let Some(ref jaeger_agent) = cli.run.jaeger_agent {
-		Some(
-			jaeger_agent
-				.to_socket_addrs()
-				.map_err(Error::AddressResolutionFailure)?
-				.next()
-				.ok_or_else(|| Error::AddressResolutionMissing)?,
-		)
-	} else {
-		None
-	};
-
 	let node_version =
 		if cli.run.disable_worker_version_check { None } else { Some(NODE_VERSION.to_string()) };
 
 	let secure_validator_mode = cli.run.base.validator && !cli.run.insecure_validator;
 
+	// Parse collator protocol hold off value and get the list of the invlunerable collators.
+	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
+	let invulnerable_ah_collators = get_invulnerable_ah_collators(&chain_spec);
+
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)
-			.then_some(config.database.path().map(|database_path| {
-				let _ = std::fs::create_dir_all(&database_path);
-				sc_sysinfo::gather_hwbench(Some(database_path))
-			}))
+			.then(|| {
+				config.database.path().map(|database_path| {
+					let _ = std::fs::create_dir_all(&database_path);
+					sc_sysinfo::gather_hwbench(Some(database_path), &SUBSTRATE_REFERENCE_HARDWARE)
+				})
+			})
 			.flatten();
 
 		let database_source = config.database.clone();
@@ -241,7 +275,6 @@ where
 				is_parachain_node: polkadot_service::IsParachainNode::No,
 				enable_beefy,
 				force_authoring_backoff: cli.run.force_authoring_backoff,
-				jaeger_agent,
 				telemetry_worker_handle: None,
 				node_version,
 				secure_validator_mode,
@@ -256,6 +289,9 @@ where
 				execute_workers_max_num: cli.run.execute_workers_max_num,
 				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
+				keep_finalized_for: cli.run.keep_finalized_for,
+				invulnerable_ah_collators,
+				collator_protocol_hold_off,
 			},
 		)
 		.map(|full| full.task_manager)?;
@@ -307,9 +343,15 @@ pub fn run() -> Result<()> {
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),
+		#[allow(deprecated)]
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			Ok(runner.sync_run(|config| cmd.run(config.chain_spec, config.network))?)
+		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			// Directly load the embedded chain spec using the CLI’s load_spec method.
+			let spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(spec).map_err(Into::into)
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd).map_err(Error::SubstrateCli)?;
@@ -319,7 +361,7 @@ pub fn run() -> Result<()> {
 
 			runner.async_run(|mut config| {
 				let (client, _, import_queue, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)?;
+					polkadot_service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, import_queue).map_err(Error::SubstrateCli), task_manager))
 			})
 		},
@@ -331,8 +373,7 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, _, _, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)
-						.map_err(Error::PolkadotService)?;
+					polkadot_service::new_chain_ops(&mut config).map_err(Error::PolkadotService)?;
 				Ok((cmd.run(client, config.database).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -343,8 +384,7 @@ pub fn run() -> Result<()> {
 			set_default_ss58_version(chain_spec);
 
 			Ok(runner.async_run(|mut config| {
-				let (client, _, _, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)?;
+				let (client, _, _, task_manager) = polkadot_service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, config.chain_spec).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -356,7 +396,7 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, _, import_queue, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)?;
+					polkadot_service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, import_queue).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -372,17 +412,17 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, backend, _, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)?;
+					polkadot_service::new_chain_ops(&mut config)?;
+				let task_handle = task_manager.spawn_handle();
 				let aux_revert = Box::new(|client, backend, blocks| {
-					polkadot_service::revert_backend(client, backend, blocks, config).map_err(
-						|err| {
+					polkadot_service::revert_backend(client, backend, blocks, config, task_handle)
+						.map_err(|err| {
 							match err {
 								polkadot_service::Error::Blockchain(err) => err.into(),
 								// Generic application-specific error.
 								err => sc_cli::Error::Application(err.into()),
 							}
-						},
-					)
+						})
 				});
 				Ok((
 					cmd.run(client, backend, Some(aux_revert)).map_err(Error::SubstrateCli),
@@ -405,56 +445,52 @@ pub fn run() -> Result<()> {
 					.into()),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|mut config| {
-					let (client, backend, _, _) =
-						polkadot_service::new_chain_ops(&mut config, None)?;
+					let (client, backend, _, _) = polkadot_service::new_chain_ops(&mut config)?;
 					let db = backend.expose_db();
 					let storage = backend.expose_storage();
+					let shared_trie_cache = backend.expose_shared_trie_cache();
 
-					cmd.run(config, client.clone(), db, storage).map_err(Error::SubstrateCli)
+					cmd.run(config, client.clone(), db, storage, shared_trie_cache).map_err(Error::SubstrateCli)
 				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|mut config| {
-					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
+					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config)?;
 
 					cmd.run(client.clone()).map_err(Error::SubstrateCli)
 				}),
-				// These commands are very similar and can be handled in nearly the same way.
-				BenchmarkCmd::Extrinsic(_) | BenchmarkCmd::Overhead(_) =>
-					runner.sync_run(|mut config| {
-						let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
-						let header = client.header(client.info().genesis_hash).unwrap().unwrap();
-						let inherent_data = benchmark_inherent_data(header)
-							.map_err(|e| format!("generating inherent data: {:?}", e))?;
-						let remark_builder =
-							RemarkBuilder::new(client.clone(), config.chain_spec.identify_chain());
+				BenchmarkCmd::Overhead(cmd) => runner.sync_run(|config| {
+					if cmd.params.runtime.is_some() {
+						return Err(sc_cli::Error::Input(
+							"Polkadot binary does not support `--runtime` flag for `benchmark overhead`. Please provide a chain spec or use the `frame-omni-bencher`."
+								.into(),
+						)
+						.into())
+					}
 
-						match cmd {
-							BenchmarkCmd::Extrinsic(cmd) => {
-								let tka_builder = TransferKeepAliveBuilder::new(
-									client.clone(),
-									Sr25519Keyring::Alice.to_account_id(),
-									config.chain_spec.identify_chain(),
-								);
+					cmd.run_with_default_builder_and_spec::<polkadot_service::Block, ()>(
+						Some(config.chain_spec),
+					)
+					.map_err(Error::SubstrateCli)
+				}),
+				BenchmarkCmd::Extrinsic(cmd) => runner.sync_run(|mut config| {
+					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config)?;
+					let header = client.header(client.info().genesis_hash).unwrap().unwrap();
+					let inherent_data = benchmark_inherent_data(header)
+						.map_err(|e| format!("generating inherent data: {:?}", e))?;
 
-								let ext_factory = ExtrinsicFactory(vec![
-									Box::new(remark_builder),
-									Box::new(tka_builder),
-								]);
+					let remark_builder = SubstrateRemarkBuilder::new_from_client(client.clone())?;
 
-								cmd.run(client.clone(), inherent_data, Vec::new(), &ext_factory)
-									.map_err(Error::SubstrateCli)
-							},
-							BenchmarkCmd::Overhead(cmd) => cmd
-								.run(
-									config,
-									client.clone(),
-									inherent_data,
-									Vec::new(),
-									&remark_builder,
-								)
-								.map_err(Error::SubstrateCli),
-							_ => unreachable!("Ensured by the outside match; qed"),
-						}
-					}),
+					let tka_builder = TransferKeepAliveBuilder::new(
+						client.clone(),
+						Sr25519Keyring::Alice.to_account_id(),
+						config.chain_spec.identify_chain(),
+					);
+
+					let ext_factory =
+						ExtrinsicFactory(vec![Box::new(remark_builder), Box::new(tka_builder)]);
+
+					cmd.run(client.clone(), inherent_data, Vec::new(), &ext_factory)
+						.map_err(Error::SubstrateCli)
+				}),
 				BenchmarkCmd::Pallet(cmd) => {
 					set_default_ss58_version(chain_spec);
 
