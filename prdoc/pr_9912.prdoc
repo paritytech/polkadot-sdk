@@ -12,3 +12,4 @@ crates:
   bump: minor
 - name: sp-statement-store
   bump: minor
+  validate: false
