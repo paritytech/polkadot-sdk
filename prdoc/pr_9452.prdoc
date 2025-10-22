@@ -1,0 +1,23 @@
+title: Add comprehensive test data for Ethereum trie root validation
+doc:
+- audience: Runtime Dev
+  description: "### Summary\n\nThis PR adds comprehensive test data for validating\
+    \ Ethereum transaction and receipt trie root calculations in the `revive` crate.\
+    \ It includes real-world Ethereum blocks covering all supported transaction types.\n\
+    \n---\n\n### Details\n\n#### \U0001F9EA Test Data\n\n- **Expanded Test Fixtures**:\n\
+    \  - Added 3 Ethereum blocks with their receipts (2 from mainnet, 1 from Sepolia\
+    \ testnet)\n  - Blocks include all supported transaction types (Legacy, EIP-2930,\
+    \ EIP-1559, EIP-4844)\n  - Test data validates `transactions_root` and `receipts_root`\
+    \ calculations against real Ethereum data\n  - Organized naming: `block_{block_number}_{network}.json`\
+    \ and `receipts_{block_number}_{network}.json`\n\n#### \U0001F6E0\uFE0F Tooling\n\
+    \n- **Test Data Collection Script**:\n  - Added `get_test_data.sh` for fetching\
+    \ test data from live Ethereum networks\n  - Simple curl-based script that can\
+    \ be extended with additional blocks\n\nBuilds on top of: https://github.com/paritytech/polkadot-sdk/pull/9418\n\
+    \nPart of: https://github.com/paritytech/contract-issues/issues/139"
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
