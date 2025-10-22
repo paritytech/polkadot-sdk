@@ -11364,7 +11364,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "46.0.0"
+version = "46.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12957,7 +12957,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ranked-collective"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13359,7 +13359,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "env_logger 0.11.3",
@@ -14876,7 +14876,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-approval-distribution"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "assert_matches",
  "futures",
@@ -15683,7 +15683,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-primitives"
-version = "22.0.0"
+version = "22.1.0"
 dependencies = [
  "bitvec",
  "bounded-vec",
@@ -20287,7 +20287,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-statement"
-version = "0.35.0"
+version = "0.35.1"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -20733,7 +20733,7 @@ dependencies = [
 
 [[package]]
 name = "sc-statement-store"
-version = "24.0.0"
+version = "24.1.0"
 dependencies = [
  "log",
  "parity-db",
@@ -23426,7 +23426,7 @@ dependencies = [
 
 [[package]]
 name = "sp-statement-store"
-version = "23.0.0"
+version = "23.1.0"
 dependencies = [
  "aes-gcm",
  "curve25519-dalek",
