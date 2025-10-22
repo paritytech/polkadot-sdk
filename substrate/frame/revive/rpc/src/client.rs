@@ -661,9 +661,9 @@ impl Client {
 		transaction_hash: H256,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
-		let ReceiptInfo { block_hash, transaction_index, .. } = self
+		let (block_hash, transaction_index) = self
 			.receipt_provider
-			.receipt_by_hash(&transaction_hash)
+			.find_transaction(&transaction_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
@@ -671,7 +671,7 @@ impl Client {
 		let parent_hash = block.header.parent_hash;
 		let runtime_api = self.runtime_api(parent_hash);
 
-		runtime_api.trace_tx(block, transaction_index.as_u32(), config.clone()).await
+		runtime_api.trace_tx(block, transaction_index as u32, config.clone()).await
 	}
 
 	/// Get the transaction traces for the given block.
