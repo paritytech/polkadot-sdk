@@ -319,7 +319,7 @@ where
 			return Err("Key size too small to create the specified trie");
 		}
 
-		let value = vec![16u8; limits::PAYLOAD_BYTES as usize];
+		let value = vec![16u8; limits::STORAGE_BYTES as usize];
 		let contract = Contract::<T>::new(code, vec![])?;
 		let info = contract.info()?;
 		let child_trie_info = info.child_trie_info();
@@ -393,6 +393,16 @@ impl VmBinaryModule {
 	}
 }
 
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+impl VmBinaryModule {
+	// Same as [`Self::sized`] but using EVM bytecode.
+	pub fn evm_sized(size: u32) -> Self {
+		use revm::bytecode::opcode::STOP;
+		let code = vec![STOP; size as usize];
+		Self::new(code)
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 impl VmBinaryModule {
 	/// Same as [`Self::dummy`] but uses `replace_with` to make the code unique.
@@ -408,13 +418,6 @@ impl VmBinaryModule {
 		// Due to variable length encoding of instructions this is not precise. But we only
 		// need rough numbers for our benchmarks.
 		Self::with_num_instructions(size / 3)
-	}
-
-	// Same as [`Self::sized`] but using EVM bytecode.
-	pub fn evm_sized(size: u32) -> Self {
-		use revm::bytecode::opcode::STOP;
-		let code = vec![STOP; size as usize];
-		Self::new(code)
 	}
 
 	/// A contract code of specified number of instructions that uses all its bytes for instructions

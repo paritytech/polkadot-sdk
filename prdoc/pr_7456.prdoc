@@ -1,0 +1,8 @@
+title: 'pallet-assets: make touch other permissionless'
+doc:
+- audience: Runtime User
+  description: |-
+    In pallet assets, make `touch_other` call permissionless. Before this PR only `Admin` and `Freezer` of an asset could touch an account, now every account can.
+crates:
+- name: pallet-assets
+  bump: minor

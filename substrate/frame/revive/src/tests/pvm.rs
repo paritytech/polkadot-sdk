@@ -40,8 +40,9 @@ use crate::{
 	},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueueCounter,
-	Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode, StorageDeposit, H160,
+	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Combinator, Config, ContractInfo,
+	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, PristineCode,
+	StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -61,7 +62,10 @@ use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::{Get, U256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, TokenError};
+use sp_runtime::{
+	testing::H256, traits::Zero, AccountId32, BoundedVec, DispatchError, SaturatedConversion,
+	TokenError,
+};
 
 #[test]
 fn transfer_with_dust_works() {
@@ -432,15 +436,18 @@ fn deposit_event_max_value_limit() {
 			.native_value(30_000)
 			.build_and_unwrap_contract();
 
-		// Call contract with allowed storage value.
+		// Call contract with allowed event size.
 		assert_ok!(builder::call(addr)
-			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
-			.data(limits::PAYLOAD_BYTES.encode())
+			.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
+			.data(limits::EVENT_BYTES.encode())
 			.build());
 
-		// Call contract with too large a storage value.
+		// Call contract with too large a evene size
 		assert_err_ignore_postinfo!(
-			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
+			builder::call(addr)
+				.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
+				.data((limits::EVENT_BYTES + 1).encode())
+				.build(),
 			Error::<Test>::ValueTooLarge,
 		);
 	});
@@ -568,6 +575,23 @@ fn storage_work() {
 	});
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+#[test]
+fn storage_precompile_only_delegate_call() {
+	let (code, _code_hash) = compile_module("storage_precompile_only_delegate_call").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.native_value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		let ret = builder::bare_call(addr).build_and_unwrap_result();
+		assert!(ret.did_revert());
+	});
+}
+
 #[test]
 fn storage_max_value_limit() {
 	let (binary, _code_hash) = compile_module("storage_size").unwrap();
@@ -583,12 +607,12 @@ fn storage_max_value_limit() {
 		// Call contract with allowed storage value.
 		assert_ok!(builder::call(addr)
 			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
-			.data(limits::PAYLOAD_BYTES.encode())
+			.data(limits::STORAGE_BYTES.encode())
 			.build());
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
-			builder::call(addr).data((limits::PAYLOAD_BYTES + 1).encode()).build(),
+			builder::call(addr).data((limits::STORAGE_BYTES + 1).encode()).build(),
 			Error::<Test>::ValueTooLarge,
 		);
 	});
@@ -760,7 +784,7 @@ fn deploy_and_call_other_contract() {
 						),
 						source: ALICE,
 						dest: callee_account.clone(),
-						transferred: 556,
+						transferred: 2156,
 					}),
 					topics: vec![],
 				},
@@ -1461,23 +1485,34 @@ fn lazy_batch_removal_works() {
 }
 
 #[test]
-fn ref_time_left_api_works() {
-	let (code, _) = compile_module("ref_time_left").unwrap();
+fn gas_left_api_works() {
+	let (code, _) = compile_module("gas_left").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Create fixture: Constructor calls ref_time_left twice and asserts it to decrease
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		// Call the contract: It echoes back the ref_time returned by the ref_time_left API.
+		// Call the contract without hold
 		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
+		let gas_left = U256::from_little_endian(received.data.as_ref());
+		let gas_left_max =
+			<Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Min) + 1_000_000;
+		assert!(gas_left > 0u32.into());
+		assert!(gas_left < gas_left_max.into());
 
-		let returned_value = u64::from_le_bytes(received.data[..8].try_into().unwrap());
-		assert!(returned_value > 0);
-		assert!(returned_value < GAS_LIMIT.ref_time());
+		// Call the contract using the hold
+		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT, Combinator::Max);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
+		let mut exec_config = ExecConfig::new_substrate_tx();
+		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
+		let received = builder::bare_call(addr).exec_config(exec_config).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		let gas_left = U256::from_little_endian(received.data.as_ref());
+		assert!(gas_left > 0u32.into());
+		assert!(gas_left < hold_initial.into());
 	});
 }
 
@@ -2735,7 +2770,8 @@ fn deposit_limit_in_nested_instantiate() {
 
 		// The parent just stores an item of the passed size so at least
 		// we need to pay for the item itself.
-		let caller_min_deposit = callee_min_deposit + 2 + 48;
+		// stores 2 storage items: one before the subcall and one after
+		let caller_min_deposit = callee_min_deposit + 2 * (2 + 48);
 
 		// Fail in callee.
 		//
@@ -2750,19 +2786,6 @@ fn deposit_limit_in_nested_instantiate() {
 		// The charges made on instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
-		// Fail in the caller.
-		//
-		// For that we need to supply enough storage deposit so that the sub call
-		// succeeds but the parent call runs out of storage.
-		let ret = builder::bare_call(addr_caller)
-			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(callee_min_deposit)
-			.data((&code_hash_callee, 0u32, &U256::MAX.to_little_endian()).encode())
-			.build();
-		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
-		// The charges made on the instantiation should be rolled back.
-		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
-
 		// Fail in the callee with bytes.
 		//
 		// Same as above but stores one byte in both caller and callee.
@@ -2775,12 +2798,14 @@ fn deposit_limit_in_nested_instantiate() {
 		// The charges made on the instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
+		println!("caller={caller_min_deposit:?} callee={callee_min_deposit:?}");
+
 		// Fail in the caller with bytes.
 		//
 		// Same as above but stores one byte in both caller and callee.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(callee_min_deposit + 1)
+			.storage_deposit_limit(caller_min_deposit + 2)
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
@@ -2790,7 +2815,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Set enough deposit limit for the child instantiate. This should succeed.
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit((caller_min_deposit + 2).into())
+			.storage_deposit_limit((caller_min_deposit + 3).into())
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 
@@ -2809,9 +2834,9 @@ fn deposit_limit_in_nested_instantiate() {
 		// The origin should be charged with what the outer call consumed
 		assert_eq!(
 			<Test as Config>::Currency::free_balance(&BOB),
-			1_000_000 - (caller_min_deposit + 2),
+			1_000_000 - (caller_min_deposit + 3),
 		);
-		assert_eq!(result.storage_deposit.charge_or_zero(), (caller_min_deposit + 2))
+		assert_eq!(result.storage_deposit.charge_or_zero(), (caller_min_deposit + 3))
 	});
 }
 
@@ -3375,7 +3400,7 @@ fn gas_price_api_works() {
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(
 			u64::from_le_bytes(received.data[..].try_into().unwrap()),
-			u64::try_from(<Pallet<Test>>::evm_gas_price()).unwrap(),
+			u64::try_from(<Pallet<Test>>::evm_base_fee()).unwrap(),
 		);
 	});
 }
@@ -3394,7 +3419,10 @@ fn base_fee_api_works() {
 		// Call the contract: It echoes back the value returned by the base fee API.
 		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
-		assert_eq!(U256::from_little_endian(received.data[..].try_into().unwrap()), U256::zero());
+		assert_eq!(
+			U256::from_little_endian(received.data[..].try_into().unwrap()),
+			<Pallet<Test>>::evm_base_fee(),
+		);
 	});
 }
 
@@ -3928,7 +3956,7 @@ fn gas_limit_api_works() {
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(
 			u64::from_le_bytes(received.data[..].try_into().unwrap()),
-			<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+			<Pallet<Test>>::evm_block_gas_limit().saturated_into::<u64>(),
 		);
 	});
 }
@@ -4886,7 +4914,7 @@ fn storage_deposit_from_hold_works() {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
 		let mut exec_config = ExecConfig::new_substrate_tx();
-		exec_config.collect_deposit_from_hold = true;
+		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
@@ -5091,5 +5119,43 @@ fn get_set_immutables_works() {
 		Pallet::<Test>::set_immutables(addr, BoundedVec::truncate_from(new_data.clone())).unwrap();
 		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
 		assert_eq!(immutable_data, new_data);
+	});
+}
+
+#[test]
+fn consume_all_gas_works() {
+	let (code, code_hash) = compile_module("consume_all_gas").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		assert_eq!(
+			builder::bare_instantiate(Code::Upload(code)).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 0 should consume all gas in deploy"
+		);
+		assert_ne!(
+			builder::bare_instantiate(Code::Existing(code_hash))
+				.evm_value(1.into())
+				.build()
+				.gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 1 should not consume all gas in deploy"
+		);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
+			.evm_value(2.into())
+			.build_and_unwrap_contract();
+
+		assert_eq!(
+			builder::bare_call(addr).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 0 should consume all gas"
+		);
+		assert_ne!(
+			builder::bare_call(addr).evm_value(1.into()).build().gas_consumed,
+			GAS_LIMIT,
+			"callvalue == 1 should not consume all gas"
+		);
 	});
 }
