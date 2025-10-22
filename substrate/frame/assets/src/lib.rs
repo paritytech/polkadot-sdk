@@ -94,6 +94,7 @@
 //! * `refund`: Return the deposit (if any) of the caller's asset account or a consumer reference
 //!   (if any) of the caller's account.
 //! * `refund_other`: Return the deposit (if any) of a specified asset account.
+//! * `touch_other`: Create an asset account for specified account. Caller must place a deposit.
 //!
 //! ### Permissioned Functions
 //!
@@ -116,8 +117,6 @@
 //!   Owner.
 //! * `set_metadata`: Set the metadata of an asset class; called by the asset class's Owner.
 //! * `clear_metadata`: Remove the metadata of an asset class; called by the asset class's Owner.
-//! * `touch_other`: Create an asset account for specified account. Caller must place a deposit;
-//!   called by the asset class's Freezer or Admin.
 //! * `block`: Disallows further `transfer`s to and from an account; called by the asset class's
 //!   Freezer.
 //!
@@ -1655,7 +1654,7 @@ pub mod pallet {
 		pub fn touch(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			Self::do_touch(id, who.clone(), who, false)
+			Self::do_touch(id, who.clone(), who)
 		}
 
 		/// Return the deposit (if any) of an asset account or a consumer reference (if any) of an
@@ -1732,9 +1731,10 @@ pub mod pallet {
 		///
 		/// A deposit will be taken from the signer account.
 		///
-		/// - `origin`: Must be Signed by `Freezer` or `Admin` of the asset `id`; the signer account
-		///   must have sufficient funds for a deposit to be taken.
-		/// - `id`: The identifier of the asset for the account to be created.
+		/// - `origin`: Must be Signed; the signer account must have sufficient funds for a deposit
+		///   to be taken.
+		/// - `id`: The identifier of the asset for the account to be created, the asset status must
+		///   be live.
 		/// - `who`: The account to be created.
 		///
 		/// Emits `Touched` event when successful.
@@ -1748,7 +1748,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let id: T::AssetId = id.into();
-			Self::do_touch(id, who, origin, true)
+			Self::do_touch(id, who, origin)
 		}
 
 		/// Return the deposit (if any) of a target asset account. Useful if you are the depositor.
@@ -1915,7 +1915,6 @@ pub mod pallet {
 
 	/// Implements [`AccountTouch`] trait.
 	/// Note that a depositor can be any account, without any specific privilege.
-	/// This implementation is supposed to be used only for creation of system accounts.
 	impl<T: Config<I>, I: 'static> AccountTouch<T::AssetId, T::AccountId> for Pallet<T, I> {
 		type Balance = DepositBalanceOf<T, I>;
 
@@ -1938,7 +1937,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			depositor: &T::AccountId,
 		) -> DispatchResult {
-			Self::do_touch(asset, who.clone(), depositor.clone(), false)
+			Self::do_touch(asset, who.clone(), depositor.clone())
 		}
 	}
 
