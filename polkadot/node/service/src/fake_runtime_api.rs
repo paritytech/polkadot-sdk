@@ -222,11 +222,6 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn unapplied_slashes_v2(
-		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
-			unimplemented!()
-		}
-
 		fn key_ownership_proof(
 			_: ValidatorId,
 		) -> Option<slashing::OpaqueKeyOwnershipProof> {
