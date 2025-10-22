@@ -147,8 +147,8 @@ where
 		{
 			let authorities = aura_internal::fetch_authorities(self.client.as_ref(), parent_hash)
 				.map_err(|e| {
-				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
-			})?;
+					format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
+				})?;
 
 			let slot_duration = self
 				.client
