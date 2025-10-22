@@ -26,6 +26,7 @@ use pallet_revive::evm::*;
 use sp_arithmetic::Permill;
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
+use tokio::time::Duration;
 
 pub mod cli;
 pub mod client;
@@ -144,9 +145,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
+		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
 		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let dry_run = runtime_api.dry_run(transaction).await?;
+		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
 		Ok(dry_run.eth_gas)
 	}
 
@@ -163,11 +166,37 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
+		log::trace!(target: LOG_TARGET, "send_raw_transaction transaction: {transaction:?} ethereum_hash: {hash:?}");
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
-		self.client.submit(call).await.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");
+
+		// Subscribe to new block only when automine is enabled.
+		let receiver = self.client.tx_notifier().map(|sender| sender.subscribe());
+
+		// Submit the transaction
+		let substrate_hash = self.client.submit(call).await.map_err(|err| {
+			log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} failed: {err:?}");
 			err
 		})?;
+
+		log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} substrate_hash: {substrate_hash:?}");
+
+		// Wait for the transaction to be included in a block if automine is enabled
+		if let Some(mut receiver) = receiver {
+			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
+				loop {
+					if let Ok(mined_hash) = receiver.recv().await {
+						if mined_hash == hash {
+							log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
+							break;
+						}
+					}
+				}
+			})
+			.await
+			{
+				log::debug!(target: LOG_TARGET, "timeout waiting for new block: {err:?}");
+			}
+		}
 
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)

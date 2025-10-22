@@ -50,6 +50,7 @@ impl From<BridgeReward> for RewardsAccountParams<u64> {
 
 parameter_types! {
 	pub static RegisteredRewardsCount: u128 = 0;
+	pub static RegisteredRewardAmount: u128 = 0;
 }
 
 pub struct MockRewardLedger;
@@ -58,8 +59,9 @@ impl RewardLedger<sp_runtime::AccountId32, BridgeReward, u128> for MockRewardLed
 	fn register_reward(
 		_relayer: &sp_runtime::AccountId32,
 		_reward: BridgeReward,
-		_reward_balance: u128,
+		reward_balance: u128,
 	) {
 		RegisteredRewardsCount::set(RegisteredRewardsCount::get().saturating_add(1));
+		RegisteredRewardAmount::set(reward_balance);
 	}
 }
