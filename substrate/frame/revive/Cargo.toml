@@ -94,6 +94,7 @@ std = [
 	"codec/std",
 	"environmental/std",
 	"ethereum-types/std",
+	"ethereum/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -129,7 +130,6 @@ std = [
 	"sp-runtime/std",
 	"sp-version/std",
 	"subxt-signer",
-	"ethereum/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
