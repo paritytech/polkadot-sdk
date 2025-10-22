@@ -49,7 +49,6 @@ bn = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-hash-db = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces", "scale"] }
@@ -65,7 +64,6 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-version = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
-trie-root = { workspace = true }
 
 [dev-dependencies]
 alloy-consensus = { workspace = true, default-features = true }
@@ -131,6 +129,7 @@ std = [
 	"sp-runtime/std",
 	"sp-version/std",
 	"subxt-signer",
+	"ethereum/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

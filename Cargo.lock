@@ -6291,6 +6291,7 @@ dependencies = [
  "parity-scale-codec",
  "rlp 0.6.1",
  "scale-info",
+ "serde",
  "sha3",
  "trie-root",
 ]
@@ -13286,7 +13287,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hash-db",
  "hex-literal",
  "humantime-serde",
  "impl-trait-for-tuples",
@@ -13332,7 +13332,6 @@ dependencies = [
  "substrate-bn",
  "subxt-signer 0.43.0",
  "test-case",
- "trie-root",
 ]
 
 [[package]]
