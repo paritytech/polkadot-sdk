@@ -72,7 +72,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_rewards_statistics_collector_approvals_per_session_per_validator",
 						"Total number of useful approvals a given validator provided on a session.",
 					),
-					vec!["session", "validator_idx"].as_ref(),
+						vec!["session", "validator_idx"].as_ref(),
 				)?,
 				registry,
 			)?,
