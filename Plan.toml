@@ -776,9 +776,9 @@ reason = "changed"
 [[crate]]
 # substrate/primitives/statement-store
 name = "sp-statement-store"
-from = "22.0.0"
-to = "23.0.0"
-bump = "major"
+from = "23.0.0"
+to = "23.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -902,9 +902,9 @@ reason = "changed"
 [[crate]]
 # polkadot/node/primitives
 name = "polkadot-node-primitives"
-from = "21.0.0"
-to = "22.0.0"
-bump = "major"
+from = "22.0.0"
+to = "22.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1220,9 +1220,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/statement-store
 name = "sc-statement-store"
-from = "23.0.0"
-to = "24.0.0"
-bump = "major"
+from = "24.0.0"
+to = "24.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1384,9 +1384,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/assets
 name = "pallet-assets"
-from = "45.0.0"
-to = "46.0.0"
-bump = "major"
+from = "46.0.0"
+to = "46.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1640,9 +1640,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/staking-async
 name = "pallet-staking-async"
-from = "0.4.2"
-to = "0.5.0"
-bump = "major"
+from = "0.5.0"
+to = "0.5.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2080,9 +2080,9 @@ reason = "changed"
 [[crate]]
 # substrate/client/network/statement
 name = "sc-network-statement"
-from = "0.34.0"
-to = "0.35.0"
-bump = "major"
+from = "0.35.0"
+to = "0.35.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3702,9 +3702,9 @@ to = "0.1.0"
 [[crate]]
 # polkadot/node/network/approval-distribution
 name = "polkadot-approval-distribution"
-from = "25.0.0"
-to = "26.0.0"
-bump = "major"
+from = "26.0.0"
+to = "26.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
