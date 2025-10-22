@@ -121,7 +121,7 @@ impl_runtime_apis! {
 
 	impl apis::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion { VERSION }
-		fn execute_block(_: Block) { }
+		fn execute_block(_: <Block as frame::traits::Block>::LazyBlock) { }
 		fn initialize_block(_: &Header) -> ExtrinsicInclusionMode { ExtrinsicInclusionMode::default() }
 	}
 }
