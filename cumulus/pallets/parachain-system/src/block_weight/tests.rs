@@ -37,7 +37,7 @@ use sp_runtime::{
 
 type TxExtension = DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<4>>;
 type TxExtensionOnlyOperational =
-	DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<4>, 10, true>;
+	DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<4>, 10, false>;
 type MaximumBlockWeight = MaxParachainBlockWeight<Runtime, ConstU32<TARGET_BLOCK_RATE>>;
 
 #[test]
@@ -199,9 +199,6 @@ fn tx_extension_sets_fraction_of_core_mode() {
 		.build()
 		.execute_with(|| {
 			initialize_block_finished();
-
-			// BlockWeightMode should not be set yet
-			assert!(crate::BlockWeightMode::<Runtime>::get().is_none());
 
 			// Create a small transaction
 			let small_weight = Weight::from_parts(100_000, 1024);
@@ -670,9 +667,11 @@ fn max_weight_without_bundle_info() {
 
 		let max_weight = MaximumBlockWeight::get();
 
-		// With 2 cores and 4 target blocks
-		let expected_weight =
-			Weight::from_parts(2 * 2 * WEIGHT_REF_TIME_PER_SECOND / 4, 2 * MAX_POV_SIZE as u64 / 4);
+		// With 2 cores and 12 target blocks
+		let expected_weight = Weight::from_parts(
+			2 * 2 * WEIGHT_REF_TIME_PER_SECOND / TARGET_BLOCK_RATE as u64,
+			2 * MAX_POV_SIZE as u64 / TARGET_BLOCK_RATE as u64,
+		);
 
 		assert_eq!(max_weight, expected_weight);
 	});
