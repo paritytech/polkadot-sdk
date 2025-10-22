@@ -483,7 +483,11 @@ where
 	if relay_parent_offset == 0 {
 		return Ok(RelayParentData::new(relay_header));
 	}
-
+	let Some(expected_session_index) =
+		relay_chain_data_cache.session_index_for_child(relay_header.hash()).await.ok()
+	else {
+		return Err(())
+	};
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
 	required_ancestors.push_front(relay_header.clone());
 	while required_ancestors.len() < relay_parent_offset as usize {
@@ -492,6 +496,18 @@ where
 			.await?
 			.relay_parent_header
 			.clone();
+
+		let Some(session_index) =
+			relay_chain_data_cache.session_index_for_child(next_header.hash()).await.ok()
+		else {
+			return Err(())
+		};
+		if session_index != expected_session_index {
+			/// We have crossed a session boundary, which means the offset is invalid.
+			tracing::error!(target: LOG_TARGET, ?expected_session_index, ?session_index, "Cyon Found session boundary while looking for relay parent offset.");
+			return Err(());
+		}
+
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}

@@ -22,7 +22,7 @@ use cumulus_primitives_core::CoreSelector;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	Hash as RelayHash, Header as RelayHeader, Id as ParaId, OccupiedCoreAssumption,
+	Hash as RelayHash, Header as RelayHeader, Id as ParaId, OccupiedCoreAssumption, SessionIndex,
 };
 use sp_runtime::generic::BlockId;
 
@@ -44,7 +44,8 @@ pub struct RelayChainData {
 pub struct RelayChainDataCache<RI> {
 	relay_client: RI,
 	para_id: ParaId,
-	cached_data: schnellru::LruMap<RelayHash, RelayChainData>,
+	cache_chain_data: schnellru::LruMap<RelayHash, RelayChainData>,
+	cache_session_indices: schnellru::LruMap<RelayHash, SessionIndex>,
 }
 
 impl<RI> RelayChainDataCache<RI>
@@ -56,8 +57,20 @@ where
 			relay_client,
 			para_id,
 			// 50 cached relay chain blocks should be more than enough.
-			cached_data: schnellru::LruMap::new(schnellru::ByLength::new(50)),
+			cache_chain_data: schnellru::LruMap::new(schnellru::ByLength::new(50)),
+			cache_session_indices: schnellru::LruMap::new(schnellru::ByLength::new(50)),
 		}
+	}
+
+	pub async fn session_index_for_child(&mut self, relay_parent: RelayHash) -> Result<SessionIndex, ()> {
+		if let Some(session_index) = self.cache_session_indices.peek(&relay_parent) {
+			tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached session index for relay parent.");
+			return Ok(session_index.clone());
+		}
+
+		let session_index = self.relay_client.session_index_for_child(relay_parent).await.map_err(|_e| ())?;
+		self.cache_session_indices.insert(relay_parent, session_index.clone());
+		Ok(session_index)
 	}
 
 	/// Fetch required [`RelayChainData`] from the relay chain.
@@ -67,7 +80,7 @@ where
 		&mut self,
 		relay_parent: RelayHash,
 	) -> Result<&mut RelayChainData, ()> {
-		let insert_data = if self.cached_data.peek(&relay_parent).is_some() {
+		let insert_data = if self.cache_chain_data.peek(&relay_parent).is_some() {
 			tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
 			None
 		} else {
@@ -76,7 +89,7 @@ where
 		};
 
 		Ok(self
-			.cached_data
+			.cache_chain_data
 			.get_or_insert(relay_parent, || {
 				insert_data.expect("`insert_data` exists if not cached yet; qed")
 			})
@@ -117,6 +130,6 @@ where
 
 	#[cfg(test)]
 	pub(crate) fn insert_test_data(&mut self, relay_parent: RelayHash, data: RelayChainData) {
-		self.cached_data.insert(relay_parent, data);
+		self.cache_chain_data.insert(relay_parent, data);
 	}
 }
