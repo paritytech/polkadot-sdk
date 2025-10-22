@@ -12,6 +12,6 @@ crates:
 - name: staging-xcm-builder
   bump: minor
 - name: frame-support
-  bump: minor
+  bump: major
 - name: staging-xcm-executor
   bump: minor
