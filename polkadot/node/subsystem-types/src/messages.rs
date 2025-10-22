@@ -785,7 +785,7 @@ pub enum RuntimeApiRequest {
 	/// `V14`
 	ParaIds(SessionIndex, RuntimeApiSender<Vec<ParaId>>),
 	/// Returns a list of validators that lost a past session dispute and need to be slashed (v2).
-	/// `V14`
+	/// `V15`
 	UnappliedSlashesV2(
 		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	),
@@ -843,7 +843,7 @@ impl RuntimeApiRequest {
 	pub const PARAIDS_RUNTIME_REQUIREMENT: u32 = 14;
 
 	/// `UnappliedSlashesV2`
-	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 14;
+	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
 }
 
 /// A message to the Runtime API subsystem.

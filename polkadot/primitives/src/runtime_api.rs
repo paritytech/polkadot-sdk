@@ -317,8 +317,9 @@ sp_api::decl_runtime_apis! {
 		#[api_version(14)]
 		fn para_ids() -> Vec<ppp::Id>;
 
-		/***** Added in v14 *****/
+		/***** Added in v15 *****/
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
+		#[api_version(15)]
 		fn unapplied_slashes_v2() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
 	}
 }
