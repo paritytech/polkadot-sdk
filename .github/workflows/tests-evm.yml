@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Checkout the Polkadot SDK
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Update the Installed Python
+        run: sudo apt-get update && sudo apt-get install -y python3-pip python3
       - name: Building the dependencies from the Polkadot SDK
         run: forklift cargo build --locked --profile production -p pallet-revive-eth-rpc -p revive-dev-node
       - name: Checkout the Differential Tests Repository
