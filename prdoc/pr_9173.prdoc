@@ -14,4 +14,4 @@ crates:
 - name: frame-support
   bump: major
 - name: staging-xcm-executor
-  bump: minor
+  bump: major
