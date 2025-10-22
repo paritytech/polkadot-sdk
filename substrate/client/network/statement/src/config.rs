@@ -30,4 +30,4 @@ pub(crate) const MAX_KNOWN_STATEMENTS: usize = 4 * 1024 * 1024; // * 32 bytes fo
 pub(crate) const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
 
 /// Maximum number of statement validation request we keep at any moment.
-pub(crate) const MAX_PENDING_STATEMENTS: usize = 8192;
+pub(crate) const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;

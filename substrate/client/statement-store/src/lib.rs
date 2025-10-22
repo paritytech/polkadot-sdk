@@ -76,9 +76,13 @@ const CURRENT_VERSION: u32 = 1;
 
 const LOG_TARGET: &str = "statement-store";
 
-const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
-const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 8192;
-const DEFAULT_MAX_TOTAL_SIZE: usize = 64 * 1024 * 1024;
+/// The amount of time an expired statement is kept before it is removed from the store entirely.
+pub const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
+/// The maximum number of statements the statement store can hold.
+pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
+/// The maximum amount of data the statement store can hold, regardless of the number of
+/// statements from which the data originates.
+pub const DEFAULT_MAX_TOTAL_SIZE: usize = 2 * 1024 * 1024 * 1024; // 2GiB
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
 
