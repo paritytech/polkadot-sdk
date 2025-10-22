@@ -4325,7 +4325,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -19700,7 +19700,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-aura"
-version = "0.53.0"
+version = "0.53.1"
 dependencies = [
  "async-trait",
  "fork-tree",
