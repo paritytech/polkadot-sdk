@@ -110,9 +110,7 @@ where
 		match input {
 			IERC20Calls::transfer(_) | IERC20Calls::approve(_) | IERC20Calls::transferFrom(_)
 				if env.is_read_only() =>
-			{
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
-			},
+				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
 
 			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
 			IERC20Calls::totalSupply(_) => Self::total_supply(asset_id, env),
