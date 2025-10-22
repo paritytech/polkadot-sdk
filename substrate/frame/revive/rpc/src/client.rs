@@ -661,17 +661,17 @@ impl Client {
 		transaction_hash: H256,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
-		let (substrate_hash, extrinsic_index) = self
+		let ReceiptInfo { block_hash, transaction_index, .. } = self
 			.receipt_provider
-			.get_substrate_block_and_extrinsic_index(&transaction_hash)
+			.receipt_by_hash(&transaction_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let block = self.tracing_block(substrate_hash).await?;
+		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
 		let runtime_api = self.runtime_api(parent_hash);
 
-		runtime_api.trace_tx(block, extrinsic_index as u32, config.clone()).await
+		runtime_api.trace_tx(block, transaction_index.as_u32(), config.clone()).await
 	}
 
 	/// Get the transaction traces for the given block.
