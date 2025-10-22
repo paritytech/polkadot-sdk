@@ -56,8 +56,8 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::Digest;
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-pub(crate) mod mock;
+#[cfg(test)]
+mod mock;
 pub mod pre_inherents_hook;
 #[cfg(test)]
 mod tests;

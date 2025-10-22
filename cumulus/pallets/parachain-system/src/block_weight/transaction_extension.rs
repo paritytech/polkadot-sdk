@@ -80,8 +80,8 @@ use sp_runtime::{
 /// - `MAX_TRANSACTION`: The maximum number of transactions to consider before giving up to change
 ///   the max block weight.
 ///
-/// - `ONLY_OPERATIONAL`: Should only operational transactions be allowed to change the max block
-///   weight?
+/// - `ALLOW_NORMAL`: Should transactions with a dispatch class `Normal` be allowed to change the
+///   max block weight?
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where::derive_where(Clone, Eq, PartialEq, Default; Inner)]
 #[scale_info(skip_type_params(Config, TargetBlockRate))]
@@ -90,16 +90,11 @@ pub struct DynamicMaxBlockWeight<
 	Inner,
 	TargetBlockRate,
 	const MAX_TRANSACTION_TO_CONSIDER: u32 = 10,
-	const ONLY_OPERATIONAL: bool = false,
+	const ALLOW_NORMAL: bool = true,
 >(pub Inner, core::marker::PhantomData<(Config, TargetBlockRate)>);
 
-impl<
-		T,
-		S,
-		TargetBlockRate,
-		const MAX_TRANSACTION_TO_CONSIDER: u32,
-		const ONLY_OPERATIONAL: bool,
-	> DynamicMaxBlockWeight<T, S, TargetBlockRate, MAX_TRANSACTION_TO_CONSIDER, ONLY_OPERATIONAL>
+impl<T, S, TargetBlockRate, const MAX_TRANSACTION_TO_CONSIDER: u32, const ALLOW_NORMAL: bool>
+	DynamicMaxBlockWeight<T, S, TargetBlockRate, MAX_TRANSACTION_TO_CONSIDER, ALLOW_NORMAL>
 {
 	/// Create a new [`DynamicMaxBlockWeight`] instance.
 	pub fn new(s: S) -> Self {
@@ -112,15 +107,8 @@ impl<
 		Inner,
 		TargetBlockRate,
 		const MAX_TRANSACTION_TO_CONSIDER: u32,
-		const ONLY_OPERATIONAL: bool,
-	>
-	DynamicMaxBlockWeight<
-		Config,
-		Inner,
-		TargetBlockRate,
-		MAX_TRANSACTION_TO_CONSIDER,
-		ONLY_OPERATIONAL,
-	>
+		const ALLOW_NORMAL: bool,
+	> DynamicMaxBlockWeight<Config, Inner, TargetBlockRate, MAX_TRANSACTION_TO_CONSIDER, ALLOW_NORMAL>
 where
 	Config: crate::Config,
 	TargetBlockRate: Get<u32>,
@@ -194,7 +182,8 @@ where
 						.saturating_add(Weight::from_parts(0, len as u64))
 						.any_gt(target_weight)
 					{
-						let class_allowed = if ONLY_OPERATIONAL { info.class == DispatchClass::Operational } else { true };
+						// When `ALLOW_NORMAL` is `true`, we want to allow all classes of transactions.
+						let class_allowed = if ALLOW_NORMAL { true } else { info.class == DispatchClass::Operational };
 
 						if transaction_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER
 							&& is_first_block_in_core_with_digest(&digest) && class_allowed {
@@ -342,14 +331,14 @@ impl<
 		Inner,
 		TargetBlockRate,
 		const MAX_TRANSACTION_TO_CONSIDER: u32,
-		const ONLY_OPERATIONAL: bool,
+		const ALLOW_NORMAL: bool,
 	> From<Inner>
 	for DynamicMaxBlockWeight<
 		Config,
 		Inner,
 		TargetBlockRate,
 		MAX_TRANSACTION_TO_CONSIDER,
-		ONLY_OPERATIONAL,
+		ALLOW_NORMAL,
 	>
 {
 	fn from(s: Inner) -> Self {
@@ -362,14 +351,14 @@ impl<
 		Inner: core::fmt::Debug,
 		TargetBlockRate,
 		const MAX_TRANSACTION_TO_CONSIDER: u32,
-		const ONLY_OPERATIONAL: bool,
+		const ALLOW_NORMAL: bool,
 	> core::fmt::Debug
 	for DynamicMaxBlockWeight<
 		Config,
 		Inner,
 		TargetBlockRate,
 		MAX_TRANSACTION_TO_CONSIDER,
-		ONLY_OPERATIONAL,
+		ALLOW_NORMAL,
 	>
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
@@ -382,14 +371,14 @@ impl<
 		Inner: TransactionExtension<Config::RuntimeCall>,
 		TargetBlockRate: Get<u32> + Send + Sync + 'static,
 		const MAX_TRANSACTION_TO_CONSIDER: u32,
-		const ONLY_OPERATIONAL: bool,
+		const ALLOW_NORMAL: bool,
 	> TransactionExtension<Config::RuntimeCall>
 	for DynamicMaxBlockWeight<
 		Config,
 		Inner,
 		TargetBlockRate,
 		MAX_TRANSACTION_TO_CONSIDER,
-		ONLY_OPERATIONAL,
+		ALLOW_NORMAL,
 	>
 where
 	Config::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -462,7 +451,6 @@ where
 	}
 
 	fn bare_validate(
-
 		call: &Config::RuntimeCall,
 		info: &DispatchInfoOf<Config::RuntimeCall>,
 		len: usize,

@@ -197,21 +197,8 @@ impl TestExtBuilder {
 
 /// Helper to check if UseFullCore digest was deposited
 pub fn has_use_full_core_digest() -> bool {
-	use codec::Decode;
-	use cumulus_primitives_core::CUMULUS_CONSENSUS_ID;
-	use sp_runtime::DigestItem;
-
 	let digest = frame_system::Pallet::<Runtime>::digest();
-	digest.logs.iter().any(|log| match log {
-		DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
-			if let Ok(CumulusDigestItem::UseFullCore) = CumulusDigestItem::decode(&mut &val[..]) {
-				true
-			} else {
-				false
-			}
-		},
-		_ => false,
-	})
+	CumulusDigestItem::contains_use_full_core(&digest)
 }
 
 /// Helper to register weight as consumed (simulating on_initialize)

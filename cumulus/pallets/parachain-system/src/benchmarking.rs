@@ -21,10 +21,7 @@
 
 use super::*;
 use crate::{
-	block_weight::{
-		mock::{has_use_full_core_digest, register_weight},
-		BlockWeightMode, DynamicMaxBlockWeight, MaxParachainBlockWeight,
-	},
+	block_weight::{BlockWeightMode, DynamicMaxBlockWeight, MaxParachainBlockWeight},
 	parachain_inherent::InboundDownwardMessages,
 };
 use cumulus_primitives_core::{
@@ -38,6 +35,11 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_core::ConstU32;
 use sp_runtime::traits::{BlakeTwo256, DispatchTransaction, Dispatchable};
+
+fn has_use_full_core_digest<T: Config>() -> bool {
+	let digest = frame_system::Pallet::<T>::digest();
+	CumulusDigestItem::contains_use_full_core(&digest)
+}
 
 #[benchmarks(where
 	T: Send + Sync,
@@ -128,7 +130,10 @@ mod benchmarks {
 		{
 			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| {
 				// Normally this is done by `CheckWeight`
-				register_weight(info.call_weight, DispatchClass::Normal);
+				frame_system::Pallet::<T>::register_extra_weight_unchecked(
+					info.call_weight,
+					DispatchClass::Normal,
+				);
 				Ok(post_info)
 			})
 			.unwrap()
@@ -136,7 +141,7 @@ mod benchmarks {
 		}
 
 		assert_eq!(crate::BlockWeightMode::<T>::get().unwrap(), BlockWeightMode::FullCore);
-		assert!(has_use_full_core_digest());
+		assert!(has_use_full_core_digest::<T>());
 		assert_eq!(
 			MaxParachainBlockWeight::<T, ConstU32<4>>::get(),
 			MaxParachainBlockWeight::<T, ConstU32<4>>::FULL_CORE_WEIGHT
@@ -187,7 +192,10 @@ mod benchmarks {
 		{
 			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| {
 				// Normally this is done by `CheckWeight`
-				register_weight(info.call_weight, DispatchClass::Normal);
+				frame_system::Pallet::<T>::register_extra_weight_unchecked(
+					info.call_weight,
+					DispatchClass::Normal,
+				);
 				Ok(post_info)
 			})
 			.unwrap()
@@ -198,7 +206,7 @@ mod benchmarks {
 			crate::BlockWeightMode::<T>::get().unwrap(),
 			BlockWeightMode::FractionOfCore { first_transaction_index: Some(1) }
 		);
-		assert!(!has_use_full_core_digest());
+		assert!(!has_use_full_core_digest::<T>());
 		assert_eq!(MaxParachainBlockWeight::<T, ConstU32<4>>::get(), target_weight);
 
 		Ok(())
@@ -243,7 +251,10 @@ mod benchmarks {
 		{
 			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| {
 				// Normally this is done by `CheckWeight`
-				register_weight(info.call_weight, DispatchClass::Normal);
+				frame_system::Pallet::<T>::register_extra_weight_unchecked(
+					info.call_weight,
+					DispatchClass::Normal,
+				);
 				Ok(post_info)
 			})
 			.unwrap()
