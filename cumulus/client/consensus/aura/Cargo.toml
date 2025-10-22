@@ -15,7 +15,6 @@ workspace = true
 async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
-futures-timer = { workspace = true }
 parking_lot = { workspace = true }
 schnellru = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
