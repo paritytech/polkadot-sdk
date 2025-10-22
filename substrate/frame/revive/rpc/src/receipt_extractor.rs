@@ -287,7 +287,8 @@ impl ReceiptExtractor {
 			.collect::<Result<Vec<_>, _>>()
 	}
 
-	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info.
+	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info and
+	/// extrinsic index
 	pub(crate) async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
@@ -313,9 +314,9 @@ impl ReceiptExtractor {
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
 			.enumerate()
-			.flat_map(|(idx, ext)| {
+			.flat_map(|(ext_idx, ext)| {
 				let call = ext.as_extrinsic::<EthTransact>().ok()??;
-				Some((ext, call, idx))
+				Some((ext, call, ext_idx))
 			})
 			.collect();
 
@@ -332,7 +333,7 @@ impl ReceiptExtractor {
 			Ok(extrinsics
 				.into_iter()
 				.zip(receipt_data)
-				.map(|((extr, call, idx), rec)| (extr, call, rec, idx)))
+				.map(|((extr, call, ext_idx), rec)| (extr, call, rec, ext_idx)))
 		}
 	}
 
