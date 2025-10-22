@@ -74,19 +74,8 @@ impl<Client> BackingGroupConnectionHelper<Client> {
 		Self { client, keystore, overseer_handle, our_slot: None }
 	}
 
-	async fn send_connect_message(&mut self) {
-		self.overseer_handle
-			.send_msg(CollatorProtocolMessage::ConnectToBackingGroups, "CollatorProtocolHelper")
-			.await;
-	}
-
-	async fn send_disconnect_message(&mut self) {
-		self.overseer_handle
-			.send_msg(
-				CollatorProtocolMessage::DisconnectFromBackingGroups,
-				"CollatorProtocolHelper",
-			)
-			.await;
+	async fn send_subsystem_message(&mut self, message: CollatorProtocolMessage) {
+		self.overseer_handle.send_msg(message, "CollatorProtocolHelper").await;
 	}
 
 	/// Update the current slot and initiate connections to backing groups if needed.
@@ -109,18 +98,23 @@ impl<Client> BackingGroupConnectionHelper<Client> {
 			return
 		};
 
-		match aura_internal::claim_slot::<P>(current_slot + 1, &authorities, &self.keystore).await {
+		let next_slot = current_slot + 1;
+		match aura_internal::claim_slot::<P>(next_slot, &authorities, &self.keystore).await {
 			Some(_) => {
 				// Next slot is ours, send connect message.
 				tracing::debug!(target: crate::LOG_TARGET, "Our slot {} is next, connecting to backing groups", current_slot + 1);
-				self.send_connect_message().await;
-				self.our_slot = Some(current_slot + 1);
+				self.send_subsystem_message(CollatorProtocolMessage::ConnectToBackingGroups)
+					.await;
+				self.our_slot = Some(next_slot);
 			},
 			None => {
 				// Next slot is not ours, send disconnect only if we had a slot before.
 				if self.our_slot.take().is_some() {
 					tracing::debug!(target: crate::LOG_TARGET, "Current slot = {}, disconnecting from backing groups", current_slot);
-					self.send_disconnect_message().await;
+					self.send_subsystem_message(
+						CollatorProtocolMessage::DisconnectFromBackingGroups,
+					)
+					.await;
 				}
 			},
 		}
@@ -551,9 +545,24 @@ mod tests {
 			.await;
 		tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
+		{
+			let messages = messages_recorder.lock().unwrap();
+			assert_eq!(messages.len(), 1, "Expected exactly one disconnect message");
+			assert!(matches!(messages[0], CollatorProtocolMessage::DisconnectFromBackingGroups));
+			assert_eq!(helper.our_slot, None);
+		}
+
+		messages_recorder.lock().unwrap().clear();
+
+		// Update again with slot 8, next slot (9) is Charlie's -> should not send another
+		// disconnect message
+		helper
+			.update::<Block, sp_consensus_aura::sr25519::AuthorityPair>(Slot::from(8), genesis_hash)
+			.await;
+		tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
 		let messages = messages_recorder.lock().unwrap();
-		assert_eq!(messages.len(), 1, "Expected exactly one disconnect message");
-		assert!(matches!(messages[0], CollatorProtocolMessage::DisconnectFromBackingGroups));
+		assert_eq!(messages.len(), 0, "Expected no messages");
 		assert_eq!(helper.our_slot, None);
 	}
 
