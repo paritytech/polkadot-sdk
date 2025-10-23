@@ -378,6 +378,7 @@ where
 		// leave some time for evaluation and block finalization (10%)
 		let deadline = (self.now)() + max_duration - max_duration / 10;
 		let block_timer = time::Instant::now();
+		let builder_start = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
 			.with_parent_block_number(self.parent_number)
@@ -388,6 +389,12 @@ where
 			}))
 			.with_inherent_digests(inherent_digests)
 			.build()?;
+		let builder_duration = builder_start.elapsed();
+		info!(
+			target: LOG_TARGET,
+			"⏱️  BlockBuilderBuilder construction took {}ms",
+			builder_duration.as_millis()
+		);
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
@@ -425,6 +432,15 @@ where
 			);
 		});
 
+		info!(
+			target: LOG_TARGET,
+			"⏱️  create_inherents took {}ms, count: {}",
+			create_inherents_end.saturating_duration_since(create_inherents_start).as_millis(),
+			inherents.len()
+		);
+
+		let apply_inherents_start = time::Instant::now();
+		let mut applied_count = 0;
 		for inherent in inherents {
 			match block_builder.push(inherent) {
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
@@ -445,9 +461,18 @@ where
 						"❗️ Inherent extrinsic returned unexpected error: {}. Dropping.", e
 					);
 				},
-				Ok(_) => {},
+				Ok(_) => {
+					applied_count += 1;
+				},
 			}
 		}
+		let apply_inherents_duration = apply_inherents_start.elapsed();
+		info!(
+			target: LOG_TARGET,
+			"⏱️  apply_inherents took {}ms, applied: {}",
+			apply_inherents_duration.as_millis(),
+			applied_count
+		);
 		Ok(())
 	}
 
@@ -458,6 +483,7 @@ where
 		deadline: time::Instant,
 		block_size_limit: Option<usize>,
 	) -> Result<EndProposingReason, sp_blockchain::Error> {
+		let apply_extrinsics_start = time::Instant::now();
 		// proceed with transactions
 		// We calculate soft deadline used only in case we start skipping transactions.
 		let now = (self.now)();
@@ -533,9 +559,22 @@ where
 			}
 
 			trace!(target: LOG_TARGET, "[{:?}] Pushing to the block.", pending_tx_hash);
-			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
+			let push_start = time::Instant::now();
+			let push_result = sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data.clone());
+			let push_duration = push_start.elapsed();
+			match push_result {
 				Ok(()) => {
 					transaction_pushed = true;
+					let push_ms = push_duration.as_millis();
+					if push_ms > 100 {
+						info!(
+							target: LOG_TARGET,
+							"⏱️  Extrinsic [{:?}] took {}ms to apply (size: {} bytes)",
+							pending_tx_hash,
+							push_ms,
+							pending_tx_data.encoded_size()
+						);
+					}
 					trace!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
 				},
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
@@ -583,9 +622,18 @@ where
 			);
 		}
 
+		let apply_extrinsics_duration = apply_extrinsics_start.elapsed();
+		info!(
+			target: LOG_TARGET,
+			"⏱️  apply_extrinsics took {}ms, reason: {:?}",
+			apply_extrinsics_duration.as_millis(),
+			end_reason
+		);
+
 		self.transaction_pool
 			.report_invalid(Some(self.parent_hash), unqueue_invalid)
 			.await;
+
 		Ok(end_reason)
 	}
 

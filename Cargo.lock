@@ -5719,6 +5719,68 @@ dependencies = [
 ]
 
 [[package]]
+name = "doppelganger"
+version = "0.1.0"
+dependencies = [
+ "asset-hub-rococo-runtime",
+ "asset-hub-westend-runtime",
+ "bridge-hub-rococo-runtime",
+ "bridge-hub-westend-runtime",
+ "collectives-westend-runtime",
+ "coretime-rococo-runtime",
+ "coretime-westend-runtime",
+ "cumulus-primitives-core",
+ "glutton-westend-runtime",
+ "hex-literal",
+ "log",
+ "parachains-common",
+ "penpal-runtime",
+ "people-rococo-runtime",
+ "people-westend-runtime",
+ "polkadot-omni-node-lib",
+ "rococo-parachain-runtime",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-service",
+ "serde_json",
+ "sp-core 38.1.0",
+ "sp-genesis-builder",
+ "sp-keyring",
+ "staging-xcm",
+ "yet-another-parachain-runtime",
+]
+
+[[package]]
+name = "doppelganger-consensus"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "cumulus-primitives-proof-size-hostfunction",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "sc-chain-spec",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-executor",
+ "serde_json",
+ "sp-authority-discovery",
+ "sp-core 38.1.0",
+ "sp-io",
+ "sp-runtime",
+ "sp-runtime-interface 32.0.0",
+ "sp-storage 22.0.0",
+ "sp-trie",
+ "tokio",
+]
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15826,6 +15888,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-test-runtime",
  "docify",
+ "doppelganger-consensus",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-support",
@@ -16228,6 +16291,7 @@ dependencies = [
  "cumulus-relay-chain-rpc-interface",
  "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
+ "doppelganger",
  "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",
@@ -16722,6 +16786,7 @@ version = "28.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
+ "doppelganger-consensus",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
@@ -19517,6 +19582,7 @@ dependencies = [
 name = "sc-block-builder"
 version = "0.47.0"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "sp-api",
  "sp-block-builder",
