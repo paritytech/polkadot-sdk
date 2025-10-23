@@ -3750,6 +3750,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "conviction-voting-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-conviction-voting",
+ "pallet-referenda",
+ "pallet-revive",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -44,7 +44,6 @@ std = [
 	"pallet-referenda/std",
 	"pallet-timestamp/std",
 	"polkadot-parachain-primitives/std",
-	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"tracing/std",
