@@ -17,7 +17,7 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::{
 	fungibles,
-	tokens::{PaymentStatus, Preservation},
+	tokens::{PayWithSource, PaymentStatus, Preservation},
 };
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use sp_runtime::{traits::TypedGet, DispatchError, RuntimeDebug};
@@ -42,6 +42,18 @@ pub enum VersionedLocatableAccount {
 	V4 { location: xcm::v4::Location, account_id: xcm::v4::Location },
 	#[codec(index = 5)]
 	V5 { location: xcm::v5::Location, account_id: xcm::v5::Location },
+}
+
+impl From<sp_runtime::AccountId32> for VersionedLocatableAccount {
+	fn from(account_id: sp_runtime::AccountId32) -> Self {
+		VersionedLocatableAccount::V5 {
+			location: Location::here(),
+			account_id: Location::new(
+				0,
+				[xcm::v5::Junction::AccountId32 { network: None, id: account_id.into() }],
+			),
+		}
+	}
 }
 
 /// Pay on the local chain with `fungibles` implementation if the beneficiary and the asset are both
@@ -120,11 +132,97 @@ where
 	}
 }
 
+/// Pay on the local chain with `fungibles` implementation if the beneficiary and source are both
+/// local. This variant accepts the source as a `VersionedLocatableAccount`.
+pub struct LocalPayWithSource<F, A, C>(core::marker::PhantomData<(F, A, C)>);
+impl<F, A, C> PayWithSource for LocalPayWithSource<F, A, C>
+where
+	A: Eq + Clone,
+	F: fungibles::Mutate<A, AssetId = xcm::v5::Location> + fungibles::Create<A>,
+	C: ConvertLocation<A>,
+{
+	type Balance = F::Balance;
+	type Source = VersionedLocatableAccount;
+	type Beneficiary = VersionedLocatableAccount;
+	type AssetKind = VersionedLocatableAsset;
+	type Id = QueryId;
+	type Error = DispatchError;
+	fn pay(
+		source: &Self::Source,
+		who: &Self::Beneficiary,
+		asset: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		let source = Self::match_location(source).map_err(|_| DispatchError::Unavailable)?;
+		let who = Self::match_location(who).map_err(|_| DispatchError::Unavailable)?;
+		let asset = Self::match_asset(&asset).map_err(|_| DispatchError::Unavailable)?;
+		<F as fungibles::Mutate<_>>::transfer(
+			asset,
+			&source,
+			&who,
+			amount,
+			Preservation::Expendable,
+		)?;
+		Ok(Self::Id::MAX)
+	}
+	fn check_payment(_: Self::Id) -> PaymentStatus {
+		PaymentStatus::Success
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(
+		source: &Self::Source,
+		_: &Self::Beneficiary,
+		asset: Self::AssetKind,
+		amount: Self::Balance,
+	) {
+		use sp_runtime::traits::Zero;
+
+		let source = Self::match_location(source).expect("invalid source");
+		let asset = Self::match_asset(&asset).expect("invalid asset");
+		if F::total_issuance(asset.clone()).is_zero() {
+			<F as fungibles::Create<_>>::create(asset.clone(), source.clone(), true, 1u32.into())
+				.unwrap();
+		}
+		<F as fungibles::Mutate<_>>::mint_into(asset, &source, amount).unwrap();
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(_: Self::Id) {}
+}
+
+impl<F, A, C> LocalPayWithSource<F, A, C>
+where
+	A: Eq + Clone,
+	F: fungibles::Mutate<A> + fungibles::Create<A>,
+	C: ConvertLocation<A>,
+{
+	fn match_location(who: &VersionedLocatableAccount) -> Result<A, ()> {
+		// only applicable for the local accounts
+		let account_id = match who {
+			VersionedLocatableAccount::V4 { location, account_id } if location.is_here() =>
+				&account_id.clone().try_into().map_err(|_| ())?,
+			VersionedLocatableAccount::V5 { location, account_id } if location.is_here() =>
+				account_id,
+			_ => return Err(()),
+		};
+		C::convert_location(account_id).ok_or(())
+	}
+	fn match_asset(asset: &VersionedLocatableAsset) -> Result<xcm::v5::Location, ()> {
+		match asset {
+			VersionedLocatableAsset::V4 { location, asset_id } if location.is_here() =>
+				asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
+			VersionedLocatableAsset::V5 { location, asset_id } if location.is_here() =>
+				Ok(asset_id.clone().0),
+			_ => Err(()),
+		}
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks {
 	use super::*;
 	use core::marker::PhantomData;
 	use frame_support::traits::Get;
+	use pallet_multi_asset_bounties::ArgumentsFactory as MultiAssetBountiesArgumentsFactory;
 	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
 	use sp_core::ConstU8;
 
@@ -133,11 +231,41 @@ pub mod benchmarks {
 	///
 	/// ### Parameters:
 	/// - `PalletId`: The ID of the assets registry pallet.
-	/// - `AssetId`: The ID of the asset that will be created for the benchmark within `PalletId`.
 	pub struct LocalPayArguments<PalletId = ConstU8<0>>(PhantomData<PalletId>);
 	impl<PalletId: Get<u8>>
 		TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedLocatableAccount>
 		for LocalPayArguments<PalletId>
+	{
+		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
+			VersionedLocatableAsset::V5 {
+				location: Location::new(0, []),
+				asset_id: Location::new(
+					0,
+					[PalletInstance(PalletId::get()), GeneralIndex(seed.into())],
+				)
+				.into(),
+			}
+		}
+		fn create_beneficiary(seed: [u8; 32]) -> VersionedLocatableAccount {
+			VersionedLocatableAccount::V5 {
+				location: Location::new(0, []),
+				account_id: Location::new(0, [AccountId32 { network: None, id: seed }]),
+			}
+		}
+	}
+
+	/// Provides factory methods for the `AssetKind`, `Source`, and `Beneficiary` that are
+	/// applicable for the payout made by [`LocalPayWithSource`].
+	///
+	/// ### Parameters:
+	/// - `PalletId`: The ID of the assets registry pallet.
+	pub struct LocalPayWithSourceArguments<PalletId = ConstU8<0>>(PhantomData<PalletId>);
+	impl<PalletId: Get<u8>, Balance>
+		MultiAssetBountiesArgumentsFactory<
+			VersionedLocatableAsset,
+			VersionedLocatableAccount,
+			Balance,
+		> for LocalPayWithSourceArguments<PalletId>
 	{
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
 			VersionedLocatableAsset::V5 {
