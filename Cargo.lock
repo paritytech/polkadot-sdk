@@ -23202,6 +23202,7 @@ dependencies = [
 name = "sp-database"
 version = "10.0.0"
 dependencies = [
+ "array-bytes 6.2.2",
  "kvdb",
  "kvdb-rocksdb",
  "parking_lot 0.12.3",

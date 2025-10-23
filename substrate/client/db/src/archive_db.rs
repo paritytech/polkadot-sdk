@@ -18,6 +18,7 @@
 
 use std::sync::Arc;
 
+use array_bytes::Hex;
 use codec::{Decode, Encode};
 use sc_client_api::ChildInfo;
 use sp_core::Hasher;
@@ -59,10 +60,20 @@ impl<Block: BlockT> ArchiveDb<Block> {
 			.seekable_iter(columns::ARCHIVE)
 			.expect("Archive column space must exist if ArchiveDb exists");
 		iter.seek_prev(&full_key);
+		println!(
+			"Seek {} at archive storage at block {}: {:?}",
+			key.hex("0x"),
+			self.block_number,
+			iter.get()
+		);
 
 		if let Some((found_key, value)) = iter.get() {
 			if extract_key::<<<Block as BlockT>::Header as Header>::Number>(&found_key) == key {
-				return Ok(Some(value.to_owned()));
+				let value = match Option::<Vec<u8>>::decode(&mut value.as_slice()) {
+					Ok(value) => value,
+					Err(e) => return Err(format!("Archive value decode error: {:?}", e)),
+				};
+				return Ok(value);
 			}
 		}
 		Ok(None)
@@ -72,13 +83,8 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		&self,
 		key: &[u8],
 	) -> Result<Option<<HashingFor<Block> as hash_db::Hasher>::Out>, DefaultError> {
-		let full_key = make_full_key(key, self.block_number);
-
-		if let Some(value) = self.db.get(columns::ARCHIVE, &full_key) {
-			Ok(Some(HashingFor::<Block>::hash(&value)))
-		} else {
-			Ok(None)
-		}
+		let result = self.storage(key)?;
+		Ok(result.map(|res| HashingFor::<Block>::hash(&res)))
 	}
 
 	pub(crate) fn child_storage(
@@ -86,7 +92,9 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<StorageValue>, DefaultError> {
-		todo!()
+		let mut prefix_key = child_info.storage_key().to_owned();
+		prefix_key.extend_from_slice(key);
+		self.storage(&prefix_key)
 	}
 
 	pub(crate) fn child_storage_hash(
@@ -94,11 +102,13 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<<HashingFor<Block> as hash_db::Hasher>::Out>, DefaultError> {
-		todo!()
+		let mut prefix_key = child_info.storage_key().to_owned();
+		prefix_key.extend_from_slice(key);
+		self.storage_hash(&prefix_key)
 	}
 
 	pub(crate) fn exists_storage(&self, key: &[u8]) -> Result<bool, DefaultError> {
-		todo!()
+		Ok(self.storage(key)?.is_some())
 	}
 
 	pub(crate) fn exists_child_storage(
@@ -106,7 +116,9 @@ impl<Block: BlockT> ArchiveDb<Block> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<bool, DefaultError> {
-		todo!()
+		let mut prefix_key = child_info.storage_key().to_owned();
+		prefix_key.extend_from_slice(key);
+		Ok(self.exists_storage(&prefix_key)?)
 	}
 
 	pub(crate) fn next_storage_key(&self, key: &[u8]) -> Result<Option<StorageKey>, DefaultError> {
@@ -184,15 +196,20 @@ impl<Block: BlockT> RawIter<Block> {
 	}
 }
 
+const ARCHIVE_TEMPORARY_INFIX: &'static [u8] = b"ARCHIVE_STORAGE_INFIX";
+
 pub(crate) fn make_full_key(key: &[u8], number: impl Encode) -> Vec<u8> {
-	let mut full_key = Vec::with_capacity(key.len() + number.encoded_size());
+	let mut full_key =
+		Vec::with_capacity(key.len() + number.encoded_size() + ARCHIVE_TEMPORARY_INFIX.len());
 	full_key.extend_from_slice(&key[..]);
+	full_key.extend_from_slice(&ARCHIVE_TEMPORARY_INFIX);
 	number.encode_to(&mut &mut full_key);
 	full_key
 }
 
 pub(crate) fn extract_key<BlockNumber: Decode>(full_key: &[u8]) -> &[u8] {
 	let key_len = full_key.len() -
+		ARCHIVE_TEMPORARY_INFIX.len() -
 		BlockNumber::encoded_fixed_size()
 			.expect("Variable length block numbers can't be used for archive storage");
 	&full_key[..key_len]
@@ -214,13 +231,13 @@ mod tests {
 		let mut mem_db = Arc::new(MemDb::new());
 		mem_db.commit(Transaction(vec![
 			Change::<sp_core::H256>::Set(ARCHIVE, make_full_key(&[1, 2, 3], 4u64), vec![4, 2]),
-			Change::<sp_core::H256>::Set(ARCHIVE, make_full_key(&[1, 2, 3], 6u64), vec![5, 2])
+			Change::<sp_core::H256>::Set(ARCHIVE, make_full_key(&[1, 2, 3], 6u64), vec![5, 2]),
 		]));
-		let archive_db = ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
+		let archive_db =
+			ArchiveDb::<TestBlock>::new(mem_db.clone(), Some(sp_core::H256::default()), 5);
 		assert_eq!(archive_db.storage(&[1, 2, 3]), Ok(Some(vec![4u8, 2u8])));
 
 		let archive_db = ArchiveDb::<TestBlock>::new(mem_db, Some(sp_core::H256::default()), 7);
 		assert_eq!(archive_db.storage(&[1, 2, 3]), Ok(Some(vec![5u8, 2u8])));
-
 	}
 }

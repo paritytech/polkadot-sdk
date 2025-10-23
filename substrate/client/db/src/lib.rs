@@ -42,6 +42,7 @@ mod stats;
 mod upgrade;
 mod utils;
 
+use array_bytes::Hex;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
@@ -837,6 +838,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	storage_updates: StorageCollection,
 	child_storage_updates: ChildStorageCollection,
 	offchain_storage_updates: OffchainChangesCollection,
+	new_storage: Option<Storage>,
 	pending_block: Option<PendingBlock<Block>>,
 	aux_ops: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 	finalized_blocks: Vec<(Block::Hash, Option<Justification>)>,
@@ -896,6 +898,7 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 		);
 
 		self.db_updates = transaction;
+		self.new_storage = Some(storage);
 		Ok(root)
 	}
 }
@@ -1633,18 +1636,57 @@ impl<Block: BlockT> Backend<Block> {
 
 				let mut ops: u64 = 0;
 				let mut bytes: u64 = 0;
-				for (key, value) in operation.storage_updates.drain(..).chain(
-					operation.child_storage_updates.drain(..).flat_map(|(_, s)| s.into_iter()),
-				) {
+				if let Some(new_storage) = operation.new_storage.take() {
+					for (prefix, key, value) in
+						new_storage.top.iter().map(|(k, v)| ([].as_slice(), k, v)).chain(
+							new_storage.children_default.iter().flat_map(|(_, s)| {
+								s.data.iter().map(|(k, v)| (s.child_info.storage_key(), k, v))
+							}),
+						) {
+						let full_key = make_full_key(&key, pending_block.header.number());
+						println!(
+							"{}-{:?}: {} {} -> {:?} (new storage)",
+							pending_block.header.number(),
+							pending_block.header.hash(),
+							prefix.hex("0x"),
+							key.hex("0x"),
+							value
+						);
+						bytes += full_key.len() as u64 + value.len() as u64;
+						ops += 1;
+						transaction.set_from_vec(columns::ARCHIVE, &full_key, Some(value).encode());
+					}
+				}
+				self.state_usage.tally_writes(ops, bytes);
+
+				let mut ops: u64 = 0;
+				let mut bytes: u64 = 0;
+				for (prefix, key, value) in
+					operation.storage_updates.iter().map(|(k, v)| ([].as_slice(), k, v)).chain(
+						operation.child_storage_updates.iter().flat_map(|(prefix, s)| {
+							s.into_iter().map(|(k, v)| (prefix.as_slice(), k, v))
+						}),
+					) {
 					ops += 1;
-					bytes += key.len() as u64;
+					bytes += key.len() as u64 + 1;
 					if let Some(v) = value.as_ref() {
 						bytes += v.len() as u64;
 					}
-					let full_key = make_full_key(&key, pending_block.header.number());
-					println!("#{:?}: {:?} -> {:?}", pending_block.header.hash(), key, value);
+					let mut prefixed_key = prefix.to_owned();
+					prefixed_key.extend_from_slice(&key);
+					let full_key = make_full_key(&prefixed_key, pending_block.header.number());
+					println!(
+						"{}-{:?}: key {} -> {:?} (storage update)",
+						pending_block.header.number(),
+						pending_block.header.hash(),
+						prefixed_key.hex("0x"),
+						value
+					);
 					transaction.set_from_vec(columns::ARCHIVE, &full_key, value.encode());
 				}
+				operation.storage_updates.clear();
+				operation.child_storage_updates.clear();
+
 				self.state_usage.tally_writes(ops, bytes);
 				let number_u64 = number.saturated_into::<u64>();
 				let commit = self
@@ -2043,10 +2085,9 @@ impl<Block: BlockT> Backend<Block> {
 			.build();
 		let trie_state = RefTrackingState::new(db_state, self.storage.clone(), None);
 		let archive_state = match &self.db {
-			BackendDatabase::DatabaseWithSeekableIterator(db) => {
-				Some(ArchiveDb::new(db.clone(), None, <Block::Header as HeaderT>::Number::zero()))
-			},
-			_ => None
+			BackendDatabase::DatabaseWithSeekableIterator(db) =>
+				Some(ArchiveDb::new(db.clone(), None, <Block::Header as HeaderT>::Number::zero())),
+			_ => None,
 		};
 
 		RecordStatsState::new(
@@ -2422,6 +2463,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			old_state: self.empty_state(),
 			db_updates: PrefixedMemoryDB::default(),
 			storage_updates: Default::default(),
+			new_storage: None,
 			child_storage_updates: Default::default(),
 			offchain_storage_updates: Default::default(),
 			aux_ops: Vec::new(),
@@ -2822,14 +2864,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 				let trie_state = Some(RefTrackingState::new(db_state, self.storage.clone(), None));
 				let archive_state = match &self.db {
-					BackendDatabase::DatabaseWithSeekableIterator(db) => {
-						Some(ArchiveDb::new(
-							db.clone(),
+					BackendDatabase::DatabaseWithSeekableIterator(db) => Some(ArchiveDb::new(
+						db.clone(),
 						Some(hash),
-					<Block::Header as HeaderT>::Number::zero(),
-						))
-					},
-					_ => None
+						<Block::Header as HeaderT>::Number::zero(),
+					)),
+					_ => None,
 				};
 				let trie_or_archive_state = TrieOrArchiveState { trie_state, archive_state };
 
@@ -2870,12 +2910,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					None
 				};
 				let archive_state = match &self.db {
-					BackendDatabase::DatabaseWithSeekableIterator(db) => {
-						Some(ArchiveDb::new(db.clone(), Some(hash), hdr.number))
-					},
-					_ => None
+					BackendDatabase::DatabaseWithSeekableIterator(db) =>
+						Some(ArchiveDb::new(db.clone(), Some(hash), hdr.number)),
+					_ => None,
 				};
-					
+
 				let trie_or_archive_state = TrieOrArchiveState { trie_state, archive_state };
 				Ok(RecordStatsState::new(
 					trie_or_archive_state,

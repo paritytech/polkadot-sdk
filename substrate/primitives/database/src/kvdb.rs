@@ -41,9 +41,12 @@ where
 	std::sync::Arc::new(DbAdapter(db))
 }
 
-/// Wrap RocksDb database into a trait object that implements `sp_database::DatabaseWithSeekableIterator`
+/// Wrap RocksDb database into a trait object that implements
+/// `sp_database::DatabaseWithSeekableIterator`
 #[cfg(any(feature = "rocksdb", test))]
-pub fn as_database_with_seekable_iter<H>(db: kvdb_rocksdb::Database) -> std::sync::Arc<dyn DatabaseWithSeekableIterator<H>>
+pub fn as_database_with_seekable_iter<H>(
+	db: kvdb_rocksdb::Database,
+) -> std::sync::Arc<dyn DatabaseWithSeekableIterator<H>>
 where
 	H: Clone + AsRef<[u8]>,
 {
@@ -141,11 +144,11 @@ impl<'a> SeekableIterator for kvdb_rocksdb::DBRawIterator<'a> {
 		let (k, v) = self.item()?;
 		Some((k, v.to_owned()))
 	}
-	
+
 	fn prev(&mut self) {
 		kvdb_rocksdb::DBRawIterator::prev(self)
 	}
-	
+
 	fn next(&mut self) {
 		kvdb_rocksdb::DBRawIterator::next(self)
 	}
@@ -157,7 +160,7 @@ impl<H: Clone + AsRef<[u8]>> DatabaseWithSeekableIterator<H> for DbAdapter<kvdb_
 		match self.0.raw_iter(col) {
 			Ok(iter) => Some(Box::new(iter)),
 			Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-			Err(e) => panic!("Internal database error: {}", e)
+			Err(e) => panic!("Internal database error: {}", e),
 		}
 	}
 }

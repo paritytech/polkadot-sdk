@@ -23,6 +23,7 @@ harness = false
 bench = false
 
 [dependencies]
+array-bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 kvdb = { workspace = true }
