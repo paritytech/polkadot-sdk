@@ -1,0 +1,9 @@
+title: 'revive: fix alloy-consensus dependency'
+doc:
+- audience: Runtime Dev
+  description: Needed in order to update foundry-polkadot to the latest master
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
