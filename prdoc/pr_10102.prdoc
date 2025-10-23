@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |
       Refactors the `dry_run_xcm` implementation in `pallet-xcm` to use the runtime's configured `Config::XcmExecutor` type. 
-      Enabling consistent behaviour for runtime's which use custom XCM executors.
+      Enabling consistent behaviour for runtimes which use custom XCM executors.
 crates:
 - name: pallet-xcm
   bump: major
