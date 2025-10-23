@@ -174,7 +174,7 @@ impl ParachainInherentDataProvider {
 		let include_next_authorities = relay_parent_descendants
 			.iter()
 			.skip(1)
-			.any(|header| sc_consensus_babe::contains_epoch_change::<RelayBlock>(header));
+			.any(sc_consensus_babe::contains_epoch_change::<RelayBlock>);
 		let relay_chain_state = collect_relay_storage_proof(
 			relay_chain_interface,
 			para_id,
