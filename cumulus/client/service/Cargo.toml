@@ -75,3 +75,8 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 sp-transaction-pool.default-features = true
 sp-transaction-pool.workspace = true
+tokio = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+doppelganger = [ "dep:tokio", "dep:serde_json" ]
