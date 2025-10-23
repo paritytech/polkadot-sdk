@@ -45,7 +45,7 @@ pub struct Cli {
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
 
-	#[clap(long, default_value = "instant-seal")]
+	#[clap(long, default_value = "manual-seal-1000")]
 	pub consensus: Consensus,
 
 	#[clap(flatten)]
