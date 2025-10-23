@@ -99,24 +99,22 @@ impl<Client> BackingGroupConnectionHelper<Client> {
 		};
 
 		let next_slot = current_slot + 1;
-		match aura_internal::claim_slot::<P>(next_slot, &authorities, &self.keystore).await {
-			Some(_) => {
-				// Next slot is ours, send connect message.
-				tracing::debug!(target: crate::LOG_TARGET, "Our slot {} is next, connecting to backing groups", current_slot + 1);
-				self.send_subsystem_message(CollatorProtocolMessage::ConnectToBackingGroups)
-					.await;
-				self.our_slot = Some(next_slot);
-			},
-			None => {
-				// Next slot is not ours, send disconnect only if we had a slot before.
-				if self.our_slot.take().is_some() {
-					tracing::debug!(target: crate::LOG_TARGET, "Current slot = {}, disconnecting from backing groups", current_slot);
-					self.send_subsystem_message(
-						CollatorProtocolMessage::DisconnectFromBackingGroups,
-					)
-					.await;
-				}
-			},
+		let next_slot_is_ours =
+			aura_internal::claim_slot::<P>(next_slot, &authorities, &self.keystore)
+				.await
+				.is_some();
+
+		if next_slot_is_ours {
+			// Next slot is ours, send connect message.
+			tracing::debug!(target: crate::LOG_TARGET, "Our slot {} is next, connecting to backing groups", next_slot);
+			self.send_subsystem_message(CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
+			self.our_slot = Some(next_slot);
+		} else if self.our_slot.take().is_some() {
+			// Next slot is not ours, send disconnect only if we had a slot before.
+			tracing::debug!(target: crate::LOG_TARGET, "Current slot = {}, disconnecting from backing groups", current_slot);
+			self.send_subsystem_message(CollatorProtocolMessage::DisconnectFromBackingGroups)
+				.await;
 		}
 	}
 }
