@@ -4398,6 +4398,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-utils",
+ "serde_json",
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
@@ -4405,6 +4406,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-transaction-pool",
+ "tokio",
 ]
 
 [[package]]
@@ -5551,6 +5553,38 @@ dependencies = [
  "termcolor",
  "toml 0.8.19",
  "walkdir",
+]
+
+[[package]]
+name = "doppelganger"
+version = "0.1.0"
+dependencies = [
+ "asset-hub-rococo-runtime",
+ "asset-hub-westend-runtime",
+ "bridge-hub-rococo-runtime",
+ "bridge-hub-westend-runtime",
+ "collectives-westend-runtime",
+ "coretime-rococo-runtime",
+ "coretime-westend-runtime",
+ "cumulus-primitives-core",
+ "glutton-westend-runtime",
+ "hex-literal",
+ "log",
+ "parachains-common",
+ "penpal-runtime",
+ "people-rococo-runtime",
+ "people-westend-runtime",
+ "polkadot-omni-node-lib",
+ "rococo-parachain-runtime",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-service",
+ "serde_json",
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "sp-keyring",
+ "staging-xcm",
+ "yet-another-parachain-runtime",
 ]
 
 [[package]]
@@ -14864,15 +14898,15 @@ dependencies = [
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus",
- "sc-executor 0.32.0",
+ "sc-executor",
  "serde_json",
  "sp-authority-discovery",
  "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
+ "sp-io",
+ "sp-runtime",
  "sp-runtime-interface 24.0.0",
  "sp-storage 19.0.0",
- "sp-trie 29.0.0",
+ "sp-trie",
  "tokio",
 ]
 
@@ -14880,7 +14914,7 @@ dependencies = [
 name = "polkadot-doppelganger-node"
 version = "1.0.0"
 dependencies = [
- "clap 4.5.13",
+ "clap",
  "color-eyre",
  "log",
  "polkadot-cli",
@@ -16010,6 +16044,7 @@ dependencies = [
  "cumulus-relay-chain-rpc-interface",
  "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
+ "doppelganger",
  "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",

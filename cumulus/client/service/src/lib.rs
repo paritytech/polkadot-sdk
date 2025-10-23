@@ -511,7 +511,7 @@ where
 
 			#[cfg(feature = "doppelganger")]
 			let target_block = if let Ok(zombie_target_header_path) = std::env::var("ZOMBIE_TARGET_HEADER_PATH") {
-				let header_content = tokio::fs::read_to_string(zombie_target_header_path).await.expect("env var ZOMBIE_TARGET_HEADER_PATH should be valid. qed");
+				let header_content = tokio::fs::read_to_string(&zombie_target_header_path).await.expect("env var ZOMBIE_TARGET_HEADER_PATH should be valid. qed");
 				let header: <Block as BlockT>::Header = serde_json::from_str(&header_content).unwrap();
 				log::info!(
 					"🪞 target parachain header #{} ({}) from path {:?}.",
@@ -529,8 +529,8 @@ where
 							"Unable to determine parachain target block {:?}",
 							e
 						);
-					})?;
-			}
+					})?
+			};
 
 			#[cfg(not(feature = "doppelganger"))]
 			let target_block =
@@ -543,7 +543,6 @@ where
 							e
 						);
 					})?;
-			ZOMBIE_TARGET_HEADER_PATH
 			Some(WarpSyncConfig::WithTarget(target_block))
 		},
 		_ => None,

@@ -141,4 +141,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-doppelganger = ["dep:polkadot-doppelganger-consensus"]
+doppelganger = [
+	"dep:polkadot-doppelganger-consensus",
+	"cumulus-client-service/doppelganger",
+]

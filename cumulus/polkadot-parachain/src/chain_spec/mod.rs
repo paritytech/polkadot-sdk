@@ -75,7 +75,7 @@ impl LoadSpec for ChainSpecLoader {
 			)?),
 
 			// -- Asset Hub Kusama
-			"asset-hub-kusama" | "statemine" => Box::new(GenericChainSpec::from_json_bytes(
+			"asset-hub-kusama" | "statemine" => Box::new(DeprecatedGenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/asset-hub-kusama.json")[..],
 			)?),
 
