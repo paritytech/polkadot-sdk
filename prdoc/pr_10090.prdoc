@@ -1,7 +1,7 @@
 title: 'revive: fix alloy-consensus dependency'
 doc:
 - audience: Runtime Dev
-  description: Needed in order to update foundry-polkadot to the latest master
+  description: Bump the alloy-consensus version and include the serde feature in std
 crates:
 - name: pallet-revive
   bump: patch
