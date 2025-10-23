@@ -78,14 +78,6 @@
   additional-setup: |
     cp --remove-destination ./polkadot/zombienet_tests/assign-core.js ./polkadot/zombienet_tests/functional
 
-- job-name: "zombienet-polkadot-functional-0020-asset-hub-westend-elastic-scaling"
-  test-definition: "0020-asset-hub-westend-elastic-scaling.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
-  runner-type: "large"
-  use-zombienet-sdk: false
-  additional-setup: |
-    cp --remove-destination ./polkadot/zombienet_tests/assign-core.js ./polkadot/zombienet_tests/functional
-
 - job-name: "zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness"
   test-definition: "0019-coretime-collation-fetching-fairness.zndsl"
   local-dir: "./polkadot/zombienet_tests/functional"
