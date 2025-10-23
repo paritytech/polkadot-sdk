@@ -28,13 +28,5 @@ crates:
   bump: major
 - name: bridge-hub-westend-runtime
   bump: patch
-- name: xcm-emulator
-  bump: patch
-- name: polkadot-runtime-parachains
-  bump: patch
-- name: rococo-runtime
-  bump: patch
-- name: westend-runtime
-  bump: patch
-- name: pallet-staking-async-rc-runtime
+- name: bridge-hub-common
   bump: patch
