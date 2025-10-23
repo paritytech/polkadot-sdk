@@ -78,7 +78,7 @@ impl<
 	> ContainsPair<L, L> for TeleportableForeignAsset<SelfParaId, ReserveProvider, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
-		tracing::trace!(target: "xcm:contains", ?a, ?b, "TeleportableForeignAsset");
+		tracing::trace!(target: "xcm::contains", ?a, ?b, "TeleportableForeignAsset");
 		// We convert locations to latest
 		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
 			(Ok(a), Ok(b)) => (a, b),
