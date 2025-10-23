@@ -20,10 +20,7 @@
 
 use std::{collections::HashSet, time::Instant};
 
-use prometheus_endpoint::{
-	exponential_buckets, linear_buckets, register, Histogram, HistogramOpts, PrometheusError,
-	Registry,
-};
+use prometheus_endpoint::{register, Histogram, PrometheusError, Registry};
 
 use sc_transaction_pool::histograms as tx_pool_histograms;
 
@@ -68,7 +65,7 @@ impl Metrics {
 		)?;
 
 		let dropped = register(
-			tx_pool_histograms::dropped(
+			tx_pool_histograms::invalid(
 				"rpc_transaction_dropped_time",
 				"RPC Transaction dropped time in seconds",
 			)?,

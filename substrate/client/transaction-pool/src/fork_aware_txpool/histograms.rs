@@ -82,41 +82,13 @@ pub fn finalized(name: &'static str, label: &'static str) -> Result<Histogram, P
 	)
 }
 
-/// Histogram of timings for reporting `Usurped` event.
-pub fn usurped(name: &'static str, label: &'static str) -> Result<Histogram, PrometheusError> {
-	Histogram::with_opts(
-		histogram_opts!(name, label).buckets(
-			[
-				linear_buckets(0.0, 3.0, 20).unwrap(),
-				// requested in #9158
-				vec![60.0, 75.0, 90.0, 120.0, 180.0],
-			]
-			.concat(),
-		),
-	)
-}
-
-/// Histogram of timings for reporting `Dropped` event.
-pub fn dropped(name: &'static str, label: &'static str) -> Result<Histogram, PrometheusError> {
-	Histogram::with_opts(
-		histogram_opts!(name, label).buckets(
-			[
-				linear_buckets(0.0, 3.0, 20).unwrap(),
-				// requested in #9158
-				vec![60.0, 75.0, 90.0, 120.0, 180.0],
-			]
-			.concat(),
-		),
-	)
-}
-
-/// Histogram of timings for reporting `Invalid` event.
+/// Histogram of timings for reporting `Invalid` / `Dropped` / `Usurped` events.
 pub fn invalid(name: &'static str, label: &'static str) -> Result<Histogram, PrometheusError> {
 	Histogram::with_opts(
 		histogram_opts!(name, label).buckets(
 			[
 				linear_buckets(0.0, 3.0, 20).unwrap(),
-				// requested in #9158
+				// requested in PR 9158
 				vec![60.0, 75.0, 90.0, 120.0, 180.0],
 			]
 			.concat(),

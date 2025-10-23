@@ -164,14 +164,14 @@ impl EventsHistograms {
 				registry,
 			)?,
 			usurped: register(
-				histograms::usurped(
+				histograms::invalid(
 					"substrate_sub_txpool_timing_event_usurped",
 					"Histogram of timings for reporting Usurped event",
 				)?,
 				registry,
 			)?,
 			dropped: register(
-				histograms::dropped(
+				histograms::invalid(
 					"substrate_sub_txpool_timing_event_dropped",
 					"Histogram of timings for reporting Dropped event",
 				)?,
