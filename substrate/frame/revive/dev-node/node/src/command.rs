@@ -66,7 +66,7 @@ pub fn run() -> sc_cli::Result<()> {
 		}
 	}
 
-	let cli = Cli::from_iter(args);
+	let mut cli = Cli::from_iter(args);
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
@@ -121,6 +121,10 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.sync_run(|config| cmd.run::<revive_dev_runtime::OpaqueBlock>(&config))
 		},
 		None => {
+			// Enforce single-state pool-type if instant-seal is selected
+			if matches!(cli.consensus, crate::cli::Consensus::InstantSeal) {
+				cli.run.pool_config.pool_type = sc_cli::TransactionPoolType::SingleState
+			}
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
 				match config.network.network_backend {
