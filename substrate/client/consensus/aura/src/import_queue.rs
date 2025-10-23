@@ -19,8 +19,8 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	standalone::SealVerificationError, AuthoritiesTracker, AuthorityId, CompatibilityMode, Error,
-	LOG_TARGET,
+	fetch_authorities_from_runtime, standalone::SealVerificationError, AuthoritiesTracker,
+	AuthorityId, CompatibilityMode, Error, LOG_TARGET,
 };
 use codec::Codec;
 use log::{debug, info, trace};
@@ -166,9 +166,7 @@ where
 		}
 
 		let hash = block.header.hash();
-		let number = *block.header.number();
 		let parent_hash = *block.header.parent_hash();
-		let post_header = block.post_header();
 
 		let authorities = self.authorities_tracker.fetch(&block.header).map_err(|e| {
 			format!("Could not fetch authorities for block {hash:?} at number {number}: {e}")
@@ -231,12 +229,6 @@ where
 					let (_, inner_body) = new_block.deconstruct();
 					block.body = Some(inner_body);
 				}
-
-				self.authorities_tracker.import(&post_header).map_err(|e| {
-					format!(
-						"Could not import authorities for block {hash:?} at number {number}: {e}"
-					)
-				})?;
 
 				trace!(target: LOG_TARGET, "Checked {:?}; importing.", pre_header);
 				telemetry!(

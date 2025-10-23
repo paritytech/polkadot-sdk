@@ -104,7 +104,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_collator(|n| {
 					n.with_name("eve").validator(false).with_args(vec![
-						("-laura::authorities_tracker=debug").into(),
 						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
 						("--reserved-only").into(),
 						("--reserved-nodes", "{{ZOMBIE:charlie:multiaddr}}").into(),
