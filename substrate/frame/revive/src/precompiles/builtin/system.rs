@@ -19,7 +19,7 @@ use crate::{
 	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
-	Config, Error as LibError, H160,
+	Config, H160,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -45,7 +45,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 		use ISystem::ISystemCalls;
 		match input {
 			ISystemCalls::terminate(_) if env.is_read_only() =>
-				Err(LibError::<T>::StateChangeDenied.into()),
+				Err(crate::Error::<T>::StateChangeDenied.into()),
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
