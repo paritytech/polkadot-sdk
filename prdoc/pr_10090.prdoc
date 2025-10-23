@@ -7,3 +7,6 @@ crates:
   bump: minor
 - name: pallet-revive-eth-rpc
   bump: patch
+- name: snowbridge-ethereum
+  bump: none
+  validate: false
