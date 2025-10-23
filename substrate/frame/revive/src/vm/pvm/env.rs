@@ -698,7 +698,7 @@ pub mod env {
 			return Err(Error::<E::T>::TooManyTopics.into());
 		}
 
-		if data_len > self.ext.max_value_size() {
+		if data_len > limits::EVENT_BYTES {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 

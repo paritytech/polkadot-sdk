@@ -7936,7 +7936,7 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand 0.9.0",
- "ring 0.17.8",
+ "ring 0.17.14",
  "thiserror 2.0.12",
  "tinyvec",
  "tokio",
@@ -9690,7 +9690,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "quinn",
  "rand 0.8.5",
- "ring 0.17.8",
+ "ring 0.17.14",
  "rustls 0.23.18",
  "socket2 0.5.9",
  "thiserror 1.0.65",
@@ -9782,7 +9782,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "rcgen",
- "ring 0.17.8",
+ "ring 0.17.14",
  "rustls 0.23.18",
  "rustls-webpki 0.101.4",
  "thiserror 1.0.65",
@@ -10016,9 +10016,9 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 
 [[package]]
 name = "litep2p"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c666ef772d123a7643323ad4979c30dd825e9c68ec1aa5b387a6c9a9871c11ea"
+checksum = "766f82624163f63b3df107fcdd014acb28fc9e4990d2a70e56dc454287fd4565"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10039,6 +10039,7 @@ dependencies = [
  "prost 0.13.5",
  "prost-build",
  "rand 0.8.5",
+ "ring 0.17.14",
  "serde",
  "sha2 0.10.9",
  "simple-dns",
@@ -18246,7 +18247,7 @@ checksum = "fadfaed2cd7f389d0161bb73eeb07b7b78f8691047a6f3e73caaeae55310a4a6"
 dependencies = [
  "bytes",
  "rand 0.8.5",
- "ring 0.17.8",
+ "ring 0.17.14",
  "rustc-hash 2.1.1",
  "rustls 0.23.18",
  "slab",
@@ -18982,15 +18983,14 @@ dependencies = [
 
 [[package]]
 name = "ring"
-version = "0.17.8"
+version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
+checksum = "a4689e6c2294d81e88dc6261c768b63bc4fcdb852be6d1352498b114f61383b7"
 dependencies = [
  "cc",
  "cfg-if",
  "getrandom 0.2.10",
  "libc",
- "spin 0.9.8",
  "untrusted 0.9.0",
  "windows-sys 0.52.0",
 ]
@@ -19507,7 +19507,7 @@ checksum = "9c9cc1d47e243d655ace55ed38201c19ae02c148ae56412ab8750e8f0166ab7f"
 dependencies = [
  "log",
  "once_cell",
- "ring 0.17.8",
+ "ring 0.17.14",
  "rustls-pki-types",
  "rustls-webpki 0.102.8",
  "subtle 2.5.0",
@@ -19620,7 +19620,7 @@ version = "0.102.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64ca1bc8749bd4cf37b5ce386cc146580777b4e8572c7b97baf22c83f444bee9"
 dependencies = [
- "ring 0.17.8",
+ "ring 0.17.14",
  "rustls-pki-types",
  "untrusted 0.9.0",
 ]
@@ -21011,6 +21011,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-keystore",
+ "sc-network-statement",
  "sp-api",
  "sp-blockchain",
  "sp-core 28.0.0",
@@ -22202,7 +22203,7 @@ dependencies = [
  "chacha20poly1305",
  "curve25519-dalek",
  "rand_core 0.6.4",
- "ring 0.17.8",
+ "ring 0.17.14",
  "rustc_version 0.4.0",
  "sha2 0.10.9",
  "subtle 2.5.0",
@@ -23515,6 +23516,7 @@ name = "sp-runtime"
 version = "31.0.1"
 dependencies = [
  "binary-merkle-tree",
+ "bytes",
  "docify",
  "either",
  "hash256-std-hasher",
@@ -25992,9 +25994,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f4e6ce100d0eb49a2734f8c0812bcd324cf357d21810932c5df6b96ef2b86f1"
+checksum = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
 dependencies = [
  "futures-core",
  "pin-project-lite",

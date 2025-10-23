@@ -384,9 +384,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the chain id.
 	fn chain_id(&self) -> u64;
 
-	/// Returns the maximum allowed size of a storage item.
-	fn max_value_size(&self) -> u32;
-
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
 
@@ -1327,8 +1324,12 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					// Only keep return data for tracing
-					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
+					// Only keep return data for tracing and for dry runs.
+					// When a dry-run simulates contract deployment, keep the execution result's
+					// data.
+					let data = if crate::tracing::if_tracing(|_| {}).is_none() &&
+						!self.exec_config.is_dry_run
+					{
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
 						output.data.clone()
@@ -2177,10 +2178,6 @@ where
 
 	fn chain_id(&self) -> u64 {
 		<T as Config>::ChainId::get()
-	}
-
-	fn max_value_size(&self) -> u32 {
-		limits::PAYLOAD_BYTES
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {

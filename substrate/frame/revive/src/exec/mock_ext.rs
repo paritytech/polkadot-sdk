@@ -152,10 +152,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::chain_id")
 	}
 
-	fn max_value_size(&self) -> u32 {
-		panic!("MockExt::max_value_size")
-	}
-
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
 		&self.gas_meter
 	}
