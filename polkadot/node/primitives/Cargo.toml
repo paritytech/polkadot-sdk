@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-primitives"
 description = "Primitives types for the Node-side"
-version = "22.0.0"
+version = "22.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
