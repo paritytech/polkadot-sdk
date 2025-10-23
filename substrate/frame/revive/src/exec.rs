@@ -1369,7 +1369,6 @@ where
 		//
 		// `with_transactional` may return an error caused by a limit in the
 		// transactional storage depth.
-
 		let transaction_outcome =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = if let Some(mock_answer) = mock_answer {
