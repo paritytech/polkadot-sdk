@@ -69,3 +69,31 @@ fn try_state_detects_inconsistent_active_current_era() {
 		assert_ok!(Staking::do_try_state(System::block_number()));
 	});
 }
+
+#[test]
+fn try_state_bad_exposure() {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		assert!(Staking::do_try_state(System::block_number()).is_ok());
+
+		let (validator, mut metadata) = ErasStakersOverview::<T>::iter()
+			.take(1)
+			.map(|(_era, validator, metadata)| (validator, metadata))
+			.collect::<Vec<_>>()
+			.pop()
+			.unwrap();
+		metadata.total += 1;
+		ErasStakersOverview::<T>::insert(2, validator, metadata);
+		assert!(Staking::do_try_state(System::block_number()).is_err());
+	});
+}
+
+#[test]
+fn try_state_bad_eras_total_stake() {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		assert!(Staking::do_try_state(System::block_number()).is_ok());
+		ErasTotalStake::<T>::mutate(2, |s| *s -= 1);
+		assert!(Staking::do_try_state(System::block_number()).is_err());
+	});
+}
