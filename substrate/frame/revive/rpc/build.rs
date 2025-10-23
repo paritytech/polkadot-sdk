@@ -55,7 +55,7 @@ fn generate_git_revision() {
 fn generate_metadata_file() {
 	let mut ext = sp_io::TestExternalities::new(Default::default());
 	ext.execute_with(|| {
-		let metadata = revive_dev_runtime::Runtime::metadata_at_version(16).unwrap();
+		let metadata = asset_hub_westend_runtime::Runtime::metadata_at_version(16).unwrap();
 		let bytes: &[u8] = &metadata;
 		fs::write("revive_chain.scale", bytes).unwrap();
 	});

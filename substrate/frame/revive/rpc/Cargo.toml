@@ -59,6 +59,6 @@ substrate-cli-test-utils = { workspace = true }
 
 [build-dependencies]
 git2 = { workspace = true }
-revive-dev-runtime = { workspace = true, default-features = true }
+asset-hub-westend-runtime = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
