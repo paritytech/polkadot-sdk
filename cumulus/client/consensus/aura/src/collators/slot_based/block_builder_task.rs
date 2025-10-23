@@ -201,7 +201,7 @@ where
 				continue;
 			};
 
-			let Ok(rp_data) = offset_relay_parent_find_descendants(
+			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				relay_best_hash,
 				relay_parent_offset,
@@ -467,7 +467,7 @@ pub(crate) async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	relay_best_block: RelayHash,
 	relay_parent_offset: u32,
-) -> Result<RelayParentData, ()>
+) -> Result<Option<RelayParentData>, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
@@ -481,7 +481,12 @@ where
 	};
 
 	if relay_parent_offset == 0 {
-		return Ok(RelayParentData::new(relay_header));
+		return Ok(Some(RelayParentData::new(relay_header)));
+	}
+
+	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
+		tracing::debug!(target: LOG_TARGET, ?relay_best_block, "Relay header contains epoch change.");
+		return Ok(None);
 	}
 
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
@@ -492,6 +497,10 @@ where
 			.await?
 			.relay_parent_header
 			.clone();
+		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_header) {
+			tracing::debug!(target: LOG_TARGET, ?relay_best_block, ancestor = %next_header.hash(), "Next header contains epoch change.");
+			return Ok(None);
+		}
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}
@@ -510,7 +519,7 @@ where
 		"Relay parent descendants."
 	);
 
-	Ok(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into()))
+	Ok(Some(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into())))
 }
 
 /// Return value of [`determine_core`].
