@@ -20,8 +20,6 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [dependencies]
-alloy-consensus = { workspace = true, default-features = true }
-alloy-core = { workspace = true, features = ["sol-types"], default-features = true }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
