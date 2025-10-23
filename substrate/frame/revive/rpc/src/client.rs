@@ -812,6 +812,59 @@ impl Client {
 		}
 	}
 
+	/// Get the EVM block for the given block and receipts.
+	pub async fn evm_block_from_receipts(
+		&self,
+		block: &SubstrateBlock,
+		receipts: &[ReceiptInfo],
+		signed_txs: Vec<TransactionSigned>,
+		hydrated_transactions: bool,
+	) -> Block {
+		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(block.hash()));
+		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
+
+		let header = block.header();
+		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+		let block_author = runtime_api.block_author().await.ok().unwrap_or_default();
+
+		// TODO: remove once subxt is updated
+		let parent_hash = header.parent_hash.0.into();
+		let state_root = header.state_root.0.into();
+		let extrinsics_root = header.extrinsics_root.0.into();
+
+		let gas_used = receipts.iter().fold(U256::zero(), |acc, receipt| acc + receipt.gas_used);
+		let transactions = if hydrated_transactions {
+			signed_txs
+				.into_iter()
+				.zip(receipts.iter())
+				.map(|(signed_tx, receipt)| TransactionInfo::new(receipt, signed_tx))
+				.collect::<Vec<TransactionInfo>>()
+				.into()
+		} else {
+			receipts
+				.iter()
+				.map(|receipt| receipt.transaction_hash)
+				.collect::<Vec<_>>()
+				.into()
+		};
+
+		Block {
+			hash: block.hash(),
+			parent_hash,
+			state_root,
+			miner: block_author,
+			transactions_root: extrinsics_root,
+			number: header.number.into(),
+			timestamp: timestamp.into(),
+			base_fee_per_gas: runtime_api.gas_price().await.ok().unwrap_or_default(),
+			gas_limit,
+			gas_used,
+			receipts_root: extrinsics_root,
+			transactions,
+			..Default::default()
+		}
+	}
+
 	/// Get the chain ID.
 	pub fn chain_id(&self) -> u64 {
 		self.chain_id
