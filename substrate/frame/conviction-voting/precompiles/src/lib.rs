@@ -23,7 +23,8 @@ use alloc::vec::Vec;
 use core::{fmt, marker::PhantomData, num::NonZero};
 use frame_support::{
 	dispatch::RawOrigin,
-	traits::{Currency, Polling},
+	sp_runtime::traits::StaticLookup,
+	traits::{Currency, Get, Polling},
 };
 use pallet_conviction_voting::{AccountVote, Config, Conviction, Tally, Vote, WeightInfo};
 use pallet_revive::{
@@ -31,7 +32,7 @@ use pallet_revive::{
 		alloy::{self},
 		AddressMatcher, Error, Ext, Precompile,
 	},
-	ExecOrigin as Origin,
+	AddressMapper, ExecOrigin as Origin, H160,
 };
 use tracing::error;
 
@@ -57,9 +58,17 @@ where
 			<T as pallet_conviction_voting::Config>::MaxTurnout,
 		>,
 	>>::Index: From<u32>, //Enforces u32 as ReferendumIndex
+	<<T as pallet_conviction_voting::Config>::Polls as Polling<
+		Tally<
+			<<T as pallet_conviction_voting::Config>::Currency as Currency<
+				<T as pallet_revive::frame_system::Config>::AccountId,
+			>>::Balance,
+			<T as pallet_conviction_voting::Config>::MaxTurnout,
+		>,
+	>>::Class: From<u16>, //Enforces u16 as TrackId
 	<<T as pallet_conviction_voting::Config>::Currency as Currency<
 		<T as pallet_revive::frame_system::Config>::AccountId,
-	>>::Balance: From<u128>,
+	>>::Balance: From<u128>, //Enforces balance as u128
 {
 	type T = T;
 	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(12).unwrap());
@@ -153,6 +162,38 @@ where
 				)
 				.map(|_| Vec::new())
 				.map_err(|error| revert(&error, "ConvictionVoting: vote failed"))
+			},
+			IConvictionVotingCalls::delegate(IConvictionVoting::delegateCall {
+				trackId,
+				to,
+				conviction,
+				balance,
+			}) => {
+				let _ = env
+					.charge(<T as Config>::WeightInfo::delegate(<T as Config>::MaxVotes::get()))?;
+
+				let target_account_id = T::AddressMapper::to_account_id(&H160::from(to.0 .0));
+				let target_source = T::Lookup::unlookup(target_account_id);
+
+				let runtime_conviction = to_runtime_conviction(*conviction)?;
+
+				pallet_conviction_voting::Pallet::<T>::delegate(
+					frame_origin,
+					(*trackId).into(),
+					target_source,
+					runtime_conviction,
+					(*balance).into()
+				)
+				.map(|_| Vec::new())
+				.map_err(|error| revert(&error, "ConvictionVoting: delegation failed"))
+			},
+			IConvictionVotingCalls::undelegate(IConvictionVoting::undelegateCall { trackId }) => {
+				let _ = env
+					.charge(<T as Config>::WeightInfo::undelegate(<T as Config>::MaxVotes::get()))?;
+
+				pallet_conviction_voting::Pallet::<T>::undelegate(frame_origin, (*trackId).into())
+					.map(|_| Vec::new())
+					.map_err(|error| revert(&error, "ConvictionVoting: delegation failed"))
 			},
 			_ => Ok(Vec::new()),
 		}
