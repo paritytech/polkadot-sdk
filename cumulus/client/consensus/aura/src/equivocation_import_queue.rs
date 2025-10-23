@@ -29,7 +29,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
-use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker};
+use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker, CompatibilityMode};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;

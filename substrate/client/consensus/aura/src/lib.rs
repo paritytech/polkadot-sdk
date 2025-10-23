@@ -650,7 +650,7 @@ mod tests {
 
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
 			AuraVerifier::new(
-				client,
+				client.clone(),
 				Box::new(|_, _| async {
 					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
 						Timestamp::current(),
@@ -660,7 +660,7 @@ mod tests {
 				}),
 				CheckForEquivocation::Yes,
 				None,
-				CompatibilityMode::None,
+				Arc::new(AuthoritiesTracker::new(client, &CompatibilityMode::None).unwrap()),
 			)
 			.unwrap()
 		}
