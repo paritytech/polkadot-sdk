@@ -338,9 +338,9 @@ where
 	}
 }
 
-/// Implements [`ConversionFromAssetBalance`], allowing for a 1:1 balance conversion of the asset
-/// when it meets the conditions specified by `C`. If the conditions are not met, the conversion is
-/// delegated to `O`.
+/// Implements [`ConversionFromAssetBalance`] and [`ConversionToAssetBalance`], allowing for a 1:1
+/// balance conversion of the asset when it meets the conditions specified by `C`. If the
+/// conditions are not met, the conversion is delegated to `O`.
 pub struct UnityOrOuterConversion<C, O>(core::marker::PhantomData<(C, O)>);
 impl<AssetBalance, AssetId, OutBalance, C, O>
 	ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> for UnityOrOuterConversion<C, O>
@@ -362,6 +362,24 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(asset_id: AssetId) {
 		O::ensure_successful(asset_id)
+	}
+}
+impl<InBalance, AssetId, AssetBalance, C, O>
+	ConversionToAssetBalance<InBalance, AssetId, AssetBalance> for UnityOrOuterConversion<C, O>
+where
+	C: Contains<AssetId>,
+	O: ConversionToAssetBalance<InBalance, AssetId, AssetBalance>,
+	InBalance: Into<AssetBalance>,
+{
+	type Error = O::Error;
+	fn to_asset_balance(
+		balance: InBalance,
+		asset_id: AssetId,
+	) -> Result<AssetBalance, Self::Error> {
+		if C::contains(&asset_id) {
+			return Ok(balance.into());
+		}
+		O::to_asset_balance(balance, asset_id)
 	}
 }
 
