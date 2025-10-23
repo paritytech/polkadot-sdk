@@ -4,6 +4,6 @@ doc:
   description: Bump the alloy-consensus version and include the serde feature in std
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: minor
 - name: pallet-revive-eth-rpc
   bump: patch
