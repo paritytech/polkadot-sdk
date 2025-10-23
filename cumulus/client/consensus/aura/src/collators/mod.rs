@@ -75,7 +75,7 @@ impl<Client> BackingGroupConnectionHelper<Client> {
 	}
 
 	async fn send_subsystem_message(&mut self, message: CollatorProtocolMessage) {
-		self.overseer_handle.send_msg(message, "CollatorProtocolHelper").await;
+		self.overseer_handle.send_msg(message, "BackingGroupConnectionHelper").await;
 	}
 
 	/// Update the current slot and initiate connections to backing groups if needed.
