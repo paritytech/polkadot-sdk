@@ -855,9 +855,9 @@ reason = "changed"
 [[crate]]
 # polkadot/node/primitives
 name = "polkadot-node-primitives"
-from = "17.0.0"
-to = "17.0.1"
-bump = "patch"
+from = "17.0.1"
+to = "17.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3571,9 +3571,9 @@ to = "0.1.0"
 [[crate]]
 # polkadot/node/network/approval-distribution
 name = "polkadot-approval-distribution"
-from = "20.0.0"
-to = "21.0.0"
-bump = "major"
+from = "21.0.0"
+to = "21.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
