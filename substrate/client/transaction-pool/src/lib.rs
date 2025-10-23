@@ -35,7 +35,7 @@ use std::sync::Arc;
 pub use api::FullChainApi;
 pub use builder::{Builder, TransactionPoolHandle, TransactionPoolOptions, TransactionPoolType};
 pub use common::notification_future;
-pub use fork_aware_txpool::{metrics::histograms, ForkAwareTxPool, ForkAwareTxPoolTask};
+pub use fork_aware_txpool::{histograms, ForkAwareTxPool, ForkAwareTxPoolTask};
 pub use graph::{
 	base_pool::{Limit as PoolLimit, TimedTransactionSource},
 	ChainApi, Options, Pool, ValidateTransactionPriority,

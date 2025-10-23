@@ -368,6 +368,7 @@
 
 mod dropped_watcher;
 pub(crate) mod fork_aware_txpool;
+pub mod histograms;
 mod import_notification_sink;
 mod metrics;
 mod multi_view_listener;
@@ -376,7 +377,7 @@ mod tx_mem_pool;
 mod view;
 mod view_store;
 
-pub use fork_aware_txpool::{metrics::histograms, ForkAwareTxPool, ForkAwareTxPoolTask};
+pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 
 mod stream_map_util {
 	use futures::Stream;

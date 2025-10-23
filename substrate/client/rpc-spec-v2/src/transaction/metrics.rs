@@ -25,6 +25,8 @@ use prometheus_endpoint::{
 	Registry,
 };
 
+use sc_transaction_pool::histograms as tx_pool_histograms;
+
 use super::TransactionEvent;
 
 /// RPC layer metrics for transaction pool.
@@ -42,102 +44,49 @@ impl Metrics {
 	/// Creates a new [`Metrics`] instance.
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
 		let validated = register(
-			Histogram::with_opts(
-				HistogramOpts::new(
-					"rpc_transaction_validation_time",
-					"RPC Transaction validation time in seconds",
-				)
-				.buckets(exponential_buckets(0.01, 2.0, 16).expect("Valid buckets; qed")),
+			tx_pool_histograms::ready_future(
+				"rpc_transaction_validation_time",
+				"RPC Transaction validation time in seconds",
 			)?,
 			registry,
 		)?;
 
 		let in_block = register(
-			Histogram::with_opts(
-				HistogramOpts::new(
-					"rpc_transaction_in_block_time",
-					"RPC Transaction in block time in seconds",
-				)
-				.buckets(
-					[
-						linear_buckets(0.0, 3.0, 20).unwrap(),
-						// requested in #9158
-						vec![60.0, 75.0, 90.0, 120.0, 180.0],
-					]
-					.concat(),
-				),
+			tx_pool_histograms::in_block(
+				"rpc_transaction_in_block_time",
+				"RPC Transaction in block time in seconds",
 			)?,
 			registry,
 		)?;
 
 		let finalized = register(
-			Histogram::with_opts(
-				HistogramOpts::new(
-					"rpc_transaction_finalized_time",
-					"RPC Transaction finalized time in seconds",
-				)
-				.buckets(
-					[
-						// requested in #9158
-						linear_buckets(0.0, 5.0, 8).unwrap(),
-						linear_buckets(40.0, 40.0, 19).unwrap(),
-					]
-					.concat(),
-				),
+			tx_pool_histograms::finalized(
+				"rpc_transaction_finalized_time",
+				"RPC Transaction finalized time in seconds",
 			)?,
 			registry,
 		)?;
 
 		let dropped = register(
-			Histogram::with_opts(
-				HistogramOpts::new(
-					"rpc_transaction_dropped_time",
-					"RPC Transaction dropped time in seconds",
-				)
-				.buckets(
-					[
-						linear_buckets(0.0, 3.0, 20).unwrap(),
-						// requested in #9158
-						vec![60.0, 75.0, 90.0, 120.0, 180.0],
-					]
-					.concat(),
-				),
+			tx_pool_histograms::dropped(
+				"rpc_transaction_dropped_time",
+				"RPC Transaction dropped time in seconds",
 			)?,
 			registry,
 		)?;
 
 		let invalid = register(
-			Histogram::with_opts(
-				HistogramOpts::new(
-					"rpc_transaction_invalid_time",
-					"RPC Transaction invalid time in seconds",
-				)
-				.buckets(
-					[
-						linear_buckets(0.0, 3.0, 20).unwrap(),
-						// requested in #9158
-						vec![60.0, 75.0, 90.0, 120.0, 180.0],
-					]
-					.concat(),
-				),
+			tx_pool_histograms::invalid(
+				"rpc_transaction_invalid_time",
+				"RPC Transaction invalid time in seconds",
 			)?,
 			registry,
 		)?;
 
 		let error = register(
-			Histogram::with_opts(
-				HistogramOpts::new(
-					"rpc_transaction_error_time",
-					"RPC Transaction error time in seconds",
-				)
-				.buckets(
-					[
-						linear_buckets(0.0, 3.0, 20).unwrap(),
-						// requested in #9158
-						vec![60.0, 75.0, 90.0, 120.0, 180.0],
-					]
-					.concat(),
-				),
+			tx_pool_histograms::invalid(
+				"rpc_transaction_error_time",
+				"RPC Transaction error time in seconds",
 			)?,
 			registry,
 		)?;

@@ -33,6 +33,7 @@ rand = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 serde = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }

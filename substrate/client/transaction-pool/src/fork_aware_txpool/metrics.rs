@@ -22,12 +22,12 @@ use super::tx_mem_pool::InsertionInfo;
 use crate::{
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{self, BlockHash, ExtrinsicHash},
-	LOG_TARGET,
+	histograms, LOG_TARGET,
 };
 use futures::{FutureExt, StreamExt};
 use prometheus_endpoint::{
-	exponential_buckets, histogram_opts, linear_buckets, register, Counter, Gauge, Histogram,
-	PrometheusError, Registry, U64,
+	histogram_opts, linear_buckets, register, Counter, Gauge, Histogram, PrometheusError, Registry,
+	U64,
 };
 #[cfg(doc)]
 use sc_transaction_pool_api::TransactionPool;
@@ -111,122 +111,6 @@ pub struct EventsHistograms {
 	pub invalid: Histogram,
 }
 
-/// Transaction metrics for various transaction states.
-///
-/// The histograms are shared between the transaction pool and the RPC layer.
-///
-/// # Note
-///
-/// The RPC layer will utilize a subset of these metrics for now, since the
-/// RPC emitted events do not have a direct mapping to all transaction pool events.
-///
-/// Changing these metrics will impact the RPC layer as well.
-pub mod histograms {
-	use super::*;
-
-	/// Histogram of timings for reporting `Ready`/`Future` events.
-	pub fn ready_future(
-		name: &'static str,
-		label: &'static str,
-	) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(histogram_opts!(
-			name,
-			label,
-			exponential_buckets(0.01, 2.0, 16).unwrap()
-		))
-	}
-
-	pub fn broadcast(
-		name: &'static str,
-		label: &'static str,
-	) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(histogram_opts!(name, label, linear_buckets(0.01, 0.25, 16).unwrap()))
-	}
-
-	/// Histogram of timings for reporting `InBlock` event.
-	pub fn in_block(name: &'static str, label: &'static str) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(
-			histogram_opts!(name, label).buckets(
-				[
-					linear_buckets(0.0, 3.0, 20).unwrap(),
-					// requested in #9158
-					vec![60.0, 75.0, 90.0, 120.0, 180.0],
-				]
-				.concat(),
-			),
-		)
-	}
-
-	pub fn retracted(
-		name: &'static str,
-		label: &'static str,
-	) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(histogram_opts!(name, label, linear_buckets(0.0, 3.0, 20).unwrap()))
-	}
-
-	pub fn finalized_timeout(
-		name: &'static str,
-		label: &'static str,
-	) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(histogram_opts!(name, label, linear_buckets(0.0, 40.0, 20).unwrap()))
-	}
-
-	pub fn finalized(
-		name: &'static str,
-		label: &'static str,
-	) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(
-			histogram_opts!(name, label).buckets(
-				[
-					// requested in #9158
-					linear_buckets(0.0, 5.0, 8).unwrap(),
-					linear_buckets(40.0, 40.0, 19).unwrap(),
-				]
-				.concat(),
-			),
-		)
-	}
-
-	pub fn usurped(name: &'static str, label: &'static str) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(
-			histogram_opts!(name, label).buckets(
-				[
-					linear_buckets(0.0, 3.0, 20).unwrap(),
-					// requested in #9158
-					vec![60.0, 75.0, 90.0, 120.0, 180.0],
-				]
-				.concat(),
-			),
-		)
-	}
-
-	pub fn dropped(name: &'static str, label: &'static str) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(
-			histogram_opts!(name, label).buckets(
-				[
-					linear_buckets(0.0, 3.0, 20).unwrap(),
-					// requested in #9158
-					vec![60.0, 75.0, 90.0, 120.0, 180.0],
-				]
-				.concat(),
-			),
-		)
-	}
-
-	pub fn invalid(name: &'static str, label: &'static str) -> Result<Histogram, PrometheusError> {
-		Histogram::with_opts(
-			histogram_opts!(name, label).buckets(
-				[
-					linear_buckets(0.0, 3.0, 20).unwrap(),
-					// requested in #9158
-					vec![60.0, 75.0, 90.0, 120.0, 180.0],
-				]
-				.concat(),
-			),
-		)
-	}
-}
-
 impl EventsHistograms {
 	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
 		Ok(Self {
@@ -266,7 +150,7 @@ impl EventsHistograms {
 				registry,
 			)?,
 			finality_timeout: register(
-				histograms::finality_timeout(
+				histograms::finalized_timeout(
 					"substrate_sub_txpool_timing_event_finality_timeout",
 					"Histogram of timings for reporting FinalityTimeout event",
 				)?,
