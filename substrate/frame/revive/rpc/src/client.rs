@@ -671,7 +671,7 @@ impl Client {
 		let parent_hash = block.header.parent_hash;
 		let runtime_api = self.runtime_api(parent_hash);
 
-		runtime_api.trace_tx(block, transaction_index as u32, config.clone()).await
+		runtime_api.trace_tx(block, transaction_index as u32, config).await
 	}
 
 	/// Get the transaction traces for the given block.
@@ -683,7 +683,7 @@ impl Client {
 	) -> Result<Trace, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
-		runtime_api.trace_call(transaction, config.clone()).await
+		runtime_api.trace_call(transaction, config).await
 	}
 
 	/// Get the EVM block for the given Substrate block.
