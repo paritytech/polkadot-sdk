@@ -14130,7 +14130,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-approval-distribution"
-version = "21.0.0"
+version = "21.0.1"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -14984,7 +14984,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-primitives"
-version = "17.0.1"
+version = "17.1.0"
 dependencies = [
  "bitvec",
  "bounded-vec",

@@ -2512,7 +2512,7 @@ version = "20.0.2"
 path = "../polkadot/node/network/approval-distribution"
 default-features = false
 optional = true
-version = "21.0.0"
+version = "21.0.1"
 
 [dependencies.polkadot-availability-bitfield-distribution]
 path = "../polkadot/node/network/bitfield-distribution"
@@ -2698,7 +2698,7 @@ version = "21.0.0"
 path = "../polkadot/node/primitives"
 default-features = false
 optional = true
-version = "17.0.1"
+version = "17.1.0"
 
 [dependencies.polkadot-node-subsystem]
 path = "../polkadot/node/subsystem"
