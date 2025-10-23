@@ -376,7 +376,7 @@ mod tx_mem_pool;
 mod view;
 mod view_store;
 
-pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
+pub use fork_aware_txpool::{metrics::histograms, ForkAwareTxPool, ForkAwareTxPoolTask};
 
 mod stream_map_util {
 	use futures::Stream;
