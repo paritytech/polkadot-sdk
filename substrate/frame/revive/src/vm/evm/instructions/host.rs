@@ -271,7 +271,7 @@ pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> Con
 			ControlFlow::Break(Halt::Return(Vec::default()))
 		},
 		Err(e) => {
-			log::error!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
+			log::debug!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
 			ControlFlow::Break(Halt::Err(e))
 		},
 	}
