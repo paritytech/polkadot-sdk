@@ -1,0 +1,16 @@
+title: 'rpc-v2/archive: Remove unused structs'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR removes unused structures from the RPC V2 archive.
+
+    While at it, remove unnecessary parentheses to make clippy happy.
+
+    cc @paritytech/subxt-team
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: sc-service
+  bump: patch
+- name: pallet-identity
+  bump: patch
