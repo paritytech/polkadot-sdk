@@ -102,7 +102,7 @@ pub struct Config<M: Send + Sync + 'static> {
 	/// Tokio runtime handle.
 	pub tokio_handle: tokio::runtime::Handle,
 	/// RPC logger capacity (default: 1024).
-	pub rpc_log_limit: u32,
+	pub request_logger_limit: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -118,7 +118,8 @@ pub async fn start_server<M>(config: Config<M>) -> Result<Server, Box<dyn StdErr
 where
 	M: Send + Sync,
 {
-	let Config { endpoints, metrics, tokio_handle, rpc_api, id_provider, rpc_log_limit } = config;
+	let Config { endpoints, metrics, tokio_handle, rpc_api, id_provider, request_logger_limit } =
+		config;
 
 	let (stop_handle, server_handle) = stop_channel();
 	let cfg = PerConnection {
@@ -256,7 +257,7 @@ where
 						};
 
 						let rpc_middleware = RpcServiceBuilder::new()
-							.rpc_logger(rpc_log_limit)
+							.rpc_logger(request_logger_limit)
 							.option_layer(middleware_layer.clone());
 						let mut svc = service_builder
 							.set_rpc_middleware(rpc_middleware)

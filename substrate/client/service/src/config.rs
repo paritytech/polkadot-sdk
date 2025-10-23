@@ -341,7 +341,7 @@ pub struct RpcConfiguration {
 	/// RPC rate limit trust proxy headers.
 	pub rate_limit_trust_proxy_headers: bool,
 	/// RPC logger capacity (default: 1024).
-	pub rpc_log_limit: u32,
+	pub request_logger_limit: u32,
 }
 
 /// Runtime executor configuration.
