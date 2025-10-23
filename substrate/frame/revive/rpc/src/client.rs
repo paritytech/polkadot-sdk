@@ -637,27 +637,19 @@ impl Client {
 		}
 
 		let block_hash = self.block_hash_for_tag(at.into()).await?;
+		let block = self.tracing_block(block_hash).await?;
+		let parent_hash = block.header().parent_hash;
+		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
+		let traces = runtime_api.trace_block(block, config.clone()).await?;
 
-		// Get the SubstrateBlock to build the extrinsic index mapping
-		let substrate_block =
-			self.block_by_hash(&block_hash).await?.ok_or(ClientError::BlockNotFound)?;
-
-		let mut ext_to_tx_mapping = self
+		let mut hashes = self
 			.receipt_provider
-			.get_block_extrinsic_to_transaction_mapping(&substrate_block)
+			.block_transaction_hashes(&block_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		// Get the tracing block for runtime API
-		let tracing_block = self.tracing_block(block_hash).await?;
-		let parent_hash = tracing_block.header().parent_hash;
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
-		let traces = runtime_api.trace_block(tracing_block, config.clone()).await?;
-
-		// Map traces using substrate extrinsic indices
-		let traces = traces.into_iter().filter_map(|(extrinsic_index, trace)| {
-			let tx_hash = ext_to_tx_mapping.remove(&(extrinsic_index as usize))?;
-			Some(TransactionTrace { tx_hash, trace })
+		let traces = traces.into_iter().filter_map(|(index, trace)| {
+			Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
 		});
 
 		Ok(traces.collect())
@@ -669,17 +661,17 @@ impl Client {
 		transaction_hash: H256,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
-		let (substrate_hash, extrinsic_index) = self
+		let (block_hash, transaction_index) = self
 			.receipt_provider
-			.get_substrate_block_and_extrinsic_index(&transaction_hash)
+			.find_transaction(&transaction_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let block = self.tracing_block(substrate_hash).await?;
+		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
 		let runtime_api = self.runtime_api(parent_hash);
 
-		runtime_api.trace_tx(block, extrinsic_index as u32, config.clone()).await
+		runtime_api.trace_tx(block, transaction_index as u32, config).await
 	}
 
 	/// Get the transaction traces for the given block.
@@ -691,7 +683,7 @@ impl Client {
 	) -> Result<Trace, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
-		runtime_api.trace_call(transaction, config.clone()).await
+		runtime_api.trace_call(transaction, config).await
 	}
 
 	/// Get the EVM block for the given Substrate block.

@@ -38,11 +38,16 @@ use pallet_revive::{
 	},
 };
 use static_init::dynamic;
-use std::{sync::Arc, thread};
+use std::{collections::BTreeMap, sync::Arc, thread};
 use substrate_cli_test_utils::*;
 use subxt::{
-	backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, tx::SubmittableTransaction, OnlineClient,
+	backend::rpc::RpcClient,
+	ext::subxt_rpcs::rpc_params,
+	tx::{SubmittableTransaction, TxStatus},
+	OnlineClient,
 };
+
+const LOG_TARGET: &str = "eth-rpc-tests";
 
 /// Create a websocket client with a 120s timeout.
 async fn ws_client_with_retry(url: &str) -> WsClient {
@@ -139,7 +144,7 @@ async fn prepare_evm_transactions<Client: EthRpcClient + Sync + Send>(
 			.to(recipient);
 
 		transactions.push(tx_builder);
-		println!("Prepared EVM transaction {}/{count} with nonce: {nonce:?}", i + 1);
+		log::trace!(target: LOG_TARGET, "Prepared EVM transaction {}/{count} with nonce: {nonce:?}", i + 1);
 		nonce = nonce.saturating_add(U256::one());
 	}
 
@@ -155,7 +160,6 @@ async fn prepare_substrate_transactions(
 	let mut nonce = node_client.tx().account_nonce(&signer.public_key().into()).await?;
 	let mut substrate_txs = Vec::new();
 	for i in 0..count {
-		nonce += i as u64;
 		let remark_data = format!("Hello from test {}", i);
 		let call = subxt::dynamic::tx(
 			"System",
@@ -169,7 +173,8 @@ async fn prepare_substrate_transactions(
 
 		let tx = node_client.tx().create_signed(&call, signer, params).await?;
 		substrate_txs.push(tx);
-		println!("Prepared substrate transaction {}/{count} with nonce: {nonce:?}", i + 1);
+		log::trace!(target: LOG_TARGET, "Prepared substrate transaction {i}/{count} with nonce: {nonce}");
+		nonce += 1 as u64;
 	}
 	Ok(substrate_txs)
 }
@@ -228,18 +233,26 @@ async fn submit_substrate_transactions(
 		let fut = async move {
 			match tx.submit_and_watch().await {
 				Ok(mut progress) => {
-					println!("Substrate tx {i} submitted");
+					log::trace!(target: LOG_TARGET, "Substrate tx {i} submitted");
 					while let Some(status) = progress.next().await {
 						match status {
-							Ok(s) if s.as_in_block().is_some() || s.as_finalized().is_some() => {
-								println!("Substrate tx {i} included in block");
-								return Ok::<(), anyhow::Error>(());
+							Ok(TxStatus::InFinalizedBlock(block)) |
+							Ok(TxStatus::InBestBlock(block)) => {
+								log::trace!(target: LOG_TARGET,
+									"Substrate tx {i} included in block {:?}",
+									block.block_hash()
+								);
+								return Ok(());
 							},
 							Err(e) => return Err(anyhow::anyhow!("Substrate tx {i} error: {e}")),
-							_ => {},
+							Ok(status) => {
+								log::trace!(target: LOG_TARGET, "Substrate tx {i} status {:?}", status);
+							},
 						}
 					}
-					Ok(())
+					Err(anyhow::anyhow!(
+						"Failed to get status of submitted substrate tx {i}, assuming error"
+					))
 				},
 				Err(e) => Err(anyhow::anyhow!("Failed to submit substrate tx {i}: {e}")),
 			}
@@ -250,32 +263,43 @@ async fn submit_substrate_transactions(
 	futures
 }
 
-/// Verify that a single block contains the expected transactions
-/// Assumes all transactions are in the same block (typical for dev node)
-async fn assert_block_contains_transactions<Client: EthRpcClient + Sync>(
+/// Verify that each transaction exists in its block and is accessible via RPC
+/// Takes a map of block_number -> transaction_hashes for efficient verification
+async fn verify_transactions_in_blocks<Client: EthRpcClient + Sync>(
 	client: &Arc<Client>,
-	block_number: U256,
-	expected_tx_hashes: &[H256],
+	blocks_map: &BTreeMap<U256, Vec<H256>>,
 ) -> anyhow::Result<()> {
-	let block = client
-		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
-		.await?
-		.ok_or_else(|| anyhow::anyhow!("Block {block_number} should exist"))?;
+	for (block_number, expected_tx_hashes) in blocks_map {
+		// Fetch the block once for all transactions
+		let block = client
+			.get_block_by_number(BlockNumberOrTag::U256(*block_number), false)
+			.await?
+			.ok_or_else(|| anyhow!("Block {block_number} should exist"))?;
 
-	let block_tx_hashes = match &block.transactions {
-		pallet_revive::evm::HashesOrTransactionInfos::Hashes(hashes) => hashes.clone(),
-		pallet_revive::evm::HashesOrTransactionInfos::TransactionInfos(infos) =>
-			infos.iter().map(|info| info.hash).collect(),
-	};
+		let block_tx_hashes = match &block.transactions {
+			pallet_revive::evm::HashesOrTransactionInfos::Hashes(hashes) => hashes.clone(),
+			pallet_revive::evm::HashesOrTransactionInfos::TransactionInfos(infos) =>
+				infos.iter().map(|info| info.hash).collect(),
+		};
 
-	assert_eq!(expected_tx_hashes, block_tx_hashes);
+		// Verify each expected transaction is in the block
+		for expected_hash in expected_tx_hashes {
+			assert!(
+				block_tx_hashes.contains(expected_hash),
+				"Block {block_number} should contain transaction {expected_hash:?}"
+			);
 
-	println!(
-		"Block {} contains all {} expected transactions (total in block: {})",
-		block_number,
-		expected_tx_hashes.len(),
-		block_tx_hashes.len()
-	);
+			// Verify we can fetch the transaction by hash
+			let tx = client.get_transaction_by_hash(*expected_hash).await?.ok_or_else(|| {
+				anyhow!("Transaction {expected_hash:?} should be retrievable by hash")
+			})?;
+
+			assert_eq!(
+				tx.block_number, *block_number,
+				"Transaction {expected_hash:?} should be in block {block_number}"
+			);
+		}
+	}
 
 	Ok(())
 }
@@ -492,8 +516,8 @@ async fn evm_blocks_should_match() -> anyhow::Result<()> {
 	let receipt = tx.wait_for_receipt().await?;
 	let block_number = receipt.block_number;
 	let block_hash = receipt.block_hash;
-	println!("block_number = {block_number:?}");
-	println!("tx hash = {:?}", tx.hash());
+	log::trace!(target: LOG_TARGET, "block_number = {block_number:?}");
+	log::trace!(target: LOG_TARGET, "tx hash = {:?}", tx.hash());
 
 	let evm_block_from_storage =
 		get_evm_block_from_storage(&node_client, &node_rpc_client, block_number).await?;
@@ -541,8 +565,8 @@ async fn evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 	let receipt = tx.wait_for_receipt().await?;
 	let block_number = receipt.block_number;
 	let block_hash = receipt.block_hash;
-	println!("block_number = {block_number:?}");
-	println!("tx hash = {:?}", tx.hash());
+	log::trace!(target: LOG_TARGET, "block_number = {block_number:?}");
+	log::trace!(target: LOG_TARGET, "tx hash = {:?}", tx.hash());
 
 	// Fetch the block with hydrated transactions via RPC (by number and by hash)
 	let evm_block_from_rpc_by_number = client
@@ -595,7 +619,7 @@ async fn block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyhow::R
 	let receipt = tx.wait_for_receipt().await?;
 	let ethereum_block_hash = receipt.block_hash;
 
-	println!("Testing with Ethereum block hash: {ethereum_block_hash:?}");
+	log::trace!(target: LOG_TARGET, "Testing with Ethereum block hash: {ethereum_block_hash:?}");
 
 	let block_by_hash = client
 		.get_block_by_hash(ethereum_block_hash, false)
@@ -618,7 +642,7 @@ async fn block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> anyhow::
 
 	let fake_eth_hash = H256::from([0x42u8; 32]);
 
-	println!("Testing with fake Ethereum hash: {fake_eth_hash:?}");
+	log::trace!(target: LOG_TARGET, "Testing with fake Ethereum hash: {fake_eth_hash:?}");
 
 	let account = Account::default();
 	let result = client.get_balance(account.address(), fake_eth_hash.into()).await;
@@ -635,7 +659,7 @@ async fn block_hash_for_tag_with_block_number_works() -> anyhow::Result<()> {
 
 	let block_number = client.block_number().await?;
 
-	println!("Testing with block number: {block_number}");
+	log::trace!(target: LOG_TARGET, "Testing with block number: {block_number}");
 
 	let account = Account::default();
 	let balance = client
@@ -674,7 +698,7 @@ async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = Arc::new(SharedResources::client().await);
 
-	let num_transactions = 5;
+	let num_transactions = 20;
 	let alith = Account::default();
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let amount = U256::from(1_000_000_000_000_000_000u128);
@@ -683,37 +707,40 @@ async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
 	let transactions =
 		prepare_evm_transactions(&client, alith, ethan.address(), amount, num_transactions).await?;
 
-	// Submit all transactions synchronously first
+	// Submit all transactions
 	let submitted_txs = submit_evm_transactions(transactions).await?;
+	log::trace!(target: LOG_TARGET, "Submitted {} transactions", submitted_txs.len());
 
 	// Wait for all receipts in parallel
 	let results = wait_for_receipts(submitted_txs).await?;
 
-	// Verify all transactions were successful and collect hashes
-	let mut tx_hashes = Vec::new();
-	let mut block_number = None;
+	// Verify all transactions were successful and group by block
+	// Most of the times all transactions will be in a single block,
+	// but we cannot guarantee that
+	let mut blocks_map: BTreeMap<U256, Vec<H256>> = BTreeMap::new();
+	let mut total_txs = 0;
 
 	for (i, (hash, _generic_tx, receipt)) in results.into_iter().enumerate() {
-		println!("Transaction {}: hash={hash:?}, block={}", i + 1, receipt.block_number);
+		log::trace!(target: LOG_TARGET, "Transaction {}: hash={hash:?}, block={}", i + 1, receipt.block_number);
 		assert_eq!(
 			receipt.status.unwrap_or(U256::zero()),
 			U256::one(),
 			"Transaction should be successful"
 		);
 
-		tx_hashes.push(hash);
-		match block_number {
-			None => block_number = Some(receipt.block_number),
-			Some(block_number) => assert_eq!(
-				block_number, receipt.block_number,
-				"All transactions are expected to be in one block, expected:{block_number:?} current:{:?}",
-				receipt.block_number
-			),
-		}
+		blocks_map.entry(receipt.block_number).or_insert_with(Vec::new).push(hash);
+		total_txs += 1;
 	}
 
-	// Verify block contains all expected transactions
-	assert_block_contains_transactions(&client, block_number.unwrap(), &tx_hashes).await?;
+	log::trace!(target: LOG_TARGET, "All {} transactions successful, spanning {} block(s):", total_txs, blocks_map.len());
+
+	// Print transaction distribution across blocks (BTreeMap keeps them sorted)
+	for (block_num, tx_hashes) in &blocks_map {
+		log::trace!(target: LOG_TARGET, "  Block {}: {} transaction(s) - {:?}", block_num, tx_hashes.len(), tx_hashes);
+	}
+
+	// Verify each transaction exists in its respective block
+	verify_transactions_in_blocks(&client, &blocks_map).await?;
 
 	Ok(())
 }
@@ -723,29 +750,27 @@ async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = Arc::new(SharedResources::client().await);
 
-	let num_evm_txs = 3;
-	let num_substrate_txs = 2;
+	let num_evm_txs = 10;
+	let num_substrate_txs = 7;
 
 	let alith = Account::default();
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let amount = U256::from(500_000_000_000_000_000u128);
 
 	// Prepare EVM transactions
-	println!("Creating {num_evm_txs} EVM transfer transactions");
+	log::trace!(target: LOG_TARGET, "Creating {num_evm_txs} EVM transfer transactions");
 	let evm_transactions =
 		prepare_evm_transactions(&client, alith, ethan.address(), amount, num_evm_txs).await?;
 
 	// Prepare substrate transactions (simple remarks)
-	println!("Creating {num_substrate_txs} substrate remark transactions");
+	log::trace!(target: LOG_TARGET, "Creating {num_substrate_txs} substrate remark transactions");
 	let alice_signer = subxt_signer::sr25519::dev::alice();
 	let (node_client, _, _) = client::connect(SharedResources::node_rpc_url()).await.unwrap();
 
 	let substrate_txs =
 		prepare_substrate_transactions(&node_client, &alice_signer, num_substrate_txs).await?;
 
-	println!(
-		"Submitting {num_evm_txs} EVM and {num_substrate_txs} substrate transactions, then waiting in parallel"
-	);
+	log::trace!(target: LOG_TARGET, "Submitting {num_evm_txs} EVM and {num_substrate_txs} substrate transactions");
 
 	// Submit EVM transactions
 	let evm_submitted = submit_evm_transactions(evm_transactions).await?;
@@ -754,55 +779,45 @@ async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
 	let substrate_futures = submit_substrate_transactions(substrate_txs).await;
 
 	// Wait for all transactions in parallel
-	let (evm_results, substrate_results) = tokio::join!(
+	let (evm_results, _substrate_results) = tokio::join!(
 		wait_for_receipts(evm_submitted),
 		futures::future::join_all(substrate_futures)
 	);
 
 	// Handle results
 	let evm_results = evm_results?;
-	let substrate_success_count = substrate_results.iter().filter(|r| r.is_ok()).count();
 
-	println!(
-		"Completed {} EVM and {} substrate transactions ({} substrate failed)",
-		evm_results.len(),
-		substrate_success_count,
-		substrate_results.len() - substrate_success_count,
-	);
-
-	// Verify all EVM transactions were successful and collect hashes
-	let mut evm_tx_hashes = Vec::new();
-	let mut block_number = None;
+	// Verify all EVM transactions were successful and group by block
+	// Most of the times all transactions will be in a single block,
+	// but we cannot guarantee that
+	let mut blocks_map: BTreeMap<U256, Vec<H256>> = BTreeMap::new();
+	let mut total_txs = 0;
 
 	for (i, (hash, _generic_tx, receipt)) in evm_results.into_iter().enumerate() {
-		println!("EVM Transaction {}: hash={hash:?}, block={}", i + 1, receipt.block_number);
+		log::trace!(target: LOG_TARGET, "EVM Transaction {}: hash={hash:?}, block={}", i + 1, receipt.block_number);
 		assert_eq!(
 			receipt.status.unwrap_or(U256::zero()),
 			U256::one(),
 			"EVM transaction should be successful"
 		);
 
-		evm_tx_hashes.push(hash);
-		match block_number {
-			None => block_number = Some(receipt.block_number),
-			Some(block_number) => assert_eq!(
-				block_number, receipt.block_number,
-				"All transactions are expected to be in one block, expected:{block_number:?} current:{:?}",
-				receipt.block_number
-			),
-		}
+		blocks_map.entry(receipt.block_number).or_insert_with(Vec::new).push(hash);
+		total_txs += 1;
 	}
 
-	// Report substrate transaction results
-	for (i, result) in substrate_results.iter().enumerate() {
-		match result {
-			Ok(_) => println!("Substrate transaction {} succeeded", i + 1),
-			Err(e) => println!("Substrate transaction {} failed: {}", i + 1, e),
-		}
+	log::trace!(target: LOG_TARGET,
+		"All {} EVM transactions successful, spanning {} block(s):",
+		total_txs,
+		blocks_map.len()
+	);
+
+	// Print transaction distribution across blocks
+	for (block_num, tx_hashes) in &blocks_map {
+		log::trace!(target: LOG_TARGET, "Block {}: {} transaction(s) - {:?}", block_num, tx_hashes.len(), tx_hashes);
 	}
 
-	// Verify block contains all expected EVM transactions (assuming single block for dev node)
-	assert_block_contains_transactions(&client, block_number.unwrap(), &evm_tx_hashes).await?;
+	// Verify each EVM transaction exists in its respective block
+	verify_transactions_in_blocks(&client, &blocks_map).await?;
 
 	Ok(())
 }

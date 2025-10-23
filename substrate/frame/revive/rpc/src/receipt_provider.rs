@@ -95,7 +95,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		})
 	}
 
-	async fn fetch_row(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
+	// Get block hash and  transaction index by transaction hash
+	pub async fn find_transaction(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
 		let transaction_hash = transaction_hash.as_ref();
 		let result = query!(
 			r#"
@@ -130,7 +131,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		.execute(&self.pool)
 		.await?;
 
-		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {ethereum_hash_ref:?} -> substrate block: {substrate_hash_ref:?}");
+		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {:?} -> substrate block: {:?}", block_map.ethereum_hash, block_map.substrate_hash);
 		Ok(())
 	}
 
@@ -525,7 +526,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Return all transaction hashes for the given block hash.
-	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<usize, H256>> {
+	pub async fn block_transaction_hashes(
+		&self,
+		block_hash: &H256,
+	) -> Option<HashMap<usize, H256>> {
 		let block_hash = block_hash.as_ref();
 		let rows = query!(
 			r#"
@@ -564,7 +568,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Get the receipt for the given transaction hash.
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
-		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
+		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
 		let (_, receipt) = self
@@ -575,62 +579,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(receipt)
 	}
 
-	/// Get the Substrate block hash and extrinsic index for the given transaction hash
-	pub async fn get_substrate_block_and_extrinsic_index(
-		&self,
-		transaction_hash: &H256,
-	) -> Option<(H256, usize)> {
-		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
-		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-
-		// For single-transaction lookup, directly fetch the extrinsic at the transaction_index
-		// This is more efficient than building a full block mapping
-		let extrinsics = self.receipt_extractor.get_block_extrinsics(&block).await.ok()?;
-		let (_, _, _, ext_idx) = extrinsics.into_iter().nth(transaction_index)?;
-
-		Some((block_hash, ext_idx))
-	}
-
-	/// Get a mapping from substrate extrinsic index to transaction hash for all transactions in a
-	/// block.
-	pub async fn get_block_extrinsic_to_transaction_mapping(
-		&self,
-		block: &SubstrateBlock,
-	) -> Option<HashMap<usize, H256>> {
-		let block_hash = block.hash();
-
-		let mut tx_hashes = self.block_transaction_hashes(&block_hash).await?;
-
-		let extrinsics = self.receipt_extractor.get_block_extrinsics(block).await.ok()?;
-
-		// Build mapping: substrate_extrinsic_index -> transaction_hash
-		let mut mapping = HashMap::new();
-		for (tx_index, (_, _, _, extrinsic_index)) in extrinsics.enumerate() {
-			if let Some(tx_hash) = tx_hashes.remove(&tx_index) {
-				mapping.insert(extrinsic_index, tx_hash);
-			}
-		}
-
-		Some(mapping)
-	}
-
 	/// Get the signed transaction for the given transaction hash.
 	pub async fn signed_tx_by_hash(&self, transaction_hash: &H256) -> Option<TransactionSigned> {
-		let transaction_hash = transaction_hash.as_ref();
-		let result = query!(
-			r#"
-			SELECT block_hash, transaction_index
-			FROM transaction_hashes
-			WHERE transaction_hash = $1
-			"#,
-			transaction_hash
-		)
-		.fetch_optional(&self.pool)
-		.await
-		.ok()??;
-
-		let block_hash = H256::from_slice(&result.block_hash[..]);
-		let transaction_index = result.transaction_index.try_into().ok()?;
+		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
 		let (signed_tx, _) = self
@@ -693,7 +644,7 @@ mod tests {
 		let block_map = BlockHashMap::new(block.hash(), ethereum_hash);
 
 		provider.insert(&block, &receipts, &ethereum_hash).await?;
-		let row = provider.fetch_row(&receipts[0].1.transaction_hash).await;
+		let row = provider.find_transaction(&receipts[0].1.transaction_hash).await;
 		assert_eq!(row, Some((block.hash, 0)));
 
 		provider.remove(&[block_map]).await?;
