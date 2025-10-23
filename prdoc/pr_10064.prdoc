@@ -13,6 +13,6 @@ crates:
 - name: asset-hub-westend-runtime
   bump: major
 - name: frame-support
-  bump: patch
+  bump: minor
 - name: kitchensink-runtime
   bump: patch
