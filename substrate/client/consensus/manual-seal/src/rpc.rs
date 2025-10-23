@@ -27,7 +27,12 @@ use jsonrpsee::{core::async_trait, proc_macros::rpc};
 use sc_consensus::ImportedAux;
 use serde::{Deserialize, Serialize};
 use sp_runtime::EncodedJustification;
+use std::sync::{
+	atomic::{AtomicU64, Ordering},
+	Arc, Mutex,
+};
 
+pub type SharedDelta = Arc<Mutex<Option<u64>>>;
 /// Sender passed to the authorship task to report errors or successes.
 pub type Sender<T> = Option<oneshot::Sender<std::result::Result<T, Error>>>;
 
@@ -71,6 +76,7 @@ pub trait ManualSealApi<Hash> {
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: Option<Hash>,
+		timestamp_delta: Option<u64>,
 	) -> Result<CreatedBlock<Hash>, Error>;
 
 	/// Instructs the manual-seal authorship task to finalize a block
@@ -80,11 +86,16 @@ pub trait ManualSealApi<Hash> {
 		hash: Hash,
 		justification: Option<EncodedJustification>,
 	) -> Result<bool, Error>;
+
+	#[method(name = "engine_setNextBlockTimestamp")]
+	async fn set_next_timestamp(&self, next_timestamp: u64) -> Result<bool, Error>;
 }
 
 /// A struct that implements the [`ManualSealApiServer`].
 pub struct ManualSeal<Hash> {
 	import_block_channel: mpsc::Sender<EngineCommand<Hash>>,
+	timestamp_delta_override: SharedDelta,
+	next_timestamp: Arc<AtomicU64>,
 }
 
 /// return type of `engine_createBlock`
@@ -100,8 +111,12 @@ pub struct CreatedBlock<Hash> {
 
 impl<Hash> ManualSeal<Hash> {
 	/// Create new `ManualSeal` with the given reference to the client.
-	pub fn new(import_block_channel: mpsc::Sender<EngineCommand<Hash>>) -> Self {
-		Self { import_block_channel }
+	pub fn new(
+		import_block_channel: mpsc::Sender<EngineCommand<Hash>>,
+		timestamp_delta_override: SharedDelta,
+		next_timestamp: Arc<AtomicU64>,
+	) -> Self {
+		Self { import_block_channel, timestamp_delta_override, next_timestamp }
 	}
 }
 
@@ -112,9 +127,15 @@ impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: Option<Hash>,
+		timestamp_delta: Option<u64>,
 	) -> Result<CreatedBlock<Hash>, Error> {
 		let mut sink = self.import_block_channel.clone();
 		let (sender, receiver) = oneshot::channel();
+		let timestamp_delta_ms = match timestamp_delta {
+			Some(time) => Some(time * 1000),
+			None => None,
+		};
+		*self.timestamp_delta_override.lock().unwrap() = timestamp_delta_ms;
 		// NOTE: this sends a Result over the channel.
 		let command = EngineCommand::SealNewBlock {
 			create_empty,
@@ -142,6 +163,11 @@ impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
 		let command = EngineCommand::FinalizeBlock { hash, sender: Some(sender), justification };
 		sink.send(command).await?;
 		receiver.await.map(|_| true).map_err(Into::into)
+	}
+
+	async fn set_next_timestamp(&self, next_timestamp: u64) -> Result<bool, Error> {
+		self.next_timestamp.store(next_timestamp * 1000, Ordering::SeqCst);
+		Ok(true)
 	}
 }
 

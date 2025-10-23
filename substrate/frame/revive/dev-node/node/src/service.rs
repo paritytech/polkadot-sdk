@@ -16,9 +16,11 @@
 // limitations under the License.
 
 use crate::cli::Consensus;
-use futures::FutureExt;
+use crate::service::parachains_common::Hash;
+use futures::{FutureExt, SinkExt};
 use polkadot_sdk::{
 	sc_client_api::backend::Backend,
+	sc_consensus_manual_seal::{seal_block, SealBlockParams},
 	sc_executor::WasmExecutor,
 	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
@@ -27,7 +29,10 @@ use polkadot_sdk::{
 	*,
 };
 use revive_dev_runtime::{OpaqueBlock as Block, RuntimeApi};
-use std::sync::Arc;
+use std::sync::{
+	atomic::{AtomicU64, Ordering},
+	Arc, LazyLock, Mutex,
+};
 
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
@@ -35,7 +40,7 @@ type HostFunctions = sp_io::SubstrateHostFunctions;
 pub(crate) type FullClient =
 	sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
-type FullBackend = sc_service::TFullBackend<Block>;
+pub type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
@@ -47,6 +52,70 @@ pub type Service = sc_service::PartialComponents<
 	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
 	Option<Telemetry>,
 >;
+
+pub type SharedDelta = Arc<Mutex<Option<u64>>>;
+
+pub static NEXT_TIMESTAMP: LazyLock<Arc<AtomicU64>> = LazyLock::new(|| {
+	// Initialize with current system time to ensure proper starting point
+	let now = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap_or_default()
+		.as_millis() as u64;
+	Arc::new(AtomicU64::new(now))
+});
+
+fn create_timestamp_provider(
+	delta_for_inherent: SharedDelta,
+	next_timestamp_ref: Arc<AtomicU64>,
+) -> impl Fn(
+	Hash,
+	(),
+) -> std::pin::Pin<
+	Box<
+		dyn std::future::Future<
+				Output = Result<
+					sp_timestamp::InherentDataProvider,
+					Box<dyn std::error::Error + Send + Sync>,
+				>,
+			> + Send,
+	>,
+> + Send
+       + Clone {
+	move |_parent_hash, ()| {
+		let delta_for_inherent = delta_for_inherent.clone();
+		let next_timestamp_ref = next_timestamp_ref.clone();
+
+		Box::pin(async move {
+			// Priority 1: Check if timestamp_delta was provided via engine_createBlock
+			let delta_ms_guard = delta_for_inherent.lock().unwrap();
+			if let Some(override_delta_ms) = *delta_ms_guard {
+				// Use the immediate timestamp delta (already in milliseconds)
+				drop(delta_ms_guard);
+				*delta_for_inherent.lock().unwrap() = None; // Clear after use
+				NEXT_TIMESTAMP.store(override_delta_ms, Ordering::SeqCst);
+				return Ok(sp_timestamp::InherentDataProvider::new(override_delta_ms.into()));
+			}
+			drop(delta_ms_guard);
+
+			// Priority 2: Check if a specific timestamp was set via evm_setNextBlockTimestamp RPC
+			let explicit_timestamp_ms = next_timestamp_ref.load(Ordering::SeqCst);
+			if explicit_timestamp_ms > 0 {
+				// Use the explicitly set timestamp and reset it to prevent reuse
+				next_timestamp_ref.store(0, Ordering::SeqCst);
+				// Update the global timestamp counter to match the explicit timestamp
+				// so subsequent auto-increments start from the correct base
+				NEXT_TIMESTAMP.store(explicit_timestamp_ms, Ordering::SeqCst);
+				return Ok(sp_timestamp::InherentDataProvider::new(explicit_timestamp_ms.into()));
+			}
+
+			// Priority 3: Fall back to auto-increment logic
+			let default_delta = 6000; // Default to 6 second
+			let next_timestamp =
+				NEXT_TIMESTAMP.fetch_add(default_delta, Ordering::SeqCst) + default_delta;
+			Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
+		})
+	}
+}
 
 pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	let telemetry = config
@@ -163,13 +232,134 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		);
 	}
 
+	let proposer = sc_basic_authorship::ProposerFactory::new(
+		task_manager.spawn_handle(),
+		client.clone(),
+		transaction_pool.clone(),
+		None,
+		telemetry.as_ref().map(|x| x.handle()),
+	);
+
+	let mut consensus_type: Consensus = Consensus::None;
+
+	let (sink, manual_trigger_stream) =
+		futures::channel::mpsc::channel::<sc_consensus_manual_seal::EngineCommand<Hash>>(1024);
+
+	let timestamp_delta_override: SharedDelta = Arc::new(Mutex::new(None));
+	let delta_for_inherent = timestamp_delta_override.clone();
+
+	// Shared timestamp state between RPC and consensus for evm_setNextBlockTimestamp
+	let next_timestamp = Arc::new(AtomicU64::new(0));
+
+	match consensus {
+		Consensus::InstantSeal => {
+			consensus_type = Consensus::InstantSeal;
+
+			let create_inherent_data_providers =
+				create_timestamp_provider(delta_for_inherent.clone(), next_timestamp.clone());
+
+			let params = sc_consensus_manual_seal::InstantSealParams {
+				block_import: client.clone(),
+				env: proposer,
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain,
+				consensus_data_provider: None,
+				create_inherent_data_providers,
+				manual_trigger_stream,
+			};
+
+			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
+
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"instant-seal",
+				None,
+				authorship_future,
+			);
+		},
+		Consensus::ManualSeal(Some(rate)) => {
+			consensus_type = Consensus::ManualSeal(Some(rate));
+
+			let mut new_sink = sink.clone();
+
+			task_manager.spawn_handle().spawn("block_authoring", None, async move {
+				loop {
+					futures_timer::Delay::new(std::time::Duration::from_millis(rate)).await;
+					new_sink.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+						create_empty: true,
+						finalize: true,
+						parent_hash: None,
+						sender: None,
+					})
+					.unwrap();
+				}
+			});
+
+			let params = sc_consensus_manual_seal::ManualSealParams {
+				block_import: client.clone(),
+				env: proposer.clone(),
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain: select_chain.clone(),
+				commands_stream: Box::pin(manual_trigger_stream),
+				consensus_data_provider: None,
+				create_inherent_data_providers: create_timestamp_provider(
+					delta_for_inherent.clone(),
+					next_timestamp.clone(),
+				),
+			};
+
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"manual-seal",
+				None,
+				sc_consensus_manual_seal::run_manual_seal(params),
+			);
+		},
+		Consensus::ManualSeal(None) => {
+			consensus_type = Consensus::ManualSeal(None);
+
+			let params = sc_consensus_manual_seal::ManualSealParams {
+				block_import: client.clone(),
+				env: proposer.clone(),
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain: select_chain.clone(),
+				commands_stream: Box::pin(manual_trigger_stream),
+				consensus_data_provider: None,
+				create_inherent_data_providers: create_timestamp_provider(
+					delta_for_inherent.clone(),
+					next_timestamp.clone(),
+				),
+			};
+
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"manual-seal",
+				None,
+				sc_consensus_manual_seal::run_manual_seal(params),
+			);
+		},
+		_ => {},
+	}
+
+	// Set up RPC
 	let rpc_extensions_builder = {
 		let client = client.clone();
+		let backend = backend.clone();
 		let pool = transaction_pool.clone();
+		let sink = sink.clone();
+		let timestamp_delta = timestamp_delta_override.clone();
+		let next_timestamp_for_rpc = next_timestamp.clone();
 
 		Box::new(move |_| {
-			let deps =
-				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), consensus };
+			let deps = crate::rpc::FullDeps {
+				client: client.clone(),
+				backend: backend.clone(),
+				pool: pool.clone(),
+				manual_seal_sink: sink.clone(),
+				consensus_type: consensus_type.clone(),
+				timestamp_delta: timestamp_delta.clone(),
+				next_timestamp: next_timestamp_for_rpc.clone(),
+			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
@@ -189,74 +379,6 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		telemetry: telemetry.as_mut(),
 		tracing_execute_block: None,
 	})?;
-
-	let proposer = sc_basic_authorship::ProposerFactory::new(
-		task_manager.spawn_handle(),
-		client.clone(),
-		transaction_pool.clone(),
-		None,
-		telemetry.as_ref().map(|x| x.handle()),
-	);
-
-	match consensus {
-		Consensus::InstantSeal => {
-			let params = sc_consensus_manual_seal::InstantSealParams {
-				block_import: client.clone(),
-				env: proposer,
-				client,
-				pool: transaction_pool,
-				select_chain,
-				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
-			};
-
-			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
-
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"instant-seal",
-				None,
-				authorship_future,
-			);
-		},
-		Consensus::ManualSeal(block_time) => {
-			let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-			task_manager.spawn_handle().spawn("block_authoring", None, async move {
-				loop {
-					futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
-					sink.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
-						create_empty: true,
-						finalize: true,
-						parent_hash: None,
-						sender: None,
-					})
-					.unwrap();
-				}
-			});
-
-			let params = sc_consensus_manual_seal::ManualSealParams {
-				block_import: client.clone(),
-				env: proposer,
-				client,
-				pool: transaction_pool,
-				select_chain,
-				commands_stream: Box::pin(commands_stream),
-				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
-			};
-			let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
-
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"manual-seal",
-				None,
-				authorship_future,
-			);
-		},
-		_ => {},
-	}
 
 	Ok(task_manager)
 }

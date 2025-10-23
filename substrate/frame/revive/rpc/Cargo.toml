@@ -49,6 +49,7 @@ subxt = { workspace = true, default-features = true, features = ["reconnecting-r
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+sc-consensus-manual-seal = { workspace = true, default-features = true }
 
 [dev-dependencies]
 env_logger = { workspace = true }

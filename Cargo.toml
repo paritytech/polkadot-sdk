@@ -1414,9 +1414,9 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.43", default-features = false }
-subxt-metadata = { version = "0.43", default-features = false }
-subxt-signer = { version = "0.43" }
+subxt = { version = "0.44", default-features = false }
+subxt-metadata = { version = "0.44", default-features = false }
+subxt-signer = { version = "0.44" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }

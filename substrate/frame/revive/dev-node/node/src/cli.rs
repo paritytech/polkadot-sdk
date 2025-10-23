@@ -19,7 +19,7 @@ use polkadot_sdk::{sc_cli::RunCmd, *};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Consensus {
-	ManualSeal(u64),
+	ManualSeal(Option<u64>),
 	InstantSeal,
 	None,
 }
@@ -31,8 +31,12 @@ impl std::str::FromStr for Consensus {
 		Ok(if s == "instant-seal" {
 			Consensus::InstantSeal
 		} else if let Some(block_time) = s.strip_prefix("manual-seal-") {
-			Consensus::ManualSeal(block_time.parse().map_err(|_| "invalid block time")?)
-		} else if s.to_lowercase() == "none" {
+			println!("{:?}", block_time);
+			Consensus::ManualSeal(Some(block_time.parse().map_err(|_| "invalid block time")?))
+		} else if s == "manual-seal" {
+			Consensus::ManualSeal(None)
+		} 
+		else if s.to_lowercase() == "none" {
 			Consensus::None
 		} else {
 			return Err("incorrect consensus identifier".into());

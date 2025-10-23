@@ -22,3 +22,6 @@ pub use execution_apis::*;
 
 mod health_api;
 pub use health_api::*;
+
+mod hardhat_apis;
+pub use hardhat_apis::*;

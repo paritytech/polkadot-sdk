@@ -72,6 +72,23 @@ pub struct AccountInfo<T: Config> {
 	pub dust: u32,
 }
 
+#[derive(
+	DefaultNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(T))]
+pub struct EvmNonce {
+	pub difference: u32,
+	pub positive: bool,
+}
+
 /// The account type is used to distinguish between contracts and externally owned accounts.
 #[derive(
 	DefaultNoBound,

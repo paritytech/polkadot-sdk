@@ -25,50 +25,68 @@
 use crate::cli::Consensus;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc, RpcModule};
 use polkadot_sdk::{
+	parachains_common::Hash,
 	sc_transaction_pool_api::TransactionPool,
 	sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata},
 	*,
 };
 use revive_dev_runtime::{AccountId, Nonce, OpaqueBlock};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, atomic::AtomicU64};
+use crate::service::FullBackend;
+use crate::snapshot::{SnapshotManager, SnapshotRpcServer};
+
+pub type SharedTimestampDelta = Arc<Mutex<Option<u64>>>;
 
 /// Full client dependencies.
 pub struct FullDeps<C, P> {
 	/// The client instance to use.
 	pub client: Arc<C>,
+	/// The backend instance to use.
+	pub backend: Arc<FullBackend>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
-	/// The consensus type of the node.
-	pub consensus: Consensus,
+	/// Connection to allow RPC triggers for block production.
+	pub manual_seal_sink:
+		futures::channel::mpsc::Sender<sc_consensus_manual_seal::EngineCommand<Hash>>,
+	/// Consensus
+	pub consensus_type: Consensus,
+	pub timestamp_delta: SharedTimestampDelta,
+	pub next_timestamp: Arc<AtomicU64>,
 }
 
-/// AutoMine JSON-RPC api.
-/// Automine is a feature of the Hardhat Network where a new block is automatically mined after each
-/// transaction.
 #[rpc(server, client)]
-pub trait AutoMineRpc {
-	/// API to get the automine status.
-	#[method(name = "getAutomine")]
+pub trait HardhatRpc {
+	#[method(name = "hardhat_getAutomine")]
 	fn get_automine(&self) -> RpcResult<bool>;
+	#[method(name = "evm_setAutomine", )]
+	fn set_automine(&self, automine: bool) -> RpcResult<bool>;
 }
 
-/// Implementation of the AutoMine RPC api.
-pub struct AutoMineRpcImpl {
-	/// Whether the node is running in auto-mine mode.
-	is_auto_mine: bool,
+pub struct HardhatRpcServerImpl {
+	consensus_type: Consensus,
 }
 
-impl AutoMineRpcImpl {
-	/// Create new `AutoMineRpcImpl` instance.
-	pub fn new(consensus: Consensus) -> Self {
-		Self { is_auto_mine: matches!(consensus, Consensus::InstantSeal) }
+impl HardhatRpcServerImpl {
+	pub fn new(consensus_type: Consensus) -> Self {
+		Self { consensus_type }
 	}
 }
 
-impl AutoMineRpcServer for AutoMineRpcImpl {
-	/// Returns `true` if block production is set to `instant`.
+impl HardhatRpcServer for HardhatRpcServerImpl {
 	fn get_automine(&self) -> RpcResult<bool> {
-		Ok(self.is_auto_mine)
+		Ok(match self.consensus_type {
+			Consensus::InstantSeal => true,
+			_ => false,
+		})
+	}
+
+	fn set_automine(&self, automine: bool) -> RpcResult<bool> {
+		// stub for backward compatibility
+		// but we won't support dynamic switching yet
+		Ok(match self.consensus_type {
+			Consensus::InstantSeal => true,
+			_ => false,
+		})
 	}
 }
 
@@ -84,17 +102,26 @@ where
 		+ sp_api::ProvideRuntimeApi<OpaqueBlock>
 		+ HeaderBackend<OpaqueBlock>
 		+ HeaderMetadata<OpaqueBlock, Error = BlockChainError>
-		+ 'static,
+		+ sc_client_api::BlockBackend<OpaqueBlock>,
 	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 	P: TransactionPool + 'static,
 {
+	use polkadot_sdk::sc_rpc::dev::{Dev, DevApiServer};
 	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
-	let mut module = RpcModule::new(());
-	let FullDeps { client, pool, consensus } = deps;
+	use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 
-	module.merge(AutoMineRpcImpl::new(consensus).into_rpc())?;
+	let mut module = RpcModule::new(());
+	let FullDeps { client, backend, pool, manual_seal_sink, consensus_type, timestamp_delta, next_timestamp } =
+		deps;
+
 	module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
+	module.merge(Dev::new(client.clone()).into_rpc())?;
+	module.merge(
+		ManualSeal::<Hash>::new(manual_seal_sink.clone(), timestamp_delta.clone(), next_timestamp.clone()).into_rpc(),
+	)?;
+	module.merge(HardhatRpcServerImpl::new(consensus_type).into_rpc())?;
+	module.merge(SnapshotManager::new(client, backend).into_rpc())?;
 
 	Ok(module)
 }
