@@ -171,12 +171,10 @@ impl ParachainInherentDataProvider {
 	) -> Option<ParachainInherentData> {
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
-		let include_next_authorities = relay_parent_descendants.iter().skip(1).any(|header| {
-			sc_consensus_babe::find_next_epoch_digest::<RelayBlock>(header)
-				.ok()
-				.flatten()
-				.is_some()
-		});
+		let include_next_authorities = relay_parent_descendants
+			.iter()
+			.skip(1)
+			.any(|header| sc_consensus_babe::contains_epoch_change::<RelayBlock>(header));
 		let relay_chain_state = collect_relay_storage_proof(
 			relay_chain_interface,
 			para_id,

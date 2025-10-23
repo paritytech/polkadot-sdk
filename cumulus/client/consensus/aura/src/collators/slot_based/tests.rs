@@ -45,7 +45,7 @@ async fn offset_test_zero_offset() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0).await;
 	assert!(result.is_ok());
-	let data = result.unwrap();
+	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 0);
 	assert_eq!(data.relay_parent().hash(), best_hash);
 	assert!(data.into_inherent_descendant_list().is_empty());
@@ -61,7 +61,7 @@ async fn offset_test_two_offset() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2).await;
 	assert!(result.is_ok());
-	let data = result.unwrap();
+	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 2);
 	assert_eq!(*data.relay_parent().number(), 98);
 	let descendant_list = data.into_inherent_descendant_list();
@@ -80,7 +80,7 @@ async fn offset_test_five_offset() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5).await;
 	assert!(result.is_ok());
-	let data = result.unwrap();
+	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 5);
 	assert_eq!(*data.relay_parent().number(), 95);
 	let descendant_list = data.into_inherent_descendant_list();
