@@ -58,7 +58,14 @@ impl Metrics {
 					"rpc_transaction_in_block_time",
 					"RPC Transaction in block time in seconds",
 				)
-				.buckets(linear_buckets(0.0, 3.0, 20).expect("Valid buckets; qed")),
+				.buckets(
+					[
+						linear_buckets(0.0, 3.0, 20).unwrap(),
+						// requested in #9158
+						vec![60.0, 75.0, 90.0, 120.0, 180.0],
+					]
+					.concat(),
+				),
 			)?,
 			registry,
 		)?;
@@ -69,7 +76,14 @@ impl Metrics {
 					"rpc_transaction_finalized_time",
 					"RPC Transaction finalized time in seconds",
 				)
-				.buckets(linear_buckets(0.01, 40.0, 20).expect("Valid buckets; qed")),
+				.buckets(
+					[
+						// requested in #9158
+						linear_buckets(0.0, 5.0, 8).unwrap(),
+						linear_buckets(40.0, 40.0, 19).unwrap(),
+					]
+					.concat(),
+				),
 			)?,
 			registry,
 		)?;
@@ -80,7 +94,14 @@ impl Metrics {
 					"rpc_transaction_dropped_time",
 					"RPC Transaction dropped time in seconds",
 				)
-				.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+				.buckets(
+					[
+						linear_buckets(0.0, 3.0, 20).unwrap(),
+						// requested in #9158
+						vec![60.0, 75.0, 90.0, 120.0, 180.0],
+					]
+					.concat(),
+				),
 			)?,
 			registry,
 		)?;
@@ -91,7 +112,14 @@ impl Metrics {
 					"rpc_transaction_invalid_time",
 					"RPC Transaction invalid time in seconds",
 				)
-				.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+				.buckets(
+					[
+						linear_buckets(0.0, 3.0, 20).unwrap(),
+						// requested in #9158
+						vec![60.0, 75.0, 90.0, 120.0, 180.0],
+					]
+					.concat(),
+				),
 			)?,
 			registry,
 		)?;
@@ -102,7 +130,14 @@ impl Metrics {
 					"rpc_transaction_error_time",
 					"RPC Transaction error time in seconds",
 				)
-				.buckets(linear_buckets(0.01, 3.0, 20).expect("Valid buckets; qed")),
+				.buckets(
+					[
+						linear_buckets(0.0, 3.0, 20).unwrap(),
+						// requested in #9158
+						vec![60.0, 75.0, 90.0, 120.0, 180.0],
+					]
+					.concat(),
+				),
 			)?,
 			registry,
 		)?;
