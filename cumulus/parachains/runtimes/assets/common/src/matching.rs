@@ -117,7 +117,7 @@ impl<
 	> ContainsPair<L, L> for ForeignAssetFromTrustedReserve<SelfParaId, ReserveProvider, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
-		tracing::trace!(target: "xcm:contains", ?a, ?b, "ForeignAssetFromTrustedReserve");
+		tracing::trace!(target: "xcm::contains", ?a, ?b, "ForeignAssetFromTrustedReserve");
 		// We convert locations to latest
 		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
 			(Ok(a), Ok(b)) => (a, b),
