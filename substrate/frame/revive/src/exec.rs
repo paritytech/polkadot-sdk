@@ -1178,7 +1178,17 @@ where
 				frame.nested_gas.gas_left(),
 			);
 		});
-
+		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
+			handler.mock_call(
+				frame
+					.delegate
+					.as_ref()
+					.map(|delegate| delegate.callee)
+					.unwrap_or(T::AddressMapper::to_address(&frame.account_id)),
+				&input_data,
+				frame.value_transferred,
+			)
+		});
 		// The output of the caller frame will be replaced by the output of this run.
 		// It is also not accessible from nested frames.
 		// Hence we drop it early to save the memory.
@@ -1282,23 +1292,11 @@ where
 				.map(|exec| exec.code_info().deposit())
 				.unwrap_or_default();
 
-			let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
-				handler.mock_call(
-					frame
-						.delegate
-						.as_ref()
-						.map(|delegate| delegate.callee)
-						.unwrap_or(T::AddressMapper::to_address(&frame.account_id)),
-					&input_data,
-					frame.value_transferred,
-				)
-			});
-			let mut output = match (executable, mock_answer) {
-				(ExecutableOrPrecompile::Executable(executable), None) =>
+			let mut output = match executable {
+				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
-				(ExecutableOrPrecompile::Precompile { instance, .. }, None) =>
+				ExecutableOrPrecompile::Precompile { instance, .. } =>
 					instance.call(input_data, self),
-				(_, Some(mock_answer)) => Ok(mock_answer),
 			}
 			.and_then(|output| {
 				if u32::try_from(output.data.len())
@@ -1371,9 +1369,14 @@ where
 		//
 		// `with_transactional` may return an error caused by a limit in the
 		// transactional storage depth.
+
 		let transaction_outcome =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-				let output = do_transaction();
+				let output = if let Some(mock_answer) = mock_answer {
+					Ok(mock_answer)
+				} else {
+					do_transaction()
+				};
 				match &output {
 					Ok(result) if !result.did_revert() =>
 						TransactionOutcome::Commit(Ok((true, output))),
