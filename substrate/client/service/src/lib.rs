@@ -444,6 +444,7 @@ where
 		metrics,
 		id_provider: rpc_id_provider,
 		tokio_handle: tokio_handle.clone(),
+		rpc_log_limit: rpc_configuration.rpc_log_limit,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773

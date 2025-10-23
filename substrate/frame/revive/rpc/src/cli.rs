@@ -189,6 +189,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rate_limit: rpc_params.rpc_rate_limit,
 		rate_limit_whitelisted_ips: rpc_params.rpc_rate_limit_whitelisted_ips,
 		rate_limit_trust_proxy_headers: rpc_params.rpc_rate_limit_trust_proxy_headers,
+		rpc_log_limit: if is_dev { 1024 * 1024 } else { 1024 },
 	};
 
 	let prometheus_config =
