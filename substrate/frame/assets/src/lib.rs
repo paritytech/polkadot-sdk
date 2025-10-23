@@ -1873,11 +1873,10 @@ pub mod pallet {
 			id: T::AssetIdParameter,
 			reserves: Vec<T::ReserveId>,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
-			// FIXME:
-			// T::ManagerOrigin::ensure_origin(origin, &id)?;
-
 			let id: T::AssetId = id.into();
+			let origin = ensure_signed(origin.clone())
+				.or_else(|_| T::CreateOrigin::ensure_origin(origin, &id))?;
+
 			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 

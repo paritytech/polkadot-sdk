@@ -109,6 +109,42 @@ pub fn set_up_foreign_asset(
 	(asset_location_on_penpal, foreign_asset_at_asset_hub)
 }
 
+// Helper for Penpal root to call ForeignAssets::set_reserves() on Asset Hub.
+pub fn penpal_set_foreign_asset_reserves_on_asset_hub(
+	asset_id_on_ah: Location,
+	reserves: Vec<Location>,
+) {
+	// Encoded `set_reserves` call to be executed in AssetHub
+	let call = <AssetHubWestend as Chain>::RuntimeCall::ForeignAssets(pallet_assets::Call::<
+		<AssetHubWestend as Chain>::Runtime,
+		pallet_assets::Instance2,
+	>::set_reserves {
+		id: asset_id_on_ah.into(),
+		reserves,
+	})
+	.encode()
+	.into();
+	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
+	);
+	let origin_kind = OriginKind::Xcm;
+	let fee_amount = ASSET_HUB_WESTEND_ED * 1000000;
+	let system_asset = (Parent, fee_amount).into();
+	let root_origin = <PenpalA as Chain>::RuntimeOrigin::root();
+	let asset_hub_location = PenpalA::sibling_location_of(AssetHubWestend::para_id()).into();
+	let xcm =
+		xcm_transact_paid_execution(call, origin_kind, system_asset, penpal_sovereign.clone());
+
+	PenpalA::execute_with(|| {
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
+			root_origin,
+			bx!(asset_hub_location),
+			bx!(xcm),
+		));
+		PenpalA::assert_xcm_pallet_sent();
+	});
+}
+
 // ==============================================================================================
 // ==== Bidirectional Transfer - Teleportable Foreign Asset - Penpal<->AssetHub ====
 // ==============================================================================================
@@ -427,4 +463,78 @@ fn bidirectional_reserve_transfer_foreign_asset_between_penpal_and_asset_hub() {
 
 	assert!(ah_sender_balance_after < ah_sender_balance_before);
 	assert!(penpal_receiver_balance_after > penpal_receiver_balance_before);
+}
+
+/// Verifies that foreign asset reserves can be only set by signed `Owner` account or through XCM
+/// using remote `ManagerOrigin`.
+#[test]
+fn verify_foreign_asset_origin_checks() {
+	let sender = PenpalASender::get();
+	let new_asset_id = 42;
+	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 10_000;
+	let (_, foreign_asset_location_on_ah) =
+		set_up_foreign_asset(sender.clone(), new_asset_id, asset_amount_to_send, false);
+
+	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
+	);
+	// Set asset reserves using signed `owner` account.
+	let origin = <AssetHubWestend as Chain>::RuntimeOrigin::signed(penpal_sovereign);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::set_reserves(
+			origin,
+			foreign_asset_location_on_ah.clone(),
+			vec![Location::here()],
+		)
+		.unwrap();
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::ReservesUpdated { asset_id, .. }) => {
+					asset_id: *asset_id == foreign_asset_location_on_ah,
+				},
+			]
+		);
+	});
+	// Now set asset reserves using some other signed account. It should fail.
+	let origin = <AssetHubWestend as Chain>::RuntimeOrigin::signed(sender.clone());
+	AssetHubWestend::execute_with(|| {
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::set_reserves(
+			origin,
+			foreign_asset_location_on_ah.clone(),
+			vec![Location::here()],
+		)
+		.is_err());
+	});
+	// Now set asset reserves using remote XCM from correct origin chain.
+	// Use wrong `{origin, asset}` combination.
+	let asset_id_on_ah = emulated_integration_tests_common::PenpalBTeleportableAssetLocation::get();
+	penpal_set_foreign_asset_reserves_on_asset_hub(asset_id_on_ah, vec![]);
+	// Verify it failed.
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: false, .. }) => {},
+			]
+		);
+	});
+	// Verify it works when using right `{origin, asset}` combination.
+	let asset_id_on_ah = foreign_asset_location_on_ah;
+	penpal_set_foreign_asset_reserves_on_asset_hub(asset_id_on_ah.clone(), vec![]);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		AssetHubWestend::assert_xcmp_queue_success(None);
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				// Foreign Asset created
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::ReservesRemoved { asset_id }) => {
+					asset_id: *asset_id == asset_id_on_ah,
+				},
+			]
+		);
+	});
 }

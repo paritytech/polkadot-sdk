@@ -156,10 +156,15 @@ pub mod foreign_assets_reserves {
 						target: "runtime::ForeignAssetsReservesMigration::asset_step",
 						?asset_id, "updating reserves for"
 					);
-					let _ = pallet_assets::Pallet::<T, I>::unchecked_update_reserves(
+					if let Err(e) = pallet_assets::Pallet::<T, I>::unchecked_update_reserves(
 						asset_id.clone(),
 						vec![xcm::v5::Location::here()],
-					);
+					) {
+						tracing::error!(
+							target: "runtime::ForeignAssetsReservesMigration::asset_step",
+							?e, ?asset_id, "failed migrating reserves for asset"
+						);
+					}
 				} else {
 					tracing::debug!(
 						target: "runtime::ForeignAssetsReservesMigration::asset_step",

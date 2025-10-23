@@ -375,7 +375,6 @@ pub type TrustedReserves = (
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<WestendLocation>,
-	// TODO: add migration to include reserves info for existing teleportable assets (e.g. vDOT)
 	IsForeignConcreteAsset<TeleportableForeignAsset<AssetHubParaId, crate::ForeignAssets>>,
 );
 
