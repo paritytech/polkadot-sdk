@@ -1,0 +1,6 @@
+title: use manual-seal by default in the revive-dev-node
+doc:
+- audience: Runtime Dev
+  description: |-
+    default dev-node to manual seal
+crates: []
