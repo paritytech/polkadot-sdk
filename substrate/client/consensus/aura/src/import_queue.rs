@@ -29,7 +29,7 @@ use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
 	block_import::{BlockImport, BlockImportParams, ForkChoiceStrategy},
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
-	BlockCheckParams, ImportResult,
+	BlockCheckParams, ImportResult, StateAction,
 };
 use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProviderExt};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
@@ -114,19 +114,20 @@ where
 	P::Public: Codec + Debug,
 	C::Api: AuraApi<B, AuthorityId<P>>,
 {
-	pub(crate) fn new(
+	/// Create a new Aura verifier.
+	pub fn new(
 		client: Arc<C>,
 		create_inherent_data_providers: CIDP,
 		check_for_equivocation: CheckForEquivocation,
 		telemetry: Option<TelemetryHandle>,
-		compatibility_mode: CompatibilityMode<NumberFor<B>>,
+		authorities_tracker: Arc<AuthoritiesTracker<P, B, C>>,
 	) -> Result<Self, String> {
 		Ok(Self {
 			client: client.clone(),
 			create_inherent_data_providers,
 			check_for_equivocation,
 			telemetry,
-			authorities_tracker: Arc::new(AuthoritiesTracker::new(client, &compatibility_mode)?),
+			authorities_tracker,
 		})
 	}
 }
@@ -366,9 +367,20 @@ where
 	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
 }
 
-struct AuraBlockImport<Client, P: Pair, Block: BlockT, BI: BlockImport<Block>> {
+/// AURA block import.
+pub struct AuraBlockImport<Client, P: Pair, Block: BlockT, BI: BlockImport<Block>> {
 	block_import: BI,
 	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+}
+
+impl<Client, P: Pair, Block: BlockT, BI: BlockImport<Block>> AuraBlockImport<Client, P, Block, BI> {
+	/// Create a new AURA block import.
+	pub fn new(
+		block_import: BI,
+		authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+	) -> Self {
+		Self { block_import, authorities_tracker }
+	}
 }
 
 #[async_trait::async_trait]
@@ -396,12 +408,12 @@ where
 		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		let with_state = block.with_state();
 		let post_header = block.post_header();
+		let import_from_runtime = matches!(block.state_action, StateAction::ApplyChanges(_));
 
 		let res = self.block_import.import_block(block).await?;
 
-		if with_state {
+		if import_from_runtime {
 			self.authorities_tracker.import_from_runtime(&post_header).unwrap();
 		}
 
@@ -441,10 +453,10 @@ where
 	C::Api: AuraApi<B, AuthorityId<P>>,
 {
 	AuraVerifier::<_, P, _, _>::new(
-		client,
+		client.clone(),
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
-		compatibility_mode,
+		Arc::new(AuthoritiesTracker::new(client, &compatibility_mode)?),
 	)
 }

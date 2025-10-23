@@ -59,8 +59,8 @@ pub mod standalone;
 pub use crate::standalone::{find_pre_digest, slot_duration};
 pub use authorities_tracker::AuthoritiesTracker;
 pub use import_queue::{
-	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
-	ImportQueueParams,
+	build_verifier, import_queue, AuraBlockImport, AuraVerifier, BuildVerifierParams,
+	CheckForEquivocation, ImportQueueParams,
 };
 pub use sc_consensus_slots::SlotProportion;
 pub use sp_consensus::SyncOracle;

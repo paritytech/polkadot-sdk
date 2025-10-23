@@ -105,6 +105,13 @@ where
 		}
 		Ok(Self { authorities: RwLock::new(authorities_cache), client })
 	}
+
+	/// Create a new empty [`AuthoritiesTracker`]. Usually you should _not_ use this method,
+	/// as it will not have any initial authorities imported. Use [`AuthoritiesTracker::new`]
+	/// instead.
+	pub fn new_empty(client: Arc<C>) -> Self {
+		Self { authorities: RwLock::new(ForkTree::new()), client }
+	}
 }
 
 impl<P, B, C> AuthoritiesTracker<P, B, C>
@@ -181,6 +188,11 @@ where
 			})?;
 
 		Ok(())
+	}
+
+	/// Returns true if there are no authorities stored in the tracker.
+	pub fn is_empty(&self) -> bool {
+		self.authorities.read().iter().next().is_none()
 	}
 
 	fn prune_finalized(&self) -> Result<(), String> {

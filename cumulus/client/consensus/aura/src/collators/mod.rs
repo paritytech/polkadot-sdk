@@ -278,9 +278,20 @@ mod tests {
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use polkadot_primitives::HeadData;
-	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
+	use sc_consensus::{
+		BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction, StorageChanges, Verifier,
+	};
+	use sc_consensus_aura::{
+		AuraApi, AuraBlockImport, AuraVerifier, AuthoritiesTracker, CheckForEquivocation,
+		InherentDataProvider,
+	};
+	use sp_api::ProvideRuntimeApi;
 	use sp_consensus::BlockOrigin;
+	use sp_consensus_aura::sr25519;
+	use sp_core::Pair;
+	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::{Keystore, KeystorePtr};
+	use sp_runtime::DigestItem;
 	use sp_timestamp::Timestamp;
 	use std::sync::Arc;
 
@@ -288,6 +299,7 @@ mod tests {
 		importer: &I,
 		block: Block,
 		origin: BlockOrigin,
+		state_action: Option<StateAction<Block>>,
 		import_as_best: bool,
 	) {
 		let (header, body) = block.deconstruct();
@@ -295,7 +307,15 @@ mod tests {
 		let mut block_import_params = BlockImportParams::new(origin, header);
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(import_as_best));
 		block_import_params.body = Some(body);
+		if let Some(state_action) = state_action {
+			block_import_params.state_action = state_action;
+		}
 		importer.import_block(block_import_params).await.unwrap();
+	}
+
+	async fn verify_block<V: Verifier<Block>>(verifier: &V, block: Block, origin: BlockOrigin) {
+		let block_import_params = BlockImportParams::new(origin, block.header().clone());
+		verifier.verify(block_import_params).await.expect("Verifies block");
 	}
 
 	fn sproof_with_parent_by_hash(client: &Client, hash: PHash) -> RelayStateSproofBuilder {
@@ -307,16 +327,31 @@ mod tests {
 
 		builder
 	}
-	async fn build_and_import_block(client: &Client, included: Hash) -> Block {
-		let sproof = sproof_with_parent_by_hash(client, included);
 
-		let block_builder = client.init_block_builder(None, sproof).block_builder;
-
-		let block = block_builder.build().unwrap().block;
-
-		let origin = BlockOrigin::NetworkInitialSync;
-		import_block(client, block.clone(), origin, true).await;
+	async fn build_and_import_block(
+		client: &Client,
+		included: Hash,
+		origin: BlockOrigin,
+		state_action: Option<StateAction<Block>>,
+		block_fn: impl FnOnce(Block) -> Block,
+	) -> Block {
+		let (block, _) = build_block(client, included, vec![]);
+		let block = block_fn(block);
+		import_block(client, block.clone(), origin, state_action, true).await;
 		block
+	}
+
+	fn build_block(
+		client: &Client,
+		included: Hash,
+		extra_digests: Vec<DigestItem>,
+	) -> (Block, StorageChanges<Block>) {
+		let sproof = sproof_with_parent_by_hash(client, included);
+		let block_builder = client
+			.init_block_builder_with_pre_digests(None, sproof, extra_digests)
+			.block_builder;
+		let (block, storage_changes, _) = block_builder.build().unwrap().into_inner();
+		(block, StorageChanges::Changes(storage_changes))
 	}
 
 	fn set_up_components() -> (Arc<Client>, KeystorePtr) {
@@ -339,6 +374,8 @@ mod tests {
 	/// we are ensuring on the node side that we are are always able to build on the included block.
 	#[tokio::test]
 	async fn test_can_build_upon() {
+		sp_tracing::try_init_simple();
+
 		let (client, keystore) = set_up_components();
 
 		let genesis_hash = client.chain_info().genesis_hash;
@@ -357,7 +394,14 @@ mod tests {
 		.await
 		.is_some()
 		{
-			let block = build_and_import_block(&client, genesis_hash).await;
+			let block = build_and_import_block(
+				&client,
+				genesis_hash,
+				BlockOrigin::NetworkInitialSync,
+				None,
+				|b| b,
+			)
+			.await;
 			last_hash = block.header().hash();
 		}
 
@@ -374,6 +418,63 @@ mod tests {
 		)
 		.await;
 		assert!(result.is_some());
+	}
+
+	#[tokio::test]
+	async fn authorities_imported_from_runtime_when_importing_own_block() {
+		let (client, _) = set_up_components();
+
+		let genesis_hash = client.chain_info().genesis_hash;
+		let slot_duration = client.runtime_api().slot_duration(genesis_hash).unwrap();
+		let authorities_tracker =
+			Arc::new(AuthoritiesTracker::<sr25519::AuthorityPair, _, _>::new_empty(client.clone()));
+		let verifier = AuraVerifier::<_, sr25519::AuthorityPair, _, _>::new(
+			client.clone(),
+			Box::new(|_, _| async move {
+				let slot = InherentDataProvider::from_timestamp_and_slot_duration(
+					Timestamp::current(),
+					slot_duration,
+				);
+				Ok::<_, Box<dyn std::error::Error + Send + Sync>>((slot,))
+			}),
+			CheckForEquivocation::No,
+			None,
+			authorities_tracker.clone(),
+		)
+		.unwrap();
+		let block_import = AuraBlockImport::new(client.clone(), authorities_tracker.clone());
+
+		assert!(authorities_tracker.is_empty());
+
+		// Import a block with `ApplyChanges` state action. This should cause authorities to be
+		// imported from the runtime, and therefore fill in the authorities tracker.
+		let (block, storage_changes) = build_block(
+			&client,
+			genesis_hash,
+			vec![
+				// TODO This is probably actually unnecessary.
+				DigestItem::Consensus(
+					sp_consensus_aura::AURA_ENGINE_ID,
+					vec![Sr25519Keyring::One.pair().public()].encode(),
+				),
+			],
+		);
+		import_block(
+			&block_import,
+			block,
+			BlockOrigin::Own,
+			Some(StateAction::ApplyChanges(storage_changes)),
+			true,
+		)
+		.await;
+
+		// The authorities should now be present in the tracker.
+		assert!(!authorities_tracker.is_empty());
+
+		// Ensure that the next block verifies, i.e. the authorities are configured correctly.
+		let (block, _) = build_block(&client, genesis_hash, vec![]);
+		let block = cumulus_test_client::seal_block(block, &client);
+		verify_block(&verifier, block, BlockOrigin::NetworkInitialSync).await;
 	}
 }
 
