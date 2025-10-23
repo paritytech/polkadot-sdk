@@ -33,8 +33,7 @@ sc-client-api.workspace = true
 sc-tracing-proc-macro.default-features = true
 sc-tracing-proc-macro.workspace = true
 serde = { workspace = true, default-features = true }
-sp-api.default-features = true
-sp-api.workspace = true
+sp-api = { workspace = true, default-features = true }
 sp-blockchain.default-features = true
 sp-blockchain.workspace = true
 sp-core.default-features = true
@@ -45,6 +44,8 @@ sp-runtime.default-features = true
 sp-runtime.workspace = true
 sp-tracing.default-features = true
 sp-tracing.workspace = true
+sp-trie = { workspace = true, default-features = true }
+frame-metadata = { workspace = true, features = ["decode", "current"] }
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 tracing-log = { workspace = true }
