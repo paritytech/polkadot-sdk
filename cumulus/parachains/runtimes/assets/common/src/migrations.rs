@@ -56,6 +56,14 @@ pub mod foreign_assets_reserves {
 	/// The resulting state of the step and the actual weight consumed.
 	type StepResultOf<T, I> = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
 
+	/// Since there are already a number of Foreign Assets already registered on Asset Hub, and
+	/// these assets have been teleportable since registration, this migration is used to add the
+	/// local chain (`Here` - Asset Hub) as a reserve for existing foreign assets, so as not to
+	/// change any existing behaviors.
+	///
+	/// Newly registered foreign assets will not be teleportable by default, but existing ones keep
+	/// that property. Future assets can also be configured to be teleportable by the asset's Owner,
+	/// through a dedicated action post-creation.
 	pub struct ForeignAssetsReservesMigration<T, I, AssetFilter>(PhantomData<(T, I, AssetFilter)>);
 	impl<T, I, AssetFilter> SteppedMigration for ForeignAssetsReservesMigration<T, I, AssetFilter>
 	where

@@ -61,7 +61,7 @@
 //!   particular account.
 //! * **Non-fungible asset**: An asset for which each unit has unique characteristics.
 //! * **Owner**: An account ID uniquely privileged to be able to destroy a particular asset class,
-//!   or to set the Issuer, Freezer or Admin of that asset class.
+//!   or to set the Issuer, Freezer, Reserves, or Admin of that asset class.
 //! * **Approval**: The act of allowing an account the permission to transfer some balance of asset
 //!   from the approving account into some third-party destination account.
 //! * **Sufficiency**: The idea of a minimum-balance of an asset being sufficient to allow the
@@ -117,6 +117,8 @@
 //!   Owner.
 //! * `set_metadata`: Set the metadata of an asset class; called by the asset class's Owner.
 //! * `clear_metadata`: Remove the metadata of an asset class; called by the asset class's Owner.
+//! * `set_reserves`: Set the reserve location(s) of an asset class; called by the asset class's
+//!   Owner.
 //! * `block`: Disallows further `transfer`s to and from an account; called by the asset class's
 //!   Freezer.
 //!
