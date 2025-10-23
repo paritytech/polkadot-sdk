@@ -3,7 +3,7 @@ name: Build and push ETH-RPC image
 on:
   push:
     branches:
-      - master
+      - unstable2507
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
