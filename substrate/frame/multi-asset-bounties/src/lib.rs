@@ -1824,7 +1824,8 @@ where
 	}
 }
 
-/// Derives the funding account used as the source of funds for bounties.
+/// Derives the funding `AccountId` from the `PalletId` and converts it into the
+/// bounty `Beneficiary`, used as the source of bounty funds.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
 pub struct PalletIdAsFundingSource<Id, T, I = ()>(PhantomData<(Id, T, I)>);
@@ -1835,17 +1836,18 @@ where
 	T::Beneficiary: From<T::AccountId>,
 {
 	fn try_convert(_asset_kind: T::AssetKind) -> Result<T::Beneficiary, T::AssetKind> {
-		let account = Id::get().into_account_truncating();
-		Ok(account)
+		let account: T::AccountId = Id::get().into_account_truncating();
+		Ok(account.into())
 	}
 }
 
-/// Derives the bounty account from its index.
+/// Derives a bounty `AccountId` from the `PalletId` and the `BountyIndex`,
+/// then converts it into the corresponding bounty `Beneficiary`.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct BountySourceAccount<Id, T, I = ()>(PhantomData<(Id, T, I)>);
+pub struct PalletIdAsBountySource<Id, T, I = ()>(PhantomData<(Id, T, I)>);
 impl<Id, T, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
-	for BountySourceAccount<Id, T, I>
+	for PalletIdAsBountySource<Id, T, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
@@ -1854,17 +1856,18 @@ where
 	fn try_convert(
 		(parent_bounty_id, _asset_kind): (BountyIndex, T::AssetKind),
 	) -> Result<T::Beneficiary, (BountyIndex, T::AssetKind)> {
-		let account = Id::get().into_sub_account_truncating(("bt", parent_bounty_id));
-		Ok(account)
+		let account: T::AccountId = Id::get().into_sub_account_truncating(("bt", parent_bounty_id));
+		Ok(account.into())
 	}
 }
 
-/// Derives the child-bounty account from its index and the parent bounty index.
+/// Derives a child-bounty `AccountId` from the `PalletId`, the parent index,
+/// and the child index, then converts it into the child-bounty `Beneficiary`.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct ChildBountySourceAccount<Id, T, I = ()>(PhantomData<(Id, T, I)>);
+pub struct PalletIdAsChildBountySource<Id, T, I = ()>(PhantomData<(Id, T, I)>);
 impl<Id, T, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
-	for ChildBountySourceAccount<Id, T, I>
+	for PalletIdAsChildBountySource<Id, T, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
@@ -1875,8 +1878,8 @@ where
 	) -> Result<T::Beneficiary, (BountyIndex, BountyIndex, T::AssetKind)> {
 		// The prefix is changed to have different AccountId when the index of
 		// parent and child is same.
-		let account =
+		let account: T::AccountId =
 			Id::get().into_sub_account_truncating(("cb", parent_bounty_id, child_bounty_id));
-		Ok(account)
+		Ok(account.into())
 	}
 }
