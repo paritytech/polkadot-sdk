@@ -58,8 +58,8 @@ where
 			Some(max) if total_weight_including_length.any_gt(max) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Extrinsic {} is greater than the max extrinsic {}",
-					info.total_weight(),
+					"Extrinsic with length included {} is grater than the max extrinsic {}",
+					total_weight_including_length,
 					max,
 				);
 
