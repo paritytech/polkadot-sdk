@@ -420,7 +420,7 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 				remote_message = messages_to_query[0].clone();
 				// The native asset of every system chain.
 				// We want to get the delivery fees in this asset.
-				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::new(1, []));
+				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
 				let delivery_fees =
 					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
 						destination_to_query.clone(),
