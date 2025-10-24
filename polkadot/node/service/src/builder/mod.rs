@@ -463,7 +463,7 @@ where
 
 		} else {
 			WarpSyncConfig::WithProvider(warp_sync);
-		}
+		};
 
 		#[cfg(not(feature = "doppelganger"))]
 		let warp_sync_config_to_use = WarpSyncConfig::WithProvider(warp_sync);

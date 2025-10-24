@@ -70,12 +70,12 @@ impl LoadSpec for ChainSpecLoader {
 			)?),
 
 			// -- Asset Hub Polkadot
-			"asset-hub-polkadot" | "statemint" => Box::new(DeprecatedGenericChainSpec::from_json_bytes(
+			"asset-hub-polkadot" | "statemint" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/asset-hub-polkadot.json")[..],
 			)?),
 
 			// -- Asset Hub Kusama
-			"asset-hub-kusama" | "statemine" => Box::new(DeprecatedGenericChainSpec::from_json_bytes(
+			"asset-hub-kusama" | "statemine" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/asset-hub-kusama.json")[..],
 			)?),
 
