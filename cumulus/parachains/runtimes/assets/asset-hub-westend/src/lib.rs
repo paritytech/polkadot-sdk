@@ -1175,7 +1175,7 @@ parameter_types! {
 	pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
 	pub const DepositPerByte: Balance = deposit(0, 1);
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1,2);
+	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
 
 impl pallet_revive::Config for Runtime {
@@ -1962,7 +1962,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
+			PolkadotXcm::dry_run_xcm::<xcm_config::XcmRouter>(origin_location, xcm)
 		}
 	}
 

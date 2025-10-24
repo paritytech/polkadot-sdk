@@ -16,6 +16,9 @@
 
 //! CLI options of the omni-node. See [`Command`].
 
+/// Default block time for dev mode when using `--dev` flag.
+const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
+
 use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
@@ -163,8 +166,18 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
 	/// provided.
-	#[arg(long)]
+	#[arg(long, conflicts_with = "instant_seal")]
 	pub dev_block_time: Option<u64>,
+
+	/// Start a dev node with instant seal.
+	///
+	/// This is a dev option that enables instant sealing, meaning blocks are produced
+	/// immediately when transactions are received, rather than at fixed intervals.
+	/// Using this option won't result in starting or connecting to a parachain network.
+	/// The resulting node will work on its own, running the wasm blob and producing blocks
+	/// instantly upon receiving transactions.
+	#[arg(long, conflicts_with = "dev_block_time")]
+	pub instant_seal: bool,
 
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
@@ -209,6 +222,16 @@ pub struct Cli<Config: CliConfig> {
 	pub(crate) _phantom: PhantomData<Config>,
 }
 
+/// Development sealing mode.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum DevSealMode {
+	/// Produces blocks immediately upon receiving transactions.
+	InstantSeal,
+	/// Produces blocks at fixed time intervals.
+	/// The u64 parameter represents the block time in milliseconds.
+	ManualSeal(u64),
+}
+
 /// Collator implementation to use.
 #[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
 pub enum AuthoringPolicy {
@@ -240,6 +263,19 @@ impl<Config: CliConfig> Cli<Config> {
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			enable_statement_store: self.enable_statement_store,
+		}
+	}
+
+	/// Returns the dev seal mode if the node is in dev mode.
+	pub(crate) fn dev_mode(&self) -> Option<DevSealMode> {
+		if self.instant_seal {
+			Some(DevSealMode::InstantSeal)
+		} else if let Some(dev_block_time) = self.dev_block_time {
+			Some(DevSealMode::ManualSeal(dev_block_time))
+		} else if self.run.base.is_dev().unwrap_or(false) {
+			Some(DevSealMode::ManualSeal(DEFAULT_DEV_BLOCK_TIME_MS))
+		} else {
+			None
 		}
 	}
 }
