@@ -9,9 +9,10 @@ use frame_support::{
 	BoundedVec,
 };
 
-use bridge_hub_common::AggregateMessageOrigin;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use hex_literal::hex;
-use snowbridge_core::{AgentId, AgentIdOf, ParaId};
+use scale_info::TypeInfo;
+use snowbridge_core::{AgentId, AgentIdOf, ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{v2::*, Log, Proof, VerificationError, Verifier};
 use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 use sp_core::{ConstU32, H160, H256};
@@ -87,6 +88,29 @@ parameter_types! {
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 	pub DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
+}
+
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	MaxEncodedLen,
+	Clone,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Debug,
+)]
+pub enum AggregateMessageOrigin {
+	Snowbridge(ChannelId),
+	SnowbridgeV2(H256),
+}
+
+impl From<H256> for AggregateMessageOrigin {
+	fn from(hash: H256) -> Self {
+		Self::SnowbridgeV2(hash)
+	}
 }
 
 impl crate::Config for Test {

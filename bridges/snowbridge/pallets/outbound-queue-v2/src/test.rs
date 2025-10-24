@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use crate::{mock::*, *};
+use crate::{
+	mock::{AggregateMessageOrigin::*, *},
+	*,
+};
 use alloy_core::primitives::FixedBytes;
-use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
@@ -180,8 +182,6 @@ fn process_message_fails_on_overweight_message() {
 #[test]
 fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_priority_messages()
 {
-	use bridge_hub_common::AggregateMessageOrigin::*;
-
 	let sibling_id: u32 = 1000;
 
 	new_tester().execute_with(|| {
