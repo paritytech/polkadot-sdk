@@ -15,30 +15,27 @@
 
 /// `pallet-assets` has been enhanced with asset reserves information so that AH foreign assets
 /// can be registered as either teleportable or reserve-based.
-/// Originally, all foreign assets were exclusively teleportable, whereas now, on creation they
-/// are reserve-based by default and can be made teleportable by the asset `Owner`.
+/// Originally, all foreign assets were exclusively teleportable, whereas now, after creation the
+/// asset `Owner` also needs to set the asset's trusted reserves.
 ///
-/// This migration adds `Here` (the local chain) as a trusted reserve for the existing foreign
-/// assets so as to preserve their existing teleportable status. For new assets, that status
+/// This migration adds the origin chain of each existing foreign asset as a trusted reserve for it.
+/// It also adds `Here` (the local chain) as a trusted reserve for the existing Sibling Parachain
+/// foreign assets so as to preserve their existing teleportable status. For new assets, that status
 /// needs to be explicitly opted-in to by the asset's `Owner`.
 ///
 /// See <https://github.com/paritytech/polkadot-sdk/pull/9948> for more info.
 pub mod foreign_assets_reserves {
 	use crate::*;
-	use alloc::vec;
 	use codec::{Decode, Encode, MaxEncodedLen};
 	use core::marker::PhantomData;
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		traits::ContainsPair,
 		weights::WeightMeter,
 	};
 	use pallet_assets::WeightInfo;
 
 	const MIGRATIONS_ID: &[u8; 23] = b"foreign-assets-reserves";
 
-	#[cfg(feature = "try-runtime")]
-	use frame_support::traits::Len;
 	#[cfg(feature = "try-runtime")]
 	#[derive(Encode, Decode)]
 	struct TryRuntimeState<T: pallet_assets::Config<I>, I: 'static> {
@@ -53,23 +50,38 @@ pub mod foreign_assets_reserves {
 		Finished,
 	}
 
+	/// Trait for plugging in the type that chooses the correct reserves per asset_id for this
+	/// migration.
+	pub trait ForeignAssetsReservesProvider {
+		fn reserves_for(asset_id: &Location) -> Vec<Location>;
+		#[cfg(feature = "try-runtime")]
+		fn check_reserves_for(asset_id: &Location, reserves: Vec<Location>) -> bool;
+	}
+
 	/// The resulting state of the step and the actual weight consumed.
 	type StepResultOf<T, I> = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
 
-	/// Since there are already a number of Foreign Assets already registered on Asset Hub, and
-	/// these assets have been teleportable since registration, this migration is used to add the
-	/// local chain (`Here` - Asset Hub) as a reserve for existing foreign assets, so as not to
-	/// change any existing behaviors.
+	/// This migration adds the native origin chain as a trusted reserve for already existing
+	/// Foreign Assets registered on Asset Hub. Also, for Sibling Parachain foreign assets which
+	/// have been teleportable since registration, this migration is used to add the local chain
+	/// (`Here` - Asset Hub) as a reserve for existing foreign assets, so as not to change any
+	/// existing behaviors.
 	///
-	/// Newly registered foreign assets will not be teleportable by default, but existing ones keep
-	/// that property. Future assets can also be configured to be teleportable by the asset's Owner,
-	/// through a dedicated action post-creation.
-	pub struct ForeignAssetsReservesMigration<T, I, AssetFilter>(PhantomData<(T, I, AssetFilter)>);
-	impl<T, I, AssetFilter> SteppedMigration for ForeignAssetsReservesMigration<T, I, AssetFilter>
+	/// Newly registered foreign assets will not have any reserves set by default so they will not
+	/// be transferable cross-chain unless the asset `owner` also configures trusted reserves for
+	/// them, through a dedicated `pallet_assets::set_reserves()` call done post-asset-creation.
+	///
+	/// `ReservesProvider` implementation shall provide the migration with the actual reserve
+	/// locations for each asset_id.
+	pub struct ForeignAssetsReservesMigration<T, I, ReservesProvider>(
+		PhantomData<(T, I, ReservesProvider)>,
+	);
+	impl<T, I, ReservesProvider> SteppedMigration
+		for ForeignAssetsReservesMigration<T, I, ReservesProvider>
 	where
-		T: pallet_assets::Config<I, AssetId = xcm::v5::Location, ReserveId = xcm::v5::Location>,
+		T: pallet_assets::Config<I, AssetId = Location, ReserveId = Location>,
 		I: 'static,
-		AssetFilter: ContainsPair<xcm::v5::Location, xcm::v5::Location>,
+		ReservesProvider: ForeignAssetsReservesProvider,
 	{
 		type Cursor = StepResultOf<T, I>;
 		type Identifier = MigrationId<23>;
@@ -105,7 +117,7 @@ pub mod foreign_assets_reserves {
 						Self::asset_step(Some(maybe_last_asset)),
 					// After the last asset, migration is finished.
 					Some(MigrationState::Finished) => {
-						tracing::debug!(target: "runtime::ForeignAssetsReservesMigration", "migration finished");
+						tracing::info!(target: "runtime::ForeignAssetsReservesMigration", "migration finished");
 						return Ok(None)
 					},
 				};
@@ -120,7 +132,7 @@ pub mod foreign_assets_reserves {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			let assets = pallet_assets::Asset::<T, I>::iter_keys().collect();
-			tracing::debug!(target: "runtime::ForeignAssetsReservesMigration::pre_upgrade", ?assets);
+			tracing::info!(target: "runtime::ForeignAssetsReservesMigration::pre_upgrade", ?assets);
 			let state = TryRuntimeState::<T, I> { assets };
 			Ok(state.encode())
 		}
@@ -129,26 +141,22 @@ pub mod foreign_assets_reserves {
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			let prev_state = TryRuntimeState::<T, I>::decode(&mut &state[..])
 				.expect("Failed to decode the previous storage state");
-			let local_chain = xcm::v5::Location::here();
+			// let local_chain = Location::here();
 			for id in prev_state.assets {
-				tracing::debug!(target: "runtime::ForeignAssetsReservesMigration::post_upgrade", ?id, "verify asset");
-				if AssetFilter::contains(&id, &id) {
-					let reserves = pallet_assets::ReserveLocations::<T, I>::get(id);
-					assert_eq!(reserves.len(), 1);
-					assert_eq!(reserves[0], local_chain);
-				}
+				let reserves = pallet_assets::ReserveLocations::<T, I>::get(id.clone());
+				tracing::info!(target: "runtime::ForeignAssetsReservesMigration::post_upgrade", ?id, ?reserves, "verify asset");
+				assert!(ReservesProvider::check_reserves_for(&id, reserves.into()));
 			}
 			Ok(())
 		}
 	}
 
-	impl<T, I, AssetFilter> ForeignAssetsReservesMigration<T, I, AssetFilter>
+	impl<T, I, ReservesProvider> ForeignAssetsReservesMigration<T, I, ReservesProvider>
 	where
-		T: pallet_assets::Config<I, AssetId = xcm::v5::Location, ReserveId = xcm::v5::Location>,
+		T: pallet_assets::Config<I, AssetId = Location, ReserveId = Location>,
 		I: 'static,
-		AssetFilter: ContainsPair<xcm::v5::Location, xcm::v5::Location>,
+		ReservesProvider: ForeignAssetsReservesProvider,
 	{
-		// Make `Here` a reserve location for one entry of `Asset`.
 		fn asset_step(maybe_last_key: Option<&T::AssetId>) -> StepResultOf<T, I> {
 			tracing::debug!(target: "runtime::ForeignAssetsReservesMigration::asset_step", ?maybe_last_key);
 			let mut iter = if let Some(last_key) = maybe_last_key {
@@ -159,24 +167,18 @@ pub mod foreign_assets_reserves {
 				pallet_assets::Asset::<T, I>::iter_keys()
 			};
 			if let Some(asset_id) = iter.next() {
-				if AssetFilter::contains(&asset_id, &asset_id) {
-					tracing::debug!(
+				let reserves = ReservesProvider::reserves_for(&asset_id);
+				tracing::info!(
+					target: "runtime::ForeignAssetsReservesMigration::asset_step",
+					?asset_id, ?reserves, "updating reserves for"
+				);
+				if let Err(e) = pallet_assets::Pallet::<T, I>::unchecked_update_reserves(
+					asset_id.clone(),
+					reserves,
+				) {
+					tracing::error!(
 						target: "runtime::ForeignAssetsReservesMigration::asset_step",
-						?asset_id, "updating reserves for"
-					);
-					if let Err(e) = pallet_assets::Pallet::<T, I>::unchecked_update_reserves(
-						asset_id.clone(),
-						vec![xcm::v5::Location::here()],
-					) {
-						tracing::error!(
-							target: "runtime::ForeignAssetsReservesMigration::asset_step",
-							?e, ?asset_id, "failed migrating reserves for asset"
-						);
-					}
-				} else {
-					tracing::debug!(
-						target: "runtime::ForeignAssetsReservesMigration::asset_step",
-						?asset_id, "skipping"
+						?e, ?asset_id, "failed migrating reserves for asset"
 					);
 				}
 				MigrationState::Asset(asset_id)

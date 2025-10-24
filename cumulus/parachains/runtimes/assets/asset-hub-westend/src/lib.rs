@@ -32,7 +32,9 @@ pub mod xcm_config;
 // Configurations for next functionality.
 mod bag_thresholds;
 pub mod governance;
+mod migrations;
 mod staking;
+
 use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 
 extern crate alloc;
@@ -1224,7 +1226,7 @@ impl pallet_migrations::Config for Runtime {
 		assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesMigration<
 			Runtime,
 			ForeignAssetsInstance,
-			FromSiblingParachain<westend_runtime_constants::system_parachain::AssetHubParaId>,
+			migrations::AssetHubWestendForeignAssetsReservesProvider,
 		>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]

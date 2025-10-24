@@ -6,9 +6,11 @@ doc:
     configure the trusted reserves (as seen by the local chain) on a per-asset basis.
 
     By default, on asset creation, no explicit reserve chain is configured, this results in
-    foreign assets to be reserve-based assets by default and not teleportable. To make them
-    teleportable with their origin chain, Here needs to be added as a reserve (local chain
-    to also be a reserve).
+    foreign assets to be non-transferable crosschain by default. The asset `owner` can
+    subsequently configure trusted reserves location(s) for the asset to make them transferable
+    cross-chain. Furthermore, by also adding `Here` (the local chain) to the list of trusted
+    reserves, the asset can then be teleportable between the local chain and any other configured
+    trusted reserve.
 
 crates:
 - name: frame-support
