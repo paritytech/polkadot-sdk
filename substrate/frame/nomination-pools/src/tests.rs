@@ -7644,56 +7644,53 @@ mod reap_member {
 
 	#[test]
 	fn reap_member_below_ed_works() {
-		ExtBuilder::default()
-			.add_members(vec![(20, 20)])
-			.build_and_execute(|| {
-				assert_eq!(Currency::minimum_balance(), 5);
+		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
+			assert_eq!(Currency::minimum_balance(), 5);
 
-				let member_account: AccountId = 20;
+			let member_account: AccountId = 20;
 
-				assert_eq!(pool_balance(1), 30);
-				assert_eq!(TotalValueLocked::<Runtime>::get(), 30);
+			assert_eq!(pool_balance(1), 30);
+			assert_eq!(TotalValueLocked::<Runtime>::get(), 30);
 
-				StakingMock::slash_by(1, 23);
-				assert_eq!(pool_balance(1), 7);
-				assert_eq!(TotalValueLocked::<Runtime>::get(), 7);
-				assert!(
-					PoolMembers::<Runtime>::get(member_account)
-						.unwrap()
-						.total_balance() < Currency::minimum_balance()
-				);
+			StakingMock::slash_by(1, 23);
+			assert_eq!(pool_balance(1), 7);
+			assert_eq!(TotalValueLocked::<Runtime>::get(), 7);
+			assert!(
+				PoolMembers::<Runtime>::get(member_account).unwrap().total_balance() <
+					Currency::minimum_balance()
+			);
 
-				// clean up
-				pool_events_since_last_call();
+			// clean up
+			pool_events_since_last_call();
 
-				let issuance_before = Currency::total_issuance();
-				let member_balance_before = Currency::free_balance(&member_account);
+			let issuance_before = Currency::total_issuance();
+			let member_balance_before = Currency::free_balance(&member_account);
 
-				assert_ok!(Pools::reap_member(RuntimeOrigin::signed(42), member_account));
+			assert_ok!(Pools::reap_member(RuntimeOrigin::signed(42), member_account));
 
-				assert!(PoolMembers::<Runtime>::get(member_account).is_none());
-				assert!(!ClaimPermissions::<Runtime>::contains_key(member_account));
+			assert!(PoolMembers::<Runtime>::get(member_account).is_none());
+			assert!(!ClaimPermissions::<Runtime>::contains_key(member_account));
 
-				let bonded_pool = BondedPools::<Runtime>::get(1).unwrap();
-				assert_eq!(bonded_pool.points, 10);
-				assert_eq!(bonded_pool.member_counter, 1);
+			let bonded_pool = BondedPools::<Runtime>::get(1).unwrap();
+			assert_eq!(bonded_pool.points, 10);
+			assert_eq!(bonded_pool.member_counter, 1);
 
-				let issuance_after = Currency::total_issuance();
-				let member_balance_after = Currency::free_balance(&member_account);
+			let issuance_after = Currency::total_issuance();
+			let member_balance_after = Currency::free_balance(&member_account);
 
-				assert_eq!(issuance_before - issuance_after, 4);
-				assert_eq!(member_balance_before - member_balance_after, 4);
-				assert_eq!(pool_balance(1), 3);
-				assert_eq!(TotalValueLocked::<Runtime>::get(), 3);
+			assert_eq!(issuance_before - issuance_after, 4);
+			assert_eq!(member_balance_before - member_balance_after, 4);
+			assert_eq!(pool_balance(1), 3);
+			assert_eq!(TotalValueLocked::<Runtime>::get(), 3);
 
-				assert_eq!(
-					pool_events_since_last_call(),
-					vec![Event::<Runtime>::MemberRemoved {
-						pool_id: 1,
-						member: member_account,
-						released_balance: 4,
-					}]
-				);
-			});
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::<Runtime>::MemberRemoved {
+					pool_id: 1,
+					member: member_account,
+					released_balance: 4,
+				}]
+			);
+		});
 	}
 }

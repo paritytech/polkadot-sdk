@@ -9389,9 +9389,8 @@ fn manual_slashing_works() {
 }
 
 mod force_withdraw {
-	use sp_staking::StakingInterface;
 	use super::*;
-
+	use sp_staking::StakingInterface;
 
 	// Test that force_withdraw can remove amounts from both
 	// unlocking and active portions of a staking ledger
@@ -9422,17 +9421,23 @@ mod force_withdraw {
 			let from_unlocking = 200;
 			let from_active = 100;
 
-			assert_ok!(<Staking as StakingInterface>::force_withdraw(&11, from_unlocking, from_active));
+			assert_ok!(<Staking as StakingInterface>::force_withdraw(
+				&11,
+				from_unlocking,
+				from_active
+			));
 
 			// Check ledger was updated correctly
 			assert_eq!(
 				Staking::ledger(11.into()).unwrap(),
 				StakingLedgerInspect {
 					stash: 11,
-					total: 1000 - from_unlocking - from_active,  // 700
-					active: 500 - from_active,  // 400
-					unlocking: bounded_vec![
-						UnlockChunk { value: 500 - from_unlocking, era: 1 + bonding_duration }],  // 300
+					total: 1000 - from_unlocking - from_active, // 700
+					active: 500 - from_active,                  // 400
+					unlocking: bounded_vec![UnlockChunk {
+						value: 500 - from_unlocking,
+						era: 1 + bonding_duration
+					}], // 300
 					legacy_claimed_rewards: bounded_vec![],
 				}
 			);
@@ -9459,9 +9464,9 @@ mod force_withdraw {
 					total: 1000,
 					active: 500,
 					unlocking: bounded_vec![
-                                        UnlockChunk { value: 200, era: 1 + 3 },
-                                        UnlockChunk { value: 300, era: 2 + 3 },
-                                ],
+						UnlockChunk { value: 200, era: 1 + 3 },
+						UnlockChunk { value: 300, era: 2 + 3 },
+					],
 					legacy_claimed_rewards: bounded_vec![],
 				}
 			);
@@ -9477,9 +9482,7 @@ mod force_withdraw {
 					stash: 11,
 					total: 750,
 					active: 500,
-					unlocking: bounded_vec![
-                                        UnlockChunk { value: 250, era: 2 + 3 },
-                                ],
+					unlocking: bounded_vec![UnlockChunk { value: 250, era: 2 + 3 },],
 					legacy_claimed_rewards: bounded_vec![],
 				}
 			);
@@ -9495,9 +9498,9 @@ mod force_withdraw {
 
 			// Try to withdraw 300 from unlocking when only 200 exists
 			assert_noop!(
-                        <Staking as StakingInterface>::force_withdraw(&11, 300, 0),
-                        Error::<Test>::NotEnoughFunds
-                );
+				<Staking as StakingInterface>::force_withdraw(&11, 300, 0),
+				Error::<Test>::NotEnoughFunds
+			);
 		});
 	}
 
@@ -9506,9 +9509,9 @@ mod force_withdraw {
 	fn force_withdraw_dust_fails_when_not_enough_active() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_noop!(
-                        <Staking as StakingInterface>::force_withdraw(&11, 0, 1500),
-                        Error::<Test>::NotEnoughFunds
-                );
+				<Staking as StakingInterface>::force_withdraw(&11, 0, 1500),
+				Error::<Test>::NotEnoughFunds
+			);
 		});
 	}
 

@@ -2150,21 +2150,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			}
 			ensure!(remaining.is_zero(), Error::<T>::NotEnoughFunds);
 			ledger.unlocking.retain(|chunk| !chunk.value.is_zero());
-			ledger.total = ledger
-				.total
-				.checked_sub(&from_unlocking)
-				.ok_or(Error::<T>::NotEnoughFunds)?;
+			ledger.total =
+				ledger.total.checked_sub(&from_unlocking).ok_or(Error::<T>::NotEnoughFunds)?;
 		}
 
 		if !from_active.is_zero() {
-			ledger.active = ledger
-				.active
-				.checked_sub(&from_active)
-				.ok_or(Error::<T>::NotEnoughFunds)?;
-			ledger.total = ledger
-				.total
-				.checked_sub(&from_active)
-				.ok_or(Error::<T>::NotEnoughFunds)?;
+			ledger.active =
+				ledger.active.checked_sub(&from_active).ok_or(Error::<T>::NotEnoughFunds)?;
+			ledger.total =
+				ledger.total.checked_sub(&from_active).ok_or(Error::<T>::NotEnoughFunds)?;
 		}
 
 		Ok(ledger.update()?)

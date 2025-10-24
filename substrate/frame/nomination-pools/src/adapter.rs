@@ -16,7 +16,11 @@
 // limitations under the License.
 
 use crate::*;
-use frame_support::traits::tokens::{Fortitude::{Polite, Force}, Precision, Precision::Exact, Preservation::Expendable};
+use frame_support::traits::tokens::{
+	Fortitude::{Force, Polite},
+	Precision::Exact,
+	Preservation::Expendable,
+};
 use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 
 /// Types of stake strategies.
@@ -371,13 +375,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 			return Ok(());
 		}
 		Staking::force_withdraw(&pool_account.0, from_unlocking, from_active)?;
-		T::Currency::burn_from(
-			&pool_account.0,
-			total_amount,
-			Expendable,
-			Exact,
-			Force,
-		)?;
+		T::Currency::burn_from(&pool_account.0, total_amount, Expendable, Exact, Force)?;
 		Ok(())
 	}
 }
@@ -504,13 +502,7 @@ impl<
 
 		Staking::force_withdraw(&pool_account.0, from_unlocking, from_active)?;
 		Delegation::withdraw_delegation(who.clone().into(), pool_account.into(), total_amount, 0)?;
-		T::Currency::burn_from(
-			&who.0,
-			total_amount,
-			Expendable,
-			Exact,
-			Force,
-		)?;
+		T::Currency::burn_from(&who.0, total_amount, Expendable, Exact, Force)?;
 		Ok(())
 	}
 

@@ -3265,15 +3265,11 @@ pub mod pallet {
 
 			let (mut member, mut bonded_pool, mut reward_pool) =
 				Self::get_member_with_pools(&member_account)?;
-			let mut sub_pools =
-				SubPoolsStorage::<T>::get(member.pool_id).unwrap_or_default();
+			let mut sub_pools = SubPoolsStorage::<T>::get(member.pool_id).unwrap_or_default();
 			let bonded_account = bonded_pool.bonded_account();
 
 			let member_balance = member.total_balance();
-			ensure!(
-				member_balance < T::Currency::minimum_balance(),
-				Error::<T>::MinimumBondNotMet
-			);
+			ensure!(member_balance < T::Currency::minimum_balance(), Error::<T>::MinimumBondNotMet);
 
 			// Depositor can only be reaped if pool is destroying or they are the last member
 			if member_account == bonded_pool.roles.depositor {
@@ -3304,15 +3300,13 @@ pub mod pallet {
 				} else {
 					sub_pools.no_era.dissolve(*points)
 				};
-				withdrawn_from_unlocking =
-					withdrawn_from_unlocking.saturating_add(balance);
+				withdrawn_from_unlocking = withdrawn_from_unlocking.saturating_add(balance);
 			}
 
 			let active_points = member.active_points();
 			let withdrawn_from_active = bonded_pool.dissolve(active_points);
 
-			let total_withdrawn =
-				withdrawn_from_unlocking.saturating_add(withdrawn_from_active);
+			let total_withdrawn = withdrawn_from_unlocking.saturating_add(withdrawn_from_active);
 			if !total_withdrawn.is_zero() {
 				T::StakeAdapter::reap_member(
 					Member::from(member_account.clone()),
