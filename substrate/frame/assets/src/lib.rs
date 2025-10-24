@@ -585,7 +585,7 @@ pub mod pallet {
 			for (id, reserves) in &self.reserves {
 				assert!(!ReserveLocations::<T, I>::contains_key(id), "Asset id already in use");
 				let reserves =
-					BoundedVec::<T::ReserveId, ConstU32<MAX_RESERVES>>::try_from(reserves.clone())
+					BoundedVec::try_from(reserves.clone())
 						.expect("too many reserves");
 				ReserveLocations::<T, I>::insert(id, reserves);
 			}
