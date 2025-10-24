@@ -811,7 +811,7 @@ parameter_types! {
 	pub const DepositPerChildTrieItem: Balance = 0;
 	pub const DepositPerByte: Balance = 0;
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1,2);
+	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
 
 impl pallet_revive::Config for Runtime {
@@ -937,7 +937,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block)
 		}
 
@@ -974,7 +974,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -1092,7 +1092,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
+			PolkadotXcm::dry_run_xcm::<xcm_config::XcmRouter>(origin_location, xcm)
 		}
 	}
 
@@ -1140,7 +1140,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn execute_block(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			state_root_check: bool,
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect,

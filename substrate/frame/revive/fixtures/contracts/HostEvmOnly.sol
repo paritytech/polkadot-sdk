@@ -7,6 +7,11 @@ contract HostEvmOnly {
             selfdestruct(recipient)
         }
     }
+    function fallback(address payable recipient) public {
+        assembly {
+            selfdestruct(recipient)
+        }
+    }
 
     function extcodecopyOp(address account, uint64 offset, uint64 size) public view returns (bytes memory code) {
         code = new bytes(size);
