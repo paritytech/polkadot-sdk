@@ -1006,7 +1006,24 @@ mod tests {
 			};
 			// Should handle large lengths gracefully via saturating conversion
 			let large_len = usize::MAX;
+
+			// Weight proof size should equal u64::MAX (initial zero + u64::MAX)
 			let result = CheckWeight::<Test>::check_extrinsic_weight(&info_zero, large_len);
+			// This should fail because u64::MAX proof size exceeds limits
+			assert_err!(result, InvalidTransaction::ExhaustsResources);
+
+			// Test with very large length (near usize::MAX on 32-bit systems)
+			let info_with_minimal_proof_size = DispatchInfo {
+				call_weight: Weight::from_parts(0, 10),
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			// Weight proof size saturates at u64::MAX (initial 10 + u64::MAX)
+			let result = CheckWeight::<Test>::check_extrinsic_weight(
+				&info_with_minimal_proof_size,
+				large_len,
+			);
 			// This should fail because u64::MAX proof size exceeds limits
 			assert_err!(result, InvalidTransaction::ExhaustsResources);
 		});
