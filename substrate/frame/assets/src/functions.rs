@@ -1096,7 +1096,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Helper function for setting reserves to be used in benchmarking and migrations.
-	/// Does not check validity of parameters, always call it from a trusted environment.
+	/// Does not check validity of asset id, caller should check it.
 	pub fn unchecked_update_reserves(
 		id: T::AssetId,
 		reserves: Vec<T::ReserveId>,
