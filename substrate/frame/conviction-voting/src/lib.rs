@@ -606,43 +606,37 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								let delegates_votes = &mut delegate_voting.votes;
 								// Check vote data exists, shouldn't be possible for it not to if
 								// delegator has voted & poll is ongoing.
-								match delegates_votes
+								if let Ok(i) = delegates_votes
 									.binary_search_by_key(&poll_index, |i| i.poll_index)
 								{
-									Ok(i) => {
-										// Remove clawback from delegates vote record.
-										let amount_delegated =
-											conviction.votes(voting.delegated_balance);
-										delegates_votes[i].retracted_votes = delegates_votes[i]
-											.retracted_votes
-											.saturating_sub(amount_delegated);
+									// Remove clawback from delegates vote record.
+									let amount_delegated =
+										conviction.votes(voting.delegated_balance);
+									delegates_votes[i].retracted_votes = delegates_votes[i]
+										.retracted_votes
+										.saturating_sub(amount_delegated);
 
-										// If delegate had voted and was standard vote.
-										if let Some(approval) = delegates_votes[i]
-											.maybe_vote
-											.as_ref()
-											.and_then(|v| v.as_standard())
-										{
-											// Increase tally by delegated amount.
-											tally.increase(
-												approval,
-												conviction.votes(voting.delegated_balance),
-											);
-										}
+									// If delegate had voted and was standard vote.
+									if let Some(approval) = delegates_votes[i]
+										.maybe_vote
+										.as_ref()
+										.and_then(|v| v.as_standard())
+									{
+										// Increase tally by delegated amount.
+										tally.increase(
+											approval,
+											conviction.votes(voting.delegated_balance),
+										);
+									}
 
-										// And remove the voting data if there's no longer a reason
-										// to hold.
-										if delegates_votes[i].maybe_vote.is_none() &&
-											delegates_votes[i].retracted_votes ==
-												Default::default()
-										{
-											delegates_votes.remove(i);
-										}
-									},
-									Err(_) => {
-										// Shouldn't be possible. Unsure if I should call out with
-										// error or remove.
-									},
+									// And remove the voting data if there's no longer a reason
+									// to hold.
+									if delegates_votes[i].maybe_vote.is_none() &&
+										delegates_votes[i].retracted_votes ==
+											Default::default()
+									{
+										delegates_votes.remove(i);
+									}
 								}
 							});
 						}
