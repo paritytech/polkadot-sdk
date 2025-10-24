@@ -3080,11 +3080,11 @@ fn block_hash_works() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		// The genesis config sets to the block number to 1
-		let block_hash = [1; 32];
-		frame_system::BlockHash::<Test>::insert(
-			&crate::BlockNumberFor::<Test>::from(0u32),
-			<Test as frame_system::Config>::Hash::from(&block_hash),
-		);
+
+		// Store block hash in pallet-revive BlockHash mapping
+		let block_hash = H256::from([1; 32]);
+		crate::BlockHash::<Test>::insert(U256::from(0u32), H256::from(block_hash));
+
 		assert_ok!(builder::call(addr)
 			.data((U256::zero(), H256::from(block_hash)).encode())
 			.build());

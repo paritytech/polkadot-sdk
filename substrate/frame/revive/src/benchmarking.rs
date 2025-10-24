@@ -1107,10 +1107,9 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let block_hash = H256::from([1; 32]);
-		frame_system::BlockHash::<T>::insert(
-			&BlockNumberFor::<T>::from(0u32),
-			T::Hash::from(block_hash),
-		);
+
+		// Store block hash in pallet-revive BlockHash mapping
+		crate::BlockHash::<T>::insert(U256::from(0u32), block_hash);
 
 		let result;
 		#[block]
