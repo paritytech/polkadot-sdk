@@ -628,14 +628,19 @@ impl RelayChainInterface for TestRelayClient {
 
 /// Build a consecutive set of relay headers whose digest entries optionally carry a BABE
 /// epoch-change marker, returning the underlying map and the hash of the last header.
-fn build_headers_with_epoch_flags(flags: &[HasEpochChange]) -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
+fn build_headers_with_epoch_flags(
+	flags: &[HasEpochChange],
+) -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
 	let mut headers = HashMap::new();
 	let mut parent_hash = RelayHash::default();
 	let mut last_hash = RelayHash::default();
 
 	for (index, has_epoch_change) in flags.iter().enumerate() {
-		let digest =
-			if *has_epoch_change == HasEpochChange::Yes { babe_epoch_change_digest() } else { Default::default() };
+		let digest = if *has_epoch_change == HasEpochChange::Yes {
+			babe_epoch_change_digest()
+		} else {
+			Default::default()
+		};
 
 		let header = RelayHeader {
 			parent_hash,
