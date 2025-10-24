@@ -802,6 +802,15 @@ pub mod pallet {
 				});
 			}
 
+			// Build genesis block
+			block_storage::on_finalize_build_eth_block::<T>(
+				H160::zero(),
+				U256::zero(),
+				Pallet::<T>::evm_base_fee(),
+				Pallet::<T>::evm_block_gas_limit(),
+				U256::zero(),
+			);
+
 			// Set debug settings.
 			if let Some(settings) = self.debug_settings.as_ref() {
 				settings.write_to_storage::<T>()
@@ -832,6 +841,7 @@ pub mod pallet {
 			block_storage::on_finalize_build_eth_block::<T>(
 				Self::block_author(),
 				block_number.into(),
+				Self::evm_base_fee(),
 				Self::evm_block_gas_limit(),
 				// Eth uses timestamps in seconds
 				(T::Time::now() / 1000u32.into()).into(),
