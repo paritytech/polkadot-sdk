@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use crate::{
-	cli::AuthoringPolicy,
+	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
@@ -211,9 +211,9 @@ where
 	type StartConsensus = StartConsensus;
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 
-	fn start_manual_seal_node(
+	fn start_dev_node(
 		mut config: Configuration,
-		block_time: u64,
+		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
 		let PartialComponents {
 			client,
@@ -277,24 +277,6 @@ where
 			None,
 		);
 
-		let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
-		let mut manual_seal_sink_clone = manual_seal_sink.clone();
-		task_manager
-			.spawn_essential_handle()
-			.spawn("block_authoring", None, async move {
-				loop {
-					futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
-					manual_seal_sink_clone
-						.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
-							create_empty: true,
-							finalize: true,
-							parent_hash: None,
-							sender: None,
-						})
-						.unwrap();
-				}
-			});
-
 		// Note: Changing slot durations are currently not supported
 		let slot_duration = sc_consensus_aura::slot_duration(&*client)
 			.expect("slot_duration is always present; qed.");
@@ -305,29 +287,67 @@ where
 
 		let para_id =
 			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
-		let create_inherent_data_providers = Self::create_manual_seal_inherent_data_providers(
-			client.clone(),
-			para_id,
-			slot_duration,
-		);
+		let create_inherent_data_providers =
+			Self::create_dev_node_inherent_data_providers(client.clone(), para_id, slot_duration);
 
-		let params = sc_consensus_manual_seal::ManualSealParams {
-			block_import: client.clone(),
-			env: proposer,
-			client: client.clone(),
-			pool: transaction_pool.clone(),
-			select_chain: LongestChain::new(backend.clone()),
-			commands_stream: Box::pin(manual_seal_stream),
-			consensus_data_provider: Some(Box::new(aura_digest_provider)),
-			create_inherent_data_providers,
-		};
+		match mode {
+			DevSealMode::InstantSeal => {
+				let params = sc_consensus_manual_seal::InstantSealParams {
+					block_import: client.clone(),
+					env: proposer,
+					client: client.clone(),
+					pool: transaction_pool.clone(),
+					select_chain: LongestChain::new(backend.clone()),
+					consensus_data_provider: Some(Box::new(aura_digest_provider)),
+					create_inherent_data_providers,
+				};
 
-		let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
-		task_manager.spawn_essential_handle().spawn_blocking(
-			"manual-seal",
-			None,
-			authorship_future,
-		);
+				let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
+				task_manager.spawn_essential_handle().spawn_blocking(
+					"instant-seal",
+					None,
+					authorship_future,
+				);
+			},
+			DevSealMode::ManualSeal(block_time) => {
+				let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
+				let mut manual_seal_sink_clone = manual_seal_sink.clone();
+				task_manager
+					.spawn_essential_handle()
+					.spawn("block_authoring", None, async move {
+						loop {
+							futures_timer::Delay::new(std::time::Duration::from_millis(block_time))
+								.await;
+							manual_seal_sink_clone
+								.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+									create_empty: true,
+									finalize: true,
+									parent_hash: None,
+									sender: None,
+								})
+								.unwrap();
+						}
+					});
+
+				let params = sc_consensus_manual_seal::ManualSealParams {
+					block_import: client.clone(),
+					env: proposer,
+					client: client.clone(),
+					pool: transaction_pool.clone(),
+					select_chain: LongestChain::new(backend.clone()),
+					commands_stream: Box::pin(manual_seal_stream),
+					consensus_data_provider: Some(Box::new(aura_digest_provider)),
+					create_inherent_data_providers,
+				};
+
+				let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
+				task_manager.spawn_essential_handle().spawn_blocking(
+					"manual-seal",
+					None,
+					authorship_future,
+				);
+			},
+		}
 
 		let rpc_extensions_builder = {
 			let client = client.clone();
@@ -373,11 +393,11 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 {
-	/// Creates the inherent data providers for manual seal consensus.
+	/// Creates the inherent data providers for manual and instant seal consensus.
 	///
 	/// This function sets up the timestamp and parachain validation data providers
-	/// required for manual seal block production in a parachain environment.
-	fn create_manual_seal_inherent_data_providers(
+	/// required for dev seal block production in a parachain environment.
+	fn create_dev_node_inherent_data_providers(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		para_id: ParaId,
 		slot_duration: sp_consensus_aura::SlotDuration,

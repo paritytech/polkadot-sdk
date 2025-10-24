@@ -82,6 +82,8 @@ where
 		};
 
 		match input {
+			IXcmCalls::send(_) | IXcmCalls::execute(_) if env.is_read_only() =>
+				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
 			IXcmCalls::send(IXcm::sendCall { destination, message }) => {
 				let _ = env.charge(<Runtime as Config>::WeightInfo::send())?;
 
