@@ -20,15 +20,16 @@ use super::{
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 };
 use async_trait::async_trait;
+use codec::Encode;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem};
 use cumulus_relay_chain_interface::*;
 use futures::Stream;
-use codec::Encode;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	CandidateEvent, CommittedCandidateReceiptV2, CoreIndex, Hash as RelayHash,
 	Header as RelayHeader, Id as ParaId,
 };
+use rstest::rstest;
 use sc_consensus_babe::{
 	AuthorityId, ConsensusLog as BabeConsensusLog, NextEpochDescriptor, BABE_ENGINE_ID,
 };
@@ -109,31 +110,25 @@ async fn offset_test_too_long() {
 	assert!(result.is_err());
 }
 
-#[tokio::test]
-async fn offset_returns_none_when_best_header_contains_epoch_change() {
-	let (headers, best_hash) = build_headers_with_epoch_flags(&[false, false, true]);
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 1).await;
-	assert!(result.is_ok());
-	assert!(result.unwrap().is_none());
+#[derive(PartialEq)]
+enum HasEpochChange {
+	Yes,
+	No,
 }
 
+#[rstest]
+#[case::in_best(
+	&[HasEpochChange::No, HasEpochChange::No, HasEpochChange::Yes],
+)]
+#[case::in_first_ancestor(
+	&[HasEpochChange::No, HasEpochChange::Yes, HasEpochChange::No],
+)]
+#[case::in_second_ancestor(
+	&[HasEpochChange::Yes, HasEpochChange::No, HasEpochChange::No],
+)]
 #[tokio::test]
-async fn offset_returns_none_when_first_ancestor_contains_epoch_change() {
-	let (headers, best_hash) = build_headers_with_epoch_flags(&[false, true, false]);
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2).await;
-	assert!(result.is_ok());
-	assert!(result.unwrap().is_none());
-}
-
-#[tokio::test]
-async fn offset_returns_none_when_second_ancestor_contains_epoch_change() {
-	let (headers, best_hash) = build_headers_with_epoch_flags(&[true, false, false]);
+async fn offset_returns_none_when_epoch_change_encountered(#[case] flags: &[HasEpochChange]) {
+	let (headers, best_hash) = build_headers_with_epoch_flags(flags);
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
@@ -633,14 +628,14 @@ impl RelayChainInterface for TestRelayClient {
 
 /// Build a consecutive set of relay headers whose digest entries optionally carry a BABE
 /// epoch-change marker, returning the underlying map and the hash of the last header.
-fn build_headers_with_epoch_flags(flags: &[bool]) -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
+fn build_headers_with_epoch_flags(flags: &[HasEpochChange]) -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
 	let mut headers = HashMap::new();
 	let mut parent_hash = RelayHash::default();
 	let mut last_hash = RelayHash::default();
 
 	for (index, has_epoch_change) in flags.iter().enumerate() {
 		let digest =
-			if *has_epoch_change { babe_epoch_change_digest() } else { Default::default() };
+			if *has_epoch_change == HasEpochChange::Yes { babe_epoch_change_digest() } else { Default::default() };
 
 		let header = RelayHeader {
 			parent_hash,
