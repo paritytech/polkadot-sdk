@@ -19,16 +19,20 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
+use codec::DecodeAll;
 use core::{fmt, marker::PhantomData, num::NonZero};
-use frame_support::dispatch::RawOrigin;
+use frame_support::{
+	dispatch::RawOrigin,
+	traits::{schedule::DispatchTime, Bounded},
+};
 use pallet_referenda::Config;
 use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
-	DispatchInfo, ExecOrigin as Origin, Weight,
+	ExecOrigin as Origin,
 };
 use tracing::error;
 
@@ -66,7 +70,28 @@ where
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
 			},
+			IReferendaCalls::submitLookup(IReferenda::submitLookupCall {
+				origin,
+				hash,
+				preimageLength: preimage_length,
+				timing,
+				enactmentMoment: enactment_moment,
+			}) => {
+		
+				// Placeholder implementation
+				Err(Error::Revert("submitLookup: Not yet implemented".into()))
+			},
 
+			// TODO: Implement submitInline
+			IReferendaCalls::submitInline(IReferenda::submitInlineCall {
+				origin,
+				proposal,
+				timing,
+				enactmentMoment: enactment_moment,
+			}) => {
+				// Placeholder implementation
+				Err(Error::Revert("submitInline: Not yet implemented".into()))
+			},
 			// Add a catch-all for now
 			_ => Ok(Vec::new()),
 		}
