@@ -32,14 +32,14 @@ use crate::{
 	},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, HardhatMetadata, ReceiptProvider,
 	SubxtBlockInfoProvider, TracerType, TransactionInfo, LOG_TARGET,
-
 };
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes,
-		FeeHistoryResult, Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H160, H256, U128, U256, U64,
+		FeeHistoryResult, Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo,
+		SyncingProgress, SyncingStatus, Trace, TransactionSigned, TransactionTrace, H160, H256,
+		U128, U256, U64,
 	},
 	EthTransactError,
 };
@@ -148,7 +148,6 @@ pub enum ClientError {
 	#[error("Receipt data length mismatch")]
 	ReceiptDataLengthMismatch,
 }
-const LOG_TARGET: &str = "eth-rpc::client";
 
 const REVERT_CODE: i32 = 3;
 impl From<ClientError> for ErrorObjectOwned {
@@ -156,10 +155,9 @@ impl From<ClientError> for ErrorObjectOwned {
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
-			)))
-			| ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
-			},
+			))) |
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -169,12 +167,10 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) => {
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
-			},
-			_ => {
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
-			},
+			ClientError::TransactError(EthTransactError::Message(msg)) =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			_ =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
 		}
 	}
 }
@@ -401,11 +397,10 @@ impl Client {
 
 			// Only broadcast for best blocks to avoid duplicate notifications.
 			match (subscription_type, &self.tx_notifier) {
-				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
+				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 =>
 					for receipt in &receipts {
 						let _ = sender.send(receipt.transaction_hash);
-					}
-				},
+					},
 				_ => {},
 			}
 			Ok(())
@@ -769,7 +764,7 @@ impl Client {
 				log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
 				None
 			},
-    }
+		}
 	}
 
 	/// Get the EVM block for the given block and receipts.
@@ -820,9 +815,7 @@ impl Client {
 		let block_author: H160;
 
 		match maybe_coinbase {
-			None => {
-				block_author = runtime_api.block_author().await.ok().unwrap_or_default()
-			},
+			None => block_author = runtime_api.block_author().await.ok().unwrap_or_default(),
 			Some(author) => block_author = author,
 		}
 
@@ -966,7 +959,8 @@ impl Client {
 			}
 		}
 
-		// Small delay only for the final block to ensure it's available for immediate latest() calls
+		// Small delay only for the final block to ensure it's available for immediate latest()
+		// calls
 		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
 		Ok(latest_block.unwrap())
@@ -1443,9 +1437,7 @@ impl Client {
 		let block_author: H160;
 
 		match maybe_coinbase {
-			None => {
-				block_author = runtime_api.block_author().await.ok().unwrap_or_default()
-			},
+			None => block_author = runtime_api.block_author().await.ok().unwrap_or_default(),
 			Some(author) => block_author = author,
 		}
 

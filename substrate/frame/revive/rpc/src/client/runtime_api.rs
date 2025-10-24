@@ -27,8 +27,6 @@ use pallet_revive::{
 use sp_core::H256;
 use subxt::OnlineClient;
 
-const LOG_TARGET: &str = "eth-rpc::runtime_api";
-
 /// A Wrapper around subxt Runtime API
 #[derive(Clone)]
 pub struct RuntimeApi(subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>);
@@ -170,6 +168,8 @@ impl RuntimeApi {
 		let payload = subxt_client::apis().revive_api().account_or_fallback(address);
 		let account = self.0.call(payload).await?;
 		Ok(account)
+	}
+
 	/// Get the current Ethereum block.
 	pub async fn eth_block(&self) -> Result<EthBlock, ClientError> {
 		let payload = subxt_client::apis().revive_api().eth_block();
