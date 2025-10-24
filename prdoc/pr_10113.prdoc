@@ -1,0 +1,20 @@
+title: 'weights: fix adding weights'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    Fixes potential integer overflow in `Weight::add_ref_time()` and `Weight::add_proof_size()` by using saturating arithmetic instead of regular addition.
+
+    ## Changes
+
+    - **Weight type**: Changed `add_ref_time()` and `add_proof_size()` to use `saturating_add()`, preventing overflow when adding scalar values
+    - **CheckWeight tests**: Added test cases verifying proper handling of extreme values (usize::MAX lengths) that trigger saturation
+    - **Logging**:
+      - Initialize logging for tests
+      - Improved CheckWeight debug message clarity
+crates:
+- name: frame-system
+  bump: patch
+- name: sp-weights
+  bump: patch
