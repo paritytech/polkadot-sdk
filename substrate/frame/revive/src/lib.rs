@@ -359,7 +359,7 @@ pub mod pallet {
 			pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(1, 2);
+			pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -802,6 +802,15 @@ pub mod pallet {
 				});
 			}
 
+			// Build genesis block
+			block_storage::on_finalize_build_eth_block::<T>(
+				H160::zero(),
+				U256::zero(),
+				Pallet::<T>::evm_base_fee(),
+				Pallet::<T>::evm_block_gas_limit(),
+				U256::zero(),
+			);
+
 			// Set debug settings.
 			if let Some(settings) = self.debug_settings.as_ref() {
 				settings.write_to_storage::<T>()
@@ -832,6 +841,7 @@ pub mod pallet {
 			block_storage::on_finalize_build_eth_block::<T>(
 				Self::block_author(),
 				block_number.into(),
+				Self::evm_base_fee(),
 				Self::evm_block_gas_limit(),
 				// Eth uses timestamps in seconds
 				(T::Time::now() / 1000u32.into()).into(),
@@ -1653,7 +1663,7 @@ impl<T: Config> Pallet<T> {
 
 		// we need to parse the weight from the transaction so that it is run
 		// using the exact weight limit passed by the eth wallet
-		let mut call_info = create_call::<T>(tx, None)
+		let mut call_info = create_call::<T>(tx, None, false)
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 
 		// the dry-run might leave out certain fields
@@ -1827,10 +1837,14 @@ impl<T: Config> Pallet<T> {
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact: \
-			weight_limit={:?}: \
-			eth_gas={eth_gas:?})\
+			weight_limit={} \
+			total_weight={total_weight} \
+			max_weight={max_weight} \
+			weight_left={} \
+			eth_gas={eth_gas})\
 			",
 			dry_run.gas_required,
+			max_weight.saturating_sub(total_weight),
 
 		);
 		dry_run.eth_gas = eth_gas;
