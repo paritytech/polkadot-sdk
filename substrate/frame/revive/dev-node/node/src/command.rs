@@ -89,6 +89,10 @@ pub fn run() -> sc_cli::Result<()> {
 				Ok((cmd.run(client, config.database), task_manager))
 			})
 		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			let chain_spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(chain_spec)
+		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
