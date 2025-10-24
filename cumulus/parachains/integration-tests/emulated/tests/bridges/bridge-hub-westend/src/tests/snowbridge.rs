@@ -38,12 +38,12 @@ use asset_hub_westend_runtime::xcm_config::{
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
 };
-use codec::{Decode, Encode};
+use codec::Encode;
 use emulated_integration_tests_common::{
 	snowbridge::{SEPOLIA_ID, WETH},
 	PENPAL_B_ID, RESERVABLE_ASSET_ID,
 };
-use frame_support::{pallet_prelude::TypeInfo, traits::fungibles::Mutate};
+use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
@@ -66,19 +66,6 @@ const XCM_FEE: u128 = 100_000_000_000;
 const INSUFFICIENT_XCM_FEE: u128 = 1000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 const BRIDGE_FEE: u128 = 4_000_000_000_000;
-
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-pub enum ControlCall {
-	#[codec(index = 3)]
-	CreateAgent,
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-pub enum SnowbridgeControl {
-	#[codec(index = 83)]
-	Control(ControlCall),
-}
 
 pub fn send_inbound_message(fixture: EventFixture) -> DispatchResult {
 	EthereumBeaconClient::store_finalized_header(

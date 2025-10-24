@@ -268,6 +268,10 @@ impl NetworkSigner for Litep2pNetworkService {
 		let public_key = litep2p::crypto::RemotePublicKey::from_protobuf_encoding(&public_key)
 			.map_err(|error| error.to_string())?;
 		let peer: litep2p::PeerId = peer.into();
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/master
 		Ok(peer == identity && public_key.verify(message, signature))
 	}
 }

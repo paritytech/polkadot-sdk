@@ -48,8 +48,22 @@ pub const CALL_STACK_DEPTH: u32 = 25;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
-/// Maximum size of events (including topics) and storage values.
-pub const PAYLOAD_BYTES: u32 = 416;
+/// Maximum size of of the transaction payload
+///
+/// Maximum code size during instantiation taken into account plus some overhead.
+pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES;
+
+/// Maximum size of storage items.
+pub const STORAGE_BYTES: u32 = 416;
+
+/// Maximum payload size of events.
+pub const EVENT_BYTES: u32 = 64 * 1024;
+
+/// The extra ref time charge of deposit event per byte.
+///
+/// This ensure the block builder has enough memory and pallet storage
+/// to operate under worst case scenarios.
+pub const EXTRA_EVENT_CHARGE_PER_BYTE: u64 = 256 * 1024;
 
 /// The maximum size for calldata and return data.
 ///
@@ -72,6 +86,12 @@ pub const PAGE_SIZE: u32 = 4 * 1024;
 /// The current limit of 4kb allows storing up 16 U256 immutable variables.
 /// Which should always be enough because Solidity allows for 16 local (stack) variables.
 pub const IMMUTABLE_BYTES: u32 = 4 * 1024;
+
+/// upperbound of memory that can be used by the EVM interpreter.
+pub const EVM_MEMORY_BYTES: u32 = 1024 * 1024;
+
+/// EVM interpreter stack limit.
+pub const EVM_STACK_LIMIT: u32 = 1024;
 
 /// Limits that are only enforced on code upload.
 ///
@@ -254,7 +274,14 @@ const fn memory_required() -> u32 {
 	let max_call_depth = CALL_STACK_DEPTH + 1;
 
 	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
-	let per_frame_memory = code::BASELINE_MEMORY_LIMIT + CALLDATA_BYTES * 2;
+
+	let evm_max_initcode_size = revm::primitives::eip3860::MAX_INITCODE_SIZE as u32;
+	let evm_overhead = EVM_MEMORY_BYTES + evm_max_initcode_size + EVM_STACK_LIMIT * 32;
+	let per_frame_memory = if code::BASELINE_MEMORY_LIMIT > evm_overhead {
+		code::BASELINE_MEMORY_LIMIT
+	} else {
+		evm_overhead
+	} + CALLDATA_BYTES * 2;
 
 	per_stack_memory + max_call_depth * per_frame_memory
 }

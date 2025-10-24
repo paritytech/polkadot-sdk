@@ -1,0 +1,11 @@
+title: '[pallet-revive] fix subxt submit & add debug statments'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Fix subxt submit by default it's using `author_submitAndWatchExtrinsic` even though we just want to fire and forget
+    - Add debug instructions to log the signer & nonce of new eth transactions when the node validate the transaction
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
+  bump: patch

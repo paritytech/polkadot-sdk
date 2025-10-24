@@ -183,6 +183,7 @@ frame_support::parameter_types! {
 }
 
 pub struct OnChargeTransaction;
+
 impl pallet_transaction_payment::OnChargeTransaction<Test> for OnChargeTransaction {
 	type Balance = u64;
 	type LiquidityInfo = ();
@@ -222,6 +223,10 @@ impl pallet_transaction_payment::OnChargeTransaction<Test> for OnChargeTransacti
 	) -> Result<(), TransactionValidityError> {
 		unimplemented!()
 	}
+}
+
+impl pallet_transaction_payment::TxCreditHold<Test> for OnChargeTransaction {
+	type Credit = ();
 }
 
 impl pallet_transaction_payment::Config for Test {

@@ -127,7 +127,8 @@ fn build_client(
 
 		let receipt_extractor = ReceiptExtractor::new(
 			api.clone(),
-			earliest_receipt_block).await?;
+			earliest_receipt_block,
+		).await?;
 
 		let receipt_provider = ReceiptProvider::new(
 				pool,
@@ -188,6 +189,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rate_limit: rpc_params.rpc_rate_limit,
 		rate_limit_whitelisted_ips: rpc_params.rpc_rate_limit_whitelisted_ips,
 		rate_limit_trust_proxy_headers: rpc_params.rpc_rate_limit_trust_proxy_headers,
+		request_logger_limit: if is_dev { 1024 * 1024 } else { 1024 },
 	};
 
 	let prometheus_config =
@@ -251,7 +253,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 /// Create the JSON-RPC module.
 fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
-		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
+		.with_accounts(if is_dev {
+			vec![
+				crate::Account::from(subxt_signer::eth::dev::alith()),
+				crate::Account::from(subxt_signer::eth::dev::baltathar()),
+				crate::Account::from(subxt_signer::eth::dev::charleth()),
+				crate::Account::from(subxt_signer::eth::dev::dorothy()),
+				crate::Account::from(subxt_signer::eth::dev::ethan()),
+			]
+		} else {
+			vec![]
+		})
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();

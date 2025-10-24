@@ -433,7 +433,7 @@ pub(crate) struct RuntimeApi {
 
 impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 	type Api = RuntimeApi;
-	fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
+	fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
 		RuntimeApi { _inner: self.clone() }.into()
 	}
 }
@@ -517,7 +517,7 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			pallet_xcm::Pallet::<TestRuntime>::dry_run_xcm::<TestRuntime, XcmRouter, RuntimeCall, XcmConfig>(origin_location, xcm)
+			pallet_xcm::Pallet::<TestRuntime>::dry_run_xcm::<XcmRouter>(origin_location, xcm)
 		}
 	}
 }
