@@ -72,7 +72,6 @@ use alloy_core::{
 	sol_types::SolValue,
 };
 use bp_relayers::RewardLedger;
-use bridge_hub_common::CustomDigestItem;
 use codec::{Decode, FullCodec};
 use frame_support::{
 	storage::StorageStreamIter,
@@ -80,6 +79,7 @@ use frame_support::{
 	weights::{Weight, WeightToFee},
 };
 use snowbridge_core::{
+	digest_item::SnowbridgeDigestItem,
 	reward::{AddTip, AddTipError},
 	BasicOperatingMode,
 };
@@ -328,7 +328,7 @@ pub mod pallet {
 			// Create merkle root of messages
 			let root = merkle_root::<<T as Config>::Hashing, _>(MessageLeaves::<T>::stream_iter());
 
-			let digest_item: DigestItem = CustomDigestItem::SnowbridgeV2(root).into();
+			let digest_item: DigestItem = SnowbridgeDigestItem::SnowbridgeV2(root).into();
 
 			// Insert merkle root into the header digest
 			<frame_system::Pallet<T>>::deposit_log(digest_item);
