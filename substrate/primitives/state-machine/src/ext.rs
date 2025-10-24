@@ -39,6 +39,8 @@ use core::{
 };
 #[cfg(feature = "std")]
 use std::error;
+#[cfg(feature = "std")]
+use crate::storage_tracker::{StorageTracker, StorageOp};
 
 const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within runtime";
 const BENCHMARKING_FN: &str = "\
@@ -103,6 +105,9 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
+	/// Optional storage tracker for performance analysis.
+	#[cfg(feature = "std")]
+	storage_tracker: Option<std::sync::Arc<StorageTracker>>,
 }
 
 impl<'a, H, B> Ext<'a, H, B>
@@ -123,11 +128,24 @@ where
 		backend: &'a B,
 		extensions: Option<&'a mut sp_externalities::Extensions>,
 	) -> Self {
+		let storage_tracker = if StorageTracker::is_enabled_by_env() {
+			match StorageTracker::new() {
+				Ok(tracker) => Some(std::sync::Arc::new(tracker)),
+				Err(e) => {
+					log::error!("Failed to initialize storage tracker: {}", e);
+					None
+				}
+			}
+		} else {
+			None
+		};
+
 		Self {
 			overlay,
 			backend,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
+			storage_tracker,
 		}
 	}
 }
@@ -174,6 +192,12 @@ where
 			.map(|x| x.map(|x| x.to_vec()))
 			.unwrap_or_else(|| self.backend.storage(key).expect(EXT_NOT_ALLOWED_TO_FAIL));
 
+		// Track storage access
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(key, StorageOp::Read, result.as_ref().map(|v| v.len()));
+		}
+
 		// NOTE: be careful about touching the key names – used outside substrate!
 		trace!(
 			target: "state",
@@ -200,6 +224,12 @@ where
 			.map(|x| x.map(|x| H::hash(x)))
 			.unwrap_or_else(|| self.backend.storage_hash(key).expect(EXT_NOT_ALLOWED_TO_FAIL));
 
+		// Track storage hash access
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(key, StorageOp::ReadHash, None);
+		}
+
 		trace!(
 			target: "state",
 			method = "Hash",
@@ -219,6 +249,12 @@ where
 			.unwrap_or_else(|| {
 				self.backend.child_storage(child_info, key).expect(EXT_NOT_ALLOWED_TO_FAIL)
 			});
+
+		// Track child storage access
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(key, StorageOp::Read, result.as_ref().map(|v| v.len()));
+		}
 
 		trace!(
 			target: "state",
@@ -242,6 +278,12 @@ where
 				self.backend.child_storage_hash(child_info, key).expect(EXT_NOT_ALLOWED_TO_FAIL)
 			});
 
+		// Track child storage hash access
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(key, StorageOp::ReadHash, None);
+		}
+
 		trace!(
 			target: "state",
 			method = "ChildHash",
@@ -260,6 +302,12 @@ where
 			Some(x) => x.is_some(),
 			_ => self.backend.exists_storage(key).expect(EXT_NOT_ALLOWED_TO_FAIL),
 		};
+
+		// Track existence check
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(key, StorageOp::Exists, None);
+		}
 
 		trace!(
 			target: "state",
@@ -283,6 +331,12 @@ where
 				.expect(EXT_NOT_ALLOWED_TO_FAIL),
 		};
 
+		// Track child existence check
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(key, StorageOp::Exists, None);
+		}
+
 		trace!(
 			target: "state",
 			method = "ChildExists",
@@ -295,6 +349,12 @@ where
 	}
 
 	fn next_storage_key(&mut self, key: &[u8]) -> Option<StorageKey> {
+		// Track iteration operation
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(key, StorageOp::NextKey, None);
+		}
+
 		let mut next_backend_key =
 			self.backend.next_storage_key(key).expect(EXT_NOT_ALLOWED_TO_FAIL);
 		let mut overlay_changes = self.overlay.iter_after(key).peekable();
@@ -333,6 +393,12 @@ where
 	}
 
 	fn next_child_storage_key(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
+		// Track child iteration operation
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(key, StorageOp::NextKey, None);
+		}
+
 		let mut next_backend_key = self
 			.backend
 			.next_child_storage_key(child_info, key)
@@ -380,6 +446,13 @@ where
 			return
 		}
 
+		// Track storage write/delete
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			let op = if value.is_some() { StorageOp::Write } else { StorageOp::Delete };
+			tracker.record_access(&key, op, value.as_ref().map(|v| v.len()));
+		}
+
 		// NOTE: be careful about touching the key names – used outside substrate!
 		trace!(
 			target: "state",
@@ -404,6 +477,13 @@ where
 		key: StorageKey,
 		value: Option<StorageValue>,
 	) {
+		// Track child storage write/delete
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			let op = if value.is_some() { StorageOp::Write } else { StorageOp::Delete };
+			tracker.record_access(&key, op, value.as_ref().map(|v| v.len()));
+		}
+
 		trace!(
 			target: "state",
 			method = "ChildPut",
@@ -423,6 +503,12 @@ where
 		maybe_limit: Option<u32>,
 		maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
+		// Track child storage kill operation
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(child_info.storage_key(), StorageOp::ClearPrefix, None);
+		}
+
 		trace!(
 			target: "state",
 			method = "ChildKill",
@@ -442,6 +528,12 @@ where
 		maybe_limit: Option<u32>,
 		maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
+		// Track clear prefix operation
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(prefix, StorageOp::ClearPrefix, None);
+		}
+
 		trace!(
 			target: "state",
 			method = "ClearPrefix",
@@ -471,6 +563,12 @@ where
 		maybe_limit: Option<u32>,
 		maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
+		// Track child clear prefix operation
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(prefix, StorageOp::ClearPrefix, None);
+		}
+
 		trace!(
 			target: "state",
 			method = "ChildClearPrefix",
@@ -491,6 +589,12 @@ where
 	}
 
 	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>) {
+		// Track append operation
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(&key, StorageOp::Append, Some(value.len()));
+		}
+
 		trace!(
 			target: "state",
 			method = "Append",
@@ -511,6 +615,12 @@ where
 		let _guard = guard();
 
 		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
+
+		// Track storage root computation
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(b"<storage_root>", StorageOp::StorageRoot, None);
+		}
 
 		trace!(
 			target: "state",
@@ -534,6 +644,12 @@ where
 			.overlay
 			.child_storage_root(child_info, self.backend, state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
+
+		// Track child storage root computation
+		#[cfg(feature = "std")]
+		if let Some(ref tracker) = self.storage_tracker {
+			tracker.record_access(b"<child_storage_root>", StorageOp::StorageRoot, None);
+		}
 
 		trace!(
 			target: "state",

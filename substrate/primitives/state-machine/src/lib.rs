@@ -39,6 +39,10 @@ mod stats;
 mod testing;
 mod trie_backend;
 mod trie_backend_essence;
+#[cfg(feature = "std")]
+pub mod execution_phase;
+#[cfg(feature = "std")]
+pub mod storage_tracker;
 
 pub use trie_backend::TrieCacheProvider;
 

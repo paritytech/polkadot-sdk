@@ -41,6 +41,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
 	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
+use sp_state_machine::execution_phase::{ExecutionPhase, ExecutionPhaseGuard};
 use sp_trie::recorder::IgnoredNodes;
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
 
@@ -420,10 +421,12 @@ where
 		block_builder: &mut sc_block_builder::BlockBuilder<'_, Block, C>,
 		inherent_data: InherentData,
 	) -> Result<(), sp_blockchain::Error> {
+		// Set execution phase for storage tracking
+		let _phase_guard = ExecutionPhaseGuard::new(ExecutionPhase::Inherents);
+
 		let create_inherents_start = time::Instant::now();
 		let inherents = block_builder.create_inherents(inherent_data)?;
 		let create_inherents_end = time::Instant::now();
-
 		self.metrics.report(|metrics| {
 			metrics.create_inherents_time.observe(
 				create_inherents_end
@@ -502,6 +505,7 @@ where
 
 		debug!(target: LOG_TARGET, "Attempting to push transactions from the pool at {:?}.", self.parent_hash);
 		let mut transaction_pushed = false;
+		let mut extrinsic_index: u32 = 0;
 
 		let end_reason = loop {
 			let pending_tx = if let Some(pending_tx) = pending_iterator.next() {
@@ -559,12 +563,18 @@ where
 			}
 
 			trace!(target: LOG_TARGET, "[{:?}] Pushing to the block.", pending_tx_hash);
+
+			// Set execution phase for this extrinsic
+			let _phase_guard = ExecutionPhaseGuard::new(ExecutionPhase::Extrinsic(extrinsic_index));
+
 			let push_start = time::Instant::now();
-			let push_result = sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data.clone());
+			let push_result =
+				sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data.clone());
 			let push_duration = push_start.elapsed();
 			match push_result {
 				Ok(()) => {
 					transaction_pushed = true;
+					extrinsic_index += 1;
 					let push_ms = push_duration.as_millis();
 					if push_ms > 100 {
 						info!(

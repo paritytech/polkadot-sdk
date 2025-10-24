@@ -39,6 +39,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
 	Digest, ExtrinsicInclusionMode,
 };
+use sp_state_machine::execution_phase::{ExecutionPhase, ExecutionPhaseGuard};
 use std::marker::PhantomData;
 
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -253,6 +254,9 @@ where
 			.api_version::<dyn Core<Block>>(parent_hash)?
 			.ok_or_else(|| Error::VersionInvalid("Core".to_string()))?;
 
+		// Set execution phase for storage tracking
+		let _phase_guard = ExecutionPhaseGuard::new(ExecutionPhase::Initialization);
+
 		let initialize_start = std::time::Instant::now();
 		let extrinsic_inclusion_mode = if core_version >= 5 {
 			api.initialize_block(parent_hash, &header)?
@@ -324,6 +328,9 @@ where
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
 	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
+		// Set execution phase for storage tracking
+		let _phase_guard = ExecutionPhaseGuard::new(ExecutionPhase::Finalization);
+
 		let finalize_start = std::time::Instant::now();
 		let header = self.api.finalize_block(self.parent_hash)?;
 		let finalize_duration = finalize_start.elapsed();
