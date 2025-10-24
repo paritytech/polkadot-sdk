@@ -114,6 +114,7 @@ sp-weights.workspace = true
 
 #[DOPPELGANGER]
 doppelganger-consensus = { path = "../../../doppelganger/consensus", optional = true }
+tokio = { workspace = true, optional = true }
 
 # External Crates
 async-trait = { workspace = true }
