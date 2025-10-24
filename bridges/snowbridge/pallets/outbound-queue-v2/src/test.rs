@@ -11,7 +11,7 @@ use frame_support::{
 	BoundedVec,
 };
 use hex_literal::hex;
-use snowbridge_core::{ChannelId, ParaId, digest_item::SnowbridgeDigestItem};
+use snowbridge_core::{digest_item::SnowbridgeDigestItem, ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{
 	v2::{abi::OutboundMessageWrapper, Command, Initializer, SendMessage},
 	SendError,

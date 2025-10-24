@@ -103,14 +103,14 @@ mod mock;
 #[cfg(test)]
 mod test;
 
-use bridge_hub_common::{AggregateMessageOrigin};
+use bridge_hub_common::AggregateMessageOrigin;
 use codec::Decode;
 use frame_support::{
 	storage::StorageStreamIter,
 	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::{BasicOperatingMode, ChannelId, digest_item::SnowbridgeDigestItem};
+use snowbridge_core::{digest_item::SnowbridgeDigestItem, BasicOperatingMode, ChannelId};
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::v1::{
 	Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS,
