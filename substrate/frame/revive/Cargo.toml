@@ -87,6 +87,7 @@ sp-tracing = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-consensus/serde",
 	"alloy-consensus/std",
 	"alloy-core/std",
 	"alloy-trie/std",
