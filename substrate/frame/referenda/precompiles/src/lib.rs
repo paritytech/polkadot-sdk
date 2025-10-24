@@ -22,6 +22,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use core::{fmt, marker::PhantomData, num::NonZero};
 use frame_support::dispatch::RawOrigin;
+use pallet_referenda::Config;
 use pallet_revive::{
 	precompiles::{
 		alloy::{self, sol_types::SolValue},
