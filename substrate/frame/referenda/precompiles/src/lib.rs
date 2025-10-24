@@ -58,7 +58,17 @@ where
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		let origin = env.caller();
-		
-		Ok(Vec::new())
+
+		// match calls
+		match input {
+			IReferendaCalls::submitLookup(_) | IReferendaCalls::submitInline(_)
+				if env.is_read_only() =>
+			{
+				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
+			},
+
+			// Add a catch-all for now
+			_ => Ok(Vec::new()),
+		}
 	}
 }
