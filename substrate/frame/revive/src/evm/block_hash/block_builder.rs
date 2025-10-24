@@ -364,8 +364,6 @@ mod test {
 		];
 
 		for (block_path, receipts_path) in test_data {
-			println!("\n=== Testing: {} ===", block_path);
-
 			let json = std::fs::read_to_string(block_path).unwrap();
 			let block: Block = serde_json::from_str(&json).unwrap();
 
@@ -431,7 +429,7 @@ mod test {
 
 					let ir = incremental_block.to_ir();
 					incremental_block = EthereumBlockBuilder::from_ir(ir);
-					println!(" Log size {:?}", log_size);
+					log::trace!(target: LOG_TARGET, " Log size {:?}", log_size);
 				}
 
 				// The block hash would differ here because we don't take into account
@@ -462,7 +460,7 @@ mod test {
 				for enc in &encoded_tx {
 					total_size += enc.len();
 				}
-				println!("Total size used by transactions: {:?}", total_size);
+				log::trace!(target: LOG_TARGET, "Total size used by transactions: {:?}", total_size);
 
 				let mut builder = IncrementalHashBuilder::default();
 				let mut loaded = false;
@@ -484,10 +482,10 @@ mod test {
 
 				let incremental_hash = builder.finish();
 
-				println!("Incremental hash: {:?}", incremental_hash);
-				println!("Manual Hash: {:?}", manual_hash);
-				println!("Built block Hash: {:?}", built_block.transactions_root);
-				println!("Real Block Tx Hash: {:?}", block.transactions_root);
+				log::trace!(target: LOG_TARGET, "Incremental hash: {:?}", incremental_hash);
+				log::trace!(target: LOG_TARGET, "Manual Hash: {:?}", manual_hash);
+				log::trace!(target: LOG_TARGET, "Built block Hash: {:?}", built_block.transactions_root);
+				log::trace!(target: LOG_TARGET, "Real Block Tx Hash: {:?}", block.transactions_root);
 
 				assert_eq!(incremental_hash, block.transactions_root);
 
