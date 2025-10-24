@@ -21,10 +21,13 @@ use crate::{
 	ClientError, LOG_TARGET,
 };
 use pallet_revive::{
-	evm::{GenericTransaction, Trace, H160, U256},
+	evm::{Block as EthBlock, GenericTransaction, ReceiptGasInfo, Trace, H160, U256},
 	EthTransactInfo,
 };
+use sp_core::H256;
 use subxt::OnlineClient;
+
+const LOG_TARGET: &str = "eth-rpc::runtime_api";
 
 /// A Wrapper around subxt Runtime API
 #[derive(Clone)]
@@ -167,5 +170,31 @@ impl RuntimeApi {
 		let payload = subxt_client::apis().revive_api().account_or_fallback(address);
 		let account = self.0.call(payload).await?;
 		Ok(account)
+	/// Get the current Ethereum block.
+	pub async fn eth_block(&self) -> Result<EthBlock, ClientError> {
+		let payload = subxt_client::apis().revive_api().eth_block();
+		let block = self.0.call(payload).await.inspect_err(|err| {
+			log::debug!(target: LOG_TARGET, "Ethereum block not found, err: {err:?}");
+		})?;
+		Ok(block.0)
+	}
+
+	/// Get the Ethereum block hash for the given block number.
+	pub async fn eth_block_hash(&self, number: U256) -> Result<Option<H256>, ClientError> {
+		let payload = subxt_client::apis().revive_api().eth_block_hash(number.into());
+		let hash = self.0.call(payload).await.inspect_err(|err| {
+			log::debug!(target: LOG_TARGET, "Ethereum block hash for block #{number:?} not found, err: {err:?}");
+		})?;
+		Ok(hash)
+	}
+
+	/// Get the receipt data for the current block.
+	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
+		let payload = subxt_client::apis().revive_api().eth_receipt_data();
+		let receipt_data = self.0.call(payload).await.inspect_err(|err| {
+			log::debug!(target: LOG_TARGET, "Receipt data not found, err: {err:?}");
+		})?;
+		let receipt_data = receipt_data.into_iter().map(|item| item.0).collect();
+		Ok(receipt_data)
 	}
 }

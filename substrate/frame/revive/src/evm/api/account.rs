@@ -22,6 +22,7 @@ use crate::{
 use sp_runtime::AccountId32;
 
 /// A simple account that can sign transactions
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Account(subxt_signer::eth::Keypair);
 
 impl Default for Account {
