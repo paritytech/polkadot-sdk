@@ -17,6 +17,10 @@
 
 use crate::{
 	address::{self, AddressMapper},
+	evm::{
+		block_storage,
+		fees::{Combinator, InfoT},
+	},
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -29,7 +33,10 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
 	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
-use alloc::vec::Vec;
+use alloc::{
+	collections::{BTreeMap, BTreeSet},
+	vec::Vec,
+};
 use core::{fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
@@ -198,14 +205,13 @@ pub trait Ext: PrecompileWithInfoExt {
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError>;
 
-	/// Transfer all funds to `beneficiary` and delete the contract.
+	/// Register the contract for destruction at the end of the call stack.
 	///
-	/// Since this function removes the self contract eagerly, if succeeded, no further actions
-	/// should be performed on this `Ext` instance.
+	/// Transfer all funds to `beneficiary`.
+	/// Contract is deleted only if it was created in the same call stack.
 	///
-	/// This function will fail if the same contract is present on the contract
-	/// call stack.
-	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
+	/// This function will fail if called from constructor.
+	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Returns the code hash of the contract being executed.
 	#[allow(dead_code)]
@@ -236,30 +242,6 @@ pub trait Ext: PrecompileWithInfoExt {
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
 pub trait PrecompileWithInfoExt: PrecompileExt {
-	/// Returns the storage entry of the executing account by the given `key`.
-	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
-
-	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
-	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
-
-	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
-	/// the storage entry is deleted.
-	fn set_storage(
-		&mut self,
-		key: &Key,
-		value: Option<Vec<u8>>,
-		take_old: bool,
-	) -> Result<WriteOutcome, DispatchError>;
-
-	/// Charges `diff` from the meter.
-	fn charge_storage(&mut self, diff: &Diff);
-
 	/// Instantiate a contract from the given code.
 	///
 	/// Returns the original code size of the called contract.
@@ -396,16 +378,13 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn block_hash(&self, block_number: U256) -> Option<H256>;
 
 	/// Returns the author of the current block.
-	fn block_author(&self) -> Option<H160>;
+	fn block_author(&self) -> H160;
 
 	/// Returns the block gas limit.
 	fn gas_limit(&self) -> u64;
 
 	/// Returns the chain id.
 	fn chain_id(&self) -> u64;
-
-	/// Returns the maximum allowed size of a storage item.
-	fn max_value_size(&self) -> u32;
 
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
@@ -435,6 +414,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
+	/// Check if running as a delegate call.
+	fn is_delegate_call(&self) -> bool;
+
 	/// Returns an immutable reference to the output of the last executed call frame.
 	fn last_frame_output(&self) -> &ExecReturnValue;
 
@@ -450,8 +432,44 @@ pub trait PrecompileExt: sealing::Sealed {
 	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 
+	/// Register the caller of the current contract for destruction.
+	/// Destruction happens at the end of the call stack.
+	/// This is supposed to be used by the terminate precompile.
+	///
+	/// Transfer all funds to `beneficiary`.
+	/// Contract is deleted at the end of the call stack.
+	///
+	/// This function will fail if called from constructor.
+	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError>;
+
 	/// Returns the effective gas price of this transaction.
 	fn effective_gas_price(&self) -> U256;
+
+	/// The amount of gas left in eth gas units.
+	fn gas_left(&self) -> u64;
+	/// Returns the storage entry of the executing account by the given `key`.
+	///
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>>;
+
+	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+	///
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// was deleted.
+	fn get_storage_size(&mut self, key: &Key) -> Option<u32>;
+
+	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
+	/// the storage entry is deleted.
+	fn set_storage(
+		&mut self,
+		key: &Key,
+		value: Option<Vec<u8>>,
+		take_old: bool,
+	) -> Result<WriteOutcome, DispatchError>;
+
+	/// Charges `diff` from the meter.
+	fn charge_storage(&mut self, diff: &Diff);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -545,6 +563,11 @@ pub struct Stack<'a, T: Config, E> {
 	transient_storage: TransientStorage<T>,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig,
+	/// The set of contracts that were created during this call stack.
+	contracts_created: BTreeSet<T::AccountId>,
+	/// The set of contracts that are registered for destruction at the end of this call stack.
+	/// The tuple contains: (address of contract, contract info, address of beneficiary)
+	contracts_to_be_destroyed: BTreeMap<H160, (ContractInfo<T>, H160)>,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -662,11 +685,6 @@ enum CachedContract<T: Config> {
 	///
 	/// In this case the cached contract is stale and needs to be reloaded from storage.
 	Invalidated,
-	/// The current contract executed `terminate` and removed the contract.
-	///
-	/// In this case a reload is neither allowed nor possible. Please note that recursive
-	/// calls cannot remove a contract as this is checked and denied.
-	Terminated,
 	/// The frame is associated with pre-compile that has no contract info.
 	None,
 }
@@ -675,16 +693,6 @@ impl<T: Config> Frame<T> {
 	/// Return the `contract_info` of the current contract.
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
 		self.contract_info.get(&self.account_id)
-	}
-
-	/// Terminate and return the `contract_info` of the current contract.
-	///
-	/// # Note
-	///
-	/// Under no circumstances the contract is allowed to access the `contract_info` after
-	/// a call to this function. This would constitute a programming error in the exec module.
-	fn terminate(&mut self) -> ContractInfo<T> {
-		self.contract_info.terminate(&self.account_id)
 	}
 }
 
@@ -761,12 +769,6 @@ impl<T: Config> CachedContract<T> {
 	fn get(&mut self, account_id: &T::AccountId) -> &mut ContractInfo<T> {
 		self.load(account_id);
 		get_cached_or_panic_after_load!(self)
-	}
-
-	/// Terminate and return the contract info.
-	fn terminate(&mut self, account_id: &T::AccountId) -> ContractInfo<T> {
-		self.load(account_id);
-		get_cached_or_panic_after_load!(mem::replace(self, Self::Terminated))
 	}
 
 	/// Set the status to invalidate if is cached.
@@ -945,6 +947,8 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			exec_config,
+			contracts_created: BTreeSet::new(),
+			contracts_to_be_destroyed: BTreeMap::new(),
 			_phantom: Default::default(),
 		};
 
@@ -981,6 +985,7 @@ where
 							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
+						log::trace!(target: crate::LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
@@ -1281,8 +1286,12 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					// Only keep return data for tracing
-					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
+					// Only keep return data for tracing and for dry runs.
+					// When a dry-run simulates contract deployment, keep the execution result's
+					// data.
+					let data = if crate::tracing::if_tracing(|_| {}).is_none() &&
+						!self.exec_config.is_dry_run
+					{
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
 						output.data.clone()
@@ -1429,7 +1438,6 @@ where
 				}
 			}
 		} else {
-			// TODO: iterate contracts_to_be_destroyed and destroy each contract
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
 				return;
@@ -1440,11 +1448,17 @@ where
 				&self.first_frame.account_id,
 				contract.as_deref_mut(),
 			);
+
 			if let Some(contract) = contract {
 				AccountInfo::<T>::insert_contract(
 					&T::AddressMapper::to_address(&self.first_frame.account_id),
 					contract.clone(),
 				);
+			}
+			// End of the callstack: destroy scheduled contracts in line with EVM semantics.
+			let contracts_to_destroy = mem::take(&mut self.contracts_to_be_destroyed);
+			for (contract_address, (mut contract_info, beneficiary)) in contracts_to_destroy {
+				self.destroy_contract(&contract_address, &mut contract_info, &beneficiary);
 			}
 		}
 	}
@@ -1543,9 +1557,8 @@ where
 
 			Ok(())
 		}
-
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
-			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
+			.map_err(|_| Error::<T>::BalanceConversionFailed)?;
 		if value.is_zero() {
 			return Ok(());
 		}
@@ -1615,12 +1628,6 @@ where
 		core::iter::once(&mut self.first_frame).chain(&mut self.frames).rev()
 	}
 
-	/// Returns whether the current contract is on the stack multiple times.
-	fn is_recursive(&self) -> bool {
-		let account_id = &self.top_frame().account_id;
-		self.frames().skip(1).any(|f| &f.account_id == account_id)
-	}
-
 	/// Returns whether the specified contract allows to be reentered right now.
 	fn allows_reentry(&self, id: &T::AccountId) -> bool {
 		!self.frames().any(|f| &f.account_id == id && !f.allows_reentry)
@@ -1654,8 +1661,51 @@ where
 		if block_number < self.block_number.saturating_sub(256u32.into()) {
 			return None;
 		}
-		let block_hash = System::<T>::block_hash(&block_number);
-		Decode::decode(&mut TrailingZeroInput::new(block_hash.as_ref())).ok()
+
+		// Fallback to the system block hash for older blocks
+		// 256 entries should suffice for all use cases, this mostly ensures
+		// our benchmarks are passing.
+		match crate::Pallet::<T>::eth_block_hash_from_number(block_number.into()) {
+			Some(hash) => Some(hash),
+			None => {
+				use codec::Decode;
+				let block_hash = System::<T>::block_hash(&block_number);
+				Decode::decode(&mut TrailingZeroInput::new(block_hash.as_ref())).ok()
+			},
+		}
+	}
+
+	fn destroy_contract(
+		&mut self,
+		contract_address: &H160,
+		contract_info: &mut ContractInfo<T>,
+		beneficiary_address: &H160,
+	) {
+		let contract_account = T::AddressMapper::to_account_id(contract_address);
+		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
+
+		// Only allow storage to be removed if the contract was created in the current tx.
+		let delete_code = self.contracts_created.contains(&contract_account);
+
+		self.storage_meter.terminate_absorb(
+			contract_account,
+			contract_info,
+			beneficiary_account.clone(),
+			delete_code,
+		);
+
+		log::debug!(target: crate::LOG_TARGET, "Contract at {contract_address:?} registered termination. Beneficiary: {beneficiary_address:?}, delete_code: {delete_code}");
+	}
+
+	/// Returns true if the current context has contract info.
+	/// This is the case if `no_precompile || precompile_with_info`.
+	fn has_contract_info(&self) -> bool {
+		let address = self.address();
+		let precompile = <AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes());
+		if let Some(precompile) = precompile {
+			return precompile.has_contract_info();
+		}
+		true
 	}
 }
 
@@ -1700,25 +1750,26 @@ where
 		}
 	}
 
-	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
-		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into());
-		}
-		let frame = self.top_frame_mut();
-		if frame.entry_point == ExportedFunction::Constructor {
-			return Err(Error::<T>::TerminatedInConstructor.into());
-		}
-		let info = frame.terminate();
-		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary);
-		frame.nested_storage.terminate(&info, beneficiary_account);
+	fn terminate_if_same_tx(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		let (account_id, contract_address, contract_info) = {
+			let frame = self.top_frame_mut();
+			if frame.entry_point == ExportedFunction::Constructor {
+				return Err(Error::<T>::TerminatedInConstructor.into());
+			}
+			(
+				frame.account_id.clone(),
+				T::AddressMapper::to_address(&frame.account_id),
+				frame.contract_info().clone(),
+			)
+		};
+		self.contracts_to_be_destroyed
+			.insert(contract_address, (contract_info.clone(), *beneficiary));
 
-		info.queue_trie_for_deletion();
-		let account_address = T::AddressMapper::to_address(&frame.account_id);
-		AccountInfoOf::<T>::remove(&account_address);
-		ImmutableDataOf::<T>::remove(&account_address);
-		let removed = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
-
-		Ok(removed)
+		if self.contracts_created.contains(&account_id) {
+			Ok(CodeRemoved::Yes)
+		} else {
+			Ok(CodeRemoved::No)
+		}
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1797,33 +1848,6 @@ where
 	T: Config,
 	E: Executable<T>,
 {
-	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
-		self.top_frame_mut().contract_info().read(key)
-	}
-
-	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
-		self.top_frame_mut().contract_info().size(key.into())
-	}
-
-	fn set_storage(
-		&mut self,
-		key: &Key,
-		value: Option<Vec<u8>>,
-		take_old: bool,
-	) -> Result<WriteOutcome, DispatchError> {
-		let frame = self.top_frame_mut();
-		frame.contract_info.get(&frame.account_id).write(
-			key.into(),
-			value,
-			Some(&mut frame.nested_storage),
-			take_old,
-		)
-	}
-
-	fn charge_storage(&mut self, diff: &Diff) {
-		self.top_frame_mut().nested_storage.charge(diff)
-	}
-
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
@@ -1862,6 +1886,10 @@ where
 			)?
 		};
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
+
+		// Mark the contract as created in this tx.
+		self.contracts_created.insert(self.top_frame().account_id.clone());
+
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
 		self.run(executable, input_data).map(|_| address)
@@ -2099,6 +2127,10 @@ where
 		if_tracing(|tracer| {
 			tracer.log_event(contract, &topics, &data);
 		});
+
+		// Capture the log only if it is generated by an Ethereum transaction.
+		block_storage::capture_ethereum_log(&contract, &data, &topics);
+
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}
 
@@ -2110,20 +2142,16 @@ where
 		self.block_hash(block_number)
 	}
 
-	fn block_author(&self) -> Option<H160> {
+	fn block_author(&self) -> H160 {
 		Contracts::<Self::T>::block_author()
 	}
 
 	fn gas_limit(&self) -> u64 {
-		<T as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+		<Contracts<T>>::evm_block_gas_limit().saturated_into()
 	}
 
 	fn chain_id(&self) -> u64 {
 		<T as Config>::ChainId::get()
-	}
-
-	fn max_value_size(&self) -> u32 {
-		limits::PAYLOAD_BYTES
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
@@ -2164,6 +2192,10 @@ where
 		self.top_frame().read_only
 	}
 
+	fn is_delegate_call(&self) -> bool {
+		self.top_frame().delegate.is_some()
+	}
+
 	fn last_frame_output(&self) -> &ExecReturnValue {
 		&self.top_frame().last_frame_output
 	}
@@ -2189,10 +2221,98 @@ where
 		buf[len..].fill(0);
 	}
 
+	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
+		let account_id = self.caller().account_id()?.clone();
+		let caller_address = T::AddressMapper::to_address(&account_id);
+		{
+			let frame = self.top_frame_mut();
+			if frame.entry_point == ExportedFunction::Constructor {
+				return Err(Error::<T>::TerminatedInConstructor.into());
+			}
+		}
+		let contract_info =
+			AccountInfo::<T>::load_contract(&caller_address).ok_or(Error::<T>::ContractNotFound)?;
+		self.contracts_to_be_destroyed
+			.insert(caller_address, (contract_info.clone(), *beneficiary));
+
+		// Pretend the contract was created in the current tx so that its storage can be destroyed.
+		self.contracts_created.insert(account_id);
+		Ok(())
+	}
+
 	fn effective_gas_price(&self) -> U256 {
 		self.exec_config
 			.effective_gas_price
-			.unwrap_or_else(|| <Contracts<T>>::evm_gas_price())
+			.unwrap_or_else(|| <Contracts<T>>::evm_base_fee())
+	}
+
+	fn gas_left(&self) -> u64 {
+		let frame = self.top_frame();
+		if let Some((encoded_len, base_weight)) = self.exec_config.collect_deposit_from_hold {
+			// when using the txhold we know the overall available fee by looking at the tx credit
+			// we work backwards: the gas_left is the overall fee minus what was already consumed
+			let weight_fee_consumed = T::FeeInfo::tx_fee_from_weight(
+				encoded_len,
+				&frame.nested_gas.gas_consumed().saturating_add(base_weight),
+			);
+			let available = T::FeeInfo::remaining_txfee().saturating_sub(weight_fee_consumed);
+			let deposit_consumed = self
+				.frames
+				.iter()
+				.chain(core::iter::once(&self.first_frame))
+				.fold(StorageDeposit::default(), |acc, frame| {
+					acc.saturating_add(&frame.nested_storage.consumed())
+				});
+			deposit_consumed.available(&available)
+		} else {
+			// when not using the hold we expect the transaction to contain a limit for the storage
+			// deposit we work forwards: add up what is left from both meters
+			// in case no storage limit is set we limit by all the free balance of the signer
+			use frame_support::traits::tokens::{Fortitude, Preservation};
+			let weight_fee_available =
+				T::FeeInfo::weight_to_fee(&frame.nested_gas.gas_left(), Combinator::Min);
+			let available_balance = self
+				.origin
+				.account_id()
+				.map(|acc| {
+					T::Currency::reducible_balance(acc, Preservation::Preserve, Fortitude::Polite)
+				})
+				.unwrap_or(BalanceOf::<T>::max_value());
+			let deposit_available = frame.nested_storage.available().min(available_balance);
+			weight_fee_available.saturating_add(deposit_available)
+		}
+		.saturated_into()
+	}
+
+	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
+		assert!(self.has_contract_info());
+		self.top_frame_mut().contract_info().read(key)
+	}
+
+	fn get_storage_size(&mut self, key: &Key) -> Option<u32> {
+		assert!(self.has_contract_info());
+		self.top_frame_mut().contract_info().size(key.into())
+	}
+
+	fn set_storage(
+		&mut self,
+		key: &Key,
+		value: Option<Vec<u8>>,
+		take_old: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		assert!(self.has_contract_info());
+		let frame = self.top_frame_mut();
+		frame.contract_info.get(&frame.account_id).write(
+			key.into(),
+			value,
+			Some(&mut frame.nested_storage),
+			take_old,
+		)
+	}
+
+	fn charge_storage(&mut self, diff: &Diff) {
+		assert!(self.has_contract_info());
+		self.top_frame_mut().nested_storage.charge(diff)
 	}
 }
 

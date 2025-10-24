@@ -1,4 +1,5 @@
 [package]
+
 name = "cumulus-client-service"
 version = "0.7.0"
 authors.workspace = true
@@ -26,6 +27,7 @@ sc-rpc = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
@@ -35,6 +37,7 @@ sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-primitives = { workspace = true, default-features = true }

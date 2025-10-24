@@ -16,6 +16,7 @@
 
 use crate::{
 	chain_spec::Extensions,
+	cli::DevSealMode,
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
@@ -31,7 +32,8 @@ use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
+	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
+	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
@@ -299,11 +301,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	fn start_manual_seal_node(
+	fn start_dev_node(
 		_config: Configuration,
-		_block_time: u64,
+		_mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
-		Err(sc_service::Error::Other("Manual seal not supported for this node type".into()))
+		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
 
 	/// Start a node with the given parachain spec.
@@ -455,6 +457,9 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				system_rpc_tx,
 				tx_handler_controller,
 				telemetry: telemetry.as_mut(),
+				tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(
+					client.clone(),
+				))),
 			})?;
 
 			if let Some(hwbench) = hwbench {
@@ -553,11 +558,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
-	/// Start node with manual-seal consensus.
-	fn start_manual_seal_node(
+	/// Start node with manual or instant seal consensus.
+	fn start_dev_node(
 		self: Box<Self>,
 		config: Configuration,
-		block_time: u64,
+		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager>;
 
 	/// Start the node.
@@ -575,12 +580,12 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
-	fn start_manual_seal_node(
+	fn start_dev_node(
 		self: Box<Self>,
 		config: Configuration,
-		block_time: u64,
+		mode: DevSealMode,
 	) -> sc_service::error::Result<TaskManager> {
-		<Self as NodeSpec>::start_manual_seal_node(config, block_time)
+		<Self as NodeSpec>::start_dev_node(config, mode)
 	}
 
 	fn start_node(
