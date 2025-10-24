@@ -31,7 +31,7 @@ use pallet_revive::{
 };
 use tracing::error;
 
-alloy::sol!("src/interface/IReferenda.sol");
+alloy::sol!("src/interfaces/IReferenda.sol");
 use IReferenda::IReferendaCalls;
 
 const LOG_TARGET: &str = "referenda::precompiles";

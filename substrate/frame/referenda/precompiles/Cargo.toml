@@ -1,5 +1,5 @@
 [package]
-name = "referenda-precompiles"
+name = "pallet-referenda-precompiles"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -41,7 +41,6 @@ std = [
 	"pallet-referenda/std",
 	"pallet-timestamp/std",
 	"polkadot-parachain-primitives/std",
-	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"tracing/std",

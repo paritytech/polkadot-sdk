@@ -13243,6 +13243,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-referenda-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-referenda",
+ "pallet-revive",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
 name = "pallet-remark"
 version = "28.0.0"
 dependencies = [
