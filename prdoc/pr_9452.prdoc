@@ -16,8 +16,20 @@ doc:
     \nPart of: https://github.com/paritytech/contract-issues/issues/139"
 crates:
 - name: pallet-revive
-  bump: patch
-- name: pallet-revive-eth-rpc
-  bump: patch
+  bump: minor
+- name: sp-core
+  bump: minor
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-xcm
+  bump: minor
+- name: pallet-assets
+  bump: minor
+- name: revive-dev-runtime
+  bump: minor
+- name: pallet-assets-precompiles
+  bump: minor
