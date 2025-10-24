@@ -1,4 +1,4 @@
-title: 'rpc-v2/archive: Remove unused structs'
+title: 'rpc-v2/archive: Remove unused structs and align with 1.90 rust'
 doc:
 - audience: Node Dev
   description: |-
@@ -13,4 +13,6 @@ crates:
 - name: sc-service
   bump: patch
 - name: pallet-identity
+  bump: patch
+- name: polkadot-node-core-dispute-coordinator
   bump: patch
