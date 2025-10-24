@@ -137,7 +137,7 @@ impl Diff {
 	/// this information from the passed `info`.
 	pub fn update_contract<T: Config>(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		let per_byte = T::DepositPerByte::get();
-		let per_item = T::DepositPerItem::get();
+		let per_item = T::DepositPerChildTrieItem::get();
 		let bytes_added = self.bytes_added.saturating_sub(self.bytes_removed);
 		let items_added = self.items_added.saturating_sub(self.items_removed);
 		let mut bytes_deposit = Deposit::Charge(per_byte.saturating_mul((bytes_added).into()));
@@ -147,8 +147,6 @@ impl Diff {
 		let info = if let Some(info) = info {
 			info
 		} else {
-			debug_assert_eq!(self.bytes_removed, 0);
-			debug_assert_eq!(self.items_removed, 0);
 			return bytes_deposit.saturating_add(&items_deposit)
 		};
 
@@ -327,9 +325,19 @@ where
 		Ok(())
 	}
 
-	/// The amount of balance that is still available from the original `limit`.
-	fn available(&self) -> BalanceOf<T> {
-		self.total_deposit.available(&self.limit)
+	/// The amount of balance that this meter has consumed.
+	///
+	/// This disregards any refunds pending in the current frame. This
+	/// is because we can calculate refunds only at the end of each frame.
+	pub fn consumed(&self) -> DepositOf<T> {
+		self.total_deposit.saturating_add(&self.own_contribution.update_contract(None))
+	}
+
+	/// The amount of balance still available from the current meter.
+	///
+	/// This includes charges from the current frame but no refunds.
+	pub fn available(&self) -> BalanceOf<T> {
+		self.consumed().available(&self.limit)
 	}
 
 	/// Returns the state of the currently executed contract.

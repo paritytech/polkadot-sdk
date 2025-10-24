@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	limits,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{
@@ -162,7 +163,7 @@ fn store_helper<'ext, E: Ext>(
 ///
 /// Stores a word to storage.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = interpreter.ext.max_value_size();
+	let old_bytes = limits::STORAGE_BYTES;
 	store_helper(
 		interpreter,
 		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes },
@@ -174,7 +175,7 @@ pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = interpreter.ext.max_value_size();
+	let old_bytes = limits::STORAGE_BYTES;
 	store_helper(
 		interpreter,
 		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes },
@@ -222,7 +223,7 @@ pub fn log<'ext, const N: usize, E: Ext>(
 
 	let [offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
-	if len as u32 > interpreter.ext.max_value_size() {
+	if len as u32 > limits::EVENT_BYTES {
 		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
 	}
 

@@ -22,13 +22,11 @@ use crate::{
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
+use alloc::vec::Vec;
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
-use num_traits::Bounded;
 use sp_core::Get;
-use sp_runtime::{
-	transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion, Saturating,
-};
+use sp_runtime::{transaction_validity::InvalidTransaction, FixedPointNumber, SaturatedConversion};
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
@@ -49,7 +47,8 @@ pub struct CallInfo<T: Config> {
 /// Decode `tx` into a dispatchable call.
 pub fn create_call<T>(
 	tx: GenericTransaction,
-	encoded_len: Option<u32>,
+	signed_transaction: Option<(u32, Vec<u8>)>,
+	apply_weight_cap: bool,
 ) -> Result<CallInfo<T>, InvalidTransaction>
 where
 	T: Config,
@@ -82,17 +81,20 @@ where
 		return Err(InvalidTransaction::Payment);
 	}
 
-	let encoded_len = if let Some(encoded_len) = encoded_len {
-		encoded_len
-	} else {
-		let unsigned_tx = tx.clone().try_into_unsigned().map_err(|_| {
-			log::debug!(target: LOG_TARGET, "Invalid transaction type.");
-			InvalidTransaction::Call
-		})?;
-		let eth_transact_call =
-			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-		<T as Config>::FeeInfo::encoded_len(eth_transact_call.into())
-	};
+	let (encoded_len, transaction_encoded) =
+		if let Some((encoded_len, transaction_encoded)) = signed_transaction {
+			(encoded_len, transaction_encoded)
+		} else {
+			let unsigned_tx = tx.clone().try_into_unsigned().map_err(|_| {
+				log::debug!(target: LOG_TARGET, "Invalid transaction type.");
+				InvalidTransaction::Call
+			})?;
+			let transaction_encoded = unsigned_tx.dummy_signed_payload();
+
+			let eth_transact_call =
+				crate::Call::<T>::eth_transact { payload: transaction_encoded.clone() };
+			(<T as Config>::FeeInfo::encoded_len(eth_transact_call.into()), transaction_encoded)
+		};
 
 	let value = tx.value.unwrap_or_default();
 	let data = tx.input.to_vec();
@@ -117,8 +119,8 @@ where
 				dest,
 				value,
 				gas_limit: Zero::zero(),
-				storage_deposit_limit: BalanceOf::<T>::max_value(),
 				data,
+				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
 			}
@@ -139,9 +141,9 @@ where
 		let call = crate::Call::eth_instantiate_with_code::<T> {
 			value,
 			gas_limit: Zero::zero(),
-			storage_deposit_limit: BalanceOf::<T>::max_value(),
 			code,
 			data,
+			transaction_encoded,
 			effective_gas_price,
 			encoded_len,
 		}
@@ -154,11 +156,8 @@ where
 	let eth_fee = effective_gas_price.saturating_mul(gas) / <T as Config>::NativeToEthRatio::get();
 
 	let weight_limit = {
+		let fixed_fee = <T as Config>::FeeInfo::fixed_fee(encoded_len as u32);
 		let info = <T as Config>::FeeInfo::dispatch_info(&call);
-		let fixed_fee = <T as Config>::FeeInfo::weight_to_fee(
-			<T as frame_system::Config>::BlockWeights::get().get(info.class).base_extrinsic,
-		)
-		.saturating_add(<T as Config>::FeeInfo::length_to_fee(encoded_len as u32));
 
 		let remaining_fee = {
 			let adjusted = eth_fee.checked_sub(fixed_fee.into()).ok_or_else(|| {
@@ -178,7 +177,8 @@ where
 
 		call.set_weight_limit(weight_limit);
 		let info = <T as Config>::FeeInfo::dispatch_info(&call);
-		let max_weight = <Pallet<T>>::evm_max_extrinsic_weight();
+		let max_weight =
+			if apply_weight_cap { <Pallet<T>>::evm_max_extrinsic_weight() } else { Weight::MAX };
 		let overweight_by = info.total_weight().saturating_sub(max_weight);
 		let capped_weight = weight_limit.saturating_sub(overweight_by);
 		call.set_weight_limit(capped_weight);
