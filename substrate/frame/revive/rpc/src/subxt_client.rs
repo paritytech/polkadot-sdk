@@ -62,6 +62,14 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "sp_weights::weight_v2::Weight",
 		with = "::subxt::utils::Static<::sp_weights::Weight>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::rpc_types_gen::Block",
+		with = "::subxt::utils::Static<::pallet_revive::evm::Block>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
+		with = "::subxt::utils::Static<::pallet_revive::evm::ReceiptGasInfo>"
 	)
 )]
 mod src_chain {}
