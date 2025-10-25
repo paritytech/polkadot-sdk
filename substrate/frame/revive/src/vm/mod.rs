@@ -27,8 +27,10 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
-	gas::{GasMeter, Token},
-	storage::meter::NestedMeter,
+	metering::{
+		storage::NestedMeter,
+		weight::{Token, WeightMeter},
+	},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, Pallet, PristineCode, StorageDeposit, Weight, LOG_TARGET,
@@ -323,9 +325,12 @@ impl<T: Config> CodeInfo<T> {
 }
 
 impl<T: Config> Executable<T> for ContractBlob<T> {
-	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
+	fn from_storage(
+		code_hash: H256,
+		weight_meter: &mut WeightMeter<T>,
+	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		gas_meter.charge(CodeLoadToken::from_code_info(&code_info))?;
+		weight_meter.charge(CodeLoadToken::from_code_info(&code_info))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}

@@ -80,7 +80,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 				let contained_key = outcome != WriteOutcome::New;
 				let ret = (contained_key, outcome.old_len());
-				env.gas_meter_mut().adjust_gas(charged, costs(outcome.old_len()));
+				env.gas_meter_mut().adjust_weight(charged, costs(outcome.old_len()));
 				Ok(ret.abi_encode())
 			},
 			IStorageCalls::containsStorage(IStorage::containsStorageCall {
@@ -107,7 +107,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 				let value_len = outcome.unwrap_or(0);
 				let ret = (outcome.is_some(), value_len);
-				env.gas_meter_mut().adjust_gas(charged, costs(value_len));
+				env.gas_meter_mut().adjust_weight(charged, costs(value_len));
 				Ok(ret.abi_encode())
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
@@ -130,10 +130,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				};
 
 				if let crate::storage::WriteOutcome::Taken(value) = outcome {
-					env.gas_meter_mut().adjust_gas(charged, costs(value.len() as u32));
+					env.gas_meter_mut().adjust_weight(charged, costs(value.len() as u32));
 					Ok(value.abi_encode())
 				} else {
-					env.gas_meter_mut().adjust_gas(charged, costs(0));
+					env.gas_meter_mut().adjust_weight(charged, costs(0));
 					Ok(Vec::<u8>::new().abi_encode())
 				}
 			},

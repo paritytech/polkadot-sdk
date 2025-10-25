@@ -253,17 +253,18 @@ fn invalid_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let output = builder::bare_call(addr).gas_limit(expected_gas.into()).data(vec![]).build();
+		let output =
+			builder::bare_call(addr).weight_limit(expected_gas.into()).data(vec![]).build();
 
 		let result = output.result;
 		assert_err!(result, Error::<Test>::InvalidInstruction);
 		assert_eq!(
-			output.gas_consumed.ref_time(),
+			output.weight_consumed.ref_time(),
 			expected_gas,
 			"Gas consumed does not match expected gas"
 		);
 		assert_eq!(
-			output.gas_consumed.proof_size(),
+			output.weight_consumed.proof_size(),
 			expected_gas,
 			"Gas consumed does not match expected gas"
 		);

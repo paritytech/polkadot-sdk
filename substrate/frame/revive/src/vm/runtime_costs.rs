@@ -15,9 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	gas::Token, limits, weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo, Config,
-};
+use crate::{metering::weight::Token, weights::WeightInfo, Config};
 use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 
 /// Current approximation of the gas/s consumption considering
@@ -222,7 +220,7 @@ macro_rules! cost_args {
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
-	fn influence_lowest_gas_limit(&self) -> bool {
+	fn influence_lowest_weight_limit(&self) -> bool {
 		true
 	}
 

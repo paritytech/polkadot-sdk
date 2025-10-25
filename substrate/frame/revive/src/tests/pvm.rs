@@ -437,8 +437,8 @@ fn deposit_event_max_value_limit() {
 
 		// Call contract with allowed event size.
 		assert_ok!(builder::call(addr)
-			.gas_limit(Weight::from_parts(u64::MAX, u64::MAX))
-			.data(limits::EVENT_BYTES.encode())
+			.weight_limit(WEIGHT_LIMIT.set_ref_time(WEIGHT_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
+			.data(limits::PAYLOAD_BYTES.encode())
 			.build());
 
 		// Call contract with too large a evene size
@@ -468,7 +468,7 @@ fn run_out_of_fuel_engine() {
 		// loops forever.
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
-				.gas_limit(Weight::from_parts(10_000_000_000, u64::MAX))
+				.weight_limit(Weight::from_parts(10_000_000_000, u64::MAX))
 				.build(),
 			Error::<Test>::OutOfGas,
 		);
@@ -500,19 +500,20 @@ fn gas_syncs_work() {
 
 		let result = builder::bare_call(contract.addr).data(0u32.encode()).build();
 		assert_ok!(result.result);
-		let engine_consumed_noop = result.gas_consumed.ref_time();
+		let engine_consumed_noop = result.weight_consumed.ref_time();
 
 		let result = builder::bare_call(contract.addr).data(1u32.encode()).build();
 		assert_ok!(result.result);
-		let gas_consumed_once = result.gas_consumed.ref_time();
+		let weight_consumed_once = result.weight_consumed.ref_time();
 		let host_consumed_once = <Test as Config>::WeightInfo::seal_gas_price().ref_time();
-		let engine_consumed_once = gas_consumed_once - host_consumed_once - engine_consumed_noop;
+		let engine_consumed_once = weight_consumed_once - host_consumed_once - engine_consumed_noop;
 
 		let result = builder::bare_call(contract.addr).data(2u32.encode()).build();
 		assert_ok!(result.result);
-		let gas_consumed_twice = result.gas_consumed.ref_time();
+		let weight_consumed_twice = result.weight_consumed.ref_time();
 		let host_consumed_twice = host_consumed_once * 2;
-		let engine_consumed_twice = gas_consumed_twice - host_consumed_twice - engine_consumed_noop;
+		let engine_consumed_twice =
+			weight_consumed_twice - host_consumed_twice - engine_consumed_noop;
 
 		// Second contract just repeats first contract's instructions twice.
 		// If runtime syncs gas with the engine properly, this should pass.
@@ -605,8 +606,8 @@ fn storage_max_value_limit() {
 
 		// Call contract with allowed storage value.
 		assert_ok!(builder::call(addr)
-			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
-			.data(limits::STORAGE_BYTES.encode())
+			.weight_limit(WEIGHT_LIMIT.set_ref_time(WEIGHT_LIMIT.ref_time() * 2)) // we are copying a huge buffer
+			.data(limits::PAYLOAD_BYTES.encode())
 			.build());
 
 		// Call contract with too large a storage value.
@@ -1594,12 +1595,12 @@ fn gas_left_api_works() {
 		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
 		let gas_left = U256::from_little_endian(received.data.as_ref());
-		let gas_left_max = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT) + 1_000_000;
+		let gas_left_max = <Test as Config>::FeeInfo::weight_to_fee(&WEIGHT_LIMIT) + 1_000_000;
 		assert!(gas_left > 0u32.into());
 		assert!(gas_left < gas_left_max.into());
 
 		// Call the contract using the hold
-		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT);
+		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&WEIGHT_LIMIT);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
 		let mut exec_config = ExecConfig::new_substrate_tx();
 		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
@@ -1916,11 +1917,11 @@ fn gas_estimation_for_subcalls() {
 		// Run the test for all of those weight limits for the subcall
 		let weights = [
 			Weight::MAX,
-			GAS_LIMIT,
-			GAS_LIMIT * 2,
-			GAS_LIMIT / 5,
-			Weight::from_parts(u64::MAX, GAS_LIMIT.proof_size()),
-			Weight::from_parts(GAS_LIMIT.ref_time(), u64::MAX),
+			WEIGHT_LIMIT,
+			WEIGHT_LIMIT * 2,
+			WEIGHT_LIMIT / 5,
+			Weight::from_parts(u64::MAX, WEIGHT_LIMIT.proof_size()),
+			Weight::from_parts(WEIGHT_LIMIT.ref_time(), u64::MAX),
 		];
 
 		let (sub_addr, sub_input) = (addr_dummy.as_ref(), vec![]);
@@ -1937,11 +1938,11 @@ fn gas_estimation_for_subcalls() {
 			// Call in order to determine the gas that is required for this call
 			let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
 			assert_ok!(&result_orig.result);
-			assert_eq!(result_orig.gas_required, result_orig.gas_consumed);
+			assert_eq!(result_orig.weight_required, result_orig.weight_consumed);
 
 			// Make the same call using the estimated gas. Should succeed.
 			let result = builder::bare_call(addr_caller)
-				.gas_limit(result_orig.gas_required)
+				.weight_limit(result_orig.weight_required)
 				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 				.data(input.clone())
 				.build();
@@ -1949,7 +1950,7 @@ fn gas_estimation_for_subcalls() {
 
 			// Check that it fails with too little ref_time
 			let result = builder::bare_call(addr_caller)
-				.gas_limit(result_orig.gas_required.sub_ref_time(1))
+				.weight_limit(result_orig.weight_required.sub_ref_time(1))
 				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 				.data(input.clone())
 				.build();
@@ -1957,7 +1958,7 @@ fn gas_estimation_for_subcalls() {
 
 			// Check that it fails with too little proof_size
 			let result = builder::bare_call(addr_caller)
-				.gas_limit(result_orig.gas_required.sub_proof_size(1))
+				.weight_limit(result_orig.weight_required.sub_proof_size(1))
 				.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 				.data(input.clone())
 				.build();
@@ -1990,7 +1991,7 @@ fn call_runtime_reentrancy_guarded() {
 		let call = RuntimeCall::Contracts(crate::Call::call {
 			dest: addr_callee,
 			value: 0,
-			gas_limit: GAS_LIMIT / 3,
+			weight_limit: WEIGHT_LIMIT / 3,
 			storage_deposit_limit: deposit_limit::<Test>(),
 			data: vec![],
 		})
@@ -3335,7 +3336,7 @@ fn call_depth_is_enforced() {
 }
 
 #[test]
-fn gas_consumed_is_linear_for_nested_calls() {
+fn weight_consumed_is_linear_for_nested_calls() {
 	let (code, _code_hash) = compile_module("recurse").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -3352,7 +3353,7 @@ fn gas_consumed_is_linear_for_nested_calls() {
 						u32::from_le_bytes(result.result.unwrap().data.try_into().unwrap()),
 						0
 					);
-					result.gas_consumed
+					result.weight_consumed
 				})
 				.collect::<Vec<_>>()
 				.try_into()
@@ -4139,7 +4140,7 @@ fn call_tracing_works() {
 		/*
 		let mut tracer = CallTracer::new(false, |w| w);
 		let gas_used = trace(&mut tracer, || {
-			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
+			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().weight_consumed
 		});
 		let trace = tracer.collect_trace().unwrap();
 		assert_eq!(&trace.gas_used, &gas_used);
@@ -5220,16 +5221,16 @@ fn consume_all_gas_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		assert_eq!(
-			builder::bare_instantiate(Code::Upload(code)).build().gas_consumed,
-			GAS_LIMIT,
+			builder::bare_instantiate(Code::Upload(code)).build().weight_consumed,
+			WEIGHT_LIMIT,
 			"callvalue == 0 should consume all gas in deploy"
 		);
 		assert_ne!(
 			builder::bare_instantiate(Code::Existing(code_hash))
 				.evm_value(1.into())
 				.build()
-				.gas_consumed,
-			GAS_LIMIT,
+				.weight_consumed,
+			WEIGHT_LIMIT,
 			"callvalue == 1 should not consume all gas in deploy"
 		);
 
@@ -5238,13 +5239,13 @@ fn consume_all_gas_works() {
 			.build_and_unwrap_contract();
 
 		assert_eq!(
-			builder::bare_call(addr).build().gas_consumed,
-			GAS_LIMIT,
+			builder::bare_call(addr).build().weight_consumed,
+			WEIGHT_LIMIT,
 			"callvalue == 0 should consume all gas"
 		);
 		assert_ne!(
-			builder::bare_call(addr).evm_value(1.into()).build().gas_consumed,
-			GAS_LIMIT,
+			builder::bare_call(addr).evm_value(1.into()).build().weight_consumed,
+			WEIGHT_LIMIT,
 			"callvalue == 1 should not consume all gas"
 		);
 	});

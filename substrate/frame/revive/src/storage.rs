@@ -17,8 +17,6 @@
 
 //! This module contains routines for accessing and altering a contract related state.
 
-pub mod meter;
-
 use crate::{
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
@@ -42,6 +40,8 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
+
+use crate::metering::storage::{Diff, NestedMeter};
 
 pub enum AccountIdOrAddress<T: Config> {
 	/// An account that is a contract.
@@ -104,20 +104,20 @@ pub struct ContractInfo<T: Config> {
 	/// The code associated with a given account.
 	pub code_hash: sp_core::H256,
 	/// How many bytes of storage are accumulated in this contract's child trie.
-	storage_bytes: u32,
+	pub storage_bytes: u32,
 	/// How many items of storage are accumulated in this contract's child trie.
-	storage_items: u32,
+	pub storage_items: u32,
 	/// This records to how much deposit the accumulated `storage_bytes` amount to.
 	pub storage_byte_deposit: BalanceOf<T>,
 	/// This records to how much deposit the accumulated `storage_items` amount to.
-	storage_item_deposit: BalanceOf<T>,
+	pub storage_item_deposit: BalanceOf<T>,
 	/// This records how much deposit is put down in order to pay for the contract itself.
 	///
 	/// We need to store this information separately so it is not used when calculating any refunds
 	/// since the base deposit can only ever be refunded on contract termination.
-	storage_base_deposit: BalanceOf<T>,
+	pub storage_base_deposit: BalanceOf<T>,
 	/// The size of the immutable data of this contract.
-	immutable_data_len: u32,
+	pub immutable_data_len: u32,
 }
 
 impl<T: Config> From<H160> for AccountIdOrAddress<T> {
@@ -275,7 +275,7 @@ impl<T: Config> ContractInfo<T> {
 		&self,
 		key: &Key,
 		new_value: Option<Vec<u8>>,
-		storage_meter: Option<&mut meter::NestedMeter<T>>,
+		storage_meter: Option<&mut NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		log::trace!(target: crate::LOG_TARGET, "contract storage: writing value {:?} for key {:x?}", new_value, key);
@@ -304,7 +304,7 @@ impl<T: Config> ContractInfo<T> {
 		&self,
 		key: &[u8],
 		new_value: Option<&[u8]>,
-		storage_meter: Option<&mut meter::NestedMeter<T>>,
+		storage_meter: Option<&mut NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let child_trie_info = &self.child_trie_info();
@@ -316,7 +316,7 @@ impl<T: Config> ContractInfo<T> {
 		};
 
 		if let Some(storage_meter) = storage_meter {
-			let mut diff = meter::Diff::default();
+			let mut diff = Diff::default();
 			let key_len = key.len() as u32;
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
 				(Some(old_len), Some(new_len)) =>

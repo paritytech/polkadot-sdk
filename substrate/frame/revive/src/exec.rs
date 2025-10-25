@@ -23,10 +23,14 @@ use crate::{
 	},
 	gas::GasMeter,
 	limits,
+	metering::{
+		storage,
+		weight::{ChargedAmount, Token, WeightMeter},
+	},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
-	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
+	storage::{AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
@@ -277,21 +281,22 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 pub trait PrecompileExt: sealing::Sealed {
 	type T: Config;
 
-	/// Charges the gas meter with the given weight.
-	fn charge(&mut self, weight: Weight) -> Result<crate::gas::ChargedAmount, DispatchError> {
+	/// Charges the weight meter with the given weight.
+	fn charge(&mut self, weight: Weight) -> Result<ChargedAmount, DispatchError> {
 		self.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))
 	}
 
-	fn adjust_gas(&mut self, charged: crate::gas::ChargedAmount, actual_weight: Weight) {
+	fn adjust_gas(&mut self, charged: ChargedAmount, actual_weight: Weight) {
 		self.gas_meter_mut()
-			.adjust_gas(charged, RuntimeCosts::Precompile(actual_weight));
+			.adjust_weight(charged, RuntimeCosts::Precompile(actual_weight));
 	}
 
-	/// Charges the gas meter with the given token or halts execution if not enough gas is left.
-	fn charge_or_halt<Tok: crate::gas::Token<Self::T>>(
+	/// Charges the weight meter with the given token or halts execution if not enough weight is
+	/// left.
+	fn charge_or_halt<Tok: Token<Self::T>>(
 		&mut self,
 		token: Tok,
-	) -> ControlFlow<crate::vm::evm::Halt, crate::gas::ChargedAmount> {
+	) -> ControlFlow<crate::vm::evm::Halt, ChargedAmount> {
 		self.gas_meter_mut().charge_or_halt(token)
 	}
 
@@ -400,11 +405,14 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the chain id.
 	fn chain_id(&self) -> u64;
 
-	/// Get an immutable reference to the nested gas meter.
-	fn gas_meter(&self) -> &GasMeter<Self::T>;
+	/// Returns the maximum allowed size of a storage item.
+	fn max_value_size(&self) -> u32;
 
-	/// Get a mutable reference to the nested gas meter.
-	fn gas_meter_mut(&mut self) -> &mut GasMeter<Self::T>;
+	/// Get an immutable reference to the nested weight meter.
+	fn gas_meter(&self) -> &WeightMeter<Self::T>;
+
+	/// Get a mutable reference to the nested weight meter.
+	fn gas_meter_mut(&mut self) -> &mut WeightMeter<Self::T>;
 
 	/// Recovers ECDSA compressed public key based on signature and message hash.
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()>;
@@ -484,7 +492,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	) -> Result<WriteOutcome, DispatchError>;
 
 	/// Charges `diff` from the meter.
-	fn charge_storage(&mut self, diff: &Diff);
+	fn charge_storage(&mut self, diff: &storage::Diff);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -514,8 +522,11 @@ pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
 	/// # Note
-	/// Charges size base load weight from the gas meter.
-	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError>;
+	/// Charges size base load weight from the weight meter.
+	fn from_storage(
+		code_hash: H256,
+		weight_meter: &mut WeightMeter<T>,
+	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
 	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
@@ -561,10 +572,10 @@ pub struct Stack<'a, T: Config, E> {
 	/// than a plain account when being called through one of the contract RPCs where the
 	/// client can freely choose the origin. This usually makes no sense but is still possible.
 	origin: Origin<T>,
-	/// The gas meter where costs are charged to.
-	gas_meter: &'a mut GasMeter<T>,
+	/// The weight meter where costs are charged to.
+	weight_meter: &'a mut WeightMeter<T>,
 	/// The storage meter makes sure that the storage deposit limit is obeyed.
-	storage_meter: &'a mut storage::meter::Meter<T>,
+	storage_meter: &'a mut storage::Meter<T>,
 	/// The timestamp at the point of call stack instantiation.
 	timestamp: MomentOf<T>,
 	/// The block number at the time of call stack instantiation.
@@ -600,10 +611,10 @@ struct Frame<T: Config> {
 	value_transferred: U256,
 	/// Determines whether this is a call or instantiate frame.
 	entry_point: ExportedFunction,
-	/// The gas meter capped to the supplied gas limit.
-	nested_gas: GasMeter<T>,
+	/// The weight meter capped to the supplied weight limit.
+	nested_weight: WeightMeter<T>,
 	/// The storage meter for the individual call.
-	nested_storage: storage::meter::NestedMeter<T>,
+	nested_storage: storage::NestedMeter<T>,
 	/// If `false` the contract enabled its defense against reentrance attacks.
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
@@ -808,8 +819,8 @@ where
 	pub fn run_call(
 		origin: Origin<T>,
 		dest: H160,
-		gas_meter: &mut GasMeter<T>,
-		storage_meter: &mut storage::meter::Meter<T>,
+		weight_meter: &mut WeightMeter<T>,
+		storage_meter: &mut storage::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		exec_config: &ExecConfig<T>,
@@ -818,7 +829,7 @@ where
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
-			gas_meter,
+			weight_meter,
 			storage_meter,
 			value,
 			exec_config,
@@ -873,8 +884,8 @@ where
 	pub fn run_instantiate(
 		origin: T::AccountId,
 		executable: E,
-		gas_meter: &mut GasMeter<T>,
-		storage_meter: &mut storage::meter::Meter<T>,
+		weight_meter: &mut WeightMeter<T>,
+		storage_meter: &mut storage::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
@@ -889,7 +900,7 @@ where
 				input_data: input_data.as_ref(),
 			},
 			Origin::from_account_id(origin),
-			gas_meter,
+			weight_meter,
 			storage_meter,
 			value,
 			exec_config,
@@ -913,8 +924,8 @@ where
 	pub fn bench_new_call(
 		dest: H160,
 		origin: Origin<T>,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		weight_meter: &'a mut WeightMeter<T>,
+		storage_meter: &'a mut storage::Meter<T>,
 		value: BalanceOf<T>,
 		exec_config: &'a ExecConfig<T>,
 	) -> (Self, E) {
@@ -925,7 +936,7 @@ where
 				delegated_call: None,
 			},
 			origin,
-			gas_meter,
+			weight_meter,
 			storage_meter,
 			value.into(),
 			exec_config,
@@ -943,8 +954,8 @@ where
 	fn new(
 		args: FrameArgs<T, E>,
 		origin: Origin<T>,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		weight_meter: &'a mut WeightMeter<T>,
+		storage_meter: &'a mut storage::Meter<T>,
 		value: U256,
 		exec_config: &'a ExecConfig<T>,
 		input_data: &Vec<u8>,
@@ -953,7 +964,7 @@ where
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
-			gas_meter,
+			weight_meter,
 			Weight::max_value(),
 			storage_meter,
 			BalanceOf::<T>::max_value(),
@@ -968,7 +979,7 @@ where
 
 		let stack = Self {
 			origin,
-			gas_meter,
+			weight_meter,
 			storage_meter,
 			timestamp: T::Time::now(),
 			block_number: <frame_system::Pallet<T>>::block_number(),
@@ -988,12 +999,12 @@ where
 	///
 	/// This does not take `self` because when constructing the first frame `self` is
 	/// not initialized, yet.
-	fn new_frame<S: storage::meter::State + Default + Debug>(
+	fn new_frame<S: storage::State + Default + Debug>(
 		frame_args: FrameArgs<T, E>,
 		value_transferred: U256,
-		gas_meter: &mut GasMeter<T>,
-		gas_limit: Weight,
-		storage_meter: &mut storage::meter::GenericMeter<T, S>,
+		weight_meter: &mut WeightMeter<T>,
+		weight_limit: Weight,
+		storage_meter: &mut storage::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
 		origin_is_caller: bool,
@@ -1046,7 +1057,7 @@ where
 						else {
 							return Ok(None);
 						};
-						let executable = E::from_storage(info.code_hash, gas_meter)?;
+						let executable = E::from_storage(info.code_hash, weight_meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1061,7 +1072,7 @@ where
 								.as_contract()
 								.expect("When not a precompile the contract was loaded above; qed")
 								.code_hash,
-							gas_meter,
+							weight_meter,
 						)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1108,7 +1119,7 @@ where
 			contract_info,
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit),
+			nested_weight: weight_meter.nested(weight_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
@@ -1123,7 +1134,7 @@ where
 		&mut self,
 		frame_args: FrameArgs<T, E>,
 		value_transferred: U256,
-		gas_limit: Weight,
+		weight_limit: Weight,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
 		input_data: &[u8],
@@ -1147,13 +1158,13 @@ where
 		}
 
 		let frame = top_frame_mut!(self);
-		let nested_gas = &mut frame.nested_gas;
+		let nested_weight = &mut frame.nested_weight;
 		let nested_storage = &mut frame.nested_storage;
 		if let Some((frame, executable)) = Self::new_frame(
 			frame_args,
 			value_transferred,
-			nested_gas,
-			gas_limit,
+			nested_weight,
+			weight_limit,
 			nested_storage,
 			deposit_limit,
 			read_only,
@@ -1188,7 +1199,7 @@ where
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
-				frame.nested_gas.gas_left(),
+				frame.nested_weight.weight_left(),
 			);
 		});
 		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -1400,10 +1411,11 @@ where
 			// `with_transactional` executed successfully, and we have the expected output.
 			Ok((success, output)) => {
 				if_tracing(|tracer| {
-					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
+					let weight_consumed = top_frame!(self).nested_weight.weight_consumed();
 					match &output {
-						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
-						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+						Ok(output) => tracer.exit_child_span(&output, weight_consumed),
+						Err(e) =>
+							tracer.exit_child_span_with_error(e.error.into(), weight_consumed),
 					}
 				});
 
@@ -1413,8 +1425,8 @@ where
 			// has changed.
 			Err(error) => {
 				if_tracing(|tracer| {
-					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
-					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+					let weight_consumed = top_frame!(self).nested_weight.weight_consumed();
+					tracer.exit_child_span_with_error(error.into(), weight_consumed);
 				});
 
 				(false, Err(error.into()))
@@ -1451,9 +1463,9 @@ where
 			let account_id = &frame.account_id;
 			let prev = top_frame_mut!(self);
 
-			prev.nested_gas.absorb_nested(frame.nested_gas);
+			prev.nested_weight.absorb_nested(frame.nested_weight);
 
-			// Only gas counter changes are persisted in case of a failure.
+			// Only weight counter changes are persisted in case of a failure.
 			if !persist {
 				return;
 			}
@@ -1491,7 +1503,8 @@ where
 				}
 			}
 		} else {
-			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
+			// TODO: iterate contracts_to_be_destroyed and destroy each contract
+			self.weight_meter.absorb_nested(mem::take(&mut self.first_frame.nested_weight));
 			if !persist {
 				return;
 			}
@@ -1528,13 +1541,13 @@ where
 	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
 	/// not provide the ED or transferring `value` from `from` to `to` fails.
 	/// Note: This will also fail if `origin` is root.
-	fn transfer<S: storage::meter::State + Default + Debug>(
+	fn transfer<S: storage::State + Default + Debug>(
 		origin: &Origin<T>,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		value: U256,
-		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-		exec_config: &ExecConfig<T>,
+		storage_meter: &mut storage::GenericMeter<T, S>,
+		exec_config: &ExecConfig,
 	) -> DispatchResult {
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
@@ -1639,13 +1652,13 @@ where
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
-	fn transfer_from_origin<S: storage::meter::State + Default + Debug>(
+	fn transfer_from_origin<S: storage::State + Default + Debug>(
 		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: U256,
-		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-		exec_config: &ExecConfig<T>,
+		storage_meter: &mut storage::GenericMeter<T, S>,
+		exec_config: &ExecConfig,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1777,7 +1790,7 @@ where
 
 				// weight limit is expected to be set to we can just multiply directly
 				let weight_limit = {
-					let weight_left = self.top_frame().nested_gas.gas_left();
+					let weight_left = self.top_frame().nested_weight.weight_left();
 					Weight::from_parts(
 						ratio.saturating_mul_int(weight_left.ref_time()),
 						ratio.saturating_mul_int(weight_left.proof_size()),
@@ -1944,7 +1957,7 @@ where
 {
 	fn instantiate(
 		&mut self,
-		gas_limit: Weight,
+		weight_limit: Weight,
 		deposit_limit: U256,
 		code: Code,
 		value: U256,
@@ -1974,7 +1987,7 @@ where
 					input_data: input_data.as_ref(),
 				},
 				value,
-				gas_limit,
+				weight_limit,
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				self.is_read_only(),
 				&input_data,
@@ -2266,12 +2279,16 @@ where
 		<T as Config>::ChainId::get()
 	}
 
-	fn gas_meter(&self) -> &GasMeter<Self::T> {
-		&self.top_frame().nested_gas
+	fn max_value_size(&self) -> u32 {
+		limits::PAYLOAD_BYTES
 	}
 
-	fn gas_meter_mut(&mut self) -> &mut GasMeter<Self::T> {
-		&mut self.top_frame_mut().nested_gas
+	fn gas_meter(&self) -> &WeightMeter<Self::T> {
+		&self.top_frame().nested_weight
+	}
+
+	fn gas_meter_mut(&mut self) -> &mut WeightMeter<Self::T> {
+		&mut self.top_frame_mut().nested_weight
 	}
 
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()> {
@@ -2374,7 +2391,7 @@ where
 					|(deposit, weight), frame| {
 						(
 							deposit.saturating_add(&frame.nested_storage.consumed()),
-							weight.saturating_add(frame.nested_gas.gas_consumed()),
+							weight.saturating_add(frame.nested_weight.weight_consumed()),
 						)
 					},
 				);
@@ -2391,7 +2408,8 @@ where
 		// this is the actual limit derived from what is set in the meter
 		let max_by_meter = {
 			use frame_support::traits::tokens::{Fortitude, Preservation};
-			let weight_fee_available = T::FeeInfo::weight_to_fee(&frame.nested_gas.gas_left());
+			let weight_fee_available =
+				T::FeeInfo::weight_to_fee(&frame.nested_weight.weight_left());
 
 			// in the dry run no deposit limit is set.
 			// this means its only limited by the origins free balance
@@ -2438,7 +2456,7 @@ where
 		)
 	}
 
-	fn charge_storage(&mut self, diff: &Diff) {
+	fn charge_storage(&mut self, diff: &storage::Diff) {
 		assert!(self.has_contract_info());
 		self.top_frame_mut().nested_storage.charge(diff)
 	}

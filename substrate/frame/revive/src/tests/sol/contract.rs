@@ -21,7 +21,7 @@ use core::iter;
 
 use crate::{
 	evm::{decode_revert_reason, fees::InfoT},
-	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, GAS_LIMIT},
+	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, WEIGHT_LIMIT},
 	tests::{builder, ExtBuilder, Test},
 	BalanceOf, Code, Config, DispatchError, Error, ExecConfig,
 };
@@ -723,8 +723,8 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let fees =
-				<Test as Config>::FeeInfo::tx_fee_from_weight(0, &GAS_LIMIT) + case.deposit_limit;
+			let fees = <Test as Config>::FeeInfo::tx_fee_from_weight(0, &WEIGHT_LIMIT) +
+				case.deposit_limit;
 			<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(fees));
 
 			// Instantiate the callee contract, which can echo a value.

@@ -419,14 +419,14 @@ impl TryFrom<RuntimeCall> for Call<Test> {
 }
 
 impl SetWeightLimit for RuntimeCall {
-	fn set_weight_limit(&mut self, weight_limit: Weight) -> Weight {
+	fn set_weight_limit(&mut self, new_weight_limit: Weight) -> Weight {
 		match self {
 			Self::Contracts(
-				Call::eth_call { gas_limit, .. } |
-				Call::eth_instantiate_with_code { gas_limit, .. },
+				Call::eth_call { weight_limit, .. } |
+				Call::eth_instantiate_with_code { weight_limit, .. },
 			) => {
-				let old = *gas_limit;
-				*gas_limit = weight_limit;
+				let old = *weight_limit;
+				*weight_limit = new_weight_limit;
 				old
 			},
 			_ => Default::default(),

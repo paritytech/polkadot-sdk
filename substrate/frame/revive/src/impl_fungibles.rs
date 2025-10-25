@@ -45,7 +45,7 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError};
 use super::{address::AddressMapper, pallet, Config, ContractResult, ExecConfig, Pallet, Weight};
 use ethereum_standards::IERC20;
 
-const GAS_LIMIT: Weight = Weight::from_parts(500_000_000_000, 10 * 1024 * 1024);
+const WEIGHT_LIMIT: Weight = Weight::from_parts(1_000_000_000, 100_000);
 
 impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.
@@ -69,7 +69,7 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 			OriginFor::<T>::signed(Self::checking_account()),
 			asset_id,
 			U256::zero(),
-			GAS_LIMIT,
+			WEIGHT_LIMIT,
 			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			data,
 			ExecConfig::new_substrate_tx(),
@@ -104,7 +104,7 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 			OriginFor::<T>::signed(account_id.clone()),
 			asset_id,
 			U256::zero(),
-			GAS_LIMIT,
+			WEIGHT_LIMIT,
 			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			data,
 			ExecConfig::new_substrate_tx(),
@@ -169,16 +169,16 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
 		let data =
 			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
-		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
+		let ContractResult { result, weight_consumed, .. } = Self::bare_call(
 			OriginFor::<T>::signed(who.clone()),
 			asset_id,
 			U256::zero(),
-			GAS_LIMIT,
+			WEIGHT_LIMIT,
 			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			data,
 			ExecConfig::new_substrate_tx(),
 		);
-		log::trace!(target: "whatiwant", "{gas_consumed}");
+		log::trace!(target: "whatiwant", "{weight_consumed}");
 		if let Ok(return_value) = result {
 			if return_value.did_revert() {
 				Err("Contract reverted".into())
@@ -209,7 +209,7 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 			OriginFor::<T>::signed(Self::checking_account()),
 			asset_id,
 			U256::zero(),
-			GAS_LIMIT,
+			WEIGHT_LIMIT,
 			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			data,
 			ExecConfig::new_substrate_tx(),

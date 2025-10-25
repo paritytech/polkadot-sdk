@@ -85,8 +85,8 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			},
 			ISystemCalls::weightLeft(ISystem::weightLeftCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::WeightLeft)?;
-				let ref_time = env.gas_meter().gas_left().ref_time();
-				let proof_size = env.gas_meter().gas_left().proof_size();
+				let ref_time = env.gas_meter().weight_left().ref_time();
+				let proof_size = env.gas_meter().weight_left().proof_size();
 				let res = (ref_time, proof_size);
 				Ok(res.abi_encode())
 			},

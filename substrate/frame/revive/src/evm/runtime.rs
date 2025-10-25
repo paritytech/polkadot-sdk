@@ -262,7 +262,7 @@ pub trait EthExtra {
 
 	/// Convert the unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 	/// and ensure that the fees from the Ethereum transaction correspond to the fees computed from
-	/// the encoded_len, the injected gas_limit and storage_deposit_limit.
+	/// the encoded_len and the injected weight_limit.
 	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
@@ -516,8 +516,7 @@ mod test {
 					result.function,
 					extra,
 					tx,
-					self.dry_run.unwrap().gas_required,
-					signed_transaction,
+					self.dry_run.unwrap().weight_required,
 				))
 			})
 		}
@@ -526,17 +525,10 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (expected_encoded_len, call, _, tx, gas_required, signed_transaction) =
-			builder.check().unwrap();
-		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
-
-		match call {
-			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
-				dest,
+		let (expected_encoded_len, call, _, tx, weight_required) = builder.check().unwrap();
 				value,
 				data,
-				gas_limit,
-				transaction_encoded,
+				weight_limit,
 				effective_gas_price,
 				encoded_len,
 			}) if dest == tx.to.unwrap() &&
@@ -547,8 +539,8 @@ mod test {
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
-					gas_limit.all_gte(gas_required),
-					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
+					weight_limit.all_gte(weight_required),
+					"Assert failed: weight_limit={weight_limit:?} >= weight_required={weight_required:?}"
 				);
 			},
 			_ => panic!("Call does not match."),
@@ -563,8 +555,7 @@ mod test {
 			expected_code.clone(),
 			expected_data.clone(),
 		);
-		let (expected_encoded_len, call, _, tx, gas_required, signed_transaction) =
-			builder.check().unwrap();
+		let (expected_encoded_len, call, _, tx, weight_required) = builder.check().unwrap();
 		let expected_effective_gas_price: u32 = <Test as Config>::NativeToEthRatio::get();
 		let expected_value = tx.value.unwrap_or_default().as_u64().into();
 
@@ -573,8 +564,7 @@ mod test {
 				value,
 				code,
 				data,
-				gas_limit,
-				transaction_encoded,
+				weight_limit,
 				effective_gas_price,
 				encoded_len,
 			}) if value == expected_value &&
@@ -585,8 +575,8 @@ mod test {
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
-					gas_limit.all_gte(gas_required),
-					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
+					weight_limit.all_gte(weight_required),
+					"Assert failed: weight_limit={weight_limit:?} >= weight_required={weight_required:?}"
 				);
 			},
 			_ => panic!("Call does not match."),

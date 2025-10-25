@@ -42,18 +42,18 @@ use sp_runtime::{
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ContractResult<R, Balance> {
 	/// How much weight was consumed during execution.
-	pub gas_consumed: Weight,
-	/// How much weight is required as gas limit in order to execute this call.
+	pub weight_consumed: Weight,
+	/// How much weight is required as weight limit in order to execute this call.
 	///
 	/// This value should be used to determine the weight limit for on-chain execution.
 	///
 	/// # Note
 	///
-	/// This can only be different from [`Self::gas_consumed`] when weight pre charging
+	/// This can only be different from [`Self::weight_consumed`] when weight pre charging
 	/// is used. Currently, only `seal_call_runtime` makes use of pre charging.
 	/// Additionally, any `seal_call` or `seal_instantiate` makes use of pre-charging
-	/// when a non-zero `gas_limit` argument is supplied.
-	pub gas_required: Weight,
+	/// when a non-zero `weight_limit` argument is supplied.
+	pub weight_required: Weight,
 	/// How much balance was paid by the origin into the contract's deposit account in order to
 	/// pay for storage.
 	///
@@ -68,8 +68,8 @@ pub struct ContractResult<R, Balance> {
 /// The result of the execution of a `eth_transact` call.
 #[derive(Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EthTransactInfo<Balance> {
-	/// The amount of gas that was necessary to execute the transaction.
-	pub gas_required: Weight,
+	/// The amount of weight that was necessary to execute the transaction.
+	pub weight_required: Weight,
 	/// Storage deposit charged.
 	pub storage_deposit: Balance,
 	/// The weight and deposit equivalent in EVM Gas.

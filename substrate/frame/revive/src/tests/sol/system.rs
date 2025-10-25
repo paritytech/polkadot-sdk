@@ -19,7 +19,7 @@
 
 use crate::{
 	evm::fees::InfoT,
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR, GAS_LIMIT},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, WEIGHT_LIMIT},
 	tests::{builder, Contracts, ExtBuilder, Test},
 	Code, Config, ExecConfig, U256,
 };
@@ -213,7 +213,7 @@ fn gas_works(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 
 		// enable txhold collection which we expect to be on when using the evm backend
-		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&GAS_LIMIT);
+		let hold_initial = <Test as Config>::FeeInfo::weight_to_fee(&WEIGHT_LIMIT);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
 		let mut exec_config = ExecConfig::new_substrate_tx();
 		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));

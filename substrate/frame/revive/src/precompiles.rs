@@ -31,8 +31,10 @@ mod tests;
 
 pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
-	gas::{GasMeter, Token},
-	storage::meter::Diff,
+	metering::{
+		storage::Diff,
+		weight::{Token, WeightMeter},
+	},
 	vm::RuntimeCosts,
 	AddressMapper,
 };

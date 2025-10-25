@@ -21,7 +21,7 @@ use crate::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
 	},
-	gas::GasMeter,
+	metering::weight::WeightMeter,
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
@@ -35,13 +35,13 @@ use sp_runtime::DispatchError;
 
 /// Mock implementation of the Ext trait that panics for all methods
 pub struct MockExt<T: Config> {
-	gas_meter: GasMeter<T>,
+	weight_meter: WeightMeter<T>,
 	_phantom: PhantomData<T>,
 }
 
 impl<T: Config> MockExt<T> {
 	pub fn new() -> Self {
-		Self { gas_meter: GasMeter::new(Weight::MAX), _phantom: PhantomData }
+		Self { weight_meter: WeightMeter::new(Weight::MAX), _phantom: PhantomData }
 	}
 }
 
@@ -153,12 +153,16 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::chain_id")
 	}
 
-	fn gas_meter(&self) -> &GasMeter<Self::T> {
-		&self.gas_meter
+	fn max_value_size(&self) -> u32 {
+		panic!("MockExt::max_value_size")
 	}
 
-	fn gas_meter_mut(&mut self) -> &mut GasMeter<Self::T> {
-		&mut self.gas_meter
+	fn gas_meter(&self) -> &WeightMeter<Self::T> {
+		&self.weight_meter
+	}
+
+	fn gas_meter_mut(&mut self) -> &mut WeightMeter<Self::T> {
+		&mut self.weight_meter
 	}
 
 	fn ecdsa_recover(

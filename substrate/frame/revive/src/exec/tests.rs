@@ -24,7 +24,7 @@
 use super::*;
 use crate::{
 	exec::ExportedFunction::*,
-	gas::GasMeter,
+	metering::{storage::Meter as StorageMeter, weight::WeightMeter},
 	test_utils::*,
 	tests::{
 		test_utils::{get_balance, place_contract, set_balance},
@@ -141,7 +141,7 @@ impl MockLoader {
 impl Executable<Test> for MockExecutable {
 	fn from_storage(
 		code_hash: H256,
-		_gas_meter: &mut GasMeter<Test>,
+		_weight_meter: &mut WeightMeter<Test>,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -207,7 +207,7 @@ fn it_works() {
 	}
 
 	let value = 0;
-	let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+	let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 	let exec_ch = MockLoader::insert(Call, |_ctx, _executable| {
 		TestData::mutate(|data| data.push(1));
 		exec_success()
@@ -215,13 +215,13 @@ fn it_works() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, exec_ch);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		assert_matches!(
 			MockStack::run_call(
 				Origin::from_account_id(ALICE),
 				BOB_ADDR,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				value.into(),
 				vec![],
@@ -244,7 +244,7 @@ fn transfer_works() {
 
 		let value = 55;
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
+		let mut storage_meter = StorageMeter::new(u64::MAX);
 
 		MockStack::transfer(
 			&origin,
@@ -278,7 +278,7 @@ fn transfer_to_nonexistent_account_works() {
 		let ed = <Test as Config>::Currency::minimum_balance();
 		let value = 1024;
 		let evm_value = Pallet::<Test>::convert_native_to_evm(value);
-		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
+		let mut storage_meter = StorageMeter::new(u64::MAX);
 
 		// Transfers to nonexistent accounts should work
 		set_balance(&ALICE, ed * 2);
@@ -345,12 +345,12 @@ fn correct_transfer_on_call() {
 		set_balance(&ALICE, 100);
 		let balance = get_balance(&BOB_FALLBACK);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let _ = MockStack::run_call(
 			origin.clone(),
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			evm_value.as_u64().into(),
 			vec![],
@@ -385,12 +385,12 @@ fn correct_transfer_on_delegate_call() {
 		set_balance(&ALICE, 100);
 		let balance = get_balance(&BOB_FALLBACK);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			evm_value.as_u64().into(),
 			vec![],
@@ -418,13 +418,13 @@ fn delegate_call_missing_contract() {
 		set_balance(&ALICE, 100);
 
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		// contract code missing should still succeed to mimic EVM behavior.
 		assert_ok!(MockStack::run_call(
 			origin.clone(),
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -436,7 +436,7 @@ fn delegate_call_missing_contract() {
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -459,12 +459,12 @@ fn changes_are_reverted_on_failing_call() {
 		set_balance(&ALICE, 100);
 		let balance = get_balance(&BOB);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let output = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			55u64.into(),
 			vec![],
@@ -489,7 +489,7 @@ fn balance_too_low() {
 		let ed = <Test as Config>::Currency::minimum_balance();
 		set_balance(&ALICE, ed * 2);
 		set_balance(&from, ed + 99);
-		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
+		let mut storage_meter = StorageMeter::new(u64::MAX);
 
 		let result = MockStack::transfer(
 			&Origin::from_account_id(ALICE),
@@ -517,13 +517,13 @@ fn output_is_returned_on_success() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		place_contract(&BOB, return_ch);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -547,12 +547,12 @@ fn output_is_returned_on_failure() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, return_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -576,12 +576,12 @@ fn input_data_to_call() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, input_data_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![1, 2, 3, 4],
@@ -604,15 +604,16 @@ fn input_data_to_instantiate() {
 		.build()
 		.execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			let executable = MockExecutable::from_storage(input_data_ch, &mut gas_meter).unwrap();
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
+			let executable =
+				MockExecutable::from_storage(input_data_ch, &mut weight_meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
-			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+			let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 
 			let result = MockStack::run_instantiate(
 				ALICE,
 				executable,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				min_balance.into(),
 				vec![1, 2, 3, 4],
@@ -654,12 +655,12 @@ fn max_depth() {
 		set_balance(&BOB, 1);
 		place_contract(&BOB, recurse_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			value.into(),
 			vec![],
@@ -709,12 +710,12 @@ fn caller_returns_proper_values() {
 		place_contract(&BOB, bob_ch);
 		place_contract(&CHARLIE, charlie_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -765,12 +766,12 @@ fn origin_returns_proper_values() {
 		place_contract(&BOB, bob_ch);
 		place_contract(&CHARLIE, charlie_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -804,11 +805,11 @@ fn to_account_id_returns_proper_values() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, bob_code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -840,12 +841,12 @@ fn code_hash_returns_proper_values() {
 		);
 		place_contract(&BOB, bob_code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		// ALICE (not contract) -> BOB (contract)
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -866,12 +867,12 @@ fn own_code_hash_returns_proper_values() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, bob_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		// ALICE (not contract) -> BOB (contract)
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -902,12 +903,12 @@ fn caller_is_origin_returns_proper_values() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		// ALICE -> BOB (caller is origin) -> CHARLIE (caller is not origin)
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -928,12 +929,12 @@ fn root_caller_succeeds() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_bob);
 		let origin = Origin::Root;
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		// root -> BOB (caller is root)
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -954,12 +955,12 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_bob);
 		let origin = Origin::Root;
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		// root -> BOB (caller is root)
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			1u64.into(),
 			vec![0],
@@ -990,12 +991,12 @@ fn root_caller_succeeds_with_consecutive_calls() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::Root;
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		// root -> BOB (caller is root) -> CHARLIE (caller is not root)
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -1028,12 +1029,12 @@ fn address_returns_proper_values() {
 		place_contract(&BOB, bob_ch);
 		place_contract(&CHARLIE, charlie_ch);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -1049,15 +1050,15 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
 
 	ExtBuilder::default().existential_deposit(15).build().execute_with(|| {
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-		let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
+		let executable = MockExecutable::from_storage(dummy_ch, &mut weight_meter).unwrap();
+		let mut storage_meter = StorageMeter::new(0);
 
 		assert_matches!(
 			MockStack::run_instantiate(
 				ALICE,
 				executable,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				U256::zero(), // <- zero value
 				vec![],
@@ -1081,16 +1082,16 @@ fn instantiation_work_with_success_output() {
 		.build()
 		.execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
+			let executable = MockExecutable::from_storage(dummy_ch, &mut weight_meter).unwrap();
 			set_balance(&ALICE, min_balance * 1000);
-			let mut storage_meter = storage::meter::Meter::new(min_balance * 100);
+			let mut storage_meter = StorageMeter::new(min_balance * 100);
 
 			let instantiated_contract_address = assert_matches!(
 				MockStack::run_instantiate(
 					ALICE,
 					executable,
-					&mut gas_meter,
+					&mut weight_meter,
 					&mut storage_meter,
 					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
@@ -1132,16 +1133,16 @@ fn instantiation_fails_with_failing_output() {
 		.build()
 		.execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			let executable = MockExecutable::from_storage(dummy_ch, &mut gas_meter).unwrap();
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
+			let executable = MockExecutable::from_storage(dummy_ch, &mut weight_meter).unwrap();
 			set_balance(&ALICE, min_balance * 1000);
-			let mut storage_meter = storage::meter::Meter::new(min_balance * 100);
+			let mut storage_meter = StorageMeter::new(min_balance * 100);
 
 			let instantiated_contract_address = assert_matches!(
 				MockStack::run_instantiate(
 					ALICE,
 					executable,
-					&mut gas_meter,
+					&mut weight_meter,
 					&mut storage_meter,
 					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
@@ -1198,13 +1199,13 @@ fn instantiation_from_contract() {
 			set_balance(&ALICE, min_balance * 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(min_balance * 10);
+			let mut storage_meter = StorageMeter::new(min_balance * 10);
 
 			assert_matches!(
 				MockStack::run_call(
 					origin,
 					BOB_ADDR,
-					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 					&mut storage_meter,
 					Pallet::<Test>::convert_native_to_evm(min_balance * 10),
 					vec![],
@@ -1267,13 +1268,13 @@ fn instantiation_traps() {
 			set_balance(&BOB_FALLBACK, 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(200);
+			let mut storage_meter = StorageMeter::new(200);
 
 			assert_matches!(
 				MockStack::run_call(
 					origin,
 					BOB_ADDR,
-					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
@@ -1296,16 +1297,16 @@ fn termination_from_instantiate_fails() {
 		.existential_deposit(15)
 		.build()
 		.execute_with(|| {
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			let executable = MockExecutable::from_storage(terminate_ch, &mut gas_meter).unwrap();
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
+			let executable = MockExecutable::from_storage(terminate_ch, &mut weight_meter).unwrap();
 			set_balance(&ALICE, 10_000);
-			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+			let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 
 			assert_eq!(
 				MockStack::run_instantiate(
 					ALICE,
 					executable,
-					&mut gas_meter,
+					&mut weight_meter,
 					&mut storage_meter,
 					Pallet::<Test>::convert_native_to_evm(100u64),
 					vec![],
@@ -1360,12 +1361,12 @@ fn in_memory_changes_not_discarded() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -1413,15 +1414,15 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 		.build()
 		.execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			let executable = MockExecutable::from_storage(code, &mut gas_meter).unwrap();
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
+			let executable = MockExecutable::from_storage(code, &mut weight_meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
-			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+			let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 
 			let result = MockStack::run_instantiate(
 				ALICE,
 				executable,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				10u64.into(),
 				vec![],
@@ -1453,15 +1454,15 @@ fn cannot_send_more_balance_than_available_to_self() {
 		.build()
 		.execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 			set_balance(&ALICE, min_balance * 10);
 			place_contract(&BOB, code_hash);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(0);
+			let mut storage_meter = StorageMeter::new(0);
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
@@ -1487,13 +1488,13 @@ fn call_reentry_direct_recursion() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		// Calling another contract should succeed
 		assert_ok!(MockStack::run_call(
 			origin.clone(),
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			CHARLIE_ADDR.as_bytes().to_vec(),
@@ -1505,7 +1506,7 @@ fn call_reentry_direct_recursion() {
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 				&mut storage_meter,
 				U256::zero(),
 				BOB_ADDR.as_bytes().to_vec(),
@@ -1540,14 +1541,14 @@ fn call_deny_reentry() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		// BOB -> CHARLIE -> BOB fails as BOB denies reentry.
 		assert_err!(
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
@@ -1575,16 +1576,16 @@ fn minimum_balance_must_return_converted_balance() {
 		.with_code_hashes(MockLoader::code_hashes())
 		.build()
 		.execute_with(|| {
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 			let succ_fail_executable =
-				MockExecutable::from_storage(succ_fail_code, &mut gas_meter).unwrap();
-			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+				MockExecutable::from_storage(succ_fail_code, &mut weight_meter).unwrap();
+			let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 			set_balance(&ALICE, min_balance * 10_000);
 
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
 				succ_fail_executable,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				min_balance_evm_value,
 				vec![],
@@ -1653,23 +1654,24 @@ fn nonce() {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			let min_balance_evm_value: U256 = Pallet::<Test>::convert_native_to_evm(min_balance);
 
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			let fail_executable = MockExecutable::from_storage(fail_code, &mut gas_meter).unwrap();
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
+			let fail_executable =
+				MockExecutable::from_storage(fail_code, &mut weight_meter).unwrap();
 			let success_executable =
-				MockExecutable::from_storage(success_code, &mut gas_meter).unwrap();
+				MockExecutable::from_storage(success_code, &mut weight_meter).unwrap();
 			let succ_fail_executable =
-				MockExecutable::from_storage(succ_fail_code, &mut gas_meter).unwrap();
+				MockExecutable::from_storage(succ_fail_code, &mut weight_meter).unwrap();
 			let succ_succ_executable =
-				MockExecutable::from_storage(succ_succ_code, &mut gas_meter).unwrap();
+				MockExecutable::from_storage(succ_succ_code, &mut weight_meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 			set_balance(&BOB, min_balance * 10_000);
-			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+			let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 
 			// fail should not increment
 			MockStack::run_instantiate(
 				ALICE,
 				fail_executable,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				min_balance_evm_value * 100,
 				vec![],
@@ -1682,7 +1684,7 @@ fn nonce() {
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
 				success_executable,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				min_balance_evm_value * 100,
 				vec![],
@@ -1694,7 +1696,7 @@ fn nonce() {
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
 				succ_fail_executable,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				min_balance_evm_value * 200,
 				vec![],
@@ -1706,7 +1708,7 @@ fn nonce() {
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
 				succ_succ_executable,
-				&mut gas_meter,
+				&mut weight_meter,
 				&mut storage_meter,
 				min_balance_evm_value * 200,
 				vec![],
@@ -1766,15 +1768,15 @@ fn set_storage_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+		let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+		let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut gas_meter,
+			&mut weight_meter,
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -1864,15 +1866,15 @@ fn set_storage_varsized_key_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+		let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+		let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut gas_meter,
+			&mut weight_meter,
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -1902,15 +1904,15 @@ fn get_storage_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+		let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+		let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut gas_meter,
+			&mut weight_meter,
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -1940,15 +1942,15 @@ fn get_storage_size_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+		let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+		let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut gas_meter,
+			&mut weight_meter,
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -1989,15 +1991,15 @@ fn get_storage_varsized_key_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+		let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+		let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut gas_meter,
+			&mut weight_meter,
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -2038,15 +2040,15 @@ fn get_storage_size_varsized_key_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+		let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+		let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut gas_meter,
+			&mut weight_meter,
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -2116,11 +2118,11 @@ fn set_transient_storage_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+		let mut storage_meter = StorageMeter::new(deposit_limit::<Test>());
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -2177,12 +2179,12 @@ fn get_transient_storage_works() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -2216,11 +2218,11 @@ fn get_transient_storage_size_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_hash);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		assert_ok!(MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -2269,12 +2271,12 @@ fn rollback_transient_storage_works() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -2301,11 +2303,11 @@ fn ecdsa_to_eth_address_returns_proper_value() {
 		place_contract(&BOB, bob_ch);
 
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -2397,12 +2399,12 @@ fn last_frame_output_works_on_instantiate() {
 			set_balance(&BOB, 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(200);
+			let mut storage_meter = StorageMeter::new(200);
 
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
@@ -2457,12 +2459,12 @@ fn last_frame_output_works_on_nested_call() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![0],
@@ -2523,12 +2525,12 @@ fn last_frame_output_is_always_reset() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, code_bob);
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 
 		let result = MockStack::run_call(
 			origin,
 			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 			&mut storage_meter,
 			U256::zero(),
 			vec![],
@@ -2572,12 +2574,12 @@ fn immutable_data_access_checks_work() {
 			set_balance(&BOB, 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(200);
+			let mut storage_meter = StorageMeter::new(200);
 
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
@@ -2625,7 +2627,7 @@ fn correct_immutable_data_in_delegate_call() {
 			place_contract(&CHARLIE, charlie_ch);
 
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(200);
+			let mut storage_meter = StorageMeter::new(200);
 
 			// Place unique immutable data for each contract
 			<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
@@ -2640,7 +2642,7 @@ fn correct_immutable_data_in_delegate_call() {
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
@@ -2672,13 +2674,13 @@ fn immutable_data_set_overrides() {
 		.execute_with(|| {
 			set_balance(&ALICE, 1000);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(200);
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+			let mut storage_meter = StorageMeter::new(200);
+			let mut weight_meter = WeightMeter::<Test>::new(WEIGHT_LIMIT);
 
 			let addr = MockStack::run_instantiate(
 				ALICE,
-				MockExecutable::from_storage(hash, &mut gas_meter).unwrap(),
-				&mut gas_meter,
+				MockExecutable::from_storage(hash, &mut weight_meter).unwrap(),
+				&mut weight_meter,
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
@@ -2691,7 +2693,7 @@ fn immutable_data_set_overrides() {
 			MockStack::run_call(
 				origin,
 				addr,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
@@ -2732,12 +2734,12 @@ fn immutable_data_set_errors_with_empty_data() {
 			set_balance(&BOB, 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(200);
+			let mut storage_meter = StorageMeter::new(200);
 
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
@@ -2792,12 +2794,12 @@ fn block_hash_returns_proper_values() {
 		place_contract(&BOB, bob_code_hash);
 
 		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
+		let mut storage_meter = StorageMeter::new(0);
 		assert_matches!(
 			MockStack::run_call(
 				origin,
 				BOB_ADDR,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut WeightMeter::<Test>::new(WEIGHT_LIMIT),
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],

@@ -29,12 +29,11 @@ use crate::{
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
-	storage::meter::Meter,
+	metering::{storage::Meter as StorageMeter, weight::WeightMeter},
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
 	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, GasMeter, OriginFor, Pallet as Contracts,
-	PristineCode, Weight,
+	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -51,8 +50,8 @@ pub struct CallSetup<T: Config> {
 	contract: Contract<T>,
 	dest: T::AccountId,
 	origin: Origin<T>,
-	gas_meter: GasMeter<T>,
-	storage_meter: Meter<T>,
+	weight_meter: WeightMeter<T>,
+	storage_meter: StorageMeter<T>,
 	value: BalanceOf<T>,
 	data: Vec<u8>,
 	transient_storage_size: u32,
@@ -78,7 +77,7 @@ where
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
 
-		let storage_meter = Meter::new(default_deposit_limit::<T>());
+		let storage_meter = StorageMeter::new(default_deposit_limit::<T>());
 
 		#[cfg(feature = "runtime-benchmarks")]
 		{
@@ -101,7 +100,7 @@ where
 			contract,
 			dest,
 			origin,
-			gas_meter: GasMeter::new(Weight::MAX),
+			weight_meter: WeightMeter::new(Weight::MAX),
 			storage_meter,
 			value: 0u32.into(),
 			data: vec![],
@@ -112,7 +111,7 @@ where
 
 	/// Set the meter's storage deposit limit.
 	pub fn set_storage_deposit_limit(&mut self, balance: BalanceOf<T>) {
-		self.storage_meter = Meter::new(balance);
+		self.storage_meter = StorageMeter::new(balance);
 	}
 
 	/// Set the call's origin.
@@ -150,7 +149,7 @@ where
 		let mut ext = StackExt::bench_new_call(
 			T::AddressMapper::to_address(&self.dest),
 			self.origin.clone(),
-			&mut self.gas_meter,
+			&mut self.weight_meter,
 			&mut self.storage_meter,
 			self.value,
 			&self.exec_config,

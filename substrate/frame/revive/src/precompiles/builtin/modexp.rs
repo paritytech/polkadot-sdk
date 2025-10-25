@@ -366,7 +366,7 @@ mod tests {
 
 	#[test]
 	fn test_long_exp_gas_cost_matches_specs() {
-		use crate::{call_builder::CallSetup, gas::Token, tests::ExtBuilder};
+		use crate::{call_builder::CallSetup, metering::weight::Token, tests::ExtBuilder};
 
 		let input = vec![
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -389,9 +389,9 @@ mod tests {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			let before = ext.gas_meter().gas_consumed();
+			let before = ext.gas_meter().weight_consumed();
 			<Modexp<Test>>::call(&<Modexp<Test>>::MATCHER.base_address(), input, &mut ext).unwrap();
-			let after = ext.gas_meter().gas_consumed();
+			let after = ext.gas_meter().weight_consumed();
 
 			// 7104 * 20 gas used when ran in geth (x20)
 			assert_eq!(after - before, Token::<Test>::weight(&RuntimeCosts::Modexp(7104 * 20)));

@@ -69,7 +69,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
-		gas_left: Weight,
+		weight_left: Weight,
 	) {
 		// Increment parent's child call count.
 		if let Some(&index) = self.current_stack.last() {
@@ -109,7 +109,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 				value: if is_read_only { None } else { Some(value) },
 				call_type,
 				input: input.into(),
-				gas: (self.gas_mapper)(gas_left),
+				gas: (self.gas_mapper)(weight_left),
 				..Default::default()
 			});
 
@@ -141,7 +141,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		}
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, weight_used: Weight) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -149,7 +149,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
 			trace.output = output.data.clone().into();
-			trace.gas_used = (self.gas_mapper)(gas_used);
+			trace.gas_used = (self.gas_mapper)(weight_used);
 
 			if output.did_revert() {
 				trace.revert_reason = decode_revert_reason(&output.data);
@@ -167,14 +167,14 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, error: DispatchError, weight_used: Weight) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
-			trace.gas_used = (self.gas_mapper)(gas_used);
+			trace.gas_used = (self.gas_mapper)(weight_used);
 
 			trace.error = match error {
 				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>

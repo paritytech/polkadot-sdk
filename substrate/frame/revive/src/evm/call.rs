@@ -120,7 +120,7 @@ where
 			let call = crate::Call::eth_call::<T> {
 				dest,
 				value,
-				gas_limit: Zero::zero(),
+				weight_limit: Zero::zero(),
 				data,
 				transaction_encoded,
 				effective_gas_price,
@@ -142,7 +142,7 @@ where
 
 		let call = crate::Call::eth_instantiate_with_code::<T> {
 			value,
-			gas_limit: Zero::zero(),
+			weight_limit: Zero::zero(),
 			code,
 			data,
 			transaction_encoded,
