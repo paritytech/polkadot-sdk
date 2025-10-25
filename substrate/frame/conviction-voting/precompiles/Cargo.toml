@@ -31,6 +31,7 @@ pallet-timestamp = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+scale-info = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -47,6 +48,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"tracing/std",
+	"scale-info/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

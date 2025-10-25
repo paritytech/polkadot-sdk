@@ -40,6 +40,11 @@ use tracing::error;
 alloy::sol!("src/interfaces/IConvictionVoting.sol");
 use IConvictionVoting::IConvictionVotingCalls;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 type BalanceOf<T> = <<T as pallet_conviction_voting::Config>::Currency as Currency<
 	<T as pallet_revive::frame_system::Config>::AccountId,
 >>::Balance;
@@ -73,7 +78,7 @@ pub struct ConvictionVotingPrecompile<T>(PhantomData<T>);
 impl<T> Precompile for ConvictionVotingPrecompile<T>
 where
 	T: crate::Config + pallet_revive::Config,
-	BalanceOf<T>: TryFrom<u128> + Into<u128>, //balance as u128
+	BalanceOf<T>: TryFrom<u128> + Into<u128>, // balance as u128
 	IndexOf<T>: TryFrom<u32> + TryInto<u32>,  // u32 as ReferendumIndex
 	ClassOf<T>: TryFrom<u16> + TryInto<u16>,  // u16 as TrackId
 {
