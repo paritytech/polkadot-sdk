@@ -60,6 +60,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&[msg.as_bounded_slice()],
+				true,
 				&mut WeightMeter::new()
 			));
 		}
@@ -96,6 +97,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs,
+				true,
 				&mut WeightMeter::new()
 			));
 		}
@@ -110,7 +112,7 @@ mod benchmarks {
 
 	/// Add an XCMP message of 0 bytes to the message queue at the provided position
 	/// on an existing page.
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn enqueue_empty_xcmp_message_at(
 		n: Linear<0, { crate::MaxXcmpMessageLenOf::<T>::get() - 10 }>,
 	) {
@@ -122,6 +124,7 @@ mod benchmarks {
 		assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 			0.into(),
 			&[BoundedVec::try_from(vec![0; n as usize]).unwrap().as_bounded_slice()],
+			true,
 			&mut WeightMeter::new()
 		));
 
@@ -132,6 +135,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&[BoundedVec::new().as_bounded_slice()],
+				true,
 				&mut WeightMeter::new()
 			));
 		}
@@ -171,6 +175,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs.iter().map(|msg| msg.as_bounded_slice()).collect::<Vec<_>>(),
+				true,
 				&mut WeightMeter::new()
 			));
 		}
@@ -181,7 +186,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn enqueue_1000_small_xcmp_messages() {
 		#[cfg(test)]
 		{
@@ -201,6 +206,7 @@ mod benchmarks {
 			])
 			.unwrap()
 			.as_bounded_slice()],
+			true,
 			&mut WeightMeter::new()
 		));
 
@@ -216,6 +222,7 @@ mod benchmarks {
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
 				&msgs.iter().map(|msg| msg.as_bounded_slice()).collect::<Vec<_>>(),
+				true,
 				&mut WeightMeter::new()
 			));
 		}

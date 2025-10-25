@@ -16,7 +16,7 @@ log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-subxt = { version = "0.38.1", default-features = false }
+subxt = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
 zombienet-orchestrator = { workspace = true }

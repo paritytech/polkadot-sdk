@@ -37,6 +37,7 @@ use sc_client_api::{
 	StorageProvider,
 };
 use sc_rpc_api::state::ReadProof;
+use sc_tracing::block::TracingExecuteBlock;
 use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
 use sp_blockchain::{
 	CachedHeaderMetadata, Error as ClientError, HeaderBackend, HeaderMetadata,
@@ -55,7 +56,7 @@ use sp_version::RuntimeVersion;
 /// The maximum time allowed for an RPC call when running without unsafe RPC enabled.
 const MAXIMUM_SAFE_RPC_CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Ranges to query in state_queryStorage.
+/// Ranges to query in `state_queryStorage`.
 struct QueryStorageRange<Block: BlockT> {
 	/// Hashes of all the blocks in the range.
 	pub hashes: Vec<Block::Hash>,
@@ -65,7 +66,8 @@ struct QueryStorageRange<Block: BlockT> {
 pub struct FullState<BE, Block: BlockT, Client> {
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
-	_phantom: PhantomData<(BE, Block)>,
+	execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
+	_phantom: PhantomData<BE>,
 }
 
 impl<BE, Block: BlockT, Client> FullState<BE, Block, Client>
@@ -78,8 +80,12 @@ where
 	Block: BlockT + 'static,
 {
 	/// Create new state API backend for full nodes.
-	pub fn new(client: Arc<Client>, executor: SubscriptionTaskExecutor) -> Self {
-		Self { client, executor, _phantom: PhantomData }
+	pub fn new(
+		client: Arc<Client>,
+		executor: SubscriptionTaskExecutor,
+		execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
+	) -> Self {
+		Self { client, executor, execute_block, _phantom: PhantomData }
 	}
 
 	/// Returns given block hash or best block hash if None is passed.
@@ -479,6 +485,7 @@ where
 			targets,
 			storage_keys,
 			methods,
+			self.execute_block.clone(),
 		)
 		.trace_block()
 		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))

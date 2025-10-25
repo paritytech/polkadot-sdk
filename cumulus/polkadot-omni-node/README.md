@@ -15,6 +15,13 @@ chmod +x polkadot-omni-node
 export PATH="$PATH:`pwd`"
 ```
 
+> Replace `<stable_release_tag>` with the latest stable tag from the [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases)
+>
+> For example:
+> ```bash
+> wget https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2506-1/polkadot-omni-node
+> ```
+
 Compile & install via `cargo`:
 
 ```bash

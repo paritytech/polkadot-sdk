@@ -23,6 +23,13 @@ on:
       test_pattern:
         required: false
         type: string
+      build_run_id:
+        required: true
+        type: string
+        description: "Build run ID from the build workflow."
+      ref_slug:
+        required: false
+        type: string
     # Map the workflow outputs to job outputs
     outputs:
       changes_substrate:
@@ -63,14 +70,9 @@ on:
         value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
 
       BUILD_RUN_ID:
-        value: ${{ jobs.wait_build_images.outputs.BUILD_RUN_ID }}
+        value: ${{ inputs.build_run_id }}
         description: |
           Id of the build run, needed to download the artifacts.
-
-      POLKADOT_PR_ARTIFACTS_URL:
-        value: ${{ jobs.wait_build_images.outputs.POLKADOT_PR_ARTIFACTS_URL }}
-        description: |
-          url for download polkadot built artifacts (in zip format).
 
       # zombienet related vars
       ZOMBIENET_PROVIDER:
@@ -187,7 +189,7 @@ jobs:
       ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       #
       # Set changes
@@ -201,7 +203,7 @@ jobs:
 
       - name: Set changes
         id: set_changes
-        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c #v46.0.5
+        uses: tj-actions/changed-files@24d32ffd492484c1d75e0c0b894501ddb9d30d62 #v47.0.0
         with:
           files_yaml: |
             substrate:
@@ -226,20 +228,39 @@ jobs:
       - name: Set vars
         id: set_vars
         shell: bash
+        env:
+          INPUT_REF_SLUG: ${{ inputs.ref_slug }}
         run: |
-          # below section shall only print variables set for GITHUB_OUTPUT
-          {
+          # Determine SOURCE_REF_SLUG
+          if [[ -n "${INPUT_REF_SLUG}" ]]; then
+            echo "Using provided ref_slug: ${INPUT_REF_SLUG}"
+            SOURCE_REF_SLUG="${INPUT_REF_SLUG}"
+          else
+            echo "Calculating ref_slug from current context"
             export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
-            echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}"
+            SOURCE_REF_SLUG="${SOURCE_REF_NAME//\//_}"
+          fi
+          
+          {
+            echo "SOURCE_REF_SLUG=${SOURCE_REF_SLUG}"
 
             # filter out comments and empty lines
             cat .github/zombienet-env | grep -Ev '^\s*#|^\s*$'
             . .github/zombienet-env
 
+            # Determine if we should use persistent runners (for merge queues)
+            RUNNER_SUFFIX=""
+            if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
+              RUNNER_SUFFIX="_PERSISTENT"
+            fi
+
+            # Set zombienet v1 configuration
             if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}"
-              echo "ZOMBIENET_DEFAULT_RUNNER=${ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE}"
-              echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_LARGE_RUNNER_FOR_NATIVE}"
+              DEFAULT_RUNNER_VAR="ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}"
+              LARGE_RUNNER_VAR="ZOMBIENET_LARGE_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}"
+              echo "ZOMBIENET_DEFAULT_RUNNER=${!DEFAULT_RUNNER_VAR}"
+              echo "ZOMBIENET_LARGE_RUNNER=${!LARGE_RUNNER_VAR}"
             else
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_K8S}"
               # runner size for k8s is not relevant, it "only" spawns pods and runs the test
@@ -249,8 +270,10 @@ jobs:
 
             if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}"
-              echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE}"
-              echo "ZOMBIENET_SDK_LARGE_RUNNER=${ZOMBIENET_SDK_LARGE_RUNNER_FOR_NATIVE}"
+              SDK_DEFAULT_RUNNER_VAR="ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}"
+              SDK_LARGE_RUNNER_VAR="ZOMBIENET_SDK_LARGE_RUNNER_FOR_NATIVE${RUNNER_SUFFIX}"
+              echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${!SDK_DEFAULT_RUNNER_VAR}"
+              echo "ZOMBIENET_SDK_LARGE_RUNNER=${!SDK_LARGE_RUNNER_VAR}"
             else
               echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_K8S}"
               # runner size for k8s is not relevant, it "only" spawns pods and runs the test
@@ -260,7 +283,7 @@ jobs:
 
             # Trick for multline strings: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-of-a-multiline-string
             echo 'FLAKY_TESTS<<EOF'
-            cat .github/zombienet-flaky-tests
+            cat .github/zombienet-flaky-tests | sed 's/:[0-9]*$//'
             echo EOF
 
             # global img from ci
@@ -308,99 +331,3 @@ jobs:
           echo "TEST_MATRIX=$(cat matrix.json)" >> $GITHUB_OUTPUT
           echo "TEST_MATRIX:"
           cat matrix.json | jq '.'
-  #
-  #
-  #
-  ci-env:
-    needs: [preflight]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Info vars
-        run: |
-          echo "zombienet vars"
-          echo "ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}"
-          echo "ZOMBIENET_DEFAULT_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}"
-          echo "ZOMBIENET_LARGE_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}"
-          echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
-          echo "PUSHGATEWAY_URL: ${{ needs.preflight.outputs.PUSHGATEWAY_URL }}"
-          echo "DEBUG: ${{ needs.preflight.outputs.DEBUG }}"
-          echo "KUBERNETES_CPU_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_CPU_REQUEST }}"
-          echo "KUBERNETES_MEMORY_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}"
-          echo "FLAKY_TESTS: ${{ needs.preflight.outputs.FLAKY_TESTS }}"
-          echo "zombienet-sdk vars"
-          echo "RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}"
-          echo "ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}"
-          echo "ZOMBIENET_SDK_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_SDK_RUNNER }}"
-          echo "ZOMBIENET_SDK_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}"
-          echo "other vars"
-          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
-          echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-          echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
-          echo "github.ref: ${{ github.ref }}"
-          echo "github.ref_name: ${{ github.ref_name }}"
-          echo "github.sha: ${{ github.sha }}"
-  #
-  #
-  # Wait until the 'build and push' image workflow success
-  wait_build_images:
-    needs: [preflight, ci-env]
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    outputs:
-      BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}
-      POLKADOT_PR_ARTIFACTS_URL: ${{ steps.get_artifacts_url.outputs.POLKADOT_PR_ARTIFACTS_URL }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Wait until "Build and push images" workflow is done
-        id: wait_build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh --version
-
-          export SHA=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" || ${{ github.event_name }} == "push" ]]; then
-            # Full SHA is needed to query GH run status
-            export SHA="${GITHUB_SHA}";
-          fi
-          DELAYER=10
-          while true; do
-            # In case of multiple runs take the most recent one (with greatest databaseId)
-            STATUS=$(gh run ls -c $SHA -w "Build and push images" --json status,databaseId --jq 'max_by(.databaseId) | .status')
-            echo "CI workflow status: $STATUS"
-            if [[ $STATUS == "completed" ]]; then
-              echo "CI workflow is done."
-              break
-            fi
-            if [[ -z "$STATUS" ]]; then
-              echo "::warning::No CI workflow runs found for this commit"
-              exit 1
-            fi
-            sleep $((60 * DELAYER))
-            DELAYER=1
-          done
-
-          # check if the build succeeded
-          RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json conclusion,databaseId --jq 'max_by(.databaseId) | .conclusion, .databaseId'))
-          CONCLUSION=${RUN_INFO[@]:0:1}
-          BUILD_RUN_ID=${RUN_INFO[@]:1:1}
-          if [[ $CONCLUSION == "success" ]]; then
-            echo "CI workflow succeeded. (build run_id: ${BUILD_RUN_ID})"
-            echo "BUILD_RUN_ID=${BUILD_RUN_ID}" >> $GITHUB_OUTPUT
-          else
-            echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLUSION"
-            exit 1
-          fi;
-
-      # - name: Get artifacts url for pr
-      #   id: get_artifacts_url
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     gh --version
-      #     export SHA=${{ github.event.pull_request.head.sha }}
-      #     if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
-      #     POLKADOT_PR_ARTIFACTS_URL=$(curl "https://api.github.com/repos/paritytech/polkadot-sdk/actions/runs/${{steps.wait_build.outputs.BUILD_RUN_ID}}/artifacts?name=build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" | jq -r ".artifacts[0].archive_download_url")
-      #     echo "POLKADOT_PR_ARTIFACTS_URL=${POLKADOT_PR_ARTIFACTS_URL}" >> $GITHUB_OUTPUT
-

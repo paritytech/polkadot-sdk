@@ -16,18 +16,17 @@
 // limitations under the License.
 
 #![cfg(test)]
-
 use crate::{
 	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
 	gas::GasMeter,
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	Config, ExecReturnValue, ImmutableData,
+	Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use frame_support::{dispatch::DispatchResult, weights::Weight};
+use frame_support::weights::Weight;
 use sp_core::{H160, H256, U256};
 use sp_runtime::DispatchError;
 
@@ -35,6 +34,12 @@ use sp_runtime::DispatchError;
 pub struct MockExt<T: Config> {
 	gas_meter: GasMeter<T>,
 	_phantom: PhantomData<T>,
+}
+
+impl<T: Config> MockExt<T> {
+	pub fn new() -> Self {
+		Self { gas_meter: GasMeter::new(Weight::MAX), _phantom: PhantomData }
+	}
 }
 
 impl<T: Config> PrecompileExt for MockExt<T> {
@@ -74,6 +79,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::caller")
 	}
 
+	fn caller_of_caller(&self) -> Origin<Self::T> {
+		panic!("MockExt::caller_of_caller")
+	}
+
 	fn origin(&self) -> &Origin<Self::T> {
 		panic!("MockExt::origin")
 	}
@@ -86,11 +95,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::code_size")
 	}
 
-	fn caller_is_origin(&self) -> bool {
+	fn caller_is_origin(&self, _use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_origin")
 	}
 
-	fn caller_is_root(&self) -> bool {
+	fn caller_is_root(&self, _use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_root")
 	}
 
@@ -130,16 +139,16 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::block_hash")
 	}
 
-	fn block_author(&self) -> Option<H160> {
+	fn block_author(&self) -> H160 {
 		panic!("MockExt::block_author")
 	}
 
-	fn max_value_size(&self) -> u32 {
-		panic!("MockExt::max_value_size")
+	fn gas_limit(&self) -> u64 {
+		panic!("MockExt::gas_limit")
 	}
 
-	fn get_weight_price(&self, _weight: Weight) -> U256 {
-		panic!("MockExt::get_weight_price")
+	fn chain_id(&self) -> u64 {
+		panic!("MockExt::chain_id")
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
@@ -180,6 +189,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::is_read_only")
 	}
 
+	fn is_delegate_call(&self) -> bool {
+		panic!("MockExt::is_delegate_call")
+	}
+
 	fn last_frame_output(&self) -> &ExecReturnValue {
 		panic!("MockExt::last_frame_output")
 	}
@@ -187,9 +200,27 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		panic!("MockExt::last_frame_output_mut")
 	}
-}
 
-impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
+	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
+		panic!("MockExt::copy_code_slice")
+	}
+
+	fn terminate_caller(&mut self, _beneficiary: &H160) -> Result<(), DispatchError> {
+		panic!("MockExt::terminate_caller")
+	}
+
+	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
+		panic!("MockExt::to_account_id")
+	}
+
+	fn effective_gas_price(&self) -> U256 {
+		panic!("MockExt::effective_gas_price")
+	}
+
+	fn gas_left(&self) -> u64 {
+		panic!("MockExt::gas_left")
+	}
+
 	fn get_storage(&mut self, _key: &Key) -> Option<Vec<u8>> {
 		panic!("MockExt::get_storage")
 	}
@@ -208,12 +239,14 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) {}
+}
 
+impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	fn instantiate(
 		&mut self,
 		_gas_limit: Weight,
 		_deposit_limit: U256,
-		_code: H256,
+		_code: Code,
 		_value: U256,
 		_input_data: Vec<u8>,
 		_salt: Option<&[u8; 32]>,
@@ -233,15 +266,15 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(&mut self, _beneficiary: &H160) -> DispatchResult {
-		panic!("MockExt::terminate")
+	fn terminate_if_same_tx(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::terminate_if_same_tx")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
 		panic!("MockExt::own_code_hash")
 	}
 
-	fn set_code_hash(&mut self, _hash: H256) -> DispatchResult {
+	fn set_code_hash(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::set_code_hash")
 	}
 

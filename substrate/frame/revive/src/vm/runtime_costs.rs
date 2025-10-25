@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{gas::Token, weights::WeightInfo, Config};
+use crate::{
+	gas::Token, limits, weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo, Config,
+};
 use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 
 /// Current approximation of the gas/s consumption considering
@@ -34,6 +36,8 @@ const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 pub enum RuntimeCosts {
 	/// Base Weight of calling a host function.
 	HostFn,
+	/// Weight charged for executing the extcodecopy instruction.
+	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
 	CopyFromContract(u32),
 	/// Weight charged for copying data to the sandbox.
@@ -48,25 +52,25 @@ pub enum RuntimeCosts {
 	CallDataSize,
 	/// Weight of calling `seal_return_data_size`.
 	ReturnDataSize,
-	/// Weight of calling `seal_to_account_id`.
+	/// Weight of calling `toAccountId` on the `System` pre-compile.
 	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_code_hash`.
 	CodeHash,
-	/// Weight of calling `seal_own_code_hash`.
+	/// Weight of calling `ownCodeHash` on the `System` pre-compile.
 	OwnCodeHash,
 	/// Weight of calling `seal_code_size`.
 	CodeSize,
-	/// Weight of calling `seal_caller_is_origin`.
+	/// Weight of calling `callerIsOrigin` on the `System` pre-compile.
 	CallerIsOrigin,
-	/// Weight of calling `caller_is_root`.
+	/// Weight of calling `callerIsRoot` on the `System` pre-compile.
 	CallerIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
 	/// Weight of calling `seal_ref_time_left`.
 	RefTimeLeft,
-	/// Weight of calling `seal_weight_left`.
+	/// Weight of calling `weightLeft` on the `System` pre-compile.
 	WeightLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
@@ -74,7 +78,7 @@ pub enum RuntimeCosts {
 	BalanceOf,
 	/// Weight of calling `seal_value_transferred`.
 	ValueTransferred,
-	/// Weight of calling `seal_minimum_balance`.
+	/// Weight of calling `minimumBalance` on the `System` pre-compile.
 	MinimumBalance,
 	/// Weight of calling `seal_block_number`.
 	BlockNumber,
@@ -90,21 +94,22 @@ pub enum RuntimeCosts {
 	Now,
 	/// Weight of calling `seal_gas_limit`.
 	GasLimit,
-	/// Weight of calling `seal_weight_to_fee`.
-	WeightToFee,
 	/// Weight of calling `seal_terminate`.
-	Terminate,
+	Terminate { code_removed: bool },
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
 	SetStorage { old_bytes: u32, new_bytes: u32 },
-	/// Weight of calling `seal_clear_storage` per cleared byte.
+	/// Weight of calling the `clearStorage` function of the `Storage` pre-compile
+	/// per cleared byte.
 	ClearStorage(u32),
-	/// Weight of calling `seal_contains_storage` per byte of the checked item.
+	/// Weight of calling the `containsStorage` function of the `Storage` pre-compile
+	/// per byte of the checked item.
 	ContainsStorage(u32),
 	/// Weight of calling `seal_get_storage` with the specified size in storage.
 	GetStorage(u32),
-	/// Weight of calling `seal_take_storage` for the given size.
+	/// Weight of calling the `takeStorage` function of the `Storage` pre-compile
+	/// for the given size.
 	TakeStorage(u32),
 	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
 	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
@@ -151,7 +156,7 @@ pub enum RuntimeCosts {
 	/// Weight charged by a precompile.
 	Precompile(Weight),
 	/// Weight of calling `seal_set_code_hash`
-	SetCodeHash,
+	SetCodeHash { old_code_removed: bool },
 	/// Weight of calling `ecdsa_to_eth_address`
 	EcdsaToEthAddress,
 	/// Weight of calling `get_immutable_dependency`
@@ -225,6 +230,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
+			ExtCodeCopy(len) => T::WeightInfo::extcodecopy(len),
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
@@ -233,19 +239,19 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallDataCopy(len) => T::WeightInfo::seal_call_data_copy(len),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
-			ToAccountId => T::WeightInfo::seal_to_account_id(),
+			ToAccountId => T::WeightInfo::to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
-			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
-			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
-			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
+			OwnCodeHash => T::WeightInfo::own_code_hash(),
+			CallerIsOrigin => T::WeightInfo::caller_is_origin(),
+			CallerIsRoot => T::WeightInfo::caller_is_root(),
 			Address => T::WeightInfo::seal_address(),
 			RefTimeLeft => T::WeightInfo::seal_ref_time_left(),
-			WeightLeft => T::WeightInfo::seal_weight_left(),
+			WeightLeft => T::WeightInfo::weight_left(),
 			Balance => T::WeightInfo::seal_balance(),
 			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
-			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
+			MinimumBalance => T::WeightInfo::minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
 			BlockAuthor => T::WeightInfo::seal_block_author(),
@@ -253,16 +259,28 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
-			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
-			Terminate => T::WeightInfo::seal_terminate(),
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
+			Terminate { code_removed } => {
+				// logic only runs if code is removed
+				if code_removed {
+					T::WeightInfo::seal_terminate(code_removed.into())
+						.saturating_add(T::WeightInfo::seal_terminate_logic())
+				} else {
+					T::WeightInfo::seal_terminate(code_removed.into())
+				}
+			},
+			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
+				.saturating_add(Weight::from_parts(
+					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
+					0,
+				)),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
-			ClearStorage(len) => cost_storage!(write, seal_clear_storage, len),
-			ContainsStorage(len) => cost_storage!(read, seal_contains_storage, len),
+			ClearStorage(len) => cost_storage!(write, clear_storage, len),
+			ContainsStorage(len) => cost_storage!(read, contains_storage, len),
 			GetStorage(len) => cost_storage!(read, seal_get_storage, len),
-			TakeStorage(len) => cost_storage!(write, seal_take_storage, len),
+			TakeStorage(len) => cost_storage!(write, take_storage, len),
 			SetTransientStorage { new_bytes, old_bytes } => {
 				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes)
 			},
@@ -300,7 +318,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
 			Precompile(weight) => weight,
-			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
+			SetCodeHash { old_code_removed } =>
+				T::WeightInfo::seal_set_code_hash(old_code_removed.into()),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
 			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),
