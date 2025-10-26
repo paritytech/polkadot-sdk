@@ -49,12 +49,12 @@ use frame_system::{
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::{
-	xcm_sender::NoPriceForMessageDelivery, BlockHashCount, SlowAdjustingFeeUpdate,
+	xcm_sender::ExponentialPrice, BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_runtime::Perbill;
 use sp_version::RuntimeVersion;
-use xcm::latest::prelude::BodyId;
+use xcm::latest::prelude::{AssetId, BodyId};
 
 // Local module imports
 use super::{
@@ -62,7 +62,7 @@ use super::{
 	AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection, ConsensusHook, Hash,
 	MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
-	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, EXISTENTIAL_DEPOSIT, HOURS,
+	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS,
 	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
 };
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
@@ -250,6 +250,17 @@ impl pallet_message_queue::Config for Runtime {
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
+parameter_types! {
+	/// The asset ID for the asset that we use to pay for message delivery fees.
+	pub FeeAssetId: AssetId = AssetId(xcm_config::RelayLocation::get());
+	/// The base fee for the message delivery fees.
+	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+}
+
+/// The price for delivering XCM messages to sibling parachains.
+pub type PriceForSiblingParachainDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, XcmpQueue>;
+
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelInfo = ParachainSystem;
@@ -262,7 +273,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 parameter_types! {

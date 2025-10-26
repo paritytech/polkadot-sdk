@@ -2,6 +2,7 @@ use crate::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
+use super::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
 
 use polkadot_sdk::{
 	staging_xcm as xcm, staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor, *,
@@ -15,7 +16,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_common::impls::ToAuthor;
+use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
 use polkadot_sdk::{
 	polkadot_sdk_frame::traits::Disabled,
 	staging_xcm_builder::{DenyRecursively, DenyThenTry},
@@ -159,11 +160,14 @@ impl xcm_executor::Config for XcmConfig {
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
+pub type PriceForParentDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
+
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	// Two routers - use UMP to communicate with the relay chain:
-	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, (), ()>,
+	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;
