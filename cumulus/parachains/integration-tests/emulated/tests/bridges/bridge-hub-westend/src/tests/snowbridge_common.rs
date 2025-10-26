@@ -320,7 +320,7 @@ pub fn fund_on_ah() {
 pub fn create_pools_on_ah() {
 	// We create a pool between WND and WETH in AssetHub to support paying for fees with WETH.
 	let ethereum_sovereign = snowbridge_sovereign();
-	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), 10_000_000_000_00000)]);
 	PenpalB::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 	create_pool_with_native_on!(
 		AssetHubWestend,
@@ -330,13 +330,14 @@ pub fn create_pools_on_ah() {
 		1_000_000_000_000,
 		20_000_000_000
 	);
+
 	create_pool_with_native_on!(
 		AssetHubWestend,
 		ethereum(),
 		true,
 		ethereum_sovereign.clone(),
-		1_000_000_000_000,
-		20_000_000_000
+		10_000_000_000_0000,
+		5_000_000_000_000
 	);
 }
 

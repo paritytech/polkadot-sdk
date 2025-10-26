@@ -1126,20 +1126,20 @@ fn send_token_with_swap_and_bridge_back_v2() {
 	);
 
 	// Amount of ETH to send from Ethereum
-	let eth_transfer_value = 10_000_000_000u128;
-	let eth_swap_value = 8_000_000_000u128;
+	let eth_transfer_value =  100_000_000_000_000u128;
+	let eth_swap_value =70_000_000_000_000u128;
 
+	use emulated_integration_tests_common::snowbridge::ETH;
 	// Expected amounts after swaps (these are approximate and depend on pool liquidity)
-	let expected_dot_amount = 2_000_000_000u128;
-	let dot_reserved_for_fees = 500_000_000u128;
+	let expected_dot_amount = 12_000_000_000_000u128;
+	let dot_reserved_for_fees = 4_000_000_000_000u128;
 	let dot_for_usdc_swap = expected_dot_amount - dot_reserved_for_fees;
-	let expected_usdc_amount = 1_500_000_000u128;
+	let expected_usdc_amount = 1_500_000_00000u128;
 
-	let ether_fee_for_bridge = 10_000_000_00u128;
+	let ether_fee_for_bridge = 20_000_000_000_000u128;
 
 	let assets = vec![
-		// the ether being transferred
-		NativeTokenERC20 { token_id: WETH.into(), value: eth_transfer_value },
+
 	];
 
 	BridgeHubWestend::execute_with(|| {
@@ -1172,14 +1172,15 @@ fn send_token_with_swap_and_bridge_back_v2() {
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
 					vec![(eth_asset_location.clone(), ether_fee_for_bridge).into()].into(),
 				))),
-				preserve_origin: true,
+				preserve_origin: false,
 				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
 					Wild(AllOf {
 						id: AssetId(usdc_asset_location.clone()),
 						fun: WildFungibility::Fungible,
 					}),
 				)]),
-				remote_xcm: vec![DepositAsset {
+				remote_xcm: vec![
+					DepositAsset {
 					assets: Wild(AllCounted(1)),
 					beneficiary: Location::new(
 						0,
@@ -1204,8 +1205,8 @@ fn send_token_with_swap_and_bridge_back_v2() {
 			assets,
 			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
-			value: ether_fee_for_bridge + 1_500_000_000_000u128,
-			execution_fee: 3_000_000_000_000u128,
+			value: eth_transfer_value + 10_500_000_000_000u128 + 103_106_789_997_917u128,
+			execution_fee: 123_106_789_997_917u128,
 			relayer_fee: relayer_reward,
 		};
 
