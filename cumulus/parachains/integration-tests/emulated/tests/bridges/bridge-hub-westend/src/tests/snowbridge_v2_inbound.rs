@@ -55,6 +55,7 @@ const TOKEN_ID: [u8; 20] = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
 
 /// USDC ERC-20 token address (using a mock address for testing)
 const USDC_TOKEN_ID: [u8; 20] = hex!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
+const ORIGIN: [u8; 20] = hex!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
 
 /// Helper function to get USDC location
 fn usdc_location() -> Location {
@@ -1181,14 +1182,14 @@ fn send_token_with_swap_and_bridge_back_v2() {
 				)]),
 				remote_xcm: vec![
 					DepositAsset {
-					assets: Wild(AllCounted(1)),
-					beneficiary: Location::new(
-						0,
-						[AccountKey20 {
-							network: None,
-							key: ETHEREUM_DESTINATION_ADDRESS.into(),
-						}],
-					),
+						assets: Wild(All),
+						beneficiary: Location::new(
+							0,
+							[AccountKey20 {
+								network: None,
+								key: ETHEREUM_DESTINATION_ADDRESS.into(),
+							}],
+						),
 				}]
 				.into(),
 			},
@@ -1201,7 +1202,7 @@ fn send_token_with_swap_and_bridge_back_v2() {
 		let message = Message {
 			gateway: origin,
 			nonce: 1,
-			origin,
+			origin: ORIGIN.into(),
 			assets,
 			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
