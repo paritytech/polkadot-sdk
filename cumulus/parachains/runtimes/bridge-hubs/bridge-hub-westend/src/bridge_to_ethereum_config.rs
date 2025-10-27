@@ -93,6 +93,7 @@ parameter_types! {
 	pub const SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
 	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateForeignAssetDeposit::get(),min_balance:1};
 	pub SnowbridgeFrontendLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(FRONTEND_PALLET_INDEX)]);
+	pub TargetLocation: Location = Location::new(1, [Parachain(AssetHubParaId::get().into())]);
 }
 
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
@@ -143,7 +144,7 @@ pub type XcmMessageProcessor = InboundXcmMessageProcessor<
 		xcm_config::RelayNetwork,
 		<Runtime as frame_system::Config>::AccountId,
 	>,
-	ConstU32<1000>,
+	TargetLocation,
 >;
 
 impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {

@@ -110,6 +110,7 @@ parameter_types! {
 	pub const LocalNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
 	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo{call: CreateAssetCallIndex::get(),deposit: CreateAssetDeposit::get(),min_balance:1};
 	pub AssetHubParaId: ParaId = ParaId::from(1000);
+	pub TargetLocation: Location = Location::new(1, [Parachain(AssetHubParaId::get().into())]);
 }
 
 pub struct DummyPrefix;
@@ -164,7 +165,7 @@ impl inbound_queue_v2::Config for Test {
 				AccountId,
 			>,
 			MockAccountLocationConverter<AccountId>,
-			ConstU32<1000>,
+			TargetLocation,
 		>,
 		DummySuffix,
 	);
