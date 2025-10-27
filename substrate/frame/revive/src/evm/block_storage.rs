@@ -22,16 +22,15 @@ use crate::{
 	BlockHash, Config, EthBlockBuilderIR, EthereumBlock, Event, Pallet, ReceiptInfoData,
 	UniqueSaturatedInto, H160, H256,
 };
+use alloc::vec::Vec;
+use environmental::environmental;
 use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	storage::with_transaction,
 	weights::Weight,
 };
-pub use sp_core::U256;
+use sp_core::U256;
 use sp_runtime::TransactionOutcome;
-
-use alloc::vec::Vec;
-use environmental::environmental;
 
 /// The maximum number of block hashes to keep in the history.
 ///
