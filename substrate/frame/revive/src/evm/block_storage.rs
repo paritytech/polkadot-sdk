@@ -70,8 +70,7 @@ pub fn bench_with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 ///
 /// # Parameters
 /// - transaction_encoded: The RLP encoded transaction bytes.
-/// - call: A closure that executes the transaction logic and returns the gas consumed and the Post
-/// info details
+/// - call: A closure that executes the transaction logic and returns the gas consumed and result.
 pub fn with_ethereum_context<T: Config>(
 	transaction_encoded: Vec<u8>,
 	call: impl FnOnce() -> (Weight, DispatchResultWithPostInfo),
