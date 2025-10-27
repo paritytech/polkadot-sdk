@@ -29,4 +29,8 @@ crates:
 - name: bridge-hub-westend-runtime
   bump: minor
 - name: bridge-hub-common
-  bump: minor
+  bump: major
+- name: snowbridge-core
+  bump: patch
+- name: snowbridge-pallet-outbound-queue
+  bump: patch    
